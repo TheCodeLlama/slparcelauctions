@@ -6,13 +6,13 @@ _Created: 2026-04-09_
 
 ## Contact Information
 
-| Channel | Details |
-|---------|---------|
-| **Business/Sales** | business@lindenlab.com |
-| **Press** | presscontact@lindenlab.com |
-| **Billing (phone)** | 800-294-1067 (US/CA toll-free) or 703-286-6277 |
-| **Support Portal** | https://support.secondlife.com/ |
-| **Community Portal** | http://community.secondlife.com/ |
+| Channel              | Details                                        |
+|----------------------|------------------------------------------------|
+| **Business/Sales**   | business@lindenlab.com                         |
+| **Press**            | presscontact@lindenlab.com                     |
+| **Billing (phone)**  | 800-294-1067 (US/CA toll-free) or 703-286-6277 |
+| **Support Portal**   | https://support.secondlife.com/                |
+| **Community Portal** | http://community.secondlife.com/               |
 
 ### Key People
 
