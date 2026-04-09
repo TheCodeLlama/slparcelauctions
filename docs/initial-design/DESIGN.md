@@ -20,15 +20,15 @@ SLPA is a player-to-player land auction platform for Second Life. There is no ex
 
 ## 2. Tech Stack
 
-| Layer | Technology | Rationale |
-|-------|-----------|-----------|
-| Frontend | Next.js (React) | SSR for SEO, fast page loads, strong ecosystem |
-| Backend | Java (Spring Boot) | Heath's primary language, robust for financial logic |
-| Database | PostgreSQL | Relational integrity for auction/financial data |
-| Real-time | WebSockets (Spring WebSocket / STOMP) | Live bid updates, auction countdowns |
-| Cache | Redis | Session management, bid rate limiting, auction timers |
-| In-World | LSL (Linden Scripting Language) | Verification terminals, escrow payment objects |
-| External APIs | SL World API, SL Map API | Ownership verification, parcel metadata |
+| Layer         | Technology                            | Rationale                                             |
+|---------------|---------------------------------------|-------------------------------------------------------|
+| Frontend      | Next.js (React)                       | SSR for SEO, fast page loads, strong ecosystem        |
+| Backend       | Java (Spring Boot)                    | Heath's primary language, robust for financial logic  |
+| Database      | PostgreSQL                            | Relational integrity for auction/financial data       |
+| Real-time     | WebSockets (Spring WebSocket / STOMP) | Live bid updates, auction countdowns                  |
+| Cache         | Redis                                 | Session management, bid rate limiting, auction timers |
+| In-World      | LSL (Linden Scripting Language)       | Verification terminals, escrow payment objects        |
+| External APIs | SL World API, SL Map API              | Ownership verification, parcel metadata               |
 
 ---
 
@@ -501,13 +501,13 @@ Each listing receives a verification tier badge visible to buyers. Tier is deter
 
 **Access requirements for verification:**
 
-| Parcel Access Type | Script-Verified (A/B) | Bot-Verified (C) | Human-Verified |
-|---|---|---|---|
-| Public access | ✅ | ✅ | ✅ |
-| Access list (bot/human added) | ✅ | ✅ | ✅ |
-| Group-only (bot/human in group) | ✅ | ✅ | ✅ |
-| Fully restricted (no bot access) | ✅ | ❌ (fails) | ❌ |
-| Estate-level ban on bot | ✅ | ❌ (fails) | ❌ (contact estate owner) |
+| Parcel Access Type               | Script-Verified (A/B) | Bot-Verified (C) | Human-Verified           |
+|----------------------------------|-----------------------|------------------|--------------------------|
+| Public access                    | ✅                     | ✅                | ✅                        |
+| Access list (bot/human added)    | ✅                     | ✅                | ✅                        |
+| Group-only (bot/human in group)  | ✅                     | ✅                | ✅                        |
+| Fully restricted (no bot access) | ✅                     | ❌ (fails)        | ❌                        |
+| Estate-level ban on bot          | ✅                     | ❌ (fails)        | ❌ (contact estate owner) |
 
 **Ongoing monitoring by tier:**
 - **Script-Verified:** World API polling every 30 min (ownership check only). If ownership changes → listing suspended.
@@ -861,17 +861,17 @@ ON REZ:
 
 **Performance & scaling:**
 
-| Parameter | Value |
-|-----------|-------|
-| Teleport rate limit | 6 per minute per bot (SL hard cap) |
-| Time per teleport + data read | ~7-12 seconds |
-| Checks per bot per 30-min cycle | ~180 regions |
-| Parcel clustering benefit | Multiple parcels in same region = 1 teleport |
-| Workers needed for 500 listings | ~3-4 workers |
-| Workers needed for 2,000 listings | ~8-12 workers |
-| Workers needed for 5,000 listings | ~15-25 workers |
-| Worker account cost | Free (standard SL accounts) |
-| Primary escrow account | 1 (permanent, never logs in) |
+| Parameter                         | Value                                        |
+|-----------------------------------|----------------------------------------------|
+| Teleport rate limit               | 6 per minute per bot (SL hard cap)           |
+| Time per teleport + data read     | ~7-12 seconds                                |
+| Checks per bot per 30-min cycle   | ~180 regions                                 |
+| Parcel clustering benefit         | Multiple parcels in same region = 1 teleport |
+| Workers needed for 500 listings   | ~3-4 workers                                 |
+| Workers needed for 2,000 listings | ~8-12 workers                                |
+| Workers needed for 5,000 listings | ~15-25 workers                               |
+| Worker account cost               | Free (standard SL accounts)                  |
+| Primary escrow account            | 1 (permanent, never logs in)                 |
 
 **Bot pool management:**
 - Backend maintains registry of all worker accounts with their UUIDs
@@ -945,14 +945,14 @@ ON REZ:
 
 All avatar data is collected directly by the verification terminal script at verification time:
 
-| Function | Data | Timing |
-|----------|------|--------|
-| `llDetectedKey(0)` | Avatar UUID | Immediate (touch event) |
-| `llDetectedName(0)` | Legacy name ("First Last") | Immediate (touch event) |
-| `llGetDisplayName(uuid)` | Display name (custom) | Immediate |
-| `llGetUsername(uuid)` | Username ("first.last") | Immediate |
-| `llRequestAgentData(uuid, DATA_BORN)` | Account creation date (YYYY-MM-DD) | Async (dataserver event) |
-| `llRequestAgentData(uuid, DATA_PAYINFO)` | Payment info status | Async (dataserver event) |
+| Function                                 | Data                               | Timing                   |
+|------------------------------------------|------------------------------------|--------------------------|
+| `llDetectedKey(0)`                       | Avatar UUID                        | Immediate (touch event)  |
+| `llDetectedName(0)`                      | Legacy name ("First Last")         | Immediate (touch event)  |
+| `llGetDisplayName(uuid)`                 | Display name (custom)              | Immediate                |
+| `llGetUsername(uuid)`                    | Username ("first.last")            | Immediate                |
+| `llRequestAgentData(uuid, DATA_BORN)`    | Account creation date (YYYY-MM-DD) | Async (dataserver event) |
+| `llRequestAgentData(uuid, DATA_PAYINFO)` | Payment info status                | Async (dataserver event) |
 
 **SL-injected HTTP headers** (added automatically to `llHTTPRequest`, tamper-proof):
 - `X-SecondLife-Owner-Key` - script owner UUID
@@ -1807,16 +1807,16 @@ Body: JSON payload with shared secret + command
 
 Users configure per-category preferences for two optional channels:
 
-| Category | Email (default) | SL IM (default) | Website |
-|----------|:-:|:-:|:-:|
-| Bidding (outbid, proxy exhausted) | ON | ON | Always |
-| Auction won/lost | ON | ON | Always |
-| Auction ended (seller) | ON | ON | Always |
-| Escrow events (funded, confirmed, payout) | ON | ON | Always |
-| Listing status (suspended, cancelled, verified) | ON | ON | Always |
-| Reviews (received, response window closing) | ON | OFF | Always |
-| Realty group (invitations, member changes) | ON | OFF | Always |
-| Marketing (featured listings, tips) | OFF | OFF | Always |
+| Category                                        | Email (default) | SL IM (default) | Website |
+|-------------------------------------------------|:---------------:|:---------------:|:-------:|
+| Bidding (outbid, proxy exhausted)               |       ON        |       ON        | Always  |
+| Auction won/lost                                |       ON        |       ON        | Always  |
+| Auction ended (seller)                          |       ON        |       ON        | Always  |
+| Escrow events (funded, confirmed, payout)       |       ON        |       ON        | Always  |
+| Listing status (suspended, cancelled, verified) |       ON        |       ON        | Always  |
+| Reviews (received, response window closing)     |       ON        |       OFF       | Always  |
+| Realty group (invitations, member changes)      |       ON        |       OFF       | Always  |
+| Marketing (featured listings, tips)             |       OFF       |       OFF       | Always  |
 
 **Registration flow:**
 1. After player verification, user is prompted to set up notifications
