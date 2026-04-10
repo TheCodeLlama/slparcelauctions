@@ -1,5 +1,7 @@
 # Task 05-01: Escrow State Machine & Transactions
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend escrow state machine that tracks post-auction payment, land transfer, and payout. This is the core orchestration layer - all other escrow tasks plug into it.

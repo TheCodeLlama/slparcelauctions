@@ -1,5 +1,7 @@
 # Task 03-01: World API & Map API Client
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build a backend service client that fetches parcel and region data from Second Life's external APIs: the World API (parcel ownership/metadata) and the Map API (grid coordinates).

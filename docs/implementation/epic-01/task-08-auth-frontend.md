@@ -1,5 +1,7 @@
 # Task 01-08: Authentication - Frontend Pages
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the sign-up, sign-in, and forgot-password pages on the frontend and wire them to the backend auth API. Users should be able to register, log in, and navigate as authenticated users.

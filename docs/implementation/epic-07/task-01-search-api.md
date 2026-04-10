@@ -1,5 +1,7 @@
 # Task 07-01: Search & Filter API
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend search endpoint that supports all the filter, sort, and distance search capabilities.

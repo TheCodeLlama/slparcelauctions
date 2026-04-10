@@ -1,5 +1,7 @@
 # Task 05-02: Escrow Payment Receiving Endpoint
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend endpoint that receives L$ payment confirmations from in-world escrow terminals and transitions escrow to FUNDED.

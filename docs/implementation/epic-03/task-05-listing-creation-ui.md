@@ -1,5 +1,7 @@
 # Task 03-05: Listing Creation & Management UI
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the frontend pages for creating, editing, previewing, and managing auction listings. This is the seller's primary workflow.

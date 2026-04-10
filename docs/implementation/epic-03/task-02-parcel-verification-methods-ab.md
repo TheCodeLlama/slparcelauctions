@@ -1,5 +1,7 @@
 # Task 03-02: Parcel Verification - Methods A & B
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend logic for the two script-level parcel verification methods: manual UUID entry (Method A) and rezzable object callback (Method B). Both result in a Script-Verified listing.

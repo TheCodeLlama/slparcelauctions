@@ -1,5 +1,7 @@
 # Task 04-03: Snipe Protection
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement the snipe protection system that extends auctions when bids arrive near the end.

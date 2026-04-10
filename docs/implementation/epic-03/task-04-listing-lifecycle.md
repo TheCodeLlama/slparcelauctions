@@ -1,5 +1,7 @@
 # Task 03-04: Listing Creation & Lifecycle Management
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the full listing creation flow and status lifecycle management: creating drafts, paying listing fees, triggering verification, transitioning to active, and handling cancellations.

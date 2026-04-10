@@ -1,5 +1,7 @@
 # Task 08-03: Cancellation Penalties & Anti-Circumvention
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement escalating penalties for sellers who cancel auctions with active bids, and track cancellation history for admin visibility.

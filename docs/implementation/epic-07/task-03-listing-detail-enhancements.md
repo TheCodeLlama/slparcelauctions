@@ -1,5 +1,7 @@
 # Task 07-03: Listing Detail Page Enhancements
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Enhance the auction detail page (Epic 04 Task 06) with full browse-context features: complete parcel metadata display, SLURL links, seller profile card, and SEO.

@@ -1,5 +1,7 @@
 # Task 04-02: Proxy Bidding
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement eBay-style proxy bidding where users set a maximum bid and the system auto-bids the minimum increment above competitors up to that max.

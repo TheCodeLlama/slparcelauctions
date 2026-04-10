@@ -1,5 +1,7 @@
 # Phase 3: Parcel Management
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 _Reference: DESIGN.md Sections 4.2, 4.5, 4.5.1, 4.5.2, 6.2, 6.3, 6.4_
 
 ---

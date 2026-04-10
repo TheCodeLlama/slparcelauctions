@@ -1,5 +1,7 @@
 # Phase 11: LSL Scripts (In-World Objects)
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 _Reference: DESIGN.md Sections 5.1, 5.2, 5.3, 9_
 
 ---

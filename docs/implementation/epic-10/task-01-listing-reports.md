@@ -1,5 +1,7 @@
 # Task 10-01: Listing Report System
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Allow verified users to report listings, and surface reports to admins with the 3-report threshold alert.

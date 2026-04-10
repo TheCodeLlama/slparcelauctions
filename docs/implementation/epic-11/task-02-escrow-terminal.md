@@ -1,5 +1,7 @@
 # Task 11-02: Escrow Payment Terminal LSL Script
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the in-world escrow terminal that receives L$ payments from auction winners and sends payouts to sellers on backend command.

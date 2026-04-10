@@ -1,5 +1,7 @@
 # Task 08-02: Reputation Aggregation & Profile Stats
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Calculate and maintain aggregate reputation stats (average rating, completion rate, review count) on user profiles.

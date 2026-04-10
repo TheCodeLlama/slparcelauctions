@@ -1,5 +1,7 @@
 # Task 10-04: Admin Dashboard
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the admin-only frontend section for managing reports, fraud flags, bans, disputes, and viewing platform stats.

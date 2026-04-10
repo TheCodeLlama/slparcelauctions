@@ -1,5 +1,7 @@
 # Task 01-06: Next.js Layout Shell & Theme System
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Set up the Next.js frontend with the Gilded Slate design system, dark/light mode toggle, responsive layout shell (header, navigation, footer), and basic page routing.

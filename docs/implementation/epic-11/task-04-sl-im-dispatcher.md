@@ -1,5 +1,7 @@
 # Task 11-04: SL IM Dispatcher Script
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Add SL instant message delivery capability to the escrow terminal (or a separate object) - polls the backend for pending IM messages and delivers them via `llInstantMessage`.

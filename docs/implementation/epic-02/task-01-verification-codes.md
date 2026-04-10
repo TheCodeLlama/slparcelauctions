@@ -1,5 +1,7 @@
 # Task 02-01: Verification Code Generation & Management
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend service for generating, storing, and validating 6-digit verification codes that users will use to link their SL avatar to their SLPA account.

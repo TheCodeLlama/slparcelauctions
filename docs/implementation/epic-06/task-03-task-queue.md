@@ -1,5 +1,7 @@
 # Task 06-03: Task Queue & Backend Communication
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the task queue that receives work from the Java backend, distributes it across available bots, and reports results back.

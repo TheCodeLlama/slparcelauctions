@@ -1,5 +1,7 @@
 # Phase 5: Escrow System
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 _Reference: DESIGN.md Section 4.8_
 
 ---

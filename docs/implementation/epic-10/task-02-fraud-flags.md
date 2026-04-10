@@ -1,5 +1,7 @@
 # Task 10-02: Automatic Fraud Flag Generation
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Detect suspicious patterns and create fraud flags for admin review. No automated actions - just surface the signals.

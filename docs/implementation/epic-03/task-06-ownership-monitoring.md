@@ -1,5 +1,7 @@
 # Task 03-06: Ongoing Ownership Monitoring
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build a scheduled job that periodically checks parcel ownership via the World API and suspends listings if ownership has changed unexpectedly.

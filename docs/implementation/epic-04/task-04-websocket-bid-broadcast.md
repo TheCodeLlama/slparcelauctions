@@ -1,5 +1,7 @@
 # Task 04-04: WebSocket Real-Time Bid Broadcasting
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Wire up bid events to the WebSocket infrastructure (Epic 01 Task 09) so all users viewing an auction see live bid updates, snipe extensions, and countdown changes in real-time.

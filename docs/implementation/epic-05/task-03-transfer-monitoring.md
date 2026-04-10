@@ -1,5 +1,7 @@
 # Task 05-03: Land Transfer Ownership Monitoring
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the escrow-specific ownership polling that detects when the seller transfers land to the winner, triggering payout.

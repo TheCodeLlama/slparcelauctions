@@ -1,5 +1,7 @@
 # Task 07-04: Homepage & Featured Listings
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the public homepage with featured/highlighted auctions, site stats, and call-to-action sections.

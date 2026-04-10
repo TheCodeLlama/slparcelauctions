@@ -1,5 +1,7 @@
 # Task 05-04: Payout & Refund Commands
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend logic for sending payout and refund commands to in-world escrow terminals via HTTP-in, and tracking transaction results.

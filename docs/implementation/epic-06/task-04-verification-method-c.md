@@ -1,5 +1,7 @@
 # Task 06-04: Method C Verification Handler
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement the bot-side logic for Sale-to-Bot verification (Method C) - the bot checks that the parcel is set for sale to the SLPAEscrow account at the sentinel price.

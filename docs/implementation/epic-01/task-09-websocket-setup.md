@@ -1,5 +1,7 @@
 # Task 01-09: WebSocket STOMP Configuration
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Set up WebSocket support with STOMP over SockJS so the frontend can subscribe to real-time auction updates. This task wires up the infrastructure and proves it works with a simple test - actual bid broadcasting is handled in Epic 04.

@@ -1,5 +1,7 @@
 # Task 06-05: Auction & Escrow Monitoring Handlers
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement the bot-side logic for recurring monitoring during active auctions (30-min checks) and escrow periods (15-min checks).

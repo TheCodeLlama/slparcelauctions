@@ -1,5 +1,7 @@
 # Task 02-05: Public User Profile Page
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the public-facing user profile page where anyone can view a user's verified identity, reputation, and listing history.

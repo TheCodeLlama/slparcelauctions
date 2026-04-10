@@ -1,5 +1,7 @@
 # Task 09-05: Real-Time Notification Feed & Bell
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the in-app notification feed with real-time WebSocket delivery and the notification bell in the site header.

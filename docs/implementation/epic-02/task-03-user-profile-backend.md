@@ -1,5 +1,7 @@
 # Task 02-03: User Profile API & Image Upload
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend API for viewing and editing user profiles, including profile picture upload with image processing.

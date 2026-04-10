@@ -1,5 +1,7 @@
 # Task 06-06: Docker & Backend Integration
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Containerize the bot service so it runs alongside the Java backend and frontend in Docker Compose, and wire up the HTTP communication between backend and bot service.

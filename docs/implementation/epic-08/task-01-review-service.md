@@ -1,5 +1,7 @@
 # Task 08-01: Review Service & Blind Rating Logic
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend service for submitting, storing, and revealing reviews with the blind rating mechanic.

@@ -1,5 +1,7 @@
 # Phase 8: Ratings & Reputation
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 _Reference: DESIGN.md Sections 8 (Anti-Circumvention, Ratings & Reviews)_
 
 ---

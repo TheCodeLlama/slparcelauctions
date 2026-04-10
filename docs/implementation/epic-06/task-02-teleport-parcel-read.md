@@ -1,5 +1,7 @@
 # Task 06-02: Teleport & ParcelProperties Reading
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement the core bot capability: teleporting to a target region and reading ParcelProperties data for a parcel, including the fields LSL cannot access (AuthBuyerID, SalePrice).

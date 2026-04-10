@@ -1,5 +1,7 @@
 # Task 09-04: Notification Preferences UI
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the settings page where users configure their notification preferences per category and channel.

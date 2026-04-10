@@ -1,5 +1,7 @@
 # Task 01-01: Spring Boot Configuration
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Configure the Spring Boot application with database connection, Flyway migration support, CORS, and environment-based profiles so the backend can connect to PostgreSQL and run migrations on startup.

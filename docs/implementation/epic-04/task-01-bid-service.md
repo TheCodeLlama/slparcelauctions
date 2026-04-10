@@ -1,5 +1,7 @@
 # Task 04-01: Bid Service & Validation
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the core bid placement service with all validation rules and bid increment logic.

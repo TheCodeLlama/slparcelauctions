@@ -55,7 +55,7 @@ See DESIGN.md Section 11. Notification preferences stored as JSONB on users tabl
 - Mark read / mark all read works
 - Unread count accurate
 - Notification calls integrated into at least: bid service (outbid), auction end (won/lost), escrow (funded/payout)
-- New notifications table created (if not in Epic 01 migrations, add migration)
+- New `Notification` entity created if not already present; schema auto-updated via JPA (`ddl-auto: update`) - no migration needed (see CONVENTIONS.md)
 
 ## Notes
 

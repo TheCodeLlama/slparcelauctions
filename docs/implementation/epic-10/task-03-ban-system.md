@@ -1,5 +1,7 @@
 # Task 10-03: Ban System
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Implement bans by IP address and/or SL avatar UUID, enforced at login, registration, verification, and bidding.

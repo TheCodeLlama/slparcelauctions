@@ -1,5 +1,7 @@
 # Task 11-01: Verification Terminal LSL Script
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the in-world verification terminal that players touch to link their SL avatar to their SLPA website account.

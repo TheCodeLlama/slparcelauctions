@@ -1,5 +1,7 @@
 # Task 02-02: SL Verification Endpoint
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend endpoint that receives verification requests from in-world LSL scripts, validates the SL-injected security headers, and links the SL avatar identity to the user's web account.

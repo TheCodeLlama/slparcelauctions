@@ -1,5 +1,7 @@
 # Task 05-05: Escrow Status UI
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the frontend escrow tracking interface for both buyers and sellers, showing the current state and next steps at each stage.

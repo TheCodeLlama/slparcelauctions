@@ -1,5 +1,7 @@
 # Task 04-06: Auction Detail Page
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the public auction detail page where users view listing info, live bid status, and place bids.

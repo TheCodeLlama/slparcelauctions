@@ -1,5 +1,7 @@
 # Task 11-03: Parcel Verifier Object LSL Script
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the rezzable parcel verifier object that sellers drop on their parcel to verify ownership (Methods A and B).

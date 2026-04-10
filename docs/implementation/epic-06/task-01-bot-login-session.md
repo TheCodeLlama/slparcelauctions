@@ -1,5 +1,7 @@
 # Task 06-01: Bot Login & Session Management
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the foundation of the C#/.NET bot service: logging in worker bot accounts via LibreMetaverse, maintaining sessions, and handling disconnections.

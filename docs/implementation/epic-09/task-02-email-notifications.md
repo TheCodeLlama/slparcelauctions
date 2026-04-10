@@ -1,5 +1,7 @@
 # Task 09-02: Email Notification Channel
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Wire up email delivery for notifications, with templates for each category and unsubscribe handling.

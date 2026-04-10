@@ -1,5 +1,7 @@
 # Task 09-03: SL IM Delivery Queue
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the queue and endpoint for delivering notifications as Second Life instant messages via the in-world terminal.

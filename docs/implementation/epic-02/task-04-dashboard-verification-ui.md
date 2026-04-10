@@ -1,5 +1,7 @@
 # Task 02-04: Dashboard - Verification Flow UI
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the user dashboard page with the SL avatar verification flow, verification status display, and account settings.

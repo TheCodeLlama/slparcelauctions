@@ -1,5 +1,7 @@
 # Task 03-03: Parcel Verification - Method C (Sale-to-Bot)
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the backend infrastructure for Sale-to-Bot verification: the task queue, verification workflow, and status tracking. The actual bot that performs the check is Epic 06 - this task creates everything the bot will plug into.

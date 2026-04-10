@@ -1,12 +1,12 @@
 # Phase 1: Project Foundation
 
-_Reference: DESIGN.md Sections 2, 7, 15_
+_Reference: DESIGN.md Sections 2, 7, 15 - and [CONVENTIONS.md](../CONVENTIONS.md) before starting any task_
 
 ---
 
 ## Goal
 
-Set up the project scaffolding for a Spring Boot backend and Next.js frontend with a PostgreSQL database. Everything should build, run, and have a working dev environment out of the box.
+Set up the project scaffolding for a Spring Boot backend and Next.js frontend with a PostgreSQL database, and ship the first working vertical slice (User domain + auth). Everything should build, run, and have a working dev environment out of the box.
 
 ---
 
@@ -14,11 +14,10 @@ Set up the project scaffolding for a Spring Boot backend and Next.js frontend wi
 
 ### Backend (Java / Spring Boot)
 
-- Spring Boot application with standard project structure
-- PostgreSQL database connection with migrations (Flyway or Liquibase)
-- All database tables from DESIGN.md Section 7 created as migrations
-- JPA/Hibernate entity classes for all tables
-- JWT-based authentication (register, login, refresh token)
+- Spring Boot application with feature-based package structure (`.user`, `.auction`, etc. - not layer-based)
+- PostgreSQL database connection. Baseline schema already exists via Flyway V1/V2. **Going forward, JPA entities are the source of truth** with `ddl-auto: update` in dev - no new migrations (see CONVENTIONS.md)
+- First vertical slice: User domain - entity, repository, service, DTOs, controller, tests (Lombok throughout)
+- JWT-based authentication (register, login, refresh token) built on the User slice
 - CORS configuration for frontend
 - WebSocket support (STOMP over SockJS) wired up but no handlers yet
 - Redis connection for session/cache (can be optional for local dev)
@@ -49,7 +48,7 @@ Set up the project scaffolding for a Spring Boot backend and Next.js frontend wi
 - Can register a new user account via API
 - Can log in and receive a JWT token
 - Can access a protected endpoint with the JWT
-- All database tables from DESIGN.md exist and have correct relationships/constraints
+- User table and its entity exist; other tables from V1/V2 remain empty until their epics add entities that use them
 - Frontend loads and shows placeholder pages
 - WebSocket connection establishes between frontend and backend
-- Database migrations run cleanly on a fresh database
+- Backend boots cleanly on a fresh database (Flyway V1/V2 baseline + JPA `ddl-auto: update` thereafter)

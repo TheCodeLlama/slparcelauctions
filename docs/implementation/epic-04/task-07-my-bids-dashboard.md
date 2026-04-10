@@ -1,5 +1,7 @@
 # Task 04-07: My Bids Dashboard & Listing Bid Counts
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Wire up the "My Bids" dashboard tab and update the "My Listings" tab with live bid data.

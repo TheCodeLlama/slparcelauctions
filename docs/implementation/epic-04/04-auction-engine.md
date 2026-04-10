@@ -1,5 +1,7 @@
 # Phase 4: Auction Engine
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 _Reference: DESIGN.md Sections 4.7, 4.5 (snipe protection fields)_
 
 ---

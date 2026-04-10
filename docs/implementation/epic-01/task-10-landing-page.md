@@ -1,5 +1,7 @@
 # Task 01-10: Landing Page
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the public landing page that visitors see before logging in. This is the marketing/onboarding page that explains what SLPA is and drives sign-ups.

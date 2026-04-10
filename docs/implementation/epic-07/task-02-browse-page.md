@@ -1,5 +1,7 @@
 # Task 07-02: Browse & Search Page
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 ## Goal
 
 Build the public browse page with filter sidebar, listing cards grid, and sort controls.

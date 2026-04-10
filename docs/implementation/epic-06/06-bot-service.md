@@ -1,5 +1,7 @@
 # Phase 6: Bot Service (LibreMetaverse)
 
+> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) for project-wide rules (no new migrations, Lombok required, vertical slices, feature-based packages).
+
 _Reference: DESIGN.md Sections 5.4, 4.2 (Method C)_
 
 ---
