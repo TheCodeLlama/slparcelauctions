@@ -14,11 +14,11 @@ Design a modern auction website called **SL Parcel Auctions (SLPA)** - a player-
 
 - **Clean and modern** - generous whitespace, clear typography hierarchy
 - **Dark mode first** - deep slate/charcoal backgrounds, not pure black. Light mode should feel equally polished, not an afterthought
-- **Accent color** - use a warm amber/gold (#F59E0B or similar) as the primary accent. This fits the "auction house" feel without being generic blue
+- **Accent color** - use #c99e4c as the primary accent. This fits the "auction house" feel without being generic blue
 - **Cards-based layout** - auction listings displayed as cards in a responsive grid
 - **Subtle depth** - light borders, soft shadows, slight glassmorphism on key elements. Nothing heavy
 - **Typography** - clean sans-serif (Inter or similar). Bold headings, readable body text
-- **Responsive** - mobile-first, works well on all screen sizes
+- **Responsive** - works well on all screen sizes
 
 ## Pages to Design
 
@@ -70,7 +70,7 @@ The individual auction page where users view details and place bids:
 - Current bid (very large text, prominent)
 - Bid count
 - Countdown timer (large, updates live - turns orange < 1hr, red < 10min)
-- Snipe protection badge and info if enabled ("🛡️ 15 min extension window")
+- Snipe protection badge with svg icon and info if enabled ("15 min extension window")
 - Reserve status indicator
 - Verification tier badge with label
 - Bid input field + "Place Bid" button (primary amber CTA)
@@ -119,7 +119,6 @@ Please also create these reusable components:
 
 ## Things to Avoid
 
-- No gradients everywhere - keep it flat/minimal with subtle depth
 - No neon colors - warm amber accent, cool slate backgrounds
 - Don't make it look like a crypto/NFT marketplace
 - Don't overcrowd the listing cards - they need to breathe
