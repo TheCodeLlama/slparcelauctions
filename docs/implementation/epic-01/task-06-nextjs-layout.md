@@ -26,11 +26,113 @@ Use the reference HTML for layout, spacing, typography, and component compositio
 
 ### Theme & Tailwind setup
 
-- Configure Tailwind with the full token set from `DESIGN.md`: colors (primary, surface tiers, on_surface, outline_variant, tertiary_container, error_container, etc.), typography (Manrope for display/headline/title/body/label scales), spacing, border radius (`sm`, `DEFAULT`, `Round 4`, etc.), and shadow tokens.
-- All colors go in `tailwind.config.ts` as named tokens. **No hardcoded hex values in components.**
-- Dark/light mode via Tailwind's class strategy (`class` not `media`) so we can drive it from a toggle.
-- Theme toggle persists in `localStorage`, respects `prefers-color-scheme` on first visit, never flashes the wrong theme on initial paint (inline `<script>` in `<head>` to set the class before React hydrates).
-- Import Manrope from Google Fonts.
+This project uses **Tailwind 4**, which replaces `tailwind.config.js` theming with the CSS-native `@theme` directive. Define all tokens in `frontend/src/app/globals.css` (or equivalent). Do not use a JS-based Tailwind config for colors.
+
+**Required structure:**
+
+```css
+@import "tailwindcss";
+
+@variant dark (.dark &);
+
+@theme {
+  /* Light mode defaults — read values from docs/stitch_generated-design/light_mode/ */
+  --color-surface: ...;
+  --color-surface-container-lowest: ...;
+  --color-surface-container-low: ...;
+  --color-surface-container-high: ...;
+  --color-on-surface: ...;
+  --color-on-surface-variant: ...;
+  --color-primary: ...;
+  --color-primary-container: ...;
+  --color-on-primary: ...;
+  --color-on-primary-container: ...;
+  --color-outline-variant: ...;
+  --color-tertiary-container: ...;
+  --color-error-container: ...;
+  /* ... every token from DESIGN.md ... */
+
+  --font-display: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+
+  --radius-sm: ...;
+  --radius-default: ...;
+
+  --shadow-soft: ...;
+  --shadow-elevated: ...;
+}
+
+.dark {
+  /* Dark mode overrides — same token names, different values.
+     Read values from docs/stitch_generated-design/dark_mode/.
+     Components never write `dark:` variants; they read semantic tokens
+     and the tokens do the work. */
+  --color-surface: ...;
+  --color-surface-container-lowest: ...;
+  /* ... override every color token that differs in dark mode ... */
+}
+```
+
+**Rules:**
+
+- **Tokens are the single source of truth.** Every color, font, radius, and shadow in the design lives in `@theme`. No hex values anywhere in component code. No inline styles.
+- **Semantic naming only.** Use `--color-surface`, `--color-on-surface`, `--color-primary`, `--color-primary-container`, etc. — names that describe role, not appearance. Never `--color-charcoal-900` or `--color-amber-500`.
+- **Components never write `dark:` variants.** Zero occurrences of `dark:` anywhere in `components/` or `app/`. Components use semantic classes (`bg-surface text-on-surface border-outline-variant`) and the `.dark` class override swaps the underlying CSS variable values. This is non-negotiable — it's the only way a 50+ component library stays maintainable across two modes.
+- **Both palettes must be read from the Stitch reference HTML.** Open `docs/stitch_generated-design/light_mode/landing_page/code.html` and `docs/stitch_generated-design/dark_mode/landing_page/code.html` side by side, extract the colors, and put them in `@theme` and `.dark`. Cross-check against `DESIGN.md`.
+- Import Manrope from Google Fonts (via `next/font/google` for zero-CLS).
+
+### Theme toggle (next-themes)
+
+Install and use **`next-themes`** for theme management. Do not roll your own. It handles localStorage persistence, `prefers-color-scheme` detection, and no-flash-on-load correctly.
+
+```bash
+npm install next-themes
+```
+
+```tsx
+// frontend/src/app/layout.tsx
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+- `attribute="class"` — toggles the `.dark` class on `<html>`, which flips the CSS variable overrides defined in `globals.css`.
+- `defaultTheme="dark"` — dark mode is the default on first visit.
+- `enableSystem` — respects `prefers-color-scheme` when the user hasn't explicitly chosen.
+- `suppressHydrationWarning` on `<html>` is required because `next-themes` mutates the class before React hydrates.
+
+The `ThemeToggle` component is then trivial:
+
+```tsx
+"use client";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+
+export function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null; // avoid hydration mismatch on the icon
+  return (
+    <IconButton
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      aria-label="Toggle theme"
+    >
+      {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
+    </IconButton>
+  );
+}
+```
 
 ### Component library foundation (`components/ui/`)
 
@@ -80,7 +182,8 @@ Placeholder routes, each rendering `<PageHeader title="..." />` inside the shell
 - Header navigation routes to the placeholder pages; mobile hamburger works below the Tailwind `md` breakpoint.
 - All primitives in `components/ui/` exist, follow the variant/size/tone convention, have Vitest + RTL tests, and are importable from a barrel (`components/ui/index.ts`).
 - Every primitive and layout component works in both modes without per-mode code branches (tokens do the work).
-- `tailwind.config.ts` contains the full token set from `DESIGN.md` — no hardcoded hex values in any component.
+- `globals.css` contains the full token set from `DESIGN.md` in the `@theme` block, with dark-mode overrides in `.dark { ... }` — no hardcoded hex values in any component, and zero `dark:` variants anywhere in `components/` or `app/`.
+- `next-themes` is installed and wired in `RootLayout` with `attribute="class" defaultTheme="dark" enableSystem` and `suppressHydrationWarning` on `<html>`.
 - `lib/api.ts` is importable and exports a typed fetch helper.
 - No inline styles, no raw hex colors in JSX, no copy-pasted markup from the Stitch HTML.
 
