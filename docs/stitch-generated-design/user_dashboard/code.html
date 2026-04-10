@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#dcc39a",
+                        "outline-variant": "#4e4638",
+                        "error": "#ffb4ab",
+                        "surface": "#121416",
+                        "on-secondary-fixed-variant": "#554425",
+                        "primary-container": "#c99e4c",
+                        "outline": "#9b8f7e",
+                        "on-tertiary-container": "#163a6c",
+                        "surface-dim": "#121416",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "inverse-primary": "#7b5808",
+                        "surface-bright": "#37393b",
+                        "surface-variant": "#333537",
+                        "primary-fixed-dim": "#eec06a",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "on-surface-variant": "#d2c5b2",
+                        "secondary": "#dcc39a",
+                        "inverse-on-surface": "#2f3133",
+                        "surface-container-low": "#1a1c1e",
+                        "on-primary": "#412d00",
+                        "on-secondary-fixed": "#261901",
+                        "on-tertiary-fixed": "#001b3e",
+                        "surface-container-lowest": "#0c0e10",
+                        "secondary-container": "#584627",
+                        "surface-container-highest": "#333537",
+                        "on-secondary": "#3d2e11",
+                        "inverse-surface": "#e2e2e5",
+                        "on-secondary-container": "#ceb58d",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-container": "#4e3600",
+                        "on-background": "#e2e2e5",
+                        "on-error": "#690005",
+                        "on-tertiary": "#053062",
+                        "tertiary-container": "#86a5de",
+                        "surface-container-high": "#282a2c",
+                        "error-container": "#93000a",
+                        "primary": "#eec06a",
+                        "surface-tint": "#eec06a",
+                        "on-surface": "#e2e2e5",
+                        "secondary-fixed": "#fadfb4",
+                        "background": "#121416",
+                        "surface-container": "#1e2022",
+                        "on-primary-fixed": "#271900",
+                        "tertiary": "#aac7ff",
+                        "primary-fixed": "#ffdea7",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "tertiary-fixed": "#d6e3ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .headline { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col selection:bg-primary selection:text-on-primary">
+<!-- TopNavBar -->
+<header class="bg-[#121416]/80 backdrop-blur-md sticky z-50 top-0 shadow-[0px_20px_40px_rgba(0,0,0,0.4)]">
+<div class="flex justify-between items-center w-full px-8 py-4 max-w-[1920px] mx-auto">
+<div class="flex items-center gap-12">
+<div class="text-2xl font-black text-[#C99E4C] uppercase tracking-wider font-manrope">SLPA</div>
+<nav class="hidden md:flex gap-8 items-center">
+<a class="text-slate-400 font-medium hover:text-white transition-colors font-manrope" href="#">Browse</a>
+<a class="text-[#C99E4C] border-b-2 border-[#C99E4C] pb-1 font-manrope font-bold tracking-tight" href="#">Dashboard</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors font-manrope" href="#">Create Listing</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-[#282a2c] transition-all duration-300 rounded-full">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-[#282a2c] transition-all duration-300 rounded-full relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<div class="ml-2 ring-2 ring-primary/20 rounded-full p-0.5">
+<img alt="User avatar" class="w-8 h-8 rounded-full object-cover shadow-lg" data-alt="Close-up portrait of a professional man in a dark studio setting with warm cinematic lighting on his face" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxSaRTd4hHUGkEEbuJtGXq_hA8qXTFeKKPWvWvudcjQgGnRJDuB4csGdKZhlSG7ZZhw6R68IaLN3lezsyyeVe4ZJvLkTvanppZ1Gp5lFqa6KsNo5bPTPjhN0icxH6Tj-Yk_h2WTlJkZQbmz29ClBl6DQjD7pAww7Owrax12BTs22oEIuZhWS4yNpm06Ltg7b9mOo157uxcUrqoVF8nE_f4KbaPgalObA9IzlWOqaVfi54SmXF1Dx3_2VC-TY30OPXqInmGvYAMDho"/>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-grow w-full max-w-7xl mx-auto px-6 py-12">
+<!-- Dashboard Header & Stats Bento Grid -->
+<div class="mb-12">
+<h1 class="text-4xl font-extrabold tracking-tight mb-8">User Dashboard</h1>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Stat Card 1 -->
+<div class="bg-surface-container-low p-6 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+<p class="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Total Bid Value</p>
+<h3 class="text-3xl font-bold text-primary">L$ 17,000</h3>
+<p class="text-xs text-on-surface-variant mt-2">Active commitments across 4 auctions</p>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-surface-container-low p-6 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="trending_up">trending_up</span>
+</div>
+<p class="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Winning</p>
+<h3 class="text-3xl font-bold text-emerald-400">3 <span class="text-lg font-normal opacity-60 ml-1">Parcels</span></h3>
+<p class="text-xs text-on-surface-variant mt-2">75% success rate this week</p>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-surface-container-low p-6 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl" data-icon="warning">warning</span>
+</div>
+<p class="text-sm font-medium text-on-surface-variant uppercase tracking-widest mb-2">Outbid</p>
+<h3 class="text-3xl font-bold text-error">1 <span class="text-lg font-normal opacity-60 ml-1">Auction</span></h3>
+<p class="text-xs text-on-surface-variant mt-2">Requires immediate action</p>
+</div>
+</div>
+</div>
+<!-- Tabbed Interface -->
+<div class="flex items-center justify-between mb-8 border-b border-outline-variant/20">
+<div class="flex gap-12">
+<button class="pb-4 text-primary border-b-2 border-primary font-bold text-lg px-2">My Bids</button>
+<button class="pb-4 text-on-surface-variant hover:text-white transition-colors font-medium text-lg px-2">My Listings</button>
+</div>
+<!-- Secondary Contextual Action (for My Listings tab usually, but shown as requested for clarity) -->
+<button class="mb-4 flex items-center gap-2 bg-primary text-on-primary px-6 py-2.5 rounded-lg font-bold hover:brightness-110 transition-all shadow-lg active:scale-95">
+<span class="material-symbols-outlined" data-icon="add_circle">add_circle</span>
+                Create New Listing
+            </button>
+</div>
+<!-- Bids Section -->
+<section class="space-y-6">
+<div class="bg-surface-container-high rounded-xl overflow-hidden shadow-2xl">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-highest/50">
+<tr>
+<th class="px-8 py-5 font-headline font-bold text-on-surface-variant uppercase text-xs tracking-widest">Auction Item</th>
+<th class="px-8 py-5 font-headline font-bold text-on-surface-variant uppercase text-xs tracking-widest">Your Bid</th>
+<th class="px-8 py-5 font-headline font-bold text-on-surface-variant uppercase text-xs tracking-widest text-center">Status</th>
+<th class="px-8 py-5 font-headline font-bold text-on-surface-variant uppercase text-xs tracking-widest">Time Remaining</th>
+<th class="px-8 py-5 font-headline font-bold text-on-surface-variant uppercase text-xs tracking-widest text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Auction Row 1 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-8 py-6">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 rounded-lg overflow-hidden bg-surface-container-lowest">
+<img alt="Hidden Valley" class="w-full h-full object-cover" data-alt="Lush green valley with a small stream, soft morning mist, and distant rolling hills in a peaceful virtual landscape" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSkQLueLizoBYv4xjKvovRSjJmhs2HNc8rnYKjKSdbNqCHpA_MN7iwefXXB4iGOw_P1-J1U32qKecB4-kwuIF_tRpyNi9710XTWZqkuu69zCzZA4vlIFqW5SjXfgCkygtYYMA4l2eB0k1MX2x9nn5g3dYpfsWyZj1tPlI99TEFJNbYaf8hKCmOPyxKuvb7wj-8gAb_p-xuKumqOtd_YGH0m8hzr3nPtDTXWlXoH-cj-JvnxNI3MpoDVBXrAoJRTJhXbUsI-berxVc"/>
+</div>
+<div>
+<h4 class="font-bold text-white text-lg">Hidden Valley</h4>
+<p class="text-xs text-on-surface-variant">Region: Valhalla (Moderate)</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6">
+<span class="font-bold text-white">L$ 5,000</span>
+</td>
+<td class="px-8 py-6 text-center">
+<span class="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 uppercase tracking-tighter">
+                                    Winning
+                                </span>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span class="font-mono">3h 20m</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right">
+<a class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-highest text-primary hover:bg-primary hover:text-on-primary transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</a>
+</td>
+</tr>
+<!-- Auction Row 2 -->
+<tr class="hover:bg-surface-bright transition-colors group">
+<td class="px-8 py-6">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 rounded-lg overflow-hidden bg-surface-container-lowest">
+<img alt="Ocean View" class="w-full h-full object-cover" data-alt="Azure ocean waves gently lapping a white sand beach at sunset with a tropical island silhouette on the horizon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZdV-xdjLgSgmqufrcprFQ0-B2uZ_PUoDuBBcqP8Ps32zsV5qgwlJgbOcfgKZ_QqGb7eXiknJ_vfIG9b7qV6PKHBxRuCdmm5gameo-sPuqSj_KbqVl1xEsfS8kVL7CYuzFnrAdLTG7a6JbIfOAgYUTyDMv5D1S6Hrcxb3BCSulhjcNT31sDZW4Jelmg7_SyGnnmVntKGVZKBq8aAR94qbWAFCOKA4dXRdH-ZLNNl6QS6Zq87u_oP6_XhpkmHWzilEofj1w_lDCqzc"/>
+</div>
+<div>
+<h4 class="font-bold text-white text-lg">Ocean View</h4>
+<p class="text-xs text-on-surface-variant">Region: Maldives (General)</p>
+</div>
+</div>
+</td>
+<td class="px-8 py-6">
+<span class="font-bold text-white">L$ 12,000</span>
+</td>
+<td class="px-8 py-6 text-center">
+<div class="relative group/tooltip">
+<span class="px-4 py-1.5 rounded-full bg-error/10 text-error text-xs font-bold border border-error/20 uppercase tracking-tighter shadow-[0_0_10px_rgba(255,180,171,0.2)]">
+                                        Outbid
+                                    </span>
+</div>
+</td>
+<td class="px-8 py-6">
+<div class="flex items-center gap-2 text-primary font-bold">
+<span class="material-symbols-outlined text-sm" data-icon="bolt">bolt</span>
+<span class="font-mono">12m 45s</span>
+</div>
+</td>
+<td class="px-8 py-6 text-right">
+<a class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary/20 text-primary hover:bg-primary hover:text-on-primary transition-all duration-300 ring-2 ring-primary/20" href="#">
+<span class="material-symbols-outlined" data-icon="campaign">campaign</span>
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Recently Viewed / Recommendations Grid (Visual Flair) -->
+<div class="mt-16">
+<h2 class="text-2xl font-bold mb-6">Hot Auctions Near You</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Recommended Card -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden group cursor-pointer border border-transparent hover:border-primary/30 transition-all">
+<div class="h-40 overflow-hidden relative">
+<img alt="Skybox Heights" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Modern geometric skyscraper reaching into a vibrant night sky with neon lights reflecting on glass surfaces" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMX2f059mQeAlidyggFALjncMvQhyvE1eZKTfafDhgSwJvDMGbHE4J5sSDJdIaDKIYDxlDyTWHwwcteAzDjPjo4VItrFm8Mqoh5lQueeX8AVH5zXQFQamlG9Aful2n5S5gGJ7EyzN3NtPyT_gbzQ0o4OmJ-0mX18pN0GH3tnKaJhDP2ukR2rIiDnqIE9cyoUWlKP25g7G1n-yRljTVD-F2GjbJsZX2UkOBbHb9bO6tqUA_gtz0_ZV92SyFa3PZdxmsrOu8pcfLomw"/>
+<div class="absolute top-3 left-3 px-3 py-1 bg-surface/80 backdrop-blur-md rounded-full text-[10px] font-bold text-primary uppercase tracking-widest">Featured</div>
+</div>
+<div class="p-5">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-bold text-white">Skybox Heights</h4>
+<span class="text-primary font-black">L$ 2,500</span>
+</div>
+<div class="flex items-center gap-4 text-xs text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="group">group</span> 8 Bids</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm" data-icon="square_foot">square_foot</span> 4096 sqm</span>
+</div>
+</div>
+</div>
+<!-- Recommended Card -->
+<div class="bg-surface-container-low rounded-xl overflow-hidden group cursor-pointer border border-transparent hover:border-primary/30 transition-all">
+<div class="h-40 overflow-hidden relative grayscale hover:grayscale-0 transition-all duration-700">
+<img alt="Industrial Hub" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Vast dark industrial warehouse interior with dramatic orange light shafts and metallic pipes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsGCCgpuXBHSU4IhZScNU4219YcuyThdxvT6aT2QWWGXw_UeQ1wRd4m1hHwr7SKp_SM4UAfFRESVeMpxYtInZMoi7HhJwP5K6eGpIA21YV3GDinIPkZ1QCGFPRYo1N061zAztRfFq9-qjjHFBn02iVTAfIHUWht9LRMpOL3rAn-mM_j8Wet-xdivxPxMDtgmV2vMNd3LPGWnJxBVe6kYWhoANBwvSChjI16kJIUBuq5nfOspvT8qvYPo4m1mnWY8AsgrUtFHi6oug"/>
+<div class="absolute inset-0 bg-black/60 flex items-center justify-center">
+<span class="px-4 py-2 border-2 border-white/50 text-white font-black text-xl uppercase tracking-tighter transform -rotate-12">Sold</span>
+</div>
+</div>
+<div class="p-5 opacity-60">
+<div class="flex justify-between items-start mb-2">
+<h4 class="font-bold text-white">Industrial Hub</h4>
+<span class="text-white font-black">L$ 8,200</span>
+</div>
+<div class="text-xs text-on-surface-variant">Sold to User_X88</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-[#1a1c1e] w-full py-12 mt-auto">
+<div class="flex flex-col items-center justify-center gap-6 px-4 text-center max-w-[1920px] mx-auto">
+<div class="flex gap-8">
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors font-inter text-xs" href="#">About</a>
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors font-inter text-xs" href="#">Terms</a>
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors font-inter text-xs" href="#">Contact</a>
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors font-inter text-xs" href="#">Partners</a>
+</div>
+<div class="text-slate-500 font-inter text-xs">
+                © 2024 SL Parcel Auctions. Powered by Second Life.
+            </div>
+<div class="flex gap-4 mt-2">
+<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-sm" data-icon="language">language</span>
+</span>
+<span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-sm" data-icon="share">share</span>
+</span>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign In | SLPA</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-tertiary-fixed-variant": "#254779",
+                "tertiary": "#aac7ff",
+                "surface-container-high": "#282a2c",
+                "on-secondary-fixed-variant": "#554425",
+                "surface-tint": "#eec06a",
+                "surface-variant": "#333537",
+                "inverse-on-surface": "#2f3133",
+                "secondary-fixed": "#fadfb4",
+                "error": "#ffb4ab",
+                "tertiary-fixed": "#d6e3ff",
+                "on-tertiary-fixed": "#001b3e",
+                "outline": "#9b8f7e",
+                "error-container": "#93000a",
+                "surface-container-lowest": "#0c0e10",
+                "outline-variant": "#4e4638",
+                "primary-fixed-dim": "#eec06a",
+                "on-surface": "#e2e2e5",
+                "inverse-surface": "#e2e2e5",
+                "secondary-container": "#584627",
+                "background": "#121416",
+                "on-error": "#690005",
+                "primary-container": "#c99e4c",
+                "surface-container-highest": "#333537",
+                "on-error-container": "#ffdad6",
+                "primary-fixed": "#ffdea7",
+                "tertiary-container": "#86a5de",
+                "on-tertiary-container": "#163a6c",
+                "tertiary-fixed-dim": "#aac7ff",
+                "secondary-fixed-dim": "#dcc39a",
+                "on-secondary-fixed": "#261901",
+                "inverse-primary": "#7b5808",
+                "secondary": "#dcc39a",
+                "on-primary-container": "#4e3600",
+                "on-surface-variant": "#d2c5b2",
+                "on-secondary-container": "#ceb58d",
+                "on-primary-fixed-variant": "#5e4200",
+                "on-background": "#e2e2e5",
+                "surface-bright": "#37393b",
+                "surface": "#121416",
+                "primary": "#eec06a",
+                "on-primary": "#412d00",
+                "surface-dim": "#121416",
+                "on-tertiary": "#053062",
+                "on-secondary": "#3d2e11",
+                "on-primary-fixed": "#271900",
+                "surface-container-low": "#1a1c1e",
+                "surface-container": "#1e2022"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.125rem",
+                "lg": "0.25rem",
+                "xl": "0.5rem",
+                "full": "0.75rem"
+            },
+            "fontFamily": {
+                "headline": ["Manrope"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        h1, h2, h3 {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col relative overflow-hidden">
+<!-- Background Hero Texture -->
+<div class="absolute inset-0 z-0">
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,_rgba(201,158,76,0.1),transparent_50%)]"></div>
+<img alt="" class="w-full h-full object-cover opacity-20 mix-blend-overlay" data-alt="abstract flowing dark digital waves with subtle golden light catching the edges in a cinematic atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvxLtbkvTVvqp1YasgxSUF3XMk42kj3BZybmKQ7e4Eya00qwz4pRNeejhaByck0OdsDl6qhpT1q-pHtHEaT6JAcZ8S3u72o3T5ALgcAOFHrq0zXtG6qx9r6gh_qSqg5eBrVrq1VzVXKbxxoT-9vR7A0zUZW88BCktCT2qLgIsOlzf-_POfyAqJFSO_2Uotifr6acld8szgR8Flf7RakyTrDNDKmIrLiKgK67VJG-y2YDoZcHfWp_E-hfTlt9voUObrN971lq-BfD4"/>
+</div>
+<!-- Navigation suppressed for Sign In Page (The "Destination" Rule) -->
+<main class="relative z-10 flex-grow flex items-center justify-center px-6 py-12">
+<div class="w-full max-w-md">
+<!-- Brand Anchor (Simplified for Sign In) -->
+<div class="text-center mb-8">
+<span class="text-3xl font-black text-primary uppercase tracking-wider font-headline">SLPA</span>
+<p class="text-on-surface-variant mt-2 text-sm">Secure Portal for Second Life Asset Acquisition</p>
+</div>
+<!-- Sign In Card -->
+<div class="bg-surface-container-low p-8 rounded-xl shadow-[0px_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden group">
+<!-- Subtle Top Gradient Edge -->
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
+<h2 class="text-2xl font-bold text-on-surface mb-6 tracking-tight">Sign In</h2>
+<form class="space-y-6">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-on-surface-variant font-label" for="email">Email</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border-none rounded-lg py-3 px-4 text-on-surface placeholder:text-outline-variant focus:ring-1 focus:ring-primary/50 transition-all outline-none" id="email" name="email" placeholder="Enter your email address" required="" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<label class="block text-sm font-medium text-on-surface-variant font-label" for="password">Password</label>
+<a class="text-xs text-primary hover:text-primary-fixed transition-colors" href="#">Forgot password?</a>
+</div>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border-none rounded-lg py-3 px-4 text-on-surface placeholder:text-outline-variant focus:ring-1 focus:ring-primary/50 transition-all outline-none" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center space-x-3 group/check">
+<div class="relative flex items-center">
+<input class="w-5 h-5 rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-offset-background focus:ring-primary transition-all cursor-pointer appearance-none border" id="remember" name="remember" type="checkbox"/>
+<span class="material-symbols-outlined absolute pointer-events-none opacity-0 text-on-primary-container scale-75 select-none" style="font-size: 1.25rem;">check</span>
+</div>
+<label class="text-sm text-on-surface-variant cursor-pointer select-none" for="remember">Remember Me</label>
+</div>
+<!-- Submit Action -->
+<div class="pt-2">
+<button class="w-full bg-primary text-on-primary font-bold py-4 rounded-lg shadow-lg shadow-primary/10 hover:shadow-primary/20 hover:scale-[1.01] active:scale-[0.98] transition-all duration-300 font-headline uppercase tracking-wide" type="submit">
+                            Sign In
+                        </button>
+</div>
+</form>
+<!-- Signup Link -->
+<div class="mt-8 pt-6 border-t border-outline-variant/10 text-center">
+<p class="text-sm text-on-surface-variant">
+                        Don't have an account? 
+                        <a class="text-primary font-semibold hover:underline decoration-primary/30 underline-offset-4 ml-1" href="#">Sign up</a>
+</p>
+</div>
+</div>
+<!-- Footer Compliance (Shared Component Logic) -->
+<footer class="mt-8 flex flex-col items-center justify-center gap-4 px-4 text-center">
+<p class="font-inter text-xs text-slate-500">© 2024 SL Parcel Auctions. Powered by Second Life.</p>
+<div class="flex gap-4">
+<a class="font-inter text-xs text-slate-500 hover:text-primary transition-colors" href="#">About</a>
+<a class="font-inter text-xs text-slate-500 hover:text-primary transition-colors" href="#">Terms</a>
+<a class="font-inter text-xs text-slate-500 hover:text-primary transition-colors" href="#">Contact</a>
+<a class="font-inter text-xs text-slate-500 hover:text-primary transition-colors" href="#">Partners</a>
+</div>
+</footer>
+</div>
+</main>
+<!-- Style Support for Custom Checkbox -->
+<style>
+        input[type="checkbox"]:checked + span {
+            opacity: 1;
+        }
+        input[type="checkbox"]:checked {
+            background-color: #eec06a;
+            border-color: #eec06a;
+        }
+    </style>
+</body></html>

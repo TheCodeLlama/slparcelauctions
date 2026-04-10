@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#dcc39a",
+                    "outline-variant": "#4e4638",
+                    "error": "#ffb4ab",
+                    "surface": "#121416",
+                    "on-secondary-fixed-variant": "#554425",
+                    "primary-container": "#c99e4c",
+                    "outline": "#9b8f7e",
+                    "on-tertiary-container": "#163a6c",
+                    "surface-dim": "#121416",
+                    "on-tertiary-fixed-variant": "#254779",
+                    "inverse-primary": "#7b5808",
+                    "surface-bright": "#37393b",
+                    "surface-variant": "#333537",
+                    "primary-fixed-dim": "#eec06a",
+                    "tertiary-fixed-dim": "#aac7ff",
+                    "on-surface-variant": "#d2c5b2",
+                    "secondary": "#dcc39a",
+                    "inverse-on-surface": "#2f3133",
+                    "surface-container-low": "#1a1c1e",
+                    "on-primary": "#412d00",
+                    "on-secondary-fixed": "#261901",
+                    "on-tertiary-fixed": "#001b3e",
+                    "surface-container-lowest": "#0c0e10",
+                    "secondary-container": "#584627",
+                    "surface-container-highest": "#333537",
+                    "on-secondary": "#3d2e11",
+                    "inverse-surface": "#e2e2e5",
+                    "on-secondary-container": "#ceb58d",
+                    "on-error-container": "#ffdad6",
+                    "on-primary-container": "#4e3600",
+                    "on-background": "#e2e2e5",
+                    "on-error": "#690005",
+                    "on-tertiary": "#053062",
+                    "tertiary-container": "#86a5de",
+                    "surface-container-high": "#282a2c",
+                    "error-container": "#93000a",
+                    "primary": "#eec06a",
+                    "surface-tint": "#eec06a",
+                    "on-surface": "#e2e2e5",
+                    "secondary-fixed": "#fadfb4",
+                    "background": "#121416",
+                    "surface-container": "#1e2022",
+                    "on-primary-fixed": "#271900",
+                    "tertiary": "#aac7ff",
+                    "primary-fixed": "#ffdea7",
+                    "on-primary-fixed-variant": "#5e4200",
+                    "tertiary-fixed": "#d6e3ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #121416;
+            color: #e2e2e5;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary/30">
+<!-- TopNavBar -->
+<nav class="bg-[#121416]/80 backdrop-blur-md font-manrope font-bold tracking-tight docked full-width top-0 sticky z-50 shadow-[0px_20px_40px_rgba(0,0,0,0.4)]">
+<div class="flex justify-between items-center w-full px-8 py-4 max-w-[1920px] mx-auto">
+<div class="flex items-center gap-12">
+<div class="text-2xl font-black text-[#C99E4C] uppercase tracking-wider">SLPA</div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-[#C99E4C] border-b-2 border-[#C99E4C] pb-1" href="#">Browse</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Dashboard</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Create Listing</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center bg-surface-container-high px-4 py-2 rounded-lg gap-3">
+<span class="material-symbols-outlined text-slate-400">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 text-on-surface" placeholder="Search parcels..." type="text"/>
+</div>
+<div class="flex gap-4">
+<button class="text-slate-400 hover:text-[#C99E4C] transition-colors"><span class="material-symbols-outlined">dark_mode</span></button>
+<button class="text-slate-400 hover:text-[#C99E4C] transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant/20 scale-95 active:opacity-80 transition-transform">
+<img alt="User avatar" data-alt="Portrait of a modern digital avatar with stylish hair and minimalist clothing on a dark neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-J0Bx5yMJ0SIygwO_GMcHtD4IX9bu5GA3tSDsbU-1dRuUIbHN0nfpp_LF8FnD25agk1TiKQrXPYrXT-E_nNUf-u9J5tTjO10Cll7gmnpC7Dy55WS_TLXcqFGRFuUD0ByCz8KC1rhcUXz5xohTVNP0LkHrRTe5woeIPaU9V_seCutZbHAvAC2aHZ6v2nvNGPOyOBarNPTs7-FJDzsPi-yK4gzrPqCDtaysgH24htNwIlGLuAKSGpcbkFzSTdwJYac1oafYTmuAPgE"/>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<div class="flex min-h-screen">
+<!-- SideNavBar (Filter Sidebar) -->
+<aside class="bg-[#1a1c1e] h-full w-72 fixed left-0 top-0 pt-24 pb-8 overflow-y-auto hidden lg:flex flex-col gap-2">
+<div class="px-6 mb-6">
+<h2 class="text-lg font-bold text-white font-headline">Filter Auctions</h2>
+<p class="text-slate-400 text-sm">Refine your search</p>
+</div>
+<!-- Scrollable Filter Content -->
+<div class="px-6 space-y-8 pb-10">
+<!-- Search -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Region Name</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-3 text-on-surface focus:ring-2 focus:ring-primary/50" placeholder="Enter region..." type="text"/>
+</div>
+<!-- Range: Price -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Price (L$)</label>
+<div class="flex gap-2">
+<input class="w-1/2 bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-3 text-on-surface" placeholder="Min" type="text"/>
+<input class="w-1/2 bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-3 text-on-surface" placeholder="Max" type="text"/>
+</div>
+</div>
+<!-- Range: Size -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Size (SQM)</label>
+<div class="flex gap-2">
+<input class="w-1/2 bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-3 text-on-surface" placeholder="Min" type="text"/>
+<input class="w-1/2 bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-3 text-on-surface" placeholder="Max" type="text"/>
+</div>
+</div>
+<!-- Maturity Checkboxes -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Maturity</label>
+<div class="space-y-2">
+<label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer group">
+<input class="rounded border-none bg-surface-container-lowest text-[#C99E4C] focus:ring-offset-surface focus:ring-primary" type="checkbox"/>
+<span class="group-hover:text-white transition-colors">General</span>
+</label>
+<label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer group">
+<input checked="" class="rounded border-none bg-surface-container-lowest text-[#C99E4C] focus:ring-offset-surface focus:ring-primary" type="checkbox"/>
+<span class="group-hover:text-white transition-colors">Moderate</span>
+</label>
+<label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer group">
+<input class="rounded border-none bg-surface-container-lowest text-[#C99E4C] focus:ring-offset-surface focus:ring-primary" type="checkbox"/>
+<span class="group-hover:text-white transition-colors">Adult</span>
+</label>
+</div>
+</div>
+<!-- Multi-select Pills -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Land Tags</label>
+<div class="flex flex-wrap gap-2">
+<button class="px-3 py-1.5 rounded-full bg-[#282a2c] text-[#C99E4C] text-xs font-bold hover:translate-x-1 transition-transform">Waterfront</button>
+<button class="px-3 py-1.5 rounded-full bg-surface-container-lowest text-slate-400 text-xs hover:bg-[#282a2c] transition-colors">Roadside</button>
+<button class="px-3 py-1.5 rounded-full bg-[#282a2c] text-[#C99E4C] text-xs font-bold">Protected</button>
+<button class="px-3 py-1.5 rounded-full bg-surface-container-lowest text-slate-400 text-xs hover:bg-[#282a2c] transition-colors">Flat Terrain</button>
+</div>
+</div>
+<!-- Status Select -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Reserve Status</label>
+<select class="w-full bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-3 text-on-surface appearance-none focus:ring-2 focus:ring-primary/50">
+<option>All Auctions</option>
+<option>Reserve Met</option>
+<option>No Reserve</option>
+</select>
+</div>
+<!-- Verification -->
+<div class="space-y-3">
+<label class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Verification</label>
+<div class="space-y-2">
+<label class="flex items-center gap-3 text-sm text-slate-300">
+<input checked="" class="rounded border-none bg-surface-container-lowest text-primary focus:ring-offset-surface" type="checkbox"/>
+<span>Script Verified</span>
+</label>
+<label class="flex items-center gap-3 text-sm text-slate-300">
+<input class="rounded border-none bg-surface-container-lowest text-primary focus:ring-offset-surface" type="checkbox"/>
+<span>Human Verified</span>
+</label>
+</div>
+</div>
+</div>
+<div class="mt-auto px-6 pt-4 border-t border-outline-variant/10">
+<button class="w-full bg-primary py-4 rounded-lg text-on-primary font-bold shadow-lg shadow-primary/20 active:opacity-90 transition-opacity">Apply Filters</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 lg:ml-72 p-8 pt-24">
+<div class="max-w-7xl mx-auto space-y-8">
+<!-- Grid Top Bar -->
+<div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+<div>
+<h1 class="text-3xl font-black font-headline tracking-tight text-white">Browse Land</h1>
+<p class="text-slate-400 mt-1"><span class="text-primary font-bold">247</span> active auctions across all grids</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex bg-surface-container-low p-1 rounded-lg">
+<button class="p-2 bg-surface-container-high text-primary rounded shadow-sm"><span class="material-symbols-outlined">grid_view</span></button>
+<button class="p-2 text-slate-500 hover:text-white transition-colors"><span class="material-symbols-outlined">view_list</span></button>
+</div>
+<div class="relative group">
+<button class="bg-surface-container-low px-4 py-2.5 rounded-lg flex items-center gap-3 text-sm font-medium border border-outline-variant/10 hover:bg-surface-container-high transition-colors">
+                                Ending Soonest
+                                <span class="material-symbols-outlined text-xs">expand_more</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Grid of Auction Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+<!-- Card 1: Ending Soon -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden hover:translate-y-[-4px] transition-all duration-300 shadow-[0px_10px_30px_rgba(0,0,0,0.3)]">
+<div class="relative aspect-video overflow-hidden">
+<img alt="Scenic land" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Breathtaking virtual landscape featuring rolling sand dunes at sunset with a deep orange sky and long shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDEEZbRG8zkeZnT6qQUwBR3sLgykKdEDcApe7Hm0srQqY8twBA48PKW-po5pjOvz7un36Qs8wLE33Q27Q7fZo1X6TzntORpmkd0F3NvkcLNoXHLjKMfAmcKHvKQb9NQdmQPqgEMPse4gTvrvAbS9lD0lrO4VevClRhnU1d9NIGqFbZ97zt5hrVS4TerBAiJuNVgWtsf-GBXksRmACYwsWHqnBWT4D5xxnt9Si2FpckWq4s9_RrQ2yhn_pftGD5QLzX5sJWgTyGhgg"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-primary/90 text-on-primary text-[10px] font-black px-2 py-1 rounded backdrop-blur-md uppercase tracking-wider">L$ 15,200</span>
+<span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">12 Bids</span>
+</div>
+<div class="absolute top-4 right-4 flex flex-col gap-2">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded-xl text-[10px] font-bold uppercase text-center backdrop-blur-md">Moderate</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-xl font-bold font-headline text-white group-hover:text-primary transition-colors">Sunset Dunes</h3>
+<p class="text-slate-500 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> Aegean Region
+                                    </p>
+</div>
+<div class="text-right">
+<div class="text-primary font-mono text-lg font-black flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">timer</span>
+                                        42m 12s
+                                    </div>
+<span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Ending Soon</span>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 pt-2">
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Waterfront</span>
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Flat</span>
+<span class="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">verified</span> Verified
+                                </span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden hover:translate-y-[-4px] transition-all duration-300 shadow-[0px_10px_30px_rgba(0,0,0,0.3)]">
+<div class="relative aspect-video overflow-hidden">
+<img alt="Scenic land" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Verdant tropical forest clearing with a small waterfall and exotic plants under a bright midday sun in a virtual world" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZCt4Dp2qem6PTGxcioD8potHvnghUCH5wKTriAVRp_ALK2D8yAjj7_8yJLTSPm6V9kQMHmJ1GOy9zD26LhE-si_7YkMkAOR7Qd7jfoPMUax-XuugTu_jdqdujHDZpMqGxOMaH2d4zIbum0DYRPGK8VAgZJb0oRPB_q46dFGK0KPyY3qqDps2yKAvIJMwGODbJmAbiG_j95T20-H2ZPRBSFVI8VwVA2f_UQGkCZwWZw6KjRmpVsON5qBLUFj4_MvEYgieBlQTnU5k"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-primary/90 text-on-primary text-[10px] font-black px-2 py-1 rounded backdrop-blur-md uppercase tracking-wider">L$ 8,400</span>
+<span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">5 Bids</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-slate-700 text-white px-2 py-1 rounded-xl text-[10px] font-bold uppercase backdrop-blur-md">General</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-xl font-bold font-headline text-white group-hover:text-primary transition-colors">Emerald Retreat</h3>
+<p class="text-slate-500 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> Cascade Falls
+                                    </p>
+</div>
+<div class="text-right">
+<div class="text-slate-400 font-mono text-lg font-black flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">timer</span>
+                                        2d 14h
+                                    </div>
+<span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-right block">Remaining</span>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 pt-2">
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Protected</span>
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Snipe Protected</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden hover:translate-y-[-4px] transition-all duration-300 shadow-[0px_10px_30px_rgba(0,0,0,0.3)]">
+<div class="relative aspect-video overflow-hidden">
+<img alt="Scenic land" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Luxury modern architectural villa on a cliffside overlooking a crystalline ocean at twilight with integrated lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBSWX9ZJa8kJnGYLjRGfyHZJ7agdJpSB_MnTzVLPdT5DemZP-kN2TrE1OfPQiwl7DN4gkKG8u3DzaZ31lmpdf5cXF6Ru4yvGLd4GKkFGrb5mRlBdvc4G2pcrZK6z6dl20ovls4hjscdXYKOnxTNoEy5yDLV9a7akxYMAfHB4-DQqlV3Rq9NzlXpRKxJdC253NEi4Hae10obnMN0jleJGNH8rBadDAjEmk2Ed2OtpxWA2H_8nMy9F2VifBZ9nHNeOGOlSEry7Q5mKhQ"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-primary/90 text-on-primary text-[10px] font-black px-2 py-1 rounded backdrop-blur-md uppercase tracking-wider">L$ 42,000</span>
+<span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">18 Bids</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-error-container text-on-error-container px-2 py-1 rounded-xl text-[10px] font-bold uppercase backdrop-blur-md">Adult</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-xl font-bold font-headline text-white group-hover:text-primary transition-colors">The Obsidian Point</h3>
+<p class="text-slate-500 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> Privateer Bay
+                                    </p>
+</div>
+<div class="text-right">
+<div class="text-slate-400 font-mono text-lg font-black flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">timer</span>
+                                        1d 08h
+                                    </div>
+<span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-right block">Remaining</span>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 pt-2">
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Roadside</span>
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Commercial</span>
+<span class="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">smart_toy</span> Bot-Verified
+                                </span>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="group bg-surface-container-high rounded-xl overflow-hidden hover:translate-y-[-4px] transition-all duration-300 shadow-[0px_10px_30px_rgba(0,0,0,0.3)]">
+<div class="relative aspect-video overflow-hidden">
+<img alt="Scenic land" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Misty redwood forest with towering trees and a narrow wooden path winding through thick ferns and soft morning fog" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALU07ztMGX4LY3QCMr1ybh8n2UacWXEgT_ZjjrBe575VcLuCV-BXTYJSwwxVBuc8FXm63qzuWTqPCCo7tp7ap5E1bL_oVcIQ8oxDDzUvB40XMu47k6tLSbOxNWaN2he6AEyr4g7PRNHMRHqAugerXtQBLyP3xN6A-lgHmb6M0FIvBTG8w_ziMEXbvbcvjZCXsav9ivcUQp52u5KnkA6RmfA36uEGaIjFwVc_EuXY5ydYzS5vbv3zLcUaeK7T6qEMqdMnwFO3iavtE"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-primary/90 text-on-primary text-[10px] font-black px-2 py-1 rounded backdrop-blur-md uppercase tracking-wider">L$ 4,200</span>
+<span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">0 Bids</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded-xl text-[10px] font-bold uppercase backdrop-blur-md">Moderate</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-xl font-bold font-headline text-white group-hover:text-primary transition-colors">Foggy Glen Parcel</h3>
+<p class="text-slate-500 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> Misty Peaks
+                                    </p>
+</div>
+<div class="text-right">
+<div class="text-slate-400 font-mono text-lg font-black flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">timer</span>
+                                        5d 22h
+                                    </div>
+<span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-right block">Remaining</span>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 pt-2">
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Rural</span>
+</div>
+</div>
+</div>
+<!-- Additional Grid Slots (Bento Style Suggestion) -->
+<div class="group relative bg-primary rounded-xl p-8 flex flex-col justify-end xl:row-span-1 overflow-hidden shadow-[0px_20px_40px_rgba(238,192,106,0.2)]">
+<div class="absolute top-0 right-0 p-4 opacity-20">
+<span class="material-symbols-outlined text-[120px]">explore</span>
+</div>
+<h4 class="text-2xl font-black font-headline text-on-primary leading-tight">Featured Region: New Tokyo</h4>
+<p class="text-on-primary/80 mt-2 text-sm">Exclusive commercial land drops starting this Sunday. Register to be notified.</p>
+<button class="mt-6 w-fit bg-on-primary text-primary px-6 py-2 rounded-lg font-bold hover:scale-105 transition-transform">Notify Me</button>
+</div>
+<div class="group bg-surface-container-high rounded-xl overflow-hidden hover:translate-y-[-4px] transition-all duration-300 shadow-[0px_10px_30px_rgba(0,0,0,0.3)]">
+<div class="relative aspect-video overflow-hidden">
+<img alt="Scenic land" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Dense sunlit forest interior with golden rays of light breaking through green canopy and mossy ground cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA17O9sYi4gPZIGzrIvZYpXfp82Ot2iufL-DogeoYgv_RsO4ay0fJIEk2ynuKDBn2i6UugBpTXA3wCUbJEEDjRGfEiDNR3pb7Cys8qjqOGd2jcvHBbcFbPi1lojvnvgjqmhBmS6LUgH-FbqhPFMv17DEFMD5faUJgYoCFO4L3PKF3lCXUoxQDUO42oWI3LZEmm-r4g9FIYrC5UHcfH4H08z5qSvHlT3y76nOesv6abs2N7tYNkDqI69WJTXD4icY2EOVEPOl8BI0IA"/>
+<div class="absolute bottom-4 left-4 flex gap-2">
+<span class="bg-primary/90 text-on-primary text-[10px] font-black px-2 py-1 rounded backdrop-blur-md uppercase tracking-wider">L$ 21,500</span>
+<span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-md">24 Bids</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-slate-700 text-white px-2 py-1 rounded-xl text-[10px] font-bold uppercase backdrop-blur-md">General</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="text-xl font-bold font-headline text-white group-hover:text-primary transition-colors">Sunken Forest Lake</h3>
+<p class="text-slate-500 text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> Oakhaven Grid
+                                    </p>
+</div>
+<div class="text-right">
+<div class="text-error font-mono text-lg font-black flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">timer</span>
+                                        12m 45s
+                                    </div>
+<span class="text-[10px] text-error uppercase font-bold tracking-widest text-right block">Critical</span>
+</div>
+</div>
+<div class="flex flex-wrap gap-2 pt-2">
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">Protected</span>
+<span class="text-[10px] font-bold bg-surface-container-lowest text-slate-400 px-2 py-1 rounded border border-outline-variant/10">High Traffic</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination / Load More -->
+<div class="flex justify-center py-12">
+<button class="px-8 py-3 bg-surface-container-high text-white font-bold rounded-lg border border-outline-variant/20 hover:border-primary transition-all flex items-center gap-2">
+                        Load More Auctions
+                        <span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+<!-- Footer -->
+<footer class="bg-[#1a1c1e] w-full py-12 mt-auto tonal-layering-via-bg-shift">
+<div class="flex flex-col items-center justify-center gap-6 px-4 text-center">
+<div class="text-[#C99E4C] text-xl font-black uppercase tracking-[0.2em] mb-2">SLPA</div>
+<div class="flex flex-wrap justify-center gap-8 font-inter text-xs font-medium">
+<a class="text-slate-500 hover:text-white transition-colors" href="#">About</a>
+<a class="text-slate-500 hover:text-white transition-colors" href="#">Terms</a>
+<a class="text-slate-500 hover:text-white transition-colors" href="#">Contact</a>
+<a class="text-slate-500 hover:text-white transition-colors" href="#">Partners</a>
+</div>
+<p class="font-inter text-xs text-slate-500">© 2024 SL Parcel Auctions. Powered by Second Life.</p>
+<div class="flex gap-4 mt-2">
+<span class="material-symbols-outlined text-slate-600 hover:text-primary transition-colors cursor-pointer">public</span>
+<span class="material-symbols-outlined text-slate-600 hover:text-primary transition-colors cursor-pointer">language</span>
+<span class="material-symbols-outlined text-slate-600 hover:text-primary transition-colors cursor-pointer">verified_user</span>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#254779",
+                        "tertiary": "#aac7ff",
+                        "surface-container-high": "#282a2c",
+                        "on-secondary-fixed-variant": "#554425",
+                        "surface-tint": "#eec06a",
+                        "surface-variant": "#333537",
+                        "inverse-on-surface": "#2f3133",
+                        "secondary-fixed": "#fadfb4",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#d6e3ff",
+                        "on-tertiary-fixed": "#001b3e",
+                        "outline": "#9b8f7e",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#0c0e10",
+                        "outline-variant": "#4e4638",
+                        "primary-fixed-dim": "#eec06a",
+                        "on-surface": "#e2e2e5",
+                        "inverse-surface": "#e2e2e5",
+                        "secondary-container": "#584627",
+                        "background": "#121416",
+                        "on-error": "#690005",
+                        "primary-container": "#c99e4c",
+                        "surface-container-highest": "#333537",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#ffdea7",
+                        "tertiary-container": "#86a5de",
+                        "on-tertiary-container": "#163a6c",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "secondary-fixed-dim": "#dcc39a",
+                        "on-secondary-fixed": "#261901",
+                        "inverse-primary": "#7b5808",
+                        "secondary": "#dcc39a",
+                        "on-primary-container": "#4e3600",
+                        "on-surface-variant": "#d2c5b2",
+                        "on-secondary-container": "#ceb58d",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "on-background": "#e2e2e5",
+                        "surface-bright": "#37393b",
+                        "surface": "#121416",
+                        "primary": "#eec06a",
+                        "on-primary": "#412d00",
+                        "surface-dim": "#121416",
+                        "on-tertiary": "#053062",
+                        "on-secondary": "#3d2e11",
+                        "on-primary-fixed": "#271900",
+                        "surface-container-low": "#1a1c1e",
+                        "surface-container": "#1e2022"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(26, 28, 30, 0.85);
+            backdrop-filter: blur(16px);
+        }
+        .hero-mesh {
+            background-image: radial-gradient(at 0% 0%, #1e2022 0, transparent 50%), radial-gradient(at 100% 100%, #1a1c1e 0, transparent 50%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
+<!-- Background Hero Visual -->
+<div class="absolute inset-0 z-0 hero-mesh opacity-60"></div>
+<div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+<img class="w-full h-full object-cover opacity-20 filter grayscale contrast-125" data-alt="abstract flowing golden silk fabric texture on deep black background with soft rim lighting and elegant waves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeML0M6Yvq8cOEyA0SYlFP6xSUrn67w46arj1KLM7xKgPHsHly-YwK3WhPZ_CI2oh8TS4U9LOMQzVpKYdlS6c9LqbiIcnlhNTUGAHOJ8GVnl0E8RMZrHJGIF6ImSWMu4kjOFKiMfvUCfeaEej8YDRwfy6mNDKZOodJJd05SqvT-LRmjzBLc9_9_PYnbyqUexOOuroz_DmjyRlROCI2U2fM9_qtfS3hdKk7uVWFym9nhrdB8ntxacwCICQwAmdtmhthMQuJEnFp5hY"/>
+</div>
+<!-- Centered Sign Up Container -->
+<main class="relative z-10 w-full max-w-md px-6 py-12">
+<!-- Header / Logo Anchor -->
+<div class="flex flex-col items-center mb-10 text-center">
+<div class="text-3xl font-headline font-extrabold text-primary uppercase tracking-widest mb-2">SLPA</div>
+<p class="text-on-surface-variant font-headline font-bold text-sm tracking-tighter uppercase">Secure Land Parcel Auctions</p>
+</div>
+<!-- Form Card -->
+<div class="glass-panel border-0 rounded-xl p-8 shadow-[0px_20px_40px_rgba(0,0,0,0.6)]">
+<h1 class="text-2xl font-headline font-extrabold text-on-surface mb-2">Create Account</h1>
+<p class="text-on-surface-variant text-sm mb-8">Join the premier virtual land exchange</p>
+<form class="space-y-6">
+<!-- Email Field -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider ml-1">Email Address</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">mail</span>
+<input class="w-full bg-surface-container-lowest border-0 rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary/50 transition-all" placeholder="name@example.com" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider ml-1">Password</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">lock</span>
+<input class="w-full bg-surface-container-lowest border-0 rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary/50 transition-all" placeholder="••••••••" type="password"/>
+</div>
+<!-- Strength Indicator -->
+<div class="mt-3 px-1">
+<div class="flex justify-between items-center mb-1.5">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase">Password Strength</span>
+<span class="text-[10px] font-bold text-primary uppercase">Strong</span>
+</div>
+<div class="flex gap-1.5 h-1">
+<div class="h-full w-full rounded-full bg-primary"></div>
+<div class="h-full w-full rounded-full bg-primary"></div>
+<div class="h-full w-full rounded-full bg-primary"></div>
+<div class="h-full w-full rounded-full bg-surface-variant"></div>
+</div>
+</div>
+</div>
+<!-- Confirm Password Field -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-on-surface-variant uppercase tracking-wider ml-1">Confirm Password</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">verified_user</span>
+<input class="w-full bg-surface-container-lowest border-0 rounded-lg py-3.5 pl-12 pr-4 text-on-surface placeholder:text-outline focus:ring-2 focus:ring-primary/50 transition-all" placeholder="••••••••" type="password"/>
+</div>
+</div>
+<!-- Terms/Privacy Consent -->
+<div class="flex items-start gap-3 px-1 pt-2">
+<div class="mt-0.5">
+<input class="rounded-sm bg-surface-container-lowest border-outline-variant text-primary focus:ring-primary focus:ring-offset-background" id="terms" type="checkbox"/>
+</div>
+<label class="text-xs text-on-surface-variant leading-relaxed" for="terms">
+                        I agree to the <a class="text-primary hover:underline transition-all" href="#">Terms of Service</a> and <a class="text-primary hover:underline transition-all" href="#">Privacy Policy</a>.
+                    </label>
+</div>
+<!-- Submit Button -->
+<button class="w-full py-4 px-6 bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline font-extrabold uppercase tracking-widest text-sm rounded-lg hover:brightness-110 active:scale-[0.98] transition-all shadow-[0_4px_20px_rgba(238,192,106,0.25)]" type="submit">
+                    Create Account
+                </button>
+</form>
+<!-- Bottom Action -->
+<div class="mt-8 text-center">
+<p class="text-on-surface-variant text-sm">
+                    Already have an account? 
+                    <a class="text-primary font-bold ml-1 hover:underline underline-offset-4 transition-all" href="#">Sign in</a>
+</p>
+</div>
+</div>
+<!-- Footer / Semantic Links -->
+<div class="mt-12 flex justify-center gap-6">
+<a class="text-[10px] font-bold text-outline-variant uppercase tracking-widest hover:text-on-surface-variant transition-colors" href="#">Help Center</a>
+<span class="w-1 h-1 rounded-full bg-outline-variant my-auto"></span>
+<a class="text-[10px] font-bold text-outline-variant uppercase tracking-widest hover:text-on-surface-variant transition-colors" href="#">Second Life Links</a>
+<span class="w-1 h-1 rounded-full bg-outline-variant my-auto"></span>
+<a class="text-[10px] font-bold text-outline-variant uppercase tracking-widest hover:text-on-surface-variant transition-colors" href="#">Security</a>
+</div>
+</main>
+<!-- Aesthetic Decorative Element -->
+<div class="absolute bottom-10 right-10 z-0 opacity-10 blur-xl">
+<div class="w-64 h-64 bg-primary rounded-full"></div>
+</div>
+</body></html>

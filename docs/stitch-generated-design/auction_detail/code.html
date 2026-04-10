@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Highland Haven | SLPA Auction Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed-dim": "#dcc39a",
+                        "outline-variant": "#4e4638",
+                        "error": "#ffb4ab",
+                        "surface": "#121416",
+                        "on-secondary-fixed-variant": "#554425",
+                        "primary-container": "#c99e4c",
+                        "outline": "#9b8f7e",
+                        "on-tertiary-container": "#163a6c",
+                        "surface-dim": "#121416",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "inverse-primary": "#7b5808",
+                        "surface-bright": "#37393b",
+                        "surface-variant": "#333537",
+                        "primary-fixed-dim": "#eec06a",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "on-surface-variant": "#d2c5b2",
+                        "secondary": "#dcc39a",
+                        "inverse-on-surface": "#2f3133",
+                        "surface-container-low": "#1a1c1e",
+                        "on-primary": "#412d00",
+                        "on-secondary-fixed": "#261901",
+                        "on-tertiary-fixed": "#001b3e",
+                        "surface-container-lowest": "#0c0e10",
+                        "secondary-container": "#584627",
+                        "surface-container-highest": "#333537",
+                        "on-secondary": "#3d2e11",
+                        "inverse-surface": "#e2e2e5",
+                        "on-secondary-container": "#ceb58d",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-container": "#4e3600",
+                        "on-background": "#e2e2e5",
+                        "on-error": "#690005",
+                        "on-tertiary": "#053062",
+                        "tertiary-container": "#86a5de",
+                        "surface-container-high": "#282a2c",
+                        "error-container": "#93000a",
+                        "primary": "#eec06a",
+                        "surface-tint": "#eec06a",
+                        "on-surface": "#e2e2e5",
+                        "secondary-fixed": "#fadfb4",
+                        "background": "#121416",
+                        "surface-container": "#1e2022",
+                        "on-primary-fixed": "#271900",
+                        "tertiary": "#aac7ff",
+                        "primary-fixed": "#ffdea7",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "tertiary-fixed": "#d6e3ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #121416;
+            color: #e2e2e5;
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(51, 53, 55, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<header class="bg-[#121416]/80 backdrop-blur-md sticky top-0 z-50 shadow-[0px_20px_40px_rgba(0,0,0,0.4)]">
+<nav class="flex justify-between items-center w-full px-8 py-4 max-w-[1920px] mx-auto">
+<div class="flex items-center gap-12">
+<a class="text-2xl font-black text-[#C99E4C] uppercase tracking-wider font-headline" href="#">SLPA</a>
+<div class="hidden md:flex items-center gap-8 font-headline font-bold tracking-tight">
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Browse</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Dashboard</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Create Listing</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center bg-surface-container-high px-4 py-2 rounded-xl text-on-surface-variant gap-3 border border-outline-variant/20">
+<span class="material-symbols-outlined text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-64" placeholder="Search auctions..." type="text"/>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="hover:bg-[#282a2c] p-2 rounded-full transition-all duration-300 scale-95 active:opacity-80">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<button class="hover:bg-[#282a2c] p-2 rounded-full transition-all duration-300 scale-95 active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-primary/20">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="close-up portrait of a professional digital avatar with sleek lighting and modern aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPZMv6MotLwrRj-SqWI3D3b5X9t-NMSzleenCZyaUaQOFjeR5NeMJljN7gSu8he5Kx0tynSS1_rFUfLqo8zDNib74vzmH9JDtC7Ezolv-48HA8983YClOmUpJKcTJERBU4Dqyf6Jiz6btWLWGR12ge7S-MgTVF5_NYzs5CZzNpbnBRNl23DydpWWud4SeXkB1m-EUnzpWw8OVl4_UCzm9GygegyggClolqDheCUyiXbfyj2ggetwurUQdcKFKfIUyPMNsNgI-AEFw"/>
+</div>
+</div>
+</div>
+</nav>
+</header>
+<main class="max-w-[1920px] mx-auto px-8 py-10">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<!-- Left Column -->
+<div class="lg:col-span-8 space-y-12">
+<!-- Hero Gallery -->
+<section class="space-y-4">
+<div class="aspect-[21/9] w-full rounded-2xl overflow-hidden shadow-2xl relative group">
+<img alt="Highland Haven Main View" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="expansive view of a lush green virtual highland plateau with rolling hills and distant mountains under a dramatic sunset sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIufXN-QjB63Ef4rREBJXV4B_5n6d7ZyCAxEh_a7PqIf75K8qHxK0006O5mRSjmDSyvTlBE_mGJVc9vjyWHd2ahvYgozCpmRsweA173r9aHctPFzMt3vPAbBd_yNTiY8yEA6kbrxP7L4jDtB7X9XyJKwPvgKus3jBmbMuZ4_lpVBYXxXkep5DSCz8YIxPqQ25RAx8azTq_PKqX5-WZzjKBqzAov5H07qxVvcI5V42jlsQ2UVn7pl-JYngS6Vk7eSssBysdkMwbsos"/>
+<div class="absolute bottom-6 left-6 flex gap-2">
+<span class="bg-surface-container-highest/80 backdrop-blur-md px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">photo_camera</span> 1/8
+                            </span>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-4">
+<div class="aspect-video rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+<img class="w-full h-full object-cover" data-alt="close up of alpine forest terrain with high detail textures and realistic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO9kNmV4-R9847g4ki9_SmmhsZETSnWkAbuuu_ZhThl-UlmXH9cu-J91POMm1c7nsXzTv_UADn6yH1YU62ypLAa8qM662fyCAX-KmW_R4iTeBGVj1EuE6CiYc0rjEEHr8p_dFJLh8JcdjXwE92Foivutx71UtX97KhTnHQMDd50PgfG2Al2VLSXZ7pUpDHA9dImT9DMnNJFk9H4kJX2no6Vfti1WHGtcEPteCpYxD4PwPEUzPxJCcBoBWbzVHhD3Diun70FxJ5kI8"/>
+</div>
+<div class="aspect-video rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+<img class="w-full h-full object-cover" data-alt="sunlight filtering through dense virtual forest trees onto a mossy ground" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClEI2g_n4_5rOmEqyLQJYc3e309f6VtLFs6VkOh9CWgFELngv09NFy89_LHHlEeT8qgHArk83HJXYRLK4134TaKW4NsEkm7CAVNGb7LRNiBszK90FHge_OHsNFrlhMJ-rAGInL1fcH0B1wA7hu0uaF5_8P8Z3l60UR3Oo_L9VfXBSPes2WbXHjXdNTl4bRW6bBr18SOZOABJyKA3hus9pesaVu1Q8ljlifcWhFmD369nv0iOpAH6lHD0GnkYufIg2jn0uCbWH5C5c"/>
+</div>
+<div class="aspect-video rounded-xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+<img class="w-full h-full object-cover" data-alt="scenic lake view from a rocky highland cliff with misty atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqaais6tEIDJPAMennruwpPIW4Xhj5uyhT_l1cadDu80UEEklFMo9Zp_3LITpqGFz2SPFLWQjfUequqpPdoPhe99Dv7l7gUb8GKw30J8WM4z8yGFFL7fZM5ebmL22GG2CYi82MkGTHsvr-5WnhIKvrSEEdeJcuLZKLTl3UmFVWa1j1xC4_An1VQ4_8Two7ydLlXPX9See6jS1ZlfixufWvt8piyY-p3lHMqE6PPxnaTHg2z7tei_VjsyVSD4AidzIsWMusRtQnpfU"/>
+</div>
+<div class="aspect-video rounded-xl overflow-hidden bg-surface-container-high flex flex-col items-center justify-center text-on-surface-variant hover:text-white transition-colors cursor-pointer group">
+<span class="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">grid_view</span>
+<span class="text-xs font-bold uppercase mt-2">View All</span>
+</div>
+</div>
+</section>
+<!-- Header Info -->
+<section class="space-y-6">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-2">
+<h1 class="text-5xl font-black font-headline tracking-tighter text-white">Highland Haven</h1>
+<a class="flex items-center gap-2 text-primary hover:underline font-medium" href="#">
+<span class="material-symbols-outlined text-lg">location_on</span>
+                                Region: Aeon Peaks
+                            </a>
+</div>
+<div class="flex gap-3">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:brightness-110 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">launch</span>
+                                Open in Second Life Viewer
+                            </button>
+<button class="border border-outline-variant/30 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined">map</span>
+                                View on World Map
+                            </button>
+</div>
+</div>
+<!-- Seller Card -->
+<div class="bg-surface-container-low p-6 rounded-2xl flex items-center justify-between border-l-4 border-primary/40">
+<div class="flex items-center gap-4">
+<img alt="Seller Avatar" class="w-14 h-14 rounded-full border-2 border-surface-container-high" data-alt="professional avatar of a virtual real estate mogul with sophisticated style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkWqODz-kDpE6RdqRRBGo8K5AgBN0cUmB3vy_JdShykycxozuRO92dN0Cyqd58uEwb4Bhl7jKRMbaBIRjkllaZXvHrjw8FiK7uO11DGcDr1GcaW1-pPvj8zFbs66i5Te0oHgaW8y5WgQO3eko7JzIbWqLHK92ogNhmNAiY9iiQOfgBiqKCyMwTiyjyz_ZIFWHWxP9KKtPbCUIxY4Xho1YntTV8VYJIyibY2o7leKYpG4f5gL0NWwWS5ygSMoxyILlsSbQYDrvXmEo"/>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="font-headline font-bold text-lg text-white">Landmark Estates</h3>
+<span class="bg-primary-container/20 text-primary text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter">Elite Seller</span>
+</div>
+<div class="flex items-center gap-4 text-sm text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">star</span> 4.9 Rating</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">verified_user</span> 98% Completion</span>
+</div>
+</div>
+</div>
+<button class="text-primary font-bold text-sm hover:underline">Contact Seller</button>
+</div>
+</section>
+<!-- Metadata Grid -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-high p-5 rounded-2xl space-y-1">
+<span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Parcel Size</span>
+<p class="text-white font-headline font-extrabold text-xl">4096 sqm</p>
+</div>
+<div class="bg-surface-container-high p-5 rounded-2xl space-y-1">
+<span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Prim Capacity</span>
+<p class="text-white font-headline font-extrabold text-xl">937 Prims</p>
+</div>
+<div class="bg-surface-container-high p-5 rounded-2xl space-y-1">
+<span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Maturity</span>
+<p class="text-white font-headline font-extrabold text-xl">Moderate</p>
+</div>
+<div class="bg-surface-container-high p-5 rounded-2xl space-y-1">
+<span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Visibility</span>
+<p class="text-white font-headline font-extrabold text-xl">Private</p>
+</div>
+</section>
+<!-- Description -->
+<section class="space-y-6">
+<div class="flex items-center gap-3">
+<h2 class="text-2xl font-headline font-bold text-white">Features &amp; Description</h2>
+<div class="flex gap-2">
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-xl text-xs font-medium">Roadside</span>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-xl text-xs font-medium">Forest</span>
+</div>
+</div>
+<p class="text-on-surface-variant leading-relaxed text-lg max-w-3xl">
+                        Highland Haven offers unparalleled tranquility in the heart of the Aeon Peaks region. This prime 4096sqm parcel features naturally tiered topography, ideal for creating a terraced luxury villa or a sprawling alpine retreat. The land comes pre-landscaped with high-detail pine forests and seasonal weather scripting.
+                        <br/><br/>
+                        Boasting a generous prim allowance of 937, you'll have ample resources to realize your architectural dreams. The parcel is located at the end of a scenic cul-de-sac, providing maximum privacy while maintaining easy access to the main regional roads.
+                    </p>
+</section>
+<!-- Bid History -->
+<section class="space-y-6">
+<h2 class="text-2xl font-headline font-bold text-white">Recent Bid Activity</h2>
+<div class="overflow-hidden rounded-2xl border-none">
+<table class="w-full text-left">
+<thead class="bg-surface-container-low text-on-surface-variant text-xs font-bold uppercase tracking-widest">
+<tr>
+<th class="px-6 py-4">Bidder</th>
+<th class="px-6 py-4">Amount</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4 text-right">Time</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-high">
+<tr class="bg-surface-container-high/40 hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 text-primary flex items-center justify-center font-bold text-xs">VL</div>
+<span class="text-white font-medium">Vesper Lynx</span>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-primary">L$ 45,000</td>
+<td class="px-6 py-4"><span class="bg-primary/10 text-primary text-[10px] px-2 py-1 rounded-lg font-bold uppercase">Leading</span></td>
+<td class="px-6 py-4 text-right text-on-surface-variant text-sm">2 mins ago</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-on-surface-variant/20 text-on-surface-variant flex items-center justify-center font-bold text-xs">JM</div>
+<span class="text-on-surface-variant">Jack Mason</span>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-white">L$ 44,500</td>
+<td class="px-6 py-4 text-on-surface-variant text-xs italic">Outbid</td>
+<td class="px-6 py-4 text-right text-on-surface-variant text-sm">14 mins ago</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-on-surface-variant/20 text-on-surface-variant flex items-center justify-center font-bold text-xs">SL</div>
+<span class="text-on-surface-variant">Saria Light</span>
+</td>
+<td class="px-6 py-4 font-headline font-bold text-white">L$ 42,000</td>
+<td class="px-6 py-4 text-on-surface-variant text-xs italic">Outbid</td>
+<td class="px-6 py-4 text-right text-on-surface-variant text-sm">1 hour ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<!-- Sticky Sidebar -->
+<div class="lg:col-span-4">
+<aside class="sticky top-28 space-y-6">
+<div class="glass-panel p-8 rounded-[2rem] border border-white/5 shadow-2xl space-y-8">
+<!-- Auction Status -->
+<div class="flex justify-between items-start">
+<div class="space-y-1">
+<span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Current Bid</span>
+<div class="flex items-baseline gap-2">
+<span class="text-primary font-headline font-black text-4xl">L$ 45,000</span>
+<span class="text-on-surface-variant text-sm font-medium">18 bids</span>
+</div>
+</div>
+<div class="text-right">
+<span class="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Ends In</span>
+<div class="text-primary font-headline font-black text-3xl flex items-center gap-2 justify-end shadow-[0_0_15px_-5px_rgba(238,192,106,0.5)]">
+<span class="material-symbols-outlined text-xl">timer</span>
+                                    08:14
+                                </div>
+</div>
+</div>
+<!-- Trust Badges -->
+<div class="flex gap-3">
+<div class="flex-1 bg-surface-container-high/50 p-3 rounded-xl flex items-center gap-2 border border-white/5">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">shield</span>
+<span class="text-[10px] font-bold uppercase text-on-surface-variant">Snipe Protected</span>
+</div>
+<div class="flex-1 bg-surface-container-high/50 p-3 rounded-xl flex items-center gap-2 border border-white/5">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">person_check</span>
+<span class="text-[10px] font-bold uppercase text-on-surface-variant">Human-Verified</span>
+</div>
+</div>
+<!-- Bidding Form -->
+<div class="space-y-4">
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-widest ml-1">Place Your Bid</label>
+<div class="relative group">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold">L$</span>
+<input class="w-full bg-surface-container-lowest border-none rounded-2xl py-4 pl-12 pr-4 text-xl font-headline font-extrabold focus:ring-2 focus:ring-primary/50 text-white transition-all" type="number" value="45500"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-on-surface-variant uppercase">Next Min: L$ 45,500</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-headline font-black py-5 rounded-2xl text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/30">
+                                PLACE BID NOW
+                            </button>
+</div>
+<!-- Buy It Now -->
+<div class="pt-6 border-t border-white/5">
+<div class="flex items-center justify-between mb-4">
+<span class="text-sm font-medium text-on-surface-variant">Want it immediately?</span>
+<span class="text-white font-headline font-bold">L$ 120,000</span>
+</div>
+<button class="w-full bg-surface-container-highest text-white font-bold py-4 rounded-2xl hover:bg-surface-bright transition-colors border border-outline-variant/20">
+                                Buy It Now
+                            </button>
+</div>
+<!-- Proxy Bid Toggle -->
+<div class="pt-4">
+<button class="w-full flex items-center justify-between text-on-surface-variant hover:text-white transition-colors py-2 px-2 rounded-lg">
+<span class="text-sm font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">settings_suggest</span>
+                                    Set Maximum Proxy Bid
+                                </span>
+<span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Security Info -->
+<div class="px-4 space-y-4">
+<div class="flex items-start gap-4">
+<span class="material-symbols-outlined text-on-surface-variant mt-1">info</span>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                                Auctions concluding within the last 2 minutes will be automatically extended by 5 minutes if a new bid is placed (Anti-Snipe). Funds are held in escrow by SLPA until transfer is confirmed.
+                            </p>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-[#1a1c1e] w-full py-12 mt-20 border-t border-white/5">
+<div class="flex flex-col items-center justify-center gap-6 px-4 text-center max-w-[1920px] mx-auto">
+<div class="flex gap-8 font-inter text-xs font-medium">
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors" href="#">About</a>
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors" href="#">Terms</a>
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors" href="#">Contact</a>
+<a class="text-slate-500 hover:text-[#C99E4C] transition-colors" href="#">Partners</a>
+</div>
+<p class="font-inter text-xs text-slate-500 uppercase tracking-[0.2em]">© 2024 SL Parcel Auctions. Powered by Second Life.</p>
+</div>
+</footer>
+</body></html>

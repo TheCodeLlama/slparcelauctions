@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed-variant": "#254779",
+                      "tertiary": "#aac7ff",
+                      "surface-container-high": "#282a2c",
+                      "on-secondary-fixed-variant": "#554425",
+                      "surface-tint": "#eec06a",
+                      "surface-variant": "#333537",
+                      "inverse-on-surface": "#2f3133",
+                      "secondary-fixed": "#fadfb4",
+                      "error": "#ffb4ab",
+                      "tertiary-fixed": "#d6e3ff",
+                      "on-tertiary-fixed": "#001b3e",
+                      "outline": "#9b8f7e",
+                      "error-container": "#93000a",
+                      "surface-container-lowest": "#0c0e10",
+                      "outline-variant": "#4e4638",
+                      "primary-fixed-dim": "#eec06a",
+                      "on-surface": "#e2e2e5",
+                      "inverse-surface": "#e2e2e5",
+                      "secondary-container": "#584627",
+                      "background": "#121416",
+                      "on-error": "#690005",
+                      "primary-container": "#c99e4c",
+                      "surface-container-highest": "#333537",
+                      "on-error-container": "#ffdad6",
+                      "primary-fixed": "#ffdea7",
+                      "tertiary-container": "#86a5de",
+                      "on-tertiary-container": "#163a6c",
+                      "tertiary-fixed-dim": "#aac7ff",
+                      "secondary-fixed-dim": "#dcc39a",
+                      "on-secondary-fixed": "#261901",
+                      "inverse-primary": "#7b5808",
+                      "secondary": "#dcc39a",
+                      "on-primary-container": "#4e3600",
+                      "on-surface-variant": "#d2c5b2",
+                      "on-secondary-container": "#ceb58d",
+                      "on-primary-fixed-variant": "#5e4200",
+                      "on-background": "#e2e2e5",
+                      "surface-bright": "#37393b",
+                      "surface": "#121416",
+                      "primary": "#eec06a",
+                      "on-primary": "#412d00",
+                      "surface-dim": "#121416",
+                      "on-tertiary": "#053062",
+                      "on-secondary": "#3d2e11",
+                      "on-primary-fixed": "#271900",
+                      "surface-container-low": "#1a1c1e",
+                      "surface-container": "#1e2022"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary/30 min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-[#121416]/80 backdrop-blur-md text-[#C99E4C] font-manrope font-bold tracking-tight docked full-width top-0 sticky z-50 shadow-[0px_20px_40px_rgba(0,0,0,0.4)]">
+<div class="flex justify-between items-center w-full px-8 py-4 max-w-[1920px] mx-auto">
+<div class="text-2xl font-black text-[#C99E4C] uppercase tracking-wider">SLPA</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Browse</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Auctions</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">How it Works</a>
+<a class="text-slate-400 font-medium hover:text-white transition-colors" href="#">Partners</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-5 py-2 text-slate-400 font-medium hover:text-white transition-colors hover:bg-[#282a2c] scale-95 active:opacity-80 transition-transform rounded-lg">Sign In</button>
+<button class="px-5 py-2 bg-primary text-on-primary rounded-lg font-bold scale-95 active:opacity-80 transition-transform">Join Now</button>
+</div>
+</div>
+</nav>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="relative overflow-hidden pt-24 pb-32 px-6">
+<div class="absolute inset-0 z-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(circle at 2px 2px, #c99e4c 1px, transparent 0); background-size: 40px 40px;"></div>
+<div class="max-w-7xl mx-auto relative z-10 flex flex-col items-center text-center">
+<span class="inline-block py-1 px-3 mb-6 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold uppercase tracking-widest">Premium Virtual Real Estate</span>
+<h1 class="text-6xl md:text-8xl font-black mb-8 leading-[1.1] tracking-tight max-w-4xl">
+                    Buy &amp; Sell Second Life Land <span class="text-primary">at Auction</span>
+</h1>
+<p class="text-xl text-on-surface-variant max-w-2xl mb-12 font-body leading-relaxed">
+                    The premier destination for secure, transparent, and high-stakes land transactions within the Second Life ecosystem. Professional tools for the digital pioneer.
+                </p>
+<div class="flex flex-col sm:flex-row gap-6">
+<button class="px-10 py-5 bg-primary text-on-primary font-bold rounded-xl text-lg shadow-xl shadow-primary/20 hover:brightness-110 transition-all scale-95 active:opacity-80">Browse Auctions</button>
+<button class="px-10 py-5 border-2 border-outline/30 text-on-surface font-bold rounded-xl text-lg hover:bg-surface-container-high transition-all scale-95 active:opacity-80">List Your Land</button>
+</div>
+</div>
+<!-- Hero Decorative Image -->
+<div class="mt-20 max-w-6xl mx-auto rounded-3xl overflow-hidden shadow-2xl border-2 border-outline-variant/10">
+<img alt="SLPA Landscape" class="w-full h-[400px] object-cover" data-alt="abstract architectural forms in deep charcoal and glowing amber light with smooth metallic surfaces and sophisticated geometric composition" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsImIS2Csiy7I2ip6cNaZ4nmcVG7lmKxzQjdXIe9JsbgWPmsG2blZ2xIGpbYO86tAnZkVQlk_f3HFTuhm6Toh7_9yuKBzmIB2iZuaRVxWvNc57qt7XDsPX8wDYhf7mUD1Hss6Z26OjMb7gytwmLd8SaP79bQrFCocT0NHxy_i9V89hD4OeY8Ix7zSO_JuEi6qPinSx_UM8xnh7F3YZZGKXDihHFnM8CUwq8ztUT3r71KQm12_J8oHOUpCa9gzEygy0BJqOPhjgDU0"/>
+</div>
+</section>
+<!-- Live Stats Bar -->
+<section class="bg-surface-container-low py-8 border-y border-outline-variant/10">
+<div class="max-w-7xl mx-auto px-6 flex flex-wrap justify-center md:justify-between items-center gap-8 md:gap-4 text-center">
+<div class="flex flex-col">
+<span class="text-3xl font-black text-primary">247</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">Active Auctions</span>
+</div>
+<div class="w-px h-12 bg-outline-variant/20 hidden md:block"></div>
+<div class="flex flex-col">
+<span class="text-3xl font-black text-on-surface">1,420</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">Completed Sales</span>
+</div>
+<div class="w-px h-12 bg-outline-variant/20 hidden md:block"></div>
+<div class="flex flex-col">
+<span class="text-3xl font-black text-on-surface">5,800</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">Verified Users</span>
+</div>
+</div>
+</section>
+<!-- How It Works -->
+<section class="py-32 px-6 bg-surface">
+<div class="max-w-7xl mx-auto">
+<div class="mb-20">
+<h2 class="text-4xl font-black mb-4">How It Works</h2>
+<div class="h-1 w-20 bg-primary"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 relative">
+<!-- Connector line -->
+<div class="hidden md:block absolute top-12 left-24 right-24 h-0.5 bg-outline-variant/10 -z-10"></div>
+<div class="flex flex-col items-center md:items-start group">
+<div class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center mb-8 border-2 border-transparent group-hover:border-primary transition-all duration-500 shadow-xl">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="verified_user">verified_user</span>
+</div>
+<h3 class="text-xl font-bold mb-4">Verify</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed text-center md:text-left">Securely link your SL avatar and verify land ownership through our automated system.</p>
+</div>
+<div class="flex flex-col items-center md:items-start group">
+<div class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center mb-8 border-2 border-transparent group-hover:border-primary transition-all duration-500 shadow-xl">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="list_alt">list_alt</span>
+</div>
+<h3 class="text-xl font-bold mb-4">List</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed text-center md:text-left">Set your reserve price, auction duration, and highlight your parcel's unique features.</p>
+</div>
+<div class="flex flex-col items-center md:items-start group">
+<div class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center mb-8 border-2 border-transparent group-hover:border-primary transition-all duration-500 shadow-xl">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="gavel">gavel</span>
+</div>
+<h3 class="text-xl font-bold mb-4">Auction</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed text-center md:text-left">Engage in real-time bidding with snipe protection to ensure a fair market value result.</p>
+</div>
+<div class="flex flex-col items-center md:items-start group">
+<div class="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center mb-8 border-2 border-transparent group-hover:border-primary transition-all duration-500 shadow-xl">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="handshake">handshake</span>
+</div>
+<h3 class="text-xl font-bold mb-4">Settle</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed text-center md:text-left">Automated escrow handles the L$ transfer and land handover seamlessly.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Features Grid -->
+<section class="py-32 px-6 bg-surface-container-low">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-20">
+<h2 class="text-4xl md:text-5xl font-black mb-6">Designed for Excellence</h2>
+<p class="text-on-surface-variant max-w-2xl mx-auto">Every feature is crafted to provide a secure and efficient trading environment for virtual landowners.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Card 1 -->
+<div class="bg-surface-container-high p-8 rounded-2xl hover:bg-surface-bright transition-all duration-300 group">
+<div class="mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="bolt">bolt</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Real-Time Bidding</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Experience zero-latency bid updates and live notifications to keep you ahead of the competition.</p>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-high p-8 rounded-2xl hover:bg-surface-bright transition-all duration-300 group">
+<div class="mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="security">security</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Snipe Protection</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Auctions automatically extend if a bid is placed in the final minutes, ensuring fair opportunity for all.</p>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-high p-8 rounded-2xl hover:bg-surface-bright transition-all duration-300 group">
+<div class="mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="verified">verified</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Verified Listings</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Every parcel is automatically scanned for region rating, traffic stats, and object capacity before listing.</p>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-high p-8 rounded-2xl hover:bg-surface-bright transition-all duration-300 group">
+<div class="mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="lock">lock</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Secure Escrow</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Payments are held in a secure multi-signature escrow until the land transfer is confirmed by the grid.</p>
+</div>
+<!-- Card 5 -->
+<div class="bg-surface-container-high p-8 rounded-2xl hover:bg-surface-bright transition-all duration-300 group">
+<div class="mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="robot">robot</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Proxy Bidding</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Set your maximum bid and let our system automatically bid for you in the smallest increments necessary.</p>
+</div>
+<!-- Card 6 -->
+<div class="bg-surface-container-high p-8 rounded-2xl hover:bg-surface-bright transition-all duration-300 group">
+<div class="mb-6 text-primary">
+<span class="material-symbols-outlined text-3xl" data-icon="star_half">star_half</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Reputation System</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">Trade with confidence using our comprehensive buyer and seller rating history and trust metrics.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom CTA -->
+<section class="py-24 px-6 relative overflow-hidden">
+<!-- Decorative gradient element -->
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent"></div>
+<div class="max-w-4xl mx-auto text-center relative z-10">
+<h2 class="text-5xl font-black mb-8">Ready to get started?</h2>
+<p class="text-lg text-on-surface-variant mb-12">Join the most advanced virtual real estate network today. Registration takes less than 60 seconds.</p>
+<button class="px-12 py-5 bg-primary text-on-primary font-bold rounded-xl text-xl shadow-2xl shadow-primary/30 hover:scale-105 transition-all">Sign Up Now</button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-[#1a1c1e] w-full py-12 mt-auto">
+<div class="flex flex-col items-center justify-center gap-6 px-4 text-center">
+<div class="flex gap-8 mb-4">
+<a class="text-slate-500 hover:text-[#C99E4C] font-inter text-xs transition-colors" href="#">About</a>
+<a class="text-slate-500 hover:text-[#C99E4C] font-inter text-xs transition-colors" href="#">Terms</a>
+<a class="text-slate-500 hover:text-[#C99E4C] font-inter text-xs transition-colors" href="#">Contact</a>
+<a class="text-slate-500 hover:text-[#C99E4C] font-inter text-xs transition-colors" href="#">Partners</a>
+</div>
+<p class="font-inter text-xs text-slate-500">© 2024 SL Parcel Auctions. Powered by Second Life.</p>
+</div>
+</footer>
+</body></html>
