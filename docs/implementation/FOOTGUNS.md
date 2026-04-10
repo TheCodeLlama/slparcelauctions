@@ -413,6 +413,34 @@ This is a controller-side discipline rule, not an implementer-side one. The impl
 
 ---
 
+## §6 Scaffold / template / generated content
+
+### 6.1 Toptal `.gitignore` template's unanchored `lib/` rule silently ignores `frontend/src/lib/`
+
+**Why:** The repo's root `.gitignore` was generated from the toptal Python+React template at scaffold time. The template includes `lib/` and `lib64/` (without leading slashes) intended to ignore Python compiled-library output directories at the repo root. **Without a leading `/`, gitignore treats the rule as matching `lib/` ANYWHERE in the repo tree.** That includes `frontend/src/lib/` — which is exactly where we put `cn.ts`, `api.ts`, `auth.ts`, and any future utility module.
+
+The bite is silent: `git add frontend/src/lib/cn.ts` returns success but stages nothing. `git status` shows clean working tree. The file exists on disk and the build/test commands all pass because Node and Vitest read from disk, not from git. The breakage only surfaces when someone clones the repo and the file isn't there. Or in our case, when the implementer notices that `git add` didn't pick up the file.
+
+**Caught at implementation time in Task 7** by the implementer running `git status` after creating the lib files and noticing the new files weren't listed. Diagnosed by `git check-ignore -v frontend/src/lib/cn.ts` which reported `.gitignore:53:lib/`.
+
+**How to apply:** Anchor the rule to the repo root with a leading `/`:
+
+```
+# Before (matches every lib/ directory in the repo, including src/lib/)
+lib/
+lib64/
+
+# After (matches only repo-root lib/ and lib64/)
+/lib/
+/lib64/
+```
+
+The fix landed in commit `fba3022` and unblocked Tasks 7, 8, and 9. **Always audit the scaffold's `.gitignore` early** — `git check-ignore -v <some/path>` is the diagnostic command for "why isn't git tracking this file."
+
+**General pattern for scaffold gotchas:** Generated `.gitignore` / `package.json` / `next.config.ts` / `eslint.config.mjs` files from `create-next-app`, `npm init`, toptal templates, etc. all carry assumptions that may not match your project structure. The first task in any new repo's plan should include a "scaffold audit" pass that checks for: unanchored gitignore rules, missing dependencies in package.json, defaults in next.config.ts that conflict with your structure, eslint rules that don't match your conventions. This isn't this plan's first task, and we're catching them as we hit them — but for future plans, an explicit Task 0 audit would be cheap insurance.
+
+---
+
 ## How to update this ledger
 
 When a reviewer (spec or code quality) finds a real issue that wasn't anticipated by the implementer prompt:
