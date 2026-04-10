@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/slpa
+    username: slpa
+    password: slpa
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+cors:
+  allowed-origin: http://localhost:3000
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
