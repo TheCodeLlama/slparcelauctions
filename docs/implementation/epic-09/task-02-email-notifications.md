@@ -19,7 +19,7 @@ NotificationService dispatches from Task 09-01. This task adds the email channel
 
 - **Email templates:**
   - HTML + plain text versions for each notification category
-  - Consistent branding (SLPA logo, Gilded Slate colors)
+  - Consistent branding (SLPA logo, "Digital Curator" colors from `docs/stitch_generated-design/DESIGN.md`)
   - Templates should include:
     - Subject line (clear, actionable: "You've been outbid on [Parcel Name]")
     - Body with relevant details (auction name, current bid, time remaining, etc.)

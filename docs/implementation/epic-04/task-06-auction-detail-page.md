@@ -8,7 +8,29 @@ Build the public auction detail page where users view listing info, live bid sta
 
 ## Context
 
-See DESIGN.md Section 4.6 (Listing page shows) and 4.7 (Bidding flow). The Stitch-generated design is in `docs/stitch-generated-design/auction_detail/`. Backend endpoints exist from Tasks 04-01 through 04-05.
+See DESIGN.md Section 4.6 (Listing page shows) and 4.7 (Bidding flow). Stitch-generated designs are in:
+
+- `docs/stitch_generated-design/light_mode/auction_detail/`
+- `docs/stitch_generated-design/dark_mode/auction_detail/`
+
+Read both. Also re-read `docs/stitch_generated-design/DESIGN.md` — the auction detail page is the showcase for the "Digital Curator" editorial aesthetic (hero imagery up to 60% viewport, asymmetric margins, tonal layering, glassmorphism on floating bid panel). Backend endpoints exist from Tasks 04-01 through 04-05. The `components/ui/` primitives and layout shell exist from Epic 01.
+
+**Build this page as a composition of reusable components, not a monolithic route file.** This page has the most visual density in the app — it will become unreadable as a single file. Expected components (create them if they don't exist yet, reuse if they do):
+
+- `components/auction/ParcelHeroGallery` — hero image + thumbnail strip + lightbox
+- `components/auction/ParcelInfoPanel` — name, region, area, maturity badge, verification tier badge
+- `components/auction/SellerDescription` — rendered seller description + tags
+- `components/auction/BidPanel` — current bid, countdown, bid input, proxy bid controls, reserve status (the floating curator-tray-style glass panel from `DESIGN.md §5`)
+- `components/auction/BidHistoryList` — paginated bid list with snipe extension events
+- `components/auction/CountdownTimer` — server-time-synced countdown (reuse from Task 02-04 if built there)
+- `components/auction/SnipeProtectionBadge` — reuses `Chip`
+- `components/auction/ReserveStatusIndicator` — reuses `Chip` with tone prop
+- `components/auction/VerificationTierBadge` — reuses `Chip`
+- `components/user/SellerProfileCard` — avatar, rating stars, completed sales count, new-seller badge (reusable on dashboards and search results)
+- `components/user/ReputationStars` — 0-5 star display with half-stars
+- `components/ui/VisitInSecondLifeButton` — SLURL + map link dropdown, reusable anywhere parcels are displayed
+
+If any of these were built in an earlier task, import them. If not, build them here. **Do not inline any of these into the page file.**
 
 ## What Needs to Happen
 
@@ -76,13 +98,14 @@ See DESIGN.md Section 4.6 (Listing page shows) and 4.7 (Bidding flow). The Stitc
 - "Visit in Second Life" links work correctly
 - Seller profile card links to full profile
 - Ended auctions show final state (no bid input)
-- Page matches Gilded Slate aesthetic, works in dark/light mode
+- Page matches the "Digital Curator" aesthetic in both dark and light mode
 - Responsive on mobile (bid section prominent, scrollable details)
 - Unauthenticated users can view but see login prompt instead of bid input
 
 ## Notes
 
-- Reference `docs/stitch-generated-design/auction_detail/` for layout cues.
+- Reference both `light_mode/auction_detail/code.html` and `dark_mode/auction_detail/code.html` for layout cues. Rebuild as composed components, never as copied markup.
 - The countdown timer should use server time (from WebSocket messages) to stay accurate, not just client clock.
-- For mobile: the bid input should be sticky or easily accessible without scrolling through all the details.
+- For mobile: the bid input should be sticky or easily accessible without scrolling through all the details. A `StickyBidBar` mobile component is a natural extraction.
 - Bid input validation: show the minimum next bid amount as a placeholder or helper text.
+- The `BidPanel` is the most important floating component in the app. Build it as a first-class component with its own tests — it embodies the glassmorphism rules from `DESIGN.md §2` and the curator-tray pattern from §5.

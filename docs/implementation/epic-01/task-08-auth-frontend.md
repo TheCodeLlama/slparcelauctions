@@ -8,7 +8,14 @@ Build the sign-up, sign-in, and forgot-password pages on the frontend and wire t
 
 ## Context
 
-The backend JWT auth endpoints exist from Task 01-07. The Next.js layout shell and routing exist from Task 01-06. Stitch-generated designs for these pages are in `docs/stitch-generated-design/sign_up/`, `sign_in/`, and `forgot_password/` - use as visual reference.
+The backend JWT auth endpoints exist from Task 01-07. The Next.js layout shell, theme, and component library exist from Task 01-06. Stitch-generated designs for these pages are in:
+
+- `docs/stitch_generated-design/light_mode/sign_up/`, `sign_in/`, `forgot_password/`
+- `docs/stitch_generated-design/dark_mode/sign_up/`, `sign_in/`, `forgot_password/`
+
+Read both mode references for each page. Also re-read `docs/stitch_generated-design/DESIGN.md` — auth pages lean heavily on the input and button rules in §5.
+
+**Component reuse is mandatory.** Before writing any new JSX, check `components/ui/` for existing primitives (`Button`, `Input`, `Card`, `Chip`, etc.) built in Task 01-06. If a primitive you need is missing, add it to `components/ui/` as a reusable component first, then use it — do not inline one-off UI into the auth pages. The three auth pages share enormous structural overlap (centered card, logo, title, form, footer link) and must be built from a shared `AuthCard` layout component, not three near-duplicate page bodies.
 
 ## What Needs to Happen
 
@@ -50,10 +57,13 @@ The backend JWT auth endpoints exist from Task 01-07. The Next.js layout shell a
 - Sign out clears the token and redirects to home
 - Header updates to reflect logged-in/logged-out state
 - Forgot password page renders correctly (UI only, no backend integration needed)
-- Pages match the Stitch design aesthetic (Gilded Slate theme, dark/light mode)
+- Pages match the "Digital Curator" aesthetic in both dark and light mode, driven entirely by Tailwind tokens (no hardcoded colors).
+- All three auth pages share a common `AuthCard` layout component; no copy-pasted JSX between them.
+- All form inputs reuse the `Input` primitive from `components/ui/`; all buttons reuse `Button`.
 
 ## Notes
 
-- Match the Stitch designs visually but build as proper React components with proper state management.
+- Match the Stitch designs visually but rebuild as proper React components composed from the existing `components/ui/` primitives.
 - The "Remember me" checkbox can control whether the token is stored in localStorage (persistent) vs sessionStorage (tab-only).
 - Don't implement actual password reset email flow yet - the forgot password page is just the UI for now.
+- If you find yourself writing the same form-field block twice (even across two different pages), extract it.

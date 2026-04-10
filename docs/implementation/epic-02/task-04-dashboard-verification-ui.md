@@ -8,7 +8,14 @@ Build the user dashboard page with the SL avatar verification flow, verification
 
 ## Context
 
-Backend endpoints exist from Tasks 02-01 (code generation) and 02-03 (profile API). The Stitch-generated dashboard design is in `docs/stitch-generated-design/user_dashboard/`. The Gilded Slate design system is established from Epic 01.
+Backend endpoints exist from Tasks 02-01 (code generation) and 02-03 (profile API). Stitch-generated dashboard designs are in:
+
+- `docs/stitch_generated-design/light_mode/user_dashboard/`
+- `docs/stitch_generated-design/dark_mode/user_dashboard/`
+
+Read both. The "Digital Curator" design system, theme, and `components/ui/` primitives are in place from Epic 01. `docs/stitch_generated-design/DESIGN.md` is the binding style reference.
+
+**Reuse components aggressively.** `Card`, `Button`, `Input`, `Avatar`, `Chip`/`StatusBadge`, `Dropdown`, and any tab/section primitives should come from `components/ui/`. If a needed primitive is missing (e.g. `Tabs`, `CountdownTimer`, `VerificationCodeDisplay`, `ProfilePictureUploader`), build it as a reusable component in `components/ui/` or `components/user/`, don't inline it into the dashboard page. Future pages (profile, admin, settings) will reuse these.
 
 ## What Needs to Happen
 
@@ -34,7 +41,7 @@ Backend endpoints exist from Tasks 02-01 (code generation) and 02-03 (profile AP
 - **Tab structure for future content:**
   - Set up tabs: "Overview" (verification + settings), "My Bids", "My Listings"
   - "My Bids" and "My Listings" can be placeholder/empty state for now ("No bids yet" / "No listings yet") - these are built in later epics
-- Match the Gilded Slate design system (dark/light mode, no solid borders, amber accents)
+- Match the "Digital Curator" design system (dark/light mode, no solid borders, tonal surface layering, amber accents via tokens)
 
 ## Acceptance Criteria
 
@@ -51,7 +58,8 @@ Backend endpoints exist from Tasks 02-01 (code generation) and 02-03 (profile AP
 
 ## Notes
 
-- Reference the Stitch dashboard design for layout structure and visual cues.
-- The verification code should be displayed in large, easily readable text (the user needs to type it in-world).
-- Consider adding a "copy to clipboard" button next to the code.
-- The countdown timer should show minutes:seconds and auto-clear when expired.
+- Reference both `light_mode/user_dashboard/code.html` and `dark_mode/user_dashboard/code.html` for layout structure and visual cues. Rebuild as proper React components composed from the existing primitives.
+- The verification code should be displayed in large, easily readable text (the user needs to type it in-world). Consider a dedicated `VerificationCodeDisplay` component since the auction detail page will reuse the same large-typography-with-copy-button pattern.
+- Add a "copy to clipboard" button next to the code.
+- The countdown timer should show minutes:seconds and auto-clear when expired. Build `CountdownTimer` as a reusable component — the auction detail page needs one too.
+- The `Tabs` primitive built here is the same one needed by the profile page and the admin dashboard. Put it in `components/ui/`.

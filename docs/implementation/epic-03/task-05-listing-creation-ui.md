@@ -8,7 +8,22 @@ Build the frontend pages for creating, editing, previewing, and managing auction
 
 ## Context
 
-Backend endpoints exist from Tasks 03-02, 03-03, and 03-04. The Gilded Slate design system is in place from Epic 01. This is a complex multi-step form.
+Backend endpoints exist from Tasks 03-02, 03-03, and 03-04. The "Digital Curator" design system, theme, and `components/ui/` primitives are in place from Epic 01 (see `docs/stitch_generated-design/DESIGN.md` and the primitives built in Task 01-06). This is a complex multi-step form — use `components/ui/` primitives for every field, button, card, chip, and modal.
+
+There is no dedicated Stitch reference page for listing creation, so use the form patterns established by sign-in/sign-up (`docs/stitch_generated-design/{light,dark}_mode/sign_up/`) and the general tonal layering rules in `DESIGN.md`.
+
+**Component reuse is non-negotiable on this page.** The multi-step form will tempt the contractor to build one monolithic `CreateListingPage` component with 500+ lines of inline JSX. Don't. Break it into:
+
+- `components/listing/VerificationMethodPicker` — the Method A/B/C chooser
+- `components/listing/ParcelDetailsPanel` — auto-populated read-only parcel view
+- `components/listing/AuctionSettingsForm` — bid/reserve/duration/snipe-protection
+- `components/listing/TagSelector` — categorized multi-select (reusable by browse/search filters too)
+- `components/listing/PhotoUploader` — drag-and-drop multi-file upload
+- `components/listing/ListingPreview` — renders exactly like a live listing card (reuses `ListingCard` with a preview flag)
+- `components/ui/Stepper` / `components/ui/Wizard` — the multi-step navigation primitive (reusable anywhere with multi-step flows)
+- `components/listing/ListingStatusBadge` — reuses `Chip`/`StatusBadge` with listing-specific status mapping
+
+If a primitive is missing from `components/ui/`, add it there. The `TagSelector`, `Stepper`, `PhotoUploader`, and `ListingPreview` are all reused by other tasks (07-02 browse filters, admin moderation, etc.) — build them as first-class components now.
 
 ## What Needs to Happen
 
