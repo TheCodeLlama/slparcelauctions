@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign In | SLPA</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "tertiary-container": "#86a5de",
+                        "on-tertiary-container": "#163a6c",
+                        "secondary": "#545f73",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "surface-tint": "#7b5808",
+                        "inverse-primary": "#eec06a",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#3f5f93",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#d2c5b2",
+                        "on-secondary-container": "#586377",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f7f9fb",
+                        "primary-fixed": "#ffdea7",
+                        "surface-variant": "#e0e3e5",
+                        "outline": "#807666",
+                        "on-primary-container": "#4e3600",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-background": "#191c1e",
+                        "primary-container": "#c99e4c",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#4e4638",
+                        "on-tertiary-fixed": "#001b3e",
+                        "tertiary-fixed": "#d6e3ff",
+                        "primary-fixed-dim": "#eec06a",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed": "#271900",
+                        "secondary-container": "#d5e0f8",
+                        "primary": "#7b5808",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .editorial-shadow {
+            box-shadow: 0 10px 32px -4px rgba(25, 28, 30, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-background antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- Auth Layout Suppression: No Shell for Transactional Screens -->
+<main class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-6">
+<!-- Background Editorial Element -->
+<div class="absolute inset-0 z-0 pointer-events-none opacity-40">
+<div class="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-primary-container/20 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-secondary-container/30 rounded-full blur-[100px]"></div>
+</div>
+<!-- Content Canvas -->
+<div class="w-full max-w-[480px] z-10">
+<!-- Brand Anchor -->
+<div class="mb-12 text-center">
+<h1 class="font-headline font-black text-4xl tracking-tighter text-on-background mb-2">SLPA</h1>
+<p class="font-headline font-bold text-on-surface-variant uppercase tracking-[0.2em] text-xs">The Digital Curator</p>
+</div>
+<!-- Sign In Card -->
+<div class="bg-surface-container-lowest editorial-shadow rounded-xl p-10 md:p-12 relative overflow-hidden">
+<!-- Tonal Header -->
+<div class="mb-10">
+<h2 class="font-headline font-extrabold text-3xl tracking-tight text-on-background mb-3">Welcome Back</h2>
+<p class="text-on-surface-variant text-sm font-medium leading-relaxed">Secure access to your curated property portfolio and active bids.</p>
+</div>
+<!-- Form Fields -->
+<form class="space-y-6">
+<div>
+<label class="block text-[11px] font-bold uppercase tracking-widest text-on-surface-variant mb-2" for="email">Email Address</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-low border-b border-outline-variant py-4 px-0 focus:outline-none focus:border-primary transition-colors text-on-background placeholder:text-outline font-medium" id="email" name="email" placeholder="name@luminousestate.com" required="" type="email"/>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<label class="block text-[11px] font-bold uppercase tracking-widest text-on-surface-variant" for="password">Password</label>
+<a class="text-[11px] font-bold text-primary uppercase tracking-widest hover:underline underline-offset-4 transition-all" href="#">Forgot?</a>
+</div>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-b border-outline-variant py-4 px-0 focus:outline-none focus:border-primary transition-colors text-on-background placeholder:text-outline font-medium" id="password" name="password" placeholder="••••••••••••" required="" type="password"/>
+</div>
+</div>
+<!-- Remember Me Toggle -->
+<div class="flex items-center py-2">
+<label class="flex items-center cursor-pointer group">
+<div class="relative">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-10 h-5 bg-surface-container-high rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</div>
+<span class="ml-3 text-sm font-medium text-on-surface-variant group-hover:text-on-background transition-colors">Keep me signed in</span>
+</label>
+</div>
+<!-- Primary Action -->
+<div class="pt-4">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold py-5 rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-300 text-lg" type="submit">
+                            Sign In
+                        </button>
+</div>
+</form>
+<!-- Footnotes -->
+<div class="mt-12 pt-8 border-t border-outline-variant/10 text-center">
+<p class="text-sm text-on-surface-variant font-medium">
+                        New to the curator? 
+                        <a class="text-primary font-bold hover:underline underline-offset-4 ml-1" href="#">Request Membership</a>
+</p>
+</div>
+</div>
+<!-- Footer Links -->
+<div class="mt-8 flex justify-center gap-6 text-[10px] font-bold uppercase tracking-widest text-outline">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<span class="w-1 h-1 bg-outline-variant rounded-full mt-[6px]"></span>
+<a class="hover:text-primary transition-colors" href="#">Legal Terms</a>
+<span class="w-1 h-1 bg-outline-variant rounded-full mt-[6px]"></span>
+<a class="hover:text-primary transition-colors" href="#">Support</a>
+</div>
+</div>
+<!-- Auction Pulse Decorative Chip (System Element) -->
+<div class="absolute bottom-8 right-8 hidden lg:flex items-center gap-3 bg-surface-container-lowest editorial-shadow px-5 py-3 rounded-full">
+<span class="flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-xs font-bold font-label uppercase tracking-widest text-on-surface-variant">Live Auctions: 42 Active</span>
+</div>
+</main>
+<!-- Side Image Background Component (Editorial Layout) -->
+<div class="fixed top-0 right-0 w-[35%] h-full hidden xl:block overflow-hidden">
+<img class="w-full h-full object-cover grayscale-[20%] sepia-[10%] contrast-[1.1] brightness-[0.9]" data-alt="Luxurious open landscape at sunset with golden sunlight hitting the emerald green rolling hills and a clear evening sky" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYygrKoKxBe6XVB3LW2nLydg3t9vJ9XGWfhNF2ApORVpEOyENLAo33BM7J-xAhMSxomcjEyroSVC_9ylW9xbnRJJ98UqCfRMShS7qL7q4jx1Em34VgbyGX1onuQsh_8KuPxFuiaVxwpAFj3TvA94Opf-5JVOigBgwouO0_mcv7huLM2Ir45hYtab08hQal4seX2U37ZV7YPUx-WYBno8HcrrbdRD7vRjVOSIGvuhQp-3MC2bHt4RUs3Mlnjl9ay4gVX9ZtkE3OVVo"/>
+<div class="absolute inset-0 bg-gradient-to-l from-transparent via-background/10 to-background"></div>
+<!-- Floating Detail Overlay -->
+<div class="absolute bottom-16 left-12 right-12 p-8 bg-surface-container-lowest/80 backdrop-blur-xl rounded-xl">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">Curated Listing #772</span>
+</div>
+<h3 class="font-headline font-bold text-xl text-on-background mb-1">The Alpine Verge</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">A pristine 4.2-acre parcel featuring panoramic valley views and protected forest perimeters.</p>
+</div>
+</div>
+</body></html>

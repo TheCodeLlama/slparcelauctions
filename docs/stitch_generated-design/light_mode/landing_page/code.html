@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SLPA | Second Life Land Parcel Auctions</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "tertiary-container": "#86a5de",
+                        "on-tertiary-container": "#163a6c",
+                        "secondary": "#545f73",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "surface-tint": "#7b5808",
+                        "inverse-primary": "#eec06a",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#3f5f93",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#d2c5b2",
+                        "on-secondary-container": "#586377",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f7f9fb",
+                        "primary-fixed": "#ffdea7",
+                        "surface-variant": "#e0e3e5",
+                        "outline": "#807666",
+                        "on-primary-container": "#4e3600",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-background": "#191c1e",
+                        "primary-container": "#c99e4c",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#4e4638",
+                        "on-tertiary-fixed": "#001b3e",
+                        "tertiary-fixed": "#d6e3ff",
+                        "primary-fixed-dim": "#eec06a",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed": "#271900",
+                        "secondary-container": "#d5e0f8",
+                        "primary": "#7b5808",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .editorial-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container/30">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl flex justify-between items-center px-8 h-20 max-w-full shadow-sm shadow-slate-900/5">
+<div class="flex items-center gap-12">
+<span class="text-2xl font-black text-slate-900 tracking-tighter font-headline">SLPA</span>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-amber-700 border-b-2 border-amber-500 pb-1 font-headline tracking-tight font-bold transition-all duration-300" href="#">Browse</a>
+<a class="text-slate-600 font-medium hover:text-amber-600 font-headline tracking-tight transition-all duration-300" href="#">Dashboard</a>
+<a class="text-slate-600 font-medium hover:text-amber-600 font-headline tracking-tight transition-all duration-300" href="#">Create Listing</a>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center bg-surface-container-low px-4 py-2 rounded-full border-b border-outline-variant/15">
+<span class="material-symbols-outlined text-on-surface-variant mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48" placeholder="Search parcels..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-all duration-300 active:scale-90">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-all duration-300 active:scale-90">settings</button>
+<img alt="User profile" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary/10" data-alt="Portrait of a professional man in a minimalist studio with soft lighting and neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBR0IvUzb6LU-XaVGx0_9yjhuXQu3VagiGdW_W2CqacQ03dsof3aBj-d-1nmJBzx0ebk3d3rG0HoXu_0cyUTU8qfvXPy8JXw2nDAhO9_NLTEtcarSi_jLsHFj4X2YdzhnOautnka0C-bE5pZp64rb_N1z9Nt8nkbcd3xlS1i1dLSrZ1T4SE1Uo8OdOITDQVcyrgsZVFm65r7QcwLCaAcaWka6LKZmqJ8ymJ6bZmoBT4bx0seBYOUdx4h7VDMM2GlMHTHtlzsv8sHUI"/>
+</div>
+</nav>
+<main class="pt-20">
+<!-- Hero Section -->
+<section class="relative min-h-[921px] flex items-center px-8 overflow-hidden bg-surface">
+<div class="max-w-7xl mx-auto w-full editorial-grid relative z-10">
+<div class="col-span-12 lg:col-span-7 flex flex-col justify-center">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-highest rounded-full mb-6 w-fit">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-[10px] font-bold uppercase tracking-widest text-primary">Live Auctions Active</span>
+</div>
+<h1 class="font-headline text-5xl md:text-7xl font-extrabold text-on-surface leading-[1.05] tracking-tight mb-8">
+                        Buy &amp; Sell Second Life Land at Auction
+                    </h1>
+<p class="text-xl text-on-surface-variant max-w-xl mb-10 leading-relaxed">
+                        The premium digital land curator. Secure your virtual footprint through our verified auction house, featuring real-time bidding and exclusive parcel listings.
+                    </p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-gradient-to-br from-primary to-primary-container text-on-primary px-8 py-4 rounded-xl font-bold tracking-tight shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
+                            Browse Listings
+                        </button>
+<button class="px-8 py-4 rounded-xl border border-outline-variant/30 text-on-surface font-bold hover:bg-surface-container-high transition-all active:scale-95">
+                            Start Selling
+                        </button>
+</div>
+</div>
+<div class="hidden lg:col-span-5 lg:flex items-center justify-center relative">
+<div class="w-full aspect-[4/5] rounded-xl overflow-hidden shadow-2xl relative group">
+<img alt="Luxury Digital Estate" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Ultra-modern architectural render of a minimalist luxury villa with floor to ceiling glass windows and evening lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAoo-vdZdJUvhRhq6n_qcO_J4b3wOXjAvFAaOMPcAnej7kers1ufh5Bj0ZEBKF9qLVhH8UINS7oPFOb9Op6fYTy-s1qVkOvi9IeVBVKWI7QhQS2vUslxUiTwWNVJ0xYOpSjire3rISmCmaMGuJbS59FdNktYORscPA6fqGhjQKU6VdgkDdzLGqtkDYi4E4Rq1u5-hd_k0SHxZ8AuCpJ71k98nFc4jgqkqNodCAUDcHjEfZwdiyp3GgZgttCeEN0bta9IB2XKNkZ0Z0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-8 left-8 right-8 text-white">
+<p class="font-headline font-bold text-2xl mb-1">Oceanic Retreat Parcel</p>
+<p class="text-white/80 text-sm">Starting Bid: L$ 45,000</p>
+</div>
+</div>
+<!-- Decorative element -->
+<div class="absolute -top-12 -right-12 w-48 h-48 bg-primary-fixed rounded-full blur-3xl opacity-20 -z-10"></div>
+</div>
+</div>
+</section>
+<!-- Stats Bar -->
+<section class="bg-white py-12 px-8">
+<div class="max-w-7xl mx-auto flex flex-wrap justify-between gap-8 border-y border-outline-variant/15 py-10">
+<div class="flex flex-col">
+<span class="text-4xl font-headline font-extrabold text-on-surface">1,240</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-medium">Parcels Sold</span>
+</div>
+<div class="flex flex-col">
+<span class="text-4xl font-headline font-extrabold text-on-surface">L$ 85M+</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-medium">Volume Traded</span>
+</div>
+<div class="flex flex-col">
+<span class="text-4xl font-headline font-extrabold text-on-surface">4.9/5</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-medium">User Rating</span>
+</div>
+<div class="flex flex-col">
+<span class="text-4xl font-headline font-extrabold text-on-surface">12k</span>
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-medium">Active Bidders</span>
+</div>
+</div>
+</section>
+<!-- How It Works Section -->
+<section class="py-32 px-8 bg-surface-container-low">
+<div class="max-w-7xl mx-auto">
+<div class="flex flex-col lg:flex-row justify-between items-end mb-20 gap-8">
+<div class="max-w-2xl">
+<h2 class="font-headline text-4xl md:text-5xl font-bold text-on-surface mb-6">Simple, Secure, Curated.</h2>
+<p class="text-on-surface-variant text-lg">We've refined the process of digital land acquisition into four seamless steps designed for professional curators.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+<!-- Step 1 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl transition-all duration-300 hover:translate-y-[-8px]">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined">verified_user</span>
+</div>
+<h3 class="font-headline font-bold text-xl mb-3">Verify</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">Identity and land ownership verification to ensure a safe environment for all participants.</p>
+</div>
+<!-- Step 2 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl transition-all duration-300 hover:translate-y-[-8px]">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined">list_alt</span>
+</div>
+<h3 class="font-headline font-bold text-xl mb-3">List</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">List your parcel with detailed dimensions, location metrics, and professional photography.</p>
+</div>
+<!-- Step 3 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl transition-all duration-300 hover:translate-y-[-8px]">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined">gavel</span>
+</div>
+<h3 class="font-headline font-bold text-xl mb-3">Auction</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">Engage in high-velocity real-time bidding with automated proxy options and sniping protection.</p>
+</div>
+<!-- Step 4 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl transition-all duration-300 hover:translate-y-[-8px]">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<h3 class="font-headline font-bold text-xl mb-3">Settle</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">Secure escrow services ensure funds and land ownership transfer smoothly and instantly.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Features Bento Grid -->
+<section class="py-32 px-8">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-20">
+<h2 class="font-headline text-4xl md:text-5xl font-bold text-on-surface mb-6">Designed for Performance</h2>
+<p class="text-on-surface-variant text-lg max-w-2xl mx-auto">Engineered to provide the most reliable land trading platform in the virtual ecosystem.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Large Feature -->
+<div class="md:col-span-2 bg-surface-container p-10 rounded-xl relative overflow-hidden flex flex-col justify-between group">
+<div class="relative z-10">
+<span class="material-symbols-outlined text-primary text-4xl mb-6">bolt</span>
+<h3 class="font-headline text-3xl font-bold mb-4">Real-Time Bidding</h3>
+<p class="text-on-surface-variant max-w-md">Our low-latency engine updates bids in milliseconds, ensuring you never miss a critical moment in high-stakes auctions.</p>
+</div>
+<div class="absolute right-0 bottom-0 w-1/2 h-full opacity-10 group-hover:scale-110 transition-transform duration-500">
+<img alt="Data Interface" class="w-full h-full object-cover" data-alt="Sleek abstract data visualization with glowing orange lines and dark blue background representing high speed connectivity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPvRzwwIjlGgtSG0IhxEeiLB7_VltR1ws-lyyk4BLgVmOlZwPVXUEQVRX9B6j4tx7Ax1oCe8A5ww6ec1RLSotr-lBpNJc05fQ-LjuwMCAN74ycdvCMmm3QHnwWA4aqyuJQMuJ0dsJvDR3kPTUooDTrbJlello7cjqY03YDEYK_byi2RCCyvovvhXrcKnx0Cb7TmF0xiK0moTc5I4wU8Lypukjho6w2LsaAj9m5hcHP_cMSjkFJgyXBfjFXq8TowVPaytluu4WGQus"/>
+</div>
+</div>
+<!-- Small Feature -->
+<div class="bg-primary-container p-10 rounded-xl text-on-primary-container flex flex-col justify-between">
+<span class="material-symbols-outlined text-4xl mb-6">shield</span>
+<div>
+<h3 class="font-headline text-2xl font-bold mb-3">Secure Escrow</h3>
+<p class="text-sm opacity-80">Automated multi-sig escrow for every transaction, protecting both the buyer's capital and the seller's asset.</p>
+</div>
+</div>
+<!-- Middle Row -->
+<div class="bg-surface-container-high p-10 rounded-xl flex flex-col justify-between border border-outline-variant/15">
+<span class="material-symbols-outlined text-primary text-4xl mb-6">timer</span>
+<div>
+<h3 class="font-headline text-2xl font-bold mb-3">Snipe Protection</h3>
+<p class="text-sm text-on-surface-variant">Last-minute bids automatically extend auction windows, preventing unfair last-second bidding tactics.</p>
+</div>
+</div>
+<div class="md:col-span-2 bg-inverse-surface p-10 rounded-xl text-white relative overflow-hidden flex flex-col justify-between group">
+<div class="relative z-10">
+<span class="material-symbols-outlined text-primary-fixed-dim text-4xl mb-6">verified</span>
+<h3 class="font-headline text-3xl font-bold mb-4">Verified Listings</h3>
+<p class="text-white/60 max-w-md">Every parcel is cross-referenced with region data to confirm tier, covenant, and dimensions before listing.</p>
+</div>
+<div class="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/20 blur-3xl rounded-full"></div>
+</div>
+<!-- Bottom Row -->
+<div class="bg-surface-container p-10 rounded-xl flex flex-col justify-between group">
+<span class="material-symbols-outlined text-primary text-4xl mb-6">smart_toy</span>
+<div>
+<h3 class="font-headline text-2xl font-bold mb-3">Proxy Bidding</h3>
+<p class="text-sm text-on-surface-variant">Set your maximum price and let our system bid incrementally on your behalf to win at the best possible price.</p>
+</div>
+</div>
+<div class="md:col-span-2 bg-surface-container-lowest p-10 rounded-xl flex flex-col justify-between border border-outline-variant/15 group shadow-sm">
+<span class="material-symbols-outlined text-primary text-4xl mb-6">star</span>
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<div class="max-w-md">
+<h3 class="font-headline text-2xl font-bold mb-3">Reputation System</h3>
+<p class="text-sm text-on-surface-variant">Trade with confidence using our transparent historical performance metrics for every buyer and seller.</p>
+</div>
+<div class="flex -space-x-4">
+<img class="w-12 h-12 rounded-full border-2 border-white object-cover" data-alt="Close-up of a smiling young man in casual attire" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChe40dFlxtg_jqWMHIwGyfIsUwBxE-tChMxarvyqkrYRjx_4S2GirFObksWeZAYLsvadz5W7BnWBSADWgpNHZvPR_xmJq56CiuVB2JP0srA7Ryu8jagdti9yCv--ncZ8Il9Q5tgr8OHQzKSvzvu2YGQHTQXLoPJzzVwX92_9cliL1Xo1pw5AQjeJfPIQ48gA9iuMVzR6C41jT6GTv1msEpoRfNhLFqWTKEeqY2X-aKj97agDsk0g8jI77kJIpuBwKjJppwkjed7CI"/>
+<img class="w-12 h-12 rounded-full border-2 border-white object-cover" data-alt="Close-up of a smiling woman with dark hair" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSWcHSl-jPVQbTYamPxZyYAsF8j6LqV6BG6cIvbc28qVjEXwRVi70sdzTXLz-edcChyd5djM6LwDuGnXdv5E9E7kG59-I8TdkfhNZQlMHkOzekzDhXTsoIMb_rOmhA2CDexYv1UcOqG74cf94mnp8Ikci779t8ddJ201zyRT0HMedE2jeFnYJIxfPVdGc-IcSEZChrrL1aPYte46cA4BGqw5GDQ4hSCtviIeoSw_YA9un-Mv2ufTzh0kSoU3izJJeOvTxSyF9Wkso"/>
+<img class="w-12 h-12 rounded-full border-2 border-white object-cover" data-alt="Portrait of a mature man with glasses" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYmGpYITac2bdEraZAOonemCKaTT40w-dO8Mr5b0cB_piku5ppHuigAX1R3qQCUK26zZmSJeKa3Vfo7ioWsC0nWeYF3XuI4xuy0h8OVKv6_-sc0_G18r_6xjBps6ZxbbkEQrNqM-zptfP_FLhRq7QAdsiV_-K-shqH4O7RuEjbGbkJ6SrnGS93vgRIcF0QWcnPioXIov0A925Ny7KJDJPPWL7xtJJ2c9KPeKQihlCCOjzd_GP5n94MmQieJkocBJKQSD2DMwfRMEg"/>
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-xs font-bold border-2 border-white">+8k</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom CTA -->
+<section class="py-32 px-8">
+<div class="max-w-7xl mx-auto bg-primary rounded-[2rem] p-12 md:p-24 text-center relative overflow-hidden">
+<div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
+<div class="relative z-10">
+<h2 class="font-headline text-4xl md:text-6xl font-extrabold text-on-primary mb-8 tracking-tighter">Ready to acquire your next parcel?</h2>
+<p class="text-on-primary/80 text-xl max-w-2xl mx-auto mb-12">Join thousands of curators building their digital footprint on SLPA.</p>
+<div class="flex flex-wrap justify-center gap-6">
+<button class="bg-white text-primary px-10 py-5 rounded-xl font-bold text-lg hover:scale-105 transition-transform active:scale-95 shadow-xl">Create Free Account</button>
+<button class="bg-primary-container text-on-primary-container px-10 py-5 rounded-xl font-bold text-lg hover:scale-105 transition-transform active:scale-95">View Active Auctions</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 border-t border-slate-200 w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center">
+<div class="mb-8 md:mb-0">
+<p class="font-headline font-bold text-slate-400 mb-2">SLPA</p>
+<p class="font-inter text-xs uppercase tracking-widest text-slate-400">© 2024 Luminous Estate Parcel Auctions. The Digital Curator.</p>
+</div>
+<div class="flex flex-wrap justify-center gap-8">
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 underline underline-offset-4 transition-all duration-300" href="#">Terms of Service</a>
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 underline underline-offset-4 transition-all duration-300" href="#">Privacy Policy</a>
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 underline underline-offset-4 transition-all duration-300" href="#">Contact Support</a>
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 underline underline-offset-4 transition-all duration-300" href="#">Auction Rules</a>
+</div>
+</footer>
+</body></html>

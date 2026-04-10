@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Forgot Password - SLPA</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "tertiary-container": "#86a5de",
+                        "on-tertiary-container": "#163a6c",
+                        "secondary": "#545f73",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "surface-tint": "#7b5808",
+                        "inverse-primary": "#eec06a",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#3f5f93",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#d2c5b2",
+                        "on-secondary-container": "#586377",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f7f9fb",
+                        "primary-fixed": "#ffdea7",
+                        "surface-variant": "#e0e3e5",
+                        "outline": "#807666",
+                        "on-primary-container": "#4e3600",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-background": "#191c1e",
+                        "primary-container": "#c99e4c",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#4e4638",
+                        "on-tertiary-fixed": "#001b3e",
+                        "tertiary-fixed": "#d6e3ff",
+                        "primary-fixed-dim": "#eec06a",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed": "#271900",
+                        "secondary-container": "#d5e0f8",
+                        "primary": "#7b5808",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        h1, h2, h3 {
+            font-family: 'Manrope', sans-serif;
+        }
+        .luxury-shadow {
+            shadow-color: rgba(25, 28, 30, 0.06);
+            box-shadow: 0 32px 64px -12px rgba(25, 28, 30, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<!-- Navigation Shell Suppressed for Transactional Page as per Logic -->
+<main class="flex-grow flex items-center justify-center px-6 py-12 relative overflow-hidden">
+<!-- Abstract Background Detail -->
+<div class="absolute top-0 right-0 -mr-32 -mt-32 w-96 h-96 rounded-full bg-primary-container/10 blur-3xl"></div>
+<div class="absolute bottom-0 left-0 -ml-32 -mb-32 w-80 h-80 rounded-full bg-secondary-container/20 blur-3xl"></div>
+<div class="w-full max-w-md relative z-10">
+<!-- Brand Identity Anchor -->
+<div class="text-center mb-10">
+<span class="text-3xl font-black tracking-tighter text-on-surface uppercase">SLPA</span>
+<div class="mt-2 text-xs uppercase tracking-widest text-on-surface-variant font-label">The Digital Curator</div>
+</div>
+<!-- Centered Transactional Card -->
+<div class="bg-surface-container-lowest rounded-xl luxury-shadow p-10 border border-outline-variant/15">
+<div class="mb-8">
+<h1 class="text-3xl font-extrabold tracking-tight text-on-surface mb-3">Recover Access</h1>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                        Enter the email address associated with your estate portfolio. We'll send a secure link to reset your credentials.
+                    </p>
+</div>
+<form class="space-y-6">
+<div class="space-y-2">
+<label class="block text-xs font-bold uppercase tracking-wider text-on-surface-variant" for="email">Portfolio Email</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-0 bottom-3 text-outline" data-icon="mail">mail</span>
+<input class="w-full bg-surface-container-low border-0 border-b border-outline-variant/30 py-3 pl-8 focus:ring-0 focus:border-primary transition-colors text-on-surface placeholder:text-outline/50" id="email" name="email" placeholder="curator@luminous.estate" required="" type="email"/>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold py-4 rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2" type="submit">
+<span>Send Reset Link</span>
+<span class="material-symbols-outlined text-lg" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</form>
+<div class="mt-10 pt-8 border-t border-outline-variant/10 text-center">
+<a class="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors duration-200" href="/signin">
+<span class="material-symbols-outlined text-base" data-icon="keyboard_backspace">keyboard_backspace</span>
+                        Back to sign in
+                    </a>
+</div>
+</div>
+<!-- Contextual Branding Image Fragment -->
+<div class="mt-12 opacity-40 grayscale hover:grayscale-0 transition-all duration-700 cursor-default">
+<img alt="Luxury Estate Parcel" class="w-full h-32 object-cover rounded-lg" data-alt="high-end minimalist architectural detail of a luxury villa facade with clean lines and soft afternoon shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA30HM2ipv6kSfe1s-P4exoz3O_r9O--2UvR3q0qojuKuRZrp5Jju0K1e3s-bwCh9VHVefKSoCOOZoMjj_mT0u77olyj5Ne33G3UIq6ie-pC9a6HLDNiPRTQ9DiGdJFTVu4P3Zh07sNrTV8o2Y86bbMsjz6eN2JXcRI8hCTijXW2B3UPXkv4Q280B1cO2-kuZlH_7XQA4Du_ndcZLktAyVOWv4LXv4TuXRgabG6MbTzcJ-dDnlTKv8Yn1bcSWqWfZFAHb2uIZ8vIdU"/>
+</div>
+</div>
+</main>
+<!-- Simple Footer for Transactional Focused Page -->
+<footer class="w-full py-8 px-8 flex flex-col md:flex-row justify-between items-center opacity-60">
+<div class="font-headline font-bold text-slate-400 text-xs tracking-tighter">
+            © 2024 LUMINOUS ESTATE PARCEL AUCTIONS.
+        </div>
+<div class="flex gap-6 mt-4 md:mt-0">
+<a class="font-inter text-[10px] uppercase tracking-widest text-slate-400 hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="font-inter text-[10px] uppercase tracking-widest text-slate-400 hover:text-primary transition-colors" href="#">Support</a>
+</div>
+</footer>
+</body></html>

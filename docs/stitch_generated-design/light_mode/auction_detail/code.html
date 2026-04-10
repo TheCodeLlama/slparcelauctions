@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SLPA | Auction Details</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "tertiary-container": "#86a5de",
+                        "on-tertiary-container": "#163a6c",
+                        "secondary": "#545f73",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "surface-tint": "#7b5808",
+                        "inverse-primary": "#eec06a",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#3f5f93",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#d2c5b2",
+                        "on-secondary-container": "#586377",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f7f9fb",
+                        "primary-fixed": "#ffdea7",
+                        "surface-variant": "#e0e3e5",
+                        "outline": "#807666",
+                        "on-primary-container": "#4e3600",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-background": "#191c1e",
+                        "primary-container": "#c99e4c",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#4e4638",
+                        "on-tertiary-fixed": "#001b3e",
+                        "tertiary-fixed": "#d6e3ff",
+                        "primary-fixed-dim": "#eec06a",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed": "#271900",
+                        "secondary-container": "#d5e0f8",
+                        "primary": "#7b5808",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; color: #191c1e; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
+        .ghost-border { border: 1px solid rgba(210, 197, 178, 0.15); }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- TopNavBar -->
+<nav class="fixed top-0 w-full z-50 glass-nav shadow-sm shadow-slate-900/5 h-20 px-8 flex justify-between items-center">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-black text-slate-900 tracking-tighter font-headline">SLPA</span>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-amber-700 border-b-2 border-amber-500 pb-1 font-manrope tracking-tight font-bold" href="#">Browse</a>
+<a class="text-slate-600 font-medium hover:text-amber-600 transition-all duration-300" href="#">Dashboard</a>
+<a class="text-slate-600 font-medium hover:text-amber-600 transition-all duration-300" href="#">Create Listing</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-full ghost-border">
+<span class="material-symbols-outlined text-on-surface-variant text-lg">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48" placeholder="Search parcels..." type="text"/>
+</div>
+<button class="p-2 hover:opacity-80 transition-all active:scale-90"><span class="material-symbols-outlined text-slate-600">notifications</span></button>
+<button class="p-2 hover:opacity-80 transition-all active:scale-90"><span class="material-symbols-outlined text-slate-600">settings</span></button>
+<img alt="User Profile" class="w-10 h-10 rounded-full object-cover ring-2 ring-surface-container-high" data-alt="Professional headshot of a curator in a well-lit modern office space, soft bokeh background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjpmhOED-kr8XKdCE9elONQTxXBczafqZ7BEgUrys_0o4yLQ1YwZAGOB_OroL_VHTvZ2e6Cg_zZDredGeX6fAyLd1gZKIvkyq7ZrSWn-kUalbSd84gn_j9Rr-MaEf2OnTvXct4fIxjhQYU2auFZ5cCHPDVbklx0VdtWlgMBLo-T22Xj_AwD5v4Ci4z-B_WJW2iRhbN3qS-Sc_fz9pYIJpNysctA6J3Dhp4AncbkQQyPn7DHVLc66kVjtCoBrAgvxoyN7mDa-5YqjA"/>
+</div>
+</nav>
+<main class="max-w-7xl mx-auto px-8 pt-32 pb-24">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<!-- Left Column: Content Canvas -->
+<div class="lg:col-span-8 space-y-12">
+<!-- Gallery Section (Asymmetric Layout) -->
+<section class="grid grid-cols-4 grid-rows-2 gap-4 h-[500px]">
+<div class="col-span-3 row-span-2 relative overflow-hidden rounded-md group">
+<img alt="Main Parcel View" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Wide expansive aerial landscape of a rolling green hills property during sunrise, golden mist in valleys" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdKhphR4poNh_SnSDmjsugWK_rRA2wdy8B5DyhcUydZBpULslplelPO7K9yKieK3jTIbFkQsyV4v-NsH_-akiRIEBp2sms-kbTDP0K3fGkKZlsOlyxslAFoPkCswwtLU3a4yoyNV7oQl54plyJXhlekzuGA5JjwS7eq62lV8hAmDMSp5H9OiXOYg7hUfCWfTpfYiHJhSm7gBxRxEFBPiYb583fXRrRSlEw0qAwXXpL53xGMZ5azRcJ0WTqMPAHe5IVEWWcTOxYgaM"/>
+<div class="absolute bottom-4 left-4 bg-surface-container-lowest/80 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2">
+<span class="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+<span class="text-xs font-bold uppercase tracking-widest text-on-surface">Live Auction</span>
+</div>
+</div>
+<div class="col-span-1 row-span-1 overflow-hidden rounded-md group">
+<img alt="Detail View 1" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Close up of lush native vegetation and soil quality on a sun-drenched pastoral land parcel" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJfziBsxJfNvaZcObmeaq3Q1x2qsSru-nFWyn7cMhiZPvwlJB7jJFcFYv_6Wbg40Fg6zI2t-C50Kk-ZkD-9gpCGcRJJvjVhNCCCAxuq6oO8tEzcCy57nMRNb4bki1mYldx1Yg4FsZKFMvXVsgbZhoPHCdEh9tyVGWKuKjYJCEMZHlpOO1TaspStyL52aCXRlz_aw65TfSPdpDnsyz1tqyADfiAxV65XkPFTb9_n7c0Afk14Lq_Cz6IIukWbA8sqHd5D2U99ryED2Q"/>
+</div>
+<div class="col-span-1 row-span-1 relative overflow-hidden rounded-md group">
+<img alt="Detail View 2" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Distant mountain range viewed from the boundary of the property, clear blue sky overhead" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4SW_V5sRmpb5q2FhjNjV63Z39nr8DtYe9TcUA4Np4YzRnSmwYvdEZtxLeRZh2ymgLpWPTfrdnaCyenLn-MsHImeX116aCMk_wDnPbxF0b71BOpb7k_9l0Vx_sAiRwaf3vYCUu_Fnl78UDQZz3S5f3U4TyCL5xS9ZuAIu-MYl4v-z2IifbzD9pBlu_mzMlvLqiRNl1lE7ZxKEbIixDw5BkBBUp5EHCqjL2mzJo8EnQbdwzL957TJ_G18TZJcPrQyktibPrhGb6V40"/>
+<button class="absolute inset-0 bg-on-surface/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="text-white font-bold flex items-center gap-2">
+<span class="material-symbols-outlined">grid_view</span> View All
+                            </span>
+</button>
+</div>
+</section>
+<!-- Header Info -->
+<header class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-tighter">Residential Tier I</span>
+<span class="text-on-surface-variant text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">location_on</span> Sonoma Valley, California
+                        </span>
+</div>
+<h1 class="text-5xl font-black font-headline tracking-tighter text-on-surface leading-none">The Obsidian Crest Estates</h1>
+<div class="flex items-center gap-6 pt-2">
+<div class="flex items-center gap-3">
+<img alt="Seller Avatar" class="w-10 h-10 rounded-full object-cover" data-alt="Portrait of a sophisticated real estate broker with gray hair, sharp suit, outdoors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDu_FvJCXz0oWcVCjmb37HQDByLHzsxpSTJ3N5MCCfPGkunSZLAFddbaCcF43TknGNmWxTeboJHQGOhImjylsLZkSL7Y75F9eVXHjbK-XbsgQk5aUkuWPuCkPKLLxYt3rRJsbH3uzoDQFd6_3GBXdRk3VotVg9xxkm75WGipkgiw7pRzlE7Ulah1Z-xFJuIR52w9AhQTJijtSiSAar9ISPrGJdmf3OM8nFUXS71DVtkDJeLEEGIb1RJsj-IIJ9LcKs4_d2w23tJZu4"/>
+<div>
+<p class="text-xs uppercase tracking-widest text-on-surface-variant font-bold">Curated By</p>
+<p class="text-sm font-bold text-on-surface">Vanguard Acquisitions</p>
+</div>
+</div>
+<div class="h-8 w-px bg-outline-variant/30"></div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors text-sm font-semibold">
+<span class="material-symbols-outlined text-lg">calendar_today</span> Schedule Visit
+                            </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors text-sm font-semibold">
+<span class="material-symbols-outlined text-lg">map</span> View Map
+                            </button>
+</div>
+</div>
+</header>
+<!-- Metadata Grid -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-4 p-8 bg-surface-container-lowest rounded-xl shadow-sm shadow-slate-900/5">
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Total Area</p>
+<p class="text-lg font-black text-on-surface">14.5 Acres</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Zoning</p>
+<p class="text-lg font-black text-on-surface">R-1 Urban</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Elevation</p>
+<p class="text-lg font-black text-on-surface">1,240 FT</p>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Soil Class</p>
+<p class="text-lg font-black text-on-surface">Type A Silt</p>
+</div>
+</section>
+<!-- Features & Description -->
+<section class="space-y-8">
+<div class="space-y-4">
+<h3 class="text-xl font-black font-headline tracking-tight text-on-surface">Property Narrative</h3>
+<p class="text-on-surface-variant leading-relaxed font-body max-w-2xl">
+                            Positioned at the highest topographical point in the Obsidian corridor, this parcel offers unparalleled 360-degree views of the valley. Currently classified under Residential Tier I, the land features stable geological foundations and pre-approved environmental clearances for sustainable development.
+                        </p>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="flex items-start gap-3">
+<div class="p-2 bg-primary/5 rounded-lg"><span class="material-symbols-outlined text-primary">water_drop</span></div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Water Rights</h4>
+<p class="text-xs text-on-surface-variant">Deeded well access included.</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-2 bg-primary/5 rounded-lg"><span class="material-symbols-outlined text-primary">bolt</span></div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Utility Access</h4>
+<p class="text-xs text-on-surface-variant">Underground electrical grid ready.</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-2 bg-primary/5 rounded-lg"><span class="material-symbols-outlined text-primary">nature</span></div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Conservation</h4>
+<p class="text-xs text-on-surface-variant">15% protected oak woodland.</p>
+</div>
+</div>
+<div class="flex items-start gap-3">
+<div class="p-2 bg-primary/5 rounded-lg"><span class="material-symbols-outlined text-primary">description</span></div>
+<div>
+<h4 class="text-sm font-bold text-on-surface">Permit Status</h4>
+<p class="text-xs text-on-surface-variant">Approved building envelope.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bid History Table -->
+<section class="space-y-6">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-black font-headline tracking-tight text-on-surface">Transaction Log</h3>
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">34 Recent Bids</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm shadow-slate-900/5">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+<th class="px-6 py-4">Bidder Hash</th>
+<th class="px-6 py-4">Amount</th>
+<th class="px-6 py-4">Timestamp</th>
+<th class="px-6 py-4 text-right">Status</th>
+</tr>
+</thead>
+<tbody class="text-sm text-on-surface divide-y divide-outline-variant/10">
+<tr>
+<td class="px-6 py-4 font-mono text-xs">88a2...3f12</td>
+<td class="px-6 py-4 font-bold">$1,420,000</td>
+<td class="px-6 py-4 text-on-surface-variant">2 mins ago</td>
+<td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-primary/10 text-primary rounded text-[10px] font-bold uppercase">Leading</span></td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-mono text-xs">92c1...99e4</td>
+<td class="px-6 py-4 font-bold">$1,415,000</td>
+<td class="px-6 py-4 text-on-surface-variant">14 mins ago</td>
+<td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-surface-container-high text-on-surface-variant rounded text-[10px] font-bold uppercase">Outbid</span></td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-mono text-xs">01bb...44a7</td>
+<td class="px-6 py-4 font-bold">$1,400,000</td>
+<td class="px-6 py-4 text-on-surface-variant">1 hour ago</td>
+<td class="px-6 py-4 text-right"><span class="px-2 py-1 bg-surface-container-high text-on-surface-variant rounded text-[10px] font-bold uppercase">Outbid</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<!-- Right Column: Sticky Sidebar -->
+<aside class="lg:col-span-4">
+<div class="sticky top-32 space-y-6">
+<div class="bg-white p-8 rounded-xl shadow-xl shadow-slate-900/10 border border-outline-variant/10">
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Current Highest Acquisition</p>
+<h2 class="text-4xl font-black font-headline text-on-surface">$1,420,000</h2>
+</div>
+<div class="bg-primary/5 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+</div>
+</div>
+<div class="flex gap-4 mb-8">
+<div class="flex-1 bg-surface-container-low p-3 rounded-lg text-center">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Ends In</p>
+<p class="text-lg font-black font-mono text-on-surface">04:12:45</p>
+</div>
+<div class="flex-1 bg-surface-container-low p-3 rounded-lg text-center">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Reserve</p>
+<p class="text-lg font-black text-on-surface text-green-600">Met</p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="space-y-2">
+<label class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold px-1">Bid Amount (USD)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold">$</span>
+<input class="w-full pl-8 pr-4 py-4 bg-surface-container-low border-b-2 border-outline-variant/30 focus:border-primary focus:ring-0 text-xl font-bold rounded-t-lg transition-all" type="number" value="1425000"/>
+</div>
+<p class="text-[10px] text-on-surface-variant px-1 italic">Enter $1,425,000 or more to take the lead</p>
+</div>
+<button class="w-full py-5 bg-gradient-to-br from-primary to-primary-container text-white font-black font-headline text-lg uppercase tracking-widest rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20">
+                                Place Active Bid
+                            </button>
+<div class="pt-4 border-t border-outline-variant/10">
+<div class="flex items-center justify-between mb-4">
+<span class="text-sm font-bold text-on-surface">Enable Proxy Bidding</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<p class="text-[10px] text-on-surface-variant leading-relaxed">System will automatically bid up to your secret maximum threshold to maintain your leading position.</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
+<h4 class="text-xs uppercase tracking-widest text-on-surface font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">shield</span> Guaranteed Security
+                        </h4>
+<div class="space-y-3">
+<div class="flex items-center gap-3 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-lg text-primary">verified_user</span>
+<span>Verified Digital Title Escrow</span>
+</div>
+<div class="flex items-center gap-3 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-lg text-primary">account_balance</span>
+<span>Blockchain-Verified History</span>
+</div>
+<div class="flex items-center gap-3 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-lg text-primary">gavel</span>
+<span>Legally Binding Auction Rules</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 border-t border-slate-200 py-12 px-8 flex flex-col md:flex-row justify-between items-center">
+<div class="flex flex-col items-center md:items-start gap-2 mb-8 md:mb-0">
+<span class="font-manrope font-bold text-slate-400">SLPA DIGITAL CURATOR</span>
+<p class="font-inter text-xs uppercase tracking-widest text-slate-400">© 2024 Luminous Estate Parcel Auctions. The Digital Curator.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors underline underline-offset-4" href="#">Terms of Service</a>
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors underline underline-offset-4" href="#">Privacy Policy</a>
+<a class="font-inter text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors underline underline-offset-4" href="#">Auction Rules</a>
+</div>
+</footer>
+</body></html>

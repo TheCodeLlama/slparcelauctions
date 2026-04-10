@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign Up | SLPA</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "tertiary-container": "#86a5de",
+                        "on-tertiary-container": "#163a6c",
+                        "secondary": "#545f73",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "surface-tint": "#7b5808",
+                        "inverse-primary": "#eec06a",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-primary-fixed-variant": "#5e4200",
+                        "surface-dim": "#d8dadc",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#3f5f93",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#d2c5b2",
+                        "on-secondary-container": "#586377",
+                        "on-tertiary-fixed-variant": "#254779",
+                        "secondary-fixed": "#d8e3fb",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f7f9fb",
+                        "primary-fixed": "#ffdea7",
+                        "surface-variant": "#e0e3e5",
+                        "outline": "#807666",
+                        "on-primary-container": "#4e3600",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-background": "#191c1e",
+                        "primary-container": "#c99e4c",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#aac7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "on-surface": "#191c1e",
+                        "on-surface-variant": "#4e4638",
+                        "on-tertiary-fixed": "#001b3e",
+                        "tertiary-fixed": "#d6e3ff",
+                        "primary-fixed-dim": "#eec06a",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed": "#111c2d",
+                        "on-primary-fixed": "#271900",
+                        "secondary-container": "#d5e0f8",
+                        "primary": "#7b5808",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .editorial-shadow {
+            shadow: 0 32px 64px -12px rgba(25, 28, 30, 0.06);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- Auth Shell suppressed as per mandate for focused journeys -->
+<main class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+<!-- Aesthetic Background Elements -->
+<div class="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-primary-container/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[-5%] w-[30%] h-[30%] bg-tertiary-container/10 rounded-full blur-[100px]"></div>
+<!-- Top Brand Anchor -->
+<div class="mb-12 text-center z-10">
+<h1 class="font-headline font-black text-3xl tracking-tighter text-on-surface mb-2">SLPA</h1>
+<p class="font-body text-on-surface-variant text-sm tracking-wide uppercase">The Digital Curator</p>
+</div>
+<!-- Centered Sign Up Card -->
+<div class="w-full max-w-md bg-surface-container-lowest p-10 rounded-xl shadow-[0_32px_64px_-12px_rgba(25,28,30,0.06)] z-10 border border-outline-variant/10">
+<header class="mb-8">
+<h2 class="font-headline font-bold text-2xl text-on-surface tracking-tight mb-2">Create Account</h2>
+<p class="text-on-surface-variant text-sm">Join the most exclusive land parcel auction platform.</p>
+</header>
+<form class="space-y-6">
+<!-- Email Field -->
+<div class="space-y-1">
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider pl-1">Email Address</label>
+<div class="relative">
+<input class="w-full px-4 py-3 bg-surface-container-low border-b border-outline-variant/30 focus:border-primary focus:ring-0 transition-colors duration-300 text-on-surface font-medium" placeholder="curator@luminous.estate" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-1">
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider pl-1">Password</label>
+<div class="relative">
+<input class="w-full px-4 py-3 bg-surface-container-low border-b border-outline-variant/30 focus:border-primary focus:ring-0 transition-colors duration-300 text-on-surface font-medium" placeholder="••••••••••••" type="password"/>
+</div>
+<!-- Strength Indicator -->
+<div class="pt-3 px-1">
+<div class="flex gap-1.5 mb-1.5">
+<div class="h-1 flex-1 bg-primary rounded-full"></div>
+<div class="h-1 flex-1 bg-primary rounded-full"></div>
+<div class="h-1 flex-1 bg-primary/20 rounded-full"></div>
+<div class="h-1 flex-1 bg-primary/20 rounded-full"></div>
+</div>
+<span class="text-[10px] font-bold text-primary uppercase tracking-widest">Strength: Sophisticated</span>
+</div>
+</div>
+<!-- Confirm Password Field -->
+<div class="space-y-1">
+<label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider pl-1">Confirm Password</label>
+<div class="relative">
+<input class="w-full px-4 py-3 bg-surface-container-low border-b border-outline-variant/30 focus:border-primary focus:ring-0 transition-colors duration-300 text-on-surface font-medium" placeholder="••••••••••••" type="password"/>
+</div>
+</div>
+<!-- Terms Checkbox -->
+<div class="flex items-start gap-3 py-2">
+<div class="flex items-center h-5">
+<input class="w-4 h-4 rounded-lg border-outline-variant text-primary focus:ring-primary/20" id="terms" type="checkbox"/>
+</div>
+<label class="text-xs text-on-surface-variant leading-relaxed" for="terms">
+                        I agree to the <a class="text-primary hover:underline underline-offset-4" href="#">Terms of Service</a> and <a class="text-primary hover:underline underline-offset-4" href="#">Privacy Policy</a> regarding my curated data.
+                    </label>
+</div>
+<!-- CTA Button -->
+<button class="w-full py-4 px-6 bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all duration-300 tracking-tight" type="submit">
+                    Create Account
+                </button>
+</form>
+<!-- Footer Links -->
+<div class="mt-10 pt-8 border-t border-outline-variant/10 text-center">
+<p class="text-sm text-on-surface-variant">
+                    Already an esteemed member? 
+                    <a class="ml-1 text-on-surface font-bold hover:text-primary transition-colors duration-200" href="#">Sign In</a>
+</p>
+</div>
+</div>
+<!-- Minimal Footer -->
+<footer class="mt-12 text-center text-[10px] text-on-surface-variant/60 font-label uppercase tracking-[0.2em] max-w-xs leading-loose">
+            © 2024 Luminous Estate Parcel Auctions.<br/>The Digital Curator for Distinguished Land Assets.
+        </footer>
+</main>
+<!-- Visual Anchor: Map Preview (Hidden on small mobile, editorial placement) -->
+<div class="fixed right-[-100px] top-1/2 -translate-y-1/2 w-64 h-[600px] hidden xl:block opacity-40">
+<div class="w-full h-full rounded-full overflow-hidden border border-outline-variant/20 grayscale hover:grayscale-0 transition-all duration-1000">
+<img class="w-full h-full object-cover" data-alt="Abstract aerial view of land parcels in a geometric grid with soft natural lighting and earth tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRPFebAcFUQqE5aNntxbwz75Fz4f6Dm51TPK2nAWN5hKMjT6ecyvA7kOzYxXYma2IkIraTtN8fko8-VKn9idrvnJETZIk4Awm_IojrTSS5fEtYPpmI9-1W7LTMbXBrflvEFVVpWDNLqJISDcgC12SAIvRcvbTKoVYK5WZXKyn0d168O64He1-zhq48XfXkbKE7mgUeSLYjg2ipeDtn1f4aGqsppXxcy200jLRn_Fom1HAlIY_tCglUv91NYyD1MPLrMBagfW1DwUk"/>
+</div>
+</div>
+</body></html>
