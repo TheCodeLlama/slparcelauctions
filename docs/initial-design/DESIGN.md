@@ -1067,6 +1067,8 @@ name Ahern
 
 ## 7. Database Schema (Key Entities)
 
+> **Convention note:** Status, role, type, reason, and similar small-fixed-set columns are declared as `VARCHAR(N)` with inline `-- enum: A | B | C` doc comments. Postgres `CREATE TYPE ... AS ENUM` is intentionally avoided across this schema because `ALTER TYPE ADD VALUE` cannot run inside a transaction and removing values is impossible. Validation lives at the application layer via Java enums mapped through JPA.
+
 ### users
 ```sql
 CREATE TABLE users (
@@ -1111,28 +1113,28 @@ CREATE TABLE users (
 CREATE TABLE realty_groups (
     id              BIGSERIAL PRIMARY KEY,
     name            VARCHAR(255) UNIQUE NOT NULL,
-    slug            VARCHAR(255) UNIQUE NOT NULL,   -- URL-friendly name
+    slug            VARCHAR(255) UNIQUE NOT NULL,
     leader_id       BIGINT NOT NULL REFERENCES users(id),
-    logo_url        VARCHAR(512),
+    logo_url        TEXT,
     description     TEXT,
-    website         VARCHAR(512),
-    sl_group_link   VARCHAR(512),           -- optional SL group URL
-    agent_fee_rate  DECIMAL(5,4) DEFAULT 0, -- additional group fee (e.g., 0.0200 = 2%)
-    agent_fee_split DECIMAL(5,4) DEFAULT 0.5000, -- % of agent fee that goes to agent (rest to group)
-    created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW()
+    website         TEXT,
+    sl_group_link   TEXT,
+    agent_fee_rate  DECIMAL(5,4) NOT NULL DEFAULT 0.0000,
+    agent_fee_split DECIMAL(5,4) NOT NULL DEFAULT 0.5000,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
 ### realty_group_members
 ```sql
 CREATE TABLE realty_group_members (
-    id              BIGSERIAL PRIMARY KEY,
-    group_id        BIGINT NOT NULL REFERENCES realty_groups(id),
-    user_id         BIGINT NOT NULL REFERENCES users(id),
-    role            VARCHAR(20) NOT NULL DEFAULT 'AGENT',  -- LEADER, AGENT
-    joined_at       TIMESTAMP DEFAULT NOW(),
-    UNIQUE(user_id)   -- user can only belong to one group
+    id        BIGSERIAL PRIMARY KEY,
+    group_id  BIGINT NOT NULL REFERENCES realty_groups(id),
+    user_id   BIGINT NOT NULL REFERENCES users(id),
+    role      VARCHAR(20) NOT NULL DEFAULT 'AGENT',  -- enum: LEADER | AGENT
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id)
 );
 CREATE INDEX idx_rgm_group ON realty_group_members(group_id);
 ```
@@ -1144,11 +1146,12 @@ CREATE TABLE realty_group_invitations (
     group_id        BIGINT NOT NULL REFERENCES realty_groups(id),
     invited_user_id BIGINT NOT NULL REFERENCES users(id),
     invited_by_id   BIGINT NOT NULL REFERENCES users(id),
-    status          VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- PENDING, ACCEPTED, DECLINED, REVOKED
-    expires_at      TIMESTAMP NOT NULL,
-    created_at      TIMESTAMP DEFAULT NOW(),
-    responded_at    TIMESTAMP
+    status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',  -- enum: PENDING | ACCEPTED | DECLINED | REVOKED
+    expires_at      TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    responded_at    TIMESTAMPTZ
 );
+CREATE INDEX idx_invitations_user_status ON realty_group_invitations(invited_user_id, status);
 ```
 
 ### realty_group_sl_groups
@@ -1158,9 +1161,9 @@ CREATE TABLE realty_group_sl_groups (
     realty_group_id BIGINT NOT NULL REFERENCES realty_groups(id),
     sl_group_uuid   UUID NOT NULL,
     sl_group_name   VARCHAR(255),
-    verified        BOOLEAN DEFAULT FALSE,
-    verified_at     TIMESTAMP,
-    created_at      TIMESTAMP DEFAULT NOW(),
+    verified        BOOLEAN NOT NULL DEFAULT FALSE,
+    verified_at     TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(sl_group_uuid)
 );
 ```
@@ -1293,173 +1296,166 @@ CREATE TABLE auctions (
 ### bids
 ```sql
 CREATE TABLE bids (
-    id              BIGSERIAL PRIMARY KEY,
-    auction_id      BIGINT REFERENCES auctions(id),
-    bidder_id       BIGINT REFERENCES users(id),
-    amount          INTEGER NOT NULL,       -- L$
-    placed_at       TIMESTAMP DEFAULT NOW(),
-    ip_address      INET
+    id         BIGSERIAL PRIMARY KEY,
+    auction_id BIGINT NOT NULL REFERENCES auctions(id),
+    bidder_id  BIGINT NOT NULL REFERENCES users(id),
+    amount     BIGINT NOT NULL,                               -- L$
+    placed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ip_address INET
 );
 CREATE INDEX idx_bids_auction ON bids(auction_id, amount DESC);
+CREATE INDEX idx_bids_bidder  ON bids(bidder_id);
 ```
 
 ### proxy_bids
 ```sql
 CREATE TABLE proxy_bids (
-    id              BIGSERIAL PRIMARY KEY,
-    auction_id      BIGINT NOT NULL REFERENCES auctions(id),
-    bidder_id       BIGINT NOT NULL REFERENCES users(id),
-    max_amount      INTEGER NOT NULL,       -- L$ maximum the bidder is willing to pay
-    active          BOOLEAN DEFAULT TRUE,   -- FALSE if outbid beyond max or auction ended
-    created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW(),
-    UNIQUE(auction_id, bidder_id)            -- one proxy bid per user per auction
+    id         BIGSERIAL PRIMARY KEY,
+    auction_id BIGINT NOT NULL REFERENCES auctions(id),
+    bidder_id  BIGINT NOT NULL REFERENCES users(id),
+    max_amount BIGINT NOT NULL,                              -- L$
+    active     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(auction_id, bidder_id)
 );
 ```
 
 ### bot_accounts
 ```sql
 CREATE TABLE bot_accounts (
-    id              BIGSERIAL PRIMARY KEY,
-    sl_uuid         UUID UNIQUE NOT NULL,
-    sl_username     VARCHAR(255) NOT NULL,
-    role            VARCHAR(10) NOT NULL DEFAULT 'WORKER',  -- PRIMARY (escrow target) or WORKER (monitoring)
-    status          VARCHAR(20) NOT NULL DEFAULT 'ONLINE',  -- ONLINE, OFFLINE, MAINTENANCE (workers only)
-    current_region  VARCHAR(255),           -- region the worker is currently in
-    last_heartbeat  TIMESTAMP,
-    active_tasks    INTEGER DEFAULT 0,      -- current task count (workers only)
-    created_at      TIMESTAMP DEFAULT NOW()
+    id             BIGSERIAL PRIMARY KEY,
+    sl_uuid        UUID UNIQUE NOT NULL,
+    sl_username    VARCHAR(255) NOT NULL,
+    role           VARCHAR(10) NOT NULL DEFAULT 'WORKER',  -- enum: PRIMARY | WORKER
+    status         VARCHAR(20) NOT NULL DEFAULT 'ONLINE',  -- enum: ONLINE | OFFLINE | MAINTENANCE
+    current_region VARCHAR(255),
+    last_heartbeat TIMESTAMPTZ,
+    active_tasks   INTEGER NOT NULL DEFAULT 0,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
--- Only one PRIMARY account allowed
+-- Only one PRIMARY bot account allowed
 CREATE UNIQUE INDEX idx_bot_primary ON bot_accounts(role) WHERE role = 'PRIMARY';
 ```
 
 ### bot_tasks
 ```sql
 CREATE TABLE bot_tasks (
-    id              BIGSERIAL PRIMARY KEY,
-    bot_id          BIGINT REFERENCES bot_accounts(id),
-    auction_id      BIGINT REFERENCES auctions(id),
-    task_type       VARCHAR(30) NOT NULL,   -- VERIFY, MONITOR_AUCTION, MONITOR_ESCROW
-    region_name     VARCHAR(255) NOT NULL,
-    parcel_uuid     UUID NOT NULL,
-    status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-        -- PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED
-    result_data     JSONB,                  -- ParcelProperties data from bot
-    scheduled_at    TIMESTAMP,
-    started_at      TIMESTAMP,
-    completed_at    TIMESTAMP,
-    error_message   TEXT,
-    created_at      TIMESTAMP DEFAULT NOW()
+    id            BIGSERIAL PRIMARY KEY,
+    bot_id        BIGINT REFERENCES bot_accounts(id),
+    auction_id    BIGINT NOT NULL REFERENCES auctions(id),
+    task_type     VARCHAR(30) NOT NULL,                     -- enum: VERIFY | MONITOR_AUCTION | MONITOR_ESCROW
+    region_name   VARCHAR(255) NOT NULL,
+    parcel_uuid   UUID NOT NULL,
+    status        VARCHAR(20) NOT NULL DEFAULT 'PENDING',   -- enum: PENDING | IN_PROGRESS | COMPLETED | FAILED | CANCELLED
+    result_data   JSONB,
+    scheduled_at  TIMESTAMPTZ,
+    started_at    TIMESTAMPTZ,
+    completed_at  TIMESTAMPTZ,
+    error_message TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_bot_tasks_bot ON bot_tasks(bot_id, status);
-CREATE INDEX idx_bot_tasks_auction ON bot_tasks(auction_id);
-CREATE INDEX idx_bot_tasks_scheduled ON bot_tasks(scheduled_at) WHERE status = 'PENDING';
+CREATE INDEX idx_bot_tasks_bot              ON bot_tasks(bot_id, status);
+CREATE INDEX idx_bot_tasks_auction          ON bot_tasks(auction_id);
+CREATE INDEX idx_bot_tasks_status_scheduled ON bot_tasks(status, scheduled_at);
 ```
 
 ### reviews
 ```sql
 CREATE TABLE reviews (
-    id              BIGSERIAL PRIMARY KEY,
-    auction_id      BIGINT REFERENCES auctions(id) NOT NULL,
-    reviewer_id     BIGINT REFERENCES users(id) NOT NULL,     -- who left the review
-    reviewee_id     BIGINT REFERENCES users(id) NOT NULL,     -- who is being reviewed
-    reviewer_role   VARCHAR(10) NOT NULL,                     -- BUYER or SELLER
-    rating          SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    review_text     VARCHAR(500),
-    response_text   VARCHAR(500),                             -- reviewee's response
-    response_at     TIMESTAMP,
-    visible         BOOLEAN DEFAULT FALSE,                    -- becomes true when both submit or timeout
-    flagged         BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMP DEFAULT NOW(),
+    id            BIGSERIAL PRIMARY KEY,
+    auction_id    BIGINT NOT NULL REFERENCES auctions(id),
+    reviewer_id   BIGINT NOT NULL REFERENCES users(id),
+    reviewee_id   BIGINT NOT NULL REFERENCES users(id),
+    reviewer_role VARCHAR(10) NOT NULL,   -- enum: BUYER | SELLER
+    rating        SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    review_text   VARCHAR(500),
+    response_text VARCHAR(500),
+    response_at   TIMESTAMPTZ,
+    visible       BOOLEAN NOT NULL DEFAULT FALSE,
+    flagged       BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(auction_id, reviewer_id)
 );
 CREATE INDEX idx_reviews_reviewee ON reviews(reviewee_id, visible);
-CREATE INDEX idx_reviews_auction ON reviews(auction_id);
+CREATE INDEX idx_reviews_auction  ON reviews(auction_id);
 ```
 
 ### cancellation_log
 ```sql
 CREATE TABLE cancellation_log (
     id              BIGSERIAL PRIMARY KEY,
-    auction_id      BIGINT REFERENCES auctions(id) NOT NULL,
-    seller_id       BIGINT REFERENCES users(id) NOT NULL,
+    auction_id      BIGINT NOT NULL REFERENCES auctions(id),
+    seller_id       BIGINT NOT NULL REFERENCES users(id),
     had_bids        BOOLEAN NOT NULL,
-    bid_count       INTEGER DEFAULT 0,
+    bid_count       INTEGER NOT NULL DEFAULT 0,
     reason          TEXT,
-    penalty_applied VARCHAR(30),    -- WARNING, FEE, SUSPENSION, BAN
-    created_at      TIMESTAMP DEFAULT NOW()
+    penalty_applied VARCHAR(30),  -- enum: WARNING | FEE | SUSPENSION | BAN
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_cancellation_seller ON cancellation_log(seller_id);
 ```
 
 ### listing_reports
 ```sql
-CREATE TYPE report_reason AS ENUM (
-    'INACCURATE_DESCRIPTION',
-    'WRONG_TAGS',
-    'SHILL_BIDDING',
-    'FRAUDULENT_SELLER',
-    'DUPLICATE_LISTING',
-    'NOT_ACTUALLY_FOR_SALE',
-    'TOS_VIOLATION',
-    'OTHER'
-);
-
-CREATE TYPE report_status AS ENUM (
-    'OPEN',
-    'REVIEWED',
-    'DISMISSED',
-    'ACTION_TAKEN'
-);
-
 CREATE TABLE listing_reports (
-    id              BIGSERIAL PRIMARY KEY,
-    auction_id      BIGINT REFERENCES auctions(id) NOT NULL,
-    reporter_id     BIGINT REFERENCES users(id) NOT NULL,
-    subject         VARCHAR(100) NOT NULL,
-    reason          report_reason NOT NULL,
-    details         TEXT NOT NULL,           -- max 2000 chars enforced in app
-    status          report_status DEFAULT 'OPEN',
-    admin_notes     TEXT,                    -- internal admin notes
-    reviewed_by     BIGINT REFERENCES users(id),
-    reviewed_at     TIMESTAMP,
-    created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW(),
-    UNIQUE(auction_id, reporter_id)         -- one report per user per listing
+    id          BIGSERIAL PRIMARY KEY,
+    auction_id  BIGINT NOT NULL REFERENCES auctions(id),
+    reporter_id BIGINT NOT NULL REFERENCES users(id),
+    subject     VARCHAR(100) NOT NULL,                          -- user-supplied short title (max 100 chars)
+    -- reason: enum: INACCURATE_DESCRIPTION | WRONG_TAGS | SHILL_BIDDING |
+    --   FRAUDULENT_SELLER | DUPLICATE_LISTING | NOT_ACTUALLY_FOR_SALE |
+    --   TOS_VIOLATION | OTHER
+    reason      VARCHAR(30) NOT NULL,
+    details     TEXT NOT NULL,
+    -- status: enum: OPEN | REVIEWED | DISMISSED | ACTION_TAKEN
+    status      VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    admin_notes TEXT,
+    reviewed_by BIGINT REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(auction_id, reporter_id)
 );
 CREATE INDEX idx_reports_auction ON listing_reports(auction_id);
-CREATE INDEX idx_reports_status ON listing_reports(status);
+CREATE INDEX idx_reports_status  ON listing_reports(status);
 ```
 
 ### bans
 ```sql
 CREATE TABLE bans (
-    id              BIGSERIAL PRIMARY KEY,
-    ban_type        VARCHAR(10) NOT NULL,    -- IP, AVATAR, BOTH
-    ip_address      INET,                    -- banned IP (NULL if avatar-only ban)
-    sl_avatar_uuid  UUID,                    -- banned avatar (NULL if IP-only ban)
-    reason          TEXT NOT NULL,
-    banned_by       BIGINT REFERENCES users(id),  -- admin who issued ban
-    expires_at      TIMESTAMP,               -- NULL = permanent
-    created_at      TIMESTAMP DEFAULT NOW()
+    id             BIGSERIAL PRIMARY KEY,
+    ban_type       VARCHAR(10) NOT NULL,        -- enum: IP | AVATAR | BOTH
+    ip_address     INET,
+    sl_avatar_uuid UUID,
+    reason         TEXT NOT NULL,
+    banned_by      BIGINT NOT NULL REFERENCES users(id),
+    expires_at     TIMESTAMPTZ,                 -- NULL = permanent
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT bans_type_matches_identifiers CHECK (
+      (ban_type = 'IP'     AND ip_address IS NOT NULL AND sl_avatar_uuid IS NULL) OR
+      (ban_type = 'AVATAR' AND ip_address IS NULL     AND sl_avatar_uuid IS NOT NULL) OR
+      (ban_type = 'BOTH'   AND ip_address IS NOT NULL AND sl_avatar_uuid IS NOT NULL)
+    )
 );
-CREATE INDEX idx_bans_ip ON bans(ip_address) WHERE ip_address IS NOT NULL;
+CREATE INDEX idx_bans_ip     ON bans(ip_address)     WHERE ip_address     IS NOT NULL;
 CREATE INDEX idx_bans_avatar ON bans(sl_avatar_uuid) WHERE sl_avatar_uuid IS NOT NULL;
 ```
 
 ### fraud_flags
 ```sql
 CREATE TABLE fraud_flags (
-    id              BIGSERIAL PRIMARY KEY,
-    flag_type       VARCHAR(30) NOT NULL,    -- SAME_IP_MULTI_ACCOUNT, NEW_ACCOUNT_LAST_SECOND, etc.
-    auction_id      BIGINT REFERENCES auctions(id),
-    user_id         BIGINT REFERENCES users(id),
-    details         JSONB,                   -- IP address, timing, related accounts, etc.
-    status          VARCHAR(20) DEFAULT 'OPEN',  -- OPEN, REVIEWED, DISMISSED, ACTION_TAKEN
-    reviewed_by     BIGINT REFERENCES users(id),
-    reviewed_at     TIMESTAMP,
-    created_at      TIMESTAMP DEFAULT NOW()
+    id          BIGSERIAL PRIMARY KEY,
+    flag_type   VARCHAR(30) NOT NULL,                  -- examples: SAME_IP_MULTI_ACCOUNT, NEW_ACCOUNT_LAST_SECOND; full set defined by app fraud detection rules
+    auction_id  BIGINT REFERENCES auctions(id),
+    user_id     BIGINT REFERENCES users(id),
+    details     JSONB,
+    status      VARCHAR(20) NOT NULL DEFAULT 'OPEN',   -- enum: OPEN | REVIEWED | DISMISSED | ACTION_TAKEN
+    reviewed_by BIGINT REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fraud_flags_at_least_one_target
+      CHECK (user_id IS NOT NULL OR auction_id IS NOT NULL)
 );
 CREATE INDEX idx_fraud_flags_status ON fraud_flags(status);
 ```
@@ -1467,32 +1463,36 @@ CREATE INDEX idx_fraud_flags_status ON fraud_flags(status);
 ### escrow_transactions
 ```sql
 CREATE TABLE escrow_transactions (
-    id              BIGSERIAL PRIMARY KEY,
-    auction_id      BIGINT REFERENCES auctions(id),
-    payer_id        BIGINT REFERENCES users(id),
-    payee_id        BIGINT REFERENCES users(id),
-    type            VARCHAR(20) NOT NULL,   -- PAYMENT, PAYOUT, REFUND, COMMISSION
-    amount          INTEGER NOT NULL,       -- L$
-    sl_transaction_id VARCHAR(100),         -- from llTransferLindenDollars
-    terminal_id     VARCHAR(100),           -- which escrow terminal handled this
-    status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-        -- PENDING, COMPLETED, FAILED, REFUNDED
-    created_at      TIMESTAMP DEFAULT NOW(),
-    completed_at    TIMESTAMP
+    id                BIGSERIAL PRIMARY KEY,
+    auction_id        BIGINT NOT NULL REFERENCES auctions(id),
+    payer_id          BIGINT REFERENCES users(id),
+    payee_id          BIGINT REFERENCES users(id),
+    type              VARCHAR(20) NOT NULL,                         -- enum: PAYMENT | PAYOUT | REFUND | COMMISSION
+    amount            BIGINT NOT NULL,                              -- L$
+    sl_transaction_id VARCHAR(100),
+    terminal_id       VARCHAR(100),
+    status            VARCHAR(20) NOT NULL DEFAULT 'PENDING',       -- enum: PENDING | COMPLETED | FAILED | REFUNDED
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at      TIMESTAMPTZ
 );
+CREATE INDEX idx_escrow_auction ON escrow_transactions(auction_id);
+CREATE INDEX idx_escrow_status  ON escrow_transactions(status);
 ```
 
 ### verification_codes
 ```sql
 CREATE TABLE verification_codes (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT REFERENCES users(id),
-    code            VARCHAR(6) NOT NULL,
-    type            VARCHAR(20) NOT NULL,   -- PLAYER, PARCEL
-    expires_at      TIMESTAMP NOT NULL,
-    used            BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMP DEFAULT NOW()
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    BIGINT NOT NULL REFERENCES users(id),
+    code       VARCHAR(6) NOT NULL,
+    type       VARCHAR(20) NOT NULL,                            -- enum: PLAYER | PARCEL
+    expires_at TIMESTAMPTZ NOT NULL,
+    used       BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT verification_codes_format CHECK (code ~ '^[0-9]{6}$')
 );
+CREATE INDEX idx_verification_codes_user    ON verification_codes(user_id, used);
+CREATE INDEX idx_verification_codes_expires ON verification_codes(expires_at);
 ```
 
 ---
