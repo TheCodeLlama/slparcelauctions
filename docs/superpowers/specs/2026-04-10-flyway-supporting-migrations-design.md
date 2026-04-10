@@ -82,7 +82,7 @@ CREATE TABLE realty_group_members (
 CREATE INDEX idx_rgm_group ON realty_group_members(group_id);
 ```
 
-The `UNIQUE(user_id)` enforces one-group-per-user at the database level.
+The `UNIQUE(user_id)` enforces one-group-per-user at the database level. **Phase 1 constraint:** this blocks any future "user belonged to group A, left, joined group B" pattern unless we either soft-delete prior memberships (add a `left_at` column) or relax this constraint. DESIGN.md §6 commits to "one realty group per user" for Phase 1, so the global uniqueness is intentional. Flagged here as a known forward limitation.
 
 ### `realty_group_invitations`
 
@@ -191,9 +191,13 @@ CREATE INDEX idx_escrow_status  ON escrow_transactions(status);
 - `PAYMENT` (winner pays escrow): `payer_id` = winner, `payee_id` = NULL until the matching PAYOUT
 - `PAYOUT` (escrow pays seller): `payer_id` = NULL (the SLPA bot is the source, not a user), `payee_id` = seller
 - `REFUND` (escrow returns to buyer): `payer_id` = NULL, `payee_id` = buyer
-- `COMMISSION` (platform's cut): `payer_id` = NULL, `payee_id` = NULL or system user
+- `COMMISSION` (platform's cut): `payer_id` = NULL, `payee_id` = SYSTEM user (see convention below)
 
 The `type` column is the discriminator; the application layer picks the correct side.
+
+**Documented convention for COMMISSION rows:** point `payee_id` at a dedicated SYSTEM user row rather than leaving it NULL. This makes aggregate queries unambiguous — `SELECT SUM(amount) FROM escrow_transactions WHERE payee_id = <system_user_id>` returns total commission collected without any reliance on `IS NULL` semantics or the assumption that `type='COMMISSION'` rows are the only rows with NULL payees.
+
+The schema does not enforce this — both columns remain nullable, so the convention can be revisited at the app layer. The SYSTEM user row is **not** seeded in this migration; it will be created by the task that ships the first escrow code path (likely Phase 1 escrow flow). When seeded, it should have a non-routable email like `system@slpa.invalid`, a placeholder `password_hash` value that no real password could ever produce (e.g. literal `!DISABLED`), `verified = true`, and `display_name = 'SLPA System'`.
 
 **Indexes added proactively:** `idx_escrow_auction` (every escrow lookup is per-auction), `idx_escrow_status` (the polling reconciliation monitor filters on status).
 
@@ -360,12 +364,14 @@ CREATE TABLE fraud_flags (
     status      VARCHAR(20) NOT NULL DEFAULT 'OPEN',   -- enum: OPEN | REVIEWED | DISMISSED | ACTION_TAKEN
     reviewed_by BIGINT REFERENCES users(id),           -- nullable: only set when admin acts
     reviewed_at TIMESTAMPTZ,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fraud_flags_at_least_one_target
+      CHECK (user_id IS NOT NULL OR auction_id IS NOT NULL)
 );
 CREATE INDEX idx_fraud_flags_status ON fraud_flags(status);
 ```
 
-Both `auction_id` and `user_id` are nullable because a flag may target either or both, depending on the detection rule.
+Both `auction_id` and `user_id` are nullable because a flag may target either or both, depending on the detection rule. The `fraud_flags_at_least_one_target` CHECK is the same belt-and-suspenders pattern used on `bans` — a flag with no target is a bug, and the database should reject it before the buggy app code can persist it.
 
 ## Verification (1 table)
 
@@ -409,6 +415,7 @@ These are deliberate departures from DESIGN.md §7. All have been explicitly app
 | 9 | New CHECK constraint `verification_codes_format CHECK (code ~ '^[0-9]{6}$')`. | Same cheap-insurance pattern as `parcel_tags.code` in V1 — DB-level format guarantee. |
 | 10 | New CHECK constraint `bans_at_least_one_identifier CHECK (ip_address IS NOT NULL OR sl_avatar_uuid IS NOT NULL)`. | Belt-and-suspenders against an app bug inserting a ban that targets nothing. The `ban_type` column documents intent; the CHECK enforces it. |
 | 11 | Added 7 indexes not in DESIGN.md: `idx_invitations_user_status`, `idx_bids_bidder`, `idx_escrow_auction`, `idx_escrow_status`, `idx_verification_codes_user`, `idx_verification_codes_expires`, `idx_bot_tasks_status_scheduled` (which replaces #8). | Same proactive-hot-path-indexes rationale as V1. All serve obvious Phase 1 query patterns (queue pickup, dashboard lists, status polling, cleanup sweepers). |
+| 12 | New CHECK constraint `fraud_flags_at_least_one_target CHECK (user_id IS NOT NULL OR auction_id IS NOT NULL)`. | Same belt-and-suspenders pattern as `bans_at_least_one_identifier` — a fraud flag that targets nothing is a bug, and the database should reject it. |
 
 ## DESIGN.md §7 Update
 
@@ -437,6 +444,7 @@ This task does not add new test files. Verification relies on existing infrastru
    - Test the deferred FK now exists: `\d auctions` should show `auctions_realty_group_id_fkey` foreign key constraint
    - Test the verification_codes CHECK rejects bad codes: `INSERT INTO verification_codes (user_id, code, type, expires_at) VALUES (1, '12345', 'PLAYER', NOW() + INTERVAL '1 day');` should fail with `verification_codes_format` violation. Same for `'1234567'`, `'12345a'`, and `'abcdef'`. `'123456'` should succeed (assuming user_id=1 exists, otherwise it'll fail on FK instead).
    - Test the bans CHECK rejects empty-target bans: `INSERT INTO bans (ban_type, reason, banned_by) VALUES ('IP', 'test', 1);` should fail with `bans_at_least_one_identifier`. Adding `ip_address = '1.2.3.4'::inet` should make it succeed.
+   - Test the fraud_flags CHECK rejects empty-target flags: `INSERT INTO fraud_flags (flag_type) VALUES ('TEST');` should fail with `fraud_flags_at_least_one_target`. Adding `user_id = 1` (or `auction_id = 1`) should make it succeed (or fail on the FK if no row exists, which is also fine — the CHECK is satisfied).
    - Test the bot_accounts partial unique index: insert a `PRIMARY` row, then try to insert a second `PRIMARY` row — second insert should fail with unique constraint violation.
 
 3. **Schema-vs-entity validation lands in Task 01-04**, which adds the JPA entities. At that point `ddl-auto: validate` will catch any column-type mismatch between this migration and the entity classes.
