@@ -2,7 +2,7 @@
 import { render, type RenderOptions } from "@testing-library/react";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactElement, ReactNode } from "react";
+import { useRef, type ReactElement, type ReactNode } from "react";
 
 type RenderWithProvidersOptions = Omit<RenderOptions, "wrapper"> & {
   /** Initial theme. Default "light" for snapshot stability. */
@@ -16,12 +16,15 @@ type RenderWithProvidersOptions = Omit<RenderOptions, "wrapper"> & {
 
 function makeWrapper(theme: "light" | "dark", force: boolean) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
+    const queryClientRef = useRef<QueryClient | null>(null);
+    if (!queryClientRef.current) {
+      queryClientRef.current = new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+          mutations: { retry: false },
+        },
+      });
+    }
 
     return (
       <ThemeProvider
@@ -30,7 +33,7 @@ function makeWrapper(theme: "light" | "dark", force: boolean) {
         enableSystem={false}
         forcedTheme={force ? theme : undefined}
       >
-        <QueryClientProvider client={queryClient}>
+        <QueryClientProvider client={queryClientRef.current}>
           {children}
         </QueryClientProvider>
       </ThemeProvider>
