@@ -1081,28 +1081,28 @@ CREATE TABLE users (
     sl_payinfo      INTEGER,                -- from llRequestAgentData(DATA_PAYINFO)
     display_name    VARCHAR(255),           -- custom display name override on SLPA
     bio             TEXT,                    -- user bio/description
-    profile_pic_url VARCHAR(512),           -- user-uploaded profile picture
-    verified        BOOLEAN DEFAULT FALSE,
-    verified_at     TIMESTAMP,
+    profile_pic_url TEXT,                   -- user-uploaded profile picture
+    verified        BOOLEAN NOT NULL DEFAULT FALSE,
+    verified_at     TIMESTAMPTZ,
     -- Reputation fields (denormalized for fast display)
     avg_seller_rating DECIMAL(3,2),          -- avg rating as seller (1.00-5.00)
     avg_buyer_rating  DECIMAL(3,2),          -- avg rating as buyer
-    total_seller_reviews INTEGER DEFAULT 0,
-    total_buyer_reviews  INTEGER DEFAULT 0,
-    completed_sales   INTEGER DEFAULT 0,
-    cancelled_with_bids INTEGER DEFAULT 0,   -- cancellation counter (admin-visible only)
-    listing_suspension_until TIMESTAMP,      -- NULL if not suspended
+    total_seller_reviews INTEGER NOT NULL DEFAULT 0,
+    total_buyer_reviews  INTEGER NOT NULL DEFAULT 0,
+    completed_sales   INTEGER NOT NULL DEFAULT 0,
+    cancelled_with_bids INTEGER NOT NULL DEFAULT 0,   -- cancellation counter (admin-visible only)
+    listing_suspension_until TIMESTAMPTZ,      -- NULL if not suspended
     -- Notification preferences
     email              VARCHAR(255),           -- for notifications + account recovery
-    email_verified     BOOLEAN DEFAULT FALSE,
+    email_verified     BOOLEAN NOT NULL DEFAULT FALSE,
     notify_email       JSONB DEFAULT '{"bidding":true,"auction_result":true,"escrow":true,"listing_status":true,"reviews":true,"realty_group":true,"marketing":false}',
     notify_sl_im       JSONB DEFAULT '{"bidding":true,"auction_result":true,"escrow":true,"listing_status":true,"reviews":false,"realty_group":false,"marketing":false}',
-    notify_email_muted BOOLEAN DEFAULT FALSE,  -- global email mute
-    notify_sl_im_muted BOOLEAN DEFAULT FALSE,  -- global SL IM mute
+    notify_email_muted BOOLEAN NOT NULL DEFAULT FALSE,  -- global email mute
+    notify_sl_im_muted BOOLEAN NOT NULL DEFAULT FALSE,  -- global SL IM mute
     sl_im_quiet_start  TIME,                   -- quiet hours start (SLT)
     sl_im_quiet_end    TIME,                   -- quiet hours end (SLT)
-    created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
@@ -1172,7 +1172,7 @@ CREATE TABLE parcels (
     parcel_uuid     UUID UNIQUE NOT NULL,
     owner_id        BIGINT REFERENCES users(id),    -- SLPA user who listed it
     sl_owner_uuid   UUID,                           -- SL avatar UUID (individual) or group UUID
-    owner_type      VARCHAR(10) DEFAULT 'AGENT',    -- AGENT or GROUP
+    owner_type      VARCHAR(10) NOT NULL DEFAULT 'AGENT', -- enum: AGENT | GROUP
     sl_group_uuid   UUID,                           -- group UUID if group-owned (NULL for individual)
     parcel_name     VARCHAR(255),
     region_name     VARCHAR(255),
@@ -1180,19 +1180,19 @@ CREATE TABLE parcels (
     grid_y          INTEGER,                -- region grid Y coordinate (from Map API)
     area_sqm        INTEGER,
     prim_capacity   INTEGER,
-    maturity        VARCHAR(20),
-    estate_type     VARCHAR(50),            -- Mainland, Private Estate, etc. (from Grid Survey)
+    maturity        VARCHAR(20),            -- enum: GENERAL | MODERATE | ADULT
+    estate_type     VARCHAR(50),            -- from Grid Survey API; e.g. Mainland, Private Estate, Homestead
     description     TEXT,
-    snapshot_url     VARCHAR(512),
-    layout_map_url   VARCHAR(512),          -- generated parcel boundary grid image (see 5.5)
-    layout_map_data  JSONB,                 -- raw grid data for interactive tooltip overlay
-    layout_map_at    TIMESTAMP,             -- when layout map was last generated
+    snapshot_url    TEXT,
+    layout_map_url  TEXT,                   -- generated parcel boundary grid image (see 5.5)
+    layout_map_data JSONB,                  -- raw grid data for interactive tooltip overlay
+    layout_map_at   TIMESTAMPTZ,            -- when layout map was last generated
     location        VARCHAR(100),           -- local coordinates within region (e.g. "128,64,25")
-    slurl           VARCHAR(512),           -- generated: secondlife:///Region Name/x/y/z
-    verified        BOOLEAN DEFAULT FALSE,
-    verified_at     TIMESTAMP,
-    last_checked    TIMESTAMP,
-    created_at      TIMESTAMP DEFAULT NOW()
+    slurl           TEXT,                   -- generated: secondlife:///Region Name/x/y/z
+    verified        BOOLEAN NOT NULL DEFAULT FALSE,
+    verified_at     TIMESTAMPTZ,
+    last_checked    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_parcels_grid ON parcels(grid_x, grid_y);
 ```
@@ -1248,45 +1248,45 @@ CREATE INDEX idx_auction_tags_tag ON auction_tags(tag);
 ```sql
 CREATE TABLE auctions (
     id              BIGSERIAL PRIMARY KEY,
-    parcel_id       BIGINT REFERENCES parcels(id),
-    seller_id       BIGINT REFERENCES users(id),      -- parcel owner
-    listing_agent_id BIGINT REFERENCES users(id),      -- agent who created listing (may differ from seller)
-    realty_group_id BIGINT REFERENCES realty_groups(id), -- NULL if individual listing
+    parcel_id       BIGINT NOT NULL REFERENCES parcels(id),
+    seller_id       BIGINT NOT NULL REFERENCES users(id),      -- parcel owner
+    listing_agent_id BIGINT REFERENCES users(id),              -- agent who created listing (may differ from seller)
+    realty_group_id BIGINT REFERENCES realty_groups(id),       -- NULL if individual listing
     status          VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
         -- DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED,
         -- ACTIVE, ENDED, ESCROW_PENDING, ESCROW_FUNDED,
         -- TRANSFER_PENDING, COMPLETED, CANCELLED, EXPIRED, DISPUTED
-    verification_tier VARCHAR(10),           -- SCRIPT, BOT, HUMAN (set after verification)
-    verification_method VARCHAR(20),        -- UUID_ENTRY, REZZABLE, SALE_TO_BOT
-    assigned_bot_uuid UUID,                 -- which SLPA bot is assigned for Method C monitoring
-    sale_sentinel_price INTEGER,            -- expected sale price (L$999,999,999) for Method C
-    last_bot_check_at TIMESTAMP,            -- last successful bot monitoring check
-    bot_check_failures INTEGER DEFAULT 0,   -- consecutive failed bot checks
-    listing_fee_paid BOOLEAN DEFAULT FALSE,
-    listing_fee_amt  INTEGER,               -- L$ listing fee paid
-    listing_fee_txn  VARCHAR(255),          -- transaction reference from payment terminal
-    listing_fee_paid_at TIMESTAMP,
-    verified_at     TIMESTAMP,              -- when verification completed
-    verification_notes TEXT,                -- bot/human verification details
-    starting_bid    INTEGER NOT NULL,       -- L$
-    reserve_price   INTEGER,                -- L$ (optional)
-    buy_now_price   INTEGER,                -- L$ (optional)
-    current_bid     INTEGER DEFAULT 0,      -- L$
-    bid_count       INTEGER DEFAULT 0,
+    verification_tier VARCHAR(10),           -- enum: SCRIPT | BOT | HUMAN
+    verification_method VARCHAR(20),         -- enum: UUID_ENTRY | REZZABLE | SALE_TO_BOT
+    assigned_bot_uuid UUID,                  -- which SLPA bot is assigned for Method C monitoring
+    sale_sentinel_price BIGINT,              -- expected sale price (L$999,999,999) for Method C
+    last_bot_check_at TIMESTAMPTZ,           -- last successful bot monitoring check
+    bot_check_failures INTEGER NOT NULL DEFAULT 0,  -- consecutive failed bot checks
+    listing_fee_paid BOOLEAN NOT NULL DEFAULT FALSE,
+    listing_fee_amt  BIGINT,                 -- L$ listing fee paid
+    listing_fee_txn  VARCHAR(255),           -- transaction reference from payment terminal
+    listing_fee_paid_at TIMESTAMPTZ,
+    verified_at     TIMESTAMPTZ,             -- when verification completed
+    verification_notes TEXT,                 -- bot/human verification details
+    starting_bid    BIGINT NOT NULL,         -- L$
+    reserve_price   BIGINT,                  -- L$ (optional)
+    buy_now_price   BIGINT,                  -- L$ (optional)
+    current_bid     BIGINT NOT NULL DEFAULT 0,  -- L$
+    bid_count       INTEGER NOT NULL DEFAULT 0,
     winner_id       BIGINT REFERENCES users(id),
     duration_hours  INTEGER NOT NULL,
-    snipe_protect   BOOLEAN DEFAULT FALSE,  -- seller opt-in
+    snipe_protect   BOOLEAN NOT NULL DEFAULT FALSE,  -- seller opt-in
     snipe_window_min INTEGER,               -- extension window in minutes (5,10,15,30,60)
-    starts_at       TIMESTAMP,
-    ends_at         TIMESTAMP,
-    original_ends_at TIMESTAMP,             -- original end time before any snipe extensions
+    starts_at       TIMESTAMPTZ,
+    ends_at         TIMESTAMPTZ,
+    original_ends_at TIMESTAMPTZ,           -- original end time before any snipe extensions
     seller_desc     TEXT,
     commission_rate DECIMAL(5,4) DEFAULT 0.0500,  -- 5% platform
-    commission_amt  INTEGER,                -- L$ platform commission (calculated at completion)
-    agent_fee_rate  DECIMAL(5,4) DEFAULT 0, -- group agent fee (copied from group at listing time)
-    agent_fee_amt   INTEGER,                -- L$ agent fee (calculated at completion)
-    created_at      TIMESTAMP DEFAULT NOW(),
-    updated_at      TIMESTAMP DEFAULT NOW()
+    commission_amt  BIGINT,                 -- L$ platform commission (calculated at completion)
+    agent_fee_rate  DECIMAL(5,4) DEFAULT 0.0000,  -- group agent fee (copied from group at listing time)
+    agent_fee_amt   BIGINT,                 -- L$ agent fee (calculated at completion)
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 
