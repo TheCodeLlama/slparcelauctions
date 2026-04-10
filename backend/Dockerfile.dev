@@ -1,0 +1,22 @@
+FROM eclipse-temurin:26-jdk
+
+# curl is needed for the docker compose healthcheck against /api/health.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Pre-copy Maven wrapper and pom so dependency layer caches independently of source.
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
+
+# Source is bind-mounted in compose; this COPY only seeds an initial container build.
+COPY src/ src/
+
+EXPOSE 8080
+
+# spring-boot:run picks up source rebuilds when the container is restarted.
+# A named volume mounted at /root/.m2 keeps the dependency cache between rebuilds.
+CMD ["./mvnw", "spring-boot:run", "-Dspring-boot.run.profiles=dev"]
