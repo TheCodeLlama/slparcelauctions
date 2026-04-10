@@ -1,6 +1,10 @@
 # Task 01-06: Next.js Layout Shell, Theme System & Component Foundation
 
-> **Before starting:** read [CONVENTIONS.md](../CONVENTIONS.md) — in particular the **Design system ("The Digital Curator")** and **Modular, component-based architecture** sections. Those rules are binding for every frontend task, starting with this one.
+> **Before starting:**
+> 1. Read [CONVENTIONS.md](../CONVENTIONS.md) — in particular the **Design system ("The Digital Curator")** and **Modular, component-based architecture** sections. Those rules are binding for every frontend task, starting with this one.
+> 2. Read the design spec: **[`docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md`](../../superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md)**. The spec is the source of truth for *why* every decision came out the way it did, the full token block, the complete component contracts, the test infrastructure, the gotchas, and the explicit non-goals. This task brief is the *what to build* checklist; the spec is the *why*.
+>
+> **If this brief and the spec disagree, the spec wins.** Surface the discrepancy in the PR so we can fix the brief.
 
 ## Goal
 
@@ -26,171 +30,122 @@ Use the reference HTML for layout, spacing, typography, and component compositio
 
 ### Theme & Tailwind setup
 
-This project uses **Tailwind 4**, which replaces `tailwind.config.js` theming with the CSS-native `@theme` directive. Define all tokens in `frontend/src/app/globals.css` (or equivalent). Do not use a JS-based Tailwind config for colors.
+This project uses **Tailwind 4**, which replaces `tailwind.config.js` theming with the CSS-native `@theme` directive. Define all tokens in `frontend/src/app/globals.css` (after the `app/` → `src/app/` restructure described below). Do not use a JS-based Tailwind config for colors.
 
-**Required structure:**
-
-```css
-@import "tailwindcss";
-
-@variant dark (.dark &);
-
-@theme {
-  /* Light mode defaults — read values from docs/stitch_generated-design/light_mode/ */
-  --color-surface: ...;
-  --color-surface-container-lowest: ...;
-  --color-surface-container-low: ...;
-  --color-surface-container-high: ...;
-  --color-on-surface: ...;
-  --color-on-surface-variant: ...;
-  --color-primary: ...;
-  --color-primary-container: ...;
-  --color-on-primary: ...;
-  --color-on-primary-container: ...;
-  --color-outline-variant: ...;
-  --color-tertiary-container: ...;
-  --color-error-container: ...;
-  /* ... every token from DESIGN.md ... */
-
-  --font-display: "Manrope", sans-serif;
-  --font-body: "Manrope", sans-serif;
-
-  --radius-sm: ...;
-  --radius-default: ...;
-
-  --shadow-soft: ...;
-  --shadow-elevated: ...;
-}
-
-.dark {
-  /* Dark mode overrides — same token names, different values.
-     Read values from docs/stitch_generated-design/dark_mode/.
-     Components never write `dark:` variants; they read semantic tokens
-     and the tokens do the work. */
-  --color-surface: ...;
-  --color-surface-container-lowest: ...;
-  /* ... override every color token that differs in dark mode ... */
-}
-```
+**The full token block — both light defaults and dark overrides — is specified in [spec §4.1](../../superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md).** Copy it from the spec rather than re-extracting from the Stitch HTML; the extraction was done once during brainstorming and the spec is authoritative. The block includes ~45 M3 color tokens, the full M3 type scale (15 roles via Tailwind 4 multi-value `--text-*` tokens), font/radius/shadow tokens.
 
 **Rules:**
 
-- **Tokens are the single source of truth.** Every color, font, radius, and shadow in the design lives in `@theme`. No hex values anywhere in component code. No inline styles.
+- **Tokens are the single source of truth.** Every color, font, radius, and shadow in the design lives in `@theme`. No hex values anywhere in component code. No inline styles. Enforced by `npm run verify` (see spec §10).
 - **Semantic naming only.** Use `--color-surface`, `--color-on-surface`, `--color-primary`, `--color-primary-container`, etc. — names that describe role, not appearance. Never `--color-charcoal-900` or `--color-amber-500`.
-- **Components never write `dark:` variants.** Zero occurrences of `dark:` anywhere in `components/` or `app/`. Components use semantic classes (`bg-surface text-on-surface border-outline-variant`) and the `.dark` class override swaps the underlying CSS variable values. This is non-negotiable — it's the only way a 50+ component library stays maintainable across two modes.
-- **Both palettes must be read from the Stitch reference HTML.** Open `docs/stitch_generated-design/light_mode/landing_page/code.html` and `docs/stitch_generated-design/dark_mode/landing_page/code.html` side by side, extract the colors, and put them in `@theme` and `.dark`. Cross-check against `DESIGN.md`.
-- Import Manrope from Google Fonts (via `next/font/google` for zero-CLS).
+- **Components never write `dark:` variants.** Zero occurrences of `dark:` anywhere in `components/` or `app/`. Components use semantic classes (`bg-surface text-on-surface`) and the `.dark` class override swaps the underlying CSS variable values. This is non-negotiable — it's the only way a 50+ component library stays maintainable across two modes.
+- **The `@variant dark (.dark &);` directive is deliberately omitted.** Without it, any `dark:` write produces no CSS — a silent no-op that fails loudly in the wrong direction (mode looks broken), teaching the rule by failing to override it. Spec §2.11 explains the rationale; spec §11.12 is the gotcha. Do not add the directive back.
+- Import Manrope from Google Fonts via `next/font/google` for zero-CLS — six weights (`300, 400, 500, 600, 700, 800`) cover the M3 type scale. Spec §5.2.
 
-### Theme toggle (next-themes)
+### Theme toggle (next-themes) and provider stack
 
-Install and use **`next-themes`** for theme management. Do not roll your own. It handles localStorage persistence, `prefers-color-scheme` detection, and no-flash-on-load correctly.
+Install **`next-themes`** and **`@tanstack/react-query`** as part of this task. Both providers compose into a single `<Providers>` client component at `src/app/providers.tsx` — ThemeProvider outside QueryClientProvider, with `QueryClient` constructed inside a `useState` initializer (the App Router footgun, see spec §2.6 / §11.7). Full code in **spec §5.1 + §5.2**.
 
-```bash
-npm install next-themes
-```
+Key wiring:
 
-```tsx
-// frontend/src/app/layout.tsx
-import { ThemeProvider } from "next-themes";
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-- `attribute="class"` — toggles the `.dark` class on `<html>`, which flips the CSS variable overrides defined in `globals.css`.
+- `attribute="class"` — toggles the `.dark` class on `<html>`, flipping CSS variable overrides.
 - `defaultTheme="dark"` — dark mode is the default on first visit.
 - `enableSystem` — respects `prefers-color-scheme` when the user hasn't explicitly chosen.
 - `suppressHydrationWarning` on `<html>` is required because `next-themes` mutates the class before React hydrates.
+- TanStack Query defaults: `staleTime: 60_000`, `refetchOnWindowFocus: false`, `retry: 1`. **No devtools** in this task — see spec §2.5 non-goal.
+- Mount order: `RootLayout → <Providers> → <AppShell> → children`. AppShell lives inside Providers so Header's `useTheme()` and `useAuth()` hooks have ancestors.
 
-The `ThemeToggle` component is then trivial:
-
-```tsx
-"use client";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
-
-export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null; // avoid hydration mismatch on the icon
-  return (
-    <IconButton
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      aria-label="Toggle theme"
-    >
-      {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
-    </IconButton>
-  );
-}
-```
+The `ThemeToggle` itself is a `"use client"` component that composes `<IconButton aria-label="Toggle theme">` + `Sun`/`Moon` from the lucide barrel. Mounted-gate via `useEffect` returns `null` before mount to avoid hydration mismatch on the icon. Full contract in spec §7.7.
 
 ### Component library foundation (`components/ui/`)
 
-Build the initial atomic primitives. Each one supports both modes, uses token-based colors, and follows the variant/size/tone prop conventions in CONVENTIONS.md:
+Build eight atomic primitives plus an icon barrel. Each supports both modes, uses token-based colors, and follows the variant/size/tone prop conventions in CONVENTIONS.md. **Full prop contracts and variant tables are in spec §7.**
 
-- **`Button`** — variants (`primary` with gradient, `secondary` ghost, `tertiary` text-only), sizes (`sm`, `md`, `lg`), `loading`, `leftIcon`, `rightIcon`, `fullWidth` props. One component, not three.
-- **`Input`** — default / focus states per `DESIGN.md §5`. Supports `leftIcon`, `rightIcon`, `error`, `label`, `helperText`. Works with React Hook Form (forward ref, standard event signature).
-- **`Card`** — compound component: `<Card>`, `<Card.Header>`, `<Card.Body>`, `<Card.Footer>`. Uses surface-container-lowest tonal layering, `sm` shadow, no borders.
-- **`Chip`** / **`StatusBadge`** — one component with `status` / `tone` props. Covers auction statuses (active, ending-soon, ended, cancelled) and generic tones (default, success, warning, danger).
-- **`Avatar`** — user avatar with fallback initials, sizes (`xs`, `sm`, `md`, `lg`, `xl`).
-- **`IconButton`** — circular icon-only button, variants match `Button`.
-- **`ThemeToggle`** — sun/moon icon that flips the theme class on `<html>`, persists to localStorage.
-- **`Dropdown`** / **`Menu`** — keyboard-accessible menu primitive for the user avatar menu and future use.
+- **`Button`** — variants (`primary` gradient, `secondary` ghost, `tertiary` text-only), sizes (`sm/md/lg`), `loading`, `leftIcon`, `rightIcon`, `fullWidth`. Spec §7.1.
+- **`IconButton`** — circular icon-only button. **`aria-label` is required in the TS type, not optional** — a11y belongs in the type system. Variants match `Button`. Stroke weight `1.5` baked in via `[&_svg]:stroke-[1.5]`. Spec §7.2.
+- **`Input`** — default + focus states per DESIGN.md §5, `leftIcon`, `rightIcon`, `error`, `label`, `helperText`. `forwardRef` for React Hook Form. Spec §7.3.
+- **`Card`** — compound: `<Card>`, `<Card.Header>`, `<Card.Body>`, `<Card.Footer>`. `surface-container-lowest`, `shadow-soft`, no borders. Sub-components also exported individually. Spec §7.4.
+- **`StatusBadge`** — one component with `status` (auction-domain: active, ending-soon, ended, cancelled) and `tone` (generic: default, success, warning, danger) props. Short-circuits to `null` if all three of `status`/`tone`/`children` are absent. Spec §7.5.
+- **`Avatar`** — user avatar with fallback initials, sizes `xs/sm/md/lg/xl`. Uses `next/image` with explicit `width`/`height` (not `fill`). Spec §7.6.
+- **`ThemeToggle`** — sun/moon `IconButton` wired to `useTheme()`. Mounted-gate to avoid hydration mismatch. Spec §7.7.
+- **`Dropdown`** — keyboard-accessible menu built on **Headless UI** (`@headlessui/react`). Array-based `items` API for this task; future task adds `<Dropdown.Item>` compound API for dividers/groups. Spec §7.8.
+- **`icons.ts`** — lucide-react barrel re-export (renamed `Menu` → `MenuIcon` to avoid future collision). No `<Icon name="...">` wrapper. Spec §7.9.
+- **`index.ts`** — public barrel for the UI library. Spec §7.10.
 
-Every primitive must work in both dark and light mode. Every primitive gets at least one Vitest + RTL test covering its main variants.
+**Cross-cutting rules baked into every primitive (full list in spec §2.17, §3, §7):**
+
+- Class composition uses the `cn()` helper from `src/lib/cn.ts` (`clsx` + `tailwind-merge`) so consumer-passed `className` always wins via dedup.
+- Loading state convention: swap the relevant icon slot for `<Loader2 className="animate-spin" />`, disable the control, preserve layout (no width shift).
+- Every primitive gets a sibling `*.test.tsx`. The `npm run verify:coverage` script enforces this.
+- Test rule: every primitive test imports `renderWithProviders` from `@/test/render`, never raw `render` from `@testing-library/react`.
+
+Every primitive must work in both dark and light mode. Every primitive gets Vitest + RTL tests covering its contract — see spec §9.4 for the test count breakdown (eight primitives = 35 cases out of the 64 total).
 
 ### Layout shell (`components/layout/`)
 
-- **`Header`** — logo ("SLPA"), main nav (Browse, Dashboard, Create Listing), `ThemeToggle`, notification bell placeholder, user avatar dropdown placeholder. Uses the glassmorphism rule from `DESIGN.md §2` for the floating nav. Conditionally shows login/register vs authenticated avatar (placeholder logic — auth lands in Task 01-07).
-- **`Footer`** — About, Terms, Contact, Partners links + copyright. Uses `surface-container-low` tonal background shift, no border lines.
-- **`MobileMenu`** — hamburger-triggered off-canvas menu for small viewports.
-- **`AppShell`** — wraps `Header`, page content, and `Footer`. Imported once by the root layout.
-- **`PageHeader`** — reusable page header component: `title`, `subtitle`, `breadcrumbs`, `actions` slot. Every real page later will use this.
+Six layout components. **Full code and tests in spec §8.**
 
-### API client foundation (`lib/`)
+- **`AppShell`** (RSC) — composes `Header` + `<main>` + `Footer` in a flex column. Imported once by the root layout. Spec §8.1.
+- **`Header`** (client) — logo wordmark "SLPA", desktop nav, `ThemeToggle`, notification bell `IconButton`, auth-state-aware right cluster, mobile hamburger. **No border** — uses `bg-surface/80 backdrop-blur-md` + scroll-aware `shadow-soft` (inline `useScrolled` state, threshold `scrollY > 8`). The auth zone reads `useAuth()` and branches on the three-state union — Task 01-08 swaps only the hook body, never Header. Spec §8.2.
+- **`NavLink`** (client) — single component with `variant: "header" | "mobile"` consumed by both Header and MobileMenu. Uses `usePathname()` for active-route detection (`text-primary` + `aria-current="page"` when active). Replaces what would otherwise be two near-duplicate components. Spec §8.3.
+- **`MobileMenu`** (client) — hamburger-triggered slide-in drawer built on **Headless UI `Dialog`** (focus trap, escape, click-outside, scroll lock, return-focus, ARIA — all free). Backdrop is `bg-inverse-surface/40` (M3-correct overlay token, not `bg-on-surface/40`). Spec §8.4.
+- **`Footer`** (RSC) — About / Terms / Contact / Partners links + copyright. `surface-container-low` background shift carries the visual separation; no border. Spec §8.5.
+- **`PageHeader`** (RSC) — reusable: `title`, `subtitle`, `breadcrumbs`, `actions` slot. The `actions` is a `ReactNode` slot, so a server `PageHeader` can render a client `<Button>` inside without becoming client itself. Spec §8.6.
 
-- `lib/api.ts` — fetch wrapper with base URL from `NEXT_PUBLIC_API_URL`, JSON encoding, error normalization (converts RFC 7807 ProblemDetail responses into typed errors), placeholder JWT header injection (wired in Task 01-08).
-- `lib/theme.ts` — theme constants, toggle helpers.
+### `lib/` foundation
+
+- **`lib/api.ts`** — server-component-safe typed fetch wrapper with base URL from `NEXT_PUBLIC_API_URL`, `credentials: "include"`, `params` helper, RFC 7807 `ProblemDetail` normalization via `ApiError` class, `isApiError` type guard. **No JWT injection** in this task — Task 01-08 adds it as a strict superset. **No retries** — TanStack Query owns retry behavior. **No interceptors / middleware framework** — KISS. Full code in spec §6.1.
+- **`lib/auth.ts`** — stub `useAuth()` returning `AuthSession` discriminated union (`loading | authenticated | unauthenticated`). Task 01-08 replaces only the hook body without touching Header or any other consumer. The three-state shape matters: it lets Header avoid flashing "Sign in" → user avatar on initial load. Full code in spec §6.2.
+- **`lib/cn.ts`** — `clsx` + `tailwind-merge` composition helper used by every primitive. Full code in spec §6.3.
 
 ### Routing
 
-Placeholder routes, each rendering `<PageHeader title="..." />` inside the shell so routing + layout are verifiable:
+**Eleven** placeholder routes, each rendering `<PageHeader title="..." />` inside the shell so routing + layout are verifiable end-to-end. Each is a thin RSC, ~5–15 lines, no client code. Note: Next 16 makes dynamic-route `params` a `Promise` that must be `await`ed — see spec §11.8.
 
-- `/` (landing)
+- `/` (landing placeholder)
 - `/browse`
-- `/auction/[id]`
+- `/auction/[id]` (dynamic, awaits `params`)
 - `/dashboard`
 - `/login`
 - `/register`
 - `/forgot-password`
+- `/about`, `/terms`, `/contact`, `/partners` — covers the footer links so they don't 404. Original brief listed seven; the four extras were added during brainstorming so every nav target works.
 
 ## Acceptance Criteria
 
-- Frontend loads at `http://localhost:3000` with "The Digital Curator" theme applied.
-- Dark mode is the default on first visit; toggling persists across refreshes; no theme flash on initial paint.
-- **Both modes render correctly** — a reviewer can toggle between light and dark and every shell element, primitive, and placeholder page looks intentional and matches the tonal layering described in `DESIGN.md`.
-- Header navigation routes to the placeholder pages; mobile hamburger works below the Tailwind `md` breakpoint.
-- All primitives in `components/ui/` exist, follow the variant/size/tone convention, have Vitest + RTL tests, and are importable from a barrel (`components/ui/index.ts`).
-- Every primitive and layout component works in both modes without per-mode code branches (tokens do the work).
-- `globals.css` contains the full token set from `DESIGN.md` in the `@theme` block, with dark-mode overrides in `.dark { ... }` — no hardcoded hex values in any component, and zero `dark:` variants anywhere in `components/` or `app/`.
-- `next-themes` is installed and wired in `RootLayout` with `attribute="class" defaultTheme="dark" enableSystem` and `suppressHydrationWarning` on `<html>`.
-- `lib/api.ts` is importable and exports a typed fetch helper.
-- No inline styles, no raw hex colors in JSX, no copy-pasted markup from the Stitch HTML.
+Spec §10.2 has the full "what done looks like" checklist. Summary:
+
+- `npm run test` — all 64 cases green (test count breakdown in spec §9.4).
+- `npm run lint` — no errors.
+- `npm run build` — completes without warnings.
+- **`npm run verify`** — passes all five grep rules (no `dark:` variants, no hex colors in components, no inline styles, every primitive has a sibling test). See spec §10.1 + §10.2.
+- Manual smoke test (spec §10.3) — paste the checklist into the PR description and confirm every step in both modes.
+- Frontend loads at `http://localhost:3000` with "The Digital Curator" theme. Dark mode is the default on first visit; toggling persists; no theme flash on initial paint.
+- **Both modes render correctly** — every shell element, primitive, and placeholder page looks intentional in both, no per-mode code branches in any component.
+- Header desktop nav and mobile hamburger both route to all eleven placeholder pages.
+- `globals.css` contains the full M3 token set (spec §4.1), the M3 type scale, dark-mode overrides in `.dark { ... }`. Zero hardcoded hex values in components, zero `dark:` variants anywhere in `src/components` or `src/app`.
+- `next-themes` and `@tanstack/react-query` wired via `<Providers>` (spec §5.1) inside `RootLayout` (spec §5.2). `suppressHydrationWarning` on `<html>`.
+- `lib/api.ts`, `lib/auth.ts`, `lib/cn.ts` all importable from `@/lib/*`. No inline styles, no raw hex colors in JSX, no copy-pasted markup from the Stitch HTML.
+- Root README sweep per the `feedback_update_readme_each_task` rule — frontend section gains a one-paragraph update mentioning `npm run test`, `npm run verify`, and the component library.
 
 ## Notes
 
 - **Read `docs/stitch_generated-design/DESIGN.md` before writing any code.** If your implementation diverges from that document, the document wins — do not guess.
-- Reference both `light_mode/<page>/code.html` and `dark_mode/<page>/code.html` for every placeholder page. Diff them to see which properties are token-swapped vs structural.
+- Reference both `light_mode/<page>/code.html` and `dark_mode/<page>/code.html` for every placeholder page. Diff them to see which properties are token-swapped vs structural. (The token block in spec §4.1 was extracted from these once during brainstorming — copy from the spec, don't re-extract.)
 - The header is a great test of the component library: if building it requires creating several new primitives, that's expected and good. Build them in `components/ui/` first, then compose the header.
 - Storybook is not required this task but the primitives should be built as if they'll go into one — isolated, prop-driven, self-contained.
 - Light mode "looks intentional" means it uses the warm ivory surface palette from `DESIGN.md §2`, not a jarring pure white.
+- **Explicit non-goals are in spec §12.** Before "while we're here" temptations, check the table — most adjacent concerns are already owned by a future task.
+
+## Gotchas (read before implementing)
+
+The spec catalogs 12 footguns in §11. The high-impact ones:
+
+1. **`@/*` alias dual-resolver** — must be in both `tsconfig.json` `paths` AND `vitest.config.ts` `resolve.alias`. Vitest does not read tsconfig.
+2. **`next/font/google` blows up jsdom** — must be mocked in `vitest.setup.ts`. Spec §9.2 has the one-liner.
+3. **`next/navigation` blows up jsdom** — same fix, mocked globally; per-test override via `vi.mocked(usePathname).mockReturnValue(...)` inside `beforeEach`.
+4. **`QueryClient` must be in `useState` initializer**, not module scope. App Router footgun.
+5. **`forcedTheme` is off-label as a test default** — `renderWithProviders` exposes opt-in `forceTheme?: boolean` (default `false`) so the `ThemeToggle` integration test can observe the actual class flip.
+6. **Next 16 dynamic `params` is a `Promise`** — `await` before destructuring.
+7. **Header has no border** — uses `bg-surface/80 backdrop-blur-md` + scroll-aware shadow. Do not add `border-b` "for definition" — that violates the no-line rule and is the precedent we're explicitly avoiding.
+8. **`@variant dark` is deliberately omitted** — without it, any `dark:` write produces no CSS, teaching the rule by failing to override. Don't add it back.
