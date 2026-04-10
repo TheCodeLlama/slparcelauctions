@@ -4,7 +4,11 @@
       "Bash(grep -E \"\\\\.\\(js|ts|jsx|tsx|html|json|py|yaml|yml\\)$\")",
       "Bash(git -C /c/Users/heath/Repos/Personal/slpa log --oneline)",
       "Bash(git:*)",
-      "Bash(./mvnw test:*)"
+      "Bash(./mvnw test:*)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/heath/.jdks/**)",
+      "Bash(docker exec:*)",
+      "Bash(gh pr:*)"
     ]
   }
 }
