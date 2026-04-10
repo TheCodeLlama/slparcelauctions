@@ -6,13 +6,16 @@ Implement JWT-based authentication on the Spring Boot backend: user registration
 
 ## Context
 
-Spring Security is already a dependency. Task 01-01 set up a placeholder security config. This task replaces that with real JWT auth. The `users` table and User entity exist from Tasks 01-02 and 01-04.
+Spring Security is already a dependency. Task 01-01 set up a placeholder security config. This task replaces that with real JWT auth. The User entity, repository, and service exist from Task 01-04 (Users Vertical Slice).
+
+See [CONVENTIONS.md](../CONVENTIONS.md) for Lombok and vertical-slice requirements. This task builds the `auth` vertical slice.
 
 Note: JJWT is NOT currently in pom.xml - it needs to be added as a dependency.
 
 ## What Needs to Happen
 
 - Add JJWT (io.jsonwebtoken) dependency to pom.xml
+- All backend classes use Lombok per CONVENTIONS.md (`@RequiredArgsConstructor`, `@Slf4j`, entities with `@Getter @Setter @Builder`)
 - Create auth endpoints:
   - POST /api/auth/register - email, password → creates user, returns JWT
   - POST /api/auth/login - email, password → validates credentials, returns JWT + refresh token

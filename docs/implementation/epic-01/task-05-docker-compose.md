@@ -23,7 +23,7 @@ Backend is a Spring Boot application (Java 26, Maven). Frontend is Next.js 16 wi
 ## Acceptance Criteria
 
 - `docker compose up` starts all four services without errors
-- PostgreSQL is accessible and Flyway migrations run on backend startup
+- PostgreSQL is accessible; backend starts cleanly with `ddl-auto: update` and Hibernate manages the schema (existing V1/V2 Flyway migrations still run as the baseline)
 - Redis is accessible from the backend
 - Frontend is accessible at localhost:3000
 - Backend API is accessible at localhost:8080

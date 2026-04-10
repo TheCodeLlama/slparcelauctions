@@ -1,6 +1,13 @@
 # SLPA - Implementation Phases
 
 _Reference: docs/initial-design/DESIGN.md for full specifications_
+_Conventions: [CONVENTIONS.md](./CONVENTIONS.md) - **read this before starting any task**_
+
+**Key conventions (summarized):**
+- No new Flyway migrations - JPA entities are the source of truth, `ddl-auto: update` in dev
+- Lombok required on all backend classes
+- Vertical slices: every task ships entity + repo + service + DTOs + controller + tests
+- Feature-based package structure (not layer-based)
 
 ---
 

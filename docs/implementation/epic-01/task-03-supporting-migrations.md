@@ -1,5 +1,9 @@
 # Task 01-03: Flyway Migrations - Supporting Tables
 
+> **✅ COMPLETED.** V2__supporting_tables.sql merged to main.
+>
+> **Note:** Going forward, JPA entities are the source of truth (see [CONVENTIONS.md](../CONVENTIONS.md)). Do not write new Flyway migrations.
+
 ## Goal
 
 Create all remaining database tables that support the core tables: bidding, escrow, bot infrastructure, reviews, moderation, realty groups, and verification.

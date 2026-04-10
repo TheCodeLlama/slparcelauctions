@@ -1,5 +1,9 @@
 # Task 01-02: Flyway Migrations - Core Tables
 
+> **✅ COMPLETED.** V1__core_tables.sql merged to main.
+>
+> **Note:** This was the first and last hand-written migration approach. Going forward, JPA entities are the source of truth (see [CONVENTIONS.md](../CONVENTIONS.md)). Do not write new Flyway migrations.
+
 ## Goal
 
 Create the foundational database tables that everything else depends on: users, parcels, and auctions. These are the three central tables of the entire application.
