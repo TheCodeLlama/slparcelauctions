@@ -59,8 +59,8 @@ public class UserController {
 
     private ResponseEntity<ProblemDetail> notYetImplemented() {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.UNAUTHORIZED,
-                "Authentication not yet implemented (Task 01-07)");
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+                HttpStatus.NOT_IMPLEMENTED,
+                "Endpoint not yet implemented — JWT auth lands in Task 01-07");
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(problem);
     }
 }

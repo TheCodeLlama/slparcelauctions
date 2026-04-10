@@ -83,6 +83,32 @@ class UserControllerTest {
     }
 
     @Test
+    void createUser_passwordWithoutDigitOrSymbol_returns400() throws Exception {
+        // Long enough (>10) but only letters — must fail the regex.
+        CreateUserRequest request = new CreateUserRequest(
+                "ok@example.com", "alllettersnoothers", null);
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password").exists());
+    }
+
+    @Test
+    void createUser_passwordWithoutLetter_returns400() throws Exception {
+        // Long enough and has digits/symbols, but no letter — must fail the regex.
+        CreateUserRequest request = new CreateUserRequest(
+                "ok@example.com", "1234567890!", null);
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.password").exists());
+    }
+
+    @Test
     void createUser_duplicateEmail_returns409() throws Exception {
         doThrow(UserAlreadyExistsException.email("dup@example.com"))
                 .when(userService).createUser(any(CreateUserRequest.class));
@@ -119,14 +145,16 @@ class UserControllerTest {
     }
 
     @Test
-    void getCurrentUser_returns401() throws Exception {
+    void getCurrentUser_returns501() throws Exception {
         mockMvc.perform(get("/api/users/me"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isNotImplemented())
+                .andExpect(jsonPath("$.detail").value(
+                        "Endpoint not yet implemented — JWT auth lands in Task 01-07"));
     }
 
     @Test
-    void deleteCurrentUser_returns401() throws Exception {
+    void deleteCurrentUser_returns501() throws Exception {
         mockMvc.perform(delete("/api/users/me"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isNotImplemented());
     }
 }

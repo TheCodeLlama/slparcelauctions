@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.OffsetDateTime;
@@ -109,20 +110,47 @@ class UserServiceTest {
     }
 
     @Test
-    void updateUser_updatesDisplayNameAndBio() {
+    void updateUser_mutatesEntityForDirtyCheckingWithoutCallingSave() {
         User user = User.builder()
                 .id(2L)
                 .email("dave@example.com")
                 .passwordHash("hash")
                 .displayName("Dave")
+                .bio("old bio")
                 .build();
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
 
         UpdateUserRequest update = new UpdateUserRequest("Dave the Great", "new bio");
         UserResponse response = userService.updateUser(2L, update);
 
+        // Service must mutate the managed entity in place so JPA dirty checking
+        // flushes the change. An explicit save() call would also work but is
+        // unnecessary inside an @Transactional boundary — the absence of save()
+        // here is intentional and we assert it.
+        assertThat(user.getDisplayName()).isEqualTo("Dave the Great");
+        assertThat(user.getBio()).isEqualTo("new bio");
         assertThat(response.displayName()).isEqualTo("Dave the Great");
         assertThat(response.bio()).isEqualTo("new bio");
+        verify(userRepository).findById(2L);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void updateUser_nullFieldsLeaveExistingValuesUntouched() {
+        User user = User.builder()
+                .id(8L)
+                .email("eve@example.com")
+                .passwordHash("hash")
+                .displayName("Eve")
+                .bio("keep me")
+                .build();
+        when(userRepository.findById(8L)).thenReturn(Optional.of(user));
+
+        UpdateUserRequest partial = new UpdateUserRequest(null, null);
+        userService.updateUser(8L, partial);
+
+        assertThat(user.getDisplayName()).isEqualTo("Eve");
+        assertThat(user.getBio()).isEqualTo("keep me");
     }
 
     @Test

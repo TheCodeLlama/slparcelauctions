@@ -58,12 +58,19 @@ services:
       - ./backend/.mvn:/workspace/.mvn
       - ./backend/mvnw:/workspace/mvnw
       - maven-cache:/root/.m2
+    # start_period: 60s breakdown — JVM cold start (~3s) + Spring context init
+    # (~5s) + Tomcat bind (~1s) + Flyway migrate (~1s on a fresh DB) gives ~10s
+    # in the warm-cache case. The remaining headroom covers slow Docker Desktop
+    # disk I/O on Windows. The very first boot also has to download Maven
+    # dependencies (~45s on a cold maven-cache volume); that runs *before* the
+    # JVM starts, so it eats start_period instead of being a separate concern.
+    # If you blow away the maven-cache volume regularly, bump this back to 90s.
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 90s
+      start_period: 60s
     networks:
       - slpa-net
 

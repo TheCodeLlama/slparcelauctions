@@ -14,19 +14,21 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
+import com.slparcelauctions.backend.user.dto.UpdateUserRequest;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
 @Transactional
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UserIntegrationTest {
 
     @Autowired
@@ -38,7 +40,13 @@ class UserIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Test
     void createUser_persistsHashedPasswordAndDefaultJsonbPrefs() throws Exception {
@@ -104,5 +112,29 @@ class UserIntegrationTest {
     void getUserProfile_unknownId_returns404() throws Exception {
         mockMvc.perform(get("/api/users/9999999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateUser_dirtyCheckingFlushesChangesToDb() {
+        User saved = userRepository.save(User.builder()
+                .email("integration+update@example.com")
+                .passwordHash(passwordEncoder.encode("password123"))
+                .displayName("Old Name")
+                .bio("old bio")
+                .build());
+        userRepository.flush();
+        Long id = saved.getId();
+
+        userService.updateUser(id, new UpdateUserRequest("New Name", "new bio"));
+
+        // Force the dirty-checking flush, then evict so the next read goes back
+        // to the DB rather than returning the in-memory entity from the
+        // persistence context.
+        entityManager.flush();
+        entityManager.clear();
+
+        User reloaded = userRepository.findById(id).orElseThrow();
+        assertThat(reloaded.getDisplayName()).isEqualTo("New Name");
+        assertThat(reloaded.getBio()).isEqualTo("new bio");
     }
 }

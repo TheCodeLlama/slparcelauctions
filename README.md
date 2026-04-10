@@ -22,6 +22,8 @@ cp .env.example .env       # adjust values if you want non-default ports/credent
 docker compose up --build
 ```
 
+`.env` is gitignored. Never commit it.
+
 Once everything is healthy:
 
 | Service           | URL                              |
@@ -87,7 +89,7 @@ npm run dev
 
 ```bash
 cd backend && ./mvnw test             # unit, slice, and integration tests (integration tests need postgres on :5432)
-cd frontend && npm run lint           # vitest will land in a later phase
+cd frontend && npm run lint           # frontend unit tests (Vitest) land in Task 02-04
 ```
 
 ## Repository layout
@@ -106,6 +108,19 @@ cd frontend && npm run lint           # vitest will land in a later phase
 ├── docker-compose.yml       Full local dev stack
 └── .env.example             Documented env vars for compose
 ```
+
+## Production deployment
+
+Production deployment is **not covered in Phase 1**. This stack is wired for local development only. Before any non-local deployment:
+
+- Rotate every value in `.env.example` tagged `# DEV ONLY` — `POSTGRES_PASSWORD`, `CORS_ALLOWED_ORIGIN`, `NEXT_PUBLIC_API_URL`, plus any future `*_SECRET` / `*_TOKEN` introduced by later tasks (JWT signing key in Task 01-07, etc.).
+- Set `SPRING_PROFILES_ACTIVE=prod` and review `application-prod.yml` to confirm there are no hardcoded credentials and `ddl-auto` is `validate` (not `update`).
+- Add a reverse proxy / TLS terminator (nginx, Caddy, cloud load balancer) in front of the backend; the dev stack ships HTTP only.
+- Lock down the CORS allow-list to the real frontend origin instead of `localhost:3000`.
+- Replace `Dockerfile.dev` with a multi-stage production Dockerfile that builds a layered Spring Boot fat-jar and runs on a JRE base image, not a JDK.
+- Decide on a database backup / point-in-time-recovery strategy — the named `postgres-data` volume is fine for local dev, not for production.
+
+Track these as part of the pre-launch checklist; do not ship without each one signed off.
 
 ## Conventions
 

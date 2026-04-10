@@ -1,4 +1,4 @@
-git ad# Task 01-05: Docker Compose for Local Development
+# Task 01-05: Docker Compose for Local Development
 
 ## Goal
 

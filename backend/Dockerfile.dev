@@ -1,6 +1,10 @@
 FROM eclipse-temurin:26-jdk
 
-# curl is needed for the docker compose healthcheck against /api/health.
+# DO NOT REMOVE — the docker compose healthcheck in ../docker-compose.yml shells
+# out to `curl -fsS http://localhost:8080/api/health`. Switching to wget --spider
+# would also work, but wget is not in the eclipse-temurin base image, so removing
+# curl "because it's bloat in a JDK image" silently breaks the healthcheck and
+# the depends_on: condition: service_healthy chain that gates the frontend.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
