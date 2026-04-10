@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "verify:no-dark-variants": "bash scripts/verify-no-dark-variants.sh",
+    "verify:no-hex-colors": "bash scripts/verify-no-hex-colors.sh",
+    "verify:no-inline-styles": "bash scripts/verify-no-inline-styles.sh",
+    "verify:coverage": "bash scripts/verify-coverage.sh",
+    "verify": "npm run verify:no-dark-variants && npm run verify:no-hex-colors && npm run verify:no-inline-styles && npm run verify:coverage"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
