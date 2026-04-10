@@ -53,7 +53,7 @@ Key wiring:
 - `enableSystem` — respects `prefers-color-scheme` when the user hasn't explicitly chosen.
 - `suppressHydrationWarning` on `<html>` is required because `next-themes` mutates the class before React hydrates.
 - TanStack Query defaults: `staleTime: 60_000`, `refetchOnWindowFocus: false`, `retry: 1`. **No devtools** in this task — see spec §2.5 non-goal.
-- Mount order: `RootLayout → <Providers> → <AppShell> → children`. AppShell lives inside Providers so Header's `useTheme()` and `useAuth()` hooks have ancestors.
+- Full mount chain: `RootLayout → <Providers>(ThemeProvider → QueryClientProvider) → <AppShell> → children`. Theme is the outermost provider (theme state never invalidates on query activity); query is inside theme; AppShell is inside both so Header's `useTheme()` and `useAuth()` hooks have ancestors.
 
 The `ThemeToggle` itself is a `"use client"` component that composes `<IconButton aria-label="Toggle theme">` + `Sun`/`Moon` from the lucide barrel. Mounted-gate via `useEffect` returns `null` before mount to avoid hydration mismatch on the icon. Full contract in spec §7.7.
 
@@ -126,7 +126,7 @@ Spec §10.2 has the full "what done looks like" checklist. Summary:
 - `globals.css` contains the full M3 token set (spec §4.1), the M3 type scale, dark-mode overrides in `.dark { ... }`. Zero hardcoded hex values in components, zero `dark:` variants anywhere in `src/components` or `src/app`.
 - `next-themes` and `@tanstack/react-query` wired via `<Providers>` (spec §5.1) inside `RootLayout` (spec §5.2). `suppressHydrationWarning` on `<html>`.
 - `lib/api.ts`, `lib/auth.ts`, `lib/cn.ts` all importable from `@/lib/*`. No inline styles, no raw hex colors in JSX, no copy-pasted markup from the Stitch HTML.
-- Root README sweep per the `feedback_update_readme_each_task` rule — frontend section gains a one-paragraph update mentioning `npm run test`, `npm run verify`, and the component library.
+- Root README sweep — every task that introduces contractor-visible dev commands updates the root `README.md` so it reflects the new state. For this task, the frontend section gains a one-paragraph update mentioning `npm run test`, `npm run verify`, and the component library shape. If a task genuinely needs no README update, the PR description should say so explicitly rather than silently skipping the sweep.
 
 ## Notes
 

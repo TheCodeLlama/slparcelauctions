@@ -680,6 +680,21 @@ export default function RootLayout({
 
 **`suppressHydrationWarning`** on `<html>` is required because `next-themes` mutates the class before React hydrates. This is the official next-themes recommendation, not a hack.
 
+**Full mount chain**:
+
+```
+RootLayout (RSC)
+  └─ <Providers> (client)
+       └─ ThemeProvider (next-themes)
+            └─ QueryClientProvider (TanStack Query)
+                 └─ AppShell (RSC)
+                      ├─ Header (client)
+                      ├─ <main>{children}</main>
+                      └─ Footer (RSC)
+```
+
+Theme is the outermost provider so theme state never invalidates on query activity. Query is inside theme so future query-backed UI can read theme tokens. AppShell is inside both providers so `Header.tsx`'s `useTheme()` and `useAuth()` hooks have ancestors. The `children` prop ultimately reaches each page's RSC inside `<main>`.
+
 ---
 
 ## 6. `lib/` contracts
@@ -857,7 +872,14 @@ export function cn(...inputs: ClassValue[]): string {
 
 **Tests** (`src/lib/cn.test.ts`, 2 cases):
 1. **Merge dedup** — `cn("p-4", "p-8")` → `"p-8"` (consumer wins).
-2. **Conditional truthy/falsy** — `cn("p-4", false && "bg-red-500", null, undefined, "text-on-surface")` → `"p-4 text-on-surface"`.
+2. **Conditional truthy + falsy** — both paths must be exercised, not just falsy filtering:
+   ```ts
+   const hasError = true;
+   const isDisabled = false;
+   cn("p-4", hasError && "ring-error", isDisabled && "opacity-50", null, undefined, "text-on-surface")
+   // → "p-4 ring-error text-on-surface"
+   ```
+   Asserts that truthy conditionals render, falsy conditionals are filtered, and nullish values are filtered.
 
 ---
 
@@ -885,16 +907,17 @@ type ButtonProps = {
 | `secondary` | Ghost: `bg-surface-container-lowest text-on-surface shadow-soft`. No border (no-line rule); the soft shadow + tonal lift does the work. |
 | `tertiary`  | Text-only: `text-primary` with `hover:underline underline-offset-4`. No background.          |
 
-| Size | Type token       | Height | Horizontal padding |
-|------|------------------|--------|--------------------|
-| `sm` | `text-label-md`  | `h-9`  | `px-4`             |
-| `md` | `text-label-lg`  | `h-11` | `px-5`             |
-| `lg` | `text-title-md`  | `h-13` | `px-7`             |
+| Size | Type token       | Height | Horizontal padding | Notes                                      |
+|------|------------------|--------|--------------------|--------------------------------------------|
+| `sm` | `text-label-md`  | `h-9`  | `px-4`             | 36px — matches M3 small.                   |
+| `md` | `text-label-lg`  | `h-11` | `px-5`             | 44px — touch-target compromise on M3's 40. |
+| `lg` | `text-title-md`  | `h-12` | `px-6`             | 48px — matches M3 large; uses default Tailwind utility (no `--spacing-13` token needed). |
 
 - `loading` disables the button, swaps `leftIcon` for `<Loader2 className="animate-spin" />` from icons.ts, keeps the label visible (no layout shift).
 - `forwardRef` so React Hook Form's `register` works without warnings.
+- **`className` flow**: accepted via the `ButtonHTMLAttributes` spread and merged with base classes via `cn(base, variant, size, className)` in the component body. Consumer classes always win conflicts because `tailwind-merge` dedupes.
 
-**Tests** (6): each variant renders the right base classes; `loading` disables the button and renders the spinner; `leftIcon` and `rightIcon` render in the right slots; click handler fires; `fullWidth` adds `w-full`; consumer `className` overrides base via `cn`.
+**Tests** (6): each variant renders the right base classes (assertion also covers consumer `className` merging — see §9.5 testing principle #4); `loading` disables the button and renders the spinner; `leftIcon` and `rightIcon` render in the right slots; click handler fires; `fullWidth` adds `w-full`; consumer `className` overrides base via `cn`.
 
 ### 7.2 IconButton
 
@@ -908,10 +931,11 @@ type IconButtonProps = {
 ```
 
 - `aria-label` is **required in the TS type**, not lint-enforced. Casting with `as any` is the only escape and is review-visible.
-- `rounded-full`, square footprint per size: `h-9 w-9` / `h-11 w-11` / `h-13 w-13`.
+- `rounded-full`, square footprint per size: `h-9 w-9` (sm), `h-11 w-11` (md), `h-12 w-12` (lg).
 - `[&_svg]:stroke-[1.5]` baked into base classes — single source of stroke weight.
+- **`className` flow**: accepted via the `ButtonHTMLAttributes` spread and merged with base classes via `cn(base, variant, size, className)`. The Header uses `className="md:hidden"` on the mobile hamburger — that has to flow through, and it does.
 
-**Tests** (4): aria-label is on the rendered button; click handler fires; each variant renders correct base classes; rendered child SVG inherits the 1.5 stroke (assert via class presence on the wrapper).
+**Tests** (4): aria-label is on the rendered button; click handler fires; each variant renders correct base classes (assertion also covers consumer `className` merging — see §9.5 testing principle #4); rendered child SVG inherits the 1.5 stroke (assert via class presence on the wrapper).
 
 ### 7.3 Input
 
@@ -931,8 +955,9 @@ type InputProps = {
 - `error` swaps `ring-primary` for `ring-error` and replaces `helperText` content with `error` text (`text-error text-body-sm`).
 - `label` auto-wires `htmlFor` to a generated id if `id` isn't passed.
 - `forwardRef` for RHF.
+- **`className` flow**: accepted via the `InputHTMLAttributes` spread and merged with base classes via `cn(base, state, className)` on the inner `<input>`.
 
-**Tests** (5): label associates with input via htmlFor/id; error state replaces helper text and applies error ring; leftIcon renders with correct padding offset; controlled usage works (`value` + `onChange`); uncontrolled usage works (`defaultValue`).
+**Tests** (5): label associates with input via htmlFor/id (assertion also covers consumer `className` merging — see §9.5 testing principle #4); error state replaces helper text and applies error ring; leftIcon renders with correct padding offset; controlled usage works (`value` + `onChange`); uncontrolled usage works (`defaultValue`).
 
 ### 7.4 Card (compound)
 
@@ -954,8 +979,9 @@ export { Card, CardHeader, CardBody, CardFooter };
 - `Card.Body`: `px-6 py-4`.
 - `Card.Footer`: `p-6 pt-4` typically right-aligned actions (consumer flexes).
 - Sub-components also exported individually so tree-shaking works and compound usage isn't forced.
+- **`className` flow**: every sub-component (`Card`, `Card.Header`, `Card.Body`, `Card.Footer`) accepts `className` via `HTMLAttributes<HTMLDivElement>` spread and merges via `cn`.
 
-**Tests** (3): card renders children with default classes; header/body/footer slots render in order; consumer `className` merges with base via `cn`.
+**Tests** (3): card renders children with default classes; header/body/footer slots render in order; consumer `className` merges with base via `cn` (per §9.5 testing principle #4).
 
 ### 7.5 StatusBadge
 
@@ -967,6 +993,7 @@ type StatusBadgeProps = {
   status?: AuctionStatus;  // when set, provides default label + tone
   tone?: Tone;             // generic, used when status is not set
   children?: ReactNode;    // overrides default label from `status`
+  className?: string;      // merged via cn() so consumers can extend
 };
 ```
 
@@ -988,7 +1015,9 @@ Short-circuit: `if (!status && !tone && !children) return null;` — never rende
 
 Shape: `rounded-full px-3 py-1 text-label-md font-medium inline-flex items-center gap-1.5`.
 
-**Tests** (5): each status renders correct label + tone classes; each tone value renders correct classes; children override status label; default empty render returns null; `<StatusBadge status="active">12 bids</StatusBadge>` renders active palette with custom content.
+**`className` flow**: StatusBadge does not extend `HTMLAttributes` by default — its props are explicit. Add `className?: string` to `StatusBadgeProps` and merge via `cn(base, statusOrToneClasses, className)` so consumers can extend (e.g., `<StatusBadge status="active" className="ml-auto">`).
+
+**Tests** (5): each status renders correct label + tone classes (assertion also covers consumer `className` merging — see §9.5 testing principle #4); each tone value renders correct classes; children override status label; default empty render returns null; `<StatusBadge status="active">12 bids</StatusBadge>` renders active palette with custom content.
 
 ### 7.6 Avatar
 
@@ -998,6 +1027,7 @@ type AvatarProps = {
   alt: string;          // required
   name?: string;        // for fallback initials when src is missing
   size?: "xs" | "sm" | "md" | "lg" | "xl";  // default "md"
+  className?: string;   // merged via cn() so consumers can extend
 };
 ```
 
@@ -1009,10 +1039,11 @@ type AvatarProps = {
 | `lg` | 56     |
 | `xl` | 80     |
 
-- **With `src`**: renders `next/image` with `width`/`height` set to the size (no `fill`, no wrapper gymnastics) and `className="rounded-full object-cover"`.
+- **With `src`**: renders `next/image` with `width`/`height` set to the size (no `fill`, no wrapper gymnastics) and class composition `cn("rounded-full object-cover", className)`.
 - **Without `src`**: renders initials fallback. `bg-tertiary-container text-on-tertiary-container font-semibold rounded-full`. Initials = first letter of first two whitespace-separated parts of `name`, uppercased (`"Heath Barcus"` → `"HB"`, `"Heath"` → `"H"`, missing → `"?"`).
+- **`className` flow**: merged via `cn` on both the image and the initials fallback so consumers can extend either rendering.
 
-**Tests** (4): src renders next/image; missing src renders initials from name; missing name renders `"?"`; each size applies correct dimensions.
+**Tests** (4): src renders next/image (assertion also covers consumer `className` merging — see §9.5 testing principle #4); missing src renders initials from name; missing name renders `"?"`; each size applies correct dimensions.
 
 ### 7.7 ThemeToggle
 
@@ -1058,6 +1089,8 @@ type DropdownProps = {
 - **Floating panel**: `bg-surface-container-lowest rounded-default shadow-elevated p-2`. Items: `text-body-md text-on-surface px-3 py-2 rounded-sm hover:bg-surface-container`.
 
 **Tests** (5): clicking trigger opens the menu; escape closes it; item click fires `onSelect` and closes; disabled items don't fire `onSelect`; danger items render with `text-error`.
+
+**Out of scope for this task's tests**: the future `<Dropdown.Item>` compound API is explicitly not built or tested here. Tests cover only the array-based `items` API. Don't preemptively add the compound API "while you're here" — the first task that needs dividers/groups owns it.
 
 ### 7.9 `icons.ts` barrel
 
@@ -1385,7 +1418,29 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
 
 The `bg-surface-container-low` background shift against the page's `bg-surface` *is* the visual separator — DESIGN.md §2 no-line rule in action. **No `border-t`.** The footer year via `new Date().getFullYear()` runs on every server render, which is fine — micro-optimization not warranted.
 
-**Tests** (2): all four links render with correct href; current year appears in copyright text.
+**Tests** (2): all four links render with correct href; current year appears in copyright text. The year test must pin time per §9.5 testing principle #5:
+
+```ts
+import { afterEach, beforeEach, describe, it, vi } from "vitest";
+import { renderWithProviders, screen } from "@/test/render";
+import { Footer } from "./Footer";
+
+describe("Footer", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date("2026-06-15T12:00:00Z") });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders the current year in the copyright", () => {
+    renderWithProviders(<Footer />);
+    expect(screen.getByText(/© 2026 SLPA/)).toBeInTheDocument();
+  });
+});
+```
+
+Without the time pin, a test running at the year boundary against a component rendering moments later could desync. Deterministically zero with the stub.
 
 ### 8.6 PageHeader (RSC)
 
@@ -1669,7 +1724,9 @@ Expected runtime: ~2 seconds cold, sub-second in watch mode. If runtime ever cro
 1. **Test the contract, not the implementation.** Assert that the right semantic class is *applied* (`bg-primary`, `text-on-surface`), not that Tailwind compiled it to a specific hex. Assert that handlers fire with the right argument, not how the component manages internal state.
 2. **Test the integration where it's load-bearing.** `ThemeToggle` is the one place where mocking out next-themes would lose the test's value — its integration test must observe an actual class flip on `documentElement`.
 3. **Don't test libraries.** We don't test that `next-themes` persists to localStorage (its job), that Headless UI's focus trap works (its job), or that Tailwind generates correct CSS (its job). We test that *our* code calls them correctly.
-4. **Per-test mock reset.** Tests that override a global mock (`vi.mocked(usePathname).mockReturnValue("/browse")`) must reset in `beforeEach` so state doesn't leak:
+4. **`className` merge coverage is non-negotiable.** Every primitive whose base classes can be overridden by a consumer `className` must have at least one assertion that consumer classes win via `cn()` merging. **Fold the assertion into an existing test** (e.g., the "renders with correct base classes" test renders the primitive with a deliberately conflicting `className="p-8"` against base `p-4` and asserts the consumer wins) — do **not** add a separate test case. The total count stays at 64; the per-primitive cases listed in §9.4 already include this assertion implicitly. Without this rule, a regression silently clobbers consumer styling and surfaces months later as "why does my override not work?"
+5. **Date-dependent tests must pin time.** Any test whose expected output depends on `new Date()` / `Date.now()` must use `vi.useFakeTimers({ now: new Date("YYYY-MM-DD") })` to make the assertion deterministic. The Footer copyright-year test is the canonical example — without time pinning, a test running at 23:59:59 on Dec 31 against a component rendering at 00:00:00 on Jan 1 desyncs. Vanishingly rare in practice, deterministically zero with the stub. Cleanup with `afterEach(() => vi.useRealTimers())` or use `vi.useFakeTimers` scoped to the test block.
+6. **Per-test mock reset.** Tests that override a global mock (`vi.mocked(usePathname).mockReturnValue("/browse")`) must reset in `beforeEach` so state doesn't leak:
    ```ts
    import { usePathname } from "next/navigation";
    import { vi, beforeEach, describe, it } from "vitest";
@@ -1738,7 +1795,7 @@ A reviewer or contractor can verify task completion by running:
    - No inline `style={...}` props in `src/components` or `src/app`.
    - Every `src/components/ui/*.tsx` (excluding barrels) has a sibling `*.test.tsx`.
 5. **Manual smoke test** (Part B below) — all steps pass in both modes.
-6. **Root README sweep** (per `feedback_update_readme_each_task` memory) — root README's frontend section gets a one-paragraph update mentioning `npm run test`, `npm run verify`, and the shape of the component library.
+6. **Root README sweep** — every task that introduces contractor-visible dev commands or changes how the stack is run updates the root `README.md` so it reflects the new state. For this task: the frontend section gains a one-paragraph update mentioning `npm run test`, `npm run verify`, and the shape of the component library. If a task genuinely needs no README update, the PR description should say so explicitly rather than skipping the sweep silently.
 
 ### 10.3 Manual smoke test (paste into PR description)
 
