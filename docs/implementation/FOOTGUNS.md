@@ -193,6 +193,8 @@ Place this after the imports but before the `vi.mock(...)` blocks. The stub alwa
 
 **`configurable: true` matters.** Without it, `Object.defineProperty` creates a non-configurable property and `vi.spyOn(window, "matchMedia", ...)` throws `TypeError: Cannot redefine property: matchMedia`. Reassignment via `window.matchMedia = vi.fn(...)` still works because `writable: true`, but spies don't. Future tests that need per-test override of matchMedia behavior — e.g., simulating `prefers-reduced-motion` — depend on this. Cheap to set, expensive to debug later.
 
+**Caught at implementation time in Task 4** by the implementer reading FOOTGUNS §2.1 (jsdom stubs) and proactively checking related browser APIs before running the smoke test for the first time. The pattern that finds these is "the ledger trains you to ask 'what else is jsdom missing?' before the test runs." When a future implementer reads this entry, the lesson is: **implementers who read this catch things.**
+
 ---
 
 ## §3 Language / framework
@@ -345,7 +347,19 @@ return function Wrapper({ children }: { children: ReactNode }) {
 };
 ```
 
-**Action item:** The Task 8 implementer (`lib/api.ts`) should evaluate whether the api tests will need this fix. If `lib/api.test.ts` only mocks `fetch` directly (no `renderHook`, no `useQuery`), the current shape is fine. If `lib/api.test.ts` ever drives a query via the React Query layer, fix the wrapper at that point (one-line change to `src/test/render.tsx`, no plan amendment needed).
+**Action item — REQUIRED deliverable for Task 8 (not optional cleanup):**
+
+Task 8 (`lib/api.ts`) MUST replace the current unstabilized `QueryClient` construction in `src/test/render.tsx` with the `useRef` pattern shown above. This is a hard requirement, not a "fix it if you have time" item, because Task 8 is the first task whose tests could plausibly drive a query through the React Query layer (even if `lib/api.test.ts` itself only mocks `fetch`, the helper has to be ready for the next task that does).
+
+**Mechanically verifiable by a stability test in Task 8.** The Task 8 implementer adds a test case to `src/test/render.smoke.test.tsx` that:
+
+1. Constructs a small probe component that captures the `QueryClient` instance from `useQueryClient()` in a ref.
+2. Renders it via `renderWithProviders`, then calls `rerender()` with the same component.
+3. Asserts the captured `QueryClient` instance is referentially equal across both renders (`Object.is(first, second) === true`).
+
+If the wrapper still reconstructs on re-render, the test fails on the second render. If the `useRef` fix is in place, the test passes. **Task 8 ships both the fix AND the test in the same commit** so the regression can't silently come back.
+
+The Task 8 implementer prompt must reference this entry as a required deliverable, not as a "see also" footnote.
 
 ---
 
