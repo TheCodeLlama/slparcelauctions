@@ -73,6 +73,33 @@ The `git update-index --chmod=+x` explicitly sets the mode bit in the git index.
 
 **How to apply:** Either (a) document at the top of the script that it must be run from `frontend/`, or (b) make the script location-independent with `cd "$(dirname "$0")/.."`. For npm-script-only scripts, (a) is fine — the npm wrapper enforces cwd. For scripts a human might run directly, (b).
 
+### 1.5 `for f in src/components/ui/*.tsx` glob also matches `*.test.tsx` siblings
+
+**Why:** Bash's `*.tsx` glob is naive — it matches every file ending in `.tsx`, including the sibling test files (`Foo.test.tsx`). Code that strips `.tsx` with `basename "$f" .tsx` then yields `Foo.test`, not `Foo`, because `basename` only strips a literal suffix from the very end. The next line — `[[ ! -f "src/components/ui/${base}.test.tsx" ]]` — looks for `Foo.test.test.tsx`, which doesn't exist, and reports a false `MISSING TEST` for every test file in the directory.
+
+The canonical `verify-coverage.sh` from plan Task 27 had exactly this bug. The implementer caught it during the post-write smoke run (every primitive reported missing) and patched the case-statement skip list.
+
+**How to apply:** When iterating `*.tsx` and pairing source files to test files, exclude the test files from the iteration:
+
+```bash
+for f in src/components/ui/*.tsx; do
+  base="$(basename "$f" .tsx)"
+  case "$base" in
+    index|icons|*.test) continue ;;
+  esac
+  if [[ ! -f "src/components/ui/${base}.test.tsx" ]]; then
+    echo "MISSING TEST: $f"
+    missing=1
+  fi
+done
+```
+
+The `*.test)` arm in the case statement skips any base name ending in `.test` (i.e., the basename of a `Foo.test.tsx` file after `basename .tsx`). Alternative: use a more specific glob like `find src/components/ui -name '*.tsx' -not -name '*.test.tsx'`. Either works; the case-statement form matches the existing project style.
+
+**Caught at implementation time in Task 27.** The canonical plan snippet shipped without this exclusion. Single-line fix; the implementer flagged it as DONE_WITH_CONCERNS so the deviation from canonical was visible to the reviewer rather than buried.
+
+**General rule:** any shell loop that pairs a source file to a sibling test file via `basename` must exclude the test file from the source iteration, OR must assert that the basename doesn't already contain `.test`. Don't trust `*.tsx` to mean "implementation files."
+
 ---
 
 ## §2 Runtime / tooling
@@ -265,6 +292,22 @@ import { act } from "react"; // ✅ correct
 ```
 
 Some older test examples on the internet still show the `react-dom/test-utils` form. Don't.
+
+### 3.5 `eslint-plugin-react-hooks` ships two experimental rules that bite common patterns
+
+**Why:** Recent versions of `eslint-plugin-react-hooks` (transitively required by `eslint-config-next`) enable two new rules by default that didn't exist in older versions:
+
+- `react-hooks/set-state-in-effect` — flags `setState(...)` calls inside the body of a `useEffect`. Triggered by the canonical "hydration mount" pattern (`useEffect(() => { setMounted(true); }, []);`) used by `next-themes` consumers and any other "wait for client-side mount before rendering" trick.
+- `react-hooks/immutability` — flags any mutation of a variable defined outside the component or hook. Triggered by the test pattern of capturing values into an outer-scope object (`captured.current = client;`) — common when verifying React behavior across rerenders. The autofix hint is "rename to end in `Ref`," which doesn't actually silence the rule on its own; you also need a disable comment.
+
+These rules are not in the `eslint-config-next` ruleset by name — they ride along when `eslint-plugin-react-hooks` is upgraded (via `npm install` of any related package). The two violations in this codebase had been latent since Tasks 4 and 17 because no implementer prompt ran `npm run lint` as a hard gate; the verify chain runs four shell scripts but does NOT include `eslint`. Task 27's protocol surfaced both errors at once.
+
+**How to apply:**
+- For the hydration-mount pattern (`setMounted(true)` in a `useEffect`), suppress with `// eslint-disable-line react-hooks/set-state-in-effect` on the offending line. The pattern is intentional and idiomatic for `next-themes` SSR safety; the rule's "you might not need an effect" guidance doesn't apply.
+- For test-side outer-variable mutation, the conventional fix is rename-to-`Ref` (e.g., `captured` → `capturedRef`) AND add `// eslint-disable-next-line react-hooks/immutability` above the mutation. The rename alone doesn't satisfy the rule because the underlying check is on the assignment, not the name. Both moves are required.
+- **Run `npm run lint` as a regression check after any task that touches a component using effects or any test that captures values from a render probe.** The verify chain should have been augmented to call lint; that's a Task 28+ followup if anyone notices.
+
+**Caught at implementation time in Task 27** when the canonical task protocol required `npm run lint` to be green and the implementer surfaced two latent violations from much earlier tasks.
 
 ---
 
