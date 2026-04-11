@@ -66,6 +66,33 @@ public class UserService {
         log.info("Deleted user id={}", id);
     }
 
+    /**
+     * Increments the user's {@code tokenVersion} counter, immediately invalidating every
+     * outstanding access token for this account.
+     *
+     * <p>Call this on any security-sensitive lifecycle event:
+     * <ul>
+     *   <li>password change (auth slice)</li>
+     *   <li>administrative ban or suspension (moderation slice)</li>
+     *   <li>role change (admin slice)</li>
+     *   <li>logout-all-devices (auth slice)</li>
+     *   <li>account deletion (user slice)</li>
+     * </ul>
+     *
+     * <p>The method mutates the managed entity in place; JPA dirty checking flushes the
+     * updated {@code token_version} column at transaction commit — no explicit
+     * {@code save()} call is needed.
+     *
+     * @param userId the primary key of the user whose tokens should be invalidated
+     * @throws UserNotFoundException if no user with that id exists
+     */
+    @Transactional
+    public void bumpTokenVersion(Long userId) {
+        User user = loadUser(userId);
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        log.info("Bumped tokenVersion for user id={} to {}", userId, user.getTokenVersion());
+    }
+
     private User loadUser(Long id) {
         return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
     }

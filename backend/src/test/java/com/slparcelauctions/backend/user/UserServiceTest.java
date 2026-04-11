@@ -162,4 +162,30 @@ class UserServiceTest {
 
         verify(userRepository, times(1)).delete(user);
     }
+
+    @Test
+    void bumpTokenVersion_incrementsByOne() {
+        User user = User.builder()
+                .id(10L)
+                .email("frank@example.com")
+                .passwordHash("hash")
+                .tokenVersion(3L)
+                .build();
+        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+
+        userService.bumpTokenVersion(10L);
+
+        assertThat(user.getTokenVersion()).isEqualTo(4L);
+        // JPA dirty checking handles persistence; no explicit save() expected
+        verify(userRepository).findById(10L);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    @Test
+    void bumpTokenVersion_throwsWhenUserMissing() {
+        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.bumpTokenVersion(99L))
+                .isInstanceOf(UserNotFoundException.class);
+    }
 }
