@@ -12,13 +12,19 @@ import lombok.Getter;
  *
  * <p>See FOOTGUNS §B.6 — this cascade is the entire reason DB-backed refresh tokens are worth
  * the cost over JWT-based refresh tokens.
+ *
+ * <p><strong>The exception message must not embed the userId</strong> — if {@code AuthExceptionHandler}
+ * echoes {@code getMessage()} into the {@code ProblemDetail} detail field, the userId would leak
+ * to the client. An attacker submitting tokens in a reuse-probe loop could enumerate valid userIds
+ * by observing whether the response contains a number. The {@code userId} field (via {@code @Getter})
+ * is retained for server-side logging in {@code RefreshTokenService.rotate}.
  */
 @Getter
 public class RefreshTokenReuseDetectedException extends RuntimeException {
     private final Long userId;
 
     public RefreshTokenReuseDetectedException(Long userId) {
-        super("Refresh token reuse detected for user " + userId + "; all sessions revoked.");
+        super("Refresh token reuse detected; all sessions revoked.");
         this.userId = userId;
     }
 }
