@@ -13,3 +13,6 @@ spring:
 
 cors:
   allowed-origin: ${CORS_ALLOWED_ORIGIN}
+
+jwt:
+  secret: ${JWT_SECRET}    # required, fail-fast on startup if missing

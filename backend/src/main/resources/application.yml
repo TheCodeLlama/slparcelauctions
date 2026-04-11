@@ -13,3 +13,12 @@ spring:
 
 cors:
   allowed-origin: http://localhost:3000
+
+jwt:
+  secret: ${JWT_SECRET}             # no default — fail-fast on prod startup if missing
+  access-token-lifetime: PT15M      # ISO-8601 duration: 15 minutes
+  refresh-token-lifetime: P7D       # ISO-8601 duration: 7 days
+
+auth:
+  cleanup:
+    enabled: true

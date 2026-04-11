@@ -131,6 +131,23 @@ public class User {
     @Column(name = "sl_im_quiet_end")
     private LocalTime slImQuietEnd;
 
+    /**
+     * Freshness-mitigation counter for the auth slice. Incremented on events that should
+     * invalidate all live access tokens for this user (ban, suspension, password change,
+     * logout-all, role change, account deletion). Access tokens carry this value as a
+     * {@code tv} claim; write-path services compare against the live value at the integrity
+     * boundary. See spec §2 and FOOTGUNS §B.4.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so Hibernate's
+     * {@code ddl-auto: update} can add this NOT NULL column to existing rows on local dev
+     * databases without failing. The {@code @Builder.Default} handles the Java-side default
+     * for newly-constructed entities.
+     */
+    @Column(name = "token_version", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    @Builder.Default
+    private Long tokenVersion = 0L;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

@@ -1,6 +1,8 @@
 package com.slparcelauctions.backend.user;
 
-public class UserNotFoundException extends RuntimeException {
+import com.slparcelauctions.backend.common.exception.ResourceNotFoundException;
+
+public class UserNotFoundException extends ResourceNotFoundException {
 
     public UserNotFoundException(Long id) {
         super("User not found: id=" + id);
