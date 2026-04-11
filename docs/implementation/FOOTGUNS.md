@@ -578,6 +578,47 @@ This is a controller-side discipline rule, not an implementer-side one. The impl
 
 This is a controller-side discipline rule. The reviewer can only follow the prompt; it's the controller's job to make sure the prompt's spec summary is faithful — or, better, that the prompt points the reviewer at the canonical directly.
 
+### 5.8 Load-bearing documentation pattern — document WHY, not just WHAT
+
+**Why:** Some decisions in specs are not stylistic — they're structural guards against future
+refactoring that would quietly degrade the security or correctness of the system. Examples from
+the Task 01-07 JWT auth spec:
+
+- The `AuthResult` (service-internal) vs `AuthResponse` (controller-external) **two-record split**
+  exists so the type system prevents refresh-token leakage into JSON bodies. If you merge them
+  "for simplicity," you've removed the structural guard.
+- The **`Path=/api/auth` non-widening rule** on the refresh cookie is what makes cookie-only
+  logout CSRF-safe. Widening the path to `/` is a ten-character change that breaks the security
+  model.
+- The **`@RestControllerAdvice(basePackages = "...auth")`** scoping on `AuthExceptionHandler`
+  prevents cross-slice exception leakage. Removing the scope "to simplify" means the auth
+  handler starts catching user-slice exceptions and producing wrong error codes.
+- The **refresh-token reuse-cascade integration test** is a canary. If a future contributor
+  "optimizes" it away because "we already have a unit test for the service," they've disabled
+  the entire defense that makes DB-backed refresh tokens worth the cost over JWT refresh tokens.
+
+In each case, the code alone doesn't tell you why the thing can't be refactored — the decision
+is only load-bearing if the next contributor *understands* it's load-bearing.
+
+**How to apply:**
+
+- When a spec locks a decision that would pass code review if a future contributor refactored it
+  away, **write a JavaDoc or comment block explaining why the decision can't be refactored.**
+  Not "this record is for serialization" but "this record exists as a structural guard against
+  a specific failure mode. Do NOT merge it with X for simplicity — the split is the guard."
+- **Reference the FOOTGUNS ledger entry by number** so future contributors have a one-hop link
+  to the full rationale. The JavaDoc is the warning; the ledger entry is the reasoning.
+- **Watch for simplification PRs in code review.** A PR that says "simplified the auth DTOs by
+  merging AuthResult and AuthResponse" is a red flag regardless of how clean the diff looks.
+  Load-bearing decisions look like over-engineering to contributors who don't know why they exist.
+- **Apply this to every future security-critical spec.** The pattern is: identify the decisions
+  that future contributors will be tempted to refactor away, document the *why*, reference the
+  ledger, and trust that the documentation is load-bearing in the same way the code is.
+
+This is a meta-lesson for spec writing, not an implementation footgun. It applies across
+frontend and backend slices equally. Filed here under §5 (project conventions) because it's a
+convention about how to write specs, not a domain-specific gotcha.
+
 ---
 
 ## §6 Scaffold / template / generated content
@@ -616,5 +657,153 @@ When a reviewer (spec or code quality) finds a real issue that wasn't anticipate
 2. **Before dispatching the next task's implementer**, add a new entry to the relevant section of this ledger.
 3. The entry should be: rule (what to do), why (the underlying mechanism that bites), how to apply (concrete code/command).
 4. Reference the new entry from the next task's implementer prompt: "See FOOTGUNS §X.Y for the [topic] rule."
+
+---
+
+## §B. Backend / Spring Security / JJWT
+
+Backend-domain footguns. Numbered `§B.1`, `§B.2`, etc. to keep the namespace separate from the
+frontend-domain sections (`§1`–`§6`) so search stays clean.
+
+### B.1 `@AuthenticationPrincipal AuthPrincipal principal`, never `UserDetails`
+
+**Why:** Spring Security's tutorial-default principal type is `UserDetails`. Reaching for it in
+the SLPA codebase yields `null` at runtime because `JwtAuthenticationFilter` sets an
+`AuthPrincipal` record into the `SecurityContext`, not a Spring `UserDetails`.
+
+**How to apply:**
+- Every controller uses `@AuthenticationPrincipal AuthPrincipal principal`.
+- Never reach for `UserDetails` in a controller method signature — it silently yields `null`.
+- A backend grep verify rule (mirror of the frontend's `npm run verify` chain) should flag
+  `@AuthenticationPrincipal UserDetails` as a build break. Implementation of the rule is a
+  follow-on task; for now, code review enforces it.
+
+### B.2 `AuthenticationEntryPoint` bypasses the message converter chain
+
+**Why:** `AuthenticationEntryPoint.commence()` runs outside Spring's message converter chain.
+Returning a `ProblemDetail` from the method signature does nothing — the entry point is not an
+`@ExceptionHandler`, so Spring's auto-conversion doesn't fire.
+
+**How to apply:**
+- `JwtAuthenticationEntryPoint` serializes the `ProblemDetail` manually via injected `ObjectMapper`.
+- Set `Content-Type: application/problem+json`, status code, character encoding, and
+  `Cache-Control: no-store` explicitly.
+- If a future entry point is added (e.g., an OAuth error path), follow the same manual-serialization
+  pattern. Copying a `ProblemDetail` return from a regular exception handler won't work.
+
+### B.3 `WithSecurityContextFactory` wiring in Spring Security 6
+
+**Why:** Spring Security 6 auto-discovers `WithSecurityContextFactory` implementations from
+the `@WithSecurityContext(factory = ...)` element on the custom annotation itself. Legacy Spring
+Security (5 and earlier) required explicit registration in `META-INF/spring.factories`.
+
+**How to apply:**
+- Use `@WithSecurityContext(factory = YourFactory.class)` directly on the annotation.
+- If the annotation is silently ignored in tests (principal is `null` inside the controller under
+  test), fall back to `META-INF/spring.factories`. Verify the primary path first — the fallback
+  is a last resort.
+- Document which path was used in `auth/test/README.md` for the next test author.
+
+### B.4 `jwt.secret` must be present in every active profile
+
+**Why:** `JwtConfig.@PostConstruct` validates on startup and throws if `jwt.secret` is missing or
+shorter than 256 bits. Adding a new application profile (e.g., `application-test.yml`) for other
+reasons later will cause every test in that profile to fail before the first assertion runs
+unless the profile inherits or re-declares `jwt.secret`.
+
+**How to apply:**
+- Any new profile that loads Spring config must have `jwt.secret` set — either inherit from base
+  `application.yml` (which reads `${JWT_SECRET}`) or declare explicitly.
+- Tests that use `@TestPropertySource` must include `jwt.secret` in their properties block.
+- The fail-fast validation is intentional — do not weaken it by allowing null in dev profiles.
+
+### B.5 `SecurityConfig` matcher ordering
+
+**Why:** Spring Security matches `requestMatchers` rules in declaration order. The current SLPA
+ordering is safe because every rule is exact-match (no prefix wildcards). Adding a prefix matcher
+like `/api/auth/**` without understanding the consequences will break the explicit
+`/api/auth/logout-all authenticated()` rule — the prefix rule would swallow it unless declared
+after.
+
+**How to apply:**
+- Do not add prefix matchers (`/**` suffixes) without verifying the impact on existing exact-match
+  rules.
+- Do not reorder `authorizeHttpRequests` rules without understanding why the current order exists.
+- The inline comment in `SecurityConfig` documents this constraint at the call site. Read it
+  before modifying.
+
+### B.6 Refresh token reuse cascade is the security model
+
+**Why:** The `refreshTokenReuseCascade_revokesAllSessionsAndBumpsTokenVersion` integration test
+in `AuthFlowIntegrationTest` is a canary. If a future contributor "optimizes" the refresh path by
+skipping the revoked-row check in `RefreshTokenService.rotate`, they've degraded the auth slice
+from "stateful with revocation" to "stateless without it" without realizing. The test is the
+only thing that catches this regression — the unit tests mock the repository and wouldn't notice.
+
+**How to apply:**
+- **Never delete the reuse-cascade integration test.** Removing it is equivalent to removing the
+  security feature.
+- If the test is flaky or slow, fix the flake — do not quarantine or delete.
+- Any PR that touches `RefreshTokenService.rotate` must run the integration test and assert it
+  still passes.
+
+### B.7 Logout endpoint idempotency
+
+**Why:** `POST /api/auth/logout` must always return 204, even if the cookie is missing,
+malformed, expired, revoked, or points to another user's token. Throwing a 401 on an
+already-revoked token would create a "is this token still alive?" oracle through the logout
+endpoint — an attacker with a bunch of candidate raw tokens could test them by checking the
+logout response code.
+
+**How to apply:**
+- `AuthService.logout` and `RefreshTokenService.revokeByRawToken` are idempotent and never throw.
+- The controller's `/logout` handler catches nothing — it just returns 204 after the service call.
+- Do not add logging that distinguishes "successful revoke" from "cookie was already revoked" —
+  both cases should produce the same log output (or none).
+
+### B.8 Refresh token raw value never lives in the DB
+
+**Why:** The refresh token's raw 256-bit random value exists only in the HttpOnly cookie on the
+wire and in the client's cookie jar. The database stores only the SHA-256 hash. If the DB leaks,
+tokens leak as hashes — not usable credentials. This is the entire reason refresh tokens are
+worth persisting at all.
+
+**How to apply:**
+- If a future migration or debug feature adds a `raw_token` column to `refresh_tokens`, roll it
+  back immediately. "Temporary debug column" is not an acceptable reason.
+- `RefreshTokenService` hashes on every write; the raw value only crosses the API boundary as a
+  return value from `issueForUser` and `rotate`.
+- The `RefreshTokenTestFixture` also hashes — tests that insert rows use the raw value only for
+  replay through the API, not for DB assertions.
+
+### B.9 JJWT 0.12+ API is different from 0.11
+
+**Why:** JJWT 0.12 introduced a new builder API. Stack Overflow examples showing
+`Jwts.builder().setSubject(...)` and `signWith(SignatureAlgorithm.HS256, secret)` are JJWT 0.11
+syntax and will not compile against 0.12. The 0.12 form is `Jwts.builder().subject(...)` and
+`signWith(secretKey)` with the algorithm inferred from the key.
+
+**How to apply:**
+- Use `Jwts.parser().verifyWith(key).build().parseSignedClaims(token)` — not
+  `Jwts.parserBuilder()` (deprecated).
+- When copying JJWT examples from the internet, check the library version in the example first.
+- The `JwtService` and `JwtTestFactory` classes demonstrate the correct 0.12 API — reference them
+  for new JWT code.
+
+### B.10 `AuthResult` (service-internal) vs `AuthResponse` (controller-external) two-record split
+
+**Why:** The two-record split exists so the type system catches any code path that would put a
+refresh token in a JSON body. `AuthResult` (internal, service-to-controller) carries
+`{accessToken, refreshToken, user}`. `AuthResponse` (external, controller-to-client) carries
+`{accessToken, user}` — no refresh token field. A handler that returns `AuthResponse` cannot
+leak the refresh token because the field doesn't exist on the type.
+
+**How to apply:**
+- **Do not merge `AuthResult` and `AuthResponse` "for simplicity."** The split is the structural
+  guard; merging removes the guard.
+- Every new auth endpoint that returns tokens must return `AuthResponse`, not `AuthResult`.
+- The JavaDoc on both records documents this — don't delete the JavaDoc either.
+- If a future contributor proposes a PR that merges the records, the PR review should reference
+  this entry and decline.
 
 This is non-negotiable. Without the meta-discipline of "every catch becomes a ledger entry," the ledger doesn't compound and we re-burn the same lessons.
