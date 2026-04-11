@@ -400,6 +400,30 @@ Once registered in `font-size`, the type-scale tokens become a separate conflict
 
 **General rule for custom Tailwind tokens:** any token whose name starts with a Tailwind utility prefix (`text-`, `bg-`, `border-`, `ring-`, `shadow-`, etc.) AND that semantically belongs to a different group than `tailwind-merge`'s default classification will produce silent merge bugs. When introducing a new token category in `globals.css`, immediately register it in `cn.ts`'s `extendTailwindMerge` config in the appropriate group. Group names match `tailwind-merge`'s built-in groups: `font-size`, `text-color`, `font-weight`, `font-family`, `bg-color`, `border-color`, `ring-color`, `shadow`, `border-radius`, etc.
 
+### 4.9 `container.firstChild` is never null inside `renderWithProviders` — `next-themes` injects a `<script>` element
+
+**Why:** When `renderWithProviders` wraps a component in `<ThemeProvider>` from `next-themes`, the provider injects a `<script nonce>` element directly into the rendered tree to synchronize theme class application before React hydration. This means the RTL `container` element returned by `render()` always has at least one child (the script), even if your wrapped component returns `null`. Tests that assert "the component renders nothing" via `expect(container.firstChild).toBeNull()` will fail because `firstChild` is the next-themes script, not null.
+
+**Caught at implementation time in Task 15** by the StatusBadge null short-circuit test. The spec's canonical assertion was `expect(container.firstChild).toBeNull()`, but the test failed because `next-themes` script was always present.
+
+**How to apply:** Use an element-targeted query that matches what your component would render if it weren't returning null:
+
+```ts
+// Wrong — fails because next-themes script is always firstChild
+const { container } = renderWithProviders(<MyComponent />);
+expect(container.firstChild).toBeNull();
+
+// Right — query for the specific element your component would render
+const { container } = renderWithProviders(<MyComponent />);
+expect(container.querySelector("span")).toBeNull();
+// or for a component that renders a div:
+expect(container.querySelector("div[data-testid='my-component']")).toBeNull();
+```
+
+The substitute query targets the component's actual output element. If the component returns null, the query returns null. If the component accidentally renders something (regression), the query returns the element and the assertion fails — preserving the spec intent exactly.
+
+**General rule:** any test that wants to assert "the wrapped component rendered nothing" must target the component's specific output element, not `container.firstChild`. The next-themes script is always at `firstChild` position.
+
 ---
 
 ## §5 Project conventions
