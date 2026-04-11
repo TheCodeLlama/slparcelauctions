@@ -3,6 +3,16 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
+// jsdom does not implement ResizeObserver. Headless UI v2's Menu uses it
+// internally (via @floating-ui) for panel positioning. Without this stub,
+// tests that open a Dropdown crash with "ReferenceError: ResizeObserver is
+// not defined". The stub does nothing — positioning isn't exercised in jsdom.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 // jsdom does not implement window.matchMedia. next-themes calls it in a
 // useEffect to detect the system color-scheme preference. Without this stub,
 // every test that renders a ThemeProvider crashes with
