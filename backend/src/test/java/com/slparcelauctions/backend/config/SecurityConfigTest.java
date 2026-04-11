@@ -47,12 +47,20 @@ class SecurityConfigTest {
 
     @Test
     @WithMockAuthPrincipal(userId = 1)
-    void meEndpoint_returns2xxWhenAuthenticated() throws Exception {
-        // UserController#getCurrentUser still returns 501 (not yet implemented) but the
-        // security layer must pass the request through — any 5xx or 4xx from the controller
-        // is fine here; a 401/403 from the filter chain would be a security misconfiguration.
+    void meEndpoint_notRejectedBySecurityWhenAuthenticated() throws Exception {
+        // The security layer must pass the request through for an authenticated principal.
+        // The controller delegates to the real service; the response may be 2xx or 4xx
+        // depending on whether the user exists in the DB — that is fine. What matters is
+        // that the filter chain does NOT return 401 or 403.
         mockMvc.perform(get("/api/users/me"))
-                .andExpect(status().is5xxServerError());
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    if (status == 401 || status == 403) {
+                        throw new AssertionError(
+                                "Expected security to pass through for authenticated principal, " +
+                                "but got HTTP " + status);
+                    }
+                });
     }
 
     // ── CORS ──────────────────────────────────────────────────────────────────

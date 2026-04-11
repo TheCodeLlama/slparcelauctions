@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
@@ -149,11 +150,17 @@ class UserControllerTest {
     }
 
     @Test
-    void getCurrentUser_returns501() throws Exception {
+    @WithMockAuthPrincipal(userId = 1L)
+    void getMe_returnsUserDto_whenAuthenticated() throws Exception {
+        UserResponse expected = new UserResponse(
+                1L, "test@example.com", "Test User", null, null, null, null, null,
+                false, false, Map.of(), Map.of(), OffsetDateTime.now());
+        when(userService.getUserById(1L)).thenReturn(expected);
+
         mockMvc.perform(get("/api/users/me"))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.detail").value(
-                        "Endpoint not yet implemented — JWT auth lands in Task 01-07"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.email").value(expected.email()));
     }
 
     @Test
