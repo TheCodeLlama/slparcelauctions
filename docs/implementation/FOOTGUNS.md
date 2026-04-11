@@ -520,6 +520,21 @@ This is a controller-side discipline rule, not an implementer-side one. The impl
 
 **Action item:** Task 6 rewrites `src/app/page.tsx` as a minimal placeholder that uses semantic tokens, not `dark:` variants. After Task 6, `verify:no-dark-variants` should pass. After all 26 implementation tasks, the entire `npm run verify` chain should be green. The `verify-coverage.sh` is currently a stub (committed in Task 3); Task 27 replaces it with the real script.
 
+### 5.6 Reviewer prompts inherit the byte-exact rule — paraphrasing the spec creates false positives
+
+**Why:** When a controller writes a spec-compliance reviewer prompt, the natural urge is to summarize the spec into a compact table or checklist. That summary is itself an embed of the canonical, and any drift between the summary and the source becomes a fake "rule" the reviewer enforces. The implementer (who copied the canonical exactly) gets flagged for a violation that doesn't exist, and the controller wastes a dispatch chasing a phantom fix — or worse, lets the reviewer "correct" code that was already right.
+
+**Caught at review time in Task 26.** The reviewer prompt summarized the eleven placeholder pages in a table and added an inferred rule: "the metadata `title` matches the page's displayed title (the only exception being `/auction/[id]`)." That rule wasn't in the canonical spec — the canonical actually has `metadata.title = "About"` but `<PageHeader title="About SLPA" />`, and `metadata.title = "Terms"` but `<PageHeader title="Terms of Service" />`. The implementer copied the canonical correctly. The reviewer flagged two false-positive failures because it was matching against the controller's paraphrase instead of the canonical. No fix was applied; the controller had to override the FAIL.
+
+**How to apply:**
+- **Reviewer prompts get the same byte-exact discipline as implementer prompts.** If you tell the implementer "copy from canonical §X verbatim," tell the reviewer "compare against canonical §X verbatim." Don't paraphrase the spec into a table for the reviewer's convenience.
+- **If a reviewer prompt embeds canonical content** (e.g., expected file contents), generate the embed mechanically — extract the literal block from the spec/plan, don't retype or summarize. The reviewer must compare bytes against bytes.
+- **State the precedence rule explicitly in the reviewer prompt:** "If this prompt's summary disagrees with the canonical source, the canonical source wins. Re-read the canonical before flagging a violation."
+- **High-risk paraphrasing patterns to avoid:** "X must match Y" rules inferred from a few examples; tables that compress field-by-field detail into a single column; "every page should have …" generalizations that aren't stated in the spec.
+- **When you spot a reviewer false positive:** add a §5 entry rather than just overriding it — the next reviewer prompt you write will be tempted to paraphrase the same way unless the rule is documented.
+
+This is a controller-side discipline rule. The reviewer can only follow the prompt; it's the controller's job to make sure the prompt's spec summary is faithful — or, better, that the prompt points the reviewer at the canonical directly.
+
 ---
 
 ## §6 Scaffold / template / generated content
