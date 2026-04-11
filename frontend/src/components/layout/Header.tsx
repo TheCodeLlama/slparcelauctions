@@ -1,0 +1,95 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Bell, MenuIcon } from "@/components/ui/icons";
+import {
+  Avatar,
+  Button,
+  Dropdown,
+  IconButton,
+  ThemeToggle,
+} from "@/components/ui";
+import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/cn";
+import { MobileMenu } from "./MobileMenu";
+import { NavLink } from "./NavLink";
+
+export function Header() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { status, user } = useAuth();
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <>
+      <header
+        className={cn(
+          "sticky top-0 z-50 bg-surface/80 backdrop-blur-md transition-shadow",
+          scrolled && "shadow-soft"
+        )}
+      >
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+          <Link
+            href="/"
+            className="font-display text-xl font-black uppercase tracking-wider text-primary"
+          >
+            SLPA
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-8">
+            <NavLink variant="header" href="/browse">Browse</NavLink>
+            <NavLink variant="header" href="/dashboard">Dashboard</NavLink>
+            <NavLink variant="header" href="/auction/new">Create Listing</NavLink>
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <IconButton aria-label="Notifications" variant="tertiary">
+              <Bell />
+            </IconButton>
+
+            {status === "loading" ? null : status === "authenticated" ? (
+              <Dropdown
+                trigger={
+                  <Avatar name={user.displayName} alt="Account menu" size="sm" />
+                }
+                items={[
+                  { label: "Profile", onSelect: () => {} },
+                  { label: "Settings", onSelect: () => {} },
+                  { label: "Sign out", onSelect: () => {}, danger: true },
+                ]}
+              />
+            ) : (
+              <div className="hidden md:flex items-center gap-2">
+                <Link href="/login">
+                  <Button variant="tertiary" size="sm">Sign in</Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="primary" size="sm">Register</Button>
+                </Link>
+              </div>
+            )}
+
+            <IconButton
+              aria-label="Open menu"
+              variant="tertiary"
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <MenuIcon />
+            </IconButton>
+          </div>
+        </div>
+      </header>
+
+      <MobileMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+    </>
+  );
+}

@@ -6,21 +6,42 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "verify:no-dark-variants": "bash scripts/verify-no-dark-variants.sh",
+    "verify:no-hex-colors": "bash scripts/verify-no-hex-colors.sh",
+    "verify:no-inline-styles": "bash scripts/verify-no-inline-styles.sh",
+    "verify:coverage": "bash scripts/verify-coverage.sh",
+    "verify": "npm run verify:no-dark-variants && npm run verify:no-hex-colors && npm run verify:no-inline-styles && npm run verify:coverage"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.10",
+    "@tanstack/react-query": "^5.97.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.8.0",
     "next": "16.2.3",
+    "next-themes": "^0.4.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/ui": "^4.1.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
+    "jsdom": "^29.0.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }
