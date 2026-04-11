@@ -174,6 +174,43 @@ class AuthFlowIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
+    // Task 33: logout then refresh fails
+    // -------------------------------------------------------------------------
+
+    @Test
+    void logoutThenRefreshFails() throws Exception {
+        // Step 1: Register
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"logout@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Logout User\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        String refreshCookie = extractRefreshCookie(registerResult);
+        assertThat(refreshCookie).isNotBlank();
+
+        // Step 2: Logout with cookie → 204 + Set-Cookie (cleared)
+        mockMvc.perform(post("/api/auth/logout")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookie)))
+            .andExpect(status().isNoContent())
+            .andExpect(header().exists("Set-Cookie"));
+
+        // Step 3: Refresh with the now-revoked cookie → 401
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookie)))
+            .andExpect(status().isUnauthorized());
+
+        // Step 4: Logout again (idempotency check) → still 204
+        mockMvc.perform(post("/api/auth/logout")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookie)))
+            .andExpect(status().isNoContent());
+
+        // Step 5: Logout with no cookie → still 204
+        mockMvc.perform(post("/api/auth/logout"))
+            .andExpect(status().isNoContent());
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
