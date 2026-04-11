@@ -41,8 +41,10 @@ vi.mock("next/font/google", () => ({
 }));
 
 // next/navigation hooks only work inside a real Next request context.
+// usePathname is a vi.fn() so per-test overrides via vi.mocked(usePathname).mockReturnValue(...)
+// work correctly. Without vi.fn(), mockReset/mockReturnValue are not available (FOOTGUNS §4.3).
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
+  usePathname: vi.fn(() => "/"),
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
