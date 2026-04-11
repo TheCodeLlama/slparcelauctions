@@ -23,6 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.common.GlobalExceptionHandler;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
@@ -40,6 +41,9 @@ class UserControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private JwtService jwtService;
 
     @Test
     void createUser_returns201() throws Exception {
