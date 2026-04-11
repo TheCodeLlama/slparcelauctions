@@ -24,7 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.JwtService;
-import com.slparcelauctions.backend.common.GlobalExceptionHandler;
+import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
 import com.slparcelauctions.backend.user.dto.UserResponse;
