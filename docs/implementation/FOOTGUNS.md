@@ -195,6 +195,28 @@ Place this after the imports but before the `vi.mock(...)` blocks. The stub alwa
 
 **Caught at implementation time in Task 4** by the implementer reading FOOTGUNS §2.1 (jsdom stubs) and proactively checking related browser APIs before running the smoke test for the first time. The pattern that finds these is "the ledger trains you to ask 'what else is jsdom missing?' before the test runs." When a future implementer reads this entry, the lesson is: **implementers who read this catch things.**
 
+### 2.7 jsdom does not implement `ResizeObserver` — Headless UI v2 needs it
+
+**Why:** jsdom ships without a `ResizeObserver` implementation. Headless UI v2's `<Menu>`, `<Dialog>`, `<Listbox>`, and `<Combobox>` primitives all use `@floating-ui/react` internally for panel positioning, and `@floating-ui/react` calls `new ResizeObserver(...)` on mount. Without a stub, any test that opens a Headless UI panel crashes with `ReferenceError: ResizeObserver is not defined`. The crash happens AFTER the test assertion runs, so individual tests may appear to pass while the test runner reports unhandled errors.
+
+**How to apply:** Stub it as a no-op class in `vitest.setup.ts`, before the other jsdom shims:
+
+```ts
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+```
+
+The no-op is sufficient because positioning isn't exercised in jsdom — there's no real layout, no real coordinates, no real resize events. Headless UI just needs the class to exist so its `new ResizeObserver(...)` call doesn't throw. Real positioning logic only matters in the browser, where `ResizeObserver` is built in.
+
+**Caught at implementation time in Task 18** (Dropdown — first Headless UI primitive). The same gap will bite **Task 23 (MobileMenu, uses Headless UI `<Dialog>`)** if the stub is removed, and any future task that uses `<Listbox>`, `<Combobox>`, or `<Disclosure>`. The stub is one-time and protects all current and future Headless UI consumers.
+
+**General pattern**: any third-party React library that uses `@floating-ui/react` for positioning (Headless UI, Radix UI, Floating UI directly) will need this stub in jsdom-based test environments. If a future task imports such a library, the stub is already in place — no action needed.
+
+
+
 ---
 
 ## §3 Language / framework
