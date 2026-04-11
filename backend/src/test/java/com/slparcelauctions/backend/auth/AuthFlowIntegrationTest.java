@@ -1,6 +1,9 @@
 package com.slparcelauctions.backend.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.slparcelauctions.backend.user.UserRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -11,6 +14,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -26,7 +31,9 @@ class AuthFlowIntegrationTest {
 
     @Autowired protected MockMvc mockMvc;
     protected final ObjectMapper objectMapper = new ObjectMapper();
-    // Additional fields added in Task 32 for reuse cascade test
+    @Autowired private com.slparcelauctions.backend.auth.RefreshTokenRepository refreshTokenRepository;
+    @Autowired private UserRepository userRepository;
+    @PersistenceContext private EntityManager entityManager;
 
     // -------------------------------------------------------------------------
     // Task 30: register then use access token
@@ -101,6 +108,69 @@ class AuthFlowIntegrationTest {
                 .header("Authorization", "Bearer " + newAccessToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("refresh@example.com"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Task 32: refresh token reuse cascade — THE SECURITY CANARY
+    // -------------------------------------------------------------------------
+
+    @Test
+    void refreshTokenReuseCascade_revokesAllSessionsAndBumpsTokenVersion() throws Exception {
+        // Step 1: Register, capture cookie A + access token A
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"cascade@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Cascade User\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        String registerBody = registerResult.getResponse().getContentAsString();
+        String accessTokenA = objectMapper.readTree(registerBody).get("accessToken").asText();
+        String cookieA = extractRefreshCookie(registerResult);
+        Long userId = objectMapper.readTree(registerBody).get("user").get("id").asLong();
+        assertThat(cookieA).isNotBlank();
+
+        // Step 2: Refresh with cookie A → get cookie B
+        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookieA)))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        String cookieB = extractRefreshCookie(refreshResult);
+        assertThat(cookieB).isNotBlank();
+        assertThat(cookieB).isNotEqualTo(cookieA);
+
+        // Step 3: Refresh AGAIN with cookie A (now revoked) → 401 + $.code = AUTH_REFRESH_TOKEN_REUSED
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookieA)))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_REUSED"));
+
+        // Flush then clear L1 cache: revokeAllByUserId bulk-updates bypass Hibernate's first-level
+        // cache; bumpTokenVersion uses dirty checking and is still pending. Flush ensures the
+        // dirty tokenVersion increment is written to the DB before we evict cached entities.
+        entityManager.flush();
+        entityManager.clear();
+
+        // Step 4: Query DB — all tokens for this user must be revoked
+        List<RefreshToken> allTokens = refreshTokenRepository.findAllByUserId(userId);
+        assertThat(allTokens).isNotEmpty();
+        assertThat(allTokens).allMatch(t -> t.getRevokedAt() != null,
+            "all refresh tokens should be revoked after reuse detection");
+
+        // Step 6 (spec ordering): tokenVersion bumped from 0 to 1 — checked here before step 5
+        // because presenting the revoked cookieB also triggers a cascade, which bumps tokenVersion
+        // again. The spec asserts exactly one bump (from step 3's cascade).
+        Long tokenVersion = userRepository.findById(userId).orElseThrow().getTokenVersion();
+        assertThat(tokenVersion).isEqualTo(1L);
+        // End-to-end "stale access token rejected by write-path service" lands in Task 01-XX
+        // when BidService ships — we assert the bump here, not the reject. The cascade calls
+        // userService.bumpTokenVersion(); the downstream effect on access tokens is the job of
+        // the service-layer freshness check, which lands with the first write-path service.
+
+        // Step 5: Refresh with cookie B → 401 (killed by cascade, not just cookie A)
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookieB)))
+            .andExpect(status().isUnauthorized());
     }
 
     // -------------------------------------------------------------------------
