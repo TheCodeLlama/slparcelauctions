@@ -361,6 +361,45 @@ If the wrapper still reconstructs on re-render, the test fails on the second ren
 
 The Task 8 implementer prompt must reference this entry as a required deliverable, not as a "see also" footnote.
 
+### 4.8 `tailwind-merge` doesn't know about custom M3 type-scale tokens — register them in the `font-size` group
+
+**Why:** `tailwind-merge`'s default class-group registry knows about Tailwind's stock utilities. It treats every `text-*` utility as a single conflict group by default — meaning `text-label-lg` (a size) and `text-on-primary` (a color) are seen as conflicting, and `tailwind-merge` will silently drop one when both appear in the same `cn()` call. **This is the silent variant of the byte-exact rule** — your code looks right, the verify chain doesn't catch it (no `dark:`, no hex, no inline style), but the rendered button has the wrong text color or wrong size.
+
+The bite is exactly: any primitive that combines a size class (`text-label-md`, `text-title-md`, etc.) with a variant text-color class (`text-on-primary`, `text-on-surface`, `text-error`, etc.) loses one of them. Button is the canonical case — `sizeClasses.md = "h-11 px-5 text-label-lg"` and `variantClasses.primary = "... text-on-primary"`. Without the fix, `cn(base, "text-label-lg", "text-on-primary", ...)` produces `"... text-on-primary"` (size dropped) or `"... text-label-lg"` (color dropped), depending on order.
+
+**Caught at implementation time in Task 11** by the TDD test "renders with the primary variant gradient and merges consumer className via cn." The test asserts `button.className` contains BOTH `text-on-primary` AND the size class. The first run of the test failed because `tailwind-merge` had stripped one. Diagnosed by reading the assertion failure.
+
+**How to apply:** Use `extendTailwindMerge` in `cn.ts` to register all M3 type-scale tokens in the `font-size` class group:
+
+```ts
+import { type ClassValue, clsx } from "clsx";
+import { extendTailwindMerge } from "tailwind-merge";
+
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [
+        "text-display-lg", "text-display-md", "text-display-sm",
+        "text-headline-lg", "text-headline-md", "text-headline-sm",
+        "text-title-lg", "text-title-md", "text-title-sm",
+        "text-body-lg", "text-body-md", "text-body-sm",
+        "text-label-lg", "text-label-md", "text-label-sm",
+      ],
+    },
+  },
+});
+
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
+}
+```
+
+Once registered in `font-size`, the type-scale tokens become a separate conflict group from text-color utilities, and `cn(base, "text-label-lg", "text-on-primary")` correctly produces `"... text-label-lg text-on-primary"` (both kept).
+
+**Why the registry needs all 15 tokens, not just the ones used today:** every primitive in Tasks 11-25 will compose at least one size class with at least one text color. Registering all 15 up front avoids whack-a-mole as new primitives introduce new size combinations. The registration is one-time, ~15 lines, zero runtime cost.
+
+**General rule for custom Tailwind tokens:** any token whose name starts with a Tailwind utility prefix (`text-`, `bg-`, `border-`, `ring-`, `shadow-`, etc.) AND that semantically belongs to a different group than `tailwind-merge`'s default classification will produce silent merge bugs. When introducing a new token category in `globals.css`, immediately register it in `cn.ts`'s `extendTailwindMerge` config in the appropriate group. Group names match `tailwind-merge`'s built-in groups: `font-size`, `text-color`, `font-weight`, `font-family`, `bg-color`, `border-color`, `ring-color`, `shadow`, `border-radius`, etc.
+
 ---
 
 ## §5 Project conventions
