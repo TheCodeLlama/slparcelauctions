@@ -578,6 +578,25 @@ This is a controller-side discipline rule, not an implementer-side one. The impl
 
 This is a controller-side discipline rule. The reviewer can only follow the prompt; it's the controller's job to make sure the prompt's spec summary is faithful — or, better, that the prompt points the reviewer at the canonical directly.
 
+### 5.7 Final ship step is `gh pr create` against a branch, never a direct push to main
+
+**Why:** The end of a multi-task plan feels like the natural moment to "just push it" — all the gates are green, the controller has been verifying continuously, the user has been approving each phase. The temptation is to skip the PR ceremony and fast-forward main directly. **Don't.** A direct push to main:
+
+- Bypasses the GitHub PR description as the canonical record of what shipped (smoke test artifact, automated gate evidence, brief/spec/plan links, process notes — none of those exist anywhere if there's no PR).
+- Loses the merge commit that bookmarks "everything before this SHA was foundation work" — the history just becomes a flat list of 40 commits with no summary node.
+- Forces a destructive force-push to undo if anyone (including the user themselves, on another machine) lands a commit on main between the direct push and the realization that a PR was wanted. The undo is `--force-with-lease=main:<expected-sha> origin <pre-push-sha>:main` plus a cherry-pick or rebase if the in-between commit needs to be preserved — recoverable, but ugly and gross-feeling on a shared branch.
+- Means the user can't easily check out the work locally if the worktree still holds the branch — the branch only exists inside the worktree, not on the remote, so a `git checkout` from the parent repo fails with "already used by worktree."
+
+**Caught at ship time on Task 01-06.** The controller pushed the worktree's 40 commits directly to `origin/main` as the final ship step. The user wanted a real PR — both for the GitHub artifact (smoke test, references, process note) and because the worktree still held the branch, blocking local checkout. The recovery path was: force-with-lease main back to the pre-foundation SHA, push the branch as `task/<name>`, open the PR via `gh pr create`, merge via the GitHub UI with the "Merge commit" option (not squash, not rebase — preserve the per-task atomic commits). Recoverable in ~5 minutes, but the lesson is to do it right the first time.
+
+**How to apply:**
+- **Default ship step is `gh pr create --base main --head <task-branch>`**, with a body that includes the smoke test artifact (with unchecked boxes for the user to fill in), the automated gate evidence, links to brief/spec/plan/FOOTGUNS, and a one-paragraph process note. The user reviews on GitHub, walks through the smoke test on their dev machine, ticks the boxes via the GitHub UI, and merges from there.
+- **Merge with the "Merge commit" option, not squash, not rebase** — atomic per-task commits are the whole point of single-commit-per-task discipline (§5.3); squashing them away undoes that work.
+- **If the user explicitly says "push directly to main"** (e.g., for a tiny chore commit that doesn't warrant PR ceremony), that's an override and is fine — but it must be explicit, not inferred from "we're done." Authorization stands for the scope specified, not beyond.
+- **Add this rule to the B-mode prompt template's "ship checklist" section** so the controller doesn't have to remember it during the dopamine rush of finishing a long plan.
+
+This is a controller-side workflow rule. There's no implementer or reviewer involvement — it's about how the controller closes out a finished plan.
+
 ### 5.8 Load-bearing documentation pattern — document WHY, not just WHAT
 
 **Why:** Some decisions in specs are not stylistic — they're structural guards against future
