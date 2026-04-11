@@ -290,7 +290,31 @@ import { renderWithProviders, screen, userEvent } from "@/test/render";
 
 **Why:** `vi.mock("next/navigation", ...)` lives in `vitest.setup.ts`. When a test overrides via `vi.mocked(usePathname).mockReturnValue("/browse")`, that override persists into the next test unless reset. Subtle leaks → flaky tests weeks later.
 
-**How to apply:**
+**The underlying mock factory MUST use `vi.fn()`, not a plain arrow function.** `vi.mocked(...)` returns a typed spy interface that exposes `.mockReset()`, `.mockReturnValue()`, etc. — but only if the underlying export is actually a vitest spy. If the global mock factory in `vitest.setup.ts` returns a plain function:
+
+```ts
+// WRONG — vi.mocked(usePathname).mockReset() throws TypeError
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+  // ...
+}));
+```
+
+…then `vi.mocked(usePathname).mockReset()` throws `TypeError: mockReset is not a function` because the export is just a function, not a spy. The fix is to wrap the factory in `vi.fn()`:
+
+```ts
+// RIGHT — vi.fn() returns a spy that vi.mocked() can manipulate
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(() => "/"),
+  // ...
+}));
+```
+
+**Caught at implementation time in Task 20** (NavLink — first task to exercise per-test `usePathname` overrides). Tasks 4-19 mocked `next/navigation` with plain functions and didn't notice because no test called `.mockReturnValue()` on them. The first per-test override surfaced the gap.
+
+**General rule:** any global mock in `vitest.setup.ts` whose export will be overridden per-test must use `vi.fn(implementation)`, not just `implementation`. If the test only ever uses the default value, a plain function works — but adding the `vi.fn()` wrapper as a habit is cheap insurance against the next per-test override that surfaces.
+
+**How to apply (consumer side):**
 
 ```ts
 import { usePathname } from "next/navigation";
