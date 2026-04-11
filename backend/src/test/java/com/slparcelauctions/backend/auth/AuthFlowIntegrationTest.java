@@ -33,6 +33,7 @@ class AuthFlowIntegrationTest {
     protected final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired private com.slparcelauctions.backend.auth.RefreshTokenRepository refreshTokenRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private com.slparcelauctions.backend.auth.test.RefreshTokenTestFixture refreshTokenTestFixture;
     @PersistenceContext private EntityManager entityManager;
 
     // -------------------------------------------------------------------------
@@ -208,6 +209,60 @@ class AuthFlowIntegrationTest {
         // Step 5: Logout with no cookie → still 204
         mockMvc.perform(post("/api/auth/logout"))
             .andExpect(status().isNoContent());
+    }
+
+    // -------------------------------------------------------------------------
+    // Task 34: logout-all invalidates all sessions
+    // -------------------------------------------------------------------------
+
+    @Test
+    void logoutAllInvalidatesAllSessions() throws Exception {
+        // Step 1: Register (device 1) — captures access token 1 + cookie 1
+        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"logoutall@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"LogoutAll User\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        String registerBody = registerResult.getResponse().getContentAsString();
+        String accessToken1 = objectMapper.readTree(registerBody).get("accessToken").asText();
+        String cookie1 = extractRefreshCookie(registerResult);
+        Long userId = objectMapper.readTree(registerBody).get("user").get("id").asLong();
+        assertThat(cookie1).isNotBlank();
+
+        // Step 2: Seed a "device 2" refresh token via fixture
+        com.slparcelauctions.backend.auth.test.RefreshTokenTestFixture.InsertedToken device2Token =
+            refreshTokenTestFixture.insertValid(userId);
+
+        // Step 3: POST /logout-all with access token 1 → 204
+        mockMvc.perform(post("/api/auth/logout-all")
+                .header("Authorization", "Bearer " + accessToken1))
+            .andExpect(status().isNoContent());
+
+        // Flush then clear L1 cache: revokeAllByUserId bulk-updates bypass Hibernate's first-level
+        // cache; bumpTokenVersion uses dirty checking and is still pending. Flush ensures the
+        // dirty tokenVersion increment is written to the DB before we evict cached entities.
+        entityManager.flush();
+        entityManager.clear();
+
+        // Step 4: Query DB — all tokens revoked, tokenVersion bumped from 0 to 1
+        List<RefreshToken> allTokens = refreshTokenRepository.findAllByUserId(userId);
+        assertThat(allTokens).isNotEmpty();
+        assertThat(allTokens).allMatch(t -> t.getRevokedAt() != null,
+            "all refresh tokens should be revoked after logout-all");
+
+        Long tokenVersion = userRepository.findById(userId).orElseThrow().getTokenVersion();
+        assertThat(tokenVersion).isEqualTo(1L);
+
+        // Step 5: Refresh with cookie 1 → 401
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookie1)))
+            .andExpect(status().isUnauthorized());
+
+        // Step 6: Refresh with device 2 seeded token → 401
+        mockMvc.perform(post("/api/auth/refresh")
+                .cookie(new jakarta.servlet.http.Cookie("refreshToken", device2Token.rawToken())))
+            .andExpect(status().isUnauthorized());
     }
 
     // -------------------------------------------------------------------------
