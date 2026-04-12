@@ -58,7 +58,7 @@ export function Header() {
             {status === "loading" ? null : status === "authenticated" ? (
               <Dropdown
                 trigger={
-                  <Avatar name={user.displayName} alt="Account menu" size="sm" />
+                  <Avatar name={user.displayName ?? undefined} alt="Account menu" size="sm" />
                 }
                 items={[
                   { label: "Profile", onSelect: () => {} },
