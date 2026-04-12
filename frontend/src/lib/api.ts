@@ -1,3 +1,21 @@
+import type { QueryClient } from "@tanstack/react-query";
+import { getAccessToken, setAccessToken } from "@/lib/auth/session";
+
+let queryClientRef: QueryClient | null = null;
+let inFlightRefresh: Promise<void> | null = null;
+
+/**
+ * Wires the API client to the app's QueryClient. Called once at app mount from
+ * `app/providers.tsx`. Storing the QueryClient reference at module scope lets
+ * the 401 interceptor update the session query cache on failed refresh without
+ * React lifecycle access.
+ *
+ * See FOOTGUNS §F.3.
+ */
+export function configureApiClient(queryClient: QueryClient): void {
+  queryClientRef = queryClient;
+}
+
 /**
  * RFC 7807 Problem Details. Matches the shape that
  * backend/src/main/java/.../common/GlobalExceptionHandler.java emits.
@@ -65,14 +83,17 @@ function buildPath(
 
 async function request<T>(
   path: string,
-  { body, headers, params, ...rest }: RequestOptions = {}
+  { body, headers, params, ...rest }: RequestOptions = {},
+  isRetry = false
 ): Promise<T> {
+  const token = getAccessToken();
   const response = await fetch(`${BASE_URL}${buildPath(path, params)}`, {
     credentials: "include",
     ...rest,
     headers: {
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
