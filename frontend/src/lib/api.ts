@@ -81,6 +81,60 @@ function buildPath(
   return qs ? `${path}?${qs}` : path;
 }
 
+/**
+ * Handles a 401 response from a non-auth path by attempting a token refresh
+ * and retrying the original request.
+ *
+ * Concurrent-stampede protection: if multiple requests 401 at the same time,
+ * they all await the same single refresh promise. Only the creator of that
+ * promise clears `inFlightRefresh` (inside the IIFE's try/finally), not every
+ * awaiter. This avoids a race where multiple awaiters null out the ref before
+ * all callers have awaited it.
+ *
+ * See FOOTGUNS §F.4.
+ */
+async function handleUnauthorized<T>(path: string, options: RequestOptions): Promise<T> {
+  if (!inFlightRefresh) {
+    inFlightRefresh = (async () => {
+      try {
+        const refreshed = await fetch(`${BASE_URL}/api/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (!refreshed.ok) {
+          // Refresh failed — clear session and redirect to login.
+          setAccessToken(null);
+          if (queryClientRef) {
+            queryClientRef.setQueryData(["auth", "session"], null);
+            queryClientRef.removeQueries({ queryKey: ["auth", "session"] });
+          }
+          if (typeof window !== "undefined") {
+            const next = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?next=${next}`;
+          }
+          const problem: ProblemDetail = { status: 401, title: "Session expired" };
+          throw new ApiError(problem);
+        }
+
+        const refreshBody = (await refreshed.json()) as { accessToken: string; user: unknown };
+        setAccessToken(refreshBody.accessToken);
+        if (queryClientRef) {
+          queryClientRef.setQueryData(["auth", "session"], refreshBody.user);
+        }
+      } finally {
+        inFlightRefresh = null;
+      }
+    })();
+  }
+
+  await inFlightRefresh;
+
+  // Retry the original request once with the new access token.
+  // isRetry=true prevents infinite refresh loops on a subsequent 401.
+  return request<T>(path, options, /* isRetry */ true);
+}
+
 async function request<T>(
   path: string,
   { body, headers, params, ...rest }: RequestOptions = {},
@@ -98,6 +152,12 @@ async function request<T>(
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+
+  if (response.status === 401 && !isRetry && !path.startsWith("/api/auth/")) {
+    // Auth-path 401s (login, refresh, etc.) are real failures the caller must
+    // see. Non-auth-path 401s trigger the refresh-and-retry flow.
+    return handleUnauthorized<T>(path, { body, headers, params, ...rest });
+  }
 
   if (!response.ok) {
     let problem: ProblemDetail;
