@@ -1,7 +1,7 @@
 // frontend/vitest.setup.ts
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
 
 // jsdom does not implement ResizeObserver. Headless UI v2's Menu uses it
 // internally (via @floating-ui) for panel positioning. Without this stub,
@@ -60,4 +60,29 @@ vi.mock("next/navigation", () => ({
 // test's DOM in place and the next test gets stale nodes.
 afterEach(() => {
   cleanup();
+});
+
+// MSW request mocking. The server is shared across all tests; per-test handler
+// overrides use `server.use(...)` and are reset between tests.
+//
+// `onUnhandledRequest: "error"` is LOAD-BEARING. If a test makes a fetch to an
+// endpoint without a matching handler, it fails loudly instead of silently
+// passing real network calls. A future contributor who switches this to "warn"
+// or "bypass" to make a flaky test pass has silently allowed real network
+// requests from tests — the same failure mode as deleting a canary integration
+// test. See FOOTGUNS §F.8.
+import { server } from "@/test/msw/server";
+import { defaultHandlers } from "@/test/msw/handlers";
+
+beforeAll(() => {
+  server.use(...defaultHandlers);
+  server.listen({ onUnhandledRequest: "error" });
+});
+
+afterEach(() => {
+  server.resetHandlers(...defaultHandlers);
+});
+
+afterAll(() => {
+  server.close();
 });
