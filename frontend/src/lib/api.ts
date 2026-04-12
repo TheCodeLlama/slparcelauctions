@@ -107,7 +107,6 @@ async function handleUnauthorized<T>(path: string, options: RequestOptions): Pro
           setAccessToken(null);
           if (queryClientRef) {
             queryClientRef.setQueryData(["auth", "session"], null);
-            queryClientRef.removeQueries({ queryKey: ["auth", "session"] });
           }
           if (typeof window !== "undefined") {
             const next = encodeURIComponent(window.location.pathname + window.location.search);
