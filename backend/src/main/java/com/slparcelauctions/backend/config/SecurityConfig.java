@@ -58,6 +58,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/users/{id}").permitAll()
                         .requestMatchers("/api/auth/logout-all").authenticated()
+                        // WebSocket handshake is permitted at the HTTP layer.
+                        // Authentication happens at the STOMP CONNECT frame via
+                        // JwtChannelInterceptor. Do NOT change this to .authenticated() —
+                        // the browser WebSocket API cannot set an Authorization header on
+                        // the HTTP upgrade, so gating it here is impossible. See FOOTGUNS §F.16.
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint))
