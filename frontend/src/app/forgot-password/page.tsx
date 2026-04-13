@@ -14,7 +14,7 @@ export default function ForgotPasswordPage() {
     <AuthCard>
       <AuthCard.Title>Forgot Your Password?</AuthCard.Title>
       <AuthCard.Subtitle>
-        Enter your email and we'll send you a reset link.
+        Enter your email and we&apos;ll send you a reset link.
       </AuthCard.Subtitle>
       <AuthCard.Body>
         <ForgotPasswordForm />
