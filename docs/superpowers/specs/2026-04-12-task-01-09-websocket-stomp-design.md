@@ -272,6 +272,12 @@ public class WsTestController {
             @Valid @RequestBody WsTestBroadcastRequest request,
             @AuthenticationPrincipal AuthPrincipal principal) {
         log.info("WS test broadcast from userId={}: {}", principal.userId(), request.message());
+        // Wire-type note: principal.userId() is a Java Long. Jackson serializes
+        // it as a JSON number, which lands in JavaScript as a plain `number`.
+        // Safe because user IDs are Long but well under Number.MAX_SAFE_INTEGER
+        // (2^53 - 1). The frontend harness types senderId as `number` to match.
+        // If user IDs ever grow past 2^53 (not going to happen), switch to
+        // serializing as a string and parse on the frontend.
         messagingTemplate.convertAndSend("/topic/ws-test",
             Map.of(
                 "message", request.message(),
@@ -576,6 +582,18 @@ export function subscribe<T>(
     // Defer until onConnect. Stompjs does not auto-subscribe pending callbacks
     // in all paths for v7, so we register an onConnect hook-of-hooks via
     // publish + subscribe on the connection state.
+    //
+    // KNOWN RACE (Epic 04 hardening followup, §14.7):
+    //   If onConnect → onWebSocketClose fires in rapid succession (fast
+    //   backend bounce), the listener may see "reconnecting" mid-cycle and
+    //   keep waiting through the reconnect. On the next successful connect
+    //   the listener fires and attach() runs — so the subscription is not
+    //   lost, just delayed by one reconnect cycle. Acceptable for the 01-09
+    //   dev harness (reconnects are manual or rare). Epic 04's auction-room
+    //   subscriptions will see flaky networks and want a more robust
+    //   re-attach strategy (e.g., re-attach on every connected transition
+    //   with subscription dedup, instead of self-unsubscribing after one
+    //   fire).
     const stateUnsub = subscribeToConnectionState((state) => {
       if (state.status === "connected") {
         attach();
@@ -716,6 +734,8 @@ import { useConnectionState, useStompSubscription } from "@/lib/ws/hooks";
 import { __devForceDisconnect, __devForceReconnect } from "@/lib/ws/client";
 import { api } from "@/lib/api";
 
+// senderId is a Java Long on the backend, serialized as JSON number, which
+// parses to a plain JS number here. See §5.4 for the wire-type explanation.
 type WsTestMessage = { message: string; senderId: number; timestamp: string };
 
 export function WsTestHarness() {
@@ -1062,6 +1082,7 @@ Four entries added to the frontend section at the end of the `§F` block. Number
 4. **Multi-instance STOMP relay** (RabbitMQ / ActiveMQ). Single-instance in-memory broker is sufficient for Phase 1.
 5. **`WsTestController` removal.** The test harness ships with this task. A future task deletes `wstest/` package and `/dev/ws-test` page once Epic 04 auction-room subscriptions are stable enough to serve as the verification surface.
 6. **Frontend WS layer security review for auth redirect UX.** Currently a `RefreshFailedError` during `beforeConnect` surfaces as a generic error badge. Epic 04 may want to redirect to `/login?next=` from the WS layer itself, similar to the HTTP interceptor's current redirect. This task does not block on it because no production surface consumes the WS layer yet.
+7. **`subscribe()` deferral race hardening.** The deferred-attach pattern in §6.4 (`lib/ws/client.ts`) has a known edge case: if `onConnect → onWebSocketClose` fires in rapid succession (fast backend bounce), the state listener may see `"reconnecting"` mid-cycle and keep waiting through the reconnect. The subscription is not lost — it attaches on the next successful connect — but the first message is delayed by one reconnect cycle. Acceptable for this task's dev harness where reconnects are manual or rare. Epic 04's auction-room subscriptions will see flaky networks and should harden the re-attach strategy (e.g., re-attach on every connected transition with subscription dedup, instead of self-unsubscribing the state listener after one fire).
 
 ## 15. Acceptance Criteria Mapping
 
