@@ -59,7 +59,30 @@ describe("FeatureCard", () => {
     const { container: darkContainer } = renderWithProviders(
       <FeatureCard icon={<Zap />} title="D" body="." variant="dark" />
     );
-    expect(darkContainer.querySelector("div")).toHaveClass("bg-inverse-surface");
+    expect(darkContainer.querySelector("div")).toHaveClass("bg-surface-container-lowest");
+  });
+
+  it("size='lg' forces the dark variant treatment regardless of the variant prop", () => {
+    // A lg card with no variant should still get the dark treatment.
+    const { container: lgDefault } = renderWithProviders(
+      <FeatureCard icon={<Zap />} title="LG default" body="." size="lg" />
+    );
+    expect(lgDefault.querySelector("div")).toHaveClass("bg-surface-container-lowest");
+
+    // Even if the caller explicitly passes variant="primary" on a lg card,
+    // size="lg" wins and the card renders with the dark treatment. This is
+    // the enforced-by-the-component rule (FeatureCard.tsx effectiveVariant).
+    const { container: lgPrimary } = renderWithProviders(
+      <FeatureCard
+        icon={<Zap />}
+        title="LG primary"
+        body="."
+        size="lg"
+        variant="primary"
+      />
+    );
+    expect(lgPrimary.querySelector("div")).toHaveClass("bg-surface-container-lowest");
+    expect(lgPrimary.querySelector("div")).not.toHaveClass("bg-primary-container");
   });
 
   it("renders no decorative image when backgroundImage prop is omitted", () => {

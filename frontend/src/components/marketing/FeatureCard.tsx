@@ -29,7 +29,20 @@ const sizeClasses: Record<FeatureCardSize, string> = {
 const variantClasses: Record<FeatureCardVariant, string> = {
   surface: "bg-surface-container text-on-surface",
   primary: "bg-primary-container text-on-primary-container",
-  dark: "bg-inverse-surface text-inverse-on-surface",
+  // `dark` is the visually-distinct bento treatment used by every `size="lg"`
+  // card in the bento. Uses surface-container-lowest so it flips OPPOSITE to
+  // the other cards:
+  //   - light mode: pure white (#ffffff)  — pops against the section's ivory bg
+  //   - dark mode:  near-black (#0c0e10)  — visibly darker than the neighboring
+  //                                          surface-container cards (#1e2022)
+  //
+  // The name "dark" is a bit of a misnomer post-swap; it describes the dark-mode
+  // appearance (the mode where the visual signature — dark bg + gold radiant —
+  // lands). Kept as-is to avoid a downstream variant rename.
+  //
+  // NOTE: `size="lg"` cards always get this treatment regardless of what the
+  // caller passes as `variant` — see the `effectiveVariant` computation below.
+  dark: "bg-surface-container-lowest text-on-surface",
 };
 
 export function FeatureCard({
@@ -54,26 +67,31 @@ export function FeatureCard({
       : backgroundImage.light
     : null;
 
+  // Every `size="lg"` card in the bento wears the dark treatment (white in
+  // light mode / near-black in dark mode + gold radial blur). The caller's
+  // `variant` prop only applies when `size="sm"`. This keeps the bento's
+  // large-card rhythm consistent without making every call site repeat
+  // `variant="dark"`.
+  const effectiveVariant: FeatureCardVariant = size === "lg" ? "dark" : variant;
+
   const iconColorClass =
-    variant === "dark"
+    effectiveVariant === "dark"
       ? "text-primary-fixed-dim"
-      : variant === "primary"
+      : effectiveVariant === "primary"
         ? "text-on-primary-container"
         : "text-primary";
 
   const bodyColorClass =
-    variant === "primary"
+    effectiveVariant === "primary"
       ? "text-sm opacity-80"
-      : variant === "dark"
-        ? "text-sm text-white/60"
-        : "text-sm text-on-surface-variant";
+      : "text-sm text-on-surface-variant";
 
   return (
     <div
       className={cn(
         "group relative flex flex-col justify-between gap-8 overflow-hidden rounded-xl p-10",
         sizeClasses[size],
-        variantClasses[variant]
+        variantClasses[effectiveVariant]
       )}
     >
       {bgSrc ? (
@@ -87,6 +105,13 @@ export function FeatureCard({
             aria-hidden
           />
         </div>
+      ) : null}
+
+      {effectiveVariant === "dark" ? (
+        <div
+          className="pointer-events-none absolute -right-20 -bottom-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl"
+          aria-hidden
+        />
       ) : null}
 
       <div className={cn("relative z-10", iconColorClass)}>{icon}</div>

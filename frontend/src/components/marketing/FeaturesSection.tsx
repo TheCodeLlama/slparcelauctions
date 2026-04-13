@@ -23,16 +23,20 @@ export function FeaturesSection() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {/*
+            Bento order is load-bearing for the 3-column grid with auto-flow:
+              Row 1: [Real-Time Bidding lg] [Secure Escrow sm]
+              Row 2: [Snipe Protection sm]  [Verified Listings lg]
+              Row 3: [Reputation System lg] [Proxy Bidding sm]
+            All lg cards auto-apply the dark variant (white in light mode /
+            near-black in dark mode + gold radial blur) — the `variant` prop
+            is only needed on sm cards that deviate from the surface default.
+          */}
           <FeatureCard
             size="lg"
-            variant="surface"
             icon={<Zap className="size-8" />}
             title="Real-Time Bidding"
             body="Our low-latency engine updates bids in milliseconds, ensuring you never miss a critical moment in high-stakes auctions."
-            backgroundImage={{
-              light: "/landing/bidding-bg.png",
-              dark: "/landing/bidding-bg.png",
-            }}
           />
           <FeatureCard
             size="sm"
@@ -43,31 +47,27 @@ export function FeaturesSection() {
           />
           <FeatureCard
             size="sm"
-            variant="surface"
             icon={<Timer className="size-8" />}
             title="Snipe Protection"
             body="Last-minute bids automatically extend auction windows, preventing unfair last-second bidding tactics."
           />
           <FeatureCard
             size="lg"
-            variant="dark"
             icon={<BadgeCheck className="size-8" />}
             title="Verified Listings"
             body="Every parcel is cross-referenced with region data to confirm tier, covenant, and dimensions before listing."
           />
           <FeatureCard
-            size="sm"
-            variant="surface"
-            icon={<Bot className="size-8" />}
-            title="Proxy Bidding"
-            body="Set your maximum price and let our system bid incrementally on your behalf to win at the best possible price."
-          />
-          <FeatureCard
             size="lg"
-            variant="surface"
             icon={<Star className="size-8" />}
             title="Reputation System"
             body="Trade with confidence using our transparent historical performance metrics for every buyer and seller."
+          />
+          <FeatureCard
+            size="sm"
+            icon={<Bot className="size-8" />}
+            title="Proxy Bidding"
+            body="Set your maximum price and let our system bid incrementally on your behalf to win at the best possible price."
           />
         </div>
       </div>
