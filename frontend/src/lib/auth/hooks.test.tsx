@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/msw/server";
 import { authHandlers } from "@/test/msw/handlers";
-import { useAuth } from "./hooks";
+import { useAuth, useLogin, useRegister } from "./hooks";
 import { setAccessToken, getAccessToken } from "./session";
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -44,5 +44,80 @@ describe("useAuth", () => {
     });
     expect(result.current.user?.email).toBe("test@example.com");
     expect(getAccessToken()).toBe("mock-access-token-jwt");
+  });
+});
+
+describe("useLogin", () => {
+  beforeEach(() => {
+    setAccessToken(null);
+  });
+
+  it("calls /api/auth/login, sets access token, and updates session cache on success", async () => {
+    server.use(authHandlers.loginSuccess());
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useLogin(), { wrapper });
+
+    result.current.mutate({ email: "test@example.com", password: "anything" });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(getAccessToken()).toBe("mock-access-token-jwt");
+    expect(queryClient.getQueryData(["auth", "session"])).toMatchObject({
+      email: "test@example.com",
+    });
+  });
+
+  it("surfaces ApiError on 401 invalid credentials", async () => {
+    server.use(authHandlers.loginInvalidCredentials());
+
+    const { result } = renderHook(() => useLogin(), { wrapper });
+
+    result.current.mutate({ email: "wrong@example.com", password: "wrong" });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(result.current.error).toBeDefined();
+  });
+});
+
+describe("useRegister", () => {
+  beforeEach(() => {
+    setAccessToken(null);
+  });
+
+  it("calls /api/auth/register, sets access token, and updates session cache on 201", async () => {
+    server.use(authHandlers.registerSuccess());
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useRegister(), { wrapper });
+
+    result.current.mutate({
+      email: "new@example.com",
+      password: "hunter22ab",
+      displayName: null,
+    });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(getAccessToken()).toBe("mock-access-token-jwt");
+    expect(queryClient.getQueryData(["auth", "session"])).toBeDefined();
   });
 });
