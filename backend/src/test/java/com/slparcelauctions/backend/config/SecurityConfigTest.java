@@ -33,7 +33,7 @@ class SecurityConfigTest {
 
     @Test
     void healthEndpoint_isPublic() throws Exception {
-        mockMvc.perform(get("/api/health"))
+        mockMvc.perform(get("/api/v1/health"))
                 .andExpect(status().isOk());
     }
 
@@ -41,7 +41,7 @@ class SecurityConfigTest {
 
     @Test
     void meEndpoint_returns401WhenUnauthenticated() throws Exception {
-        mockMvc.perform(get("/api/users/me"))
+        mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -52,7 +52,7 @@ class SecurityConfigTest {
         // The controller delegates to the real service; the response may be 2xx or 4xx
         // depending on whether the user exists in the DB — that is fine. What matters is
         // that the filter chain does NOT return 401 or 403.
-        mockMvc.perform(get("/api/users/me"))
+        mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(result -> {
                     int status = result.getResponse().getStatus();
                     if (status == 401 || status == 403) {
@@ -67,7 +67,7 @@ class SecurityConfigTest {
 
     @Test
     void corsAllowsRequestsFromConfiguredOrigin() throws Exception {
-        mockMvc.perform(options("/api/health")
+        mockMvc.perform(options("/api/v1/health")
                         .header("Origin", "http://localhost:3000")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
@@ -78,7 +78,7 @@ class SecurityConfigTest {
 
     @Test
     void corsRejectsRequestsFromUnknownOrigin() throws Exception {
-        mockMvc.perform(options("/api/health")
+        mockMvc.perform(options("/api/v1/health")
                         .header("Origin", "http://evil.com")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isForbidden());

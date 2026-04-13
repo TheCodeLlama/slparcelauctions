@@ -35,7 +35,7 @@ export function WsTestHarness() {
     setSending(true);
     setSendError(null);
     try {
-      await api.post("/api/ws-test/broadcast", { message: trimmed });
+      await api.post("/api/v1/ws-test/broadcast", { message: trimmed });
       setInput("");
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Failed to send");

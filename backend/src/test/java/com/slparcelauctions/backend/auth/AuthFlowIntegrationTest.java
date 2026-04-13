@@ -42,8 +42,8 @@ class AuthFlowIntegrationTest {
 
     @Test
     void registerThenUseAccessToken() throws Exception {
-        // Step 1: POST /api/auth/register
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+        // Step 1: POST /api/v1/auth/register
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"reg@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Reg User\"}"))
             .andExpect(status().isCreated())
@@ -56,8 +56,8 @@ class AuthFlowIntegrationTest {
         String body = registerResult.getResponse().getContentAsString();
         String accessToken = objectMapper.readTree(body).get("accessToken").asText();
 
-        // Step 3: GET /api/users/me with Bearer token
-        mockMvc.perform(get("/api/users/me")
+        // Step 3: GET /api/v1/users/me with Bearer token
+        mockMvc.perform(get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("reg@example.com"));
@@ -70,13 +70,13 @@ class AuthFlowIntegrationTest {
     @Test
     void loginThenRefreshThenUseNewToken() throws Exception {
         // Setup: register a user
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"refresh@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Refresh User\"}"))
             .andExpect(status().isCreated());
 
         // Login
-        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"refresh@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isOk())
@@ -89,7 +89,7 @@ class AuthFlowIntegrationTest {
         assertThat(refreshCookieA).isNotBlank();
 
         // POST /refresh with cookie A
-        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+        MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookieA)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
@@ -105,7 +105,7 @@ class AuthFlowIntegrationTest {
         String newBody = refreshResult.getResponse().getContentAsString();
         String newAccessToken = objectMapper.readTree(newBody).get("accessToken").asText();
 
-        mockMvc.perform(get("/api/users/me")
+        mockMvc.perform(get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + newAccessToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("refresh@example.com"));
@@ -118,7 +118,7 @@ class AuthFlowIntegrationTest {
     @Test
     void refreshTokenReuseCascade_revokesAllSessionsAndBumpsTokenVersion() throws Exception {
         // Step 1: Register, capture cookie A + access token A
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"cascade@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Cascade User\"}"))
             .andExpect(status().isCreated())
@@ -131,7 +131,7 @@ class AuthFlowIntegrationTest {
         assertThat(cookieA).isNotBlank();
 
         // Step 2: Refresh with cookie A → get cookie B
-        MvcResult refreshResult = mockMvc.perform(post("/api/auth/refresh")
+        MvcResult refreshResult = mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookieA)))
             .andExpect(status().isOk())
             .andReturn();
@@ -141,7 +141,7 @@ class AuthFlowIntegrationTest {
         assertThat(cookieB).isNotEqualTo(cookieA);
 
         // Step 3: Refresh AGAIN with cookie A (now revoked) → 401 + $.code = AUTH_REFRESH_TOKEN_REUSED
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookieA)))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_REUSED"));
@@ -169,7 +169,7 @@ class AuthFlowIntegrationTest {
         // the service-layer freshness check, which lands with the first write-path service.
 
         // Step 5: Refresh with cookie B → 401 (killed by cascade, not just cookie A)
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookieB)))
             .andExpect(status().isUnauthorized());
     }
@@ -181,7 +181,7 @@ class AuthFlowIntegrationTest {
     @Test
     void logoutThenRefreshFails() throws Exception {
         // Step 1: Register
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"logout@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Logout User\"}"))
             .andExpect(status().isCreated())
@@ -191,23 +191,23 @@ class AuthFlowIntegrationTest {
         assertThat(refreshCookie).isNotBlank();
 
         // Step 2: Logout with cookie → 204 + Set-Cookie (cleared)
-        mockMvc.perform(post("/api/auth/logout")
+        mockMvc.perform(post("/api/v1/auth/logout")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookie)))
             .andExpect(status().isNoContent())
             .andExpect(header().exists("Set-Cookie"));
 
         // Step 3: Refresh with the now-revoked cookie → 401
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookie)))
             .andExpect(status().isUnauthorized());
 
         // Step 4: Logout again (idempotency check) → still 204
-        mockMvc.perform(post("/api/auth/logout")
+        mockMvc.perform(post("/api/v1/auth/logout")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", refreshCookie)))
             .andExpect(status().isNoContent());
 
         // Step 5: Logout with no cookie → still 204
-        mockMvc.perform(post("/api/auth/logout"))
+        mockMvc.perform(post("/api/v1/auth/logout"))
             .andExpect(status().isNoContent());
     }
 
@@ -218,7 +218,7 @@ class AuthFlowIntegrationTest {
     @Test
     void logoutAllInvalidatesAllSessions() throws Exception {
         // Step 1: Register (device 1) — captures access token 1 + cookie 1
-        MvcResult registerResult = mockMvc.perform(post("/api/auth/register")
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"logoutall@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"LogoutAll User\"}"))
             .andExpect(status().isCreated())
@@ -235,7 +235,7 @@ class AuthFlowIntegrationTest {
             refreshTokenTestFixture.insertValid(userId);
 
         // Step 3: POST /logout-all with access token 1 → 204
-        mockMvc.perform(post("/api/auth/logout-all")
+        mockMvc.perform(post("/api/v1/auth/logout-all")
                 .header("Authorization", "Bearer " + accessToken1))
             .andExpect(status().isNoContent());
 
@@ -255,12 +255,12 @@ class AuthFlowIntegrationTest {
         assertThat(tokenVersion).isEqualTo(1L);
 
         // Step 5: Refresh with cookie 1 → 401
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", cookie1)))
             .andExpect(status().isUnauthorized());
 
         // Step 6: Refresh with device 2 seeded token → 401
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", device2Token.rawToken())))
             .andExpect(status().isUnauthorized());
     }

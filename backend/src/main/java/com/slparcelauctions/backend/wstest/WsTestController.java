@@ -28,7 +28,7 @@ import java.util.Map;
  * SecurityConfig matcher to maintain because there is no bean to guard.
  *
  * <p><strong>Authentication:</strong> the broadcast endpoint falls under the
- * {@code /api/**} authenticated catch-all in {@code SecurityConfig} — only
+ * {@code /api/v1/**} authenticated catch-all in {@code SecurityConfig} — only
  * logged-in users can trigger a broadcast. The {@code AuthPrincipal} injected
  * here is the same one the JWT filter attaches in {@code JwtAuthenticationFilter}.
  *
@@ -39,7 +39,7 @@ import java.util.Map;
  * {@code senderId} as {@code number} to match.
  */
 @RestController
-@RequestMapping("/api/ws-test")
+@RequestMapping("/api/v1/ws-test")
 @RequiredArgsConstructor
 @Profile({"dev", "test"})
 @Slf4j

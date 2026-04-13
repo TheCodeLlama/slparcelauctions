@@ -23,13 +23,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
 
     private static final String REFRESH_COOKIE_NAME = "refreshToken";
-    private static final String REFRESH_COOKIE_PATH = "/api/auth";
+    private static final String REFRESH_COOKIE_PATH = "/api/v1/auth";
 
     private final AuthService authService;
     private final JwtConfig jwtConfig;

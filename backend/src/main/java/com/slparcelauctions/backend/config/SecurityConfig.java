@@ -40,31 +40,31 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // FOOTGUNS §B.5: matcher order is first-match-wins. More-specific rules MUST come
                 // before broader wildcards. Moving a rule down the list can silently open or close
-                // endpoints — always add new matchers above the "/api/**" catch-all.
+                // endpoints — always add new matchers above the "/api/v1/**" catch-all.
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
                                 // refresh authenticates via HttpOnly cookie inside the handler, not via SecurityContext
-                                "/api/auth/refresh",
+                                "/api/v1/auth/refresh",
                                 // logout is idempotent and cookie-authenticated inside the handler (FOOTGUNS §B.7)
-                                "/api/auth/logout"
+                                "/api/v1/auth/logout"
                         ).permitAll()
                         // User registration and public profile view are unauthenticated by design.
-                        // /api/users/me must remain authenticated — its more-specific rule below
+                        // /api/v1/users/me must remain authenticated — its more-specific rule below
                         // must come before the /{id} wildcard (FOOTGUNS §B.5).
-                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/users/{id}").permitAll()
-                        .requestMatchers("/api/auth/logout-all").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}").permitAll()
+                        .requestMatchers("/api/v1/auth/logout-all").authenticated()
                         // WebSocket handshake is permitted at the HTTP layer.
                         // Authentication happens at the STOMP CONNECT frame via
                         // JwtChannelInterceptor. Do NOT change this to .authenticated() —
                         // the browser WebSocket API cannot set an Authorization header on
                         // the HTTP upgrade, so gating it here is impossible. See FOOTGUNS §F.16.
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

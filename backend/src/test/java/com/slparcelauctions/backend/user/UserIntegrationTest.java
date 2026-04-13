@@ -53,7 +53,7 @@ class UserIntegrationTest {
         CreateUserRequest request = new CreateUserRequest(
                 "integration+create@example.com", "password123", "Integration User");
 
-        mockMvc.perform(post("/api/users")
+        mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -79,12 +79,12 @@ class UserIntegrationTest {
     void createUser_duplicateEmail_returns409() throws Exception {
         CreateUserRequest first = new CreateUserRequest(
                 "integration+dup@example.com", "password123", null);
-        mockMvc.perform(post("/api/users")
+        mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(first)))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/users")
+        mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(first)))
                 .andExpect(status().isConflict());
@@ -100,7 +100,7 @@ class UserIntegrationTest {
                 .build());
         userRepository.flush();
 
-        mockMvc.perform(get("/api/users/" + user.getId()))
+        mockMvc.perform(get("/api/v1/users/" + user.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(user.getId()))
                 .andExpect(jsonPath("$.displayName").value("Profile User"))
@@ -110,7 +110,7 @@ class UserIntegrationTest {
 
     @Test
     void getUserProfile_unknownId_returns404() throws Exception {
-        mockMvc.perform(get("/api/users/9999999"))
+        mockMvc.perform(get("/api/v1/users/9999999"))
                 .andExpect(status().isNotFound());
     }
 

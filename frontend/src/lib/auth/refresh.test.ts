@@ -34,10 +34,10 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
     setAccessToken(null);
   });
 
-  it("single call hits /api/auth/refresh once and returns the fresh token", async () => {
+  it("single call hits /api/v1/auth/refresh once and returns the fresh token", async () => {
     let refreshCount = 0;
     server.use(
-      http.post("*/api/auth/refresh", () => {
+      http.post("*/api/v1/auth/refresh", () => {
         refreshCount++;
         return HttpResponse.json({
           accessToken: "fresh-token-A",
@@ -65,7 +65,7 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
   it("three concurrent calls hit the backend exactly once and all resolve with the same token", async () => {
     let refreshCount = 0;
     server.use(
-      http.post("*/api/auth/refresh", async () => {
+      http.post("*/api/v1/auth/refresh", async () => {
         refreshCount++;
         // Small delay so the stampede has a window to form.
         await new Promise((resolve) => setTimeout(resolve, 20));
@@ -96,7 +96,7 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
   it("failed refresh clears session, throws RefreshFailedError, and allows the next call to retry", async () => {
     let refreshCount = 0;
     server.use(
-      http.post("*/api/auth/refresh", () => {
+      http.post("*/api/v1/auth/refresh", () => {
         refreshCount++;
         if (refreshCount === 1) {
           return HttpResponse.json(

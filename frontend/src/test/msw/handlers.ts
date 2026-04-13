@@ -17,7 +17,7 @@ import { mockUser, mockAuthResponse } from "./fixtures";
 export const authHandlers = {
   // Default bootstrap state: no session cookie → 401 AUTH_TOKEN_MISSING.
   refreshUnauthenticated: () =>
-    http.post("*/api/auth/refresh", () =>
+    http.post("*/api/v1/auth/refresh", () =>
       HttpResponse.json(
         {
           type: "https://slpa.example/problems/auth/token-missing",
@@ -31,27 +31,27 @@ export const authHandlers = {
     ),
 
   refreshSuccess: (user = mockUser) =>
-    http.post("*/api/auth/refresh", () =>
+    http.post("*/api/v1/auth/refresh", () =>
       HttpResponse.json(mockAuthResponse(user), {
         status: 200,
         headers: {
-          "Set-Cookie": "refreshToken=fake-refresh; HttpOnly; Path=/api/auth; SameSite=Lax",
+          "Set-Cookie": "refreshToken=fake-refresh; HttpOnly; Path=/api/v1/auth; SameSite=Lax",
         },
       })
     ),
 
   registerSuccess: (user = mockUser) =>
-    http.post("*/api/auth/register", () =>
+    http.post("*/api/v1/auth/register", () =>
       HttpResponse.json(mockAuthResponse(user), {
         status: 201,
         headers: {
-          "Set-Cookie": "refreshToken=fake-refresh; HttpOnly; Path=/api/auth; SameSite=Lax",
+          "Set-Cookie": "refreshToken=fake-refresh; HttpOnly; Path=/api/v1/auth; SameSite=Lax",
         },
       })
     ),
 
   registerEmailExists: () =>
-    http.post("*/api/auth/register", () =>
+    http.post("*/api/v1/auth/register", () =>
       HttpResponse.json(
         {
           type: "https://slpa.example/problems/auth/email-exists",
@@ -65,7 +65,7 @@ export const authHandlers = {
     ),
 
   registerValidationError: (errors: { field: string; message: string }[]) =>
-    http.post("*/api/auth/register", () =>
+    http.post("*/api/v1/auth/register", () =>
       HttpResponse.json(
         {
           type: "https://slpa.example/problems/validation",
@@ -80,17 +80,17 @@ export const authHandlers = {
     ),
 
   loginSuccess: (user = mockUser) =>
-    http.post("*/api/auth/login", () =>
+    http.post("*/api/v1/auth/login", () =>
       HttpResponse.json(mockAuthResponse(user), {
         status: 200,
         headers: {
-          "Set-Cookie": "refreshToken=fake-refresh; HttpOnly; Path=/api/auth; SameSite=Lax",
+          "Set-Cookie": "refreshToken=fake-refresh; HttpOnly; Path=/api/v1/auth; SameSite=Lax",
         },
       })
     ),
 
   loginInvalidCredentials: () =>
-    http.post("*/api/auth/login", () =>
+    http.post("*/api/v1/auth/login", () =>
       HttpResponse.json(
         {
           type: "https://slpa.example/problems/auth/invalid-credentials",
@@ -104,12 +104,12 @@ export const authHandlers = {
     ),
 
   logoutSuccess: () =>
-    http.post("*/api/auth/logout", () =>
+    http.post("*/api/v1/auth/logout", () =>
       new HttpResponse(null, { status: 204 })
     ),
 
   logoutAllSuccess: () =>
-    http.post("*/api/auth/logout-all", () =>
+    http.post("*/api/v1/auth/logout-all", () =>
       new HttpResponse(null, { status: 204 })
     ),
 };
