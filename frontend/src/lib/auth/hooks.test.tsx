@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { server } from "@/test/msw/server";
 import { authHandlers } from "@/test/msw/handlers";
-import { useAuth, useLogin, useRegister } from "./hooks";
+import { useAuth, useLogin, useRegister, useLogout, useForgotPassword } from "./hooks";
 import { setAccessToken, getAccessToken } from "./session";
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -119,5 +119,54 @@ describe("useRegister", () => {
 
     expect(getAccessToken()).toBe("mock-access-token-jwt");
     expect(queryClient.getQueryData(["auth", "session"])).toBeDefined();
+  });
+});
+
+describe("useLogout", () => {
+  it("clears access token and session cache on settled (even if network fails)", async () => {
+    server.use(
+      http.post("*/api/auth/logout", () =>
+        HttpResponse.json({ status: 500 }, { status: 500 })
+      )
+    );
+
+    setAccessToken("some-token");
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(["auth", "session"], { id: 1, email: "test@example.com" });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useLogout(), { wrapper });
+
+    result.current.mutate();
+
+    await waitFor(() => {
+      // onSettled clears state regardless of network outcome.
+      expect(getAccessToken()).toBeNull();
+      expect(queryClient.getQueryData(["auth", "session"])).toBeNull();
+    });
+  });
+});
+
+describe("useForgotPassword", () => {
+  it("resolves successfully (UI stub — no real backend call)", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useForgotPassword(), { wrapper });
+
+    result.current.mutate("user@example.com");
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
   });
 });
