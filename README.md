@@ -89,6 +89,8 @@ The backend requires `JWT_SECRET` in production (environment variable, ≥ 256 b
 
 The `verification/` slice provides `GET /api/v1/verification/active` and `POST /api/v1/verification/generate` for the player-verification flow. Codes are 6-digit numerics with a 15-minute TTL; generating a fresh code voids any prior active codes. The handler maps `AlreadyVerifiedException` (409), `CodeNotFoundException` (404), and `CodeCollisionException` (409) to RFC 9457 ProblemDetail responses. See [`docs/superpowers/specs/2026-04-13-epic-02-sub-1-verification-backend.md`](docs/superpowers/specs/2026-04-13-epic-02-sub-1-verification-backend.md).
 
+The `sl/` slice exposes `POST /api/v1/sl/verify`, the header-gated endpoint that an in-world LSL terminal posts to once the player enters their 6-digit code on the device. The path is `permitAll` in `SecurityConfig` because browser JWTs do not exist in-world; `SlHeaderValidator` is the actual trust boundary, checking `X-SecondLife-Shard` against the configured grid and `X-SecondLife-Owner-Key` against `slpa.sl.trusted-owner-keys`. The orchestrator pre-checks `users.sl_avatar_uuid` for a friendly 409 before consuming the verification code, then links the avatar to the user account and marks `verified=true`. Slice-scoped `SlExceptionHandler` overrides the verification-package responses (400 for not-found, 409 for collision, 409 for the constraint-race avatar-already-linked path via `ConstraintNameExtractor`). The `slpa.sl` config block lives in `application.yml` (`expected-shard: Production`, empty key list), `application-dev.yml` (placeholder UUID `00000000-0000-0000-0000-000000000001` for Postman + integration tests), and `application-prod.yml` (empty list — the deploy pipeline injects real UUIDs and `SlStartupValidator` fails fast on `prod` startup if the list is still empty).
+
 The frontend dev server runs at `http://localhost:3000`. Component primitives live under `src/components/ui/` (Button, IconButton, Input, Card, StatusBadge, Avatar, ThemeToggle, Dropdown), layout shell under `src/components/layout/`, and the typed API client + auth stub + cn helper under `src/lib/`. Theme tokens (M3 Material Design vocabulary, both light and dark) live in `src/app/globals.css`. The full design rationale is in [`docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md`](docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md).
 
 The frontend has three auth pages (`/register`, `/login`, `/forgot-password`) wired to the backend JWT auth endpoints from Task 01-07. Forms use react-hook-form + zod with backend ProblemDetail error mapping. Tests run against MSW mocks; the canary `lib/api.401-interceptor.test.tsx` proves the API client's auto-refresh-and-retry behavior. See [`docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md`](docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md) for the full design.
@@ -100,7 +102,7 @@ Task 01-09 wires the real-time pipe end-to-end. The backend exposes a STOMP-over
 ## Running tests
 
 ```bash
-cd backend && ./mvnw test             # ~112 unit / slice / integration tests incl. JWT auth and verification flows (integration tests need postgres on :5432)
+cd backend && ./mvnw test             # ~129 unit / slice / integration tests incl. JWT auth, verification, and SL verification flows (integration tests need postgres on :5432)
 cd frontend && npm run test           # vitest unit tests (~185 cases — primitives, layout, lib, auth flows)
 cd frontend && npm run lint           # eslint
 cd frontend && npm run verify         # grep-based rules: no dark: variants, no hex colors, no inline styles, every primitive has a test
@@ -116,7 +118,8 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 │       ├── common/          GlobalExceptionHandler, shared utilities
 │       ├── auth/            JWT auth slice (register, login, refresh, logout, logout-all)
 │       ├── user/            User vertical slice (entity, repo, service, controller, DTOs)
-│       └── verification/    Verification code slice (active, generate)
+│       ├── verification/    Verification code slice (active, generate)
+│       └── sl/              SL integration slice (header-gated /sl/verify)
 ├── frontend/                Next.js app
 ├── docs/
 │   ├── initial-design/      Spec, schema, user flows

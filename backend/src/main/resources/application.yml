@@ -22,3 +22,8 @@ jwt:
 auth:
   cleanup:
     enabled: true
+
+slpa:
+  sl:
+    expected-shard: Production
+    trusted-owner-keys: []

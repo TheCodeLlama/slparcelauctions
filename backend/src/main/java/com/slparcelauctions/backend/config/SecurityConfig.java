@@ -64,6 +64,11 @@ public class SecurityConfig {
                         // the browser WebSocket API cannot set an Authorization header on
                         // the HTTP upgrade, so gating it here is impossible. See FOOTGUNS §F.16.
                         .requestMatchers("/ws/**").permitAll()
+                        // SL-injected headers gate /api/v1/sl/verify - no JWT required.
+                        // The SlHeaderValidator component runs inside the request handler
+                        // and is the actual trust boundary. FOOTGUNS §B.5: this MUST sit
+                        // before the /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/verify").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint))
