@@ -550,7 +550,7 @@ public class SlVerificationService {
 }
 ```
 
-**Pre-check, then consume.** We check `findBySlAvatarUuid` *before* calling `consume(...)` so a valid code isn't burned by an unlinkable avatar (same user's second attempt should still work). The check + consume race is not risk-free — two SL verify calls with the same avatar could both pass the pre-check simultaneously — but the DB-level `UNIQUE` constraint on `users.sl_avatar_uuid` (from V1 migration) catches it on persist, surfaces as `DataIntegrityViolationException`, and the exception handler maps it to the same `AvatarAlreadyLinkedException` response. So the race has a safety net and the common path stays clean.
+**Pre-check, then consume.** We check `findBySlAvatarUuid` *before* calling `consume(...)` so a valid code isn't burned by an unlinkable avatar (same user's second attempt should still work). The check + consume race is not risk-free — two SL verify calls with the same avatar could both pass the pre-check simultaneously — but the DB-level `UNIQUE` constraint on `users.sl_avatar_uuid` (from V1 migration) catches it on persist and surfaces as `DataIntegrityViolationException`. **The service does not catch this exception** — it bubbles up and is handled in `SlExceptionHandler`, which inspects the constraint name and rethrows as `AvatarAlreadyLinkedException` for the known race or lets unknown constraints fall through to the 500 catch-all. See §15.1 for the handler code. Keeping the catch in the handler (not inline in the service) means the service-layer unit tests never need to construct fake `DataIntegrityViolationException` values.
 
 **`UserRepository.findBySlAvatarUuid` is new** — it'll be added alongside the prefix-rename commit since it's a one-liner method signature that `user/` needs. (If `user/` already exposes a similar method, use it as-is.)
 
@@ -1041,17 +1041,45 @@ Explicitly **not** added in this sub-spec. Q5c locked "defer to Epic 07." `POST 
 
 Full table. Owned by the two package-scoped exception handlers (`VerificationExceptionHandler`, `SlExceptionHandler`) plus any existing `GlobalExceptionHandler` in `common/`.
 
-| Exception | Package | HTTP | `title` | Logged at |
-|---|---|---|---|---|
-| `AlreadyVerifiedException` | verification | 409 | "Account already verified" | INFO |
-| `CodeNotFoundException` | verification | 400 | "Verification failed" | INFO |
-| `CodeCollisionException` | verification | **409** | "Verification failed" | **WARN** |
-| `UserNotFoundException` | user (existing) | 404 | unchanged | unchanged |
-| `InvalidSlHeadersException` | sl | 403 | "Invalid SL headers" | WARN |
-| `AvatarAlreadyLinkedException` | sl | 409 | "Avatar already linked" | WARN |
-| `DataIntegrityViolationException` caught and rethrown as `AvatarAlreadyLinkedException` | sl | 409 | "Avatar already linked" | WARN |
+| Exception | Package | HTTP | `title` | `type` URI | Logged at |
+|---|---|---|---|---|---|
+| `AlreadyVerifiedException` | verification | 409 | "Account already verified" | `https://slpa.example/problems/verification/already-verified` | INFO |
+| `CodeNotFoundException` | verification | 400 | "Verification failed" | `https://slpa.example/problems/verification/code-not-found` | INFO |
+| `CodeCollisionException` | verification | **409** | "Verification failed" | `https://slpa.example/problems/verification/code-collision` | **WARN** |
+| `UserNotFoundException` | user (existing) | 404 | unchanged | existing URI, unchanged | unchanged |
+| `InvalidSlHeadersException` | sl | 403 | "Invalid SL headers" | `https://slpa.example/problems/sl/invalid-headers` | WARN |
+| `AvatarAlreadyLinkedException` | sl | 409 | "Avatar already linked" | `https://slpa.example/problems/sl/avatar-already-linked` | WARN |
+| `DataIntegrityViolationException` (rethrown as `AvatarAlreadyLinkedException` inside `SlExceptionHandler` — see §15.1) | sl | 409 | "Avatar already linked" | same as above | WARN |
 
-`ProblemDetail.type` uses a consistent `urn:problem-type:slpa/<domain>/<code>` convention (e.g., `urn:problem-type:slpa/verification/collision`) so clients can branch deterministically without parsing human-readable strings. Existing convention — match it if already set, introduce it here if not yet established.
+`ProblemDetail.type` follows the existing Epic 01 convention: `https://slpa.example/problems/<slice>/<kind>`. That convention is established in `common/exception/GlobalExceptionHandler.java` and `auth/exception/AuthExceptionHandler.java` (e.g., `https://slpa.example/problems/auth/invalid-credentials`, `https://slpa.example/problems/auth/token-missing`). Do not switch to `urn:` or any other shape.
+
+### 15.1 `DataIntegrityViolationException` handling — handler, not service
+
+`SlVerificationService` does not catch `DataIntegrityViolationException`. It lets the exception bubble from `userRepository.save(user)` so the service layer stays focused on happy-path orchestration. The catch + rethrow lives in `SlExceptionHandler`:
+
+```java
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException e,
+                                                  HttpServletRequest req) {
+    // The only constraint in sl/ that this handler cares about is the
+    // users.sl_avatar_uuid unique index. Anything else is a genuine programmer
+    // error or a truly unexpected constraint — let it fall through to the
+    // GlobalExceptionHandler's catch-all handleUnexpected().
+    String constraintName = extractConstraintName(e);  // parses root cause message / SQLState
+    if (isAvatarUuidUniqueViolation(constraintName)) {
+        log.warn("SL verify race: sl_avatar_uuid unique constraint fired. Rethrowing as AvatarAlreadyLinkedException.");
+        throw new AvatarAlreadyLinkedException(/* avatarUuid not easily recoverable here */);
+    }
+    // Unknown constraint — rethrow so the global handler produces a 500.
+    throw e;
+}
+```
+
+Implementation notes:
+- `extractConstraintName` parses the root cause (a `org.hibernate.exception.ConstraintViolationException` wrapping a `PSQLException`) — standard pattern, one utility method in `sl/`.
+- `isAvatarUuidUniqueViolation` does a substring match on the Postgres constraint name (e.g., `users_sl_avatar_uuid_key` — to confirm during Task 3 by inspecting V1 migration output).
+- If the check fails to recognize the constraint, the exception bubbles to `GlobalExceptionHandler.handleUnexpected` which returns a 500 — intentional: an unknown constraint violation is a programming bug, not a user-facing 4xx.
+- This keeps `SlVerificationService` tests clean (they don't need to mock `DataIntegrityViolationException`) while still producing the right response for the race case described in §8.
 
 ---
 
