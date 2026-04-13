@@ -713,7 +713,24 @@ export function CtaSection() {
 }
 ```
 
-**Note on inline style:** the radial-dot pattern uses a `style={{ backgroundImage: ... }}` prop with CSS variables. This is the ONE case where inline style is justified: we can't express a `radial-gradient` via Tailwind utility classes cleanly, and the pattern is decorative. This is a minor exception to the "no inline styles" verify-script rule. If `verify:no-inline-styles` flags this file, add the file to the script's allowlist with a comment explaining the exception, OR move the radial-dot pattern to a scoped CSS module. **Plan should pick one path before implementation.**
+**Note on inline style — LOCKED: allowlist path.** The radial-dot pattern uses a `style={{ backgroundImage: ... }}` prop with CSS variables. This is the ONE case in the task where inline style is justified: we can't express a `radial-gradient` via Tailwind utility classes cleanly, and the pattern is purely decorative. A CSS module for a single 2-line style would be over-engineering.
+
+The plan MUST:
+
+1. Add `CtaSection.tsx` to the allowlist in `frontend/scripts/verify-no-inline-styles.sh` with an inline comment explaining the exception. Example shape (adjust to the script's actual allowlist convention):
+
+   ```bash
+   # CtaSection uses a `radial-gradient` via inline style for its decorative
+   # dot pattern — unavoidable because Tailwind has no `radial-gradient` utility.
+   # See spec 2026-04-13-task-01-10-landing-page-design.md §6.8.
+   ALLOWLIST+=("src/components/marketing/CtaSection.tsx")
+   ```
+
+2. Add a matching `// eslint-disable-next-line react/forbid-dom-props -- decorative radial-gradient, see FOOTGUNS §F.X` comment above the `style={{ ... }}` line in `CtaSection.tsx` IF the frontend ESLint config rejects inline styles (many Next.js configs do not — check `eslint.config.js` before adding the comment and only add it if the lint fails).
+
+3. Re-run `npm run verify` to confirm the allowlist entry resolves the verify script failure and does not mask any other inline-style violations elsewhere.
+
+The allowlist approach keeps the verify gate honest (future inline-style additions still fail), documents the exception in-source, and avoids a CSS module that would only exist to serve one 2-line pattern.
 
 **Tests (`CtaSection.test.tsx`):**
 1. Unauthenticated → section renders with heading + both buttons.
@@ -980,7 +997,7 @@ From `task-10-landing-page.md`:
 |---|---|
 | Hydration mismatch on theme swap (HeroFeaturedParcel, FeatureCard) | §13 F.21 footgun + `mounted` guard pattern verbatim in both components |
 | `LivePill` dual-composability gets broken by a future hook addition | §13 F.20 footgun + explicit load-bearing comment in `LivePill.tsx` header |
-| `verify:no-inline-styles` fails on the CtaSection radial-dot pattern | Plan picks ONE path (add to allowlist OR move pattern to `globals.css`) before implementation begins. Covered in §6.8 |
+| `verify:no-inline-styles` fails on the CtaSection radial-dot pattern | LOCKED: add `CtaSection.tsx` to the allowlist in `frontend/scripts/verify-no-inline-styles.sh` with an explanatory comment. Full plan steps in §6.8 |
 | Stitch CDN images 404 in the future | Images already downloaded and committed to `frontend/public/landing/` — no runtime dependency on the CDN |
 | Authenticated user loads `/` → sees Bottom CTA flash briefly before `useAuth()` resolves → CtaSection returns null → re-render | `useAuth()` returns `{status: "loading"}` during bootstrap, then `"authenticated"` or `"unauthenticated"`. `CtaSection` treats `"loading"` as "not authenticated yet" — shows the CTA. This is the correct behavior: returning users see the CTA for 100-200ms during bootstrap, then it disappears if they're logged in. An acceptable trade-off vs. hiding all content during the loading state. |
 | Hero image assets (800KB total) load eagerly and degrade LCP | `HeroFeaturedParcel` uses `priority` on the `<Image>` component (LCP hint). `FeatureCard` background image is decorative and NOT priority — `next/image` lazy-loads it when scrolled into view |
@@ -1004,4 +1021,4 @@ Controller's own sanity check before handing off to `writing-plans`. Remove befo
 - "Who owns the `mounted` hydration guard?" — both `HeroFeaturedParcel` and `FeatureCard` (§6.3, §6.7), with `next-themes` footgun §F.21 as the rule.
 - "Is the `bidding-bg.png` image used in both themes?" — yes, single file, see §8 and the `FeaturesSection` props in §6.6.
 - "Does `FeatureCard` stay a Server Component when `backgroundImage` is omitted?" — no, it's a Client Component across the board (§6.7 alternative-considered).
-- "Is the inline style in CtaSection OK?" — it's an exception that the plan must resolve one of two ways (§6.8).
+- "Is the inline style in CtaSection OK?" — yes, it's a locked allowlist exception. See §6.8 for exact plan steps.
