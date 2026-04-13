@@ -89,11 +89,13 @@ The backend requires `JWT_SECRET` in production (environment variable, ≥ 256 b
 
 The frontend dev server runs at `http://localhost:3000`. Component primitives live under `src/components/ui/` (Button, IconButton, Input, Card, StatusBadge, Avatar, ThemeToggle, Dropdown), layout shell under `src/components/layout/`, and the typed API client + auth stub + cn helper under `src/lib/`. Theme tokens (M3 Material Design vocabulary, both light and dark) live in `src/app/globals.css`. The full design rationale is in [`docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md`](docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md).
 
+The frontend has three auth pages (`/register`, `/login`, `/forgot-password`) wired to the backend JWT auth endpoints from Task 01-07. Forms use react-hook-form + zod with backend ProblemDetail error mapping. Tests run against MSW mocks; the canary `lib/api.401-interceptor.test.tsx` proves the API client's auto-refresh-and-retry behavior. See [`docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md`](docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md) for the full design.
+
 ## Running tests
 
 ```bash
 cd backend && ./mvnw test             # ~91 unit / slice / integration tests incl. JWT auth flows (integration tests need postgres on :5432)
-cd frontend && npm run test           # vitest unit tests (~67 cases — primitives, layout, lib)
+cd frontend && npm run test           # vitest unit tests (~149 cases — primitives, layout, lib, auth flows)
 cd frontend && npm run lint           # eslint
 cd frontend && npm run verify         # grep-based rules: no dark: variants, no hex colors, no inline styles, every primitive has a test
 ```

@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bell, MenuIcon } from "@/components/ui/icons";
 import {
-  Avatar,
   Button,
-  Dropdown,
   IconButton,
   ThemeToggle,
 } from "@/components/ui";
@@ -14,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { MobileMenu } from "./MobileMenu";
 import { NavLink } from "./NavLink";
+import { UserMenuDropdown } from "@/components/auth/UserMenuDropdown";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,16 +55,7 @@ export function Header() {
             </IconButton>
 
             {status === "loading" ? null : status === "authenticated" ? (
-              <Dropdown
-                trigger={
-                  <Avatar name={user.displayName} alt="Account menu" size="sm" />
-                }
-                items={[
-                  { label: "Profile", onSelect: () => {} },
-                  { label: "Settings", onSelect: () => {} },
-                  { label: "Sign out", onSelect: () => {}, danger: true },
-                ]}
-              />
+              <UserMenuDropdown user={user} />
             ) : (
               <div className="hidden md:flex items-center gap-2">
                 <Link href="/login">

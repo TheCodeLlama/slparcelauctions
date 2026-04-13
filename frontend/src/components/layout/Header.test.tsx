@@ -2,8 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderWithProviders, screen, userEvent } from "@/test/render";
 import { Header } from "./Header";
 
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
+}));
+
 vi.mock("@/lib/auth", () => ({
   useAuth: vi.fn(() => ({ status: "unauthenticated", user: null })),
+  useLogout: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
 import { useAuth } from "@/lib/auth";
@@ -34,7 +42,7 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: /Register/ })).toBeInTheDocument();
   });
 
-  it("renders the avatar dropdown when authenticated", () => {
+  it("renders the UserMenuDropdown when authenticated", () => {
     mockedUseAuth.mockReturnValue({
       status: "authenticated",
       user: {
@@ -46,7 +54,7 @@ describe("Header", () => {
       },
     });
     renderWithProviders(<Header />);
-    expect(screen.getByRole("img", { name: "Account menu" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /user menu/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Sign in/ })).toBeNull();
   });
 

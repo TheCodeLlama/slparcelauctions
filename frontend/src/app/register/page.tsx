@@ -1,8 +1,25 @@
-import type { Metadata } from "next";
-import { PageHeader } from "@/components/layout/PageHeader";
-
-export const metadata: Metadata = { title: "Register" };
+// frontend/src/app/register/page.tsx
+import { Suspense } from "react";
+import Link from "next/link";
+import { AuthCard } from "@/components/auth/AuthCard";
+import { RegisterForm } from "@/components/auth/RegisterForm";
 
 export default function RegisterPage() {
-  return <PageHeader title="Register" subtitle="Create your SLPA account." />;
+  return (
+    <AuthCard>
+      <AuthCard.Title>Create Your Account</AuthCard.Title>
+      <AuthCard.Subtitle>Join the digital curator.</AuthCard.Subtitle>
+      <AuthCard.Body>
+        <Suspense>
+          <RegisterForm />
+        </Suspense>
+      </AuthCard.Body>
+      <AuthCard.Footer>
+        Already an esteemed member?{" "}
+        <Link href="/login" className="font-semibold text-primary hover:underline">
+          Sign In
+        </Link>
+      </AuthCard.Footer>
+    </AuthCard>
+  );
 }
