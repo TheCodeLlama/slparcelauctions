@@ -69,6 +69,11 @@ public class SecurityConfig {
                         // and is the actual trust boundary. FOOTGUNS §B.5: this MUST sit
                         // before the /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/verify").permitAll()
+                        // Dev simulate helper - permit at HTTP layer always. The bean is only
+                        // registered under @Profile("dev"); in prod the handler doesn't exist so
+                        // the request 404s (falling through Spring MVC rather than Spring Security).
+                        // FOOTGUNS §B.5: this MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/dev/**").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint))
