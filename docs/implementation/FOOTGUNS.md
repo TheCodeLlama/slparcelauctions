@@ -955,3 +955,41 @@ Discovered when implementing `mapProblemDetailToForm` tests in Task 01-08. The p
 - A missing import surfaces as `ReferenceError: beforeAll is not defined` at test runtime. The fix is one line.
 
 Discovered during MSW lifecycle wiring in Task 01-08 Task 4.
+
+### F.16 WebSocket handshake is permitted at HTTP, authenticated at STOMP
+
+**Rule:** `SecurityConfig` must list `/ws/**` as `.permitAll()` above the `/api/**` authenticated catch-all. The HTTP-layer WebSocket upgrade does not carry an `Authorization` header from the browser (the WebSocket API has no mechanism to set custom headers on upgrades), so gating the upgrade at the HTTP layer is impossible. Authentication happens in `JwtChannelInterceptor.preSend()` on the first STOMP `CONNECT` frame, before the session is usable for any subscription or send.
+
+**Why:** Task 01-09 locked this model in the brainstorm (spec §3 Q1-A). Matcher order in `SecurityConfig` is first-match-wins (§B.5), so `/ws/**` must appear ABOVE `/api/**`. Moving it below the catch-all silently flips it from permitAll to authenticated and every WebSocket connection starts failing with a bewildering 401 before the STOMP layer even sees the frame.
+
+**How to apply:** when editing `SecurityConfig.authorizeHttpRequests`, verify the `/ws/**` matcher is still above `/api/**`. If code review proposes "tightening" it to `.authenticated()`, reject — browsers cannot send the required header.
+
+### F.17 `ensureFreshAccessToken` stampede guard — `finally` inside the IIFE
+
+**Rule:** In `lib/auth/refresh.ts`, the `inFlightRefresh = null` cleanup MUST live inside the IIFE's `try { ... } finally { inFlightRefresh = null; }`, not after the outer promise chain. The shared promise between HTTP 401 interceptor and STOMP `beforeConnect` depends on this: if the cleanup runs outside the IIFE, every awaiter nulls the ref as they resolve, and a concurrent refresh kicked off during the resolution window sees `null` and fires a second `/api/auth/refresh`, defeating the stampede guard.
+
+**Why:** this is §F.4 restated for the extracted module. Two canary tests pin this behavior:
+- `frontend/src/lib/auth/refresh.test.ts` (three tests, local to the extracted module)
+- `frontend/src/lib/api.401-interceptor.test.tsx` (three tests, HTTP end-to-end via MSW)
+
+If either canary starts failing with "fetch called twice instead of once", the `finally` clause has been moved.
+
+**How to apply:** when touching `lib/auth/refresh.ts`, diff the `finally` placement. If code review ever proposes "flattening the IIFE for readability", reject it — the flattening breaks the contract.
+
+### F.18 `beforeConnect` must not throw — stash errors and let stompjs produce the ERROR frame
+
+**Rule:** In `lib/ws/client.ts`, the `beforeConnect` callback wraps `ensureFreshAccessToken` in try/catch. On `RefreshFailedError`, store the message via `setState({status:"error", detail})` and return normally — do NOT throw from `beforeConnect`. Stompjs treats a thrown `beforeConnect` as a catastrophic failure and either deactivates the client entirely or loops infinitely depending on the version.
+
+**Why:** letting stompjs proceed with no `Authorization` header causes the interceptor to reject the CONNECT frame with an `ERROR` frame, which the client handles gracefully via `onStompError` and our `ConnectionState` machine. Any path that throws from `beforeConnect` hides the error from UI and potentially deadlocks the client.
+
+**How to apply:** when reviewing `beforeConnect` changes, verify that the catch block only stores state, never throws or calls `client.deactivate()`. The setState call path is safe; throw is not.
+
+### F.19 `@stomp/stompjs` `subscribe()` only works when `client.connected === true`
+
+**Rule:** `client.subscribe(destination, callback)` throws if called before the client is connected. Our `lib/ws/client.ts` handles this by deferring the actual `client.subscribe()` call until `onConnect` fires, via an inline `subscribeToConnectionState` listener that unsubscribes itself after one fire.
+
+**Why:** without the deferral, calling `useStompSubscription` during initial page load (before the WS handshake completes) throws a runtime error that crashes the React tree. The deferral is ~6 lines but load-bearing — do not "simplify" it away.
+
+A known edge case lives here (spec §14.7): a rapid `onConnect → onWebSocketClose` sequence can leave the deferred listener waiting mid-cycle. The subscription is not lost — it attaches on the next successful connect — just delayed by one reconnect. Epic 04 may harden this with re-attach-on-every-transition + subscription dedup when auction-room subscriptions need robustness under flaky networks.
+
+**How to apply:** any path that eagerly invokes `client.subscribe` must first check `client.connected`, and if false, defer via the state listener. This rule applies equally to Epic 04's auction-room subscription code.
