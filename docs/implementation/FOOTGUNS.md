@@ -638,6 +638,19 @@ This is a meta-lesson for spec writing, not an implementation footgun. It applie
 frontend and backend slices equally. Filed here under §5 (project conventions) because it's a
 convention about how to write specs, not a domain-specific gotcha.
 
+### 5.9 Stale briefs are a drift source — patch N+1 briefs when Task N lands contradicting decisions
+
+**Why:** When Task N's spec or plan locks a decision that contradicts the original brief for Task N+1, patch the N+1 brief in the same PR. Otherwise N+1's implementer walks into a pre-resolved conflict and wastes a brainstorm round re-discovering the answer.
+
+**Caught at brainstorm time in Task 01-08.** Task 01-07 locked in-memory access tokens + HttpOnly refresh cookies three days before Task 01-08's brainstorm, but Task 01-08's brief still said "localStorage or httpOnly cookie" and "remember me checkbox controls localStorage vs sessionStorage." The brainstorm spent the entire Q1 round re-litigating a resolved decision before reaching the same conclusion Task 01-07 had already documented.
+
+**How to apply:**
+- When shipping a spec that contradicts an upstream brief for a dependent task, grep for the dependent task's brief in the same PR and patch any statements that no longer apply.
+- Leave a one-line `> **Brief updated post-Task N-1:** <description>` note so the N+1 reader knows a correction happened.
+- This is a controller-side discipline rule, not a per-task footgun. It applies to every cross-task dependency.
+
+This is filed under §5 (project conventions) because it's a process rule that applies to every future task handoff, not a domain-specific gotcha.
+
 ---
 
 ## §6 Scaffold / template / generated content
@@ -826,3 +839,119 @@ leak the refresh token because the field doesn't exist on the type.
   this entry and decline.
 
 This is non-negotiable. Without the meta-discipline of "every catch becomes a ledger entry," the ledger doesn't compound and we re-burn the same lessons.
+
+---
+
+## §F. Frontend / React / Next.js / Auth
+
+Frontend-domain footguns. Numbered §F.1, §F.2, etc. to keep the namespace separate from the existing frontend domain-shaped sections (§1–§6) and the backend section (§B). When the frontend ledger grows larger, sub-sections may mirror the backend pattern (§F.1, §F.2, ...) or use a domain-flat list — both work.
+
+### F.1 Access token lives in a module-level `let`, not a React `useRef`
+
+**Why:** The API client interceptor in `lib/api.ts` runs outside React's lifecycle. React refs (`useRef`) are per-component and die on unmount; they can't be read from a non-React context. A module-level `let` in `lib/auth/session.ts` is the correct container for state that the interceptor reads synchronously and mutations write synchronously.
+
+**How to apply:**
+- Only `getAccessToken` and `setAccessToken` are exported. The `accessToken` variable itself is module-private.
+- A grep for `accessToken = ` outside `session.ts` catches any mutation path that bypasses the setter — code review enforces the rule until a lint check ships.
+
+### F.2 The session query's side effect (setting the access token) lives inside `queryFn`, not `onSuccess`
+
+**Why:** TanStack Query's first subscriber receives `queryFn`'s return value directly — `onSuccess` only fires on subsequent subscribers and refetches. If `setAccessToken(response.accessToken)` lives in `onSuccess`, the first component to call `useAuth()` gets the user but the access token ref stays null until the next refetch, which may never happen with `staleTime: Infinity`.
+
+**How to apply:** Place the side effect inside `queryFn` BEFORE returning the user value. The first-subscribe path will then update the token synchronously with the query cache. `bootstrapSession()` in `lib/auth/hooks.ts` is the canonical example.
+
+### F.3 `configureApiClient(queryClient)` — pass the QueryClient via setup function, not module global
+
+**Why:** The 401 interceptor in `lib/api.ts` needs to update the session query cache on failed refresh. Storing the QueryClient as a module global creates import-order footguns — the API client module might initialize before the QueryClient exists. A setup function called once at app mount makes the dependency explicit and testable.
+
+**How to apply:** `app/providers.tsx` calls `configureApiClient(client)` inside the `useState` initializer when the QueryClient is constructed. The API client stores it at module scope. Tests construct their own QueryClient and call `configureApiClient` in `beforeEach`.
+
+### F.4 Concurrent 401 stampede — share one in-flight refresh promise
+
+**Why:** If three requests return 401 simultaneously, the naive interceptor fires three `/refresh` calls. Deduplicate via a single `inFlightRefresh: Promise<void> | null` at module scope. The first 401 starts the refresh and stores the promise; subsequent 401s await the same promise; all retry after it resolves.
+
+**How to apply:** The cleanup (`inFlightRefresh = null`) lives INSIDE the IIFE's `try/finally` so only the creator clears the ref, not every awaiter racing to null it out. JS microtask ordering makes the per-awaiter pattern safe in practice, but having one code path own the cleanup is structurally correct and easier to reason about. See `handleUnauthorized` in `lib/api.ts`.
+
+### F.5 `staleTime: Infinity` + `gcTime: Infinity` + `retry: false` on the session query — all three are load-bearing
+
+**Why:**
+- `staleTime: Infinity` prevents auto-refetching the session on every `useAuth()` call. Without it, TanStack Query considers the query stale after 5 minutes and re-fetches.
+- `gcTime: Infinity` prevents garbage collection if `Header` unmounts temporarily.
+- `retry: false` prevents three `/refresh` calls on a fresh visit — a 401 on bootstrap is a legitimate unauthenticated state, not a transient error.
+
+**How to apply:** A contributor "tuning" these based on standard React Query advice would break the auth layer. A comment block above the `useQuery` call in `lib/auth/hooks.ts` explains each flag.
+
+### F.6 `mapProblemDetailToForm` — `errors` is a `Record<string, string>` dict, not an array
+
+**Why:** The backend's `GlobalExceptionHandler` (Task 01-07 Task 23) emits the validation errors map as `errors: Record<string, string>` — a dict like `{ email: "must be a valid email", password: "must be at least 10 characters" }`. The original Task 01-07 design intent showed an array of `{field, message}` objects, but the actual implementation uses the dict form because the existing user-slice tests asserted against `$.errors.email` as a map key.
+
+**How to apply:**
+- Use `Object.entries(problem.errors)` to iterate, not `Array.prototype.forEach`.
+- Validate the shape with `typeof problem.errors === "object" && problem.errors !== null && !Array.isArray(problem.errors)` if defensive checks are needed.
+- The dict form means each field can have only one error message at a time. If multi-error-per-field is ever needed, the backend would need a redesign — flag it then.
+
+This is a load-bearing correction that contradicts an earlier note. The dict form is the actual production shape.
+
+### F.7 `mapProblemDetailToForm` — unknown-field guard with console warn in dev
+
+**Why:** If the backend returns a `VALIDATION_FAILED` with a field that doesn't exist on the form, silent dropping hides drift between backend validators and frontend form fields.
+
+**How to apply:** Fall back to `root.serverError` with the concatenated message and `console.warn` in dev (`process.env.NODE_ENV !== "production"`). The warn is a drift-detection mechanism — the form tells you "something new is being validated that you don't know about" rather than failing silently. See `mapProblemDetailToForm` in `lib/auth/errors.ts`.
+
+### F.8 `onUnhandledRequest: "error"` in MSW setup is load-bearing
+
+**Why:** A future contributor who switches this to `"warn"` or `"bypass"` to make a flaky test pass has silently allowed real network requests from tests. That's the same failure mode as deleting a canary integration test — it masks a real integration gap.
+
+**How to apply:** Do not relax it. If a test is flaky because a handler is missing, add the handler; don't widen the escape hatch. `vitest.setup.ts` calls `server.listen({ onUnhandledRequest: "error" })` and this must not change.
+
+### F.9 The 401-auto-refresh canary is the frontend security model
+
+**Why:** The integration test in `lib/api.401-interceptor.test.tsx` verifies "401 on protected endpoint → auto-refresh → retry → success." It also covers stampede protection and refresh-failure-redirect. These three tests together prove the API client's self-healing behavior works.
+
+**How to apply:** **Never delete. Never quarantine.** If the canary fails, debug the interceptor — don't disable the test. The frontend equivalent of Task 01-07's `refreshTokenReuseCascade` integration test.
+
+### F.10 `useLogoutAll` must refresh before calling the endpoint
+
+**Why:** `POST /api/auth/logout-all` requires a valid access token (it's protected). If the user's access token is already expired when they click "Sign out all sessions," the call fails with 401 and the interceptor triggers a refresh anyway — but the user sees a flicker. Cleaner: the `useLogoutAll` hook always calls `/refresh` first, gets a fresh access token, then calls `/logout-all`.
+
+**How to apply:** Refresh is cheap (~100ms). The hook in `lib/auth/hooks.ts` does both calls in the `mutationFn`.
+
+### F.11 `onSettled` for logout, not `onSuccess`
+
+**Why:** Logout should clear local state even if the network call fails. A user clicking "Sign Out" expects to be logged out regardless of whether the backend acknowledged the POST.
+
+**How to apply:** Place `setAccessToken(null)`, `setQueryData(null)`, `removeQueries`, and `router.push("/")` in `onSettled` (not `onSuccess`). All four operations are idempotent.
+
+### F.12 `onSuccess` on login/register uses `setQueryData`, not `invalidateQueries`
+
+**Why:** `invalidateQueries` would trigger a wasted `/refresh` round-trip immediately after login. `setQueryData(["auth", "session"], response.user)` directly seats the cached value, so `Header` re-renders instantly without a network call.
+
+**How to apply:** Use `invalidateQueries` only when you actually want to refetch from the server. For login/register, the response body already contains the user — there's nothing to refetch.
+
+### F.13 DESIGN.md §2 "No-Line Rule" wins over Stitch HTML
+
+**Why:** The Stitch design HTML often contains `border-t` or `border-b` classes that violate DESIGN.md §2. When a section separator is needed, use a background-color shift (e.g., `bg-surface-container-low`) or vertical spacing (`pt-6`) instead of a border.
+
+**How to apply:** The Stitch HTML is a mockup; DESIGN.md is the rulebook. Example: `AuthCard.Footer` must not use `border-t border-outline-variant/10` even though the Stitch HTML shows it. Use the `bg-surface-container-low` strip with negative margins matching the underlying Card's padding (verify against `Card.tsx` before committing — wrong values cause horizontal overflow).
+
+### F.14 `ApiError` constructor takes a single `ProblemDetail` argument, not three
+
+**Why:** `lib/api.ts` exports `ApiError` with the constructor signature `new ApiError(problem: ProblemDetail)`, NOT the three-argument form `new ApiError(message, status, problem)` that some examples and tutorials show. The class derives `message` and `status` from the `problem` object internally.
+
+**How to apply:**
+- Always pass a `ProblemDetail` object: `throw new ApiError({ status: 401, code: "AUTH_TOKEN_MISSING", title: "..." })`
+- When mocking errors in tests, use the same single-arg form
+- If you find code calling `new ApiError("msg", 401, problem)`, that's a bug — adapt to the single-arg form
+
+Discovered when implementing `mapProblemDetailToForm` tests in Task 01-08. The plan code used the three-arg form and the tests failed at compile time.
+
+### F.15 `vitest.config.ts` uses `globals: false` — `beforeAll`, `afterEach`, etc. need explicit imports
+
+**Why:** Task 01-06 set `globals: false` in `vitest.config.ts` to enforce explicit imports per the project's no-magic-globals discipline. This means `beforeAll`, `afterEach`, `afterAll`, `beforeEach`, `describe`, `it`, `expect`, `vi` all need to be imported explicitly from `"vitest"` at the top of every test file AND in `vitest.setup.ts`.
+
+**How to apply:**
+- Existing test files already import these correctly via `import { describe, it, expect, vi } from "vitest"`.
+- When adding new lifecycle hooks (`beforeAll`/`afterAll` for MSW setup, etc.) to `vitest.setup.ts`, expand the existing `import { afterEach, vi } from "vitest"` line to include them.
+- A missing import surfaces as `ReferenceError: beforeAll is not defined` at test runtime. The fix is one line.
+
+Discovered during MSW lifecycle wiring in Task 01-08 Task 4.
