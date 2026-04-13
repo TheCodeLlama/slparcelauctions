@@ -31,10 +31,15 @@ final class ConstraintNameExtractor {
     }
 
     static boolean isAvatarUuidUniqueViolation(String constraintName) {
-        // JPA-generated unique constraint on users.sl_avatar_uuid surfaces as
-        // something like "users_sl_avatar_uuid_key" or "uk_..." depending on the
-        // Hibernate naming strategy. Lenient substring match keeps this resilient
-        // to naming-strategy drift without sacrificing specificity.
-        return constraintName != null && constraintName.contains("sl_avatar_uuid");
+        // Hibernate/Postgres default for {@code @Column(unique=true)} on
+        // {@code users.sl_avatar_uuid} is {@code users_sl_avatar_uuid_key}. Stay
+        // flexible against future naming-strategy changes by matching both tokens
+        // rather than the exact string. A constraint name that incidentally contains
+        // "sl_avatar_uuid" but not "users" (e.g., a hypothetical
+        // {@code bans_sl_avatar_uuid_idx}) will correctly NOT match.
+        if (constraintName == null || constraintName.isEmpty()) {
+            return false;
+        }
+        return constraintName.contains("users") && constraintName.contains("sl_avatar_uuid");
     }
 }

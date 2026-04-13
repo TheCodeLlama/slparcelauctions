@@ -112,14 +112,11 @@ public class SlExceptionHandler {
         if (ConstraintNameExtractor.isAvatarUuidUniqueViolation(constraintName)) {
             log.warn("SL verify race: sl_avatar_uuid unique constraint fired ({}). "
                     + "Mapping to AvatarAlreadyLinkedException response.", constraintName);
-            ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.CONFLICT,
-                    "This SL avatar is already linked to another SLPA account.");
-            pd.setType(URI.create("https://slpa.example/problems/sl/avatar-already-linked"));
-            pd.setTitle("Avatar already linked");
-            pd.setInstance(URI.create(req.getRequestURI()));
-            pd.setProperty("code", "SL_AVATAR_ALREADY_LINKED");
-            return pd;
+            // Delegate to the AvatarAlreadyLinkedException handler so the response
+            // shape stays in lockstep with the pre-check path. The no-arg constructor
+            // is reserved for this race-path mapping where the UUID isn't recoverable
+            // from the JDBC exception.
+            return handleAvatarLinked(new AvatarAlreadyLinkedException(), req);
         }
         // Unknown constraint - bubble to GlobalExceptionHandler.handleUnexpected (500).
         throw e;

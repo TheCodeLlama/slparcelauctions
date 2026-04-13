@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Optional;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.verification.VerificationCodeService;
+import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.verification.dto.ActiveCodeResponse;
 
 /**
  * End-to-end integration test for the SL verification flow:
@@ -41,6 +46,7 @@ class SlVerificationFlowIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
+    @Autowired VerificationCodeService verificationCodeService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
@@ -92,6 +98,13 @@ class SlVerificationFlowIntegrationTest {
         assertThat(user.getSlUsername()).isEqualTo("test.resident");
         assertThat(user.getSlPayinfo()).isEqualTo(3);
         assertThat(user.getVerifiedAt()).isNotNull();
+
+        // Confirm the verification code row is now used=true (no active code for this user).
+        Optional<ActiveCodeResponse> active =
+                verificationCodeService.findActive(userId, VerificationCodeType.PLAYER);
+        assertThat(active)
+                .as("verification code should be consumed after successful verify")
+                .isEmpty();
     }
 
     @Test
