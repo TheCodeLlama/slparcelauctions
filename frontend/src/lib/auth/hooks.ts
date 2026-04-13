@@ -64,7 +64,6 @@ export function useAuth(): AuthSession {
 
   if (query.isPending) return { status: "loading", user: null };
   if (query.isError) return { status: "unauthenticated", user: null };
-  // eslint-disable-next-line eqeqeq
   if (query.data == null) return { status: "unauthenticated", user: null };
   return { status: "authenticated", user: query.data };
 }
@@ -176,7 +175,8 @@ export function useLogoutAll() {
  */
 export function useForgotPassword() {
   return useMutation({
-    mutationFn: async (_email: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    mutationFn: async (_forgotEmail: string) => {
       await new Promise((resolve) => setTimeout(resolve, 300));
       return { success: true };
     },

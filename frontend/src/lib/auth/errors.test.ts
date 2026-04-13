@@ -88,7 +88,7 @@ describe("mapProblemDetailToForm", () => {
     expect(result.current.formState.errors.email).toBeUndefined();
     expect(result.current.formState.errors.password).toBeUndefined();
     // root.serverError lives at errors.root?.serverError in RHF.
-    const root = (result.current.formState.errors as any).root;
+    const root = (result.current.formState.errors as { root?: { serverError?: { message?: string } } }).root;
     expect(root?.serverError?.message).toMatch(/incorrect/i);
   });
 
@@ -107,7 +107,7 @@ describe("mapProblemDetailToForm", () => {
       mapProblemDetailToForm(error, result.current, KNOWN_FIELDS);
     });
 
-    const root = (result.current.formState.errors as any).root;
+    const root = (result.current.formState.errors as { root?: { serverError?: { message?: string } } }).root;
     expect(root?.serverError?.message).toContain("unknownField");
     expect(consoleSpy).toHaveBeenCalled();
   });
@@ -125,7 +125,7 @@ describe("mapProblemDetailToForm", () => {
       mapProblemDetailToForm(error, result.current, KNOWN_FIELDS);
     });
 
-    const root = (result.current.formState.errors as any).root;
+    const root = (result.current.formState.errors as { root?: { serverError?: { message?: string } } }).root;
     expect(root?.serverError?.message).toBe("Something went wrong on our end.");
   });
 
@@ -136,7 +136,7 @@ describe("mapProblemDetailToForm", () => {
       mapProblemDetailToForm(new Error("network down"), result.current, KNOWN_FIELDS);
     });
 
-    const root = (result.current.formState.errors as any).root;
+    const root = (result.current.formState.errors as { root?: { serverError?: { message?: string } } }).root;
     expect(root?.serverError?.message).toMatch(/something went wrong/i);
   });
 });

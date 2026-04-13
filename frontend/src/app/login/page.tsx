@@ -1,6 +1,5 @@
 // frontend/src/app/login/page.tsx
-"use client";
-
+import { Suspense } from "react";
 import Link from "next/link";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -11,7 +10,9 @@ export default function LoginPage() {
       <AuthCard.Title>Welcome Back</AuthCard.Title>
       <AuthCard.Subtitle>Sign in to your SLPA account.</AuthCard.Subtitle>
       <AuthCard.Body>
-        <LoginForm />
+        <Suspense>
+          <LoginForm />
+        </Suspense>
         <div className="text-center">
           <Link
             href="/forgot-password"

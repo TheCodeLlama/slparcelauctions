@@ -30,11 +30,12 @@ export function RegisterForm() {
       email: "",
       password: "",
       confirmPassword: "",
-      terms: false,
+      terms: false as unknown as true,
     },
   });
 
   // Watch the password field so the strength indicator updates live.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const passwordValue = form.watch("password");
 
   const onSubmit = form.handleSubmit((values) => {
