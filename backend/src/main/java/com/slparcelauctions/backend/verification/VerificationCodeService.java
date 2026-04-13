@@ -68,11 +68,21 @@ public class VerificationCodeService {
     }
 
     /**
-     * Validate a code — existence + not-expired + not-used — and mark it used.
-     * Handles the Q5b collision case: if more than one row matches, voids both
-     * and throws {@link CodeCollisionException}.
+     * Validate a code and mark it used. Handles the Q5b collision case
+     * (multiple rows match the same code) by voiding BOTH matching rows
+     * before throwing {@link CodeCollisionException}.
+     *
+     * <p><strong>{@code noRollbackFor} is load-bearing.</strong> Without it,
+     * Spring's default {@code RuntimeException} rollback would revert the
+     * {@code used = true} writes on both colliding rows when the exception
+     * propagates, and the next {@code consume} call with the same code would
+     * hit the same collision. The spec section 7 / Q5b security guarantee
+     * requires that both colliding rows become permanently unusable even
+     * though an exception is thrown. A future refactor must NOT drop the
+     * {@code noRollbackFor} attribute, or the collision guarantee silently
+     * breaks.
      */
-    @Transactional
+    @Transactional(noRollbackFor = CodeCollisionException.class)
     public Long consume(String code, VerificationCodeType type) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         List<VerificationCode> matches = repository

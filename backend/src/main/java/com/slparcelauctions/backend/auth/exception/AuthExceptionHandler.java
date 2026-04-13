@@ -3,6 +3,8 @@ package com.slparcelauctions.backend.auth.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,14 +14,23 @@ import java.net.URI;
 /**
  * Slice-scoped exception handler for the {@code auth/} package. Scoped via
  * {@code basePackages = "com.slparcelauctions.backend.auth"} so it catches only auth-slice
- * exceptions; the global handler picks up everything else. No {@code @Order} workarounds —
- * handler collisions are a code smell to surface, not paper over.
+ * exceptions; the global handler picks up everything else.
+ *
+ * <p><strong>Ordering:</strong> Slice handlers run 100 above the global catch-all
+ * ({@code @Order(Ordered.LOWEST_PRECEDENCE - 100)}) so they beat
+ * {@link com.slparcelauctions.backend.common.exception.GlobalExceptionHandler}'s
+ * {@code @ExceptionHandler(Exception.class)} but can still stack with each other via
+ * further tiebreaking if multiple slice handlers match. Without explicit ordering both
+ * advices sit at {@code LOWEST_PRECEDENCE} and ties resolve by bean registration order,
+ * which historically worked here only because {@code "auth"} sorts before {@code "common"} —
+ * a latent bug waiting for a future advice class to alphabetize earlier.
  *
  * <p>Each handler is explicit (no generic builder helper). The repetition is documentation —
  * these are six distinct security responses and the explicit form makes each one discoverable
  * by searching for its exception type.
  */
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.auth")
+@Order(Ordered.LOWEST_PRECEDENCE - 100)
 @RequiredArgsConstructor
 @Slf4j
 public class AuthExceptionHandler {

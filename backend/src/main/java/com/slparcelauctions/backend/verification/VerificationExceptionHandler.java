@@ -21,16 +21,16 @@ import lombok.extern.slf4j.Slf4j;
  * Scoped via {@code basePackages} so it catches only verification-slice
  * exceptions; the global handler picks up everything else.
  *
- * <p><strong>Ordering:</strong> {@code @Order(Ordered.HIGHEST_PRECEDENCE)} ensures this slice
- * advice is evaluated BEFORE {@link com.slparcelauctions.backend.common.exception.GlobalExceptionHandler},
- * whose {@code @ExceptionHandler(Exception.class)} catch-all would otherwise win the tiebreaker
- * when both advices are at the default {@code LOWEST_PRECEDENCE}. Spring's
- * {@code ExceptionHandlerExceptionResolver} iterates advices in {@code AnnotationAwareOrderComparator}
- * order; without explicit ordering, ties resolve by bean registration order, which is non-deterministic
- * across packages.
+ * <p><strong>Ordering:</strong> Slice handlers run 100 above the global catch-all
+ * ({@code @Order(Ordered.LOWEST_PRECEDENCE - 100)}) so they beat
+ * {@link com.slparcelauctions.backend.common.exception.GlobalExceptionHandler}'s
+ * {@code @ExceptionHandler(Exception.class)} but can still stack with each other
+ * via further tiebreaking if multiple slice handlers match. Without explicit
+ * ordering, both advices sit at {@code LOWEST_PRECEDENCE} and ties resolve by
+ * bean registration order, which is non-deterministic across packages.
  */
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.verification")
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.LOWEST_PRECEDENCE - 100)
 @Slf4j
 public class VerificationExceptionHandler {
 
@@ -48,8 +48,17 @@ public class VerificationExceptionHandler {
 
     @ExceptionHandler(CodeNotFoundException.class)
     public ProblemDetail handleCodeNotFound(CodeNotFoundException e, HttpServletRequest req) {
-        // 404 when reading /active, 400 when consuming via /sl/verify - status picked by endpoint.
-        // Default to 404 here; SlExceptionHandler overrides for the sl-path case inline.
+        // This handler maps CodeNotFoundException to 404 for any controller in the
+        // verification/ package (the only current caller is GET /active, where 404 is
+        // the correct semantic).
+        //
+        // Task 3's SlExceptionHandler will register a separate @RestControllerAdvice
+        // scoped to basePackages = "com.slparcelauctions.backend.sl". When a
+        // sl-package controller (e.g. POST /api/v1/sl/verify) throws
+        // CodeNotFoundException, Spring will select the sl-scoped handler via
+        // @RestControllerAdvice package filtering, not this one - that handler will
+        // map to 400 with a SL-flavored message. Both handlers catch the same
+        // exception type; selection is by the controller's package, not by endpoint.
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
                 "No active verification code found. Generate a new code from your dashboard.");
