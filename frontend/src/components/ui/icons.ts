@@ -18,3 +18,17 @@ export {
   Settings,
   Loader2,             // Button loading spinner
 } from "lucide-react";
+
+// Task 01-10 landing page additions.
+export {
+  ShieldCheck,
+  ListChecks,
+  Gavel,
+  CreditCard,
+  Zap,
+  Shield,
+  Timer,
+  BadgeCheck,
+  Bot,
+  Star,
+} from "lucide-react";

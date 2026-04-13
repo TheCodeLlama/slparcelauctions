@@ -91,6 +91,8 @@ The frontend dev server runs at `http://localhost:3000`. Component primitives li
 
 The frontend has three auth pages (`/register`, `/login`, `/forgot-password`) wired to the backend JWT auth endpoints from Task 01-07. Forms use react-hook-form + zod with backend ProblemDetail error mapping. Tests run against MSW mocks; the canary `lib/api.401-interceptor.test.tsx` proves the API client's auto-refresh-and-retry behavior. See [`docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md`](docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md) for the full design.
 
+The root route `/` is a public marketing landing page composed of four sections: a hero with auth-aware CTAs, a 4-step "how it works" flow, a 6-card asymmetric features bento grid, and an auth-hidden gradient CTA block (Task 01-10). All section components live under `src/components/marketing/`.
+
 Task 01-09 wires the real-time pipe end-to-end. The backend exposes a STOMP-over-WebSocket endpoint at `/ws` with SockJS fallback, authenticated at the STOMP `CONNECT` frame by `JwtChannelInterceptor` (the HTTP upgrade itself is `permitAll` — browsers cannot send custom headers on a WebSocket handshake). A dev/test-only broadcast endpoint `POST /api/ws-test/broadcast` fans messages out to `/topic/ws-test`. The frontend ships a singleton STOMP client in `lib/ws/client.ts` with a reusable `ensureFreshAccessToken` stampede guard shared with the HTTP 401 interceptor, plus `useConnectionState` / `useStompSubscription` hooks, and a development-only verification harness page at [`/dev/ws-test`](http://localhost:3000/dev/ws-test) (404s in production builds).
 
 ## Running tests
