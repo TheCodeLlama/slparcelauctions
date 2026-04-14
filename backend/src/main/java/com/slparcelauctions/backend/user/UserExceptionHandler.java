@@ -87,7 +87,7 @@ public class UserExceptionHandler {
     @ExceptionHandler(UnsupportedImageFormatException.class)
     public ProblemDetail handleUnsupportedImageFormat(
             UnsupportedImageFormatException e, HttpServletRequest req) {
-        log.info("Rejected unsupported image format: {}", e.getMessage());
+        log.warn("Rejected unsupported image format: {}", e.getMessage());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "Upload must be a JPEG, PNG, or WebP image.");
         pd.setType(URI.create("https://slpa.example/problems/user/unsupported-image-format"));
@@ -100,6 +100,7 @@ public class UserExceptionHandler {
     @ExceptionHandler(InvalidAvatarSizeException.class)
     public ProblemDetail handleInvalidAvatarSize(
             InvalidAvatarSizeException e, HttpServletRequest req) {
+        log.warn("Rejected invalid avatar size: {}", e.getRequestedSize());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "Avatar size must be 64, 128, or 256.");
         pd.setType(URI.create("https://slpa.example/problems/user/invalid-avatar-size"));

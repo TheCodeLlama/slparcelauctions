@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.user;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -70,10 +71,16 @@ class UserControllerAvatarSliceTest {
         String token = registerAndLogin("avatar-noauth@example.com");
         Long userId = userIdFromToken(token);
 
-        mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/128"))
+        MvcResult result = mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/128"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
-                .andExpect(header().string("Cache-Control", "public, max-age=86400, immutable"));
+                .andExpect(header().string("Cache-Control", "public, max-age=86400, immutable"))
+                .andReturn();
+
+        byte[] body = result.getResponse().getContentAsByteArray();
+        assertThat(body).as("response body must be a valid PNG")
+                .startsWith((byte) 0x89, (byte) 0x50, (byte) 0x4E, (byte) 0x47,
+                            (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A);
     }
 
     @ParameterizedTest
@@ -82,9 +89,15 @@ class UserControllerAvatarSliceTest {
         String token = registerAndLogin("avatar-size-" + size + "@example.com");
         Long userId = userIdFromToken(token);
 
-        mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/" + size))
+        MvcResult result = mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/" + size))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "image/png"));
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andReturn();
+
+        byte[] body = result.getResponse().getContentAsByteArray();
+        assertThat(body).as("response body must be a valid PNG")
+                .startsWith((byte) 0x89, (byte) 0x50, (byte) 0x4E, (byte) 0x47,
+                            (byte) 0x0D, (byte) 0x0A, (byte) 0x1A, (byte) 0x0A);
     }
 
     @Test
