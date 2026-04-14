@@ -10,6 +10,10 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
 
 cors:
   allowed-origin: http://localhost:3000
@@ -27,3 +31,7 @@ slpa:
   sl:
     expected-shard: Production
     trusted-owner-keys: []
+  storage:
+    bucket: slpa-uploads
+    region: us-east-1
+    path-style-access: false

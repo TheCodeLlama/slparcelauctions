@@ -10,7 +10,7 @@ The full design lives in [`docs/initial-design/DESIGN.md`](docs/initial-design/D
 |----------|---------------------------------------------------|
 | Frontend | Next.js 16, React 19, TypeScript 5, Tailwind 4    |
 | Backend  | Spring Boot 4, Java 26, Maven, JPA + Flyway       |
-| Storage  | PostgreSQL 17, Redis 7                            |
+| Storage  | PostgreSQL 17, Redis 7, MinIO (S3-compatible)     |
 | In-world | LSL scripts (Phase 6+)                            |
 
 ## Quick start (Docker Compose)
@@ -103,10 +103,12 @@ The root route `/` is a public marketing landing page composed of four sections:
 
 Task 01-09 wires the real-time pipe end-to-end. The backend exposes a STOMP-over-WebSocket endpoint at `/ws` with SockJS fallback, authenticated at the STOMP `CONNECT` frame by `JwtChannelInterceptor` (the HTTP upgrade itself is `permitAll` — browsers cannot send custom headers on a WebSocket handshake). A dev/test-only broadcast endpoint `POST /api/v1/ws-test/broadcast` fans messages out to `/topic/ws-test`. The frontend ships a singleton STOMP client in `lib/ws/client.ts` with a reusable `ensureFreshAccessToken` stampede guard shared with the HTTP 401 interceptor, plus `useConnectionState` / `useStompSubscription` hooks, and a development-only verification harness page at [`/dev/ws-test`](http://localhost:3000/dev/ws-test) (404s in production builds).
 
+The `storage/` slice wraps an S3-compatible object store (MinIO in dev, AWS S3 in prod) behind an `ObjectStorageService` interface with `put` / `get` / `delete` / `deletePrefix` / `exists`. `S3ClientConfig` builds the AWS SDK v2 `S3Client` bean, picking `StaticCredentialsProvider` when `slpa.storage.access-key-id` + `secret-access-key` are set (dev/test) and falling back to `DefaultCredentialsProvider` in prod, and applies `endpointOverride` + `forcePathStyle` only when configured. `StorageStartupValidator` runs on `ApplicationReadyEvent`: in the `prod` profile it fails fast if the bucket is missing, in non-prod it auto-creates the bucket so `docker compose up` on a fresh MinIO volume just works. `S3ObjectStorageService.deletePrefix` paginates via `isTruncated` + continuation token so >1000 keys are handled, and `get()` carries a javadoc warning that it loads the full object into memory — fine for avatar-sized PNGs but must be refactored to streaming before reuse for larger parcel/listing photos. Multipart upload is capped at 2MB for both file and request size.
+
 ## Running tests
 
 ```bash
-cd backend && ./mvnw test             # ~141 unit / slice / integration tests incl. JWT auth, verification, SL verification, dev simulate, and the /api/v1 prefix migration smoke test (integration tests need postgres on :5432)
+cd backend && ./mvnw test             # ~149 unit / slice / integration tests incl. JWT auth, verification, SL verification, dev simulate, the /api/v1 prefix migration smoke test, and the S3 object storage unit tests (integration tests need postgres on :5432 and MinIO on :9000)
 cd frontend && npm run test           # vitest unit tests (~185 cases — primitives, layout, lib, auth flows)
 cd frontend && npm run lint           # eslint
 cd frontend && npm run verify         # grep-based rules: no dark: variants, no hex colors, no inline styles, every primitive has a test
@@ -123,7 +125,8 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 │       ├── auth/            JWT auth slice (register, login, refresh, logout, logout-all)
 │       ├── user/            User vertical slice (entity, repo, service, controller, DTOs)
 │       ├── verification/    Verification code slice (active, generate)
-│       └── sl/              SL integration slice (header-gated /sl/verify)
+│       ├── sl/              SL integration slice (header-gated /sl/verify)
+│       └── storage/         Object storage slice (S3Client config, ObjectStorageService, startup validator)
 ├── frontend/                Next.js app
 ├── docs/
 │   ├── initial-design/      Spec, schema, user flows

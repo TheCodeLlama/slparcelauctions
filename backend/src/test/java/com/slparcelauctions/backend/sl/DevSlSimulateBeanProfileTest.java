@@ -30,7 +30,14 @@ import org.springframework.test.context.TestPropertySource;
         "spring.datasource.username=slpa",
         "spring.datasource.password=slpa",
         "spring.data.redis.host=localhost",
-        "spring.jpa.hibernate.ddl-auto=update"
+        "spring.jpa.hibernate.ddl-auto=update",
+        // Point the storage layer at the local MinIO container the same way the dev
+        // profile does - the StorageStartupValidator refuses to boot without a
+        // reachable bucket, and the `test` profile has no storage config of its own.
+        "slpa.storage.endpoint-override=http://localhost:9000",
+        "slpa.storage.path-style-access=true",
+        "slpa.storage.access-key-id=slpa-dev-key",
+        "slpa.storage.secret-access-key=slpa-dev-secret"
 })
 class DevSlSimulateBeanProfileTest {
 
