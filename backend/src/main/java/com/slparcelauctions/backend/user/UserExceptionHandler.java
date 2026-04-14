@@ -47,13 +47,14 @@ public class UserExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleNotReadable(
             HttpMessageNotReadableException e, HttpServletRequest req) {
-        Throwable cause = e.getCause();
-        if (cause instanceof UnrecognizedPropertyException unknown) {
+        UnrecognizedPropertyException unknown = findCause(e, UnrecognizedPropertyException.class);
+        if (unknown != null) {
             return handleUnknownField(unknown, req);
         }
-        // Non-unknown-field malformed request — mirror GlobalExceptionHandler.handleNotReadable
-        // so user/ controllers get consistent malformed-request responses without needing a
-        // rethrow-then-redispatch dance (Spring does not re-walk the handler chain on rethrow).
+        // KEEP IN SYNC WITH common/exception/GlobalExceptionHandler.handleNotReadable.
+        // Spring's advice chain does not re-walk on rethrow, so we cannot delegate —
+        // the malformed-request shape is duplicated here by necessity. If the global
+        // handler's URI, title, detail, or code changes, mirror it here.
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, "Request body is missing or malformed.");
         pd.setType(URI.create("https://slpa.example/problems/malformed-request"));
@@ -65,15 +66,35 @@ public class UserExceptionHandler {
 
     private ProblemDetail handleUnknownField(
             UnrecognizedPropertyException e, HttpServletRequest req) {
-        log.warn("Request body rejected unknown field: {}", e.getPropertyName());
+        String sanitized = e.getPropertyName() == null ? "<null>"
+                : e.getPropertyName().replaceAll("[\\r\\n\\t]", "_");
+        if (sanitized.length() > 100) {
+            sanitized = sanitized.substring(0, 100) + "...";
+        }
+        log.warn("Request body rejected unknown field: {}", sanitized);
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
-                "Unknown field in request body: '" + e.getPropertyName() + "'.");
+                "Unknown field in request body: '" + sanitized + "'.");
         pd.setType(URI.create("https://slpa.example/problems/user/unknown-field"));
         pd.setTitle("Unknown field");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "USER_UNKNOWN_FIELD");
-        pd.setProperty("field", e.getPropertyName());
+        pd.setProperty("field", sanitized);
         return pd;
+    }
+
+    /**
+     * Walks the full cause chain of {@code e} looking for an instance of {@code type}.
+     * Returns the first match or null. Used instead of shallow {@code e.getCause()}
+     * checks so future Spring or Jackson 3 wrapping additions don't silently break the
+     * unknown-field path.
+     */
+    private static <T extends Throwable> T findCause(Throwable e, Class<T> type) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (type.isInstance(t)) {
+                return type.cast(t);
+            }
+        }
+        return null;
     }
 }

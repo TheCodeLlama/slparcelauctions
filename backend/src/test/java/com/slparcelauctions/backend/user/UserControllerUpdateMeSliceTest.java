@@ -137,4 +137,29 @@ class UserControllerUpdateMeSliceTest {
                 .content("{\"displayName\":\"New Name\"}"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void put_me_displayNameWhitespaceOnly_returns400() throws Exception {
+        String token = registerAndLogin("put-me-whitespace@example.com");
+
+        mockMvc.perform(put("/api/v1/users/me")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\" \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("https://slpa.example/problems/validation"));
+    }
+
+    @Test
+    void put_me_malformedJson_returns400() throws Exception {
+        String token = registerAndLogin("put-me-malformed@example.com");
+
+        mockMvc.perform(put("/api/v1/users/me")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("https://slpa.example/problems/malformed-request"))
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+    }
 }
