@@ -11,6 +11,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 
@@ -109,6 +111,46 @@ public class GlobalExceptionHandler {
         pd.setTitle("Resource gone");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "RESOURCE_GONE");
+        return pd;
+    }
+
+    /**
+     * Handles Spring's multipart size limit exception. This exception is thrown by the
+     * {@code StandardServletMultipartResolver} during request body parsing, BEFORE any
+     * {@code @RestController} is invoked, so slice-scoped advice in the user package
+     * never sees it. Must live in the global handler. Same URI and code as
+     * {@code UserExceptionHandler.handleAvatarTooLarge} so clients cannot distinguish
+     * which layer caught the oversized upload. See FOOTGUNS section F.28.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSize(MaxUploadSizeExceededException e,
+                                             HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE, "Avatar must be 2MB or less.");
+        pd.setType(URI.create("https://slpa.example/problems/user/upload-too-large"));
+        pd.setTitle("Upload too large");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "USER_UPLOAD_TOO_LARGE");
+        return pd;
+    }
+
+    /**
+     * Handles a missing required multipart part. Spring throws this when a
+     * {@code @RequestParam} {@code MultipartFile} is required but the client sent
+     * a multipart request that didn't include it. Maps to 400 Bad Request so the
+     * client can correct the upload.
+     */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ProblemDetail handleMissingRequestPart(MissingServletRequestPartException e,
+                                                  HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Required multipart part '" + e.getRequestPartName() + "' is missing.");
+        pd.setType(URI.create("https://slpa.example/problems/missing-request-part"));
+        pd.setTitle("Missing request part");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "MISSING_REQUEST_PART");
+        pd.setProperty("part", e.getRequestPartName());
         return pd;
     }
 

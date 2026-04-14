@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
+import com.slparcelauctions.backend.user.exception.AvatarTooLargeException;
+import com.slparcelauctions.backend.user.exception.InvalidAvatarSizeException;
+import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,8 +40,10 @@ import lombok.extern.slf4j.Slf4j;
  * lives in {@code common/exception/GlobalExceptionHandler.java}. See FOOTGUNS
  * §F.28.
  *
- * <p>Handlers for {@code AvatarTooLargeException}, {@code UnsupportedImageFormatException},
- * and {@code InvalidAvatarSizeException} will be added in Task 4b.
+ * <p>Avatar exceptions ({@code AvatarTooLargeException}, {@code UnsupportedImageFormatException},
+ * {@code InvalidAvatarSizeException}) all originate in the user-package {@code AvatarService}
+ * and are therefore handled here. {@code AvatarTooLargeException} in particular is a
+ * defensive re-check fired after Spring's multipart parser has already accepted the upload.
  */
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.user")
 @Order(Ordered.LOWEST_PRECEDENCE - 100)
@@ -61,6 +67,46 @@ public class UserExceptionHandler {
         pd.setTitle("Malformed request");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "MALFORMED_REQUEST");
+        return pd;
+    }
+
+    @ExceptionHandler(AvatarTooLargeException.class)
+    public ProblemDetail handleAvatarTooLarge(
+            AvatarTooLargeException e, HttpServletRequest req) {
+        log.warn("Avatar too large: {} bytes (max {})", e.getActualBytes(), e.getMaxBytes());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE, "Avatar must be 2MB or less.");
+        pd.setType(URI.create("https://slpa.example/problems/user/upload-too-large"));
+        pd.setTitle("Upload too large");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "USER_UPLOAD_TOO_LARGE");
+        pd.setProperty("maxBytes", e.getMaxBytes());
+        return pd;
+    }
+
+    @ExceptionHandler(UnsupportedImageFormatException.class)
+    public ProblemDetail handleUnsupportedImageFormat(
+            UnsupportedImageFormatException e, HttpServletRequest req) {
+        log.info("Rejected unsupported image format: {}", e.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Upload must be a JPEG, PNG, or WebP image.");
+        pd.setType(URI.create("https://slpa.example/problems/user/unsupported-image-format"));
+        pd.setTitle("Unsupported image format");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "USER_UNSUPPORTED_IMAGE_FORMAT");
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidAvatarSizeException.class)
+    public ProblemDetail handleInvalidAvatarSize(
+            InvalidAvatarSizeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Avatar size must be 64, 128, or 256.");
+        pd.setType(URI.create("https://slpa.example/problems/user/invalid-avatar-size"));
+        pd.setTitle("Invalid avatar size");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "USER_INVALID_AVATAR_SIZE");
+        pd.setProperty("requestedSize", e.getRequestedSize());
         return pd;
     }
 

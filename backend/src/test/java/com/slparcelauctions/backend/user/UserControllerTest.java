@@ -44,6 +44,9 @@ class UserControllerTest {
     private UserService userService;
 
     @MockitoBean
+    private AvatarService avatarService;
+
+    @MockitoBean
     private JwtService jwtService;
 
     @Test

@@ -69,6 +69,16 @@ public class SecurityConfig {
                         // and is the actual trust boundary. FOOTGUNS §B.5: this MUST sit
                         // before the /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/verify").permitAll()
+                        // --- New in Epic 02 sub-spec 2a ---
+                        // Public avatar proxy. Must come before the /api/v1/** catch-all
+                        // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
+                        // matcher ordering.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}/avatar/{size}").permitAll()
+                        // Authenticated avatar upload.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users/me/avatar").authenticated()
+                        // Authenticated profile edit (explicit for grep-ability; catch-all also covers it).
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/users/me").authenticated()
+                        // --- End Epic 02 sub-spec 2a additions ---
                         // Dev simulate helper - permit at HTTP layer always. The bean is only
                         // registered under @Profile("dev"); in prod the handler doesn't exist so
                         // the request 404s (falling through Spring MVC rather than Spring Security).
