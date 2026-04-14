@@ -52,8 +52,8 @@ class UserControllerTest {
     @Test
     void createUser_returns201() throws Exception {
         UserResponse response = new UserResponse(
-                1L, "alice@example.com", "Alice", null, null, null, null, null,
-                false, false, Map.of(), Map.of(), OffsetDateTime.now());
+                1L, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
+                false, null, false, Map.of(), Map.of(), OffsetDateTime.now());
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
 
         CreateUserRequest request = new CreateUserRequest("alice@example.com", "password123", "Alice");
@@ -156,8 +156,8 @@ class UserControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void getMe_returnsUserDto_whenAuthenticated() throws Exception {
         UserResponse expected = new UserResponse(
-                1L, "test@example.com", "Test User", null, null, null, null, null,
-                false, false, Map.of(), Map.of(), OffsetDateTime.now());
+                1L, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
+                false, null, false, Map.of(), Map.of(), OffsetDateTime.now());
         when(userService.getUserById(1L)).thenReturn(expected);
 
         mockMvc.perform(get("/api/v1/users/me"))

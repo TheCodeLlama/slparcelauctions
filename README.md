@@ -112,7 +112,7 @@ Avatars get two new endpoints: `POST /api/v1/users/me/avatar` (multipart, authen
 ## Running tests
 
 ```bash
-cd backend && ./mvnw test             # ~185 unit / slice / integration tests incl. JWT auth, verification, SL verification, dev simulate, the /api/v1 prefix migration smoke test, the S3 object storage unit tests, the AvatarImageProcessor fixture-driven tests, the PUT /me slice suite with the unknown-field security canary, and the avatar upload + public proxy slice suite (integration tests need postgres on :5432 and MinIO on :9000)
+cd backend && ./mvnw test             # ~190 unit / slice / integration tests incl. JWT auth, verification, SL verification, dev simulate, the /api/v1 prefix migration smoke test, the S3 object storage unit tests, the AvatarImageProcessor fixture-driven tests, the PUT /me slice suite with the unknown-field security canary, the avatar upload + public proxy slice suite, and the AvatarUploadFlowIntegrationTest that round-trips register -> upload -> fetch against real dev MinIO (integration tests need postgres on :5432 and MinIO on :9000)
 cd frontend && npm run test           # vitest unit tests (~185 cases — primitives, layout, lib, auth flows)
 cd frontend && npm run lint           # eslint
 cd frontend && npm run verify         # grep-based rules: no dark: variants, no hex colors, no inline styles, every primitive has a test
