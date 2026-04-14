@@ -142,7 +142,7 @@ class WsTestIntegrationTest {
             new HttpEntity<>(new WsTestBroadcastRequest("hello from test"), httpHeaders);
 
         ResponseEntity<Void> response = restTemplate.exchange(
-            "http://localhost:" + port + "/api/ws-test/broadcast",
+            "http://localhost:" + port + "/api/v1/ws-test/broadcast",
             HttpMethod.POST,
             request,
             Void.class

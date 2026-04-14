@@ -52,7 +52,7 @@ describe("useLogin", () => {
     setAccessToken(null);
   });
 
-  it("calls /api/auth/login, sets access token, and updates session cache on success", async () => {
+  it("calls /api/v1/auth/login, sets access token, and updates session cache on success", async () => {
     server.use(authHandlers.loginSuccess());
 
     const queryClient = new QueryClient({
@@ -95,7 +95,7 @@ describe("useRegister", () => {
     setAccessToken(null);
   });
 
-  it("calls /api/auth/register, sets access token, and updates session cache on 201", async () => {
+  it("calls /api/v1/auth/register, sets access token, and updates session cache on 201", async () => {
     server.use(authHandlers.registerSuccess());
 
     const queryClient = new QueryClient({
@@ -125,7 +125,7 @@ describe("useRegister", () => {
 describe("useLogout", () => {
   it("clears access token and session cache on settled (even if network fails)", async () => {
     server.use(
-      http.post("*/api/auth/logout", () =>
+      http.post("*/api/v1/auth/logout", () =>
         HttpResponse.json({ status: 500 }, { status: 500 })
       )
     );

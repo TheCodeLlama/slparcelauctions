@@ -12,7 +12,7 @@ import java.time.OffsetDateTime;
  * {@link TokenHasher#sha256Hex(String)} helper as production so the hashing path cannot drift.
  *
  * <p>Each insert method returns an {@link InsertedToken} containing the raw token string and the
- * row id — tests replay the raw token through {@code /api/auth/refresh} and assert DB state via
+ * row id — tests replay the raw token through {@code /api/v1/auth/refresh} and assert DB state via
  * the id.
  */
 @Component

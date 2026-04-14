@@ -30,7 +30,7 @@ describe("401 auto-refresh and retry (security canary)", () => {
     let refreshCallCount = 0;
 
     server.use(
-      http.get("*/api/users/me", () => {
+      http.get("*/api/v1/users/me", () => {
         protectedCallCount++;
         if (protectedCallCount === 1) {
           return HttpResponse.json(
@@ -40,7 +40,7 @@ describe("401 auto-refresh and retry (security canary)", () => {
         }
         return HttpResponse.json({ id: 1, email: "test@example.com" });
       }),
-      http.post("*/api/auth/refresh", () => {
+      http.post("*/api/v1/auth/refresh", () => {
         refreshCallCount++;
         return HttpResponse.json({
           accessToken: "fresh-access-token",
@@ -49,7 +49,7 @@ describe("401 auto-refresh and retry (security canary)", () => {
       })
     );
 
-    const result = await api.get<{ id: number; email: string }>("/api/users/me");
+    const result = await api.get<{ id: number; email: string }>("/api/v1/users/me");
 
     expect(protectedCallCount).toBe(2); // First call 401, second call (retry) 200
     expect(refreshCallCount).toBe(1); // Refresh called once
@@ -63,7 +63,7 @@ describe("401 auto-refresh and retry (security canary)", () => {
     let refreshCallCount = 0;
 
     server.use(
-      http.get("*/api/users/me", () => {
+      http.get("*/api/v1/users/me", () => {
         protectedCallCount++;
         // First three calls return 401; subsequent calls return 200.
         if (protectedCallCount <= 3) {
@@ -74,7 +74,7 @@ describe("401 auto-refresh and retry (security canary)", () => {
         }
         return HttpResponse.json({ id: 1, email: "test@example.com" });
       }),
-      http.post("*/api/auth/refresh", () => {
+      http.post("*/api/v1/auth/refresh", () => {
         refreshCallCount++;
         return HttpResponse.json({
           accessToken: "fresh-access-token",
@@ -86,9 +86,9 @@ describe("401 auto-refresh and retry (security canary)", () => {
     // Fire three concurrent calls. All three should 401, share one refresh,
     // then all three retry (3 retries) → 6 total protected calls.
     const results = await Promise.all([
-      api.get("/api/users/me"),
-      api.get("/api/users/me"),
-      api.get("/api/users/me"),
+      api.get("/api/v1/users/me"),
+      api.get("/api/v1/users/me"),
+      api.get("/api/v1/users/me"),
     ]);
 
     expect(refreshCallCount).toBe(1); // ONE refresh, not three
@@ -99,10 +99,10 @@ describe("401 auto-refresh and retry (security canary)", () => {
 
   it("clears session and redirects to /login on failed refresh", async () => {
     server.use(
-      http.get("*/api/users/me", () =>
+      http.get("*/api/v1/users/me", () =>
         HttpResponse.json({ code: "AUTH_TOKEN_EXPIRED", status: 401 }, { status: 401 })
       ),
-      http.post("*/api/auth/refresh", () =>
+      http.post("*/api/v1/auth/refresh", () =>
         HttpResponse.json({ code: "AUTH_TOKEN_MISSING", status: 401 }, { status: 401 })
       )
     );
@@ -115,7 +115,7 @@ describe("401 auto-refresh and retry (security canary)", () => {
       value: mockLocation,
     });
 
-    await expect(api.get("/api/users/me")).rejects.toThrow();
+    await expect(api.get("/api/v1/users/me")).rejects.toThrow();
 
     expect(getAccessToken()).toBeNull();
     expect(queryClient.getQueryData(["auth", "session"])).toBeNull();

@@ -16,3 +16,7 @@ cors:
 
 jwt:
   secret: ${JWT_SECRET}    # required, fail-fast on startup if missing
+
+slpa:
+  sl:
+    trusted-owner-keys: []  # deploy pipeline injects the real UUIDs via env

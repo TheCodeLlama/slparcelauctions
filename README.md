@@ -30,7 +30,7 @@ Once everything is healthy:
 |-------------------|----------------------------------|
 | Frontend          | http://localhost:3000            |
 | Backend API       | http://localhost:8080            |
-| Backend health    | http://localhost:8080/api/health |
+| Backend health    | http://localhost:8080/api/v1/health |
 | PostgreSQL        | `localhost:5432` (user `slpa`)   |
 | Redis             | `localhost:6379`                 |
 
@@ -85,7 +85,15 @@ npm install
 npm run dev
 ```
 
-The backend requires `JWT_SECRET` in production (environment variable, ≥ 256 bits base64-encoded) and uses a committed dev default in `application-dev.yml`. The `auth/` slice provides `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, and `/api/auth/logout-all`. Access tokens are 15-minute HS256 JWTs returned in the response body; refresh tokens are DB-backed, rotated on every refresh, with reuse-detection cascade, held in an HttpOnly `Path=/api/auth` cookie. See [`docs/superpowers/specs/2026-04-11-task-01-07-jwt-auth-backend-design.md`](docs/superpowers/specs/2026-04-11-task-01-07-jwt-auth-backend-design.md) for the full design.
+The backend requires `JWT_SECRET` in production (environment variable, ≥ 256 bits base64-encoded) and uses a committed dev default in `application-dev.yml`. The `auth/` slice provides `/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, and `/api/v1/auth/logout-all`. Access tokens are 15-minute HS256 JWTs returned in the response body; refresh tokens are DB-backed, rotated on every refresh, with reuse-detection cascade, held in an HttpOnly `Path=/api/v1/auth` cookie. See [`docs/superpowers/specs/2026-04-11-task-01-07-jwt-auth-backend-design.md`](docs/superpowers/specs/2026-04-11-task-01-07-jwt-auth-backend-design.md) for the full design.
+
+The `verification/` slice provides `GET /api/v1/verification/active` and `POST /api/v1/verification/generate` for the player-verification flow. Codes are 6-digit numerics with a 15-minute TTL; generating a fresh code voids any prior active codes. The handler maps `AlreadyVerifiedException` (409), `CodeNotFoundException` (404), and `CodeCollisionException` (409) to RFC 9457 ProblemDetail responses. See [`docs/superpowers/specs/2026-04-13-epic-02-sub-1-verification-backend.md`](docs/superpowers/specs/2026-04-13-epic-02-sub-1-verification-backend.md).
+
+The `sl/` slice exposes `POST /api/v1/sl/verify`, the header-gated endpoint that an in-world LSL terminal posts to once the player enters their 6-digit code on the device. The path is `permitAll` in `SecurityConfig` because browser JWTs do not exist in-world; `SlHeaderValidator` is the actual trust boundary, checking `X-SecondLife-Shard` against the configured grid and `X-SecondLife-Owner-Key` against `slpa.sl.trusted-owner-keys`. The orchestrator pre-checks `users.sl_avatar_uuid` for a friendly 409 before consuming the verification code, then links the avatar to the user account and marks `verified=true`. Slice-scoped `SlExceptionHandler` overrides the verification-package responses (400 for not-found, 409 for collision, 409 for the constraint-race avatar-already-linked path via `ConstraintNameExtractor`). The `slpa.sl` config block lives in `application.yml` (`expected-shard: Production`, empty key list), `application-dev.yml` (placeholder UUID `00000000-0000-0000-0000-000000000001` for Postman + integration tests), and `application-prod.yml` (empty list — the deploy pipeline injects real UUIDs and `SlStartupValidator` fails fast on `prod` startup if the list is still empty).
+
+All HTTP routes above are mirrored in the `SLPA` Postman collection (collection id `8070328-cf3e1190-cb71-4af3-8e2e-70c82dfee288` in the `SLPA` workspace at `https://scatr-devs.postman.co`) with `Auth/`, `Users/`, `Verification/`, `SL/`, and `Dev/` folders, saved example responses, and variable-chaining test scripts that thread `accessToken`, `refreshToken`, `userId`, and `verificationCode` between requests via the `SLPA Dev` environment. The collection is the canonical manual-test surface for the backend; if you add a new endpoint, add it to the collection in the same task.
+
+A dev-profile-only helper sits at `POST /api/v1/dev/sl/simulate-verify` so the frontend dashboard can exercise the full SL verification path from a browser before Epic 11 ships real LSL scripts. The body only requires `verificationCode`; `DevSimulateRequest.toSlVerifyRequest()` defaults the avatar metadata (random UUID per call, `Dev Tester` name, payInfo `3`) and `DevSlSimulateController` synthesizes the SL headers internally from the first `slpa.sl.trusted-owner-keys` entry, then delegates to the real `SlVerificationService` so the dev path exercises identical orchestration and exception mapping. The bean is annotated `@Profile("dev")` (the real gate); `SecurityConfig` permits `/api/v1/dev/**` unconditionally so any prod request 404s at the MVC layer because no handler bean exists. `DevSlSimulateBeanProfileTest` pins the gate by booting the context under a non-dev profile and asserting the controller field is `null`.
 
 The frontend dev server runs at `http://localhost:3000`. Component primitives live under `src/components/ui/` (Button, IconButton, Input, Card, StatusBadge, Avatar, ThemeToggle, Dropdown), layout shell under `src/components/layout/`, and the typed API client + auth stub + cn helper under `src/lib/`. Theme tokens (M3 Material Design vocabulary, both light and dark) live in `src/app/globals.css`. The full design rationale is in [`docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md`](docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md).
 
@@ -93,13 +101,13 @@ The frontend has three auth pages (`/register`, `/login`, `/forgot-password`) wi
 
 The root route `/` is a public marketing landing page composed of four sections: a hero with auth-aware CTAs, a 4-step "how it works" flow, a 6-card asymmetric features bento grid, and an auth-hidden gradient CTA block (Task 01-10). All section components live under `src/components/marketing/`.
 
-Task 01-09 wires the real-time pipe end-to-end. The backend exposes a STOMP-over-WebSocket endpoint at `/ws` with SockJS fallback, authenticated at the STOMP `CONNECT` frame by `JwtChannelInterceptor` (the HTTP upgrade itself is `permitAll` — browsers cannot send custom headers on a WebSocket handshake). A dev/test-only broadcast endpoint `POST /api/ws-test/broadcast` fans messages out to `/topic/ws-test`. The frontend ships a singleton STOMP client in `lib/ws/client.ts` with a reusable `ensureFreshAccessToken` stampede guard shared with the HTTP 401 interceptor, plus `useConnectionState` / `useStompSubscription` hooks, and a development-only verification harness page at [`/dev/ws-test`](http://localhost:3000/dev/ws-test) (404s in production builds).
+Task 01-09 wires the real-time pipe end-to-end. The backend exposes a STOMP-over-WebSocket endpoint at `/ws` with SockJS fallback, authenticated at the STOMP `CONNECT` frame by `JwtChannelInterceptor` (the HTTP upgrade itself is `permitAll` — browsers cannot send custom headers on a WebSocket handshake). A dev/test-only broadcast endpoint `POST /api/v1/ws-test/broadcast` fans messages out to `/topic/ws-test`. The frontend ships a singleton STOMP client in `lib/ws/client.ts` with a reusable `ensureFreshAccessToken` stampede guard shared with the HTTP 401 interceptor, plus `useConnectionState` / `useStompSubscription` hooks, and a development-only verification harness page at [`/dev/ws-test`](http://localhost:3000/dev/ws-test) (404s in production builds).
 
 ## Running tests
 
 ```bash
-cd backend && ./mvnw test             # ~91 unit / slice / integration tests incl. JWT auth flows (integration tests need postgres on :5432)
-cd frontend && npm run test           # vitest unit tests (~149 cases — primitives, layout, lib, auth flows)
+cd backend && ./mvnw test             # ~141 unit / slice / integration tests incl. JWT auth, verification, SL verification, dev simulate, and the /api/v1 prefix migration smoke test (integration tests need postgres on :5432)
+cd frontend && npm run test           # vitest unit tests (~185 cases — primitives, layout, lib, auth flows)
 cd frontend && npm run lint           # eslint
 cd frontend && npm run verify         # grep-based rules: no dark: variants, no hex colors, no inline styles, every primitive has a test
 ```
@@ -110,9 +118,12 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 .
 ├── backend/                 Spring Boot app
 │   └── src/main/java/com/slparcelauctions/backend/
-│       ├── config/          SecurityConfig, PasswordConfig, ...
+│       ├── config/          SecurityConfig, PasswordConfig, ClockConfig, ...
 │       ├── common/          GlobalExceptionHandler, shared utilities
-│       └── user/            First vertical slice (entity, repo, service, controller, DTOs)
+│       ├── auth/            JWT auth slice (register, login, refresh, logout, logout-all)
+│       ├── user/            User vertical slice (entity, repo, service, controller, DTOs)
+│       ├── verification/    Verification code slice (active, generate)
+│       └── sl/              SL integration slice (header-gated /sl/verify)
 ├── frontend/                Next.js app
 ├── docs/
 │   ├── initial-design/      Spec, schema, user flows

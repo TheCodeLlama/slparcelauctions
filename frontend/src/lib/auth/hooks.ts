@@ -10,7 +10,7 @@ import type { AuthSession, AuthUser } from "./session";
 const SESSION_QUERY_KEY = ["auth", "session"] as const;
 
 /**
- * Bootstrap the session by calling POST /api/auth/refresh.
+ * Bootstrap the session by calling POST /api/v1/auth/refresh.
  *
  * The side effect (calling setAccessToken) lives INSIDE queryFn, NOT in
  * onSuccess. TanStack Query's first subscriber receives queryFn's return

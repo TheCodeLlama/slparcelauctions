@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Request body for {@code POST /api/auth/register}.
+ * Request body for {@code POST /api/v1/auth/register}.
  *
  * <p>Password constraints mirror {@link com.slparcelauctions.backend.user.dto.CreateUserRequest}.
  */

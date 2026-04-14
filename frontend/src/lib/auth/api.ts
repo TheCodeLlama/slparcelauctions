@@ -28,17 +28,17 @@ export type LoginRequest = {
 
 export const authApi = {
   register: (body: RegisterRequest) =>
-    api.post<AuthResponse>("/api/auth/register", body),
+    api.post<AuthResponse>("/api/v1/auth/register", body),
 
   login: (body: LoginRequest) =>
-    api.post<AuthResponse>("/api/auth/login", body),
+    api.post<AuthResponse>("/api/v1/auth/login", body),
 
   refresh: () =>
-    api.post<AuthResponse>("/api/auth/refresh"),
+    api.post<AuthResponse>("/api/v1/auth/refresh"),
 
   logout: () =>
-    api.post<void>("/api/auth/logout"),
+    api.post<void>("/api/v1/auth/logout"),
 
   logoutAll: () =>
-    api.post<void>("/api/auth/logout-all"),
+    api.post<void>("/api/v1/auth/logout-all"),
 };

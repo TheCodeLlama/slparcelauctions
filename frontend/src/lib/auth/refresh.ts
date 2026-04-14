@@ -47,7 +47,7 @@ export async function ensureFreshAccessToken(): Promise<string> {
 
   inFlightRefresh = (async () => {
     try {
-      const response = await fetch(`${BASE_URL}/api/auth/refresh`, {
+      const response = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
         method: "POST",
         credentials: "include",
       });

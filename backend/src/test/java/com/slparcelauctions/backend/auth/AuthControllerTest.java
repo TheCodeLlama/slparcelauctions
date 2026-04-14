@@ -63,7 +63,7 @@ class AuthControllerTest {
         when(authService.register(any(), any()))
             .thenReturn(new AuthResult("access-token", "refresh-token", user));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                     new RegisterRequest("new@example.com", "hunter22abc", "Newbie")))
@@ -77,7 +77,7 @@ class AuthControllerTest {
 
     @Test
     void register_returns400OnValidationFailure() throws Exception {
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"not-an-email\",\"password\":\"short\",\"displayName\":\"\"}")
                 .with(csrf()))
@@ -92,7 +92,7 @@ class AuthControllerTest {
         when(authService.login(any(), any()))
             .thenReturn(new AuthResult("access-token", "refresh-token", user));
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                     new LoginRequest("user@example.com", "correct-pw")))
@@ -107,7 +107,7 @@ class AuthControllerTest {
     void login_returns401OnInvalidCredentials() throws Exception {
         doThrow(new InvalidCredentialsException()).when(authService).login(any(), any());
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
                     new LoginRequest("user@example.com", "wrong-pw1")))
@@ -122,7 +122,7 @@ class AuthControllerTest {
         when(authService.refresh(anyString(), any()))
             .thenReturn(new AuthResult("new-access", "new-refresh", user));
 
-        mockMvc.perform(post("/api/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", "old-raw"))
                 .with(csrf()))
             .andExpect(status().isOk())
@@ -134,7 +134,7 @@ class AuthControllerTest {
     void logout_returns204AlwaysAndClearsCookie() throws Exception {
         doNothing().when(authService).logout(any());
 
-        mockMvc.perform(post("/api/auth/logout")
+        mockMvc.perform(post("/api/v1/auth/logout")
                 .cookie(new jakarta.servlet.http.Cookie("refreshToken", "any"))
                 .with(csrf()))
             .andExpect(status().isNoContent())
@@ -146,7 +146,7 @@ class AuthControllerTest {
     void logoutAll_returns204AndClearsCookieWhenAuthenticated() throws Exception {
         doNothing().when(authService).logoutAll(any());
 
-        mockMvc.perform(post("/api/auth/logout-all").with(csrf()))
+        mockMvc.perform(post("/api/v1/auth/logout-all").with(csrf()))
             .andExpect(status().isNoContent())
             .andExpect(header().exists("Set-Cookie"));
     }
