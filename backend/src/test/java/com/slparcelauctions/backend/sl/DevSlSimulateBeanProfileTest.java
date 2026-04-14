@@ -1,12 +1,20 @@
 package com.slparcelauctions.backend.sl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.TestPropertySource;
+
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
 
 /**
  * Proves {@code @Profile("dev")} gates {@link DevSlSimulateController}: loads the
@@ -18,6 +26,12 @@ import org.springframework.test.context.TestPropertySource;
  * neither of which is available in a unit test environment. The {@code test} profile
  * is sufficient to prove the gate is working: it isn't {@code dev}, so the bean
  * must not be registered.
+ *
+ * <p>The {@link S3Client} is mocked via {@link MockitoBean} so
+ * {@code StorageStartupValidator}'s {@code headBucket} call succeeds without
+ * requiring a running MinIO container. This keeps the profile-gating test
+ * hermetic - its only job is to prove the {@code @Profile} gate, not to
+ * exercise real S3 infrastructure.
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -30,19 +44,21 @@ import org.springframework.test.context.TestPropertySource;
         "spring.datasource.username=slpa",
         "spring.datasource.password=slpa",
         "spring.data.redis.host=localhost",
-        "spring.jpa.hibernate.ddl-auto=update",
-        // Point the storage layer at the local MinIO container the same way the dev
-        // profile does - the StorageStartupValidator refuses to boot without a
-        // reachable bucket, and the `test` profile has no storage config of its own.
-        "slpa.storage.endpoint-override=http://localhost:9000",
-        "slpa.storage.path-style-access=true",
-        "slpa.storage.access-key-id=slpa-dev-key",
-        "slpa.storage.secret-access-key=slpa-dev-secret"
+        "spring.jpa.hibernate.ddl-auto=update"
 })
 class DevSlSimulateBeanProfileTest {
 
     @Autowired(required = false)
     DevSlSimulateController controller;
+
+    @MockitoBean
+    S3Client s3Client;
+
+    @BeforeEach
+    void stubHeadBucket() {
+        when(s3Client.headBucket(any(HeadBucketRequest.class)))
+                .thenReturn(HeadBucketResponse.builder().build());
+    }
 
     @Test
     void controllerBeanIsNotRegisteredOutsideDevProfile() {

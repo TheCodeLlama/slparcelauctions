@@ -35,4 +35,20 @@ public record StorageConfigProperties(
     public boolean hasEndpointOverride() {
         return endpointOverride != null && !endpointOverride.isBlank();
     }
+
+    /**
+     * Custom {@code toString()} that elides {@code accessKeyId} and
+     * {@code secretAccessKey} so a stray {@code log.info("{}", props)} cannot
+     * leak credentials. Reports {@link #hasStaticCredentials()} as a boolean
+     * indicator instead.
+     */
+    @Override
+    public String toString() {
+        return "StorageConfigProperties[bucket=" + bucket
+                + ", region=" + region
+                + ", endpointOverride=" + endpointOverride
+                + ", pathStyleAccess=" + pathStyleAccess
+                + ", hasStaticCredentials=" + hasStaticCredentials()
+                + "]";
+    }
 }
