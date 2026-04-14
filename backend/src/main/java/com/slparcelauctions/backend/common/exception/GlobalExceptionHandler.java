@@ -2,6 +2,8 @@ package com.slparcelauctions.backend.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -19,12 +21,17 @@ import java.util.UUID;
 
 /**
  * Cross-cutting exception handler for all exceptions not claimed by a slice-scoped handler
- * (e.g. {@code AuthExceptionHandler}). Produces RFC 9457 {@link ProblemDetail} responses.
+ * (e.g. {@code AuthExceptionHandler}, {@code VerificationExceptionHandler}). Produces RFC 9457
+ * {@link ProblemDetail} responses.
+ *
+ * <p><strong>Ordering:</strong> Explicitly {@code @Order(Ordered.LOWEST_PRECEDENCE)} (the default
+ * value, but documented for intent). Slice handlers run first; this is the last-resort catch-all.
  *
  * <p>Does NOT handle {@code AuthenticationException}: that is owned by
  * {@code JwtAuthenticationEntryPoint} which intercepts before the advice chain fires.
  */
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 @Slf4j
 public class GlobalExceptionHandler {
 

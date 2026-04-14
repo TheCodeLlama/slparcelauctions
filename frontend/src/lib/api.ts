@@ -129,7 +129,7 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (response.status === 401 && !isRetry && !path.startsWith("/api/auth/")) {
+  if (response.status === 401 && !isRetry && !path.startsWith("/api/v1/auth/")) {
     return handleUnauthorized<T>(path, { body, headers, params, ...rest });
   }
 

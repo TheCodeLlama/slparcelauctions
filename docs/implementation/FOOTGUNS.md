@@ -1022,3 +1022,68 @@ const variant = mounted && resolvedTheme === "dark" ? "dark" : "light";
 The inline `eslint-disable-line react-hooks/set-state-in-effect` is required because React 19's ESLint config flags setState calls in effects. The mounted guard is the documented escape hatch — `ThemeToggle.tsx`, `HeroFeaturedParcel.tsx`, and `FeatureCard.tsx` all use this exact pattern.
 
 **How to apply:** when writing a component that needs theme-dependent rendering, copy the 4-line `mounted` guard verbatim including the eslint-disable comment. Do not use `theme` instead of `resolvedTheme` — `theme` can be `"system"`, which isn't a renderable value. For tests, use `renderWithProviders(<X />, { theme: "dark", forceTheme: true })` from `@/test/render` rather than mocking `next-themes` — the test helper's `forcedTheme` prop drives `resolvedTheme` deterministically.
+
+### F.22 Refresh-token cookie `Path` must be renamed in lock-step with the endpoint path
+
+**Why:** `AuthController.REFRESH_COOKIE_PATH` and the frontend MSW handler's `Set-Cookie: Path=/api/v1/auth` attribute must match the URL the refresh endpoint actually lives at (`/api/v1/auth/refresh`). If the endpoint moves but the cookie `Path` does not — or vice versa — the browser silently stops sending the refresh cookie on rotation. Every token refresh fails with 401 "missing cookie" and the failure mode looks like a cascade revocation rather than a path mismatch, so the bug burns hours before someone diffs the actual `Set-Cookie` header against the request URL.
+
+Caught during the Task 1 `/api/*` → `/api/v1/*` migration: the controller constant got renamed but the MSW mock handlers still emitted `Path=/api/auth`, and the frontend 401-interceptor canary silently broke until the test run surfaced a `missing cookie` ProblemDetail that nobody had seen before.
+
+**How to apply:** any future URL versioning, auth-path restructure, or cookie-scope tweak must touch all three sources in the same commit:
+
+1. `AuthController.REFRESH_COOKIE_PATH` (the constant the real `Set-Cookie` builder uses).
+2. Every MSW handler in `frontend/src/test/msw/handlers/auth.ts` (or wherever auth mocks live) that emits a `Set-Cookie` for `refreshToken`.
+3. The `SecurityConfig` matcher list — the new path must be in the public-permit list, the old path must NOT be.
+
+The `lib/api.401-interceptor.test.tsx` canary will flag a mismatch on the next test run if the cookie `Path` and request URL disagree, but only because the MSW mocks happen to enforce the contract. Don't trust the canary alone — treat the three sources above as a synchronized triple, not an "I'll fix the others later" punch list.
+
+### F.23 `@Profile("dev")` alone is not a URL gate — `SecurityConfig` must permit the path
+
+**Why:** Spring Security's filter chain runs before the MVC dispatcher resolves the handler bean. `@Profile("dev")` controls whether the controller bean is registered, but it does NOT influence the security filter's URL matching. If `DevSlSimulateController` is `@Profile("dev")` but `SecurityConfig` has no `permitAll()` for `/api/v1/dev/**`, requests in the `dev` profile fall through to the `/api/v1/**` catch-all matcher (`.authenticated()`) and get rejected as 401 by the JWT entry point before ever reaching the handler. The dev shortcut returns 401 "missing token" and the developer concludes the controller isn't wired — when in reality the security chain ate the request.
+
+The opposite direction is harmless: leaving the permit matcher in for prod doesn't expose anything because the bean doesn't exist, so the request falls through to a clean 404 at the MVC layer. Use that to your advantage — let bean absence be the actual gate, and keep the security matcher unconditional.
+
+**How to apply:** any profile-gated endpoint must have BOTH:
+
+1. `@Profile("dev")` (or whichever profile) on the bean — this is the real "does the handler exist" gate.
+2. An unconditional `permitAll()` matcher for the URL prefix in `SecurityConfig`, sitting BEFORE the `/api/v1/**` catch-all (FOOTGUNS §B.5: matcher order is first-match-wins).
+
+Document the dual gate in a comment next to the security matcher so the next reviewer doesn't delete the "redundant" permit. See `DevSlSimulateController` and the `/api/v1/dev/**` matcher in `SecurityConfig` for the canonical pattern; `DevSlSimulateBeanProfileTest` pins the bean-absence half of the gate by booting the context under a non-dev profile and asserting the controller field is `null`.
+
+### F.24 `DataIntegrityViolationException` handling belongs in the exception handler, not inline in the service
+
+**Why:** Catching `DataIntegrityViolationException` inside a `@Transactional` service method is awkward in three ways. First, the transaction is already marked rollback-only by the time the catch fires, so the service can't do any cleanup persistence in the same transaction — the recovery path has to spin up a new `REQUIRES_NEW` transaction or punt. Second, every service-layer unit test then has to construct a fake constraint-violation exception with a `ConstraintViolationException` cause carrying the right constraint name, which adds setup boilerplate that bears no resemblance to the real failure mode (a real DB race, not a hand-rolled exception graph). Third, the service method's signature gets cluttered with throws clauses for domain exceptions that the caller can't meaningfully handle anyway.
+
+The cleaner pattern is to let the `DataIntegrityViolationException` bubble out of the service untouched, catch it in the slice's `@RestControllerAdvice`, inspect the constraint name via a small `ConstraintNameExtractor` helper, and rewrap as a domain exception (or rethrow for unknown constraints, falling through to the global 500 handler). The slice-scoped advice is the right place because the constraint-name → domain-exception mapping is slice-specific, and tests can exercise the handler in isolation without touching the service at all.
+
+**How to apply:** when future features need uniqueness-constraint race handling, put the catch in the slice's `@RestControllerAdvice`, never in the service method. Extract constraint-name parsing into a shared helper (see `ConstraintNameExtractor` in `common/`) so each slice only writes the mapping table, not the SQLState walking. See `SlExceptionHandler.handleDataIntegrity` for the canonical shape: a single switch on the extracted constraint name, mapping each known constraint to a slice-specific exception, with an explicit fall-through `throw` for unknown constraints so the global 500 handler still catches genuine bugs.
+
+### F.25 Prod-profile Spring contexts cannot boot inside JUnit tests
+
+**Why:** The `prod` profile has `jwt.secret: ${JWT_SECRET}` with no default — production deploys inject the secret as an environment variable. Tests run in a fresh JVM with no `JWT_SECRET` set, so `@Value` resolution throws at context startup. Even if you set the env var, `application-prod.yml` also has `slpa.sl.trusted-owner-keys: []` (empty), and `SlStartupValidator.check` runs as a `@PostConstruct` on prod and throws `IllegalStateException` on an empty list to prevent prod from booting without real SL keys configured. That's a deliberate fail-fast — but it means any JUnit test annotated `@ActiveProfiles("prod")` blows up in context initialization before a single assertion fires, and the failure looks like an unrelated "context failed to load" stack trace that takes a while to trace back to the profile choice.
+
+**How to apply:** to prove a `@Profile("dev")` bean is absent outside dev, do NOT use `@ActiveProfiles("prod")`. Instead, use the `@Autowired(required = false)` pattern under a neutral test profile (no `@ActiveProfiles` annotation, or `@ActiveProfiles("test")` if you have one). Spring will leave the field `null` if the bean is absent, and you can assert `assertThat(controller).isNull()`. See `DevSlSimulateBeanProfileTest` for the canonical pattern: no profile annotation, `@Autowired(required = false) DevSlSimulateController controller`, and a single assertion that the field is null. This proves bean-absence without requiring the full prod context to boot.
+
+If you genuinely need to test prod-profile behavior end-to-end, the only sane approach is an integration test that runs against a separately-deployed `prod`-profile process (e.g., via Testcontainers), not a `@SpringBootTest` inside the same JVM as the test runner.
+
+### F.26 Slice-scoped `@RestControllerAdvice` ordering needs an explicit `@Order(LOWEST_PRECEDENCE - 100)`
+
+**Why:** A slice handler like `VerificationExceptionHandler` (`@RestControllerAdvice(basePackages = "...verification")`) and `GlobalExceptionHandler` (unscoped) can both match the same exception. At default precedence, Spring resolves ties by bean-registration order, which is **alphabetical**. `GlobalExceptionHandler` (G) happens to sort before `VerificationExceptionHandler` (V), so the global catch-all wins silently and the slice's specific mapping gets shadowed — the response has the global 500 status code instead of the slice's 409. `AuthExceptionHandler` (A) only worked because A sorts before G — alphabetical luck, not a real ordering guarantee, and the next slice whose name starts with H-Z would have hit the same shadow bug.
+
+Caught during Task 2's review: the `VerificationExceptionHandler` was correctly mapping `CodeCollisionException` to 409, but the integration test got a 500 because `GlobalExceptionHandler.handleUncaught` was running first.
+
+**How to apply:** every slice-scoped `@RestControllerAdvice` class in this codebase must carry `@Order(Ordered.LOWEST_PRECEDENCE - 100)` so it runs BEFORE the global catch-all. `GlobalExceptionHandler` carries explicit `@Order(Ordered.LOWEST_PRECEDENCE)` to document its role as the last-resort handler — the explicit annotation makes the precedence relationship visible at the file level rather than buried in alphabetical-order trivia. When you add a new slice in a future epic, match the convention: `@Order(Ordered.LOWEST_PRECEDENCE - 100)` on every slice handler, no exceptions. Do not rely on alphabetical bean-registration order — a future rename can silently break the precedence.
+
+### F.27 `@Transactional` methods that throw after persisting state need `noRollbackFor`
+
+**Why:** Spring's default rollback behavior reverts on any `RuntimeException`. If a `@Transactional` method persists cleanup state (e.g. voiding collision rows, marking a reservation expired, inserting an audit row) and THEN throws a domain exception, those writes get silently rolled back along with the rest of the transaction. The failure mode is invisible in unit tests with mocked repositories because mocks don't exercise the real transaction boundary — the mock records the `save()` call and the assertion passes, even though in production the row would never reach the database. The bug only surfaces when an integration test commits the setup, runs the method under test, and verifies persistence in a fresh transaction.
+
+Caught during Task 2's review: `VerificationCodeService.consume` voided collision rows before throwing `CodeCollisionException`, and the unit tests passed because mocks recorded the `save()`. The integration test that committed real rows showed the void was silently rolled back.
+
+**How to apply:** in any `@Transactional` method that must persist state BEFORE throwing (collision handling, reservation expiry, side-effect audit, etc.):
+
+1. Annotate the method with `@Transactional(noRollbackFor = TheSpecificException.class)`. Use the most specific exception possible — broad `noRollbackFor = RuntimeException.class` would defeat the safety net.
+2. Add a load-bearing javadoc comment on the method explaining the annotation must not be removed and pointing to the integration test that pins the contract.
+3. Write a `TransactionTemplate`-based integration test that: (a) commits the setup data in transaction A, (b) calls the method under test in transaction B and catches the expected exception, (c) verifies persistence in a fresh transaction C. Mocked unit tests cannot replace this — the real transaction boundary is the thing under test.
+
+See `VerificationCodeService.consume` and `VerificationCodeServiceCollisionIntegrationTest` for the canonical pattern: the service carries `@Transactional(noRollbackFor = CodeCollisionException.class)` with a javadoc note, and the integration test exercises the red-green dance so future refactors can't silently break the guarantee.

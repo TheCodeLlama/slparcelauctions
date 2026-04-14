@@ -33,3 +33,8 @@ logging:
   level:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+slpa:
+  sl:
+    trusted-owner-keys:
+      - "00000000-0000-0000-0000-000000000001"

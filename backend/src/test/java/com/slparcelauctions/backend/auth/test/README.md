@@ -14,7 +14,7 @@ Use on any slice test (`@WebMvcTest`) or integration test that needs an authenti
 @Test
 @WithMockAuthPrincipal(userId = 42)
 void placesBid_whenAuthenticated() throws Exception {
-    mockMvc.perform(post("/api/bids")...).andExpect(status().isCreated());
+    mockMvc.perform(post("/api/v1/bids")...).andExpect(status().isCreated());
 }
 ```
 
@@ -52,7 +52,7 @@ Methods: `validAccessToken`, `validAccessTokenWithLifetime`, `expiredAccessToken
 pre-existing sessions (e.g., the `logoutAll` test that seeds a "device 2" token). Methods:
 `insertValid(userId)`, `insertRevoked(userId)`, `insertExpired(userId)`,
 `insertWithExpiry(userId, expiresAt)`. Returns the raw token so tests can replay it through
-`/api/auth/refresh`.
+`/api/v1/auth/refresh`.
 
 Uses `TokenHasher.sha256Hex(...)` to hash the same way production does — changing the hashing
 algorithm requires updating both call sites.

@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * Request body for {@code POST /api/auth/login}.
+ * Request body for {@code POST /api/v1/auth/login}.
  */
 public record LoginRequest(
         @NotBlank @Email @Size(max = 255) String email,

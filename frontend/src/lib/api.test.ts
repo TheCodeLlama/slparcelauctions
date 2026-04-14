@@ -18,7 +18,7 @@ describe("api", () => {
       })
     );
 
-    const result = await api.get<{ id: number; name: string }>("/api/users/1");
+    const result = await api.get<{ id: number; name: string }>("/api/v1/users/1");
     expect(result).toEqual({ id: 1, name: "alice" });
   });
 
@@ -36,7 +36,7 @@ describe("api", () => {
       })
     );
 
-    await expect(api.post("/api/users", { email: "bad" })).rejects.toMatchObject({
+    await expect(api.post("/api/v1/users", { email: "bad" })).rejects.toMatchObject({
       status: 400,
       problem: {
         status: 400,
@@ -55,7 +55,7 @@ describe("api", () => {
 
     let caught: unknown;
     try {
-      await api.get("/api/health");
+      await api.get("/api/v1/health");
     } catch (e) {
       caught = e;
     }
@@ -66,7 +66,7 @@ describe("api", () => {
 
   it("returns undefined on a 204 No Content response", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }));
-    const result = await api.delete<void>("/api/users/1");
+    const result = await api.delete<void>("/api/v1/users/1");
     expect(result).toBeUndefined();
   });
 
@@ -78,12 +78,12 @@ describe("api", () => {
       })
     );
 
-    await api.get("/api/auctions", {
+    await api.get("/api/v1/auctions", {
       params: { status: "active", page: 2, ended: undefined, includeDrafts: false },
     });
 
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/auctions?status=active&page=2&includeDrafts=false"),
+      expect.stringContaining("/api/v1/auctions?status=active&page=2&includeDrafts=false"),
       expect.any(Object)
     );
     const calledUrl = vi.mocked(fetch).mock.calls[0][0] as string;
