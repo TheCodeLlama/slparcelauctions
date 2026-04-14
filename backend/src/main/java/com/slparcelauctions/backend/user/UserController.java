@@ -50,14 +50,17 @@ public class UserController {
     }
 
     @PutMapping("/me")
-    public ResponseEntity<ProblemDetail> updateCurrentUser(@Valid @RequestBody UpdateUserRequest request) {
-        // Profile edit lands in Task 01-XX (TBD) — needs design pass on field-level edit rules
-        return notYetImplemented();
+    public UserResponse updateCurrentUser(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody UpdateUserRequest request) {
+        return userService.updateUser(principal.userId(), request);
     }
 
     @DeleteMapping("/me")
     public ResponseEntity<ProblemDetail> deleteCurrentUser() {
-        // Profile edit lands in Task 01-XX (TBD) — needs design pass on soft-vs-hard delete + GDPR
+        // Account deletion has GDPR / soft-delete / cascading-data implications
+        // that belong in a dedicated sub-spec. Deferred to a future Epic 02 or
+        // Epic 07 task. Keep stub until then.
         return notYetImplemented();
     }
 

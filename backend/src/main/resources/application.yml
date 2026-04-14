@@ -14,6 +14,17 @@ spring:
     multipart:
       max-file-size: 2MB
       max-request-size: 2MB
+  jackson:
+    deserialization:
+      # SECURITY: reject unknown fields in every request body globally. This is a
+      # defense-in-depth measure against privilege escalation via field injection
+      # (e.g. a client sneaking {"role":"admin"} into PUT /me). Spring Boot's
+      # default is false; we override it to true. Per-DTO @JsonIgnoreProperties
+      # annotations document the intent but do NOT by themselves re-enable
+      # FAIL_ON_UNKNOWN_PROPERTIES — the global flag is load-bearing. See the
+      # security canary test
+      # UserControllerUpdateMeSliceTest.put_me_rejectsUnknownFields_returns400.
+      fail-on-unknown-properties: true
 
 cors:
   allowed-origin: http://localhost:3000
