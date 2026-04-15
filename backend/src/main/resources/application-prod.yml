@@ -20,3 +20,6 @@ jwt:
 slpa:
   sl:
     trusted-owner-keys: []  # deploy pipeline injects the real UUIDs via env
+  storage:
+    bucket: ${SLPA_STORAGE_BUCKET}
+    region: ${AWS_REGION:us-east-1}
