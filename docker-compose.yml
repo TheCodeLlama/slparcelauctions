@@ -33,6 +33,25 @@ services:
     networks:
       - slpa-net
 
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-slpa-dev-key}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-slpa-dev-secret}
+    ports:
+      - "${MINIO_S3_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - slpa-net
+
   backend:
     build:
       context: ./backend
@@ -42,6 +61,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-slpa}
@@ -50,6 +71,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:3000}
+      SLPA_STORAGE_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-slpa-dev-key}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-slpa-dev-secret}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
@@ -66,7 +90,7 @@ services:
     # JVM starts, so it eats start_period instead of being a separate concern.
     # If you blow away the maven-cache volume regularly, bump this back to 90s.
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -100,6 +124,7 @@ volumes:
   maven-cache:
   frontend-node-modules:
   frontend-next-cache:
+  minio-data:
 
 networks:
   slpa-net:

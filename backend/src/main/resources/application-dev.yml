@@ -38,3 +38,8 @@ slpa:
   sl:
     trusted-owner-keys:
       - "00000000-0000-0000-0000-000000000001"
+  storage:
+    endpoint-override: ${SLPA_STORAGE_ENDPOINT:http://localhost:9000}
+    path-style-access: true
+    access-key-id: ${MINIO_ROOT_USER:slpa-dev-key}
+    secret-access-key: ${MINIO_ROOT_PASSWORD:slpa-dev-secret}

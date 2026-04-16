@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element -- avatars are API-served binary content; next/image requires remotePatterns config */
 import { cn } from "@/lib/cn";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
@@ -8,6 +8,7 @@ type AvatarProps = {
   alt: string;
   name?: string;
   size?: AvatarSize;
+  cacheBust?: string | number;
   className?: string;
 };
 
@@ -18,6 +19,15 @@ const sizeMap: Record<AvatarSize, { px: number; class: string }> = {
   lg: { px: 56, class: "size-14 text-title-md" },
   xl: { px: 80, class: "size-20 text-title-lg" },
 };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+function resolveAvatarSrc(src: string, cacheBust?: string | number): string {
+  const url = src.startsWith("/") ? `${API_BASE}${src}` : src;
+  if (cacheBust === undefined) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${encodeURIComponent(String(cacheBust))}`;
+}
 
 function initialsFromName(name?: string): string {
   if (!name) return "?";
@@ -32,18 +42,19 @@ export function Avatar({
   alt,
   name,
   size = "md",
+  cacheBust,
   className,
 }: AvatarProps) {
   const { px, class: sizeClass } = sizeMap[size];
 
   if (src) {
     return (
-      <Image
-        src={src}
+      <img
+        src={resolveAvatarSrc(src, cacheBust)}
         alt={alt}
         width={px}
         height={px}
-        className={cn("rounded-full object-cover", className)}
+        className={cn("rounded-full object-cover", sizeClass, className)}
       />
     );
   }

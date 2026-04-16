@@ -1,36 +1,22 @@
-// frontend/src/app/dashboard/page.tsx
 "use client";
 
-import { RequireAuth } from "@/components/auth/RequireAuth";
-import { useAuth } from "@/lib/auth";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useCurrentUser } from "@/lib/user";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
-export default function DashboardPage() {
-  return (
-    <RequireAuth>
-      <DashboardContent />
-    </RequireAuth>
-  );
-}
+export default function DashboardIndex() {
+  const router = useRouter();
+  const { data: user, isPending, isError } = useCurrentUser();
 
-function DashboardContent() {
-  const session = useAuth();
-  // RequireAuth guarantees this component only renders when authenticated,
-  // but TypeScript doesn't know that — narrow the union explicitly.
-  if (session.status !== "authenticated") return null;
+  useEffect(() => {
+    if (isPending || isError) return;
+    if (user?.verified) {
+      router.replace("/dashboard/overview");
+    } else {
+      router.replace("/dashboard/verify");
+    }
+  }, [isPending, isError, user?.verified, router]);
 
-  return (
-    <>
-      <PageHeader
-        title="Dashboard"
-        subtitle={`Signed in as ${session.user.email}`}
-      />
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <p className="text-body-md text-on-surface-variant">
-          Your bids, listings, and sales will appear here. Real dashboard
-          content lands in a future task.
-        </p>
-      </div>
-    </>
-  );
+  return <LoadingSpinner label="Loading your dashboard..." />;
 }

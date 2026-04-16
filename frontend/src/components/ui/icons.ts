@@ -32,3 +32,6 @@ export {
   Bot,
   Star,
 } from "lucide-react";
+
+// Sub-spec 2b additions
+export { Copy, CheckCircle2, AlertCircle, MessageSquare, Upload } from "lucide-react";

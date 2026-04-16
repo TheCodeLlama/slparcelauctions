@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.user.dto;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -13,13 +14,18 @@ public record UserResponse(
         String bio,
         String profilePicUrl,
         UUID slAvatarUuid,
+        String slAvatarName,
         String slUsername,
         String slDisplayName,
+        LocalDate slBornDate,
+        Integer slPayinfo,
         Boolean verified,
+        OffsetDateTime verifiedAt,
         Boolean emailVerified,
         Map<String, Object> notifyEmail,
         Map<String, Object> notifySlIm,
-        OffsetDateTime createdAt) {
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -29,12 +35,17 @@ public record UserResponse(
                 user.getBio(),
                 user.getProfilePicUrl(),
                 user.getSlAvatarUuid(),
+                user.getSlAvatarName(),
                 user.getSlUsername(),
                 user.getSlDisplayName(),
+                user.getSlBornDate(),
+                user.getSlPayinfo(),
                 user.getVerified(),
+                user.getVerifiedAt(),
                 user.getEmailVerified(),
                 user.getNotifyEmail(),
                 user.getNotifySlIm(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.getUpdatedAt());
     }
 }

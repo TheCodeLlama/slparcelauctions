@@ -117,16 +117,20 @@ async function request<T>(
   isRetry = false
 ): Promise<T> {
   const token = getAccessToken();
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const serializedBody =
+    body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body);
+
   const response = await fetch(`${BASE_URL}${buildPath(path, params)}`, {
     credentials: "include",
     ...rest,
     headers: {
       Accept: "application/json",
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(body !== undefined && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: serializedBody,
   });
 
   if (response.status === 401 && !isRetry && !path.startsWith("/api/v1/auth/")) {
