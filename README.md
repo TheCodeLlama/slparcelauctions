@@ -9,7 +9,7 @@ The full design lives in [`docs/initial-design/DESIGN.md`](docs/initial-design/D
 | Layer    | Tech                                              |
 |----------|---------------------------------------------------|
 | Frontend | Next.js 16, React 19, TypeScript 5, Tailwind 4    |
-| Backend  | Spring Boot 4, Java 26, Maven, JPA + Flyway       |
+| Backend  | Spring Boot 4, Java 26, Maven, JPA (Hibernate DDL) |
 | Storage  | PostgreSQL 17, Redis 7, MinIO (S3-compatible)     |
 | In-world | LSL scripts (Phase 6+)                            |
 
@@ -132,7 +132,11 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 │       ├── user/            User vertical slice (entity, repo, service, controller, DTOs)
 │       ├── verification/    Verification code slice (active, generate)
 │       ├── sl/              SL integration slice (header-gated /sl/verify)
-│       └── storage/         Object storage slice (S3Client config, ObjectStorageService, startup validator)
+│       ├── storage/         Object storage slice (S3Client config, ObjectStorageService, startup validator)
+│       ├── parcel/          Parcel entity + repository (SL-world parcel metadata)
+│       ├── parceltag/       Parcel tag entity + repository (many-to-many with auctions)
+│       ├── auction/         Auction entity + repository + CancellationLog + ListingFeeRefund + AuctionPhoto + parcel-locking index initializer
+│       └── bot/             Bot task queue entity + repository (verification bot work units)
 ├── frontend/                Next.js app
 │   └── src/
 │       ├── components/ui/   UI primitives (Button, Tabs, Toast, etc.)
@@ -151,7 +155,7 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 Production deployment is **not covered in Phase 1**. This stack is wired for local development only. Before any non-local deployment:
 
 - Rotate every value in `.env.example` tagged `# DEV ONLY` — `POSTGRES_PASSWORD`, `CORS_ALLOWED_ORIGIN`, `NEXT_PUBLIC_API_URL`, plus any future `*_SECRET` / `*_TOKEN` introduced by later tasks (JWT signing key in Task 01-07, etc.).
-- Set `SPRING_PROFILES_ACTIVE=prod` and review `application-prod.yml` to confirm there are no hardcoded credentials and `ddl-auto` is `validate` (not `update`).
+- Set `SPRING_PROFILES_ACTIVE=prod` and review `application-prod.yml` before shipping. Global `ddl-auto: update` is the dev/source-of-truth mode while the schema stabilizes in Phase 1; the prod profile must override this (and the eventual production migration strategy will replace the disabled Flyway).
 - Add a reverse proxy / TLS terminator (nginx, Caddy, cloud load balancer) in front of the backend; the dev stack ships HTTP only.
 - Lock down the CORS allow-list to the real frontend origin instead of `localhost:3000`.
 - Replace `Dockerfile.dev` with a multi-stage production Dockerfile that builds a layered Spring Boot fat-jar and runs on a JRE base image, not a JDK.
