@@ -111,6 +111,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 04 (Auction Engine)
 - **Notes:** `PublicProfileView` renders `<EmptyState icon={Gavel}>` for this section.
 
+### PARCEL code generation rate tracking (fraud signal)
+- **From:** Epic 03 sub-spec 1 (Method B rezzable callback flow)
+- **Why:** Sellers who burn through many PARCEL codes without ever rezzing the object are either confused (needs better instructions) or probing/abusing the system. Not a Phase 1 concern but worth flagging once the flow is live and we have baseline usage data.
+- **When:** Epic 10 (Admin & Moderation) — fraud flags
+- **Notes:** Metric would be "count of PARCEL codes generated per seller over last N days where no successful callback occurred." Likely lives as a `fraud_signals` table or similar, feeding admin dashboards.
+
 ---
 
 ## Removal Criteria
