@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderWithProviders, screen, waitFor } from "@/test/render";
 import { server } from "@/test/msw/server";
 import {
@@ -6,10 +6,6 @@ import {
   userHandlers,
   verificationHandlers,
 } from "@/test/msw/handlers";
-import {
-  mockUnverifiedCurrentUser,
-  mockVerifiedCurrentUser,
-} from "@/test/msw/fixtures";
 import { UnverifiedVerifyFlow } from "./UnverifiedVerifyFlow";
 
 const mockReplace = vi.fn();
@@ -95,7 +91,7 @@ describe("UnverifiedVerifyFlow", () => {
       userHandlers.meUnverified(),
       verificationHandlers.activeNone(),
     );
-    const { rerender } = renderWithProviders(<UnverifiedVerifyFlow />, {
+    renderWithProviders(<UnverifiedVerifyFlow />, {
       auth: "authenticated",
     });
 

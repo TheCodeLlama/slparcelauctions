@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act, within, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { useToast } from "./useToast";
-import { ToastProvider } from "./ToastProvider";
 
 // Small helper that renders a button wired to the hook under test.
 function ToastTrigger({
