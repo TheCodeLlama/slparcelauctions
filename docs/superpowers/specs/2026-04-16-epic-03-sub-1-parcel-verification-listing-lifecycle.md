@@ -892,10 +892,18 @@ The "parcel already exists" short-circuit matters for the "multiple drafts share
 3. Validate:
    - ownertype == "agent" (Method A rejects group-owned)
    - ownerid == current user's user.slAvatarUuid
-4. On success:
-   - Update parcels.last_checked, owner_uuid if changed (the parcel might have changed hands;
-     we trust the user's ownership now since we just verified it)
-   - Transition VERIFICATION_PENDING → ACTIVE
+4. On success, BEFORE transitioning to ACTIVE:
+   - Parcel-locking check: query auctions WHERE parcel_id = ? AND status IN (locking_set) AND id != current.id
+     - locking_set = ACTIVE, ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING, DISPUTED
+     - If any row found → throw ParcelAlreadyListedException (HTTP 409); auction stays in VERIFICATION_FAILED
+       with verification_notes = "Parcel is currently in auction #<id>"
+     - This is the service-layer race-safe check
+   - If check passes:
+     - Update parcels.last_checked, owner_uuid if changed
+     - Transition VERIFICATION_PENDING → ACTIVE
+     - The partial unique index (§8.4) is the DB-level defense for the race where two
+       Method A flows pass the service-layer check simultaneously — one INSERT/UPDATE wins,
+       the other gets a unique violation which the service catches and maps to the same 409
 5. On failure:
    - Transition VERIFICATION_PENDING → VERIFICATION_FAILED
    - verification_notes = "Ownership mismatch: World API shows owner <uuid>"
@@ -918,10 +926,15 @@ The "parcel already exists" short-circuit matters for the "multiple drafts share
 3. Validate code.auction.parcel.slParcelUuid matches body.parcel_uuid
 4. Validate body.owner_uuid matches code.user.slAvatarUuid
 5. (Cross-check) WorldApi.fetchParcel(body.parcel_uuid) - verify ownertype == "agent" and ownerid == body.owner_uuid
-6. Mark code as used
-7. Refresh parcels row metadata from body + World API cross-check
-8. Transition auction: VERIFICATION_PENDING → ACTIVE, verification_tier=SCRIPT
-9. Return 204 No Content (LSL does not need the response body)
+6. Parcel-locking check (same as Method A step 4):
+   - query auctions WHERE parcel_id = code.auction.parcel_id AND status IN (locking_set) AND id != code.auction.id
+   - If any row found → return 409 Conflict; code stays unused (seller can't retry with the same code
+     since the race was lost, but can regenerate via PUT /verify)
+   - Partial unique index is the DB-level backstop
+7. Mark code as used
+8. Refresh parcels row metadata from body + World API cross-check
+9. Transition auction: VERIFICATION_PENDING → ACTIVE, verification_tier=SCRIPT
+10. Return 204 No Content (LSL does not need the response body)
 ```
 
 **Method C (SALE_TO_BOT) — inside `PUT /auctions/{id}/verify`:**
@@ -945,9 +958,14 @@ The "parcel already exists" short-circuit matters for the "multiple drafts share
 If result == SUCCESS:
   1. Validate body.authBuyerId == config primary escrow UUID
   2. Validate body.salePrice == config sentinel price (L$999999999)
-  3. Refresh parcels row metadata from body
-  4. Mark bot_task status=COMPLETED, result_data=body, completed_at=now
-  5. Transition auction: VERIFICATION_PENDING → ACTIVE, verification_tier=BOT
+  3. Parcel-locking check:
+     - query auctions WHERE parcel_id = bot_task.auction.parcel_id AND status IN (locking_set) AND id != bot_task.auction_id
+     - If any row found → mark bot_task status=FAILED with failure_reason="PARCEL_LOCKED",
+       transition auction to VERIFICATION_FAILED, return 409; no refund (seller retries via /verify)
+     - Partial unique index backstop as before
+  4. Refresh parcels row metadata from body
+  5. Mark bot_task status=COMPLETED, result_data=body, completed_at=now
+  6. Transition auction: VERIFICATION_PENDING → ACTIVE, verification_tier=BOT
 If result == FAILURE:
   1. Mark bot_task status=FAILED, failure_reason=body.failureReason, completed_at=now
   2. Transition auction: VERIFICATION_PENDING → VERIFICATION_FAILED
@@ -993,7 +1011,65 @@ If result == FAILURE:
 
 The entity and column definitions support these future transitions — sub-spec 1 just doesn't implement the code paths.
 
-### 8.3 Invalid transition handling
+### 8.3 Parcel locking enforcement (ACTIVE transition race protection)
+
+The design decision from Q2 of the brainstorm: a parcel can be referenced by any number of DRAFT/DRAFT_PAID/VERIFICATION_PENDING/VERIFICATION_FAILED auctions (no lock), but only one auction may be in a "locking" status at a time.
+
+**Locking set:** `ACTIVE, ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING, DISPUTED`
+
+**Enforcement — two-layer defense:**
+
+**Layer 1 — Service-layer check before every VERIFICATION_PENDING → ACTIVE transition.** Every codepath that would transition an auction to ACTIVE runs this check first:
+
+```java
+// AuctionVerificationService.java
+private void assertParcelNotLocked(Auction candidate) {
+    Set<AuctionStatus> locking = Set.of(ACTIVE, ENDED, ESCROW_PENDING,
+        ESCROW_FUNDED, TRANSFER_PENDING, DISPUTED);
+    boolean locked = auctionRepository.existsByParcelIdAndStatusInAndIdNot(
+        candidate.getParcel().getId(), locking, candidate.getId());
+    if (locked) {
+        throw new ParcelAlreadyListedException(candidate.getParcel().getId());
+    }
+}
+```
+
+This check runs in:
+- Method A inline verification (before flipping to ACTIVE)
+- Method B LSL callback (before flipping to ACTIVE)
+- Method C bot callback SUCCESS (before flipping to ACTIVE)
+
+`ParcelAlreadyListedException` maps to HTTP 409 Conflict via `GlobalExceptionHandler`.
+
+**Layer 2 — Database partial unique index.** Even with the service-layer check, two concurrent transitions could both pass the check and both attempt to write ACTIVE. The database enforces exclusivity:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS uq_auctions_parcel_locked_status
+  ON auctions(parcel_id)
+  WHERE status IN ('ACTIVE', 'ENDED', 'ESCROW_PENDING', 'ESCROW_FUNDED',
+                   'TRANSFER_PENDING', 'DISPUTED');
+```
+
+**Postgres IN-clause compatibility note:** Partial unique indexes with `IN` clauses are supported in Postgres 9.3+ (we target 16). Test the exact syntax during implementation — if the index fails to create with `IN`, rewrite as explicit `OR` chain:
+
+```sql
+WHERE status = 'ACTIVE' OR status = 'ENDED' OR status = 'ESCROW_PENDING'
+   OR status = 'ESCROW_FUNDED' OR status = 'TRANSFER_PENDING' OR status = 'DISPUTED'
+```
+
+Both forms yield the same index. The `IN` form is cleaner; the `OR` form is a compatibility fallback.
+
+**Index creation during Task 1:** Since we're no longer using Flyway migrations (Hibernate DDL-auto handles entity-derived schema), this partial index needs a different delivery mechanism. Three options, pick during implementation:
+
+- **(A)** `@PostConstruct` on a startup service that runs `CREATE UNIQUE INDEX IF NOT EXISTS ...`. Simple, runs at boot, idempotent.
+- **(B)** `@Table(indexes = @Index(columnList = "parcel_id", ...))` on the `Auction` entity — but Hibernate does not support partial (filtered) indexes via annotations, so this doesn't work for our case.
+- **(C)** A small `ApplicationRunner` that executes the DDL if the index doesn't exist. Equivalent to (A) but runs later in the startup lifecycle.
+
+Option **(A)** is the cleanest. Document the DDL inline in the service class so it's discoverable alongside the entity definition.
+
+**Unique-constraint violation handling.** When the race loses and the DB rejects the transition, the service catches the `DataIntegrityViolationException`, unwraps it to verify it's our specific constraint, and throws `ParcelAlreadyListedException` (mapped to 409). Log the race event as INFO — it's legitimate, not an error.
+
+### 8.4 Invalid transition handling
 
 `InvalidAuctionStateException` thrown at the service layer with payload `{ auctionId, currentState, attemptedAction }`. `GlobalExceptionHandler` maps to HTTP 409 Conflict with `ProblemDetail`:
 
@@ -1089,22 +1165,50 @@ Both jobs disabled in test profile via `slpa.verification.parcel-code-expiry-che
 
 ## 11. Photo upload pipeline
 
-### 11.1 Flow
+### 11.1 Validation vs processing — separation
+
+The Epic 02 sub-spec 2a `AvatarImageProcessor` does two things: (a) validates image format at the bytes level and (b) center-crops to square + resizes to 64/128/256 px sizes. **Avatar processing is wrong for listing photos** — listings need to preserve the seller's composition and aspect ratio (a waterfront view should not be center-cropped to square).
+
+Sub-spec 1 refactors the avatar pipeline to separate concerns:
+
+**`ImageUploadValidator` (new shared component).** Extract the validation logic from `AvatarImageProcessor` into a dedicated component:
+- Content-Type detection by bytes (ImageIO format sniffing, not trusting the HTTP header)
+- Allowed format allowlist (JPEG, PNG, WebP)
+- Size bounds check (max bytes configurable)
+- Dimension bounds check (min/max width/height configurable — for listings we'd set a max dimension like 4096px to prevent pathological uploads)
+- Optional EXIF stripping
+
+Lives at `backend/src/main/java/com/slparcelauctions/backend/media/ImageUploadValidator.java`. Used by both avatar uploads and listing photo uploads.
+
+**`AvatarImageProcessor` (existing, refactored).** After the refactor, this component focuses only on the avatar-specific transforms (square crop, 3-size resize). It delegates validation to the shared `ImageUploadValidator`. The public API of the existing `POST /api/v1/users/me/avatar` endpoint is unchanged.
+
+**`ListingPhotoProcessor` (new component).** For listing photos:
+- Delegates validation to `ImageUploadValidator` (shared)
+- Does NOT crop or resize — preserves aspect ratio and dimensions
+- If dimension > 4096 on either axis, rejects (413). Aggressive because listings don't need 4K photos and we want to cap storage cost.
+- Optionally strips EXIF metadata (privacy — photos may contain GPS coords, device model, etc.)
+- Outputs the validated bytes to MinIO unchanged otherwise
+
+Lives at `backend/src/main/java/com/slparcelauctions/backend/auction/ListingPhotoProcessor.java`.
+
+**Task 9 covers this refactor explicitly** — the avatar endpoint should be covered by regression tests after the refactor to confirm its behavior is unchanged.
+
+### 11.2 Flow
 
 1. Seller POSTs multipart to `/api/v1/auctions/{id}/photos` with field `file`.
 2. Controller validates:
    - Seller owns this auction (401/403 otherwise)
    - Auction status is DRAFT or DRAFT_PAID (409 otherwise)
    - Current photo count < 10 (413 Payload Too Large if at max)
-3. `AvatarImageProcessor` (renamed or refactored into a more general `ImageUploadValidator` if scope allows) is reused:
-   - Content-Type from bytes (ImageIO sniffing) — reject non-JPEG/PNG/WebP
-   - Size < 2 MB (spring.servlet.multipart.max-file-size enforces at web layer too)
-   - Optional: strip EXIF metadata
+3. `ListingPhotoProcessor.process(bytes)`:
+   - Delegates to `ImageUploadValidator` for format + size + dimension checks
+   - Strips EXIF (privacy)
+   - Returns the cleaned bytes + sniffed content-type
 4. Upload to MinIO at `listings/{auctionId}/{uuid}.{ext}`.
 5. Create `AuctionPhoto` row. `sortOrder` = max existing order + 1.
 6. Return `AuctionPhotoResponse` (201 Created).
 
-### 11.2 Delete
+### 11.3 Delete
 
 `DELETE /api/v1/auctions/{id}/photos/{photoId}`:
 1. Validate seller + status as above.
@@ -1112,7 +1216,7 @@ Both jobs disabled in test profile via `slpa.verification.parcel-code-expiry-che
 3. Delete `AuctionPhoto` row.
 4. 204 No Content.
 
-### 11.3 Serving bytes
+### 11.4 Serving bytes
 
 Photo bytes need to be fetchable. Two options:
 - **A)** Public MinIO URL (MinIO's signed URLs or a public bucket).
@@ -1292,7 +1396,8 @@ backend/src/main/java/com/slparcelauctions/backend/
 │   │   └── BotTaskTimeoutJob.java
 │   ├── exception/
 │   │   ├── InvalidAuctionStateException.java
-│   │   └── AuctionNotFoundException.java
+│   │   ├── AuctionNotFoundException.java
+│   │   └── ParcelAlreadyListedException.java
 │   └── dto/
 │       ├── AuctionCreateRequest.java
 │       ├── AuctionUpdateRequest.java
@@ -1465,14 +1570,19 @@ Ten tasks in strict execution order. Each task ends with a commit + push.
 
 ### Task 1 — Schema foundation + entity skeletons (~2 hours)
 
-1. Add `continent_name VARCHAR(50)` field to `Parcel` entity (JPA auto-creates column).
-2. Add `cancelled_with_bids INTEGER NOT NULL DEFAULT 0` to `User` entity.
-3. Add nullable `auction_id BIGINT REFERENCES auctions(id)` to `VerificationCode` entity.
-4. Add PARCEL enum value to `VerificationCodeType`.
-5. Create `BotTask`, `CancellationLog`, `ListingFeeRefund`, `AuctionPhoto` entities + repositories (no service/controller yet).
-6. Create `Auction`, `Parcel`, `ParcelTag`, `AuctionTag` JPA entities over existing tables.
-7. Verify schema changes at dev-profile boot (`./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` and check Postgres `\d` for new tables/columns).
-8. Commit.
+1. Delete the two legacy Flyway migration files that are no longer authoritative under the "entities are source of truth" convention:
+   - `backend/src/main/resources/db/migration/V1__core_tables.sql`
+   - `backend/src/main/resources/db/migration/V2__supporting_tables.sql`
+   One less thing to keep in sync with the JPA entity model going forward.
+2. Add `continent_name VARCHAR(50)` field to `Parcel` entity (JPA auto-creates column).
+3. Add `cancelled_with_bids INTEGER NOT NULL DEFAULT 0` to `User` entity.
+4. Add nullable `auction_id BIGINT REFERENCES auctions(id)` to `VerificationCode` entity.
+5. Add PARCEL enum value to `VerificationCodeType`.
+6. Create `BotTask`, `CancellationLog`, `ListingFeeRefund`, `AuctionPhoto` entities + repositories (no service/controller yet).
+7. Create `Auction`, `Parcel`, `ParcelTag`, `AuctionTag` JPA entities over existing tables.
+8. Add the parcel locking partial unique index (see §8.3 for rationale and exact DDL). Use the `@PostConstruct`-on-a-startup-service option (A) from §8.3 unless a cleaner approach emerges during implementation. Document the DDL inline in the service class.
+9. Verify schema changes at dev-profile boot (`./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` and check Postgres `\d+ auctions` for the partial unique index and all new tables/columns).
+10. Commit.
 
 ### Task 2 — World API + Map API + MainlandContinents (~2 hours)
 
@@ -1514,15 +1624,19 @@ Ten tasks in strict execution order. Each task ends with a commit + push.
 5. Postman request: `Dev/Simulate listing fee payment`.
 6. Commit.
 
-### Task 6 — Unified /verify endpoint + Method A (~2 hours)
+### Task 6 — Unified /verify endpoint + Method A + parcel-locking enforcement (~2.5 hours)
 
 1. Create `AuctionVerificationService` with `triggerVerification(auctionId, user)`.
-2. Method A dispatch (inline): fetch World API, validate ownership, transition to ACTIVE or VERIFICATION_FAILED.
-3. Endpoint: `PUT /api/v1/auctions/{id}/verify`.
-4. Integration test: Method A happy path (DRAFT → paid → verify → ACTIVE). Method A failure (World API ownerid mismatch → VERIFICATION_FAILED). Retry from VERIFICATION_FAILED → VERIFICATION_PENDING → ACTIVE.
-5. Verify `SellerAuctionResponse.pendingVerification` is null for Method A in both success and failure responses (Method A is synchronous, no pending state persists).
-6. Postman request: `Auction/Verify` (capture updated status).
-7. Commit.
+2. Implement `assertParcelNotLocked` (§8.3 Layer 1 check). Runs before every VERIFICATION_PENDING → ACTIVE transition.
+3. Create `ParcelAlreadyListedException` + global mapping to 409.
+4. Method A dispatch (inline): fetch World API, validate ownership, run parcel-locking check, transition to ACTIVE or VERIFICATION_FAILED.
+5. Endpoint: `PUT /api/v1/auctions/{id}/verify`.
+6. Integration test: Method A happy path (DRAFT → paid → verify → ACTIVE). Method A failure (World API ownerid mismatch → VERIFICATION_FAILED). Retry from VERIFICATION_FAILED → VERIFICATION_PENDING → ACTIVE.
+7. Integration test — parcel locking race: create two auctions (different users, same parcel UUID) both reaching DRAFT_PAID. Verify first → ACTIVE. Verify second → VERIFICATION_FAILED (409 ParcelAlreadyListedException). Cancel the first. Verify the second again → ACTIVE.
+8. Integration test — DB-layer backstop: simulate the concurrent race by calling the transition method on two auctions in parallel threads (use `CompletableFuture`). One must win, one must fail with `DataIntegrityViolationException` unwrapped to `ParcelAlreadyListedException`.
+9. Verify `SellerAuctionResponse.pendingVerification` is null for Method A in both success and failure responses.
+10. Postman request: `Auction/Verify` (capture updated status).
+11. Commit.
 
 ### Task 7 — Method B (REZZABLE) with PARCEL codes + LSL callback (~2.5 hours)
 
@@ -1546,17 +1660,22 @@ Ten tasks in strict execution order. Each task ends with a commit + push.
 7. Postman requests: `Auction/Verify` (Method C), `Dev/Simulate bot completion`, `Bot/Get pending tasks`, `Bot/Report task result`.
 8. Commit.
 
-### Task 9 — Parcel tags + photo upload pipeline (~2 hours)
+### Task 9 — Parcel tags + photo upload pipeline (~2.5 hours)
 
 1. Create `ParcelTagService` + `ParcelTagController` with `GET /api/v1/parcel-tags` (grouped by category).
 2. Validate tag codes in `AuctionService.create`/`update` (resolve codes to IDs via repository lookup).
-3. Create `AuctionPhotoService` reusing `AvatarImageProcessor` pattern for image validation.
-4. Create `AuctionPhotoController` with `POST /api/v1/auctions/{id}/photos` (multipart), `DELETE /api/v1/auctions/{id}/photos/{photoId}`, `GET /api/v1/auctions/{id}/photos/{photoId}/bytes`.
-5. Configure MinIO bucket `listings/` path prefix.
-6. Integration test: upload JPEG → 201. Upload BMP → 400. Oversized file → 413. Upload 11th photo → 413. Delete photo → 204, MinIO object gone.
-7. Integration test: tag code validation — invalid tag code → 400. Duplicate tag codes in request → deduplicated or rejected.
-8. Postman requests: `Tags/List`, `Photos/Upload`, `Photos/Delete`.
-9. Commit.
+3. Refactor the avatar pipeline per §11.1:
+   - Extract `ImageUploadValidator` from `AvatarImageProcessor` into `backend/src/main/java/.../media/` (shared component: format sniffing, size+dimension checks, EXIF stripping).
+   - `AvatarImageProcessor` now delegates validation to `ImageUploadValidator` and keeps only the avatar-specific transforms (square crop, 3-size resize).
+   - Run regression tests on the avatar endpoint to confirm its behavior is unchanged after the refactor.
+4. Create `ListingPhotoProcessor` (at `backend/src/main/java/.../auction/`) that delegates validation to `ImageUploadValidator`, strips EXIF, and preserves aspect ratio + dimensions. Rejects > 4096 px on either axis.
+5. Create `AuctionPhotoService` using `ListingPhotoProcessor`.
+6. Create `AuctionPhotoController` with `POST /api/v1/auctions/{id}/photos` (multipart), `DELETE /api/v1/auctions/{id}/photos/{photoId}`, `GET /api/v1/auctions/{id}/photos/{photoId}/bytes`.
+7. Configure MinIO bucket `listings/` path prefix.
+8. Integration test: upload JPEG → 201, photo preserved at original dimensions. Upload BMP → 400. Oversized file → 413. Upload 5000x3000 pixel photo → 413 (exceeds 4096 max dimension). Upload 11th photo → 413. Delete photo → 204, MinIO object gone.
+9. Integration test: tag code validation — invalid tag code → 400. Duplicate tag codes in request → deduplicated or rejected.
+10. Postman requests: `Tags/List`, `Photos/Upload`, `Photos/Delete`.
+11. Commit.
 
 ### Task 10 — Scheduled jobs, docs, and PR (~1.5 hours)
 
