@@ -1301,7 +1301,7 @@ git push
 - Create: `backend/src/test/java/com/slparcelauctions/backend/sl/SlWorldApiClientTest.java`
 - Create: `backend/src/test/java/com/slparcelauctions/backend/sl/SlMapApiClientTest.java`
 
-- [ ] **Step 2.1: Add Jsoup to pom.xml**
+- [ ] **Step 2.1: Add Jsoup and WireMock to pom.xml**
 
 Open `backend/pom.xml`. Add inside `<dependencies>`:
 
@@ -1311,6 +1311,12 @@ Open `backend/pom.xml`. Add inside `<dependencies>`:
             <artifactId>jsoup</artifactId>
             <version>1.17.2</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.tomakehurst</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>3.10.0</version>
+            <scope>test</scope>
+        </dependency>
 ```
 
 Reload Maven, confirm:
@@ -1318,6 +1324,8 @@ Reload Maven, confirm:
 ```bash
 cd backend && ./mvnw dependency:resolve -q
 ```
+
+Both deps are needed in this task: Jsoup for World API HTML parsing in `SlWorldApiClient`, WireMock for the unit-level HTTP-client tests in Steps 2.8 and 2.10.
 
 - [ ] **Step 2.2: Add configuration properties**
 
@@ -1728,18 +1736,7 @@ class SlWorldApiClientTest {
 }
 ```
 
-Note: WireMock is not in pom.xml. Add to test scope if missing — run `cd backend && ./mvnw test -Dtest=SlWorldApiClientTest` and if it fails with "cannot resolve WireMockServer," add to pom.xml:
-
-```xml
-        <dependency>
-            <groupId>com.github.tomakehurst</groupId>
-            <artifactId>wiremock-standalone</artifactId>
-            <version>3.10.0</version>
-            <scope>test</scope>
-        </dependency>
-```
-
-Run the test — expect FAIL with "Cannot resolve symbol 'SlWorldApiClient'".
+Run the test — expect FAIL with "Cannot resolve symbol 'SlWorldApiClient'". WireMock was added in Step 2.1 so the test class compiles; it fails only on the missing implementation class.
 
 - [ ] **Step 2.9: Create SlWorldApiClient**
 
