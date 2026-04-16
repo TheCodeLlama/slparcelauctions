@@ -191,3 +191,18 @@
   --color-inverse-on-surface: #2f3133;
   --color-inverse-primary: #7b5808;
 }
+
+@keyframes slide-in-from-top {
+  from {
+    transform: translateY(-1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-from-top {
+  animation: slide-in-from-top 200ms ease-out;
+}

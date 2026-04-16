@@ -154,6 +154,6 @@ class AuthControllerTest {
     private UserResponse stubUser() {
         return new UserResponse(
             1L, "new@example.com", "Newbie", null, null, null, null, null, null, null, null,
-            null, null, null, null, null, OffsetDateTime.now());
+            null, null, null, null, null, OffsetDateTime.now(), OffsetDateTime.now());
     }
 }

@@ -1,6 +1,19 @@
 // frontend/src/test/msw/handlers.ts
 import { http, HttpResponse } from "msw";
-import { mockUser, mockAuthResponse } from "./fixtures";
+import {
+  mockUser,
+  mockAuthResponse,
+  mockUnverifiedCurrentUser,
+  mockVerifiedCurrentUser,
+  mockPublicProfile,
+  mockValidationProblemDetail,
+  mockUploadTooLargeProblemDetail,
+  mockUnsupportedFormatProblemDetail,
+  mockUserNotFoundProblemDetail,
+  mockVerificationNotFoundProblemDetail,
+  mockAlreadyVerifiedProblemDetail,
+} from "./fixtures";
+import type { CurrentUser, PublicUserProfile, UpdateProfileRequest } from "@/lib/user/api";
 
 /**
  * Named handler factories for every auth endpoint, plus a `defaultHandlers`
@@ -111,6 +124,83 @@ export const authHandlers = {
   logoutAllSuccess: () =>
     http.post("*/api/v1/auth/logout-all", () =>
       new HttpResponse(null, { status: 204 })
+    ),
+};
+
+export const userHandlers = {
+  meUnverified: (user: CurrentUser = mockUnverifiedCurrentUser) =>
+    http.get("*/api/v1/users/me", () => HttpResponse.json(user)),
+
+  meVerified: (user: CurrentUser = mockVerifiedCurrentUser) =>
+    http.get("*/api/v1/users/me", () => HttpResponse.json(user)),
+
+  meError: () =>
+    http.get("*/api/v1/users/me", () =>
+      HttpResponse.json(
+        { status: 500, title: "Internal Server Error" },
+        { status: 500 }
+      )
+    ),
+
+  updateMeSuccess: (base: CurrentUser = mockVerifiedCurrentUser) =>
+    http.put("*/api/v1/users/me", async ({ request }) => {
+      const body = (await request.json()) as UpdateProfileRequest;
+      return HttpResponse.json({
+        ...base,
+        displayName: body.displayName ?? base.displayName,
+        bio: body.bio ?? base.bio,
+        updatedAt: new Date().toISOString(),
+      });
+    }),
+
+  updateMeValidationError: () =>
+    http.put("*/api/v1/users/me", () =>
+      HttpResponse.json(mockValidationProblemDetail, { status: 400 })
+    ),
+
+  uploadAvatarSuccess: (user: CurrentUser = mockVerifiedCurrentUser) =>
+    http.post("*/api/v1/users/me/avatar", () =>
+      HttpResponse.json({ ...user, updatedAt: new Date().toISOString() })
+    ),
+
+  uploadAvatarOversized: () =>
+    http.post("*/api/v1/users/me/avatar", () =>
+      HttpResponse.json(mockUploadTooLargeProblemDetail, { status: 413 })
+    ),
+
+  uploadAvatarUnsupportedFormat: () =>
+    http.post("*/api/v1/users/me/avatar", () =>
+      HttpResponse.json(mockUnsupportedFormatProblemDetail, { status: 400 })
+    ),
+
+  publicProfileSuccess: (profile: PublicUserProfile = mockPublicProfile) =>
+    http.get("*/api/v1/users/:id", () => HttpResponse.json(profile)),
+
+  publicProfileNotFound: () =>
+    http.get("*/api/v1/users/:id", () =>
+      HttpResponse.json(mockUserNotFoundProblemDetail, { status: 404 })
+    ),
+};
+
+export const verificationHandlers = {
+  activeNone: () =>
+    http.get("*/api/v1/verification/active", () =>
+      HttpResponse.json(mockVerificationNotFoundProblemDetail, { status: 404 })
+    ),
+
+  activeExists: (code = "123456", expiresAt = "2026-04-14T21:00:00Z") =>
+    http.get("*/api/v1/verification/active", () =>
+      HttpResponse.json({ code, expiresAt })
+    ),
+
+  generateSuccess: (code = "654321", expiresAt = "2026-04-14T21:15:00Z") =>
+    http.post("*/api/v1/verification/generate", () =>
+      HttpResponse.json({ code, expiresAt })
+    ),
+
+  generateAlreadyVerified: () =>
+    http.post("*/api/v1/verification/generate", () =>
+      HttpResponse.json(mockAlreadyVerifiedProblemDetail, { status: 409 })
     ),
 };
 
