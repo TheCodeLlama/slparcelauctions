@@ -8,6 +8,7 @@ type AvatarProps = {
   alt: string;
   name?: string;
   size?: AvatarSize;
+  cacheBust?: string | number;
   className?: string;
 };
 
@@ -18,6 +19,15 @@ const sizeMap: Record<AvatarSize, { px: number; class: string }> = {
   lg: { px: 56, class: "size-14 text-title-md" },
   xl: { px: 80, class: "size-20 text-title-lg" },
 };
+
+function withCacheBust(
+  src: string,
+  cacheBust?: string | number,
+): string {
+  if (cacheBust === undefined) return src;
+  const separator = src.includes("?") ? "&" : "?";
+  return `${src}${separator}v=${encodeURIComponent(cacheBust)}`;
+}
 
 function initialsFromName(name?: string): string {
   if (!name) return "?";
@@ -32,6 +42,7 @@ export function Avatar({
   alt,
   name,
   size = "md",
+  cacheBust,
   className,
 }: AvatarProps) {
   const { px, class: sizeClass } = sizeMap[size];
@@ -39,7 +50,7 @@ export function Avatar({
   if (src) {
     return (
       <Image
-        src={src}
+        src={withCacheBust(src, cacheBust)}
         alt={alt}
         width={px}
         height={px}

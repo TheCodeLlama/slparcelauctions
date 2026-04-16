@@ -31,4 +31,24 @@ describe("Avatar", () => {
     rerender(<Avatar alt="x" name="X X" size="xl" />);
     expect(screen.getByText("XX").parentElement?.className).toContain("size-20");
   });
+
+  it("cacheBust appends ?v= with encoded value", () => {
+    renderWithProviders(
+      <Avatar src="/avatar.png" alt="Heath" cacheBust="abc 123" />,
+    );
+    const img = screen.getByAltText("Heath") as HTMLImageElement;
+    // Next.js Image encodes the src into /_next/image?url=..., so decode to verify
+    const rawSrc = decodeURIComponent(img.getAttribute("src") ?? "");
+    expect(rawSrc).toContain("v=abc%20123");
+  });
+
+  it("cacheBust merges with existing query string via &", () => {
+    renderWithProviders(
+      <Avatar src="/avatar.png?size=lg" alt="Heath" cacheBust={42} />,
+    );
+    const img = screen.getByAltText("Heath") as HTMLImageElement;
+    const rawSrc = decodeURIComponent(img.getAttribute("src") ?? "");
+    expect(rawSrc).toContain("size=lg");
+    expect(rawSrc).toContain("&v=42");
+  });
 });
