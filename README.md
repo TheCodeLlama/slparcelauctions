@@ -95,11 +95,13 @@ All HTTP routes above are mirrored in the `SLPA` Postman collection (collection 
 
 A dev-profile-only helper sits at `POST /api/v1/dev/sl/simulate-verify` so the frontend dashboard can exercise the full SL verification path from a browser before Epic 11 ships real LSL scripts. The body only requires `verificationCode`; `DevSimulateRequest.toSlVerifyRequest()` defaults the avatar metadata (random UUID per call, `Dev Tester` name, payInfo `3`) and `DevSlSimulateController` synthesizes the SL headers internally from the first `slpa.sl.trusted-owner-keys` entry, then delegates to the real `SlVerificationService` so the dev path exercises identical orchestration and exception mapping. The bean is annotated `@Profile("dev")` (the real gate); `SecurityConfig` permits `/api/v1/dev/**` unconditionally so any prod request 404s at the MVC layer because no handler bean exists. `DevSlSimulateBeanProfileTest` pins the gate by booting the context under a non-dev profile and asserting the controller field is `null`.
 
-The frontend dev server runs at `http://localhost:3000`. Component primitives live under `src/components/ui/` (Button, IconButton, Input, Card, StatusBadge, Avatar, ThemeToggle, Dropdown), layout shell under `src/components/layout/`, and the typed API client + auth stub + cn helper under `src/lib/`. Theme tokens (M3 Material Design vocabulary, both light and dark) live in `src/app/globals.css`. The full design rationale is in [`docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md`](docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md).
+The frontend dev server runs at `http://localhost:3000`. Component primitives live under `src/components/ui/` (Button, IconButton, Input, Card, StatusBadge, Avatar, ThemeToggle, Dropdown, Tabs, CountdownTimer, CodeDisplay, EmptyState, LoadingSpinner, Toast), layout shell under `src/components/layout/`, and the typed API client + auth stub + cn helper under `src/lib/`. Theme tokens (M3 Material Design vocabulary, both light and dark) live in `src/app/globals.css`. The full design rationale is in [`docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md`](docs/superpowers/specs/2026-04-10-task-01-06-frontend-foundation-design.md).
 
 The frontend has three auth pages (`/register`, `/login`, `/forgot-password`) wired to the backend JWT auth endpoints from Task 01-07. Forms use react-hook-form + zod with backend ProblemDetail error mapping. Tests run against MSW mocks; the canary `lib/api.401-interceptor.test.tsx` proves the API client's auto-refresh-and-retry behavior. See [`docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md`](docs/superpowers/specs/2026-04-12-task-01-08-frontend-auth-design.md) for the full design.
 
 The root route `/` is a public marketing landing page composed of four sections: a hero with auth-aware CTAs, a 4-step "how it works" flow, a 6-card asymmetric features bento grid, and an auth-hidden gradient CTA block (Task 01-10). All section components live under `src/components/marketing/`.
+
+The `/dashboard` route tree (Epic 02 sub-spec 2b) uses Next.js 16 route groups to gate access. Unverified users are captured by the layout into `/dashboard/verify`, a full-page verification takeover that polls `/api/v1/users/me` every 5 seconds and auto-transitions to `/dashboard/overview` once the backend reports `verified: true`. Verified users see a tabbed dashboard with `/dashboard/overview`, `/dashboard/bids`, and `/dashboard/listings` tabs. `/users/[id]` is the public profile page (works for authenticated and anonymous visitors). Domain components live under `src/components/user/` (UnverifiedVerifyFlow, VerificationCodeDisplay, VerifiedOverview, ProfileEditForm, ProfilePictureUploader, VerifiedIdentityCard, PublicProfileView, ReputationStars, NewSellerBadge). The data layer in `src/lib/user/` provides TanStack Query hooks (`useCurrentUser`, `useUpdateProfile`, `useUploadAvatar`, `useActiveVerificationCode`, `useGenerateVerificationCode`). UI primitives added for this epic: Tabs, CountdownTimer, CodeDisplay, EmptyState, LoadingSpinner, and a portal-rendered Toast notification system (`src/components/ui/Toast/`).
 
 Task 01-09 wires the real-time pipe end-to-end. The backend exposes a STOMP-over-WebSocket endpoint at `/ws` with SockJS fallback, authenticated at the STOMP `CONNECT` frame by `JwtChannelInterceptor` (the HTTP upgrade itself is `permitAll` — browsers cannot send custom headers on a WebSocket handshake). A dev/test-only broadcast endpoint `POST /api/v1/ws-test/broadcast` fans messages out to `/topic/ws-test`. The frontend ships a singleton STOMP client in `lib/ws/client.ts` with a reusable `ensureFreshAccessToken` stampede guard shared with the HTTP 401 interceptor, plus `useConnectionState` / `useStompSubscription` hooks, and a development-only verification harness page at [`/dev/ws-test`](http://localhost:3000/dev/ws-test) (404s in production builds).
 
@@ -113,7 +115,7 @@ Avatars get two new endpoints: `POST /api/v1/users/me/avatar` (multipart, authen
 
 ```bash
 cd backend && ./mvnw test             # ~190 unit / slice / integration tests incl. JWT auth, verification, SL verification, dev simulate, the /api/v1 prefix migration smoke test, the S3 object storage unit tests, the AvatarImageProcessor fixture-driven tests, the PUT /me slice suite with the unknown-field security canary, the avatar upload + public proxy slice suite, and the AvatarUploadFlowIntegrationTest that round-trips register -> upload -> fetch against real dev MinIO (integration tests need postgres on :5432 and MinIO on :9000)
-cd frontend && npm run test           # vitest unit tests (~185 cases — primitives, layout, lib, auth flows)
+cd frontend && npm run test           # vitest unit + integration tests (~263 cases — primitives, layout, lib, auth flows, dashboard domain components, public profile, integration smoke)
 cd frontend && npm run lint           # eslint
 cd frontend && npm run verify         # grep-based rules: no dark: variants, no hex colors, no inline styles, every primitive has a test
 ```
@@ -132,6 +134,11 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 │       ├── sl/              SL integration slice (header-gated /sl/verify)
 │       └── storage/         Object storage slice (S3Client config, ObjectStorageService, startup validator)
 ├── frontend/                Next.js app
+│   └── src/
+│       ├── components/ui/   UI primitives (Button, Tabs, Toast, etc.)
+│       ├── components/user/ Domain composites (verify flow, profile, reputation)
+│       ├── lib/user/        TanStack Query hooks + typed API client for /users
+│       └── app/dashboard/   Dashboard route tree with verification gate
 ├── docs/
 │   ├── initial-design/      Spec, schema, user flows
 │   └── implementation/      Phased task breakdown + CONVENTIONS.md
