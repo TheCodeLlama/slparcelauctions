@@ -24,7 +24,8 @@ public record UserResponse(
         Boolean emailVerified,
         Map<String, Object> notifyEmail,
         Map<String, Object> notifySlIm,
-        OffsetDateTime createdAt) {
+        OffsetDateTime createdAt,
+        OffsetDateTime updatedAt) {
 
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -44,6 +45,7 @@ public record UserResponse(
                 user.getEmailVerified(),
                 user.getNotifyEmail(),
                 user.getNotifySlIm(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.getUpdatedAt());
     }
 }

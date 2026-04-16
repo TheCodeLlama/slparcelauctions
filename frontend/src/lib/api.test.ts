@@ -70,6 +70,29 @@ describe("api", () => {
     expect(result).toBeUndefined();
   });
 
+  it("does not set Content-Type or stringify FormData bodies", async () => {
+    const observed: { headers: Headers; body: BodyInit | null | undefined } = {
+      headers: new Headers(),
+      body: undefined,
+    };
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      observed.headers = new Headers(init.headers);
+      observed.body = init.body as BodyInit;
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const form = new FormData();
+    form.append("file", new Blob(["hello"], { type: "image/png" }), "test.png");
+    await api.post("/api/v1/users/me/avatar", form);
+
+    expect(observed.headers.has("Content-Type")).toBe(false);
+    expect(observed.body).toBeInstanceOf(FormData);
+  });
+
   it("URLSearchParams-encodes the params field, stripping undefined values", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify([]), {
