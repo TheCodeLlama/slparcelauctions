@@ -20,15 +20,6 @@ const sizeMap: Record<AvatarSize, { px: number; class: string }> = {
   xl: { px: 80, class: "size-20 text-title-lg" },
 };
 
-function withCacheBust(
-  src: string,
-  cacheBust?: string | number,
-): string {
-  if (cacheBust === undefined) return src;
-  const separator = src.includes("?") ? "&" : "?";
-  return `${src}${separator}v=${encodeURIComponent(cacheBust)}`;
-}
-
 function initialsFromName(name?: string): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -50,7 +41,8 @@ export function Avatar({
   if (src) {
     return (
       <Image
-        src={withCacheBust(src, cacheBust)}
+        key={cacheBust !== undefined ? `${src}-${cacheBust}` : src}
+        src={src}
         alt={alt}
         width={px}
         height={px}

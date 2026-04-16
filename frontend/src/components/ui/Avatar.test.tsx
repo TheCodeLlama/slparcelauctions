@@ -32,23 +32,18 @@ describe("Avatar", () => {
     expect(screen.getByText("XX").parentElement?.className).toContain("size-20");
   });
 
-  it("cacheBust appends ?v= with encoded value", () => {
-    renderWithProviders(
-      <Avatar src="/avatar.png" alt="Heath" cacheBust="abc 123" />,
+  it("cacheBust forces a remount by changing the key (src stays clean)", () => {
+    const { rerender } = renderWithProviders(
+      <Avatar src="/avatar.png" alt="Heath" cacheBust="v1" />,
     );
-    const img = screen.getByAltText("Heath") as HTMLImageElement;
-    // Next.js Image encodes the src into /_next/image?url=..., so decode to verify
-    const rawSrc = decodeURIComponent(img.getAttribute("src") ?? "");
-    expect(rawSrc).toContain("v=abc%20123");
-  });
+    const img1 = screen.getByAltText("Heath") as HTMLImageElement;
+    const src1 = img1.getAttribute("src") ?? "";
+    expect(src1).not.toContain("v=");
 
-  it("cacheBust merges with existing query string via &", () => {
-    renderWithProviders(
-      <Avatar src="/avatar.png?size=lg" alt="Heath" cacheBust={42} />,
-    );
-    const img = screen.getByAltText("Heath") as HTMLImageElement;
-    const rawSrc = decodeURIComponent(img.getAttribute("src") ?? "");
-    expect(rawSrc).toContain("size=lg");
-    expect(rawSrc).toContain("&v=42");
+    rerender(<Avatar src="/avatar.png" alt="Heath" cacheBust="v2" />);
+    const img2 = screen.getByAltText("Heath") as HTMLImageElement;
+    const src2 = img2.getAttribute("src") ?? "";
+    expect(src2).not.toContain("v=");
+    expect(src2).toBe(src1);
   });
 });
