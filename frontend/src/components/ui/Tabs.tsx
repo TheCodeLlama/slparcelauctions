@@ -41,6 +41,7 @@ export function Tabs({ tabs, className }: TabsProps) {
             href={tab.href}
             role="tab"
             aria-selected={isActive}
+            aria-controls={`${tab.id}-panel`}
             className={cn(
               "px-4 py-2 text-label-lg transition-colors",
               isActive

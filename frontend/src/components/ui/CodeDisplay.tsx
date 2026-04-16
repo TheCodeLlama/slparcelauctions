@@ -7,9 +7,9 @@ import { IconButton } from "@/components/ui/IconButton";
 
 type CodeDisplayProps = {
   code: string;
-  label: string;
+  label?: string;
   onCopySuccess?: () => void;
-  onCopyError?: (error: unknown) => void;
+  onCopyError?: (err: Error) => void;
   className?: string;
 };
 
@@ -25,7 +25,7 @@ export function CodeDisplay({
       await navigator.clipboard.writeText(code);
       onCopySuccess?.();
     } catch (err) {
-      onCopyError?.(err);
+      onCopyError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }, [code, onCopySuccess, onCopyError]);
 

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
 type CountdownTimerProps = {
-  expiresAt: number;
+  expiresAt: Date;
   format?: "mm:ss" | "hh:mm:ss";
   onExpire?: () => void;
   className?: string;
@@ -49,7 +49,7 @@ export function CountdownTimer({
     return () => clearInterval(id);
   }, []);
 
-  const remaining = expiresAt - now;
+  const remaining = expiresAt.getTime() - now;
 
   useEffect(() => {
     if (remaining <= 0 && !expiredRef.current) {
