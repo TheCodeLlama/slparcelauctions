@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,20 +20,28 @@ import com.slparcelauctions.backend.verification.exception.AlreadyVerifiedExcept
 import com.slparcelauctions.backend.verification.exception.CodeCollisionException;
 import com.slparcelauctions.backend.verification.exception.CodeNotFoundException;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class VerificationCodeService {
-
-    public static final Duration CODE_TTL = Duration.ofMinutes(15);
 
     private final VerificationCodeRepository repository;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final Duration codeTtl;
     private final SecureRandom random = new SecureRandom();
+
+    public VerificationCodeService(
+            VerificationCodeRepository repository,
+            UserRepository userRepository,
+            Clock clock,
+            @Value("${slpa.verification.parcel-code-ttl-minutes:15}") int codeTtlMinutes) {
+        this.repository = repository;
+        this.userRepository = userRepository;
+        this.clock = clock;
+        this.codeTtl = Duration.ofMinutes(codeTtlMinutes);
+    }
 
     /** Generate a fresh code for the given user, voiding any prior active codes. */
     @Transactional
@@ -44,7 +53,7 @@ public class VerificationCodeService {
         }
         voidActive(userId, type);
         String code = String.format("%06d", random.nextInt(1_000_000));
-        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(CODE_TTL);
+        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(codeTtl);
         VerificationCode row = repository.save(
                 VerificationCode.builder()
                         .userId(userId)
@@ -78,7 +87,7 @@ public class VerificationCodeService {
     public GenerateCodeResponse generateForParcel(Long userId, Long auctionId) {
         voidActiveParcelCodes(auctionId);
         String code = String.format("%06d", random.nextInt(1_000_000));
-        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(CODE_TTL);
+        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(codeTtl);
         VerificationCode row = repository.save(
                 VerificationCode.builder()
                         .userId(userId)
