@@ -46,3 +46,12 @@ slpa:
     bucket: slpa-uploads
     region: us-east-1
     path-style-access: false
+  world-api:
+    base-url: https://world.secondlife.com
+    timeout-ms: 10000
+    retry-attempts: 3
+    retry-backoff-ms: 500
+  map-api:
+    base-url: https://cap.secondlife.com
+    cap-uuid: b713fe80-283b-4585-af4d-a3b7d9a32492
+    timeout-ms: 5000
