@@ -124,6 +124,7 @@ export function CancelListingModal({
               Keep listing
             </Button>
             <Button
+              variant="destructive"
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending}
               loading={mutation.isPending}

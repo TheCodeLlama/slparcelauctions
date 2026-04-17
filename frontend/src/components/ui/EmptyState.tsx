@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -5,6 +6,8 @@ type EmptyStateProps = {
   icon: LucideIcon;
   headline: string;
   description?: string;
+  /** Optional slot for a CTA (e.g. primary-action button) below the copy. */
+  children?: ReactNode;
   className?: string;
 };
 
@@ -12,6 +15,7 @@ export function EmptyState({
   icon: Icon,
   headline,
   description,
+  children,
   className,
 }: EmptyStateProps) {
   return (
@@ -28,6 +32,7 @@ export function EmptyState({
           {description}
         </p>
       )}
+      {children && <div className="mt-2">{children}</div>}
     </div>
   );
 }

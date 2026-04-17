@@ -29,4 +29,15 @@ describe("EmptyState", () => {
     const heading = screen.getByRole("heading", { name: "Empty" });
     expect(heading.tagName).toBe("H3");
   });
+
+  it("renders a CTA slot when children are passed", () => {
+    renderWithProviders(
+      <EmptyState icon={Search} headline="Nothing here">
+        <button type="button">Do the thing</button>
+      </EmptyState>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Do the thing" }),
+    ).toBeInTheDocument();
+  });
 });

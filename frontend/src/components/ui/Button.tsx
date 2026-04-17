@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Loader2 } from "./icons";
 import { cn } from "@/lib/cn";
 
-type ButtonVariant = "primary" | "secondary" | "tertiary";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive";
 type ButtonSize = "sm" | "md" | "lg";
 
 type ButtonProps = {
@@ -21,6 +21,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   secondary:
     "bg-surface-container-lowest text-on-surface shadow-soft hover:shadow-elevated",
   tertiary: "text-primary hover:underline underline-offset-4",
+  destructive:
+    "bg-error text-on-error shadow-soft hover:shadow-elevated hover:opacity-90",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
