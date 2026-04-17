@@ -13,4 +13,8 @@ export type { TabItem } from "./Tabs";
 export { CountdownTimer } from "./CountdownTimer";
 export { CodeDisplay } from "./CodeDisplay";
 export { EmptyState } from "./EmptyState";
+export { Stepper } from "./Stepper";
+export type { StepperProps } from "./Stepper";
+export { DropZone } from "./DropZone";
+export type { DropZoneProps } from "./DropZone";
 export * from "./icons";
