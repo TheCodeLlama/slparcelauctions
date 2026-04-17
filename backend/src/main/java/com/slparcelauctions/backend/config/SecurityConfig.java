@@ -83,6 +83,13 @@ public class SecurityConfig {
                         // Authenticated profile edit (explicit for grep-ability; catch-all also covers it).
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me").authenticated()
                         // --- End Epic 02 sub-spec 2a additions ---
+                        // Bot worker queue (Epic 03 sub-spec 1, Task 8). Ships without auth
+                        // in sub-spec 1 — Epic 06 (SL bot service) will add bot worker
+                        // authentication before the real worker is deployed. See spec §12.4
+                        // and the Epic 06 entry in DEFERRED_WORK.md. FOOTGUNS §B.5: this MUST
+                        // sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bot/tasks/pending").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/bot/tasks/**").permitAll()
                         // Dev simulate helper - permit at HTTP layer always. The bean is only
                         // registered under @Profile("dev"); in prod the handler doesn't exist so
                         // the request 404s (falling through Spring MVC rather than Spring Security).

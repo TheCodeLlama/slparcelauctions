@@ -23,6 +23,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
+import com.slparcelauctions.backend.bot.BotTaskRepository;
+import com.slparcelauctions.backend.bot.BotTaskService;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.user.User;
@@ -48,10 +50,15 @@ class AuctionVerificationServiceMethodBTest {
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
+    private static final UUID ESCROW_UUID = UUID.fromString("00000000-0000-0000-0000-000000000099");
+    private static final long SENTINEL_PRICE = 999999999L;
+
     @Mock AuctionService auctionService;
     @Mock AuctionRepository auctionRepo;
     @Mock SlWorldApiClient worldApi;
     @Mock VerificationCodeService verificationCodeService;
+    @Mock BotTaskService botTaskService;
+    @Mock BotTaskRepository botTaskRepo;
 
     AuctionVerificationService service;
 
@@ -63,7 +70,8 @@ class AuctionVerificationServiceMethodBTest {
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
         service = new AuctionVerificationService(
-                auctionService, auctionRepo, worldApi, verificationCodeService, fixed);
+                auctionService, auctionRepo, worldApi, verificationCodeService,
+                botTaskService, botTaskRepo, fixed, ESCROW_UUID, SENTINEL_PRICE);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();

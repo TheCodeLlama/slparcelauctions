@@ -2,10 +2,12 @@ package com.slparcelauctions.backend.auction;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.bot.BotTask;
+import com.slparcelauctions.backend.bot.BotTaskRepository;
+import com.slparcelauctions.backend.bot.BotTaskService;
+import com.slparcelauctions.backend.bot.BotTaskStatus;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -20,7 +26,6 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.verification.VerificationCodeService;
 import com.slparcelauctions.backend.verification.dto.ActiveCodeResponse;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -29,8 +34,12 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li><b>Method A (UUID_ENTRY)</b> — synchronous inline World API ownership
  *       check. Transitions directly to ACTIVE or VERIFICATION_FAILED.</li>
- *   <li><b>Method B (REZZABLE)</b> — wired in Task 7.</li>
- *   <li><b>Method C (SALE_TO_BOT)</b> — wired in Task 8.</li>
+ *   <li><b>Method B (REZZABLE)</b> — asynchronous in-world LSL object callback;
+ *       {@code dispatchMethodB} issues a PARCEL verification code and the
+ *       {@code POST /api/v1/sl/parcel/verify} handler finishes the transition.</li>
+ *   <li><b>Method C (SALE_TO_BOT)</b> — asynchronous bot worker; {@code dispatchMethodC}
+ *       enqueues a {@link BotTask} and {@link BotTaskService#complete} finishes
+ *       the transition when the worker (or dev stub) reports back.</li>
  * </ul>
  *
  * <p>Every DRAFT_PAID → ACTIVE path goes through {@link #assertParcelNotLocked}
@@ -45,7 +54,6 @@ import lombok.extern.slf4j.Slf4j;
  * <p>See spec §8.3 for the parcel-lock invariant and §9 for Method A flow.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuctionVerificationService {
 
@@ -58,7 +66,32 @@ public class AuctionVerificationService {
     private final AuctionRepository auctionRepo;
     private final SlWorldApiClient worldApi;
     private final VerificationCodeService verificationCodeService;
+    private final BotTaskService botTaskService;
+    private final BotTaskRepository botTaskRepo;
     private final Clock clock;
+    private final UUID primaryEscrowUuid;
+    private final long sentinelPriceLindens;
+
+    public AuctionVerificationService(
+            AuctionService auctionService,
+            AuctionRepository auctionRepo,
+            SlWorldApiClient worldApi,
+            VerificationCodeService verificationCodeService,
+            BotTaskService botTaskService,
+            BotTaskRepository botTaskRepo,
+            Clock clock,
+            @Value("${slpa.bot-task.primary-escrow-uuid}") UUID primaryEscrowUuid,
+            @Value("${slpa.bot-task.sentinel-price-lindens:999999999}") long sentinelPriceLindens) {
+        this.auctionService = auctionService;
+        this.auctionRepo = auctionRepo;
+        this.worldApi = worldApi;
+        this.verificationCodeService = verificationCodeService;
+        this.botTaskService = botTaskService;
+        this.botTaskRepo = botTaskRepo;
+        this.clock = clock;
+        this.primaryEscrowUuid = primaryEscrowUuid;
+        this.sentinelPriceLindens = sentinelPriceLindens;
+    }
 
     /**
      * Entry point. Loads the auction (404s non-sellers), validates the state
@@ -85,8 +118,25 @@ public class AuctionVerificationService {
         return switch (method) {
             case UUID_ENTRY -> dispatchMethodA(pending);
             case REZZABLE -> dispatchMethodB(pending);
-            case SALE_TO_BOT -> throw new UnsupportedOperationException("Method C wired in Task 8");
+            case SALE_TO_BOT -> dispatchMethodC(pending);
         };
+    }
+
+    /**
+     * Method C: enqueue a bot_task for the SL worker (Epic 06) to verify via a
+     * parcel sale-to-bot check. On retry from VERIFICATION_FAILED,
+     * {@link BotTaskService#createForAuction} deduplicates by marking any prior
+     * open task for this auction {@code FAILED("Superseded by retry")}. Leaves
+     * the auction in VERIFICATION_PENDING; the transition to ACTIVE happens in
+     * {@link BotTaskService#complete} when the worker (or dev stub at
+     * {@code POST /api/v1/dev/bot/tasks/{id}/complete}) reports SUCCESS. If
+     * nothing reports back within 48 hours, {@code BotTaskTimeoutJob} flips
+     * the auction to VERIFICATION_FAILED.
+     */
+    private Auction dispatchMethodC(Auction a) {
+        botTaskService.createForAuction(a);
+        log.info("Method C verification pending: auction {} enqueued for bot worker", a.getId());
+        return a;
     }
 
     /**
@@ -208,8 +258,8 @@ public class AuctionVerificationService {
      * Returns the pending-verification payload for the seller response. Method
      * A is synchronous (never stays in VERIFICATION_PENDING after
      * {@link #triggerVerification}), so it always returns null. Method B
-     * hydrates the freshly-generated PARCEL code + expiry. Method C will be
-     * filled in in Task 8.
+     * hydrates the freshly-generated PARCEL code + expiry. Method C surfaces
+     * the enqueued bot task id + human-readable instructions.
      */
     @Transactional(readOnly = true)
     public PendingVerification buildPendingVerification(Auction a) {
@@ -223,7 +273,7 @@ public class AuctionVerificationService {
         return switch (method) {
             case UUID_ENTRY -> null;      // Method A is synchronous; never pending.
             case REZZABLE -> buildRezzablePending(a);
-            case SALE_TO_BOT -> null;     // Wired in Task 8.
+            case SALE_TO_BOT -> buildBotTaskPending(a);
         };
     }
 
@@ -236,5 +286,43 @@ public class AuctionVerificationService {
                         c.code(), c.expiresAt(),
                         null, null))
                 .orElse(null);
+    }
+
+    /**
+     * Resolves the most recent open bot task for this auction and formats the
+     * seller-visible instructions. Checks PENDING first (the common case) and
+     * falls back to IN_PROGRESS so a task the worker has already claimed
+     * still surfaces in the response. Returns null if no open task exists —
+     * the {@link BotTaskTimeoutJob} or a retry will have already flipped the
+     * auction out of VERIFICATION_PENDING by the time this is called.
+     */
+    private PendingVerification buildBotTaskPending(Auction a) {
+        BotTask open = findOpenTask(a, BotTaskStatus.PENDING);
+        if (open == null) {
+            open = findOpenTask(a, BotTaskStatus.IN_PROGRESS);
+        }
+        if (open == null) {
+            return null;
+        }
+        String instructions = String.format(
+                "Set your parcel for sale to SLPAEscrow Resident (UUID: %s) at L$%d. "
+                        + "A verification worker will confirm within 48 hours.",
+                primaryEscrowUuid, sentinelPriceLindens);
+        return new PendingVerification(
+                VerificationMethod.SALE_TO_BOT,
+                null, null,
+                open.getId(), instructions);
+    }
+
+    private BotTask findOpenTask(Auction a, BotTaskStatus status) {
+        List<BotTask> tasks = botTaskRepo.findByStatusOrderByCreatedAtAsc(status);
+        BotTask latest = null;
+        for (BotTask t : tasks) {
+            if (!t.getAuction().getId().equals(a.getId())) continue;
+            if (latest == null || t.getCreatedAt().isAfter(latest.getCreatedAt())) {
+                latest = t;
+            }
+        }
+        return latest;
     }
 }

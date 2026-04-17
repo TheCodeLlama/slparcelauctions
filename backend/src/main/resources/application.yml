@@ -45,6 +45,20 @@ slpa:
   verification:
     parcel-code-ttl-minutes: 15
     parcel-code-expiry-check-interval: PT5M
+  bot-task:
+    # Sentinel sale price (L$) that the seller must set on the parcel-for-sale
+    # object in-world. Deliberately large so no human would pick it by accident
+    # but cheap to transact (the bot never actually buys).
+    sentinel-price-lindens: 999999999
+    # SLPAEscrow Resident avatar UUID. Dev placeholder; production overrides
+    # via env var. This is the "buyer" the seller must target in the parcel
+    # sale UI for the bot to recognize the listing.
+    primary-escrow-uuid: 00000000-0000-0000-0000-000000000099
+    # If a PENDING bot task is not picked up + completed within this window,
+    # BotTaskTimeoutJob fails it and flips the auction to VERIFICATION_FAILED.
+    timeout-hours: 48
+    # BotTaskTimeoutJob polling cadence.
+    timeout-check-interval: PT15M
   storage:
     bucket: slpa-uploads
     region: us-east-1
