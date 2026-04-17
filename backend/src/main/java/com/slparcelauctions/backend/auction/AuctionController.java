@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
+import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
@@ -41,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 public class AuctionController {
 
     private final AuctionService auctionService;
+    private final AuctionVerificationService verificationService;
     private final CancellationService cancellationService;
     private final AuctionDtoMapper mapper;
     private final UserRepository userRepository;
@@ -87,6 +89,17 @@ public class AuctionController {
         requireVerified(principal.userId());
         Auction updated = auctionService.update(id, principal.userId(), req);
         return mapper.toSellerResponse(updated, null);
+    }
+
+    @PutMapping("/auctions/{id}/verify")
+    public SellerAuctionResponse verify(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        Long userId = principal.userId();
+        requireVerified(userId);
+        Auction a = verificationService.triggerVerification(id, userId);
+        PendingVerification pending = verificationService.buildPendingVerification(a);
+        return mapper.toSellerResponse(a, pending);
     }
 
     @PutMapping("/auctions/{id}/cancel")

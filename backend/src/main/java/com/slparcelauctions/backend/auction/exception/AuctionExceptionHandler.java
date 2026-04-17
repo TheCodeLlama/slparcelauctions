@@ -47,6 +47,19 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(ParcelAlreadyListedException.class)
+    public ProblemDetail handleParcelAlreadyListed(
+            ParcelAlreadyListedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Parcel Already Listed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PARCEL_ALREADY_LISTED");
+        pd.setProperty("parcelId", e.getParcelId());
+        pd.setProperty("blockingAuctionId", e.getBlockingAuctionId());
+        return pd;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(

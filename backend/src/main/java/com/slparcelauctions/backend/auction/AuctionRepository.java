@@ -17,6 +17,14 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     boolean existsByParcelIdAndStatusInAndIdNot(
             Long parcelId, Collection<AuctionStatus> statuses, Long excludeAuctionId);
 
+    /**
+     * Identifies the auction currently holding the parcel-lock on a parcel so
+     * {@code ParcelAlreadyListedException} can surface its ID in the 409
+     * response. Paired with {@link #existsByParcelIdAndStatusInAndIdNot}.
+     */
+    Optional<Auction> findFirstByParcelIdAndStatusIn(
+            Long parcelId, Collection<AuctionStatus> statuses);
+
     /** Used by ParcelCodeExpiryJob to find stuck Method B auctions. */
     List<Auction> findByStatusAndVerificationMethod(
             AuctionStatus status, VerificationMethod verificationMethod);
