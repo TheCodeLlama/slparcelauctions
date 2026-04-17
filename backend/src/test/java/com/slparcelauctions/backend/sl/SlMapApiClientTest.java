@@ -15,7 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.slparcelauctions.backend.sl.dto.GridCoordinates;
-import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
+import com.slparcelauctions.backend.sl.exception.RegionNotFoundException;
 
 class SlMapApiClientTest {
 
@@ -39,7 +39,7 @@ class SlMapApiClientTest {
 
     private SlMapApiClient newClient() {
         WebClient webClient = WebClient.builder().baseUrl("http://localhost:" + wireMock.port()).build();
-        return new SlMapApiClient(webClient, "b713fe80-283b-4585-af4d-a3b7d9a32492");
+        return new SlMapApiClient(webClient, "b713fe80-283b-4585-af4d-a3b7d9a32492", 3, 10L);
     }
 
     @Test
@@ -57,11 +57,11 @@ class SlMapApiClientTest {
     }
 
     @Test
-    void resolveRegion_emptyResponse_throwsTimeout() {
+    void resolveRegion_emptyResponse_throwsRegionNotFound() {
         wireMock.stubFor(post(urlPathMatching("/cap/0/.*"))
                 .willReturn(aResponse().withStatus(200).withBody("var coords = new Array();\n")));
 
         assertThatThrownBy(() -> newClient().resolveRegion("NoSuchRegion").block())
-                .isInstanceOf(ExternalApiTimeoutException.class);
+                .isInstanceOf(RegionNotFoundException.class);
     }
 }

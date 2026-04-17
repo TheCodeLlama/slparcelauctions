@@ -55,3 +55,5 @@ slpa:
     base-url: https://cap.secondlife.com
     cap-uuid: b713fe80-283b-4585-af4d-a3b7d9a32492
     timeout-ms: 5000
+    retry-attempts: 3
+    retry-backoff-ms: 500
