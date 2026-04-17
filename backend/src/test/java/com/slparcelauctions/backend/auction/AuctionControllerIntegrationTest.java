@@ -211,6 +211,22 @@ class AuctionControllerIntegrationTest {
                 .andExpect(jsonPath("$.listingFeePaid").doesNotExist());
     }
 
+    @Test
+    void get_suspendedAuction_viewedByNonSeller_returns404() throws Exception {
+        // Spec §6.4 — suspended listings are hidden from public browse, and
+        // direct URL access must match (404, not a public view collapsed to ENDED)
+        // so that a bookmarked URL stops resolving once ownership monitoring
+        // suspends the listing.
+        Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
+        a.setStatus(AuctionStatus.SUSPENDED);
+        auctionRepository.save(a);
+
+        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+                .header("Authorization", "Bearer " + otherAccessToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("AUCTION_NOT_FOUND"));
+    }
+
     // -------------------------------------------------------------------------
     // GET /users/me/auctions
     // -------------------------------------------------------------------------

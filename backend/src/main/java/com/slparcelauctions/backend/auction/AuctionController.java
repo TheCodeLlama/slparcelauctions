@@ -34,8 +34,9 @@ import lombok.RequiredArgsConstructor;
  * Auction CRUD endpoints. Write paths (create/update/cancel) require the caller to be
  * SL-verified — enforced inline by {@link #requireVerified(Long)} before delegating to
  * services. Reads do not require verification: the public view
- * ({@link PublicAuctionResponse}) is available to any authenticated user, and pre-ACTIVE
- * drafts 404 to non-sellers to avoid leaking existence.
+ * ({@link PublicAuctionResponse}) is available to any authenticated user, and statuses
+ * that must stay private to the seller (pre-ACTIVE drafts plus SUSPENDED listings —
+ * spec §6.4) 404 to non-sellers to avoid leaking existence.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -66,7 +67,7 @@ public class AuctionController {
         Long userId = principal == null ? null : principal.userId();
         boolean isSeller = userId != null && a.getSeller().getId().equals(userId);
         if (!isSeller) {
-            if (isPreActive(a.getStatus())) {
+            if (isHiddenFromPublic(a.getStatus())) {
                 throw new AuctionNotFoundException(id); // hide existence
             }
             return mapper.toPublicResponse(a);
@@ -123,11 +124,19 @@ public class AuctionController {
         return mapper.toSellerResponse(a, null);
     }
 
-    private boolean isPreActive(AuctionStatus s) {
+    /**
+     * Statuses that must 404 for non-sellers on direct URL access. Covers
+     * pre-ACTIVE drafts (leaking DRAFT/verification existence would expose
+     * seller prep work) and SUSPENDED listings (spec §6.4 — suspended
+     * listings are hidden from public browse, and direct-URL access must
+     * match that semantics rather than collapse to ENDED).
+     */
+    private boolean isHiddenFromPublic(AuctionStatus s) {
         return s == AuctionStatus.DRAFT
                 || s == AuctionStatus.DRAFT_PAID
                 || s == AuctionStatus.VERIFICATION_PENDING
-                || s == AuctionStatus.VERIFICATION_FAILED;
+                || s == AuctionStatus.VERIFICATION_FAILED
+                || s == AuctionStatus.SUSPENDED;
     }
 
     private void requireVerified(Long userId) {
