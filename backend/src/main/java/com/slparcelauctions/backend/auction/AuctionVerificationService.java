@@ -159,8 +159,9 @@ public class AuctionVerificationService {
      * an in-world object that posts to {@code POST /api/v1/sl/parcel/verify}
      * with the code + parcel/owner data; that endpoint handles the actual
      * transition to ACTIVE (see {@code SlParcelVerifyService}). If the code
-     * expires without a callback, {@code ParcelCodeExpiryJob} reverts the
-     * auction back to DRAFT_PAID.
+     * expires without a callback, {@code ParcelCodeExpiryJob} transitions the
+     * auction to VERIFICATION_FAILED with retry-friendly notes (sub-spec 2
+     * §7.3 — every failure path lands in the same state; no automatic refund).
      */
     private Auction dispatchMethodB(Auction a) {
         verificationCodeService.generateForParcel(a.getSeller().getId(), a.getId());
@@ -201,8 +202,8 @@ public class AuctionVerificationService {
         UUID sellerAvatar = seller.getSlAvatarUuid();
         if (freshOwner == null || sellerAvatar == null || !freshOwner.equals(sellerAvatar)) {
             return failVerification(a,
-                    "Ownership mismatch: parcel owner " + freshOwner
-                            + " does not match seller avatar " + sellerAvatar + ".");
+                    "Ownership check failed: the parcel's owner UUID doesn't match your avatar. "
+                            + "Pick another method or correct the UUID.");
         }
 
         // Service-layer parcel-lock pre-check. Identifies the blocking auction

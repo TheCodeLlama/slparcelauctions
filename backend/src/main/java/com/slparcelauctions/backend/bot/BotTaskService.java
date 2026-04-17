@@ -265,8 +265,12 @@ public class BotTaskService {
         Auction auction = task.getAuction();
         if (auction.getStatus() == AuctionStatus.VERIFICATION_PENDING) {
             auction.setStatus(AuctionStatus.VERIFICATION_FAILED);
+            // Sub-spec 2 §7.3: retry-friendly phrasing consistent with
+            // ParcelCodeExpiryJob and Method A sync failures. No refund here —
+            // ListingFeeRefund is created only by the cancel endpoint.
             auction.setVerificationNotes(
-                    "Bot did not complete verification within the 48-hour window.");
+                    "Sale-to-bot task timed out after 48 hours without a match. "
+                            + "You can retry at no extra cost.");
             auctionRepo.save(auction);
         }
         log.info("Bot task {} timed out (auctionId={})",

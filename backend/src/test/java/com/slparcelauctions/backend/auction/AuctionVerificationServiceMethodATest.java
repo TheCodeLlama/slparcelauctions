@@ -172,7 +172,13 @@ class AuctionVerificationServiceMethodATest {
     }
 
     @Test
-    void verify_withOwnerUuidMismatch_transitionsToVerificationFailed() {
+    void verify_withOwnerUuidMismatch_transitionsToVerificationFailed_withRetryFriendlyNotes() {
+        // Sub-spec 2 §7.3: synchronous Method A failures land in
+        // VERIFICATION_FAILED with human-readable verificationNotes explaining
+        // what went wrong and that the seller can retry. No ListingFeeRefund
+        // is created — AuctionVerificationService doesn't even hold a reference
+        // to ListingFeeRefundRepository, so refund creation is structurally
+        // impossible from this path (refunds only happen via explicit cancel).
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
         when(worldApi.fetchParcel(PARCEL_UUID))
@@ -181,7 +187,9 @@ class AuctionVerificationServiceMethodATest {
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
-        assertThat(out.getVerificationNotes()).contains("Ownership mismatch");
+        assertThat(out.getVerificationNotes())
+                .contains("Ownership check failed")
+                .contains("owner UUID doesn't match");
     }
 
     @Test

@@ -422,7 +422,11 @@ class BotTaskServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void markTimedOut_pendingTask_failsAndTransitionsAuctionToVerificationFailed() {
+    void markTimedOut_pendingTask_failsAndTransitionsAuctionToVerificationFailed_withRetryFriendlyNotes() {
+        // Sub-spec 2 §7.3: retry-friendly verificationNotes consistent with
+        // ParcelCodeExpiryJob and synchronous Method A failures. No refund —
+        // BotTaskService does not depend on ListingFeeRefundRepository, so
+        // refund creation is structurally impossible from this path.
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
 
@@ -432,7 +436,9 @@ class BotTaskServiceTest {
         assertThat(task.getFailureReason()).isEqualTo("TIMEOUT");
         assertThat(task.getCompletedAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
-        assertThat(a.getVerificationNotes()).contains("48-hour window");
+        assertThat(a.getVerificationNotes())
+                .contains("Sale-to-bot task timed out")
+                .contains("retry at no extra cost");
     }
 
     @Test
