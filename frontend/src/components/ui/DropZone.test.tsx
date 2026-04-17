@@ -32,4 +32,26 @@ describe("DropZone", () => {
     );
     expect(screen.getByTestId("drop-zone-input")).toBeDisabled();
   });
+
+  it("activates input on Enter key", async () => {
+    const onFiles = vi.fn();
+    renderWithProviders(<DropZone onFiles={onFiles} accept="image/*" />);
+    const zone = screen.getByTestId("drop-zone");
+    zone.focus();
+    const input = screen.getByTestId("drop-zone-input") as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, "click");
+    fireEvent.keyDown(zone, { key: "Enter" });
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it("ignores drops when disabled", () => {
+    const onFiles = vi.fn();
+    renderWithProviders(
+      <DropZone onFiles={onFiles} accept="image/*" disabled />,
+    );
+    const drop = screen.getByTestId("drop-zone");
+    const file = new File(["x"], "a.png", { type: "image/png" });
+    fireEvent.drop(drop, { dataTransfer: { files: [file] } });
+    expect(onFiles).not.toHaveBeenCalled();
+  });
 });
