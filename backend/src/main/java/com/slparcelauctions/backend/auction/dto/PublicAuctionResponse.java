@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auction.dto;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -25,6 +26,8 @@ public record PublicAuctionResponse(
         Long buyNowPrice,
         Long currentBid,
         Integer bidCount,
+        BigDecimal currentHighBid,
+        Long bidderCount,
         Integer durationHours,
         Boolean snipeProtect,
         Integer snipeWindowMin,
