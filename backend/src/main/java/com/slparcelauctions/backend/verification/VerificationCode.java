@@ -42,6 +42,9 @@ public class VerificationCode {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "auction_id")  // nullable by default
+    private Long auctionId;
+
     @Column(nullable = false, length = 6)
     private String code;
 
