@@ -9,6 +9,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,6 +60,53 @@ public class AuctionExceptionHandler {
         pd.setProperty("code", "PARCEL_ALREADY_LISTED");
         pd.setProperty("parcelId", e.getParcelId());
         pd.setProperty("blockingAuctionId", e.getBlockingAuctionId());
+        return pd;
+    }
+
+    /**
+     * Photo uploads reuse the shared {@code ImageUploadValidator} which throws
+     * {@link UnsupportedImageFormatException} for format + size + dimension
+     * failures. The validator's exception lives in {@code user.exception}
+     * for backward compatibility with the avatar pipeline, but the auction
+     * controller's slice handler needs its own mapping because
+     * {@code UserExceptionHandler} is scoped to the user package.
+     */
+    @ExceptionHandler(UnsupportedImageFormatException.class)
+    public ProblemDetail handleUnsupportedImageFormat(
+            UnsupportedImageFormatException e, HttpServletRequest req) {
+        log.warn("Rejected listing photo: {}", e.getMessage());
+        String detail = e.getMessage();
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        String code = "LISTING_PHOTO_INVALID";
+        // The shared validator uses the same exception type for both format-reject
+        // and byte-count-reject. Surface the byte-count case as 413 so clients can
+        // disambiguate oversized uploads from genuinely invalid formats.
+        if (detail != null && detail.startsWith("File too large")) {
+            status = HttpStatus.PAYLOAD_TOO_LARGE;
+            code = "LISTING_PHOTO_TOO_LARGE";
+        }
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(status,
+                status == HttpStatus.PAYLOAD_TOO_LARGE
+                        ? "Photo file exceeds the per-upload byte limit."
+                        : "Photo must be a valid JPEG, PNG, or WebP within size limits.");
+        pd.setTitle(status == HttpStatus.PAYLOAD_TOO_LARGE
+                ? "Photo Too Large" : "Invalid Listing Photo");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", code);
+        return pd;
+    }
+
+    @ExceptionHandler(PhotoLimitExceededException.class)
+    public ProblemDetail handlePhotoLimitExceeded(
+            PhotoLimitExceededException e, HttpServletRequest req) {
+        log.warn("Photo limit hit: {}/{}", e.getCurrentCount(), e.getMaxAllowed());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE, e.getMessage());
+        pd.setTitle("Photo Limit Exceeded");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PHOTO_LIMIT_EXCEEDED");
+        pd.setProperty("currentCount", e.getCurrentCount());
+        pd.setProperty("maxAllowed", e.getMaxAllowed());
         return pd;
     }
 

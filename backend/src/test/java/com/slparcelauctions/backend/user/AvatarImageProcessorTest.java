@@ -15,6 +15,7 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.slparcelauctions.backend.media.ImageUploadValidator;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 class AvatarImageProcessorTest {
@@ -25,7 +26,7 @@ class AvatarImageProcessorTest {
 
     @BeforeEach
     void setup() {
-        processor = new AvatarImageProcessor();
+        processor = new AvatarImageProcessor(new ImageUploadValidator());
     }
 
     private byte[] loadFixture(String name) throws IOException {

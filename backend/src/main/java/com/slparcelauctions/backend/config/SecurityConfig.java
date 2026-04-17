@@ -83,6 +83,19 @@ public class SecurityConfig {
                         // Authenticated profile edit (explicit for grep-ability; catch-all also covers it).
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me").authenticated()
                         // --- End Epic 02 sub-spec 2a additions ---
+                        // --- New in Epic 03 sub-spec 1 Task 9 ---
+                        // Public parcel tag reference — any authenticated caller.
+                        // Catch-all /api/v1/** .authenticated() below covers this,
+                        // but it's listed here for grep-ability.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").authenticated()
+                        // Public listing-photo byte proxy. Must come before the
+                        // /api/v1/** catch-all and before the seller-only upload
+                        // endpoint. FOOTGUNS §B.5: matcher order is first-match-wins.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/photos/*/bytes").permitAll()
+                        // Authenticated seller-only upload + delete.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/photos").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/auctions/*/photos/**").authenticated()
+                        // --- End Epic 03 sub-spec 1 Task 9 additions ---
                         // Bot worker queue (Epic 03 sub-spec 1, Task 8). Ships without auth
                         // in sub-spec 1 — Epic 06 (SL bot service) will add bot worker
                         // authentication before the real worker is deployed. See spec §12.4

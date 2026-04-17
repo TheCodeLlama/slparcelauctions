@@ -2,10 +2,14 @@ package com.slparcelauctions.backend.auction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -20,7 +24,12 @@ import com.slparcelauctions.backend.user.User;
 
 class AuctionDtoMapperTest {
 
-    private final AuctionDtoMapper mapper = new AuctionDtoMapper();
+    private final AuctionPhotoRepository photoRepo = mock(AuctionPhotoRepository.class);
+    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo);
+
+    {
+        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(any())).thenReturn(List.of());
+    }
 
     @Test
     void toPublicStatus_activeStaysActive() {
