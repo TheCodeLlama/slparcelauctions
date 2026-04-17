@@ -86,6 +86,13 @@ public class Auction {
     @Column(name = "bot_check_failures", nullable = false)
     private Integer botCheckFailures = 0;
 
+    @Column(name = "last_ownership_check_at")
+    private OffsetDateTime lastOwnershipCheckAt;
+
+    @Builder.Default
+    @Column(name = "consecutive_world_api_failures", nullable = false)
+    private Integer consecutiveWorldApiFailures = 0;
+
     @Builder.Default
     @Column(name = "listing_fee_paid", nullable = false)
     private Boolean listingFeePaid = false;

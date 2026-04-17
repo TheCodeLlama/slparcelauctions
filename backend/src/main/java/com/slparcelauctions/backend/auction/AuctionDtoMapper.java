@@ -38,7 +38,7 @@ public class AuctionDtoMapper {
         return switch (internal) {
             case ACTIVE -> PublicAuctionStatus.ACTIVE;
             case ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING,
-                    COMPLETED, CANCELLED, EXPIRED, DISPUTED -> PublicAuctionStatus.ENDED;
+                    COMPLETED, CANCELLED, EXPIRED, DISPUTED, SUSPENDED -> PublicAuctionStatus.ENDED;
             case DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED ->
                     throw new IllegalStateException(
                             "Non-public status leaked to toPublicStatus: " + internal

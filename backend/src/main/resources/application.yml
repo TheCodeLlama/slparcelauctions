@@ -82,3 +82,8 @@ slpa:
     max-per-listing: 10
     max-bytes: 2097152
     max-dimension: 4096
+  ownership-monitor:
+    enabled: true
+    check-interval-minutes: 30
+    scheduler-frequency: PT30S
+    jitter-max-minutes: 5

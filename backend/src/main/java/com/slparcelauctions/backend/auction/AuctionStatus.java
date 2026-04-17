@@ -19,5 +19,7 @@ public enum AuctionStatus {
     COMPLETED,
     CANCELLED,
     EXPIRED,
-    DISPUTED
+    DISPUTED,
+    // intentionally not in LOCKING_STATUSES — suspension releases the parcel for re-listing.
+    SUSPENDED
 }
