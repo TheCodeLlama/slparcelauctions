@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
+import com.slparcelauctions.backend.auction.exception.GroupLandRequiresSaleToBotException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.bot.BotTask;
@@ -95,26 +96,36 @@ public class AuctionVerificationService {
 
     /**
      * Entry point. Loads the auction (404s non-sellers), validates the state
-     * transition (409 if status is not {@link #VERIFY_ALLOWED_FROM}), flips to
-     * {@code VERIFICATION_PENDING}, clears stale verification notes, and
-     * dispatches by verification method. Method A runs inline and leaves the
-     * auction in ACTIVE or VERIFICATION_FAILED before returning.
+     * transition (409 if status is not {@link #VERIFY_ALLOWED_FROM}), applies
+     * the group-land gate, persists the seller-chosen verification method,
+     * flips to {@code VERIFICATION_PENDING}, clears stale verification notes,
+     * and dispatches by method. Method A runs inline and leaves the auction
+     * in ACTIVE or VERIFICATION_FAILED before returning.
+     *
+     * <p>Sub-spec 2 §7.2 — the method is supplied on every verify call (also
+     * on retry from VERIFICATION_FAILED). Group-owned parcels must pick
+     * SALE_TO_BOT; any other method throws
+     * {@link GroupLandRequiresSaleToBotException} (422).
      */
     @Transactional
-    public Auction triggerVerification(Long auctionId, Long sellerId) {
+    public Auction triggerVerification(Long auctionId, VerificationMethod method, Long sellerId) {
         Auction a = auctionService.loadForSeller(auctionId, sellerId);
         if (!VERIFY_ALLOWED_FROM.contains(a.getStatus())) {
             throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "VERIFY");
         }
+
+        // Group-owned land can only be verified via the sale-to-bot path —
+        // UUID_ENTRY and REZZABLE both assume the seller's avatar is the owner.
+        if ("group".equalsIgnoreCase(a.getParcel().getOwnerType())
+                && method != VerificationMethod.SALE_TO_BOT) {
+            throw new GroupLandRequiresSaleToBotException();
+        }
+
+        a.setVerificationMethod(method);
         a.setStatus(AuctionStatus.VERIFICATION_PENDING);
         a.setVerificationNotes(null);
         Auction pending = auctionRepo.save(a);
 
-        VerificationMethod method = pending.getVerificationMethod();
-        if (method == null) {
-            throw new IllegalStateException(
-                    "Auction " + pending.getId() + " has no verificationMethod set; cannot verify.");
-        }
         return switch (method) {
             case UUID_ENTRY -> dispatchMethodA(pending);
             case REZZABLE -> dispatchMethodB(pending);

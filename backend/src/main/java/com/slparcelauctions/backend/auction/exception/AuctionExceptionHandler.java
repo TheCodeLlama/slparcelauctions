@@ -65,6 +65,24 @@ public class AuctionExceptionHandler {
     }
 
     /**
+     * Group-owned parcels cannot be verified by UUID_ENTRY or REZZABLE — only
+     * SALE_TO_BOT can transfer the parcel to the escrow bot. Sub-spec 2 §7.2.
+     * 422 (not 400) so the frontend can distinguish a semantic constraint
+     * violation from a malformed request and surface a targeted remediation
+     * message.
+     */
+    @ExceptionHandler(GroupLandRequiresSaleToBotException.class)
+    public ProblemDetail handleGroupLand(
+            GroupLandRequiresSaleToBotException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Group-owned land requires Sale-to-bot");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "GROUP_LAND_REQUIRES_SALE_TO_BOT");
+        return pd;
+    }
+
+    /**
      * Photo uploads reuse the shared {@code ImageUploadValidator} which throws
      * {@link UnsupportedImageFormatException} for format + size + dimension
      * failures. The validator's exception lives in {@code user.exception}

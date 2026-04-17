@@ -68,7 +68,7 @@ class AuctionServiceTest {
     @Test
     void create_validRequest_savesInDraft() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 168, false, null, "Nice parcel", Set.of());
 
         Auction a = service.create(42L, req);
@@ -81,9 +81,24 @@ class AuctionServiceTest {
     }
 
     @Test
+    void create_persistsAuctionWithNullVerificationMethod() {
+        // Sub-spec 2 §7.1 — verificationMethod is no longer chosen at create time.
+        // It is set on the verify trigger instead; a freshly-created DRAFT auction
+        // must have a null verificationMethod.
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                100L, 500L, null, null,
+                72, true, 10, "Test", Set.of());
+
+        Auction created = service.create(42L, req);
+
+        assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
+        assertThat(created.getVerificationMethod()).isNull();
+    }
+
+    @Test
     void create_withSnipeProtect_setsSnipeWindow() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 168, true, 10, null, Set.of());
 
         Auction a = service.create(42L, req);
@@ -99,7 +114,7 @@ class AuctionServiceTest {
     @Test
     void create_reservePriceLessThanStarting_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, 500L, null,
+                100L, 1000L, 500L, null,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -110,7 +125,7 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, 5000L, 4000L,
+                100L, 1000L, 5000L, 4000L,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -121,7 +136,7 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanStartingWithNoReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, 500L,
+                100L, 1000L, null, 500L,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -136,7 +151,7 @@ class AuctionServiceTest {
     @Test
     void create_durationNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 100, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -151,7 +166,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectTrueWithNullWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 168, true, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -162,7 +177,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectFalseWithWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 168, false, 10, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -173,7 +188,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeWindowNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 168, true, 7, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -193,7 +208,7 @@ class AuctionServiceTest {
                         .category("feature").active(true).sortOrder(1).build()));
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                100L, 1000L, null, null,
                 168, false, null, null, codes);
 
         assertThatThrownBy(() -> service.create(42L, req))
@@ -206,7 +221,7 @@ class AuctionServiceTest {
     void create_parcelNotFound_throws() {
         when(parcelRepo.findById(999L)).thenReturn(Optional.empty());
         AuctionCreateRequest req = new AuctionCreateRequest(
-                999L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                999L, 1000L, null, null,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req))

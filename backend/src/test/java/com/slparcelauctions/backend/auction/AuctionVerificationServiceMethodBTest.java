@@ -95,7 +95,7 @@ class AuctionVerificationServiceMethodBTest {
                 .thenReturn(new GenerateCodeResponse("123456",
                         OffsetDateTime.now(fixed).plusMinutes(15)));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.REZZABLE, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         // No transition to ACTIVE — LSL callback will drive that.
@@ -118,7 +118,7 @@ class AuctionVerificationServiceMethodBTest {
                 .thenReturn(new GenerateCodeResponse("654321",
                         OffsetDateTime.now(fixed).plusMinutes(15)));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.REZZABLE, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         assertThat(out.getVerificationNotes()).isNull();

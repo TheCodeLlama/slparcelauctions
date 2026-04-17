@@ -93,7 +93,7 @@ class AuctionVerificationServiceMethodCTest {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.SALE_TO_BOT, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         // Bot worker callback (not dispatch) drives the ACTIVE transition.
@@ -113,7 +113,7 @@ class AuctionVerificationServiceMethodCTest {
         a.setVerificationNotes("stale failure note");
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.SALE_TO_BOT, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         assertThat(out.getVerificationNotes()).isNull();

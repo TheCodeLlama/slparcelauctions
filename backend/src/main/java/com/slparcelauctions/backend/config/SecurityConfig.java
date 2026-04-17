@@ -43,6 +43,11 @@ public class SecurityConfig {
                 // endpoints — always add new matchers above the "/api/v1/**" catch-all.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
+                        // Public listing-fee config (Epic 03 sub-spec 2 §7.6). The browse
+                        // page and unauthenticated /activate landing both render the
+                        // current fee so sellers see the exact cost before paying.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/config/listing-fee").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",

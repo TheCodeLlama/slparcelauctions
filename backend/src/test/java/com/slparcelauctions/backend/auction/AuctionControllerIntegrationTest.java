@@ -108,7 +108,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_validRequest_returns201AndDraft() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                sellerParcel.getId(), 1000L, null, null,
                 168, false, null, "Nice parcel", null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -125,7 +125,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_asUnverifiedUser_returns403() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                sellerParcel.getId(), 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -139,7 +139,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_nonExistentParcel_returns400() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                999999L, VerificationMethod.UUID_ENTRY, 1000L, null, null,
+                999999L, 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")

@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.slparcelauctions.backend.auction.exception.GroupLandRequiresSaleToBotException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
@@ -101,7 +102,7 @@ class AuctionVerificationServiceMethodATest {
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(out.getVerificationTier()).isEqualTo(VerificationTier.SCRIPT);
@@ -124,7 +125,7 @@ class AuctionVerificationServiceMethodATest {
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         // Prior failure note cleared on retry
@@ -140,7 +141,7 @@ class AuctionVerificationServiceMethodATest {
         Auction a = build(AuctionStatus.DRAFT);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
-        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, SELLER_ID))
+        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -149,7 +150,7 @@ class AuctionVerificationServiceMethodATest {
         Auction a = build(AuctionStatus.ACTIVE);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
-        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, SELLER_ID))
+        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -164,7 +165,7 @@ class AuctionVerificationServiceMethodATest {
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.just(meta(SELLER_AVATAR, "group")));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
         assertThat(out.getVerificationNotes()).contains("rejects group-owned");
@@ -177,7 +178,7 @@ class AuctionVerificationServiceMethodATest {
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.just(meta(OTHER_AVATAR, "agent")));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
         assertThat(out.getVerificationNotes()).contains("Ownership mismatch");
@@ -190,10 +191,73 @@ class AuctionVerificationServiceMethodATest {
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.error(new ExternalApiTimeoutException("World", "upstream 503")));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
         assertThat(out.getVerificationNotes()).contains("World API lookup failed");
+    }
+
+    // -------------------------------------------------------------------------
+    // Sub-spec 2 §7.2 — method is chosen on the verify trigger, not at create
+    // -------------------------------------------------------------------------
+
+    @Test
+    void triggerVerification_acceptsMethodFromRequest_andPersistsIt() {
+        // Simulate a DRAFT_PAID auction created under sub-spec 2 where
+        // verificationMethod is null until the seller picks one at activate
+        // time. Dispatch must persist the chosen method on the entity.
+        Auction a = build(AuctionStatus.DRAFT_PAID);
+        a.setVerificationMethod(null);
+        when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
+        when(worldApi.fetchParcel(PARCEL_UUID))
+                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+
+        Auction out = service.triggerVerification(
+                AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
+
+        assertThat(out.getVerificationMethod()).isEqualTo(VerificationMethod.UUID_ENTRY);
+    }
+
+    @Test
+    void triggerVerification_groupOwned_nonSaleToBotMethod_throws422() {
+        // Parcel owned by a group — UUID_ENTRY cannot resolve to a single
+        // seller avatar, so the service rejects the request with 422.
+        Auction a = build(AuctionStatus.DRAFT_PAID);
+        a.getParcel().setOwnerType("group");
+        when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
+
+        assertThatThrownBy(() -> service.triggerVerification(
+                AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
+                .isInstanceOf(GroupLandRequiresSaleToBotException.class);
+    }
+
+    @Test
+    void triggerVerification_groupOwned_rezzableMethod_throws422() {
+        // REZZABLE also fails for group land — the in-world object sees the
+        // group key, not the seller. Only SALE_TO_BOT can transfer group land.
+        Auction a = build(AuctionStatus.DRAFT_PAID);
+        a.getParcel().setOwnerType("group");
+        when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
+
+        assertThatThrownBy(() -> service.triggerVerification(
+                AUCTION_ID, VerificationMethod.REZZABLE, SELLER_ID))
+                .isInstanceOf(GroupLandRequiresSaleToBotException.class);
+    }
+
+    @Test
+    void triggerVerification_groupOwned_saleToBot_succeedsAndStaysPending() {
+        // Group-owned parcel + SALE_TO_BOT — the only permitted combination.
+        // Leaves the auction in VERIFICATION_PENDING (Method C is async; bot
+        // worker callback drives the ACTIVE transition).
+        Auction a = build(AuctionStatus.DRAFT_PAID);
+        a.getParcel().setOwnerType("group");
+        when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
+
+        Auction out = service.triggerVerification(
+                AUCTION_ID, VerificationMethod.SALE_TO_BOT, SELLER_ID);
+
+        assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
+        assertThat(out.getVerificationMethod()).isEqualTo(VerificationMethod.SALE_TO_BOT);
     }
 
     // -------------------------------------------------------------------------
@@ -215,7 +279,7 @@ class AuctionVerificationServiceMethodATest {
                 PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));
 
-        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, SELLER_ID))
+        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
                     assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(77L);
@@ -232,7 +296,7 @@ class AuctionVerificationServiceMethodATest {
         when(auctionRepo.saveAndFlush(any(Auction.class)))
                 .thenThrow(new DataIntegrityViolationException("uq_auctions_parcel_locked_status"));
 
-        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, SELLER_ID))
+        assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
                     assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(-1L);

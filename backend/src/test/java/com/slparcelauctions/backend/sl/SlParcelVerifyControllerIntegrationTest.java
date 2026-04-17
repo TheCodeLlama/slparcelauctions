@@ -83,10 +83,12 @@ class SlParcelVerifyControllerIntegrationTest {
 
     @Test
     void fullFlow_verifyThenLslCallback_transitionsToActive() throws Exception {
-        // Seller creates an auction with REZZABLE method, pays listing fee, then verifies.
+        // Seller creates an auction, pays listing fee, then verifies with REZZABLE.
         Long auctionId = createAndPayAuction();
         MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"REZZABLE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("VERIFICATION_PENDING"))
                 .andExpect(jsonPath("$.pendingVerification.method").value("REZZABLE"))
@@ -131,7 +133,9 @@ class SlParcelVerifyControllerIntegrationTest {
     void callbackWithMissingHeaders_returns403() throws Exception {
         Long auctionId = createAndPayAuction();
         MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"REZZABLE\"}"))
                 .andExpect(status().isOk()).andReturn();
         String code = objectMapper.readTree(verifyRes.getResponse().getContentAsString())
                 .get("pendingVerification").get("code").asText();
@@ -151,7 +155,9 @@ class SlParcelVerifyControllerIntegrationTest {
     void callbackWithWrongOwnerUuid_returns400AndAuctionStaysPending() throws Exception {
         Long auctionId = createAndPayAuction();
         MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"REZZABLE\"}"))
                 .andExpect(status().isOk()).andReturn();
         String code = objectMapper.readTree(verifyRes.getResponse().getContentAsString())
                 .get("pendingVerification").get("code").asText();
@@ -196,7 +202,6 @@ class SlParcelVerifyControllerIntegrationTest {
         String body = String.format("""
             {
               "parcelId":%d,
-              "verificationMethod":"REZZABLE",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
+import com.slparcelauctions.backend.auction.dto.AuctionVerifyRequest;
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
@@ -94,10 +95,11 @@ public class AuctionController {
     @PutMapping("/auctions/{id}/verify")
     public SellerAuctionResponse verify(
             @PathVariable Long id,
-            @AuthenticationPrincipal AuthPrincipal principal) {
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody AuctionVerifyRequest body) {
         Long userId = principal.userId();
         requireVerified(userId);
-        Auction a = verificationService.triggerVerification(id, userId);
+        Auction a = verificationService.triggerVerification(id, body.method(), userId);
         PendingVerification pending = verificationService.buildPendingVerification(a);
         return mapper.toSellerResponse(a, pending);
     }

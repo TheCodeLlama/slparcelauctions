@@ -52,11 +52,14 @@ public class AuctionService {
 
         Set<ParcelTag> tags = resolveTags(req.tags());
 
+        // Per sub-spec 2 §7.1, verificationMethod is NOT set at create time — it
+        // is chosen by the seller on PUT /auctions/{id}/verify and persisted by
+        // AuctionVerificationService.triggerVerification(...). The entity column
+        // is nullable until that point.
         Auction a = Auction.builder()
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
-                .verificationMethod(req.verificationMethod())
                 .startingBid(req.startingBid())
                 .reservePrice(req.reservePrice())
                 .buyNowPrice(req.buyNowPrice())
@@ -72,8 +75,8 @@ public class AuctionService {
                 .listingFeePaid(false)
                 .build();
         a = auctionRepo.save(a);
-        log.info("Auction created: id={}, sellerId={}, parcelId={}, method={}",
-                a.getId(), sellerId, parcel.getId(), req.verificationMethod());
+        log.info("Auction created: id={}, sellerId={}, parcelId={}",
+                a.getId(), sellerId, parcel.getId());
         return a;
     }
 
