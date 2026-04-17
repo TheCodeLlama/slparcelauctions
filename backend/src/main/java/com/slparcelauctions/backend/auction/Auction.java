@@ -90,7 +90,7 @@ public class Auction {
     private OffsetDateTime lastOwnershipCheckAt;
 
     @Builder.Default
-    @Column(name = "consecutive_world_api_failures", nullable = false)
+    @Column(name = "consecutive_world_api_failures", nullable = false, columnDefinition = "integer NOT NULL DEFAULT 0")
     private Integer consecutiveWorldApiFailures = 0;
 
     @Builder.Default
