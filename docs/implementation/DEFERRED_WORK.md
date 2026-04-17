@@ -117,6 +117,30 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 10 (Admin & Moderation) — fraud flags
 - **Notes:** Metric would be "count of PARCEL codes generated per seller over last N days where no successful callback occurred." Likely lives as a `fraud_signals` table or similar, feeding admin dashboards.
 
+### Bot service authentication
+- **From:** Epic 03 sub-spec 1 (Method C SALE_TO_BOT bot queue)
+- **Why:** `GET /api/v1/bot/tasks/pending` and `PUT /api/v1/bot/tasks/{taskId}` ship with `permitAll` in `SecurityConfig` because the real bot worker does not exist yet. Shipping a placeholder auth scheme without a worker implementation to validate against would be premature. Body-level validation (`authBuyerId == primary-escrow-uuid`, `salePrice == sentinelPrice`) mitigates arbitrary calls but does not prevent a malicious actor from racing the real worker or flipping auction states via FAILURE callbacks.
+- **When:** Epic 06 (SL bot service) — MUST land before the real worker deploys.
+- **Notes:** See FOOTGUNS §F.46. Pick mTLS or bearer token in the Epic 06 spec. Until done, the bot endpoint surface is a locally-trusted attack surface — deploy the worker on localhost or a private network only.
+
+### Listing fee refund processor
+- **From:** Epic 03 sub-spec 1 (cancellation refund row creation)
+- **Why:** `CancellationService` writes `listing_fee_refunds` rows with `status=PENDING` when a paid auction is cancelled before verification, but nothing processes them yet. Real L$ refunds require the in-world escrow terminal integration from Epic 05.
+- **When:** Epic 05 (Escrow Manager) — refund processor polls `listing_fee_refunds` WHERE `status=PENDING` and issues L$ refunds via the escrow terminal, stamping `processed_at` + `txn_ref` + flipping to `PROCESSED`.
+- **Notes:** Rows accumulate indefinitely until the processor ships. Operationally this is fine for Phase 1 (no real money is moving yet) but the backlog will need a one-time batch processor on the day Epic 05 ships to drain pre-existing PENDING rows.
+
+### Primary escrow UUID + SLPA trusted-owner-keys production config
+- **From:** Epic 03 sub-spec 1 (Method C bot task sentinel + SL header trust)
+- **Why:** `slpa.bot-task.primary-escrow-uuid` defaults to the dev placeholder `00000000-0000-0000-0000-000000000099`, and `slpa.sl.trusted-owner-keys` is empty in `application.yml` (overridden to the dev placeholder in `application-dev.yml`). Production deployment must override both via env var / secrets manager.
+- **When:** First production deployment (pre-launch ops checklist).
+- **Notes:** `SlStartupValidator` fails fast on prod boot if `trusted-owner-keys` is still empty — that is the forcing function. The primary-escrow-uuid has no equivalent startup guard yet; add one when the real SLPAEscrow Resident account is provisioned (same Epic 05 / Epic 06 timeline as the escrow integration). See FOOTGUNS §F.47.
+
+### IN_PROGRESS bot task timeout
+- **From:** Epic 03 sub-spec 1 (BotTaskTimeoutJob 48h sweep)
+- **Why:** `BotTaskTimeoutJob` only times out PENDING tasks — tasks that were never claimed by a worker. Once Epic 06 workers claim a task and flip it to `IN_PROGRESS`, a crashed worker leaves the task stuck in IN_PROGRESS forever with no cleanup.
+- **When:** Epic 06 (SL bot service) — when claim-flow is implemented, extend the timeout job with a separate `IN_PROGRESS`-status query + cutoff (likely shorter than 48h, since "worker picked it up but did not finish" is a different signal than "no worker claimed it").
+- **Notes:** The right cutoff for IN_PROGRESS is probably 15-30 minutes (a real verify should take seconds). Failing behavior on timeout is the same: task FAILED with reason `TIMEOUT`, auction flipped to `VERIFICATION_FAILED` only if still `VERIFICATION_PENDING`.
+
 ---
 
 ## Removal Criteria
