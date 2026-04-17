@@ -17,6 +17,7 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
@@ -55,6 +56,7 @@ public class SlParcelVerifyService {
     private final VerificationCodeRepository codeRepo;
     private final AuctionRepository auctionRepo;
     private final ParcelRepository parcelRepo;
+    private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final Clock clock;
 
     @Transactional
@@ -159,6 +161,8 @@ public class SlParcelVerifyService {
         auction.setVerifiedAt(now);
         auction.setVerificationTier(VerificationTier.SCRIPT);
         auction.setStatus(AuctionStatus.ACTIVE);
+        // Seed lastOwnershipCheckAt with jitter — see spec §8.2 and Method A.
+        ownershipInitializer.onActivated(auction);
 
         try {
             // saveAndFlush mirrors Method A: force the INSERT/UPDATE to hit

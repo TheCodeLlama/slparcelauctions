@@ -1,11 +1,14 @@
 package com.slparcelauctions.backend.auction;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface AuctionRepository extends JpaRepository<Auction, Long> {
 
@@ -53,4 +56,21 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     @EntityGraph(attributePaths = {"parcel", "tags"})
     @Override
     Optional<Auction> findById(Long id);
+
+    /**
+     * Returns the IDs of ACTIVE auctions whose {@code lastOwnershipCheckAt} is
+     * either null (never checked — happens on fresh activation when the
+     * jitter-seeded timestamp lands before the cutoff) or at/before the cutoff.
+     * Sorted oldest-first so the longest-stale listings are dispatched first.
+     * Nulls sort first so fresh ACTIVE transitions that missed the jitter
+     * window still participate in the next sweep. See
+     * {@code OwnershipMonitorScheduler} for the cutoff derivation.
+     */
+    @Query("""
+            SELECT a.id FROM Auction a
+            WHERE a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+              AND (a.lastOwnershipCheckAt IS NULL OR a.lastOwnershipCheckAt <= :cutoff)
+            ORDER BY a.lastOwnershipCheckAt ASC NULLS FIRST
+            """)
+    List<Long> findDueForOwnershipCheck(@Param("cutoff") OffsetDateTime cutoff);
 }

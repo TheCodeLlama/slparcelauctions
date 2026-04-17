@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.auction.AuctionStatusConstants;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
@@ -58,6 +59,7 @@ public class BotTaskService {
     private final BotTaskRepository botTaskRepo;
     private final AuctionRepository auctionRepo;
     private final ParcelRepository parcelRepo;
+    private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final Clock clock;
 
     @Value("${slpa.bot-task.sentinel-price-lindens:999999999}")
@@ -213,6 +215,8 @@ public class BotTaskService {
         auction.setVerifiedAt(now);
         auction.setVerificationTier(VerificationTier.BOT);
         auction.setStatus(AuctionStatus.ACTIVE);
+        // Seed lastOwnershipCheckAt with jitter — see spec §8.2 and Method A.
+        ownershipInitializer.onActivated(auction);
         try {
             // saveAndFlush forces the partial unique index to fire inside this
             // try/catch so a concurrent race surfaces as

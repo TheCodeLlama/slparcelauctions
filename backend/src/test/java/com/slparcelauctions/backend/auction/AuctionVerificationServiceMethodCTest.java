@@ -22,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
@@ -70,9 +72,12 @@ class AuctionVerificationServiceMethodCTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
+        OwnershipMonitorProperties props = new OwnershipMonitorProperties();
+        OwnershipCheckTimestampInitializer ownershipInit =
+                new OwnershipCheckTimestampInitializer(props, fixed);
         service = new AuctionVerificationService(
                 auctionService, auctionRepo, worldApi, verificationCodeService,
-                botTaskService, botTaskRepo, fixed, ESCROW_UUID, SENTINEL_PRICE);
+                botTaskService, botTaskRepo, ownershipInit, fixed, ESCROW_UUID, SENTINEL_PRICE);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();

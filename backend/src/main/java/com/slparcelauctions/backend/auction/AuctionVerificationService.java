@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.exception.GroupLandRequiresSaleToBotException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
@@ -69,6 +70,7 @@ public class AuctionVerificationService {
     private final VerificationCodeService verificationCodeService;
     private final BotTaskService botTaskService;
     private final BotTaskRepository botTaskRepo;
+    private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final Clock clock;
     private final UUID primaryEscrowUuid;
     private final long sentinelPriceLindens;
@@ -80,6 +82,7 @@ public class AuctionVerificationService {
             VerificationCodeService verificationCodeService,
             BotTaskService botTaskService,
             BotTaskRepository botTaskRepo,
+            OwnershipCheckTimestampInitializer ownershipInitializer,
             Clock clock,
             @Value("${slpa.bot-task.primary-escrow-uuid}") UUID primaryEscrowUuid,
             @Value("${slpa.bot-task.sentinel-price-lindens:999999999}") long sentinelPriceLindens) {
@@ -89,6 +92,7 @@ public class AuctionVerificationService {
         this.verificationCodeService = verificationCodeService;
         this.botTaskService = botTaskService;
         this.botTaskRepo = botTaskRepo;
+        this.ownershipInitializer = ownershipInitializer;
         this.clock = clock;
         this.primaryEscrowUuid = primaryEscrowUuid;
         this.sentinelPriceLindens = sentinelPriceLindens;
@@ -224,6 +228,10 @@ public class AuctionVerificationService {
         a.setVerifiedAt(now);
         a.setVerificationTier(VerificationTier.SCRIPT);
         a.setStatus(AuctionStatus.ACTIVE);
+        // Seed lastOwnershipCheckAt with jitter so the next scheduler sweep
+        // does not slam the World API with every freshly-activated listing at
+        // once. See OwnershipCheckTimestampInitializer + spec §8.2.
+        ownershipInitializer.onActivated(a);
 
         try {
             // saveAndFlush forces the INSERT/UPDATE to hit Postgres now so the partial
