@@ -1,0 +1,385 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/Button";
+import { FormError } from "@/components/ui/FormError";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { isApiError } from "@/lib/api";
+import { listParcelTagGroups } from "@/lib/api/parcelTags";
+import { useListingDraft } from "@/hooks/useListingDraft";
+import type { ParcelTagDto } from "@/types/parcelTag";
+import type {
+  AuctionPhotoDto,
+  SellerAuctionResponse,
+} from "@/types/auction";
+import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
+import { ListingPreviewCard, type ListingPreviewAuction } from "./ListingPreviewCard";
+import { ListingWizardLayout } from "./ListingWizardLayout";
+import { ParcelLookupField } from "./ParcelLookupField";
+import { PARCEL_TAGS_KEY, TagSelector } from "./TagSelector";
+import { PhotoUploader } from "./PhotoUploader";
+
+const WIZARD_STEPS = ["Configure", "Review & Submit"];
+const MAX_DESC = 5000;
+
+export interface ListingWizardFormProps {
+  mode: "create" | "edit";
+  /** Auction id — required when mode='edit'. */
+  id?: number | string;
+}
+
+/**
+ * Shared form body for the Create (`/listings/create`) and Edit
+ * (`/listings/[id]/edit`) flows. Both routes reduce to this component
+ * with a different mode/id combo.
+ *
+ * Step 1 (Configure): parcel lookup + settings + description + tags +
+ *   photos. In edit mode the parcel lookup is locked — the backend
+ *   rejects parcel changes on a DRAFT_PAID auction (sub-spec 2 §6.2).
+ * Step 2 (Review): read-only preview with Back/Submit footer.
+ *
+ * Save semantics:
+ *   - "Save as Draft" / "Save changes" → draft.save() but stays on
+ *     Configure; surfaces field errors inline through the form.
+ *   - "Continue to Review" → saves and advances to step 2 on success.
+ *   - "Submit" from Review → saves once more (to flush any in-step-2
+ *     edits, which shouldn't happen but guards the happy path) and
+ *     navigates to /listings/{id}/activate.
+ */
+export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
+  const router = useRouter();
+  const [step, setStep] = useState<"configure" | "review">("configure");
+  const draft = useListingDraft({ id });
+
+  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Used by the Review step to render tag chips by label (draft stores
+  // codes; labels live in the tag catalogue fetch cached by TagSelector).
+  const tagsQ = useQuery({
+    queryKey: PARCEL_TAGS_KEY,
+    queryFn: listParcelTagGroups,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+
+  const tagByCode = useMemo(() => {
+    const map = new Map<string, ParcelTagDto>();
+    for (const group of tagsQ.data ?? []) {
+      for (const t of group.tags) map.set(t.code, t);
+    }
+    return map;
+  }, [tagsQ.data]);
+
+  const settings: AuctionSettingsValue = {
+    startingBid: draft.state.startingBid,
+    reservePrice: draft.state.reservePrice,
+    buyNowPrice: draft.state.buyNowPrice,
+    durationHours: draft.state.durationHours,
+    snipeProtect: draft.state.snipeProtect,
+    snipeWindowMin: draft.state.snipeWindowMin,
+  };
+
+  function applySettings(next: AuctionSettingsValue) {
+    draft.update("startingBid", next.startingBid);
+    draft.update("reservePrice", next.reservePrice);
+    draft.update("buyNowPrice", next.buyNowPrice);
+    draft.update("durationHours", next.durationHours);
+    draft.update("snipeProtect", next.snipeProtect);
+    draft.update("snipeWindowMin", next.snipeWindowMin);
+  }
+
+  async function runSave(): Promise<SellerAuctionResponse | null> {
+    setError(null);
+    try {
+      return await draft.save();
+    } catch (e: unknown) {
+      setError(
+        isApiError(e)
+          ? e.problem.detail ?? e.problem.title ?? "Save failed."
+          : e instanceof Error
+            ? e.message
+            : "Save failed.",
+      );
+      return null;
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await runSave();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleContinue() {
+    setSaving(true);
+    try {
+      const saved = await runSave();
+      if (saved) setStep("review");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    try {
+      const saved = await runSave();
+      if (saved) router.push(`/listings/${saved.id}/activate`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (mode === "edit" && draft.isLoadingExisting) {
+    return <LoadingSpinner label="Loading your listing..." />;
+  }
+
+  const parcel = draft.state.parcel;
+  const isEdit = mode === "edit";
+  const saveLabel = isEdit ? "Save changes" : "Save as Draft";
+  const title = isEdit ? "Edit listing" : "Create a listing";
+  const description =
+    isEdit
+      ? "Update your listing details before paying the listing fee or relisting."
+      : "Set up your parcel auction. You can save a draft and return to it any time.";
+
+  if (step === "configure") {
+    return (
+      <ListingWizardLayout
+        steps={WIZARD_STEPS}
+        currentIndex={0}
+        title={title}
+        description={description}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={handleSave}
+              loading={saving}
+              disabled={saving || submitting || !parcel}
+            >
+              {saveLabel}
+            </Button>
+            <Button
+              onClick={handleContinue}
+              loading={saving}
+              disabled={saving || submitting || !parcel}
+            >
+              Continue to Review
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-6">
+          <FormError message={error ?? undefined} />
+          <section className="flex flex-col gap-2">
+            <h2 className="text-title-md text-on-surface">Parcel</h2>
+            <ParcelLookupField
+              initialParcel={parcel}
+              locked={isEdit}
+              onResolved={draft.setParcel}
+            />
+          </section>
+          {parcel && (
+            <>
+              <section className="flex flex-col gap-3">
+                <h2 className="text-title-md text-on-surface">
+                  Auction settings
+                </h2>
+                <AuctionSettingsForm
+                  value={settings}
+                  onChange={applySettings}
+                />
+              </section>
+
+              <section className="flex flex-col gap-2">
+                <h2 className="text-title-md text-on-surface">
+                  Description
+                </h2>
+                <DescriptionField
+                  value={draft.state.sellerDesc}
+                  onChange={(next) => draft.update("sellerDesc", next)}
+                />
+              </section>
+
+              <section className="flex flex-col gap-2">
+                <h2 className="text-title-md text-on-surface">Tags</h2>
+                <TagSelector
+                  value={draft.state.tags}
+                  onChange={(next) => draft.update("tags", next)}
+                />
+              </section>
+
+              <section className="flex flex-col gap-2">
+                <h2 className="text-title-md text-on-surface">Photos</h2>
+                <PhotoUploader
+                  staged={draft.state.stagedPhotos}
+                  onStagedChange={draft.addStagedPhotos}
+                />
+              </section>
+            </>
+          )}
+        </div>
+      </ListingWizardLayout>
+    );
+  }
+
+  // Review step — render a read-only preview.
+  const previewAuction = parcel
+    ? buildPreviewAuction({
+        parcel,
+        startingBid: draft.state.startingBid,
+        reservePrice: draft.state.reservePrice,
+        buyNowPrice: draft.state.buyNowPrice,
+        durationHours: draft.state.durationHours,
+        sellerDesc: draft.state.sellerDesc,
+        tagCodes: draft.state.tags,
+        tagByCode,
+        stagedPhotos: draft.state.stagedPhotos.map((p) => p.objectUrl),
+        uploadedPhotos: draft.state.uploadedPhotoIds,
+      })
+    : null;
+
+  return (
+    <ListingWizardLayout
+      steps={WIZARD_STEPS}
+      currentIndex={1}
+      title="Review & Submit"
+      description="Double-check your listing before continuing to activate."
+      footer={
+        <>
+          <Button
+            variant="secondary"
+            onClick={() => setStep("configure")}
+            disabled={submitting}
+          >
+            Back to edit
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            loading={submitting}
+            disabled={submitting || !parcel}
+          >
+            Submit
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <FormError message={error ?? undefined} />
+        {previewAuction && (
+          <ListingPreviewCard auction={previewAuction} isPreview />
+        )}
+      </div>
+    </ListingWizardLayout>
+  );
+}
+
+/**
+ * Description textarea with a live character counter. Kept inline because
+ * the Create/Edit form is the only consumer — if a second caller needs
+ * the exact same widget, promote to components/ui/.
+ */
+function DescriptionField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label
+        htmlFor="listing-desc"
+        className="sr-only"
+      >
+        Listing description
+      </label>
+      <textarea
+        id="listing-desc"
+        rows={5}
+        maxLength={MAX_DESC}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Describe what makes this parcel special — location, views, build history, etc."
+        className="w-full resize-y rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary"
+      />
+      <span
+        className="self-end text-body-sm text-on-surface-variant"
+        data-testid="desc-counter"
+      >
+        {value.length}/{MAX_DESC}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Builds a ListingPreviewAuction out of the draft state. stagedPhotos are
+ * represented with fake numeric ids (negative) and their object URLs so
+ * the preview renders even before the auction has been saved. Any
+ * server-side photos (already uploaded) show up after a save via the
+ * uploaded photo ids — but we don't have their URLs in the draft state,
+ * so for now we omit them from the preview (the post-activate view shows
+ * them). This is deliberate: the preview is a create-flow aid; the
+ * canonical listing page renders the real server URLs.
+ */
+function buildPreviewAuction({
+  parcel,
+  startingBid,
+  reservePrice,
+  buyNowPrice,
+  durationHours,
+  sellerDesc,
+  tagCodes,
+  tagByCode,
+  stagedPhotos,
+  uploadedPhotos,
+}: {
+  parcel: ListingPreviewAuction["parcel"];
+  startingBid: number;
+  reservePrice: number | null;
+  buyNowPrice: number | null;
+  durationHours: number;
+  sellerDesc: string;
+  tagCodes: string[];
+  tagByCode: Map<string, ParcelTagDto>;
+  stagedPhotos: string[];
+  uploadedPhotos: number[];
+}): ListingPreviewAuction {
+  const photos: AuctionPhotoDto[] = stagedPhotos.map((url, i) => ({
+    id: -(i + 1),
+    url,
+    contentType: "image/jpeg",
+    sizeBytes: 0,
+    sortOrder: i,
+    uploadedAt: "",
+  }));
+  // We only know uploaded ids, not URLs — skip rendering them here to
+  // avoid shipping a broken <img src="">. The preview uses staged URLs
+  // only; post-save the server fetch returns the canonical photo list.
+  void uploadedPhotos;
+
+  const tags: ParcelTagDto[] = tagCodes.flatMap((code) => {
+    const hit = tagByCode.get(code);
+    return hit ? [hit] : [];
+  });
+
+  return {
+    parcel,
+    startingBid,
+    reservePrice,
+    buyNowPrice,
+    durationHours,
+    sellerDesc: sellerDesc || null,
+    tags,
+    photos,
+  };
+}
