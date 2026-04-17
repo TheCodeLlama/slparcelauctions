@@ -137,6 +137,18 @@ class AuctionDtoMapperTest {
         assertThat(dto.bidderCount()).isEqualTo(0L);
     }
 
+    @Test
+    void toPublicResponse_nonZeroBid_mapsCurrentBidToBigDecimalAndRealBidderCount() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        a.setCurrentBid(500L);
+        a.setBidCount(3);
+
+        PublicAuctionResponse dto = mapper.toPublicResponse(a);
+
+        assertThat(dto.currentHighBid()).isEqualByComparingTo(BigDecimal.valueOf(500));
+        assertThat(dto.bidderCount()).isEqualTo(3L);
+    }
+
     private Auction buildAuction(AuctionStatus status) {
         User seller = User.builder().id(42L).email("s@example.com").build();
         Parcel parcel = Parcel.builder()
