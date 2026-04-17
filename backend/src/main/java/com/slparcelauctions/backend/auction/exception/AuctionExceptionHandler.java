@@ -51,7 +51,8 @@ public class AuctionExceptionHandler {
     public ProblemDetail handleParcelAlreadyListed(
             ParcelAlreadyListedException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-                HttpStatus.CONFLICT, e.getMessage());
+                HttpStatus.CONFLICT,
+                "This parcel is currently in an active auction. You can list it again after that auction ends.");
         pd.setTitle("Parcel Already Listed");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "PARCEL_ALREADY_LISTED");

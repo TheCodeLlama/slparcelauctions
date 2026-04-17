@@ -178,7 +178,8 @@ class ParcelLockingRaceIntegrationTest {
             cancellationService.cancel(a1, "switching");
         });
 
-        // A2 is now VERIFICATION_FAILED from the prior attempt. Retry from that state.
+        // After the failed verify above, @Transactional rolled back the VERIFICATION_PENDING
+        // save, so A2 is back in DRAFT_PAID. It can retry via /verify now that A1 is CANCELLED.
         mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())

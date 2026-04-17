@@ -78,19 +78,11 @@ public class AuctionVerificationService {
             throw new IllegalStateException(
                     "Auction " + pending.getId() + " has no verificationMethod set; cannot verify.");
         }
-        Auction out = switch (method) {
+        return switch (method) {
             case UUID_ENTRY -> dispatchMethodA(pending);
             case REZZABLE -> throw new UnsupportedOperationException("Method B wired in Task 7");
             case SALE_TO_BOT -> throw new UnsupportedOperationException("Method C wired in Task 8");
         };
-
-        // Eagerly initialize lazy associations while the JPA session is still open.
-        // The controller calls AuctionDtoMapper.toSellerResponse(a, pending) AFTER this
-        // @Transactional method returns, and spring.jpa.open-in-view=false, so any lazy
-        // collection left uninitialized here blows up the mapper with
-        // LazyInitializationException. Touch size() to force initialization.
-        out.getTags().size();
-        return out;
     }
 
     /**
