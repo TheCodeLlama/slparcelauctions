@@ -235,7 +235,7 @@ class AuctionControllerIntegrationTest {
     void update_onDraft_returns200() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2500L, null, null, null, null, null, "updated description", null);
+                2500L, null, null, null, null, null, "updated description", null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -250,7 +250,7 @@ class AuctionControllerIntegrationTest {
     void update_onActive_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2500L, null, null, null, null, null, null, null);
+                2500L, null, null, null, null, null, null, null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -259,6 +259,29 @@ class AuctionControllerIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("AUCTION_INVALID_STATE"))
                 .andExpect(jsonPath("$.currentState").value("ACTIVE"));
+    }
+
+    // -------------------------------------------------------------------------
+    // PUT /auctions/{id}/verify — group-land gate (sub-spec 2 §7.2)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void verify_groupOwnedParcel_withNonSaleToBotMethod_returns422ProblemDetail() throws Exception {
+        // Seed a group-owned parcel for the seller and a DRAFT_PAID auction
+        // over it. The verify trigger must reject any method other than
+        // SALE_TO_BOT with a 422 ProblemDetail carrying the agreed code/title.
+        Parcel groupParcel = seedGroupOwnedParcel();
+        Auction a = seedAuctionFor(groupParcel, AuctionStatus.DRAFT_PAID, true);
+
+        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.status").value(422))
+                .andExpect(jsonPath("$.title").value("Group-owned land requires Sale-to-bot"))
+                .andExpect(jsonPath("$.code").value("GROUP_LAND_REQUIRES_SALE_TO_BOT"))
+                .andExpect(jsonPath("$.detail").isNotEmpty());
     }
 
     // -------------------------------------------------------------------------
@@ -389,12 +412,24 @@ class AuctionControllerIntegrationTest {
     }
 
     private Auction seedAuction(AuctionStatus status, boolean listingFeePaid, int bidCount) {
+        return seedAuctionFor(sellerParcel, status, listingFeePaid, bidCount,
+                VerificationMethod.UUID_ENTRY);
+    }
+
+    private Auction seedAuctionFor(Parcel parcel, AuctionStatus status, boolean listingFeePaid) {
+        // Sub-spec 2 §7.1 — verificationMethod is null until the seller picks
+        // one at the verify trigger. Group-owned parcel tests rely on this.
+        return seedAuctionFor(parcel, status, listingFeePaid, 0, null);
+    }
+
+    private Auction seedAuctionFor(Parcel parcel, AuctionStatus status,
+            boolean listingFeePaid, int bidCount, VerificationMethod method) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
-                .parcel(sellerParcel)
+                .parcel(parcel)
                 .seller(seller)
                 .status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationMethod(method)
                 .startingBid(1000L)
                 .durationHours(168)
                 .snipeProtect(false)
@@ -411,5 +446,26 @@ class AuctionControllerIntegrationTest {
             a.setOriginalEndsAt(now.plusDays(1));
         }
         return auctionRepository.save(a);
+    }
+
+    /**
+     * Seeds a group-owned parcel directly via the repository (the /parcels/lookup
+     * flow stubs an agent-owner, so bypass it). Group-owned parcels trip the
+     * group-land gate on PUT /auctions/{id}/verify for any method other than
+     * SALE_TO_BOT — sub-spec 2 §7.2.
+     */
+    private Parcel seedGroupOwnedParcel() {
+        UUID parcelUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        UUID groupUuid = UUID.fromString("66666666-6666-6666-6666-666666666666");
+        Parcel p = Parcel.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(groupUuid)
+                .ownerType("group")
+                .regionName("Coniston")
+                .continentName("Sansara")
+                .areaSqm(2048)
+                .verified(true)
+                .build();
+        return parcelRepository.save(p);
     }
 }

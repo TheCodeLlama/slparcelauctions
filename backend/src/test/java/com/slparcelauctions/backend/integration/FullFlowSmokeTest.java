@@ -100,7 +100,7 @@ class FullFlowSmokeTest {
     @Test
     void methodA_fullFlow_registerVerifyLookupCreatePayVerify_reachesActive() throws Exception {
         // Create a UUID_ENTRY auction
-        Long auctionId = createAuction("UUID_ENTRY");
+        Long auctionId = createAuction();
 
         // Pay the listing fee via the dev stub
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
@@ -138,7 +138,7 @@ class FullFlowSmokeTest {
 
     @Test
     void methodB_fullFlow_lslCallbackCompletesVerification() throws Exception {
-        Long auctionId = createAuction("REZZABLE");
+        Long auctionId = createAuction();
 
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -197,7 +197,7 @@ class FullFlowSmokeTest {
 
     @Test
     void methodC_fullFlow_devBotCompleteReachesActive() throws Exception {
-        Long auctionId = createAuction("SALE_TO_BOT");
+        Long auctionId = createAuction();
 
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -253,7 +253,7 @@ class FullFlowSmokeTest {
 
     @Test
     void cancel_onDraftPaid_createsPendingRefundRow() throws Exception {
-        Long auctionId = createAuction("UUID_ENTRY");
+        Long auctionId = createAuction();
 
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -291,7 +291,7 @@ class FullFlowSmokeTest {
                 "full-flow-other@example.com", "FullFlowOther",
                 "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
-        Long auctionId = createAuction("UUID_ENTRY");
+        Long auctionId = createAuction();
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -360,13 +360,12 @@ class FullFlowSmokeTest {
     // -------------------------------------------------------------------------
 
     /**
-     * Creates a DRAFT auction via POST /api/v1/auctions. The {@code method}
-     * parameter is accepted for readability at call sites (each scenario
-     * mirrors one verification method) but is no longer sent at create time —
-     * per sub-spec 2 §7.1, verificationMethod is chosen on the verify trigger.
-     * Callers pass the method to {@link #triggerVerify(Long, String)}.
+     * Creates a DRAFT auction via POST /api/v1/auctions. Per sub-spec 2 §7.1,
+     * verificationMethod is not set at create time — it is chosen on the
+     * verify trigger (each scenario calls PUT /auctions/{id}/verify with the
+     * method it is exercising).
      */
-    private Long createAuction(String method) throws Exception {
+    private Long createAuction() throws Exception {
         String body = String.format("""
             {
               "parcelId":%d,

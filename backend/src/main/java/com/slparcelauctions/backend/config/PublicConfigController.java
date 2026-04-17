@@ -27,6 +27,13 @@ public class PublicConfigController {
 
     private final long listingFeeLindens;
 
+    /**
+     * The listing fee is bound at bean construction time from the
+     * {@code slpa.listing-fee.amount-lindens} property. Changing that value
+     * in config requires an application restart — there is no live refresh
+     * path. If a runtime-tunable fee is needed later, move this behind a
+     * Redis-backed read and invalidate on change.
+     */
     public PublicConfigController(
             @Value("${slpa.listing-fee.amount-lindens:100}") long listingFeeLindens) {
         this.listingFeeLindens = listingFeeLindens;

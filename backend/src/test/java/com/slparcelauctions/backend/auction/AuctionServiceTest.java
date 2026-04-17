@@ -239,7 +239,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, "updated desc", null);
+                2000L, null, null, null, null, null, "updated desc", null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -252,7 +252,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                2000L, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -264,7 +264,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                2000L, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -276,7 +276,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                2000L, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -290,7 +290,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, null, null, null, false, null, null, null);
+                null, null, null, null, false, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getSnipeProtect()).isFalse();

@@ -123,6 +123,9 @@ public class AuctionVerificationService {
 
         a.setVerificationMethod(method);
         a.setStatus(AuctionStatus.VERIFICATION_PENDING);
+        // Clear any prior failure note so stale retry explanations from a
+        // previous VERIFICATION_FAILED attempt don't leak into the pending
+        // state. Any fresh failure will write a new note.
         a.setVerificationNotes(null);
         Auction pending = auctionRepo.save(a);
 

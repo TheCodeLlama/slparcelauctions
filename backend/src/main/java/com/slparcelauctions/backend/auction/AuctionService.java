@@ -87,9 +87,10 @@ public class AuctionService {
             throw new InvalidAuctionStateException(auctionId, a.getStatus(), "UPDATE");
         }
 
-        if (req.verificationMethod() != null) {
-            a.setVerificationMethod(req.verificationMethod());
-        }
+        // verificationMethod is intentionally not editable here — it is chosen
+        // on PUT /auctions/{id}/verify so the group-land gate in
+        // AuctionVerificationService.triggerVerification() is the single
+        // enforcement point (sub-spec 2 §7.1/§7.2).
         if (req.startingBid() != null) {
             a.setStartingBid(req.startingBid());
         }
