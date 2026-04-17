@@ -57,3 +57,7 @@ slpa:
     timeout-ms: 5000
     retry-attempts: 3
     retry-backoff-ms: 500
+  listing-fee:
+    amount-lindens: 100
+  commission:
+    default-rate: 0.05
