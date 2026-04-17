@@ -13,8 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
+import com.slparcelauctions.backend.auction.exception.GroupLandRequiresSaleToBotException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
@@ -68,6 +70,7 @@ public class AuctionVerificationService {
     private final VerificationCodeService verificationCodeService;
     private final BotTaskService botTaskService;
     private final BotTaskRepository botTaskRepo;
+    private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final Clock clock;
     private final UUID primaryEscrowUuid;
     private final long sentinelPriceLindens;
@@ -79,6 +82,7 @@ public class AuctionVerificationService {
             VerificationCodeService verificationCodeService,
             BotTaskService botTaskService,
             BotTaskRepository botTaskRepo,
+            OwnershipCheckTimestampInitializer ownershipInitializer,
             Clock clock,
             @Value("${slpa.bot-task.primary-escrow-uuid}") UUID primaryEscrowUuid,
             @Value("${slpa.bot-task.sentinel-price-lindens:999999999}") long sentinelPriceLindens) {
@@ -88,6 +92,7 @@ public class AuctionVerificationService {
         this.verificationCodeService = verificationCodeService;
         this.botTaskService = botTaskService;
         this.botTaskRepo = botTaskRepo;
+        this.ownershipInitializer = ownershipInitializer;
         this.clock = clock;
         this.primaryEscrowUuid = primaryEscrowUuid;
         this.sentinelPriceLindens = sentinelPriceLindens;
@@ -95,26 +100,39 @@ public class AuctionVerificationService {
 
     /**
      * Entry point. Loads the auction (404s non-sellers), validates the state
-     * transition (409 if status is not {@link #VERIFY_ALLOWED_FROM}), flips to
-     * {@code VERIFICATION_PENDING}, clears stale verification notes, and
-     * dispatches by verification method. Method A runs inline and leaves the
-     * auction in ACTIVE or VERIFICATION_FAILED before returning.
+     * transition (409 if status is not {@link #VERIFY_ALLOWED_FROM}), applies
+     * the group-land gate, persists the seller-chosen verification method,
+     * flips to {@code VERIFICATION_PENDING}, clears stale verification notes,
+     * and dispatches by method. Method A runs inline and leaves the auction
+     * in ACTIVE or VERIFICATION_FAILED before returning.
+     *
+     * <p>Sub-spec 2 §7.2 — the method is supplied on every verify call (also
+     * on retry from VERIFICATION_FAILED). Group-owned parcels must pick
+     * SALE_TO_BOT; any other method throws
+     * {@link GroupLandRequiresSaleToBotException} (422).
      */
     @Transactional
-    public Auction triggerVerification(Long auctionId, Long sellerId) {
+    public Auction triggerVerification(Long auctionId, VerificationMethod method, Long sellerId) {
         Auction a = auctionService.loadForSeller(auctionId, sellerId);
         if (!VERIFY_ALLOWED_FROM.contains(a.getStatus())) {
             throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "VERIFY");
         }
+
+        // Group-owned land can only be verified via the sale-to-bot path —
+        // UUID_ENTRY and REZZABLE both assume the seller's avatar is the owner.
+        if ("group".equalsIgnoreCase(a.getParcel().getOwnerType())
+                && method != VerificationMethod.SALE_TO_BOT) {
+            throw new GroupLandRequiresSaleToBotException();
+        }
+
+        a.setVerificationMethod(method);
         a.setStatus(AuctionStatus.VERIFICATION_PENDING);
+        // Clear any prior failure note so stale retry explanations from a
+        // previous VERIFICATION_FAILED attempt don't leak into the pending
+        // state. Any fresh failure will write a new note.
         a.setVerificationNotes(null);
         Auction pending = auctionRepo.save(a);
 
-        VerificationMethod method = pending.getVerificationMethod();
-        if (method == null) {
-            throw new IllegalStateException(
-                    "Auction " + pending.getId() + " has no verificationMethod set; cannot verify.");
-        }
         return switch (method) {
             case UUID_ENTRY -> dispatchMethodA(pending);
             case REZZABLE -> dispatchMethodB(pending);
@@ -145,8 +163,9 @@ public class AuctionVerificationService {
      * an in-world object that posts to {@code POST /api/v1/sl/parcel/verify}
      * with the code + parcel/owner data; that endpoint handles the actual
      * transition to ACTIVE (see {@code SlParcelVerifyService}). If the code
-     * expires without a callback, {@code ParcelCodeExpiryJob} reverts the
-     * auction back to DRAFT_PAID.
+     * expires without a callback, {@code ParcelCodeExpiryJob} transitions the
+     * auction to VERIFICATION_FAILED with retry-friendly notes (sub-spec 2
+     * §7.3 — every failure path lands in the same state; no automatic refund).
      */
     private Auction dispatchMethodB(Auction a) {
         verificationCodeService.generateForParcel(a.getSeller().getId(), a.getId());
@@ -187,8 +206,8 @@ public class AuctionVerificationService {
         UUID sellerAvatar = seller.getSlAvatarUuid();
         if (freshOwner == null || sellerAvatar == null || !freshOwner.equals(sellerAvatar)) {
             return failVerification(a,
-                    "Ownership mismatch: parcel owner " + freshOwner
-                            + " does not match seller avatar " + sellerAvatar + ".");
+                    "Ownership check failed: the parcel's owner UUID doesn't match your avatar. "
+                            + "Pick another method or correct the UUID.");
         }
 
         // Service-layer parcel-lock pre-check. Identifies the blocking auction
@@ -209,6 +228,10 @@ public class AuctionVerificationService {
         a.setVerifiedAt(now);
         a.setVerificationTier(VerificationTier.SCRIPT);
         a.setStatus(AuctionStatus.ACTIVE);
+        // Seed lastOwnershipCheckAt with jitter so the next scheduler sweep
+        // does not slam the World API with every freshly-activated listing at
+        // once. See OwnershipCheckTimestampInitializer + spec §8.2.
+        ownershipInitializer.onActivated(a);
 
         try {
             // saveAndFlush forces the INSERT/UPDATE to hit Postgres now so the partial

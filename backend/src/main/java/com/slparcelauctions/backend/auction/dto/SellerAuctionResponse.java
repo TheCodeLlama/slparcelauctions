@@ -24,6 +24,8 @@ public record SellerAuctionResponse(
         Long buyNowPrice,
         Long currentBid,
         Integer bidCount,
+        BigDecimal currentHighBid,
+        Long bidderCount,
         Long winnerId,
         Integer durationHours,
         Boolean snipeProtect,

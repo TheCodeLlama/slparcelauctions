@@ -113,6 +113,42 @@ class AuctionDtoMapperTest {
         assertThat(seller.pendingVerification()).isNull();
     }
 
+    @Test
+    void toSellerResponse_includesBidSummaryFieldsZeroedWhenNoBids() {
+        Auction a = buildAuction(AuctionStatus.DRAFT);
+        a.setCurrentBid(0L);
+        a.setBidCount(0);
+
+        SellerAuctionResponse seller = mapper.toSellerResponse(a, null);
+
+        assertThat(seller.currentHighBid()).isNull();
+        assertThat(seller.bidderCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void toPublicResponse_active_includesBidSummary() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        a.setCurrentBid(0L);
+        a.setBidCount(0);
+
+        PublicAuctionResponse dto = mapper.toPublicResponse(a);
+
+        assertThat(dto.currentHighBid()).isNull();
+        assertThat(dto.bidderCount()).isEqualTo(0L);
+    }
+
+    @Test
+    void toPublicResponse_nonZeroBid_mapsCurrentBidToBigDecimalAndRealBidderCount() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        a.setCurrentBid(500L);
+        a.setBidCount(3);
+
+        PublicAuctionResponse dto = mapper.toPublicResponse(a);
+
+        assertThat(dto.currentHighBid()).isEqualByComparingTo(BigDecimal.valueOf(500));
+        assertThat(dto.bidderCount()).isEqualTo(3L);
+    }
+
     private Auction buildAuction(AuctionStatus status) {
         User seller = User.builder().id(42L).email("s@example.com").build();
         Parcel parcel = Parcel.builder()

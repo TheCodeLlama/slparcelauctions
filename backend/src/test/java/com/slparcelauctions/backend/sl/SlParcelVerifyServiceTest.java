@@ -35,6 +35,8 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
@@ -84,8 +86,11 @@ class SlParcelVerifyServiceTest {
         parcelRepo = mock(ParcelRepository.class);
         headerValidator = new SlHeaderValidator(
                 new SlConfigProperties("Production", Set.of(TRUSTED)));
+        OwnershipMonitorProperties ownershipProps = new OwnershipMonitorProperties();
+        OwnershipCheckTimestampInitializer ownershipInit =
+                new OwnershipCheckTimestampInitializer(ownershipProps, FIXED);
         service = new SlParcelVerifyService(
-                headerValidator, codeRepo, auctionRepo, parcelRepo, FIXED);
+                headerValidator, codeRepo, auctionRepo, parcelRepo, ownershipInit, FIXED);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();

@@ -40,6 +40,8 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
@@ -76,7 +78,11 @@ class BotTaskServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        service = new BotTaskService(botTaskRepo, auctionRepo, parcelRepo, fixed);
+        OwnershipMonitorProperties ownershipProps = new OwnershipMonitorProperties();
+        OwnershipCheckTimestampInitializer ownershipInit =
+                new OwnershipCheckTimestampInitializer(ownershipProps, fixed);
+        service = new BotTaskService(
+                botTaskRepo, auctionRepo, parcelRepo, ownershipInit, fixed);
         injectConfig(service, "sentinelPrice", SENTINEL_PRICE);
         injectConfig(service, "primaryEscrowUuid", ESCROW_UUID);
 
@@ -422,7 +428,11 @@ class BotTaskServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void markTimedOut_pendingTask_failsAndTransitionsAuctionToVerificationFailed() {
+    void markTimedOut_pendingTask_failsAndTransitionsAuctionToVerificationFailed_withRetryFriendlyNotes() {
+        // Sub-spec 2 §7.3: retry-friendly verificationNotes consistent with
+        // ParcelCodeExpiryJob and synchronous Method A failures. No refund —
+        // BotTaskService does not depend on ListingFeeRefundRepository, so
+        // refund creation is structurally impossible from this path.
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
 
@@ -432,7 +442,9 @@ class BotTaskServiceTest {
         assertThat(task.getFailureReason()).isEqualTo("TIMEOUT");
         assertThat(task.getCompletedAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
-        assertThat(a.getVerificationNotes()).contains("48-hour window");
+        assertThat(a.getVerificationNotes())
+                .contains("Sale-to-bot task timed out")
+                .contains("retry at no extra cost");
     }
 
     @Test

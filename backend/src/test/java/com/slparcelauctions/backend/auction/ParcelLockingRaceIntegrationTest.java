@@ -134,13 +134,17 @@ class ParcelLockingRaceIntegrationTest {
 
         // A1 verifies -> ACTIVE
         mockMvc.perform(put("/api/v1/auctions/" + a1Id + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
         // A2 verify -> 409 ParcelAlreadyListed, identifying A1 as the blocker.
         mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PARCEL_ALREADY_LISTED"))
                 .andExpect(jsonPath("$.parcelId").value(parcel.getId()))
@@ -159,12 +163,16 @@ class ParcelLockingRaceIntegrationTest {
 
         // A1 -> ACTIVE
         mockMvc.perform(put("/api/v1/auctions/" + a1Id + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isOk());
 
         // A2 blocked
         mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isConflict());
 
         // Cancel A1 -> lock released.
@@ -181,7 +189,9 @@ class ParcelLockingRaceIntegrationTest {
         // After the failed verify above, @Transactional rolled back the VERIFICATION_PENDING
         // save, so A2 is back in DRAFT_PAID. It can retry via /verify now that A1 is CANCELLED.
         mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
@@ -230,7 +240,9 @@ class ParcelLockingRaceIntegrationTest {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 MvcResult r = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                        .header("Authorization", "Bearer " + sellerAccessToken))
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"method\":\"UUID_ENTRY\"}"))
                         .andReturn();
                 return r.getResponse().getStatus();
             } catch (Exception e) {

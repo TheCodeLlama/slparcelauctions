@@ -237,7 +237,6 @@ class BotTaskControllerIntegrationTest {
         String body = String.format("""
             {
               "parcelId":%d,
-              "verificationMethod":"SALE_TO_BOT",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
@@ -266,7 +265,9 @@ class BotTaskControllerIntegrationTest {
 
     private Long triggerVerify(Long auctionId) throws Exception {
         MvcResult res = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"SALE_TO_BOT\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("VERIFICATION_PENDING"))
                 .andExpect(jsonPath("$.pendingVerification.method").value("SALE_TO_BOT"))

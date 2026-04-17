@@ -53,7 +53,13 @@ class ParcelCodeExpiryJobTest {
     }
 
     @Test
-    void stuckRezzableWithExpiredCode_revertedToDraftPaid() {
+    void stuckRezzableWithExpiredCode_transitionsToVerificationFailed_withNotes() {
+        // Sub-spec 2 §7.3: all verification-failure paths (Method A sync
+        // mismatch, Method B code expiry, Method C 48-hour timeout) converge on
+        // VERIFICATION_FAILED with retry-friendly verificationNotes. No
+        // ListingFeeRefund is created — the job doesn't depend on
+        // ListingFeeRefundRepository, so refund creation is structurally
+        // impossible from this path.
         Auction stuck = buildAuction(1L, VerificationMethod.REZZABLE);
         VerificationCode expired = VerificationCode.builder()
                 .id(99L).userId(42L).auctionId(1L)
@@ -67,16 +73,17 @@ class ParcelCodeExpiryJobTest {
 
         job.sweep();
 
-        assertThat(stuck.getStatus()).isEqualTo(AuctionStatus.DRAFT_PAID);
+        assertThat(stuck.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
         assertThat(stuck.getVerificationNotes())
-                .contains("Verification code expired");
+                .contains("code expired")
+                .contains("retry at no extra cost");
         verify(auctionRepo).save(stuck);
     }
 
     @Test
-    void stuckRezzableWithNoCodes_revertedToDraftPaid() {
+    void stuckRezzableWithNoCodes_transitionsToVerificationFailed() {
         // Orphaned PENDING with no codes at all — still treated as "no active code"
-        // and reverted. Shouldn't happen in practice (dispatchMethodB always issues
+        // and failed. Shouldn't happen in practice (dispatchMethodB always issues
         // one) but the sweep must not hang on edge-case inconsistency.
         Auction stuck = buildAuction(2L, VerificationMethod.REZZABLE);
         when(auctionRepo.findByStatusAndVerificationMethod(
@@ -87,7 +94,7 @@ class ParcelCodeExpiryJobTest {
 
         job.sweep();
 
-        assertThat(stuck.getStatus()).isEqualTo(AuctionStatus.DRAFT_PAID);
+        assertThat(stuck.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
         verify(auctionRepo).save(stuck);
     }
 
@@ -111,7 +118,7 @@ class ParcelCodeExpiryJobTest {
     }
 
     @Test
-    void multipleAuctions_onlyExpiredOnesReverted() {
+    void multipleAuctions_onlyExpiredOnesFailed() {
         Auction expiredOne = buildAuction(10L, VerificationMethod.REZZABLE);
         Auction liveOne = buildAuction(11L, VerificationMethod.REZZABLE);
 
@@ -127,7 +134,7 @@ class ParcelCodeExpiryJobTest {
 
         job.sweep();
 
-        assertThat(expiredOne.getStatus()).isEqualTo(AuctionStatus.DRAFT_PAID);
+        assertThat(expiredOne.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
         assertThat(liveOne.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         verify(auctionRepo).save(expiredOne);
         verify(auctionRepo, never()).save(liveOne);

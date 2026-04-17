@@ -121,7 +121,6 @@ class DevBotTaskControllerTest {
         String body = String.format("""
             {
               "parcelId":%d,
-              "verificationMethod":"SALE_TO_BOT",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
@@ -150,7 +149,9 @@ class DevBotTaskControllerTest {
 
     private Long triggerVerify(Long auctionId) throws Exception {
         MvcResult res = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"SALE_TO_BOT\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         return objectMapper.readTree(res.getResponse().getContentAsString())

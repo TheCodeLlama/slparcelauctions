@@ -93,12 +93,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 04 (Auction Engine)
 - **Notes:** `frontend/src/app/dashboard/(verified)/bids/page.tsx` currently renders `<EmptyState>`.
 
-### Real data for My Listings tab
-- **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
-- **Why:** Tab skeleton ships with empty-state placeholder. Real data requires listing model from Epic 03.
-- **When:** Epic 03 (Parcel Management — listing creation sub-spec)
-- **Notes:** `frontend/src/app/dashboard/(verified)/listings/page.tsx` currently renders `<EmptyState>`.
-
 ### Recent reviews section on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
 - **Why:** Review data requires the reviews model from Epic 06. Public profile ships with empty-state placeholder.
@@ -140,6 +134,42 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** `BotTaskTimeoutJob` only times out PENDING tasks — tasks that were never claimed by a worker. Once Epic 06 workers claim a task and flip it to `IN_PROGRESS`, a crashed worker leaves the task stuck in IN_PROGRESS forever with no cleanup.
 - **When:** Epic 06 (SL bot service) — when claim-flow is implemented, extend the timeout job with a separate `IN_PROGRESS`-status query + cutoff (likely shorter than 48h, since "worker picked it up but did not finish" is a different signal than "no worker claimed it").
 - **Notes:** The right cutoff for IN_PROGRESS is probably 15-30 minutes (a real verify should take seconds). Failing behavior on timeout is the same: task FAILED with reason `TIMEOUT`, auction flipped to `VERIFICATION_FAILED` only if still `VERIFICATION_PENDING`.
+
+### Public listing page target for "View public listing" links
+- **From:** Epic 03 sub-spec 2 (Task 10 My Listings row actions)
+- **Why:** `ListingSummaryRow`'s "View listing" (for ACTIVE / ENDED / escrow / completed / expired) and "View details" (for CANCELLED / DISPUTED / SUSPENDED) links both target `/auction/[id]`. The dynamic auction route exists today and serves the public DTO, but the polished buyer-facing listing page (photo gallery, bid ladder, snipe-protection messaging, seller profile block, watch button) is scoped to Epic 04.
+- **When:** Epic 04 (Auction Engine — public listing page).
+- **Notes:** The spec §6.3 footnote acknowledges these links may be "dead" (i.e., render a sparse placeholder page) until Epic 04 lands. Do not re-home the links to a different route when the full page ships — `/auction/[id]` is the canonical URL.
+
+### Real in-world listing-fee terminal
+- **From:** Epic 03 sub-spec 2 (activate page fee payment)
+- **Why:** `FeePaymentInstructions` copy + the activate-flow state machine both assume an in-world rezzed escrow terminal that posts a callback to transition `DRAFT → DRAFT_PAID` with a real L$ transaction reference. Today the only payment path is `POST /api/v1/dev/auctions/{id}/pay` (dev-profile-only) which stamps a `dev-mock-<uuid>` txnRef. Production deployment MUST replace this with the real terminal callback before the app ships to real sellers.
+- **When:** Epic 05 (Escrow Manager) — the listing-fee terminal is the first in-world object that the escrow LSL scripting phase will produce.
+- **Notes:** The shape of the real callback is intentionally left TBD — the dev endpoint's `{amount?, txnRef?}` body is not the binding contract. Epic 05's spec will define the SL-header-gated callback endpoint and its body schema; the frontend's `FeePaymentInstructions` component will update to show the real terminal location + region when the UUID is provisioned.
+
+### Notifications for suspension events
+- **From:** Epic 03 sub-spec 2 (ownership monitor SUSPENDED transition)
+- **Why:** When `SuspensionService.suspend()` flips an auction to SUSPENDED and writes a `FraudFlag` row, the seller learns about it only via the My Listings tab (`ListingSummaryRow`'s inline red callout). No email / SL IM / in-app notification is fired. This is fine for Phase 1 (the dashboard is the only communication surface) but a production launch deserves a real "your listing was suspended — contact support" email with the fraud reason summarized.
+- **When:** Epic 09 (Notifications) — hook `SuspensionService.suspend()` into the notification publisher once the email + SL IM channels exist.
+- **Notes:** The notification template should NOT include the full FraudFlag `evidence_json` payload (that's admin-only — leaking it could help an attacker calibrate their next attempt). Stick to a human-readable reason string from `FraudFlagReason`.
+
+### Admin dashboard for fraud_flag resolution
+- **From:** Epic 03 sub-spec 2 (FraudFlag entity + SuspensionService)
+- **Why:** `FraudFlag` has `resolved` / `resolvedAt` / `resolvedBy` columns and a `jsonb evidence_json` payload ready for admin review, but no UI reads or writes them. Ownership-check suspensions accumulate silently until an admin exists to triage them.
+- **When:** Epic 10 (Admin & Moderation) — build a `/admin/fraud-flags` page that lists open flags, shows the evidence blob formatted, and lets an admin resolve or un-suspend (flip the auction back to ACTIVE and mark the flag resolved).
+- **Notes:** Un-suspend is a sensitive action — only a user with an admin role (tracked in a separate `User.role` or similar) should see the button. The admin role model itself is also Epic 10 scope.
+
+### Non-dev admin endpoint for ownership-monitor trigger
+- **From:** Epic 03 sub-spec 2 (DevOwnershipMonitorController)
+- **Why:** `POST /api/v1/dev/ownership-monitor/run` is `@Profile("dev")` — the only way to force an ownership sweep in prod is to wait for the next scheduled tick (default 15 minutes). Admins triaging a suspected fraud report need a "re-check this listing now" button that runs a single-auction check and returns the result synchronously.
+- **When:** Epic 10 (Admin & Moderation) — add `POST /api/v1/admin/auctions/{id}/recheck-ownership` gated on the admin role, delegating to `OwnershipCheckTask` for a single auction with the result summarized in the response body.
+- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification (see the manual-test plan in the Task 10 PR). The admin endpoint is a separate surface with different auth and a different response shape.
+
+### Destructive-variant copy polish
+- **From:** Epic 03 sub-spec 2 (Task 9 review follow-up + Task 10 Button variant)
+- **Why:** The Button `destructive` variant landed in Task 10 with `bg-error text-on-error`, sufficient for the `CancelListingModal` use case. Future destructive surfaces (delete-account, bulk cancel, fraud-flag un-suspend) may want a richer treatment — e.g. an icon-left convention, a "are you sure" two-step gesture, or a reduced-emphasis destructive outline variant for less consequential destructive actions.
+- **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
+- **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
 ---
 

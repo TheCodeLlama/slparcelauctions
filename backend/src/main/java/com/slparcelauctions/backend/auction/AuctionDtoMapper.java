@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auction;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 
@@ -37,7 +38,7 @@ public class AuctionDtoMapper {
         return switch (internal) {
             case ACTIVE -> PublicAuctionStatus.ACTIVE;
             case ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING,
-                    COMPLETED, CANCELLED, EXPIRED, DISPUTED -> PublicAuctionStatus.ENDED;
+                    COMPLETED, CANCELLED, EXPIRED, DISPUTED, SUSPENDED -> PublicAuctionStatus.ENDED;
             case DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED ->
                     throw new IllegalStateException(
                             "Non-public status leaked to toPublicStatus: " + internal
@@ -61,6 +62,8 @@ public class AuctionDtoMapper {
                 a.getBuyNowPrice(),
                 a.getCurrentBid(),
                 a.getBidCount(),
+                currentHighBid(a),
+                bidderCount(a),
                 a.getDurationHours(),
                 a.getSnipeProtect(),
                 a.getSnipeWindowMin(),
@@ -87,6 +90,8 @@ public class AuctionDtoMapper {
                 a.getBuyNowPrice(),
                 a.getCurrentBid(),
                 a.getBidCount(),
+                currentHighBid(a),
+                bidderCount(a),
                 a.getWinnerId(),
                 a.getDurationHours(),
                 a.getSnipeProtect(),
@@ -105,6 +110,29 @@ public class AuctionDtoMapper {
                 a.getCommissionAmt(),
                 a.getCreatedAt(),
                 a.getUpdatedAt());
+    }
+
+    /**
+     * Returns the current high bid as a {@link BigDecimal}, or null when no
+     * bids have been placed. Epic 04 will populate real values; until then
+     * {@code currentBid} is the entity default of 0, which we project as null
+     * so consumers can render "—" rather than "L$0".
+     */
+    private BigDecimal currentHighBid(Auction a) {
+        Long cb = a.getCurrentBid();
+        if (cb == null || cb == 0L) {
+            return null;
+        }
+        return BigDecimal.valueOf(cb);
+    }
+
+    /**
+     * Returns the bidder count as a {@link Long}, defaulting to 0 for
+     * historical rows with a null {@code bidCount}.
+     */
+    private Long bidderCount(Auction a) {
+        Integer bc = a.getBidCount();
+        return bc == null ? 0L : bc.longValue();
     }
 
     private List<ParcelTagResponse> tagList(Auction a) {

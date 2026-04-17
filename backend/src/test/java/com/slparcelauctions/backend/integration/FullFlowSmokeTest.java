@@ -100,7 +100,7 @@ class FullFlowSmokeTest {
     @Test
     void methodA_fullFlow_registerVerifyLookupCreatePayVerify_reachesActive() throws Exception {
         // Create a UUID_ENTRY auction
-        Long auctionId = createAuction("UUID_ENTRY");
+        Long auctionId = createAuction();
 
         // Pay the listing fee via the dev stub
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
@@ -113,7 +113,9 @@ class FullFlowSmokeTest {
 
         // Trigger verification — World API mock already returns matching ownership
         mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.verificationTier").value("SCRIPT"))
@@ -136,7 +138,7 @@ class FullFlowSmokeTest {
 
     @Test
     void methodB_fullFlow_lslCallbackCompletesVerification() throws Exception {
-        Long auctionId = createAuction("REZZABLE");
+        Long auctionId = createAuction();
 
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -145,7 +147,9 @@ class FullFlowSmokeTest {
                 .andExpect(status().isOk());
 
         MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"REZZABLE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("VERIFICATION_PENDING"))
                 .andExpect(jsonPath("$.pendingVerification.method").value("REZZABLE"))
@@ -193,7 +197,7 @@ class FullFlowSmokeTest {
 
     @Test
     void methodC_fullFlow_devBotCompleteReachesActive() throws Exception {
-        Long auctionId = createAuction("SALE_TO_BOT");
+        Long auctionId = createAuction();
 
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -202,7 +206,9 @@ class FullFlowSmokeTest {
                 .andExpect(status().isOk());
 
         MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"SALE_TO_BOT\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("VERIFICATION_PENDING"))
                 .andExpect(jsonPath("$.pendingVerification.method").value("SALE_TO_BOT"))
@@ -247,7 +253,7 @@ class FullFlowSmokeTest {
 
     @Test
     void cancel_onDraftPaid_createsPendingRefundRow() throws Exception {
-        Long auctionId = createAuction("UUID_ENTRY");
+        Long auctionId = createAuction();
 
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -285,14 +291,16 @@ class FullFlowSmokeTest {
                 "full-flow-other@example.com", "FullFlowOther",
                 "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
-        Long auctionId = createAuction("UUID_ENTRY");
+        Long auctionId = createAuction();
         mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isOk());
         mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken))
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
@@ -351,17 +359,22 @@ class FullFlowSmokeTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private Long createAuction(String method) throws Exception {
+    /**
+     * Creates a DRAFT auction via POST /api/v1/auctions. Per sub-spec 2 §7.1,
+     * verificationMethod is not set at create time — it is chosen on the
+     * verify trigger (each scenario calls PUT /auctions/{id}/verify with the
+     * method it is exercising).
+     */
+    private Long createAuction() throws Exception {
         String body = String.format("""
             {
               "parcelId":%d,
-              "verificationMethod":"%s",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
               "sellerDesc":"Nice parcel"
             }
-            """, sellerParcel.getId(), method);
+            """, sellerParcel.getId());
         MvcResult res = mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)

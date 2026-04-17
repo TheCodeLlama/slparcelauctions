@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.auction.AuctionStatusConstants;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
@@ -58,6 +59,7 @@ public class BotTaskService {
     private final BotTaskRepository botTaskRepo;
     private final AuctionRepository auctionRepo;
     private final ParcelRepository parcelRepo;
+    private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final Clock clock;
 
     @Value("${slpa.bot-task.sentinel-price-lindens:999999999}")
@@ -213,6 +215,8 @@ public class BotTaskService {
         auction.setVerifiedAt(now);
         auction.setVerificationTier(VerificationTier.BOT);
         auction.setStatus(AuctionStatus.ACTIVE);
+        // Seed lastOwnershipCheckAt with jitter — see spec §8.2 and Method A.
+        ownershipInitializer.onActivated(auction);
         try {
             // saveAndFlush forces the partial unique index to fire inside this
             // try/catch so a concurrent race surfaces as
@@ -265,8 +269,12 @@ public class BotTaskService {
         Auction auction = task.getAuction();
         if (auction.getStatus() == AuctionStatus.VERIFICATION_PENDING) {
             auction.setStatus(AuctionStatus.VERIFICATION_FAILED);
+            // Sub-spec 2 §7.3: retry-friendly phrasing consistent with
+            // ParcelCodeExpiryJob and Method A sync failures. No refund here —
+            // ListingFeeRefund is created only by the cancel endpoint.
             auction.setVerificationNotes(
-                    "Bot did not complete verification within the 48-hour window.");
+                    "Sale-to-bot task timed out after 48 hours without a match. "
+                            + "You can retry at no extra cost.");
             auctionRepo.save(auction);
         }
         log.info("Bot task {} timed out (auctionId={})",

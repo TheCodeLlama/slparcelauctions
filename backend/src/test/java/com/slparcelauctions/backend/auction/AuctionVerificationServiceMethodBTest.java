@@ -23,6 +23,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
 import com.slparcelauctions.backend.parcel.Parcel;
@@ -69,9 +71,12 @@ class AuctionVerificationServiceMethodBTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
+        OwnershipMonitorProperties props = new OwnershipMonitorProperties();
+        OwnershipCheckTimestampInitializer ownershipInit =
+                new OwnershipCheckTimestampInitializer(props, fixed);
         service = new AuctionVerificationService(
                 auctionService, auctionRepo, worldApi, verificationCodeService,
-                botTaskService, botTaskRepo, fixed, ESCROW_UUID, SENTINEL_PRICE);
+                botTaskService, botTaskRepo, ownershipInit, fixed, ESCROW_UUID, SENTINEL_PRICE);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
@@ -95,7 +100,7 @@ class AuctionVerificationServiceMethodBTest {
                 .thenReturn(new GenerateCodeResponse("123456",
                         OffsetDateTime.now(fixed).plusMinutes(15)));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.REZZABLE, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         // No transition to ACTIVE — LSL callback will drive that.
@@ -118,7 +123,7 @@ class AuctionVerificationServiceMethodBTest {
                 .thenReturn(new GenerateCodeResponse("654321",
                         OffsetDateTime.now(fixed).plusMinutes(15)));
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.REZZABLE, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         assertThat(out.getVerificationNotes()).isNull();

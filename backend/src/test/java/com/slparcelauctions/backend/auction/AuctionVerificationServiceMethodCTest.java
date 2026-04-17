@@ -22,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
+import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
@@ -70,9 +72,12 @@ class AuctionVerificationServiceMethodCTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
+        OwnershipMonitorProperties props = new OwnershipMonitorProperties();
+        OwnershipCheckTimestampInitializer ownershipInit =
+                new OwnershipCheckTimestampInitializer(props, fixed);
         service = new AuctionVerificationService(
                 auctionService, auctionRepo, worldApi, verificationCodeService,
-                botTaskService, botTaskRepo, fixed, ESCROW_UUID, SENTINEL_PRICE);
+                botTaskService, botTaskRepo, ownershipInit, fixed, ESCROW_UUID, SENTINEL_PRICE);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
@@ -93,7 +98,7 @@ class AuctionVerificationServiceMethodCTest {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.SALE_TO_BOT, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         // Bot worker callback (not dispatch) drives the ACTIVE transition.
@@ -113,7 +118,7 @@ class AuctionVerificationServiceMethodCTest {
         a.setVerificationNotes("stale failure note");
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
-        Auction out = service.triggerVerification(AUCTION_ID, SELLER_ID);
+        Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.SALE_TO_BOT, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         assertThat(out.getVerificationNotes()).isNull();
