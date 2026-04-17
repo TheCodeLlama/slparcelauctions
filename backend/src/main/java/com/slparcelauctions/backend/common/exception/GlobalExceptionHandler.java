@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
+import com.slparcelauctions.backend.sl.exception.NotMainlandException;
+import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
+import com.slparcelauctions.backend.sl.exception.RegionNotFoundException;
 import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 
 import java.net.URI;
@@ -151,6 +155,63 @@ public class GlobalExceptionHandler {
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "MISSING_REQUEST_PART");
         pd.setProperty("part", e.getRequestPartName());
+        return pd;
+    }
+
+    @ExceptionHandler(ParcelNotFoundInSlException.class)
+    public ProblemDetail handleParcelNotFoundInSl(ParcelNotFoundInSlException e,
+                                                  HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "Parcel does not exist in Second Life or has been deleted.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/parcel-not-found"));
+        pd.setTitle("Parcel Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_PARCEL_NOT_FOUND");
+        pd.setProperty("slParcelUuid", e.getParcelUuid().toString());
+        return pd;
+    }
+
+    @ExceptionHandler(RegionNotFoundException.class)
+    public ProblemDetail handleRegionNotFound(RegionNotFoundException e,
+                                              HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "Region does not exist in Second Life.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/region-not-found"));
+        pd.setTitle("Region Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_REGION_NOT_FOUND");
+        pd.setProperty("regionName", e.getRegionName());
+        return pd;
+    }
+
+    @ExceptionHandler(NotMainlandException.class)
+    public ProblemDetail handleNotMainland(NotMainlandException e,
+                                           HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Only Mainland parcels are supported at this time.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/not-mainland"));
+        pd.setTitle("Not Mainland");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_MAINLAND");
+        pd.setProperty("gridX", e.getGridX());
+        pd.setProperty("gridY", e.getGridY());
+        return pd;
+    }
+
+    @ExceptionHandler(ExternalApiTimeoutException.class)
+    public ProblemDetail handleExternalApiTimeout(ExternalApiTimeoutException e,
+                                                  HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.GATEWAY_TIMEOUT,
+                "An external Second Life service is unreachable. Please try again.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/api-timeout"));
+        pd.setTitle("External API Timeout");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_API_TIMEOUT");
+        pd.setProperty("api", e.getApi());
         return pd;
     }
 
