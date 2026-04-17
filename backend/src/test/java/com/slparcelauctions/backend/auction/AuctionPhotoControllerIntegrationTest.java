@@ -229,11 +229,59 @@ class AuctionPhotoControllerIntegrationTest {
         Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
                 .get("id").asLong();
 
+        // Photos on pre-ACTIVE auctions are draft-private. Flip to ACTIVE so the
+        // public GET works. (See getBytes_draftAuction_returns404ToAnonymous for
+        // the inverse case.)
+        a.setStatus(AuctionStatus.ACTIVE);
+        auctionRepository.save(a);
+
         // Fetch without any Authorization header — public endpoint.
         mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/photos/" + photoId + "/bytes"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
                 .andExpect(header().string("Cache-Control", "public, max-age=86400"));
+    }
+
+    @Test
+    void getBytes_draftAuction_returns404ToAnonymous() throws Exception {
+        // Upload to a DRAFT auction and attempt anonymous read — 404 hides the
+        // photo's existence so outsiders can't enumerate draft listings by
+        // iterating photo IDs.
+        Auction a = seedDraftAuction();
+        byte[] bytes = generateSimplePng();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "photo.png", "image/png", bytes);
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+                .file(file)
+                .header("Authorization", "Bearer " + sellerAccessToken))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
+                .get("id").asLong();
+
+        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/photos/" + photoId + "/bytes"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getBytes_draftAuction_servesBytesToSeller() throws Exception {
+        // Seller can still preview draft photos.
+        Auction a = seedDraftAuction();
+        byte[] bytes = generateSimplePng();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "photo.png", "image/png", bytes);
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+                .file(file)
+                .header("Authorization", "Bearer " + sellerAccessToken))
+                .andExpect(status().isCreated())
+                .andReturn();
+        Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
+                .get("id").asLong();
+
+        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/photos/" + photoId + "/bytes")
+                .header("Authorization", "Bearer " + sellerAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
     }
 
     // -------------------------------------------------------------------------

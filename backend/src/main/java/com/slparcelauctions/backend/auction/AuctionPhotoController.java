@@ -59,8 +59,12 @@ public class AuctionPhotoController {
     @GetMapping("/{photoId}/bytes")
     public ResponseEntity<byte[]> bytes(
             @PathVariable Long auctionId,
-            @PathVariable Long photoId) {
-        StoredObject stored = service.fetchBytes(auctionId, photoId);
+            @PathVariable Long photoId,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        // Principal is null on anonymous access (SecurityConfig permits this path).
+        // The service uses the caller id to gate pre-ACTIVE auctions to the seller.
+        Long callerId = principal != null ? principal.userId() : null;
+        StoredObject stored = service.fetchBytes(auctionId, photoId, callerId);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, stored.contentType())
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.PhotoLimitExceededException;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
@@ -103,14 +104,33 @@ public class AuctionPhotoService {
     }
 
     @Transactional(readOnly = true)
-    public StoredObject fetchBytes(Long auctionId, Long photoId) {
+    public StoredObject fetchBytes(Long auctionId, Long photoId, Long callerId) {
         AuctionPhoto photo = photoRepo.findById(photoId)
                 .orElseThrow(() -> new IllegalArgumentException("Photo not found: " + photoId));
-        if (!photo.getAuction().getId().equals(auctionId)) {
+        Auction auction = photo.getAuction();
+        if (!auction.getId().equals(auctionId)) {
             throw new IllegalArgumentException(
                     "Photo " + photoId + " does not belong to auction " + auctionId);
         }
+        // Pre-ACTIVE auctions are draft-only: serving their photos publicly would
+        // let anyone enumerate draft listings by iterating photo IDs. Mirror the
+        // privacy pattern in AuctionController.get() — non-sellers 404 to hide
+        // the draft's existence entirely.
+        if (isPreActive(auction.getStatus())) {
+            boolean isSeller = callerId != null
+                    && auction.getSeller().getId().equals(callerId);
+            if (!isSeller) {
+                throw new AuctionNotFoundException(auctionId);
+            }
+        }
         return storage.get(photo.getObjectKey());
+    }
+
+    private static boolean isPreActive(AuctionStatus s) {
+        return s == AuctionStatus.DRAFT
+                || s == AuctionStatus.DRAFT_PAID
+                || s == AuctionStatus.VERIFICATION_PENDING
+                || s == AuctionStatus.VERIFICATION_FAILED;
     }
 
     @Transactional(readOnly = true)

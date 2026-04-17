@@ -11,6 +11,7 @@ import javax.imageio.stream.ImageInputStream;
 
 import org.springframework.stereotype.Component;
 
+import com.slparcelauctions.backend.user.exception.ImageTooLargeException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,7 @@ public class ImageUploadValidator {
             throw new UnsupportedImageFormatException("Upload is empty");
         }
         if (maxBytes > 0 && inputBytes.length > maxBytes) {
-            throw new UnsupportedImageFormatException(
+            throw new ImageTooLargeException(
                     "File too large: " + inputBytes.length + " bytes > " + maxBytes);
         }
 
