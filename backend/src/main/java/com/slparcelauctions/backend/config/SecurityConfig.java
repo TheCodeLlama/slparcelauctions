@@ -69,6 +69,10 @@ public class SecurityConfig {
                         // and is the actual trust boundary. FOOTGUNS §B.5: this MUST sit
                         // before the /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/verify").permitAll()
+                        // Method B (REZZABLE) LSL callback — same trust model as
+                        // /api/v1/sl/verify: header-validated inside the handler,
+                        // no JWT (the SL grid cannot authenticate). FOOTGUNS §B.5.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/parcel/verify").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5

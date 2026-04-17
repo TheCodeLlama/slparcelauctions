@@ -42,6 +42,9 @@ slpa:
   sl:
     expected-shard: Production
     trusted-owner-keys: []
+  verification:
+    parcel-code-ttl-minutes: 15
+    parcel-code-expiry-check-interval: PT5M
   storage:
     bucket: slpa-uploads
     region: us-east-1

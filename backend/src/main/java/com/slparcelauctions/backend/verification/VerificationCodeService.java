@@ -68,6 +68,50 @@ public class VerificationCodeService {
     }
 
     /**
+     * Generate a PARCEL-type code bound to a specific draft auction. Voids any
+     * prior active PARCEL code for this auction. Unlike {@link #generate}, does
+     * NOT check the user's verified flag — PARCEL codes presuppose a verified
+     * user (the caller is the seller of an auction, and the auction-create path
+     * already gates on {@code AuctionController.requireVerified}).
+     */
+    @Transactional
+    public GenerateCodeResponse generateForParcel(Long userId, Long auctionId) {
+        voidActiveParcelCodes(auctionId);
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(CODE_TTL);
+        VerificationCode row = repository.save(
+                VerificationCode.builder()
+                        .userId(userId)
+                        .auctionId(auctionId)
+                        .code(code)
+                        .type(VerificationCodeType.PARCEL)
+                        .expiresAt(expiresAt)
+                        .used(false)
+                        .build());
+        log.info("Generated PARCEL verification code for user {} auction {} (id={})",
+                userId, auctionId, row.getId());
+        return new GenerateCodeResponse(code, expiresAt);
+    }
+
+    /**
+     * Non-destructive read of the active PARCEL code for an auction, if any.
+     * Callers filter out expired rows here rather than pushing a time filter
+     * into the repository so the same repository finder can feed the expiry
+     * sweep job (which needs to see ALL unused rows to decide "no active code").
+     */
+    @Transactional(readOnly = true)
+    public Optional<ActiveCodeResponse> findActiveForParcel(Long userId, Long auctionId) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        return repository
+                .findByAuctionIdAndTypeAndUsedFalse(auctionId, VerificationCodeType.PARCEL)
+                .stream()
+                .filter(c -> userId == null || userId.equals(c.getUserId()))
+                .filter(c -> c.getExpiresAt().isAfter(now))
+                .findFirst()
+                .map(c -> new ActiveCodeResponse(c.getCode(), c.getExpiresAt()));
+    }
+
+    /**
      * Validate a code and mark it used. Handles the Q5b collision case
      * (multiple rows match the same code) by voiding BOTH matching rows
      * before throwing {@link CodeCollisionException}.
@@ -111,5 +155,14 @@ public class VerificationCodeService {
         active.forEach(c -> c.setUsed(true));
         repository.saveAll(active);
         log.info("Voided {} prior active code(s) for user {}", active.size(), userId);
+    }
+
+    private void voidActiveParcelCodes(Long auctionId) {
+        List<VerificationCode> active = repository
+                .findByAuctionIdAndTypeAndUsedFalse(auctionId, VerificationCodeType.PARCEL);
+        if (active.isEmpty()) return;
+        active.forEach(c -> c.setUsed(true));
+        repository.saveAll(active);
+        log.info("Voided {} prior active PARCEL code(s) for auction {}", active.size(), auctionId);
     }
 }

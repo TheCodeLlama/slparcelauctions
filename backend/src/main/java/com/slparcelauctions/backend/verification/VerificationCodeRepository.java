@@ -25,4 +25,14 @@ public interface VerificationCodeRepository
     /** Returns every active row for a user so generate() can void them all. */
     List<VerificationCode> findByUserIdAndTypeAndUsedFalse(
             Long userId, VerificationCodeType type);
+
+    /**
+     * Returns every unused row for an auction of the given type. Used by
+     * {@code generateForParcel()} to void prior PARCEL codes on retry, by
+     * {@code buildPendingVerification()} / {@code findActiveForParcel()} to hydrate
+     * the pending-verification payload, and by {@code ParcelCodeExpiryJob} to
+     * detect auctions whose PARCEL code has expired without a callback.
+     */
+    List<VerificationCode> findByAuctionIdAndTypeAndUsedFalse(
+            Long auctionId, VerificationCodeType type);
 }

@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -16,6 +17,8 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.verification.VerificationCodeService;
+import com.slparcelauctions.backend.verification.dto.ActiveCodeResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +57,7 @@ public class AuctionVerificationService {
     private final AuctionService auctionService;
     private final AuctionRepository auctionRepo;
     private final SlWorldApiClient worldApi;
+    private final VerificationCodeService verificationCodeService;
     private final Clock clock;
 
     /**
@@ -80,9 +84,24 @@ public class AuctionVerificationService {
         }
         return switch (method) {
             case UUID_ENTRY -> dispatchMethodA(pending);
-            case REZZABLE -> throw new UnsupportedOperationException("Method B wired in Task 7");
+            case REZZABLE -> dispatchMethodB(pending);
             case SALE_TO_BOT -> throw new UnsupportedOperationException("Method C wired in Task 8");
         };
+    }
+
+    /**
+     * Method B: generates a PARCEL-type verification code bound to this auction
+     * and leaves the auction in {@code VERIFICATION_PENDING}. The seller rezzes
+     * an in-world object that posts to {@code POST /api/v1/sl/parcel/verify}
+     * with the code + parcel/owner data; that endpoint handles the actual
+     * transition to ACTIVE (see {@code SlParcelVerifyService}). If the code
+     * expires without a callback, {@code ParcelCodeExpiryJob} reverts the
+     * auction back to DRAFT_PAID.
+     */
+    private Auction dispatchMethodB(Auction a) {
+        verificationCodeService.generateForParcel(a.getSeller().getId(), a.getId());
+        log.info("Method B verification pending: auction {} awaiting LSL callback", a.getId());
+        return a;
     }
 
     /**
@@ -188,8 +207,9 @@ public class AuctionVerificationService {
     /**
      * Returns the pending-verification payload for the seller response. Method
      * A is synchronous (never stays in VERIFICATION_PENDING after
-     * {@link #triggerVerification}), so it always returns null. Methods B and C
-     * will be filled in in Tasks 7 and 8.
+     * {@link #triggerVerification}), so it always returns null. Method B
+     * hydrates the freshly-generated PARCEL code + expiry. Method C will be
+     * filled in in Task 8.
      */
     @Transactional(readOnly = true)
     public PendingVerification buildPendingVerification(Auction a) {
@@ -202,8 +222,19 @@ public class AuctionVerificationService {
         }
         return switch (method) {
             case UUID_ENTRY -> null;      // Method A is synchronous; never pending.
-            case REZZABLE -> null;        // Wired in Task 7.
+            case REZZABLE -> buildRezzablePending(a);
             case SALE_TO_BOT -> null;     // Wired in Task 8.
         };
+    }
+
+    private PendingVerification buildRezzablePending(Auction a) {
+        Optional<ActiveCodeResponse> active = verificationCodeService
+                .findActiveForParcel(a.getSeller().getId(), a.getId());
+        return active
+                .map(c -> new PendingVerification(
+                        VerificationMethod.REZZABLE,
+                        c.code(), c.expiresAt(),
+                        null, null))
+                .orElse(null);
     }
 }

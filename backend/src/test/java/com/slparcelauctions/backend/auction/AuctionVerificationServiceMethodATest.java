@@ -31,6 +31,7 @@ import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.verification.VerificationCodeService;
 
 import reactor.core.publisher.Mono;
 
@@ -52,6 +53,7 @@ class AuctionVerificationServiceMethodATest {
     @Mock AuctionService auctionService;
     @Mock AuctionRepository auctionRepo;
     @Mock SlWorldApiClient worldApi;
+    @Mock VerificationCodeService verificationCodeService;
 
     AuctionVerificationService service;
 
@@ -62,7 +64,8 @@ class AuctionVerificationServiceMethodATest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        service = new AuctionVerificationService(auctionService, auctionRepo, worldApi, fixed);
+        service = new AuctionVerificationService(
+                auctionService, auctionRepo, worldApi, verificationCodeService, fixed);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
