@@ -10,13 +10,17 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Auction-scoped exceptions. Runs before the common GlobalExceptionHandler
- * by having a higher precedence order.
+ * by having a higher precedence order. Scoped to the auction package so the
+ * IllegalArgumentException -> 400 mapping does not catch exceptions from
+ * unrelated packages (Redis, WebClient, auth, etc.).
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.slparcelauctions.backend.auction")
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
+@Slf4j
 public class AuctionExceptionHandler {
 
     @ExceptionHandler(InvalidAuctionStateException.class)
