@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
@@ -57,6 +57,27 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isEdit = mode === "edit";
+
+  // Redirect edits of auctions whose status has progressed past
+  // DRAFT_PAID to the activate page, per sub-spec 2 §4.4. We only
+  // trigger once status is non-null (null means draft state hasn't
+  // been hydrated from the server yet).
+  useEffect(() => {
+    if (!isEdit) return;
+    const s = draft.state.status;
+    if (s == null) return;
+    if (s !== "DRAFT" && s !== "DRAFT_PAID") {
+      router.replace(`/listings/${draft.state.auctionId}/activate`);
+    }
+  }, [isEdit, draft.state.status, draft.state.auctionId, router]);
+
+  // Ref-guarded one-shot: after the first successful create, replace the
+  // URL to /listings/{id}/edit so the seller lands on a durable URL that
+  // survives a refresh. Tracked by ref (not state) to avoid re-renders
+  // and to guarantee the redirect fires at most once per mount.
+  const createRedirectedRef = useRef(false);
+
   // Used by the Review step to render tag chips by label (draft stores
   // codes; labels live in the tag catalogue fetch cached by TagSelector).
   const tagsQ = useQuery({
@@ -94,8 +115,24 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
 
   async function runSave(): Promise<SellerAuctionResponse | null> {
     setError(null);
+    const previousAuctionId = draft.state.auctionId;
     try {
-      return await draft.save();
+      const saved = await draft.save();
+      // First save in create mode — replace the URL so a refresh lands
+      // back on the same auction's Configure step instead of a fresh
+      // create flow (sub-spec 2 §4.1.4). The ref guard ensures we only
+      // issue the replace once per create even if save() is called
+      // again before navigation completes.
+      if (
+        !isEdit &&
+        previousAuctionId == null &&
+        saved.id != null &&
+        !createRedirectedRef.current
+      ) {
+        createRedirectedRef.current = true;
+        router.replace(`/listings/${saved.id}/edit`);
+      }
+      return saved;
     } catch (e: unknown) {
       setError(
         isApiError(e)
@@ -142,8 +179,11 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   }
 
   const parcel = draft.state.parcel;
-  const isEdit = mode === "edit";
-  const saveLabel = isEdit ? "Save changes" : "Save as Draft";
+  // "Save changes" only applies once the seller has paid the listing
+  // fee — a still-DRAFT auction is semantically a draft. Create flow
+  // starts at status=null → "Save as Draft". Sub-spec 2 §4.4.
+  const saveLabel =
+    draft.state.status === "DRAFT_PAID" ? "Save changes" : "Save as Draft";
   const title = isEdit ? "Edit listing" : "Create a listing";
   const description =
     isEdit
@@ -243,7 +283,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
         tagCodes: draft.state.tags,
         tagByCode,
         stagedPhotos: draft.state.stagedPhotos.map((p) => p.objectUrl),
-        uploadedPhotos: draft.state.uploadedPhotoIds,
+        uploadedPhotos: draft.state.uploadedPhotos,
       })
     : null;
 
@@ -322,14 +362,11 @@ function DescriptionField({
 }
 
 /**
- * Builds a ListingPreviewAuction out of the draft state. stagedPhotos are
- * represented with fake numeric ids (negative) and their object URLs so
- * the preview renders even before the auction has been saved. Any
- * server-side photos (already uploaded) show up after a save via the
- * uploaded photo ids — but we don't have their URLs in the draft state,
- * so for now we omit them from the preview (the post-activate view shows
- * them). This is deliberate: the preview is a create-flow aid; the
- * canonical listing page renders the real server URLs.
+ * Builds a ListingPreviewAuction out of the draft state. Server-side
+ * uploaded photos (full DTOs with canonical URLs) render first, followed
+ * by any just-staged photos (object URLs with negative-id placeholders)
+ * so the preview accurately reflects what a just-saved auction looks
+ * like — critical in edit mode where the auction already has photos.
  */
 function buildPreviewAuction({
   parcel,
@@ -352,20 +389,17 @@ function buildPreviewAuction({
   tagCodes: string[];
   tagByCode: Map<string, ParcelTagDto>;
   stagedPhotos: string[];
-  uploadedPhotos: number[];
+  uploadedPhotos: AuctionPhotoDto[];
 }): ListingPreviewAuction {
-  const photos: AuctionPhotoDto[] = stagedPhotos.map((url, i) => ({
+  const stagedEntries: AuctionPhotoDto[] = stagedPhotos.map((url, i) => ({
     id: -(i + 1),
     url,
     contentType: "image/jpeg",
     sizeBytes: 0,
-    sortOrder: i,
+    sortOrder: uploadedPhotos.length + i,
     uploadedAt: "",
   }));
-  // We only know uploaded ids, not URLs — skip rendering them here to
-  // avoid shipping a broken <img src="">. The preview uses staged URLs
-  // only; post-save the server fetch returns the canonical photo list.
-  void uploadedPhotos;
+  const photos: AuctionPhotoDto[] = [...uploadedPhotos, ...stagedEntries];
 
   const tags: ParcelTagDto[] = tagCodes.flatMap((code) => {
     const hit = tagByCode.get(code);

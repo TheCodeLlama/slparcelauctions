@@ -84,16 +84,20 @@ describe("useListingDraft", () => {
     let created = 0;
     let updated = 0;
     let refetched = 0;
+    let postBody: Record<string, unknown> | null = null;
+    let putBody: Record<string, unknown> | null = null;
     server.use(
-      http.post("*/api/v1/auctions", () => {
+      http.post("*/api/v1/auctions", async ({ request }) => {
         created += 1;
+        postBody = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
           sellerResponse({ id: 7, startingBid: 500 }),
           { status: 201 },
         );
       }),
-      http.put("*/api/v1/auctions/7", () => {
+      http.put("*/api/v1/auctions/7", async ({ request }) => {
         updated += 1;
+        putBody = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
           sellerResponse({ id: 7, startingBid: 750 }),
         );
@@ -120,6 +124,18 @@ describe("useListingDraft", () => {
     expect(result.current.state.auctionId).toBe(7);
     expect(result.current.state.dirty).toBe(false);
 
+    // Post body pins the public API: verificationMethod was moved to the
+    // verify trigger in Task 1 and must never appear on POST /auctions.
+    expect(postBody).not.toBeNull();
+    expect(postBody).not.toHaveProperty("verificationMethod");
+
+    // The orphan "new" sessionStorage slot should be cleared after the
+    // first successful create — otherwise a second tab would hydrate
+    // into this same draft when opening /listings/create.
+    if (typeof window !== "undefined") {
+      expect(window.sessionStorage.getItem("slpa:draft:new")).toBeNull();
+    }
+
     act(() => result.current.update("startingBid", 750));
 
     await act(async () => {
@@ -128,6 +144,12 @@ describe("useListingDraft", () => {
     expect(created).toBe(1);
     expect(updated).toBe(1);
     expect(result.current.state.startingBid).toBe(750);
+
+    // Update body must not carry parcelId — backend rejects parcel
+    // changes on a DRAFT_PAID auction (sub-spec 2 §6.2), and sending
+    // it even on DRAFT would be misleading.
+    expect(putBody).not.toBeNull();
+    expect(putBody).not.toHaveProperty("parcelId");
   });
 
   it("hydrates from an existing auction when an id is supplied", async () => {
@@ -211,11 +233,14 @@ describe("useListingDraft", () => {
     );
 
     await waitFor(() =>
-      expect(result.current.state.uploadedPhotoIds).toEqual([101]),
+      expect(result.current.state.uploadedPhotos.map((p) => p.id)).toEqual([
+        101,
+      ]),
     );
 
     act(() => result.current.removeUploadedPhoto(101));
     expect(result.current.state.removedPhotoIds).toEqual([101]);
+    expect(result.current.state.uploadedPhotos).toEqual([]);
 
     await act(async () => {
       await result.current.save();

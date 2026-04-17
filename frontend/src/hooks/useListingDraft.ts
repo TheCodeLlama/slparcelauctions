@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createAuction,
@@ -15,7 +15,9 @@ import {
 import type {
   AuctionCreateRequest,
   AuctionDurationHours,
+  AuctionPhotoDto,
   AuctionSnipeWindowMin,
+  AuctionStatus,
   AuctionUpdateRequest,
   SellerAuctionResponse,
 } from "@/types/auction";
@@ -29,8 +31,10 @@ import type { ParcelDto } from "@/types/parcel";
  *
  * Photo lifecycle:
  *   - stagedPhotos: new files picked by the seller, not yet uploaded.
- *   - uploadedPhotoIds: server-side photo ids (AuctionPhoto.id) the
- *     current auction already has.
+ *   - uploadedPhotos: full server-side photo DTOs (AuctionPhoto) the
+ *     current auction already has. We keep the full DTO (not just ids)
+ *     so the Review preview in edit mode can render the existing
+ *     canonical URLs without needing a separate fetch.
  *   - removedPhotoIds: uploaded ids the seller removed since the last
  *     save; DELETE is queued and flushed on the next save().
  *
@@ -38,11 +42,13 @@ import type { ParcelDto } from "@/types/parcel";
  *   - sessionStorage keyed by "slpa:draft:<auctionId|new>". Blob-backed
  *     stagedPhotos are intentionally dropped from the persisted snapshot
  *     (File/Blob can't round-trip JSON). Everything else — parcel, prices,
- *     tags, sellerDesc, auctionId, uploadedPhotoIds, removedPhotoIds —
- *     survives a tab close.
+ *     tags, sellerDesc, auctionId, status, uploadedPhotos, removedPhotoIds —
+ *     survives a tab close. Writes are debounced 150ms so per-keystroke
+ *     edits don't hammer sessionStorage.
  */
 export interface DraftState {
   auctionId: number | null;
+  status: AuctionStatus | null;
   parcel: ParcelDto | null;
   startingBid: number;
   reservePrice: number | null;
@@ -53,13 +59,14 @@ export interface DraftState {
   sellerDesc: string;
   tags: string[];
   stagedPhotos: StagedPhoto[];
-  uploadedPhotoIds: number[];
+  uploadedPhotos: AuctionPhotoDto[];
   removedPhotoIds: number[];
   dirty: boolean;
 }
 
 const EMPTY: DraftState = {
   auctionId: null,
+  status: null,
   parcel: null,
   startingBid: 100,
   reservePrice: null,
@@ -70,7 +77,7 @@ const EMPTY: DraftState = {
   sellerDesc: "",
   tags: [],
   stagedPhotos: [],
-  uploadedPhotoIds: [],
+  uploadedPhotos: [],
   removedPhotoIds: [],
   dirty: false,
 };
@@ -88,6 +95,7 @@ function storageKey(id: number | string | null): string {
 function hydrateFromServer(a: SellerAuctionResponse): DraftState {
   return {
     auctionId: a.id,
+    status: a.status,
     parcel: a.parcel,
     startingBid: a.startingBid,
     reservePrice: a.reservePrice,
@@ -99,7 +107,7 @@ function hydrateFromServer(a: SellerAuctionResponse): DraftState {
     sellerDesc: a.sellerDesc ?? "",
     tags: a.tags.map((t) => t.code),
     stagedPhotos: [],
-    uploadedPhotoIds: a.photos.map((p) => p.id),
+    uploadedPhotos: a.photos,
     removedPhotoIds: [],
     dirty: false,
   };
@@ -204,24 +212,59 @@ export function useListingDraft(
     [],
   );
 
+  // Ref mirrors the latest state for the unmount flush below. The
+  // debounced effect reads `state` from closure, but the unmount-only
+  // effect has an empty dep list and needs a live reference so it can
+  // flush the most recent snapshot.
+  const pendingWriteRef = useRef<{
+    state: DraftState;
+    id: number | string | undefined;
+    hydrated: boolean;
+  } | null>(null);
+
   // Persist every state change (minus blob-backed staged files) so a
   // tab close doesn't nuke unsaved work. Gated on `hydrated` so we
   // don't overwrite existing persisted state with the EMPTY placeholder
-  // before server hydration runs.
+  // before server hydration runs. Writes are debounced 150ms so a rapid
+  // keystroke burst turns into a single sessionStorage write at the end.
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!hydrated) return;
-    const { stagedPhotos: _staged, ...persisted } = state;
-    void _staged;
-    const key = storageKey(state.auctionId ?? options.id ?? null);
-    try {
-      window.sessionStorage.setItem(key, JSON.stringify(persisted));
-    } catch {
-      // sessionStorage can throw in private-mode or when quota is hit.
-      // The draft still works in-memory; we simply lose the tab-close
-      // recovery guarantee.
-    }
+    pendingWriteRef.current = { state, id: options.id, hydrated: true };
+    const timerId = setTimeout(() => {
+      const { stagedPhotos: _staged, ...persisted } = state;
+      void _staged;
+      const key = storageKey(state.auctionId ?? options.id ?? null);
+      try {
+        window.sessionStorage.setItem(key, JSON.stringify(persisted));
+      } catch {
+        // sessionStorage can throw in private-mode or when quota is hit.
+        // The draft still works in-memory; we simply lose the tab-close
+        // recovery guarantee.
+      }
+      pendingWriteRef.current = null;
+    }, 150);
+    return () => clearTimeout(timerId);
   }, [state, hydrated, options.id]);
+
+  // Unmount-only flush: if the component tears down while a debounced
+  // write is still pending, write it out synchronously so tab-close
+  // recovery still works (sub-spec 2 §4.1).
+  useEffect(() => {
+    return () => {
+      if (typeof window === "undefined") return;
+      const pending = pendingWriteRef.current;
+      if (!pending || !pending.hydrated) return;
+      const { stagedPhotos: _staged, ...persisted } = pending.state;
+      void _staged;
+      const key = storageKey(pending.state.auctionId ?? pending.id ?? null);
+      try {
+        window.sessionStorage.setItem(key, JSON.stringify(persisted));
+      } catch {
+        // See above — private-mode / quota.
+      }
+    };
+  }, []);
 
   const update = useCallback(
     <K extends keyof DraftState>(key: K, value: DraftState[K]) => {
@@ -248,7 +291,7 @@ export function useListingDraft(
     (id: number) => {
       setState((s) => ({
         ...s,
-        uploadedPhotoIds: s.uploadedPhotoIds.filter((x) => x !== id),
+        uploadedPhotos: s.uploadedPhotos.filter((p) => p.id !== id),
         removedPhotoIds: s.removedPhotoIds.includes(id)
           ? s.removedPhotoIds
           : [...s.removedPhotoIds, id],
@@ -278,6 +321,7 @@ export function useListingDraft(
       tags: s.tags,
     };
 
+    const wasCreate = s.auctionId == null;
     let auction: SellerAuctionResponse;
     if (s.auctionId != null) {
       const { parcelId: _parcelId, ...updateBody } = createBody;
@@ -288,6 +332,18 @@ export function useListingDraft(
       );
     } else {
       auction = await createAuction(createBody);
+    }
+
+    // First successful create: the draft now lives under its real id's
+    // storage key (written by the persistence effect on the next render),
+    // so purge the stale "new" slot to avoid leaking an orphan entry
+    // that would hydrate a different tab into this same draft.
+    if (wasCreate && typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(storageKey(null));
+      } catch {
+        // Private-mode storage failure — nothing to clean up here.
+      }
     }
 
     // Flush photo deletes queued from previous removeUploadedPhoto calls.

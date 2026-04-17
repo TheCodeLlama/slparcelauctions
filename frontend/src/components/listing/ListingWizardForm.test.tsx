@@ -12,10 +12,11 @@ import type { SellerAuctionResponse } from "@/types/auction";
 import { ListingWizardForm } from "./ListingWizardForm";
 
 const routerPush = vi.fn();
+const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: routerPush,
-    replace: vi.fn(),
+    replace: routerReplace,
     back: vi.fn(),
     refresh: vi.fn(),
     forward: vi.fn(),
@@ -109,6 +110,7 @@ function installHappyPathHandlers() {
 beforeEach(() => {
   if (typeof window !== "undefined") window.sessionStorage.clear();
   routerPush.mockReset();
+  routerReplace.mockReset();
 });
 
 describe("ListingWizardForm (create flow)", () => {
@@ -172,6 +174,12 @@ describe("ListingWizardForm (create flow)", () => {
       screen.queryByText(/Preview — this is how your listing/i),
     ).toBeNull();
     expect(routerPush).not.toHaveBeenCalled();
+
+    // First successful create should replace the URL to /listings/{id}/edit
+    // per sub-spec 2 §4.1.4 so a refresh keeps the seller on the same auction.
+    await waitFor(() =>
+      expect(routerReplace).toHaveBeenCalledWith("/listings/7/edit"),
+    );
   });
 
   it("disables save and continue until a parcel is resolved", () => {
@@ -220,12 +228,13 @@ describe("ListingWizardForm (create flow)", () => {
 });
 
 describe("ListingWizardForm (edit flow)", () => {
-  it("locks the parcel UUID field and preloads existing values", async () => {
+  it("shows 'Save as Draft' when editing a DRAFT auction", async () => {
     server.use(
       http.get("*/api/v1/auctions/55", () =>
         HttpResponse.json(
           sellerResponse({
             id: 55,
+            status: "DRAFT",
             startingBid: 2500,
             sellerDesc: "Existing description",
           }),
@@ -244,9 +253,60 @@ describe("ListingWizardForm (edit flow)", () => {
     const startingBid = await screen.findByLabelText(/Starting bid/i);
     expect(startingBid).toHaveValue(2500);
 
-    // Save button label flips to "Save changes" in edit mode.
+    // Still a draft — button stays "Save as Draft", not "Save changes".
+    expect(
+      screen.getByRole("button", { name: /Save as Draft/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Save changes/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows 'Save changes' when editing a DRAFT_PAID auction", async () => {
+    server.use(
+      http.get("*/api/v1/auctions/56", () =>
+        HttpResponse.json(
+          sellerResponse({
+            id: 56,
+            status: "DRAFT_PAID",
+            startingBid: 2500,
+          }),
+        ),
+      ),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="edit" id={56} />);
+
+    await screen.findByText("Beachfront retreat");
+
+    // Fee paid — button label flips to "Save changes".
     expect(
       screen.getByRole("button", { name: /Save changes/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Save as Draft/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("redirects to activate when editing an auction past DRAFT_PAID", async () => {
+    server.use(
+      http.get("*/api/v1/auctions/77", () =>
+        HttpResponse.json(
+          sellerResponse({
+            id: 77,
+            status: "ACTIVE",
+            startingBid: 2500,
+          }),
+        ),
+      ),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="edit" id={77} />);
+
+    await waitFor(() =>
+      expect(routerReplace).toHaveBeenCalledWith("/listings/77/activate"),
+    );
   });
 });
