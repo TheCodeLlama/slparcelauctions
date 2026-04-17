@@ -1,6 +1,6 @@
 import { MapPin, ExternalLink } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
-import type { ParcelDto } from "@/types/parcel";
+import type { ParcelDto, ParcelMaturityRating } from "@/types/parcel";
 
 /**
  * Read-only summary of a looked-up parcel. Rendered by ParcelLookupField on
@@ -12,6 +12,33 @@ import type { ParcelDto } from "@/types/parcel";
  * Image loader would require a remote host whitelist and can't be
  * persuaded to no-op on pure-relative URLs returned by the backend).
  */
+
+/**
+ * Maturity rating → M3 token mapping. Mirrors the convention used by
+ * ListingStatusBadge (container/on-container pairs, never raw palette
+ * classes) so light/dark themes stay consistent. GENERAL uses the
+ * tertiary-container pair (the same "affirmative" token ACTIVE listings
+ * use); MODERATE uses secondary-container (neutral emphasis); ADULT
+ * uses error-container to flag the strongest content gate.
+ */
+const MATURITY_MAP: Record<
+  ParcelMaturityRating,
+  { label: string; cls: string }
+> = {
+  GENERAL: {
+    label: "General",
+    cls: "bg-tertiary-container text-on-tertiary-container",
+  },
+  MODERATE: {
+    label: "Moderate",
+    cls: "bg-secondary-container text-on-secondary-container",
+  },
+  ADULT: {
+    label: "Adult",
+    cls: "bg-error-container text-on-error-container",
+  },
+};
+
 export function ParcelLookupCard({
   parcel,
   className,
@@ -20,6 +47,7 @@ export function ParcelLookupCard({
   className?: string;
 }) {
   const label = parcel.description?.trim() || "(unnamed parcel)";
+  const maturity = MATURITY_MAP[parcel.maturityRating];
   return (
     <div
       data-testid="parcel-lookup-card"
@@ -42,11 +70,24 @@ export function ParcelLookupCard({
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="truncate text-title-md text-on-surface">{label}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-title-md text-on-surface">{label}</p>
+          <span
+            data-testid="parcel-maturity-chip"
+            data-maturity={parcel.maturityRating}
+            className={cn(
+              "inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-label-sm font-medium",
+              maturity.cls,
+            )}
+          >
+            {maturity.label}
+          </span>
+        </div>
         <p className="flex items-center gap-1 text-body-sm text-on-surface-variant">
           <MapPin className="size-3.5" aria-hidden="true" />
           <span className="truncate">
-            {parcel.regionName} · {parcel.areaSqm} m²
+            {parcel.regionName} ({parcel.gridX}, {parcel.gridY}) ·{" "}
+            {parcel.areaSqm} m²
             {parcel.continentName ? ` · ${parcel.continentName}` : ""}
           </span>
         </p>

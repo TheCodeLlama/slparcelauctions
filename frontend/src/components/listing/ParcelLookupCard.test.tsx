@@ -27,11 +27,21 @@ describe("ParcelLookupCard", () => {
   it("renders parcel metadata and a Second Life link", () => {
     renderWithProviders(<ParcelLookupCard parcel={parcel} />);
     expect(screen.getByText("Beachfront retreat")).toBeInTheDocument();
-    expect(screen.getByText(/Heterocera · 1024 m²/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Heterocera \(1000, 1000\) · 1024 m²/),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Owner UUID:.*\(agent\)/)).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Visit in Second Life/i }),
     ).toHaveAttribute("href", parcel.slurl);
+  });
+
+  it("shows maturity rating and grid coordinates from spec §4.1.1", () => {
+    renderWithProviders(<ParcelLookupCard parcel={parcel} />);
+    expect(screen.getByText("General")).toBeInTheDocument();
+    expect(
+      screen.getByText(/\(1000, 1000\)/),
+    ).toBeInTheDocument();
   });
 
   it("renders a placeholder when the parcel description is blank", () => {
