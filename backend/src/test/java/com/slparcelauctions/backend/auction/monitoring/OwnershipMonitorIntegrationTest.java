@@ -1,9 +1,10 @@
 package com.slparcelauctions.backend.auction.monitoring;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -11,16 +12,21 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
@@ -31,60 +37,80 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
-import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
-import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
-import reactor.core.publisher.Mono;
-
 /**
- * End-to-end coverage of the ownership-monitor sweep:
+ * End-to-end coverage of the ownership-monitor sweep using a real World API
+ * stub (WireMock, not a {@link org.springframework.test.context.bean.override.mockito.MockitoBean}):
  * <ol>
  *   <li>Seed a verified user, parcel, and ACTIVE auction whose
  *       {@code lastOwnershipCheckAt} is old enough to be due.</li>
- *   <li>Stub {@link SlWorldApiClient#fetchParcel} to return a parcel with a
- *       different owner (or 404 for the deleted-parcel test).</li>
- *   <li>Invoke {@link OwnershipMonitorScheduler#dispatchDueChecks} directly —
- *       the @Async {@link OwnershipCheckTask} runs on a separate thread, so
- *       we poll with Awaitility until the auction is SUSPENDED and a
- *       FraudFlag row exists.</li>
+ *   <li>Stub the World API via WireMock (ok / mismatch / 404 / repeated 504
+ *       depending on the scenario).</li>
+ *   <li>Invoke {@link OwnershipMonitorScheduler#dispatchDueChecks} — the
+ *       scheduler queries the repository and hands each due id to the
+ *       {@link OwnershipCheckTask}, which runs on Spring's async executor.
+ *       We poll with Awaitility until the expected outcome is committed.</li>
  * </ol>
  *
- * <p>Intentionally NOT {@code @Transactional}: the async task commits on a
- * different thread, so the test thread must see the committed state. Each
- * test uses unique UUIDs and cleans up explicitly in {@code @AfterEach}.
+ * <p>The {@code @Scheduled} tick is pushed out to PT24H so the background
+ * thread can't race with our explicit {@code dispatchDueChecks()} call; the
+ * scheduler bean itself stays enabled so we can autowire it. The test is
+ * intentionally NOT {@code @Transactional}: the async task commits on another
+ * thread and the test thread must see the committed state. Each test uses
+ * unique UUIDs and cleans up explicitly in {@code @AfterEach}.
  *
- * <p>The Spring {@code @Scheduled} cron tick is disabled here
- * ({@code slpa.ownership-monitor.enabled=false}) so the background thread
- * doesn't race with explicit invocation. We still get a scheduler bean
- * instance via direct autowiring... wait — {@code matchIfMissing=true} plus
- * explicit {@code false} means the bean is NOT created. See the test note
- * below: we construct the scheduler manually via the other beans to exercise
- * the integration wiring while keeping the tick off.
+ * <p>World API client retry + timeout knobs are tightened so the timeout
+ * scenario exhausts quickly (3 attempts with 25ms backoff against a 504 stub).
  */
 @SpringBootTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
-        // Disable the cron tick; we invoke dispatchDueChecks() explicitly.
-        "slpa.ownership-monitor.enabled=false"
+        // Keep the scheduler bean enabled so we can autowire it, but push the
+        // @Scheduled tick far enough out that it cannot race with our explicit
+        // dispatchDueChecks() invocation during the test window.
+        "slpa.ownership-monitor.enabled=true",
+        "slpa.ownership-monitor.scheduler-frequency=PT24H",
+        "slpa.ownership-monitor.check-interval-minutes=30",
+        // Fast retry/timeout for the World API timeout scenario — 3 attempts
+        // with 25ms backoff against a 504 stub surfaces as
+        // ExternalApiTimeoutException in well under a second.
+        "slpa.world-api.retry-attempts=2",
+        "slpa.world-api.retry-backoff-ms=25",
+        "slpa.world-api.timeout-ms=2000"
 })
 class OwnershipMonitorIntegrationTest {
+
+    private static WireMockServer wireMock;
+
+    @BeforeAll
+    static void startWireMock() {
+        wireMock = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        wireMock.start();
+    }
+
+    @AfterAll
+    static void stopWireMock() {
+        if (wireMock != null) {
+            wireMock.stop();
+        }
+    }
+
+    @DynamicPropertySource
+    static void overrideWorldApiBaseUrl(DynamicPropertyRegistry registry) {
+        registry.add("slpa.world-api.base-url",
+                () -> "http://localhost:" + wireMock.port());
+    }
 
     @Autowired AuctionRepository auctionRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
     @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
-    @Autowired OwnershipCheckTask ownershipCheckTask;
-    @Autowired com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties props;
+    @Autowired OwnershipMonitorScheduler scheduler;
     @Autowired PlatformTransactionManager txManager;
     @Autowired javax.sql.DataSource dataSource;
-
-    @MockitoBean SlWorldApiClient worldApi;
-    @MockitoBean SlMapApiClient mapApi;
 
     private Long seededUserId;
     private Long seededParcelId;
@@ -92,6 +118,7 @@ class OwnershipMonitorIntegrationTest {
 
     @AfterEach
     void cleanUp() throws Exception {
+        wireMock.resetAll();
         if (seededAuctionId == null) return;
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -109,6 +136,9 @@ class OwnershipMonitorIntegrationTest {
                 }
             }
         }
+        seededAuctionId = null;
+        seededParcelId = null;
+        seededUserId = null;
     }
 
     @Test
@@ -118,13 +148,9 @@ class OwnershipMonitorIntegrationTest {
         UUID parcelUuid = UUID.randomUUID();
 
         Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid);
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, attackerAvatar, "agent",
-                "Hijacked", "Coniston", 1024, "desc", null, "MATURE",
-                1.0, 2.0, 3.0)));
+        stubWorldApiOwner(parcelUuid, attackerAvatar, "agent", "Hijacked");
 
-        // Drive the scheduler manually (the @Scheduled tick is disabled).
-        invokeCheckOneDirectly(auctionId);
+        scheduler.dispatchDueChecks();
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             Auction refreshed = auctionRepo.findById(auctionId).orElseThrow();
@@ -141,10 +167,10 @@ class OwnershipMonitorIntegrationTest {
         UUID parcelUuid = UUID.randomUUID();
 
         Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid);
-        when(worldApi.fetchParcel(parcelUuid))
-                .thenReturn(Mono.error(new ParcelNotFoundInSlException(parcelUuid)));
+        wireMock.stubFor(get(urlPathMatching("/place/.*"))
+                .willReturn(aResponse().withStatus(404)));
 
-        invokeCheckOneDirectly(auctionId);
+        scheduler.dispatchDueChecks();
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             Auction refreshed = auctionRepo.findById(auctionId).orElseThrow();
@@ -156,22 +182,50 @@ class OwnershipMonitorIntegrationTest {
     }
 
     @Test
-    void activeAuctionWithMatchingOwner_staysActive_updatesLastCheckAt() {
+    void activeAuctionWithMatchingOwner_staysActive_updatesLastCheckAt_resetsFailureCounter() {
         UUID sellerAvatar = UUID.randomUUID();
         UUID parcelUuid = UUID.randomUUID();
 
-        Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid);
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, sellerAvatar, "agent",
-                "Still OK", "Coniston", 1024, "desc", null, "MATURE",
-                1.0, 2.0, 3.0)));
+        // Pre-seed with a non-zero failure counter to prove it's reset to 0 on
+        // a successful owner-match check.
+        Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid, 3);
+        stubWorldApiOwner(parcelUuid, sellerAvatar, "agent", "Still OK");
 
         OffsetDateTime before = OffsetDateTime.now().minusSeconds(1);
-        invokeCheckOneDirectly(auctionId);
+        scheduler.dispatchDueChecks();
 
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             Auction refreshed = auctionRepo.findById(auctionId).orElseThrow();
             assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
+            assertThat(refreshed.getLastOwnershipCheckAt()).isNotNull();
+            assertThat(refreshed.getLastOwnershipCheckAt()).isAfterOrEqualTo(before);
+            assertThat(refreshed.getConsecutiveWorldApiFailures()).isZero();
+            assertThat(fraudFlagRepo.findByAuctionId(auctionId)).isEmpty();
+        });
+    }
+
+    @Test
+    void worldApiTimeout_staysActive_incrementsFailureCounter() {
+        UUID sellerAvatar = UUID.randomUUID();
+        UUID parcelUuid = UUID.randomUUID();
+
+        Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid);
+        // 504 Gateway Timeout repeatedly — the SlWorldApiClient treats 5xx as
+        // transient and retries, so exhausting retries surfaces as
+        // ExternalApiTimeoutException and the task increments the failure
+        // counter without suspending.
+        wireMock.stubFor(get(urlPathMatching("/place/.*"))
+                .willReturn(aResponse().withStatus(504)));
+
+        OffsetDateTime before = OffsetDateTime.now().minusSeconds(1);
+        scheduler.dispatchDueChecks();
+
+        await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
+            Auction refreshed = auctionRepo.findById(auctionId).orElseThrow();
+            assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
+            assertThat(refreshed.getConsecutiveWorldApiFailures()).isEqualTo(1);
+            // Timestamp must be stamped even on failure — otherwise the next
+            // sweep would re-pick this row immediately (hot loop).
             assertThat(refreshed.getLastOwnershipCheckAt()).isNotNull();
             assertThat(refreshed.getLastOwnershipCheckAt()).isAfterOrEqualTo(before);
             assertThat(fraudFlagRepo.findByAuctionId(auctionId)).isEmpty();
@@ -182,18 +236,32 @@ class OwnershipMonitorIntegrationTest {
     // Seeding + helpers
     // -------------------------------------------------------------------------
 
-    /**
-     * Invokes {@link OwnershipCheckTask#checkOne} directly. We avoid the
-     * scheduler bean here because it's conditionally disabled in this test
-     * class; calling the async method directly through the Spring-managed
-     * proxy still exercises the {@code @Async} + {@code @Transactional}
-     * wiring.
-     */
-    private void invokeCheckOneDirectly(Long auctionId) {
-        ownershipCheckTask.checkOne(auctionId);
+    private void stubWorldApiOwner(UUID parcelUuid, UUID ownerUuid, String ownerType, String title) {
+        String html = """
+                <html><head>
+                <meta property="og:title" content="%s">
+                <meta property="og:description" content="desc">
+                <meta property="og:image" content="http://example.com/snap.jpg">
+                <meta name="secondlife:region" content="Coniston">
+                <meta name="secondlife:parcelid" content="%s">
+                <meta name="ownerid" content="%s">
+                <meta name="ownertype" content="%s">
+                <meta name="area" content="1024">
+                <meta name="maturityrating" content="MATURE">
+                </head><body></body></html>
+                """.formatted(title, parcelUuid, ownerUuid, ownerType);
+        wireMock.stubFor(get(urlPathMatching("/place/.*"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "text/html")
+                        .withBody(html)));
     }
 
     private Long seedActiveAuction(UUID sellerAvatar, UUID parcelUuid) {
+        return seedActiveAuction(sellerAvatar, parcelUuid, 0);
+    }
+
+    private Long seedActiveAuction(UUID sellerAvatar, UUID parcelUuid, int consecutiveFailures) {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         return tx.execute(ts -> {
             User seller = userRepo.save(User.builder()
@@ -231,7 +299,7 @@ class OwnershipMonitorIntegrationTest {
                     .listingFeePaid(true)
                     .currentBid(0L)
                     .bidCount(0)
-                    .consecutiveWorldApiFailures(0)
+                    .consecutiveWorldApiFailures(consecutiveFailures)
                     .commissionRate(new BigDecimal("0.05"))
                     .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(1))
