@@ -26,6 +26,8 @@ import { BidHistoryList } from "@/components/auction/BidHistoryList";
 import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
 import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner";
 import { OutbidToastProvider } from "@/components/auction/OutbidToastProvider";
+import { StickyBidBar } from "@/components/auction/StickyBidBar";
+import { BidSheet } from "@/components/auction/BidSheet";
 import { useToast } from "@/components/ui/Toast";
 
 /**
@@ -37,12 +39,15 @@ import { useToast } from "@/components/ui/Toast";
  * invalidation), and reconciles via REST invalidation when the socket
  * transitions from reconnecting → connected.
  *
- * Subcomponents (AuctionHero, BidPanel, BidHistoryList, etc.) ship in
- * Tasks 4-8; this task only renders testid-tagged placeholders that read
- * from the seeded cache so the integration test can verify the plumbing.
+ * Composes the desktop sidebar BidPanel and the mobile
+ * {@link StickyBidBar} + {@link BidSheet} pair via a CSS-only
+ * {@code hidden lg:block} / {@code lg:hidden} toggle — no media query
+ * hook, no hydration flash. The sheet is closed by default, so at most
+ * one BidPanel form is visible per breakpoint (sidebar on desktop,
+ * sheet body on mobile).
  *
  * See spec §5 (real-time strategy), §7 (server/client composition), §8
- * (layout composition).
+ * (layout composition), §11 (mobile pattern).
  */
 interface Props {
   initialAuction: PublicAuctionResponse | SellerAuctionResponse;
@@ -114,6 +119,14 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   // state) — changing this never needs to trigger a re-render on its own;
   // the connectionState change is what re-runs the effect.
   const wasReconnectingRef = useRef<boolean>(false);
+
+  // Mobile sheet open state. The desktop BidPanel lives in the sticky
+  // sidebar and is always visible at {@code lg:}+; on narrower viewports
+  // the sidebar is hidden via {@code hidden lg:block} and the sticky
+  // bar's "Bid now" button flips this to true, mounting the real
+  // {@link BidPanel} inside a {@link BidSheet}. CSS-only responsive
+  // toggle per spec §8 — no {@code useMediaQuery}, no hydration flash.
+  const [sheetOpen, setSheetOpen] = useState<boolean>(false);
 
   // Transient snipe-extension banner signal. The envelope handler
   // detects a snipe-triggering bid in {@code env.newBids} and flips this
@@ -291,6 +304,18 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         displayName: "Seller",
       };
 
+  // Hoisted viewer projection + winning-state derivation so the desktop
+  // sidebar BidPanel, the mobile sheet BidPanel, and the StickyBidBar
+  // all read from the same local values rather than recomputing the
+  // session shape per call-site.
+  const bidPanelUser =
+    session.status === "authenticated"
+      ? { id: session.user.id, verified: session.user.verified }
+      : null;
+  const viewerIsWinning =
+    currentUserId != null &&
+    (auction as AuctionCacheEntry).currentBidderId === currentUserId;
+
   return (
     <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-24 pb-24 lg:pb-12">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
@@ -315,31 +340,39 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           >
             <BidPanel
               auction={auction}
-              currentUser={
-                session.status === "authenticated"
-                  ? {
-                      id: session.user.id,
-                      verified: session.user.verified,
-                    }
-                  : null
-              }
+              currentUser={bidPanelUser}
               existingProxy={myProxyQuery.data ?? null}
               connectionState={connectionState}
-              currentUserIsWinning={
-                currentUserId != null &&
-                (auction as AuctionCacheEntry).currentBidderId ===
-                  currentUserId
-              }
+              currentUserIsWinning={viewerIsWinning}
               snipeExtension={{ ...snipeSignal, onExpire: clearSnipeSignal }}
             />
           </div>
         </aside>
       </div>
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-surface-container-lowest/90 backdrop-blur px-4 py-3 border-t border-outline-variant">
-        <div data-testid="sticky-bid-bar-placeholder" className="text-sm">
-          Sticky bar placeholder (Task 8) — L${" "}
-          {formatHighBid(auction.currentHighBid)}
-        </div>
+      {/* Mobile chrome — sticky bar + bottom sheet. The wrapper is
+          {@code lg:hidden} so both subtrees are absent from the DOM at
+          {@code lg:}+ and the desktop sidebar above is the only
+          BidPanel mount. Below {@code lg:}, the sidebar itself is
+          hidden via {@code hidden lg:block}, so the sheet (closed by
+          default) is the only BidPanel mount and form state cannot
+          diverge across instances. CSS-only toggle per spec §8. */}
+      <div className="lg:hidden" data-testid="auction-mobile-chrome">
+        <StickyBidBar
+          auction={auction}
+          currentUser={bidPanelUser}
+          connectionState={connectionState}
+          onOpenSheet={() => setSheetOpen(true)}
+        />
+        <BidSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)}>
+          <BidPanel
+            auction={auction}
+            currentUser={bidPanelUser}
+            existingProxy={myProxyQuery.data ?? null}
+            connectionState={connectionState}
+            currentUserIsWinning={viewerIsWinning}
+            snipeExtension={{ ...snipeSignal, onExpire: clearSnipeSignal }}
+          />
+        </BidSheet>
       </div>
     </main>
   );
@@ -362,17 +395,4 @@ function dedupeByBidId(bids: BidHistoryEntry[]): BidHistoryEntry[] {
     out.push(b);
   }
   return out;
-}
-
-/**
- * Formats the backend {@code currentHighBid} field (BigDecimal → number |
- * string | null) for the placeholder display. Full locale-aware formatting
- * ships with the real BidPanel in Task 5; this is just enough to make the
- * integration test assertions meaningful.
- */
-function formatHighBid(value: number | string | null): string {
-  if (value == null) return "—";
-  const n = typeof value === "string" ? Number(value) : value;
-  if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString();
 }

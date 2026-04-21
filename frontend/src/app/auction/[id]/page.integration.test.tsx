@@ -1,7 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { renderWithProviders, screen, waitFor } from "@/test/render";
+import {
+  renderWithProviders,
+  screen,
+  userEvent,
+  waitFor,
+} from "@/test/render";
 import { server } from "@/test/msw/server";
 import type { Page } from "@/types/page";
 import type {
@@ -745,6 +750,98 @@ describe("AuctionDetailClient", () => {
     expect(
       screen.getByTestId("bid-panel-bidder").contains(banner),
     ).toBe(true);
+  });
+
+  // ---------------------------------------------------------------
+  // Task 8: mobile sticky bar + bottom sheet.
+  // ---------------------------------------------------------------
+
+  it("renders the StickyBidBar inside the lg:hidden mobile chrome", () => {
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    const chrome = screen.getByTestId("auction-mobile-chrome");
+    // Assert the class responsible for hiding the chrome at lg+ — the
+    // spec §8 toggle is CSS-only, so this is the only authoritative
+    // check in the absence of viewport resizing.
+    expect(chrome.className).toContain("lg:hidden");
+
+    const bar = screen.getByTestId("sticky-bid-bar");
+    expect(chrome.contains(bar)).toBe(true);
+    expect(bar).toHaveAttribute("data-variant", "bidder");
+    expect(bar).toHaveAttribute("data-ws-state", "connected");
+  });
+
+  it("opens the BidSheet when the sticky bar's Bid now button is clicked", async () => {
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    // Sheet is closed by default — DialogPanel not in the DOM.
+    expect(screen.queryByTestId("bid-sheet")).toBeNull();
+
+    const cta = screen.getByTestId("sticky-bid-bar-cta");
+    expect(cta).toHaveTextContent(/Bid now/i);
+    await userEvent.click(cta);
+
+    // Sheet is now mounted; its body contains a BidPanel instance with
+    // its own bidder container. With the desktop sidebar also visible
+    // in the test DOM, there should now be two bidder-panel instances.
+    expect(screen.getByTestId("bid-sheet")).toBeInTheDocument();
+    const bidderPanels = screen.getAllByTestId("bid-panel-bidder");
+    expect(bidderPanels.length).toBe(2);
+  });
+
+  it("closes the BidSheet when the close button is clicked", async () => {
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    await userEvent.click(screen.getByTestId("sticky-bid-bar-cta"));
+    expect(screen.getByTestId("bid-sheet")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("bid-sheet-close"));
+    // Headless UI dispatches the onClose handler synchronously, but
+    // the Dialog's unmount step flushes on the next microtask — give
+    // waitFor a chance to observe the teardown.
+    await waitFor(() =>
+      expect(screen.queryByTestId("bid-sheet")).toBeNull(),
+    );
+  });
+
+  it("swaps the sticky bar CTA to Reconnecting when the WS is not connected", () => {
+    getConnectionStateMock.mockReturnValue({ status: "reconnecting" });
+    subscribeToConnectionStateMock.mockImplementation(
+      (listener: (state: { status: string }) => void) => {
+        listener({ status: "reconnecting" });
+        return () => {};
+      },
+    );
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    const cta = screen.getByTestId("sticky-bid-bar-cta");
+    expect(cta).toBeDisabled();
+    expect(cta).toHaveTextContent(/Reconnecting/i);
   });
 
   it("disables the place-bid submit when connection is not connected", () => {
