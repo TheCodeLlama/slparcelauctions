@@ -17,7 +17,6 @@ import com.slparcelauctions.backend.auction.dto.SetProxyBidRequest;
 import com.slparcelauctions.backend.auction.exception.ProxyBidNotFoundException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -54,11 +53,9 @@ public class ProxyBidController {
     public ResponseEntity<ProxyBidResponse> createProxy(
             @PathVariable Long auctionId,
             @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody SetProxyBidRequest request,
-            HttpServletRequest httpRequest) {
-        String ip = httpRequest.getRemoteAddr();
+            @Valid @RequestBody SetProxyBidRequest request) {
         ProxyBidResponse response = proxyBidService.createProxy(
-                auctionId, principal.userId(), request.maxAmount(), ip);
+                auctionId, principal.userId(), request.maxAmount());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -66,11 +63,9 @@ public class ProxyBidController {
     public ResponseEntity<ProxyBidResponse> updateProxy(
             @PathVariable Long auctionId,
             @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody SetProxyBidRequest request,
-            HttpServletRequest httpRequest) {
-        String ip = httpRequest.getRemoteAddr();
+            @Valid @RequestBody SetProxyBidRequest request) {
         ProxyBidResponse response = proxyBidService.updateProxyMax(
-                auctionId, principal.userId(), request.maxAmount(), ip);
+                auctionId, principal.userId(), request.maxAmount());
         return ResponseEntity.ok(response);
     }
 

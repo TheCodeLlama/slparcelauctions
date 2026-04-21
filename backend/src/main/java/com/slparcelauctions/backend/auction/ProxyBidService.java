@@ -83,7 +83,7 @@ public class ProxyBidService {
     // -------------------------------------------------------------------------
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public ProxyBidResponse createProxy(Long auctionId, Long bidderId, long maxAmount, String ipAddress) {
+    public ProxyBidResponse createProxy(Long auctionId, Long bidderId, long maxAmount) {
         Auction auction = auctionRepo.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
 
@@ -130,7 +130,7 @@ public class ProxyBidService {
     // -------------------------------------------------------------------------
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public ProxyBidResponse updateProxyMax(Long auctionId, Long bidderId, long newMax, String ipAddress) {
+    public ProxyBidResponse updateProxyMax(Long auctionId, Long bidderId, long newMax) {
         Auction auction = auctionRepo.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
 
@@ -163,22 +163,16 @@ public class ProxyBidService {
                 return ProxyBidResponse.from(proxy);
             }
 
-            // Defensive branch: ACTIVE-but-not-winning is unreachable under the
-            // pessimistic lock (any commit that moved currentBidderId off the
-            // caller would have flipped their proxy to EXHAUSTED in the same
-            // transaction). Kept for observability if the lock invariant ever
-            // regresses.
-            log.warn("updateProxyMax hit ACTIVE-but-not-winning branch for proxy {}; "
-                    + "this should be unreachable — investigate lock acquisition.",
-                    proxy.getId());
-            long minRequiredActive = minRequiredForNextBid(auction);
-            if (newMax < minRequiredActive) {
-                throw new BidTooLowException(minRequiredActive);
-            }
-            proxy.setMaxAmount(newMax);
-            proxy.setUpdatedAt(OffsetDateTime.now(clock));
-            proxyBidRepo.save(proxy);
-            emitted = resolveProxyResolution(auction, proxy);
+            // ACTIVE proxy, but caller is not currently winning — unreachable under the
+            // pessimistic lock. Any transaction that moved currentBidderId off this caller
+            // would have flipped their proxy to EXHAUSTED in the same commit. If we hit
+            // this branch, the lock discipline has broken — fail loudly rather than run
+            // resolveProxyResolution on inconsistent state.
+            throw new IllegalStateException(
+                "Unreachable: ACTIVE proxy " + proxy.getId() + " owner " + bidderId
+              + " is not the current winner of auction " + auction.getId()
+              + " (currentBidderId=" + auction.getCurrentBidderId() + "). "
+              + "This indicates a lock acquisition regression.");
         } else {
             // EXHAUSTED — resurrection path. Increase-only.
             if (newMax <= proxy.getMaxAmount()) {

@@ -229,14 +229,16 @@ class ProxyBidControllerTest {
     @Test
     void put_onCancelled_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        // Bidder creates proxy, then another bidder out-proxies (exhausting),
-        // then bidder cancels. No — simpler: create proxy as non-winning, cancel it.
+        // Direct repo-level seam: materialize a CANCELLED proxy row without going through
+        // the normal DELETE flow. The natural flow cannot reach CANCELLED when the caller
+        // isn't winning, because cancel is restricted to ACTIVE rows — DELETE on an
+        // EXHAUSTED/CANCELLED proxy returns 404. Seed two proxies so bidder's row lands
+        // in EXHAUSTED via the losing path, then flip it to CANCELLED directly. This test
+        // pins the PUT-on-CANCELLED behavior; DELETE-while-winning is exercised separately
+        // in delete_whileWinning_returns409.
         createProxy(otherBidderAccessToken, a.getId(), 10000L);  // other wins
         createProxy(bidderAccessToken, a.getId(), 5000L);  // bidder exhausted
 
-        // Actually after createProxy with lower max, bidder goes EXHAUSTED, not cancellable.
-        // Re-do: set up so bidder isn't winning, has ACTIVE proxy, then cancel.
-        // A simpler setup: cancel the bidder's ACTIVE proxy manually via repository.
         ProxyBid p = proxyBidRepository.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(
                 a.getId(), bidderId).orElseThrow();
         p.setStatus(ProxyBidStatus.CANCELLED);

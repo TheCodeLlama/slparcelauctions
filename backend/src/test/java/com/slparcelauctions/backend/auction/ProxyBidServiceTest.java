@@ -45,10 +45,12 @@ import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Unit coverage for {@link ProxyBidService}. Mockito-driven with a fixed
- * {@link Clock}. Pins every validation branch in spec §7 plus the four
- * sub-branches of updateProxyMax (ACTIVE-winning silent, ACTIVE-not-winning
- * defensive, EXHAUSTED resurrection, CANCELLED reject) and the cancel /
- * get happy paths.
+ * {@link Clock}. Pins every validation branch in spec §7 plus the reachable
+ * sub-branches of updateProxyMax (ACTIVE-winning silent, EXHAUSTED
+ * resurrection, CANCELLED reject) and the cancel / get happy paths. The
+ * ACTIVE-not-winning branch is unreachable under the pessimistic lock and
+ * now throws {@link IllegalStateException} as a fail-fast guard, so no test
+ * exercises it.
  *
  * <p>Resolution-branch coverage (4 branches of
  * {@link ProxyBidService#resolveProxyResolution}) lives in
@@ -118,7 +120,7 @@ class ProxyBidServiceTest {
     void createProxy_throwsAuctionNotFound_whenAuctionMissing() {
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L))
                 .isInstanceOf(AuctionNotFoundException.class);
         verify(bidRepo, never()).save(any());
     }
@@ -128,7 +130,7 @@ class ProxyBidServiceTest {
         activeAuction.setStatus(AuctionStatus.ENDED);
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
 
-        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L))
                 .isInstanceOfSatisfying(InvalidAuctionStateException.class, e -> {
                     assertThat(e.getAttemptedAction()).isEqualTo("PROXY_BID");
                     assertThat(e.getCurrentState()).isEqualTo(AuctionStatus.ENDED);
@@ -140,7 +142,7 @@ class ProxyBidServiceTest {
         activeAuction.setEndsAt(NOW.minusSeconds(1));
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
 
-        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L))
                 .isInstanceOf(AuctionAlreadyEndedException.class);
     }
 
@@ -150,7 +152,7 @@ class ProxyBidServiceTest {
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
         when(userRepo.findById(20L)).thenReturn(Optional.of(bidder));
 
-        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L))
                 .isInstanceOf(NotVerifiedException.class);
     }
 
@@ -159,7 +161,7 @@ class ProxyBidServiceTest {
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
         when(userRepo.findById(10L)).thenReturn(Optional.of(seller));
 
-        assertThatThrownBy(() -> service.createProxy(500L, 10L, 1500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 10L, 1500L))
                 .isInstanceOf(SellerCannotBidException.class);
     }
 
@@ -170,7 +172,7 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.existsByAuctionIdAndBidderIdAndStatus(500L, 20L, ProxyBidStatus.ACTIVE))
                 .thenReturn(true);
 
-        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L))
                 .isInstanceOf(ProxyBidAlreadyExistsException.class);
         verify(proxyBidRepo, never()).save(any());
     }
@@ -180,7 +182,7 @@ class ProxyBidServiceTest {
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
         when(userRepo.findById(20L)).thenReturn(Optional.of(bidder));
 
-        assertThatThrownBy(() -> service.createProxy(500L, 20L, 500L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.createProxy(500L, 20L, 500L))
                 .isInstanceOfSatisfying(BidTooLowException.class, e ->
                         assertThat(e.getMinRequired()).isEqualTo(1000L));
     }
@@ -198,7 +200,7 @@ class ProxyBidServiceTest {
                 .thenReturn(Optional.empty());
 
         ProxyBidResponse resp = runInTransaction(() ->
-                service.createProxy(500L, 20L, 5000L, "1.2.3.4"));
+                service.createProxy(500L, 20L, 5000L));
 
         // Proxy persisted
         ArgumentCaptor<ProxyBid> proxyCap = ArgumentCaptor.forClass(ProxyBid.class);
@@ -237,7 +239,7 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(500L, 20L))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 2000L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 2000L))
                 .isInstanceOf(ProxyBidNotFoundException.class);
     }
 
@@ -249,7 +251,7 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(500L, 20L))
                 .thenReturn(Optional.of(proxy));
 
-        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 2000L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 2000L))
                 .isInstanceOfSatisfying(InvalidProxyStateException.class, e ->
                         assertThat(e.getReason()).contains("Cancelled proxy"));
     }
@@ -266,7 +268,7 @@ class ProxyBidServiceTest {
                 .thenReturn(Optional.of(proxy));
 
         ProxyBidResponse resp = runInTransaction(() ->
-                service.updateProxyMax(500L, 20L, 5000L, "1.2.3.4"));
+                service.updateProxyMax(500L, 20L, 5000L));
 
         assertThat(proxy.getMaxAmount()).isEqualTo(5000L);
         assertThat(resp.maxAmount()).isEqualTo(5000L);
@@ -288,7 +290,7 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(500L, 20L))
                 .thenReturn(Optional.of(proxy));
 
-        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 2000L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 2000L))
                 .isInstanceOfSatisfying(InvalidProxyMaxException.class, e ->
                         assertThat(e.getReason()).contains("exceed current winning bid"));
     }
@@ -303,7 +305,7 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(500L, 20L))
                 .thenReturn(Optional.of(proxy));
 
-        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 1200L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 1200L))
                 .isInstanceOfSatisfying(InvalidProxyMaxException.class, e ->
                         assertThat(e.getReason()).contains("Increase only"));
     }
@@ -320,7 +322,7 @@ class ProxyBidServiceTest {
 
         // minRequired = 1500 + 100 = 1600. newMax = 1550 passes increase-only
         // (> proxy.maxAmount=1200) but fails min-required.
-        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 1550L, "1.2.3.4"))
+        assertThatThrownBy(() -> service.updateProxyMax(500L, 20L, 1550L))
                 .isInstanceOfSatisfying(BidTooLowException.class, e ->
                         assertThat(e.getMinRequired()).isEqualTo(1600L));
     }
@@ -338,7 +340,7 @@ class ProxyBidServiceTest {
         when(proxyBidRepo.findFirstByAuctionIdAndStatusAndBidderIdNot(500L, ProxyBidStatus.ACTIVE, 20L))
                 .thenReturn(Optional.empty());
 
-        runInTransaction(() -> service.updateProxyMax(500L, 20L, 3000L, "1.2.3.4"));
+        runInTransaction(() -> service.updateProxyMax(500L, 20L, 3000L));
 
         assertThat(proxy.getStatus()).isEqualTo(ProxyBidStatus.ACTIVE);
         assertThat(proxy.getMaxAmount()).isEqualTo(3000L);
