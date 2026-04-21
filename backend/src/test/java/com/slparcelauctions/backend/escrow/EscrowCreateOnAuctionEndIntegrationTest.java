@@ -1,16 +1,17 @@
-package com.slparcelauctions.backend.auction.auctionend;
+package com.slparcelauctions.backend.escrow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,33 +35,33 @@ import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.auction.broadcast.CapturingAuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
-import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.escrow.broadcast.CapturingEscrowBroadcastPublisher;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
+import com.slparcelauctions.backend.verification.VerificationCodeType;
 
 /**
- * End-to-end coverage for the auction-end sweep against a real database.
- * Exercises the dev trigger endpoint ({@code POST /api/v1/dev/auction-end/run-once})
- * so the full transactional stack runs: scheduler query → pessimistic lock
- * acquisition → outcome classification → status flip → proxy exhaust →
- * afterCommit envelope publish.
+ * End-to-end coverage for Escrow row creation on auction-end (SOLD outcome).
+ * Exercises the dev trigger endpoint {@code POST /api/v1/dev/auction-end/run-once}
+ * so the full transactional stack runs: scheduler query → pessimistic lock →
+ * outcome classification → status flip → escrow stamp → afterCommit
+ * ESCROW_CREATED publish.
  *
  * <p>The real scheduler is disabled via {@code slpa.auction-end.enabled=false}
  * to keep the cron tick from racing the explicit run-once invocation. The
- * {@link AuctionBroadcastPublisher} is swapped for a
- * {@link CapturingAuctionBroadcastPublisher} so the test can assert envelope
- * contents without a live STOMP broker.
+ * {@link EscrowBroadcastPublisher} is swapped for a
+ * {@link CapturingEscrowBroadcastPublisher} so assertions can inspect
+ * envelope contents without a live STOMP broker.
  *
- * <p>The class is NOT {@code @Transactional}: the auction-end worker commits
- * on the caller thread and the test assertions read the committed state back.
- * Fixture rows are seeded inside an explicit {@link TransactionTemplate} and
- * cleaned up in {@link #cleanUp}.
+ * <p>Seeding mirrors {@code AuctionEndIntegrationTest}: explicit
+ * {@link TransactionTemplate} write, repository-driven teardown so new
+ * child tables (including {@code escrows}) don't silently escape cleanup.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -70,16 +71,16 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false"
 })
-@Import(AuctionEndIntegrationTest.CapturingConfig.class)
+@Import(EscrowCreateOnAuctionEndIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-class AuctionEndIntegrationTest {
+class EscrowCreateOnAuctionEndIntegrationTest {
 
     @TestConfiguration
     static class CapturingConfig {
         @Bean
         @Primary
-        CapturingAuctionBroadcastPublisher capturingPublisher() {
-            return new CapturingAuctionBroadcastPublisher();
+        CapturingEscrowBroadcastPublisher capturingEscrowPublisher() {
+            return new CapturingEscrowBroadcastPublisher();
         }
     }
 
@@ -93,44 +94,25 @@ class AuctionEndIntegrationTest {
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
     @Autowired PlatformTransactionManager txManager;
-    @Autowired CapturingAuctionBroadcastPublisher capturingPublisher;
+    @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
     private Long seededAuctionId;
     private Long seededParcelId;
     private Long seededSellerId;
     private Long seededBidderId;
 
-    /**
-     * Tears down seeded fixture rows via JPA repositories rather than raw
-     * {@code DELETE} JDBC. The old approach named every child table by hand
-     * ({@code bids}, {@code proxy_bids}, {@code auction_tags}, ...) which
-     * silently stops covering new FK-children as Epic 05 lands (e.g.
-     * {@code escrow_transactions}). Repository-driven cleanup:
-     *
-     * <ul>
-     *   <li>Deletes each auction's children via {@code deleteAllByAuctionId}
-     *       helpers on {@link BidRepository} and {@link ProxyBidRepository}.</li>
-     *   <li>Deletes the auction via {@link AuctionRepository#delete}, which
-     *       lets Hibernate clear the {@code auction_tags} {@code @ManyToMany}
-     *       join-table rows as part of the entity delete.</li>
-     *   <li>Deletes the parcel and users via their repositories, after
-     *       draining any refresh-token / verification-code rows owned by the
-     *       seeded users (defensive — the test doesn't create them, but a
-     *       stray row must not block teardown of a parallel run).</li>
-     * </ul>
-     *
-     * Wrapped in a {@link TransactionTemplate} so the entire teardown is a
-     * single atomic unit; a partial failure cannot leave half-cleaned state
-     * that corrupts the next {@code @Test} invocation.
-     */
+    @BeforeEach
+    void resetCapture() {
+        capturingEscrowPublisher.reset();
+    }
+
     @AfterEach
     void cleanUp() {
-        capturingPublisher.reset();
         if (seededAuctionId == null) return;
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
-            // Escrow row (Epic 05 Task 2+) must be deleted BEFORE the auction
-            // because of the FK from escrows.auction_id → auctions.id.
+            // Escrow row (if any) must be deleted BEFORE the auction because
+            // of the FK from escrows.auction_id → auctions.id.
             escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
@@ -143,10 +125,10 @@ class AuctionEndIntegrationTest {
                 refreshTokenRepo.findAllByUserId(userId)
                         .forEach(refreshTokenRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
-                        com.slparcelauctions.backend.verification.VerificationCodeType.PLAYER)
+                        VerificationCodeType.PLAYER)
                         .forEach(verificationCodeRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
-                        com.slparcelauctions.backend.verification.VerificationCodeType.PARCEL)
+                        VerificationCodeType.PARCEL)
                         .forEach(verificationCodeRepo::delete);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
@@ -158,79 +140,85 @@ class AuctionEndIntegrationTest {
     }
 
     @Test
-    void runOnce_closesExpiredAuction_withBidAboveReserve_outcomeSold() throws Exception {
-        long currentBid = 2000L;
-        long reserve = 1000L;
+    void soldOutcomeCreatesEscrowRowAndBroadcasts() throws Exception {
+        // L$5000 > L$1000 reserve → SOLD. Commission: floor(5000*5/100)=250
+        // clears the L$50 floor, so commissionAmt=250, payoutAmt=4750.
+        long currentBid = 5_000L;
+        long reserve = 1_000L;
         int bidCount = 2;
         seedExpiredAuction(currentBid, reserve, bidCount, "Winner Avatar");
 
         mockMvc.perform(post("/api/v1/dev/auction-end/run-once"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.processed", org.hamcrest.Matchers.hasItem(seededAuctionId.intValue())));
+                .andExpect(status().isOk());
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
-        assertThat(refreshed.getWinnerUserId()).isEqualTo(seededBidderId);
         assertThat(refreshed.getFinalBidAmount()).isEqualTo(currentBid);
         assertThat(refreshed.getEndedAt()).isNotNull();
 
-        assertThat(capturingPublisher.ended).hasSize(1);
-        assertThat(capturingPublisher.ended.get(0).endOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
-        assertThat(capturingPublisher.ended.get(0).winnerUserId()).isEqualTo(seededBidderId);
-        assertThat(capturingPublisher.ended.get(0).winnerDisplayName()).isEqualTo("Winner Avatar");
-        assertThat(capturingPublisher.ended.get(0).finalBid()).isEqualTo(currentBid);
-        // Scheduler path must stamp serverTime from the same OffsetDateTime
-        // it wrote to auction.endedAt — otherwise two OffsetDateTime.now(clock)
-        // calls can drift microseconds under Clock.systemUTC() and break
-        // client-side cross-channel event ordering. Postgres TIMESTAMPTZ can
-        // round nanoseconds to microseconds (half-up), while the in-memory
-        // envelope preserves nanoseconds — allow a 1μs tolerance so the
-        // assertion catches "different instant" regressions but not rounding.
-        assertThat(capturingPublisher.ended.get(0).serverTime())
-                .isCloseTo(refreshed.getEndedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
+        Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
+        assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
+        assertThat(escrow.getFinalBidAmount()).isEqualTo(currentBid);
+        assertThat(escrow.getCommissionAmt()).isEqualTo(250L);
+        assertThat(escrow.getPayoutAmt()).isEqualTo(4_750L);
+        assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
+        // paymentDeadline = endedAt + 48h. Allow 1μs tolerance for Postgres
+        // TIMESTAMPTZ nanosecond→microsecond rounding.
+        assertThat(escrow.getPaymentDeadline())
+                .isCloseTo(refreshed.getEndedAt().plusHours(48), within(1, ChronoUnit.MICROS));
+        assertThat(escrow.getTransferDeadline()).isNull();
+        assertThat(escrow.getFundedAt()).isNull();
+
+        assertThat(capturingEscrowPublisher.created).hasSize(1);
+        EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);
+        assertThat(env.type()).isEqualTo("ESCROW_CREATED");
+        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
+        assertThat(env.escrowId()).isEqualTo(escrow.getId());
+        assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
+        assertThat(env.paymentDeadline())
+                .isCloseTo(escrow.getPaymentDeadline(), within(1, ChronoUnit.MICROS));
+        // serverTime should match the auction's endedAt exactly — both come
+        // from the same OffsetDateTime.now(clock) call in closeOne.
+        assertThat(env.serverTime())
+                .isCloseTo(refreshed.getEndedAt(), within(1, ChronoUnit.MICROS));
     }
 
     @Test
-    void runOnce_closesExpiredAuction_withBidBelowReserve_outcomeReserveNotMet() throws Exception {
-        long currentBid = 500L;
-        long reserve = 2000L;
-        int bidCount = 1;
-        seedExpiredAuction(currentBid, reserve, bidCount, "Below Reserve Bidder");
+    void noBidsOutcomeDoesNotCreateEscrow() throws Exception {
+        // bidCount=0 classifies as NO_BIDS — no escrow row, no envelope.
+        seedExpiredAuction(0L, 1_000L, 0, "No Bidder");
 
         mockMvc.perform(post("/api/v1/dev/auction-end/run-once"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.processed", org.hamcrest.Matchers.hasItem(seededAuctionId.intValue())));
+                .andExpect(status().isOk());
+
+        Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.NO_BIDS);
+
+        assertThat(escrowRepo.findByAuctionId(seededAuctionId)).isEmpty();
+        assertThat(capturingEscrowPublisher.created).isEmpty();
+    }
+
+    @Test
+    void reserveNotMetOutcomeDoesNotCreateEscrow() throws Exception {
+        // currentBid=500 < reserve=2000 → RESERVE_NOT_MET. No escrow row.
+        seedExpiredAuction(500L, 2_000L, 1, "Below Reserve");
+
+        mockMvc.perform(post("/api/v1/dev/auction-end/run-once"))
+                .andExpect(status().isOk());
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
-        assertThat(refreshed.getWinnerUserId()).isNull();
-        assertThat(refreshed.getFinalBidAmount()).isNull();
-        assertThat(refreshed.getEndedAt()).isNotNull();
 
-        assertThat(capturingPublisher.ended).hasSize(1);
-        assertThat(capturingPublisher.ended.get(0).endOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
-        assertThat(capturingPublisher.ended.get(0).winnerUserId()).isNull();
-        assertThat(capturingPublisher.ended.get(0).winnerDisplayName()).isNull();
-        assertThat(capturingPublisher.ended.get(0).finalBid()).isNull();
-    }
-
-    @Test
-    void closeOneEndpoint_closesAuction_returnsClosedId() throws Exception {
-        seedExpiredAuction(1500L, 1000L, 1, "Solo Winner");
-
-        mockMvc.perform(post("/api/v1/dev/auctions/" + seededAuctionId + "/close"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.closedId").value(seededAuctionId.intValue()));
-
-        Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
-        assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
+        assertThat(escrowRepo.findByAuctionId(seededAuctionId)).isEmpty();
+        assertThat(capturingEscrowPublisher.created).isEmpty();
     }
 
     // -------------------------------------------------------------------------
-    // Seeding
+    // Seeding — mirrors AuctionEndIntegrationTest so the fixture shape stays
+    // consistent across close-path coverage.
     // -------------------------------------------------------------------------
 
     private void seedExpiredAuction(
@@ -238,14 +226,14 @@ class AuctionEndIntegrationTest {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
             User seller = userRepo.save(User.builder()
-                    .email("end-seller-" + UUID.randomUUID() + "@example.com")
+                    .email("escrow-end-seller-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
-                    .displayName("End Seller")
+                    .displayName("Escrow End Seller")
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
                     .build());
             User bidder = userRepo.save(User.builder()
-                    .email("end-bidder-" + UUID.randomUUID() + "@example.com")
+                    .email("escrow-end-bidder-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName(bidderDisplayName)
                     .slAvatarUuid(UUID.randomUUID())
@@ -255,7 +243,7 @@ class AuctionEndIntegrationTest {
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(seller.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName("EndRegion")
+                    .regionName("EscrowEndRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
                     .maturityRating("MATURE")
@@ -272,7 +260,7 @@ class AuctionEndIntegrationTest {
                     .startingBid(500L)
                     .reservePrice(reserve)
                     .currentBid(currentBid)
-                    .currentBidderId(bidder.getId())
+                    .currentBidderId(bidCount == 0 ? null : bidder.getId())
                     .bidCount(bidCount)
                     .durationHours(168)
                     .snipeProtect(false)
@@ -281,7 +269,6 @@ class AuctionEndIntegrationTest {
                     .commissionRate(new BigDecimal("0.05"))
                     .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
-                    // Already expired — the run-once sweep must pick this up.
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))
                     .build());

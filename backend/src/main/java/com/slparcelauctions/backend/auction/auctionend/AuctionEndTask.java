@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -52,6 +53,7 @@ public class AuctionEndTask {
     private final ProxyBidRepository proxyBidRepo;
     private final UserRepository userRepo;
     private final AuctionBroadcastPublisher publisher;
+    private final EscrowService escrowService;
     private final Clock clock;
 
     /**
@@ -103,6 +105,19 @@ public class AuctionEndTask {
         if (exhausted > 0) {
             log.debug("Exhausted {} active proxies on closed auction {}",
                     exhausted, auctionId);
+        }
+
+        // SOLD outcome stamps the ESCROW_PENDING row in the same transaction
+        // so auction close + escrow creation are atomic — a rollback reverts
+        // both. The ESCROW_CREATED envelope is registered on afterCommit
+        // INSIDE createForEndedAuction and fires before the AUCTION_ENDED
+        // envelope registered below (afterCommit callbacks run in
+        // registration order). Clients must therefore tolerate receiving
+        // ESCROW_CREATED before AUCTION_ENDED — both are independent routes
+        // on {@code /topic/auction/{id}}. No escrow row for NO_BIDS or
+        // RESERVE_NOT_MET (no payout to orchestrate).
+        if (outcome == AuctionEndOutcome.SOLD) {
+            escrowService.createForEndedAuction(auction, now);
         }
 
         // Resolve winner display-name for the envelope on the SOLD path. The
