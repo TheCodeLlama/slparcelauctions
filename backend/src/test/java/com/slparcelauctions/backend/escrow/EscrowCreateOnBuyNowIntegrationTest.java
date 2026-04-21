@@ -1,0 +1,251 @@
+package com.slparcelauctions.backend.escrow;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.BidRepository;
+import com.slparcelauctions.backend.auction.BidService;
+import com.slparcelauctions.backend.auction.ProxyBidRepository;
+import com.slparcelauctions.backend.auction.VerificationMethod;
+import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.dto.BidResponse;
+import com.slparcelauctions.backend.auth.RefreshTokenRepository;
+import com.slparcelauctions.backend.escrow.broadcast.CapturingEscrowBroadcastPublisher;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
+import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.verification.VerificationCodeRepository;
+import com.slparcelauctions.backend.verification.VerificationCodeType;
+
+/**
+ * End-to-end coverage for Escrow row creation on the inline buy-it-now close
+ * path in {@link BidService#placeBid}. Complements {@code BidServiceBuyNowTest}
+ * (unit-level Mockito coverage) by exercising the full transactional stack
+ * against a real Postgres: pessimistic lock → bid insert → snipe + buy-now
+ * evaluation → auction save → escrow stamp → afterCommit ESCROW_CREATED
+ * publish.
+ *
+ * <p>Unlike {@code SnipeAndBuyNowIntegrationTest} (which is {@code @Transactional}
+ * and rolls back at test end), this test commits both the fixture and the
+ * bid so the escrow row can be read back in a separate transaction and the
+ * afterCommit broadcast actually fires. The {@link EscrowBroadcastPublisher}
+ * is swapped for {@link CapturingEscrowBroadcastPublisher} to assert envelope
+ * contents without a live STOMP broker.
+ *
+ * <p>Teardown deletes the escrow row before the auction row because of the
+ * FK {@code escrows.auction_id → auctions.id}.
+ */
+@SpringBootTest
+@ActiveProfiles("dev")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.auction-end.enabled=false",
+        "slpa.ownership-monitor.enabled=false"
+})
+@Import(EscrowCreateOnBuyNowIntegrationTest.CapturingConfig.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class EscrowCreateOnBuyNowIntegrationTest {
+
+    @TestConfiguration
+    static class CapturingConfig {
+        @Bean
+        @Primary
+        CapturingEscrowBroadcastPublisher capturingEscrowPublisher() {
+            return new CapturingEscrowBroadcastPublisher();
+        }
+    }
+
+    @Autowired BidService bidService;
+    @Autowired AuctionRepository auctionRepo;
+    @Autowired BidRepository bidRepo;
+    @Autowired ProxyBidRepository proxyBidRepo;
+    @Autowired ParcelRepository parcelRepo;
+    @Autowired UserRepository userRepo;
+    @Autowired RefreshTokenRepository refreshTokenRepo;
+    @Autowired VerificationCodeRepository verificationCodeRepo;
+    @Autowired EscrowRepository escrowRepo;
+    @Autowired PlatformTransactionManager txManager;
+    @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
+
+    private Long seededAuctionId;
+    private Long seededParcelId;
+    private Long seededSellerId;
+    private Long seededBidderId;
+
+    @BeforeEach
+    void resetCapture() {
+        capturingEscrowPublisher.reset();
+    }
+
+    @AfterEach
+    void cleanUp() {
+        if (seededAuctionId == null) return;
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.executeWithoutResult(status -> {
+            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
+            bidRepo.deleteAllByAuctionId(seededAuctionId);
+            proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
+            auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
+            if (seededParcelId != null) {
+                parcelRepo.findById(seededParcelId).ifPresent(parcelRepo::delete);
+            }
+            for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
+                if (userId == null) continue;
+                refreshTokenRepo.findAllByUserId(userId)
+                        .forEach(refreshTokenRepo::delete);
+                verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
+                        VerificationCodeType.PLAYER)
+                        .forEach(verificationCodeRepo::delete);
+                verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
+                        VerificationCodeType.PARCEL)
+                        .forEach(verificationCodeRepo::delete);
+                userRepo.findById(userId).ifPresent(userRepo::delete);
+            }
+        });
+        seededAuctionId = null;
+        seededParcelId = null;
+        seededSellerId = null;
+        seededBidderId = null;
+    }
+
+    @Test
+    void buyNowTriggerCreatesEscrowRowAndBroadcasts() {
+        // buyNowPrice = L$10000. A bid at exactly L$10000 closes the auction
+        // with BOUGHT_NOW and must land an ESCROW_PENDING row with the
+        // 5% commission (L$500 clears the L$50 floor) + L$9500 payout.
+        seedActiveAuction(/* buyNowPrice */ 10_000L);
+
+        // Place the buy-now bid on the seeded bidder's account. BidService
+        // runs inside its own @Transactional boundary; afterCommit fires on
+        // return, so the capturingEscrowPublisher has the envelope by the
+        // time placeBid returns to the test.
+        BidResponse resp = bidService.placeBid(
+                seededAuctionId, seededBidderId, 10_000L, "1.2.3.4");
+
+        assertThat(resp.buyNowTriggered()).isTrue();
+
+        Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
+        assertThat(refreshed.getFinalBidAmount()).isEqualTo(10_000L);
+        assertThat(refreshed.getWinnerUserId()).isEqualTo(seededBidderId);
+
+        Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
+        assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
+        assertThat(escrow.getFinalBidAmount()).isEqualTo(10_000L);
+        assertThat(escrow.getCommissionAmt()).isEqualTo(500L);
+        assertThat(escrow.getPayoutAmt()).isEqualTo(9_500L);
+        assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
+        assertThat(escrow.getTransferDeadline()).isNull();
+        assertThat(escrow.getFundedAt()).isNull();
+        // paymentDeadline is anchored to the `now` passed into
+        // createForEndedAuction (line 110 of BidService.placeBid), which
+        // is a separate clock read from the one applySnipeAndBuyNow uses
+        // for auction.endedAt. Under Clock.systemUTC() they can drift by
+        // milliseconds, so the auction's endedAt is NOT load-bearing for
+        // the deadline comparison — the envelope's serverTime is. Assert
+        // the deadline against the envelope serverTime + 48h instead.
+        assertThat(escrow.getPaymentDeadline()).isAfter(refreshed.getEndedAt());
+
+        assertThat(capturingEscrowPublisher.created).hasSize(1);
+        EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);
+        assertThat(env.type()).isEqualTo("ESCROW_CREATED");
+        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
+        assertThat(env.escrowId()).isEqualTo(escrow.getId());
+        assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
+        // Envelope serverTime + 48h = paymentDeadline — both derive from the
+        // SAME `now` read so this round-trips exactly (modulo 1μs Postgres
+        // TIMESTAMPTZ rounding on the persisted paymentDeadline side).
+        assertThat(env.paymentDeadline())
+                .isCloseTo(escrow.getPaymentDeadline(), within(1, ChronoUnit.MICROS));
+        assertThat(escrow.getPaymentDeadline())
+                .isCloseTo(env.serverTime().plusHours(48), within(1, ChronoUnit.MICROS));
+    }
+
+    // -------------------------------------------------------------------------
+    // Seeding
+    // -------------------------------------------------------------------------
+
+    private void seedActiveAuction(Long buyNowPrice) {
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.executeWithoutResult(status -> {
+            User seller = userRepo.save(User.builder()
+                    .email("escrow-buynow-seller-" + UUID.randomUUID() + "@example.com")
+                    .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                    .displayName("Escrow BuyNow Seller")
+                    .slAvatarUuid(UUID.randomUUID())
+                    .verified(true)
+                    .build());
+            User bidder = userRepo.save(User.builder()
+                    .email("escrow-buynow-bidder-" + UUID.randomUUID() + "@example.com")
+                    .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                    .displayName("Escrow BuyNow Bidder")
+                    .slAvatarUuid(UUID.randomUUID())
+                    .verified(true)
+                    .build());
+            Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .slParcelUuid(UUID.randomUUID())
+                    .ownerUuid(seller.getSlAvatarUuid())
+                    .ownerType("agent")
+                    .regionName("EscrowBuyNowRegion")
+                    .continentName("Sansara")
+                    .areaSqm(1024)
+                    .maturityRating("MATURE")
+                    .verified(true)
+                    .verifiedAt(OffsetDateTime.now())
+                    .build());
+            OffsetDateTime now = OffsetDateTime.now();
+            Auction auction = auctionRepo.save(Auction.builder()
+                    .parcel(parcel)
+                    .seller(seller)
+                    .status(AuctionStatus.ACTIVE)
+                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+                    .verificationTier(VerificationTier.SCRIPT)
+                    .startingBid(500L)
+                    .currentBid(0L)
+                    .bidCount(0)
+                    .buyNowPrice(buyNowPrice)
+                    .durationHours(168)
+                    .snipeProtect(false)
+                    .listingFeePaid(true)
+                    .consecutiveWorldApiFailures(0)
+                    .commissionRate(new BigDecimal("0.05"))
+                    .agentFeeRate(BigDecimal.ZERO)
+                    .startsAt(now.minusHours(1))
+                    .endsAt(now.plusHours(1))
+                    .originalEndsAt(now.plusHours(1))
+                    .build());
+            seededSellerId = seller.getId();
+            seededBidderId = bidder.getId();
+            seededParcelId = parcel.getId();
+            seededAuctionId = auction.getId();
+        });
+    }
+}

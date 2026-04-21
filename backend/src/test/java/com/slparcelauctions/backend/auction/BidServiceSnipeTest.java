@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -52,6 +53,7 @@ class BidServiceSnipeTest {
     @Mock ProxyBidRepository proxyBidRepo;
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
+    @Mock EscrowService escrowService;
 
     BidService service;
     User seller;
@@ -61,7 +63,7 @@ class BidServiceSnipeTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher);
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService);
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();

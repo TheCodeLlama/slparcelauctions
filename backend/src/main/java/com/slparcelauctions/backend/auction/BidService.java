@@ -22,6 +22,7 @@ import com.slparcelauctions.backend.auction.exception.BidTooLowException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -76,6 +77,7 @@ public class BidService {
     private final UserRepository userRepo;
     private final Clock clock;
     private final AuctionBroadcastPublisher publisher;
+    private final EscrowService escrowService;
 
     /**
      * Places a manual bid on an auction. See class javadoc for the
@@ -191,13 +193,26 @@ public class BidService {
         auction.setBidCount(nextBidCount);
         auctionRepo.save(auction);
 
+        // Inline buy-it-now closes stamp the ESCROW_PENDING row in the same
+        // transaction as the status flip so close + escrow are atomic; a
+        // rollback reverts both. Uses `now` (not auction.getEndedAt()) so
+        // the 48h payment deadline anchors to the same instant `now` used
+        // by the caller and the AuctionEndedEnvelope's serverTime — keeps
+        // cross-channel event ordering tight and the deadline arithmetic
+        // trivial to reason about. ESCROW_CREATED is registered on
+        // afterCommit inside createForEndedAuction and fires BEFORE the
+        // AUCTION_ENDED afterCommit below (registration order).
+        final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
+        if (ended) {
+            escrowService.createForEndedAuction(auction, now);
+        }
+
         // Step 9 — publish the envelope on afterCommit so subscribers never
         // observe an uncommitted state. The envelope variant is chosen NOW
         // (inside the tx, with entities initialised) and captured into the
         // synchronization; the publish call runs post-commit, outside the
         // persistence context. Buy-it-now closes emit AuctionEndedEnvelope;
         // everything else emits BidSettlementEnvelope.
-        final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
         final BidSettlementEnvelope settlement = ended
                 ? null
                 : BidSettlementEnvelope.of(auction, emitted, topBidder, clock);
