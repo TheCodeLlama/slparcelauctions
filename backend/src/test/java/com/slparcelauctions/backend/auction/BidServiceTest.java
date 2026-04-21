@@ -57,6 +57,7 @@ class BidServiceTest {
 
     @Mock AuctionRepository auctionRepo;
     @Mock BidRepository bidRepo;
+    @Mock ProxyBidRepository proxyBidRepo;
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
 
@@ -69,7 +70,7 @@ class BidServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, userRepo, clock, publisher);
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher);
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();
