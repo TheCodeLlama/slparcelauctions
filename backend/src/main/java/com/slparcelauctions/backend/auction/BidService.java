@@ -1,10 +1,10 @@
 package com.slparcelauctions.backend.auction;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -30,12 +30,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Bid-placement service. Task 2 implemented the core path; Task 3 layers in
- * snipe-protection extension and inline buy-it-now via
- * {@link #applySnipeAndBuyNow(Auction, List)}. Task 4 will add the proxy
- * counter-bid branch; the applySnipeAndBuyNow loop is already per-emitted-
- * row so the second emitted bid in a proxy settlement is evaluated against
- * the already-extended {@code endsAt} without any further changes here.
+ * Bid-placement service. Task 2 implemented the core path; Task 3 layered in
+ * snipe-protection extension and inline buy-it-now (now delegated to
+ * {@link BidPlacementHelpers#applySnipeAndBuyNow}). Task 4 adds the proxy
+ * counter-bid branch (spec §6 steps 7-8): when a competing ACTIVE proxy
+ * exists on the auction, a manual bid below the competitor's cap emits an
+ * additional {@code PROXY_AUTO} row at {@code min(amount + increment, P_max)},
+ * putting the proxy owner back on top; a manual bid strictly above the cap
+ * flips the competitor to EXHAUSTED and wins outright. Q3 tie-flip: the
+ * comparison is strict {@code >}, so {@code amount == P_max} emits the
+ * counter and the proxy retains the win.
  *
  * <p><strong>Concurrency model.</strong> Every placement opens a
  * {@code READ_COMMITTED} transaction and acquires a pessimistic write
@@ -131,31 +135,47 @@ public class BidService {
             throw new BidTooLowException(minRequired);
         }
 
-        // Step 6 — emit one MANUAL bid. Task 4 will fan this into a 1-or-2
-        // row emission when a competing proxy is active; applySnipeAndBuyNow
-        // already iterates the emitted list, so no further changes are
-        // needed here for that extension.
+        // Steps 6-8 — emit 1 or 2 bid rows depending on whether a competing
+        // proxy is active. The detection uses
+        // findFirstByAuctionIdAndStatusAndBidderIdNot so the caller's own
+        // ACTIVE proxy is ignored (a bidder cannot counter their own proxy).
+        // Strict >: a manual bid at exactly the proxy's cap counters; only
+        // amount > P_max exhausts the proxy (Q3 flip; proxy wins ties).
         List<Bid> emitted = new ArrayList<>(2);
-        Bid manual = Bid.builder()
-                .auction(auction)
-                .bidder(bidder)
-                .amount(amount)
-                .bidType(BidType.MANUAL)
-                .proxyBidId(null)
-                .snipeExtensionMinutes(null)
-                .newEndsAt(null)
-                .ipAddress(ipAddress)
-                .build();
-        manual = bidRepo.save(manual);
-        emitted.add(manual);
+        Optional<ProxyBid> competingProxyOpt = proxyBidRepo
+                .findFirstByAuctionIdAndStatusAndBidderIdNot(
+                        auctionId, ProxyBidStatus.ACTIVE, bidderId);
 
-        // Step 7 — snipe extension + inline buy-it-now. Both evaluate every
+        if (competingProxyOpt.isPresent()) {
+            ProxyBid competingProxy = competingProxyOpt.get();
+            if (amount > competingProxy.getMaxAmount()) {
+                // Caller strictly exceeds competitor's cap: exhaust + win.
+                competingProxy.setStatus(ProxyBidStatus.EXHAUSTED);
+                competingProxy.setUpdatedAt(OffsetDateTime.now(clock));
+                proxyBidRepo.save(competingProxy);
+                emitted.add(insertManual(auction, bidder, amount, ipAddress));
+            } else {
+                // Caller meets or under-shoots competitor's cap: competitor
+                // counters at min(amount + increment, P_max). Proxy emits LAST
+                // so it's the post-resolution top bidder.
+                long counterAmount = Math.min(
+                        amount + BidIncrementTable.minIncrement(amount),
+                        competingProxy.getMaxAmount());
+                emitted.add(insertManual(auction, bidder, amount, ipAddress));
+                emitted.add(insertProxyAuto(auction, competingProxy.getBidder(),
+                        counterAmount, competingProxy.getId()));
+            }
+        } else {
+            emitted.add(insertManual(auction, bidder, amount, ipAddress));
+        }
+
+        // Step 9 — snipe extension + inline buy-it-now. Both evaluate every
         // emitted bid in order. Snipe may stamp newEndsAt on each qualifying
         // bid and push auction.endsAt forward. Buy-it-now may flip the
         // auction to ENDED with endOutcome=BOUGHT_NOW; when that happens
         // every ACTIVE proxy on the auction is marked EXHAUSTED so the
         // partial unique index is cleared and no zombie proxies linger.
-        applySnipeAndBuyNow(auction, emitted);
+        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, clock, proxyBidRepo);
 
         // Step 8 — update auction aggregate state. The last emitted bid is
         // always the current top (for Task 3 that's the same as the only
@@ -205,69 +225,30 @@ public class BidService {
         return BidResponse.from(top, auction, buyNowTriggered);
     }
 
-    /**
-     * Evaluates snipe-protection extension and inline buy-it-now against the
-     * just-emitted bid rows. Runs inside the bid placement transaction,
-     * BEFORE the auction row is saved — any mutations to {@code auction}
-     * (endsAt, status, endOutcome, winnerUserId, finalBidAmount, endedAt) or
-     * to individual {@link Bid} rows (snipeExtensionMinutes, newEndsAt) are
-     * persisted by the subsequent {@code auctionRepo.save} / JPA dirty
-     * checking on the already-saved bid rows.
-     *
-     * <p><strong>Snipe loop.</strong> For each emitted bid in order, if
-     * {@code Duration.between(bid.createdAt, auction.endsAt) <= window} the
-     * auction's {@code endsAt} is pushed to {@code bid.createdAt + window}
-     * and the bid row is stamped with the extension details. A negative
-     * duration (bid AFTER endsAt) is skipped defensively — step 3 of
-     * {@link #placeBid} already rejects post-deadline bids so this shouldn't
-     * trigger in production. Each bid evaluates against the endsAt as it
-     * stands at that point in the loop, so extensions stack across multiple
-     * in-window bids (important for Task 4's proxy counter case).
-     *
-     * <p><strong>Buy-it-now loop.</strong> If any emitted bid meets or
-     * exceeds {@code buyNowPrice} the auction is flipped to {@code ENDED}
-     * with {@code endOutcome=BOUGHT_NOW}. The winner is the last emitted
-     * bid (the current top after proxy resolution), not the first to hit
-     * buy-now — this matters in Task 4 where a proxy counter could be the
-     * bid that actually crosses the threshold. Remaining ACTIVE proxies on
-     * the auction are exhausted so the partial unique index is cleared.
-     */
-    private void applySnipeAndBuyNow(Auction auction, List<Bid> emitted) {
-        // Snipe protection — per-emitted-row extension that stacks.
-        if (Boolean.TRUE.equals(auction.getSnipeProtect()) && auction.getSnipeWindowMin() != null) {
-            Duration window = Duration.ofMinutes(auction.getSnipeWindowMin());
-            for (Bid bid : emitted) {
-                Duration remaining = Duration.between(bid.getCreatedAt(), auction.getEndsAt());
-                // Negative remaining: bid timestamp is AFTER endsAt.
-                // Defensive skip — step 3 of placeBid already rejects this.
-                if (remaining.isNegative()) {
-                    continue;
-                }
-                if (remaining.compareTo(window) <= 0) {
-                    OffsetDateTime newEnd = bid.getCreatedAt().plus(window);
-                    bid.setSnipeExtensionMinutes(auction.getSnipeWindowMin());
-                    bid.setNewEndsAt(newEnd);
-                    auction.setEndsAt(newEnd);
-                }
-            }
-        }
+    private Bid insertManual(Auction auction, User bidder, long amount, String ipAddress) {
+        return bidRepo.save(Bid.builder()
+                .auction(auction)
+                .bidder(bidder)
+                .amount(amount)
+                .bidType(BidType.MANUAL)
+                .proxyBidId(null)
+                .snipeExtensionMinutes(null)
+                .newEndsAt(null)
+                .ipAddress(ipAddress)
+                .build());
+    }
 
-        // Inline buy-it-now — first bid that meets or exceeds buyNowPrice
-        // closes the auction. Winner is always the LAST emitted (the
-        // post-resolution top), not the first-to-hit — see javadoc.
-        if (auction.getBuyNowPrice() != null) {
-            for (Bid bid : emitted) {
-                if (bid.getAmount() >= auction.getBuyNowPrice()) {
-                    Bid top = emitted.getLast();
-                    auction.setStatus(AuctionStatus.ENDED);
-                    auction.setEndOutcome(AuctionEndOutcome.BOUGHT_NOW);
-                    auction.setWinnerUserId(top.getBidder().getId());
-                    auction.setFinalBidAmount(top.getAmount());
-                    auction.setEndedAt(OffsetDateTime.now(clock));
-                    proxyBidRepo.exhaustAllActiveByAuctionId(auction.getId());
-                    return;
-                }
-            }
-        }
+    private Bid insertProxyAuto(Auction auction, User bidder, long amount, Long proxyBidId) {
+        return bidRepo.save(Bid.builder()
+                .auction(auction)
+                .bidder(bidder)
+                .amount(amount)
+                .bidType(BidType.PROXY_AUTO)
+                .proxyBidId(proxyBidId)
+                .snipeExtensionMinutes(null)
+                .newEndsAt(null)
+                // System-generated bid — no HTTP request context.
+                .ipAddress(null)
+                .build());
     }
 }

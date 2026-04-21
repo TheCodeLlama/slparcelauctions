@@ -180,6 +180,63 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(ProxyBidAlreadyExistsException.class)
+    public ProblemDetail handleProxyBidAlreadyExists(
+            ProxyBidAlreadyExistsException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Proxy Bid Already Exists");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PROXY_BID_ALREADY_EXISTS");
+        return pd;
+    }
+
+    @ExceptionHandler(ProxyBidNotFoundException.class)
+    public ProblemDetail handleProxyBidNotFound(
+            ProxyBidNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Proxy Bid Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PROXY_BID_NOT_FOUND");
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidProxyStateException.class)
+    public ProblemDetail handleInvalidProxyState(
+            InvalidProxyStateException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Invalid Proxy State");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INVALID_PROXY_STATE");
+        pd.setProperty("reason", e.getReason());
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidProxyMaxException.class)
+    public ProblemDetail handleInvalidProxyMax(
+            InvalidProxyMaxException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Invalid Proxy Max");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INVALID_PROXY_MAX");
+        pd.setProperty("reason", e.getReason());
+        return pd;
+    }
+
+    @ExceptionHandler(CannotCancelWinningProxyException.class)
+    public ProblemDetail handleCannotCancelWinningProxy(
+            CannotCancelWinningProxyException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Cannot Cancel Winning Proxy");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "CANNOT_CANCEL_WINNING_PROXY");
+        return pd;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
