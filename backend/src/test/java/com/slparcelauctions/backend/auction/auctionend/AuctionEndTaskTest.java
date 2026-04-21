@@ -122,6 +122,11 @@ class AuctionEndTaskTest {
         assertThat(env.winnerUserId()).isEqualTo(7L);
         assertThat(env.winnerDisplayName()).isEqualTo("Top Bidder");
         assertThat(env.bidCount()).isEqualTo(3);
+        // Scheduler path must stamp envelope.serverTime from the same
+        // OffsetDateTime it persisted to auction.endedAt — otherwise two
+        // separate OffsetDateTime.now(clock) calls can drift microseconds
+        // under Clock.systemUTC() and break client-side event ordering.
+        assertThat(env.serverTime()).isEqualTo(auction.getEndedAt());
     }
 
     @Test

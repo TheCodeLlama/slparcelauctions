@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface ProxyBidRepository extends JpaRepository<ProxyBid, Long> {
 
@@ -44,4 +45,14 @@ public interface ProxyBidRepository extends JpaRepository<ProxyBid, Long> {
             + "p.updatedAt = CURRENT_TIMESTAMP "
             + "WHERE p.auction.id = :auctionId AND p.status = com.slparcelauctions.backend.auction.ProxyBidStatus.ACTIVE")
     int exhaustAllActiveByAuctionId(@Param("auctionId") Long auctionId);
+
+    /**
+     * Bulk-deletes every proxy row for the given auction. Test-only helper
+     * used by integration-test cleanup to avoid raw JDBC {@code DELETE}
+     * statements that would silently stop covering new FK-child tables as
+     * Epic 05 lands.
+     */
+    @Modifying
+    @Transactional
+    int deleteAllByAuctionId(Long auctionId);
 }

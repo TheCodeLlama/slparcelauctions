@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.auctionend;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,14 +30,18 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.BidRepository;
+import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.CapturingAuctionBroadcastPublisher;
+import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 
 /**
  * End-to-end coverage for the auction-end sweep against a real database.
@@ -79,43 +84,68 @@ class AuctionEndIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired AuctionRepository auctionRepo;
+    @Autowired BidRepository bidRepo;
+    @Autowired ProxyBidRepository proxyBidRepo;
     @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
+    @Autowired RefreshTokenRepository refreshTokenRepo;
+    @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingAuctionBroadcastPublisher capturingPublisher;
-    @Autowired javax.sql.DataSource dataSource;
 
     private Long seededAuctionId;
     private Long seededParcelId;
     private Long seededSellerId;
     private Long seededBidderId;
 
+    /**
+     * Tears down seeded fixture rows via JPA repositories rather than raw
+     * {@code DELETE} JDBC. The old approach named every child table by hand
+     * ({@code bids}, {@code proxy_bids}, {@code auction_tags}, ...) which
+     * silently stops covering new FK-children as Epic 05 lands (e.g.
+     * {@code escrow_transactions}). Repository-driven cleanup:
+     *
+     * <ul>
+     *   <li>Deletes each auction's children via {@code deleteAllByAuctionId}
+     *       helpers on {@link BidRepository} and {@link ProxyBidRepository}.</li>
+     *   <li>Deletes the auction via {@link AuctionRepository#delete}, which
+     *       lets Hibernate clear the {@code auction_tags} {@code @ManyToMany}
+     *       join-table rows as part of the entity delete.</li>
+     *   <li>Deletes the parcel and users via their repositories, after
+     *       draining any refresh-token / verification-code rows owned by the
+     *       seeded users (defensive — the test doesn't create them, but a
+     *       stray row must not block teardown of a parallel run).</li>
+     * </ul>
+     *
+     * Wrapped in a {@link TransactionTemplate} so the entire teardown is a
+     * single atomic unit; a partial failure cannot leave half-cleaned state
+     * that corrupts the next {@code @Test} invocation.
+     */
     @AfterEach
-    void cleanUp() throws Exception {
+    void cleanUp() {
         capturingPublisher.reset();
         if (seededAuctionId == null) return;
-        try (var conn = dataSource.getConnection()) {
-            conn.setAutoCommit(true);
-            try (var stmt = conn.createStatement()) {
-                stmt.execute("DELETE FROM bids WHERE auction_id = " + seededAuctionId);
-                stmt.execute("DELETE FROM proxy_bids WHERE auction_id = " + seededAuctionId);
-                stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + seededAuctionId);
-                stmt.execute("DELETE FROM auctions WHERE id = " + seededAuctionId);
-                if (seededParcelId != null) {
-                    stmt.execute("DELETE FROM parcels WHERE id = " + seededParcelId);
-                }
-                if (seededBidderId != null) {
-                    stmt.execute("DELETE FROM verification_codes WHERE user_id = " + seededBidderId);
-                    stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + seededBidderId);
-                    stmt.execute("DELETE FROM users WHERE id = " + seededBidderId);
-                }
-                if (seededSellerId != null) {
-                    stmt.execute("DELETE FROM verification_codes WHERE user_id = " + seededSellerId);
-                    stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + seededSellerId);
-                    stmt.execute("DELETE FROM users WHERE id = " + seededSellerId);
-                }
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.executeWithoutResult(status -> {
+            bidRepo.deleteAllByAuctionId(seededAuctionId);
+            proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
+            auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
+            if (seededParcelId != null) {
+                parcelRepo.findById(seededParcelId).ifPresent(parcelRepo::delete);
             }
-        }
+            for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
+                if (userId == null) continue;
+                refreshTokenRepo.findAllByUserId(userId)
+                        .forEach(refreshTokenRepo::delete);
+                verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
+                        com.slparcelauctions.backend.verification.VerificationCodeType.PLAYER)
+                        .forEach(verificationCodeRepo::delete);
+                verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
+                        com.slparcelauctions.backend.verification.VerificationCodeType.PARCEL)
+                        .forEach(verificationCodeRepo::delete);
+                userRepo.findById(userId).ifPresent(userRepo::delete);
+            }
+        });
         seededAuctionId = null;
         seededParcelId = null;
         seededSellerId = null;
@@ -145,6 +175,15 @@ class AuctionEndIntegrationTest {
         assertThat(capturingPublisher.ended.get(0).winnerUserId()).isEqualTo(seededBidderId);
         assertThat(capturingPublisher.ended.get(0).winnerDisplayName()).isEqualTo("Winner Avatar");
         assertThat(capturingPublisher.ended.get(0).finalBid()).isEqualTo(currentBid);
+        // Scheduler path must stamp serverTime from the same OffsetDateTime
+        // it wrote to auction.endedAt — otherwise two OffsetDateTime.now(clock)
+        // calls can drift microseconds under Clock.systemUTC() and break
+        // client-side cross-channel event ordering. Postgres TIMESTAMPTZ can
+        // round nanoseconds to microseconds (half-up), while the in-memory
+        // envelope preserves nanoseconds — allow a 1μs tolerance so the
+        // assertion catches "different instant" regressions but not rounding.
+        assertThat(capturingPublisher.ended.get(0).serverTime())
+                .isCloseTo(refreshed.getEndedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
     }
 
     @Test

@@ -111,7 +111,12 @@ public class AuctionEndTask {
         User winner = outcome == AuctionEndOutcome.SOLD
                 ? userRepo.findById(auction.getCurrentBidderId()).orElse(null)
                 : null;
-        final AuctionEndedEnvelope envelope = AuctionEndedEnvelope.of(auction, winner, clock);
+        // Pass the exact endedAt instant as serverTime so the envelope's
+        // client-facing timestamp matches the persisted ended_at column.
+        // Using the Clock-based overload here would stamp a fresh
+        // OffsetDateTime.now(clock) that can drift microseconds from `now`
+        // above, breaking cross-channel event ordering.
+        final AuctionEndedEnvelope envelope = AuctionEndedEnvelope.of(auction, winner, now);
 
         // Publish only after the transaction commits. On rollback the
         // synchronization's afterCommit callback is never invoked, which is
