@@ -211,20 +211,31 @@ export function ProxyBidSection({
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        <Input
-          id="proxy-bid-max"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          step={1}
-          value={maxInput}
-          onChange={(e) => setMaxInput(e.target.value)}
-          placeholder="L$"
-          leftIcon={<span className="text-label-md">L$</span>}
-          className="text-right"
-          data-testid="proxy-bid-max-input"
-          error={inlineError ?? undefined}
-        />
+        <div>
+          <label
+            htmlFor="proxy-bid-max"
+            className="text-label-md text-on-surface-variant"
+          >
+            Your max bid
+          </label>
+          <Input
+            id="proxy-bid-max"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            value={maxInput}
+            onChange={(e) => {
+              setMaxInput(e.target.value);
+              setInlineError(null);
+            }}
+            placeholder="L$"
+            leftIcon={<span className="text-label-md">L$</span>}
+            className="text-right"
+            data-testid="proxy-bid-max-input"
+            error={inlineError ?? undefined}
+          />
+        </div>
         <div className="flex items-center gap-2">
           <Button
             type="submit"

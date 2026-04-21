@@ -271,6 +271,9 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
               }
               existingProxy={myProxyQuery.data ?? null}
               connectionState={connectionState}
+              // TODO(task-7): derive from BID_SETTLEMENT.currentBidderId snapshot —
+              // Task 7 (OutbidToastProvider) already computes prevAuction +
+              // currentUserId, so that's the natural place to thread this through.
               currentUserIsWinning={false}
             />
           </div>

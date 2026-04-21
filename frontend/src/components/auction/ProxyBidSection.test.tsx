@@ -250,6 +250,47 @@ describe("ProxyBidSection", () => {
     });
   });
 
+  it("inline error clears when user edits the input", async () => {
+    server.use(
+      http.post("*/api/v1/auctions/7/proxy-bid", () =>
+        HttpResponse.json(
+          {
+            status: 400,
+            title: "Invalid Proxy Max",
+            detail: "Invalid max",
+            code: "INVALID_PROXY_MAX",
+            reason: "Max must exceed current bid",
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderWithProviders(
+      <ProxyBidSection
+        auction={auctionFixture()}
+        existingProxy={null}
+        currentUserIsWinning={false}
+        connectionState={connected}
+      />,
+      { auth: "authenticated" },
+    );
+    const input = screen.getByTestId("proxy-bid-max-input");
+    await userEvent.type(input, "100");
+    await userEvent.click(screen.getByTestId("proxy-bid-submit"));
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Max must exceed current bid/i),
+      ).toBeInTheDocument();
+    });
+    // Typing a new value should clear the inline error immediately.
+    await userEvent.type(input, "0");
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/Max must exceed current bid/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it("disables submit and shows helper text when disconnected", async () => {
     renderWithProviders(
       <ProxyBidSection

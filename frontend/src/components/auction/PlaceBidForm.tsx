@@ -161,7 +161,10 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
           min={min}
           step={1}
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            setAmount(e.target.value);
+            setInlineError(null);
+          }}
           placeholder={`L$${min.toLocaleString()}`}
           leftIcon={<span className="text-label-md">L$</span>}
           className="text-right"

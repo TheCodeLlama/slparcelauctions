@@ -159,6 +159,43 @@ describe("PlaceBidForm", () => {
     expect(input.value).toBe("1700");
   });
 
+  it("inline error clears when user edits the input", async () => {
+    server.use(
+      http.post("*/api/v1/auctions/7/bids", () =>
+        HttpResponse.json(
+          {
+            status: 400,
+            title: "Bid Too Low",
+            detail: "Bid below minimum",
+            code: "BID_TOO_LOW",
+            minRequired: 1700,
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    renderWithProviders(
+      <PlaceBidForm auction={auctionFixture()} connectionState={connected} />,
+      { auth: "authenticated" },
+    );
+    const input = screen.getByTestId(
+      "place-bid-amount-input",
+    ) as HTMLInputElement;
+    await userEvent.type(input, "1600");
+    await userEvent.click(screen.getByTestId("place-bid-submit"));
+    // Server error surfaces inline.
+    await waitFor(() => {
+      expect(screen.getByText(/Minimum bid is L\$1,700/i)).toBeInTheDocument();
+    });
+    // Typing a new value should clear the inline error immediately.
+    await userEvent.type(input, "0");
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/Minimum bid is L\$1,700/i),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it("fires the buy-now confirm dialog when amount > buyNowPrice", async () => {
     const auction = auctionFixture({ buyNowPrice: 5_000, currentHighBid: 0 });
     renderWithProviders(
