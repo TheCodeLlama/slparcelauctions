@@ -105,6 +105,14 @@ public class SecurityConfig {
                         // public per DESIGN.md §1589-1591. Must sit before the
                         // /api/v1/** catch-all. FOOTGUNS §B.5.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/bids").permitAll()
+                        // Public user-scoped active listings (Epic 04 sub-spec 2 §14).
+                        // Anonymous access is allowed; SUSPENDED and pre-ACTIVE
+                        // statuses are filtered server-side in the repository query
+                        // so the response shape never leaks seller-only state.
+                        // FOOTGUNS §B.5: this MUST sit before the /api/v1/**
+                        // catch-all and — because first-match-wins — before any
+                        // /api/v1/users/** authenticated rules.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*/auctions").permitAll()
                         // --- End Epic 03 sub-spec 1 Task 9 additions ---
                         // Bot worker queue (Epic 03 sub-spec 1, Task 8). Ships without auth
                         // in sub-spec 1 — Epic 06 (SL bot service) will add bot worker

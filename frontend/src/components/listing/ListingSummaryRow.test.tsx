@@ -91,22 +91,153 @@ describe("ListingSummaryRow", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the em-dash bid fallback and 0 bidders when there is no bid", () => {
+  it("shows the em-dash bid fallback and 0 bids when there is no bid on ACTIVE", () => {
     renderWithProviders(
-      <ListingSummaryRow auction={baseAuction({ currentHighBid: null, bidderCount: 0 })} />,
+      <ListingSummaryRow auction={baseAuction({ currentHighBid: null, bidCount: 0 })} />,
       { auth: "authenticated" },
     );
     expect(screen.getByText("—")).toBeInTheDocument();
-    expect(screen.getByText(/0 bidders/)).toBeInTheDocument();
+    expect(screen.getByText(/0 bids/)).toBeInTheDocument();
   });
 
-  it("renders the bid total and singular bidder label when there is one bid", () => {
+  it("renders the bid total and singular bid label when there is one bid on ACTIVE", () => {
     renderWithProviders(
-      <ListingSummaryRow auction={baseAuction({ currentHighBid: 750, bidderCount: 1 })} />,
+      <ListingSummaryRow auction={baseAuction({ currentHighBid: 750, bidCount: 1 })} />,
       { auth: "authenticated" },
     );
     expect(screen.getByText("L$750")).toBeInTheDocument();
-    expect(screen.getByText(/1 bidder(?!s)/)).toBeInTheDocument();
+    expect(screen.getByText(/1 bid(?!s)/)).toBeInTheDocument();
+  });
+
+  it("renders countdown time when ACTIVE and endsAt is in the future", () => {
+    const endsAt = new Date(Date.now() + 2 * 3600_000).toISOString();
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={baseAuction({
+          currentHighBid: 42500,
+          bidCount: 12,
+          endsAt,
+        })}
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByText("L$42,500")).toBeInTheDocument();
+    expect(screen.getByText(/12 bids/)).toBeInTheDocument();
+    // CountdownTimer renders with role="timer"
+    expect(screen.getByRole("timer")).toBeInTheDocument();
+  });
+
+  it("renders 'Sold for L$X to @winner' for ENDED + SOLD", () => {
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={
+          baseAuction({
+            status: "ENDED",
+            currentHighBid: 48000,
+            bidCount: 4,
+            reservePrice: 30000,
+            winnerId: 55,
+            // winnerDisplayName is on the widened shape; cast so TS accepts.
+            ...({
+              endOutcome: "SOLD",
+              finalBidAmount: 48000,
+              winnerDisplayName: "WinningBidder",
+            } as Partial<SellerAuctionResponse>)
+          })
+        }
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByText(/Sold for/)).toBeInTheDocument();
+    expect(screen.getByText("L$48,000")).toBeInTheDocument();
+    expect(screen.getByText("@WinningBidder")).toBeInTheDocument();
+  });
+
+  it("renders 'reserve not met' sub-line for ENDED + RESERVE_NOT_MET", () => {
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={
+          baseAuction({
+            status: "ENDED",
+            currentHighBid: 12000,
+            bidCount: 2,
+            reservePrice: 30000,
+            ...({ endOutcome: "RESERVE_NOT_MET" } as Partial<SellerAuctionResponse>)
+          })
+        }
+      />,
+      { auth: "authenticated" },
+    );
+    expect(
+      screen.getByText(/Ended — reserve not met \(highest bid/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("L$12,000")).toBeInTheDocument();
+  });
+
+  it("renders 'Ended with no bids' for ENDED + NO_BIDS", () => {
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={
+          baseAuction({
+            status: "ENDED",
+            currentHighBid: null,
+            bidCount: 0,
+            ...({ endOutcome: "NO_BIDS" } as Partial<SellerAuctionResponse>)
+          })
+        }
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByText("Ended with no bids")).toBeInTheDocument();
+  });
+
+  it("omits the sub-line for DRAFT and CANCELLED rows", () => {
+    const { rerender } = renderWithProviders(
+      <ListingSummaryRow
+        auction={baseAuction({
+          status: "DRAFT",
+          currentHighBid: null,
+          bidCount: 0,
+        })}
+      />,
+      { auth: "authenticated" },
+    );
+    // No sub-line text about bids / reserve / "no bids"
+    expect(screen.queryByText(/bids/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sold for/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ended/)).not.toBeInTheDocument();
+
+    rerender(
+      <ListingSummaryRow
+        auction={baseAuction({ status: "CANCELLED" })}
+      />,
+    );
+    expect(screen.queryByText(/bids/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sold for/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Ended/)).not.toBeInTheDocument();
+  });
+
+  it("infers SOLD outcome from reservePrice when endOutcome is missing", () => {
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={
+          baseAuction({
+            status: "ENDED",
+            currentHighBid: 5000,
+            bidCount: 3,
+            reservePrice: 1000,
+            buyNowPrice: null,
+            winnerId: 99,
+            ...({
+              winnerDisplayName: "Buyer",
+            } as Partial<SellerAuctionResponse>)
+          })
+        }
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByText(/Sold for/)).toBeInTheDocument();
+    expect(screen.getByText("L$5,000")).toBeInTheDocument();
   });
 
   it.each([

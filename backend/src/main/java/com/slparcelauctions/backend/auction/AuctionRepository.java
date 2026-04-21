@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -96,4 +98,20 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
      */
     @Query("SELECT a.id FROM Auction a WHERE a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE AND a.endsAt <= :now")
     List<Long> findActiveIdsDueForEnd(@Param("now") OffsetDateTime now);
+
+    /**
+     * Paginated page of ACTIVE auctions owned by the given seller, ordered by
+     * {@code endsAt} ascending so listings closest to ending surface first on
+     * the public profile. Eagerly fetches {@code parcel} + {@code tags} so the
+     * downstream mapper can run outside the transaction boundary (see
+     * class-level note on {@link #findBySellerIdOrderByCreatedAtDesc}).
+     *
+     * <p>SUSPENDED and pre-ACTIVE statuses are deliberately excluded — the
+     * public {@code GET /users/{id}/auctions?status=ACTIVE} endpoint must not
+     * leak draft prep work or suspended listings regardless of requester
+     * identity (spec §14).
+     */
+    @EntityGraph(attributePaths = {"parcel", "tags"})
+    @Query("SELECT a FROM Auction a WHERE a.seller.id = :sellerId AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE ORDER BY a.endsAt ASC")
+    Page<Auction> findActiveBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
 }

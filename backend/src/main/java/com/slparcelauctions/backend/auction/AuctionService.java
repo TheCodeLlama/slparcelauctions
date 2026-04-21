@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -139,6 +141,16 @@ public class AuctionService {
     @Transactional(readOnly = true)
     public List<Auction> loadOwnedBy(Long sellerId) {
         return auctionRepo.findBySellerIdOrderByCreatedAtDesc(sellerId);
+    }
+
+    /**
+     * Paginated active listings for the public user profile (spec §14).
+     * SUSPENDED and pre-ACTIVE statuses are excluded at the repository level
+     * regardless of requester identity.
+     */
+    @Transactional(readOnly = true)
+    public Page<Auction> loadActiveBySeller(Long sellerId, Pageable pageable) {
+        return auctionRepo.findActiveBySellerId(sellerId, pageable);
     }
 
     private Set<ParcelTag> resolveTags(Set<String> codes) {

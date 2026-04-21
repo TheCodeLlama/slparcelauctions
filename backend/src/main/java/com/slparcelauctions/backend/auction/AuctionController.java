@@ -2,6 +2,9 @@ package com.slparcelauctions.backend.auction;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -125,6 +129,33 @@ public class AuctionController {
             @AuthenticationPrincipal AuthPrincipal principal) {
         Auction a = auctionService.loadForSeller(id, principal.userId());
         return mapper.toSellerResponse(a, null);
+    }
+
+    /**
+     * Public-profile active-listings endpoint (spec §14). Anonymous access is
+     * allowed — the response shape is {@link PublicAuctionResponse}, so no
+     * seller-only fields leak. SUSPENDED and pre-ACTIVE statuses are excluded
+     * at the repository level regardless of requester identity.
+     *
+     * <p>Phase 1 only exposes {@code status=ACTIVE}; any other value is
+     * rejected with a 400 via {@link IllegalArgumentException} so callers get
+     * a clear signal while the endpoint's surface grows later (Epic 07 Browse).
+     * The default page size of 6 matches the
+     * {@code ActiveListingsSection} grid on the public profile page — callers
+     * can override with {@code size=...}.
+     */
+    @GetMapping("/users/{userId}/auctions")
+    public Page<PublicAuctionResponse> getUserAuctions(
+            @PathVariable Long userId,
+            @RequestParam(name = "status") String status,
+            @PageableDefault(size = 6) Pageable pageable) {
+        if (!"ACTIVE".equals(status)) {
+            throw new IllegalArgumentException(
+                    "Unsupported status filter: '" + status
+                            + "'. Only 'ACTIVE' is supported.");
+        }
+        return auctionService.loadActiveBySeller(userId, pageable)
+                .map(mapper::toPublicResponse);
     }
 
     /**
