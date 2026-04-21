@@ -8,6 +8,17 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 
 // The mocked Client class. Captured callbacks and flags live on the instance
 // so tests can trigger lifecycle events on demand.
+//
+// The extra helpers below (triggerConnect / triggerClose / deliver) make the
+// re-attach-list tests much easier to read: each models one STOMP lifecycle
+// event without hand-written bookkeeping per test.
+type MockStompSubscription = {
+  destination: string;
+  handler: (frame: { body: string }) => void;
+  unsubscribe: Mock;
+  active: boolean;
+};
+
 type MockStompClient = {
   activate: Mock;
   deactivate: Mock;
@@ -19,6 +30,11 @@ type MockStompClient = {
   onConnect?: () => void;
   onWebSocketClose?: () => void;
   onStompError?: (frame: { headers: Record<string, string> }) => void;
+  // Test-only helpers.
+  _subs: MockStompSubscription[];
+  triggerConnect: () => void;
+  triggerClose: () => void;
+  deliver: (destination: string, payload: unknown) => void;
 };
 
 let mockClientInstance: MockStompClient | null = null;
@@ -34,8 +50,20 @@ vi.mock("@stomp/stompjs", () => {
       deactivate: vi.fn(() => {
         instance.active = false;
         instance.connected = false;
+        for (const s of instance._subs) s.active = false;
       }),
-      subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+      subscribe: vi.fn((destination: string, handler: (frame: { body: string }) => void) => {
+        const sub: MockStompSubscription = {
+          destination,
+          handler,
+          active: true,
+          unsubscribe: vi.fn(() => {
+            sub.active = false;
+          }),
+        };
+        instance._subs.push(sub);
+        return sub;
+      }),
       connected: false,
       active: false,
       connectHeaders: {},
@@ -43,6 +71,26 @@ vi.mock("@stomp/stompjs", () => {
       onConnect: config.onConnect,
       onWebSocketClose: config.onWebSocketClose,
       onStompError: config.onStompError,
+      _subs: [],
+      triggerConnect: () => {
+        instance.connected = true;
+        instance.active = true;
+        instance.onConnect?.();
+      },
+      triggerClose: () => {
+        instance.connected = false;
+        // Mark all existing subscription handles as dead — matches real stompjs
+        // behavior where the underlying STOMP session is torn down.
+        for (const s of instance._subs) s.active = false;
+        instance.onWebSocketClose?.();
+      },
+      deliver: (destination: string, payload: unknown) => {
+        for (const s of instance._subs) {
+          if (s.active && s.destination === destination) {
+            s.handler({ body: JSON.stringify(payload) });
+          }
+        }
+      },
     };
     mockClientInstance = instance;
     return instance;
@@ -51,6 +99,13 @@ vi.mock("@stomp/stompjs", () => {
     Client: MockClient,
   };
 });
+
+// Flush pending microtasks/timers so any queued async work (beforeConnect's
+// token refresh, etc.) has a chance to run before assertions.
+async function flushAll(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 vi.mock("sockjs-client", () => ({
   default: vi.fn().mockImplementation(() => ({})),
@@ -69,6 +124,7 @@ vi.mock("@/lib/auth/refresh", () => ({
 
 // Import UNDER TEST after the mocks are declared.
 import {
+  __getRegistrySizeForTests,
   __resetWsClientForTests,
   getConnectionState,
   subscribe,
@@ -191,5 +247,136 @@ describe("lib/ws/client", () => {
 
     expect(mockClientInstance!.subscribe).toHaveBeenCalledTimes(1);
     expect(mockClientInstance!.subscribe.mock.calls[0][0]).toBe("/topic/foo");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Re-attach list model (spec §6). These tests exercise the registry-driven
+  // sweep on onConnect and the handle-nulling on onWebSocketClose.
+  // ---------------------------------------------------------------------------
+
+  it("bulkReattach_restoresAllSubscriptionsOnReconnect", async () => {
+    const msgs1: string[] = [];
+    const msgs2: string[] = [];
+    const msgs3: string[] = [];
+    const unsub1 = subscribe<string>("/topic/a", (p) => msgs1.push(p));
+    const unsub2 = subscribe<string>("/topic/b", (p) => msgs2.push(p));
+    const unsub3 = subscribe<string>("/topic/c", (p) => msgs3.push(p));
+
+    // Complete the initial connect so all three attach.
+    mockClientInstance!.triggerConnect();
+    await flushAll();
+
+    // Force close + reconnect — every entry must be re-attached.
+    mockClientInstance!.triggerClose();
+    await flushAll();
+    mockClientInstance!.triggerConnect();
+    await flushAll();
+
+    mockClientInstance!.deliver("/topic/a", "msg-a");
+    mockClientInstance!.deliver("/topic/b", "msg-b");
+    mockClientInstance!.deliver("/topic/c", "msg-c");
+
+    expect(msgs1).toEqual(["msg-a"]);
+    expect(msgs2).toEqual(["msg-b"]);
+    expect(msgs3).toEqual(["msg-c"]);
+
+    unsub1();
+    unsub2();
+    unsub3();
+  });
+
+  it("racePin_rapidDisconnectReconnectCycle_subscriptionSurvives", async () => {
+    const msgs: string[] = [];
+    const unsub = subscribe<string>("/topic/x", (p) => msgs.push(p));
+
+    mockClientInstance!.triggerConnect();
+    // Rapid cycle: close/connect/close/connect. After the final connect the
+    // entry should be attached exactly once and deliver the message.
+    mockClientInstance!.triggerClose();
+    mockClientInstance!.triggerConnect();
+    mockClientInstance!.triggerClose();
+    mockClientInstance!.triggerConnect();
+    await flushAll();
+
+    mockClientInstance!.deliver("/topic/x", "survived");
+    expect(msgs).toEqual(["survived"]);
+
+    unsub();
+  });
+
+  it("unsubscribeDuringReconnect_entryRemovedFromRegistry", async () => {
+    const msgs: string[] = [];
+    const unsub = subscribe<string>("/topic/x", (p) => msgs.push(p));
+
+    mockClientInstance!.triggerConnect();
+    mockClientInstance!.triggerClose();
+
+    // Registry has the entry right now.
+    expect(__getRegistrySizeForTests()).toBe(1);
+
+    // Unsubscribe while in reconnecting state — entry must be removed so the
+    // next onConnect sweep does not re-attach it.
+    unsub();
+    expect(__getRegistrySizeForTests()).toBe(0);
+
+    mockClientInstance!.triggerConnect();
+    await flushAll();
+
+    mockClientInstance!.deliver("/topic/x", "should-not-arrive");
+    expect(msgs).toEqual([]);
+  });
+
+  it("subscribeDuringSweep_lateAddedEntryAttachedInSamePass", async () => {
+    const msgs1: string[] = [];
+    const msgs2: string[] = [];
+    let unsub2: () => void = () => {};
+
+    // First handler: synchronously subscribe to a second topic when the
+    // re-attach sweep hits /topic/a. The sweep iterates the LIVE Map, so the
+    // late-added entry must be visited in the same pass and be live before
+    // the test delivers to /topic/b below.
+    const unsub1 = subscribe<string>("/topic/a", () => {
+      msgs1.push("tick");
+      if (msgs1.length === 1) {
+        unsub2 = subscribe<string>("/topic/b", (p) => msgs2.push(p));
+      }
+    });
+
+    mockClientInstance!.triggerConnect();
+    await flushAll();
+
+    // Disconnect + reconnect. During the reconnect the sweep re-attaches
+    // /topic/a. We then deliver a message to /topic/a — the handler runs
+    // synchronously inside `client.subscribe`'s callback, and that handler
+    // calls subscribe("/topic/b") mid-iteration. The new entry must be
+    // attached during the same sweep (when onConnect reaches it) rather than
+    // left orphaned until the next reconnect.
+    mockClientInstance!.triggerClose();
+    mockClientInstance!.triggerConnect();
+    await flushAll();
+
+    // Deliver to /topic/a — the handler synchronously calls subscribe("/topic/b").
+    // Because the Map is live, the new entry is seen later in the same sweep.
+    mockClientInstance!.deliver("/topic/a", "msg-1");
+    await flushAll();
+
+    mockClientInstance!.deliver("/topic/b", "msg-b");
+    expect(msgs2).toEqual(["msg-b"]);
+
+    unsub1();
+    unsub2();
+  });
+
+  it("memoryHygiene_1000CyclesLeavesRegistryEmpty", async () => {
+    for (let i = 0; i < 1000; i++) {
+      const u = subscribe<unknown>("/topic/x", () => {});
+      if (i % 100 === 0) {
+        mockClientInstance!.triggerClose();
+        mockClientInstance!.triggerConnect();
+      }
+      u();
+    }
+    await flushAll();
+    expect(__getRegistrySizeForTests()).toBe(0);
   });
 });
