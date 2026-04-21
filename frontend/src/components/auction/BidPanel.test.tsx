@@ -154,7 +154,7 @@ describe("BidPanel", () => {
     );
   });
 
-  it("renders the ended stub for ENDED auctions", () => {
+  it("renders the AuctionEndedPanel for ENDED auctions", () => {
     renderWithProviders(
       <BidPanel
         auction={publicAuction({ status: "ENDED" })}
@@ -163,7 +163,11 @@ describe("BidPanel", () => {
         connectionState={connected}
       />,
     );
-    expect(screen.getByTestId("bid-panel-ended-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("auction-ended-panel")).toBeInTheDocument();
+    // Default stub is gone — Task 6 replaces it with the real panel.
+    expect(
+      screen.queryByTestId("bid-panel-ended-stub"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the bidder panel with forms for a verified non-seller", () => {

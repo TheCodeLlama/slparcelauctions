@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AuctionEnvelope,
@@ -22,6 +22,9 @@ import {
   type SellerProfileCardSeller,
 } from "@/components/auction/SellerProfileCard";
 import { BidPanel } from "@/components/auction/BidPanel";
+import { BidHistoryList } from "@/components/auction/BidHistoryList";
+import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
+import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner";
 
 /**
  * Client shell for the auction detail page.
@@ -98,6 +101,25 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   // the connectionState change is what re-runs the effect.
   const wasReconnectingRef = useRef<boolean>(false);
 
+  // Transient snipe-extension banner signal. The envelope handler
+  // detects a snipe-triggering bid in {@code env.newBids} and flips this
+  // on; the banner re-mounts via a bumped token so its 4s timer
+  // restarts cleanly. {@code onExpire} clears the signal.
+  const [snipeSignal, setSnipeSignal] = useState<{
+    isVisible: boolean;
+    extensionMinutes: number;
+    remainingAfterExtension: string;
+    token: number;
+  }>({
+    isVisible: false,
+    extensionMinutes: 0,
+    remainingAfterExtension: "",
+    token: 0,
+  });
+  const clearSnipeSignal = useCallback(() => {
+    setSnipeSignal((prev) => ({ ...prev, isVisible: false }));
+  }, []);
+
   const handleEnvelope = useCallback(
     (env: AuctionEnvelope) => {
       // Refine the server-time offset on every envelope so the countdown
@@ -168,6 +190,26 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         );
         queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
 
+        // Snipe-extension banner trigger. If any newBid in the envelope
+        // stamped a {@code snipeExtensionMinutes}, surface the transient
+        // banner on the BidPanel with the extension amount and the
+        // pre-formatted remaining-time label. Take the last extending
+        // bid in the batch — envelopes rarely include more than one,
+        // and "last wins" is the least surprising rule if they do.
+        const extendingBid = [...env.newBids]
+          .reverse()
+          .find((b) => b.snipeExtensionMinutes != null);
+        if (extendingBid && extendingBid.snipeExtensionMinutes != null) {
+          const endsAtMs = new Date(env.endsAt).getTime();
+          const remainingMs = endsAtMs - Date.now();
+          setSnipeSignal((prev) => ({
+            isVisible: true,
+            extensionMinutes: extendingBid.snipeExtensionMinutes as number,
+            remainingAfterExtension: formatRemainingLabel(remainingMs),
+            token: prev.token + 1,
+          }));
+        }
+
         // Outbid-toast hook point. The full was-winning-guard + toast
         // plumbing ships in Task 7 via {@code OutbidToastProvider.maybeFire};
         // until then the snapshot above keeps the signature stable so Task 7
@@ -206,11 +248,12 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
     }
   }, [connectionState.status, queryClient, id]);
 
-  // Total bid count to render — prefer the query cache (which the WS
-  // envelope keeps fresh) over the server-seeded snapshot so the
-  // placeholder updates reactively during the integration test.
-  const bidCountDisplay =
-    bidHistoryQuery.data?.totalElements ?? initialBidPage.totalElements;
+  // bidHistoryQuery is still subscribed here so the query stays warm and
+  // the shell knows whether page 0 has been hydrated. The concrete list
+  // + count UI lives inside {@link BidHistoryList}, which re-subscribes
+  // via its own {@code useBidHistory} call (React Query dedupes the
+  // fetch).
+  void bidHistoryQuery;
 
   // Map the public-profile query into the shape SellerProfileCard expects.
   // When the fetch is pending / errored we still render the card with just
@@ -243,14 +286,10 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             regionName={auction.parcel.regionName}
           />
           <ParcelInfoPanel auction={auction} />
-          <div
-            data-testid="bid-history-placeholder"
-            className="rounded-xl bg-surface-container-low p-8"
-          >
-            BidHistoryList placeholder (Task 6) —{" "}
-            <span data-testid="bid-history-total">{bidCountDisplay}</span>{" "}
-            bids
-          </div>
+          {auction.status === "ENDED" ? (
+            <AuctionEndedRow auction={auction} />
+          ) : null}
+          <BidHistoryList auctionId={id} />
           <SellerProfileCard seller={sellerCardData} />
         </div>
         <aside className="hidden lg:block lg:col-span-4">
@@ -275,6 +314,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
               // Task 7 (OutbidToastProvider) already computes prevAuction +
               // currentUserId, so that's the natural place to thread this through.
               currentUserIsWinning={false}
+              snipeExtension={{ ...snipeSignal, onExpire: clearSnipeSignal }}
             />
           </div>
         </aside>

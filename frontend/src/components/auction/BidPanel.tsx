@@ -6,15 +6,38 @@ import type {
   SellerAuctionResponse,
 } from "@/types/auction";
 import type { ConnectionState } from "@/lib/ws/types";
+import { AuctionEndedPanel } from "./AuctionEndedPanel";
 import { AuthGateMessage } from "./AuthGateMessage";
 import { PlaceBidForm } from "./PlaceBidForm";
 import { ProxyBidSection } from "./ProxyBidSection";
 import { ReserveStatusIndicator } from "./ReserveStatusIndicator";
+import { SnipeExtensionBanner } from "./SnipeExtensionBanner";
 import { SnipeProtectionBadge } from "./SnipeProtectionBadge";
 
 export interface BidPanelUser {
   id: number;
   verified: boolean;
+}
+
+/**
+ * Transient snipe-extension signal wired down from
+ * {@code AuctionDetailClient}. The parent inspects each
+ * {@code BID_SETTLEMENT} envelope's {@code newBids} for a non-null
+ * {@code snipeExtensionMinutes}; when it finds one, it computes the
+ * pre-formatted remaining label and flips {@code isVisible}. The banner
+ * auto-schedules an {@code onExpire} callback 4s later which the parent
+ * uses to clear the signal.
+ *
+ * The {@code token} is bumped on every new extension so React re-mounts
+ * the banner via a {@code key} — this restarts the 4s timer cleanly
+ * without stacking separate banners.
+ */
+export interface SnipeExtensionSignal {
+  isVisible: boolean;
+  extensionMinutes: number;
+  remainingAfterExtension: string;
+  token: number;
+  onExpire: () => void;
 }
 
 export interface BidPanelProps {
@@ -29,6 +52,12 @@ export interface BidPanelProps {
    * {@code CANNOT_CANCEL_WINNING_PROXY} otherwise.
    */
   currentUserIsWinning?: boolean;
+  /**
+   * Transient snipe-extension banner signal. Optional — the ended panel
+   * doesn't render the banner, and tests that don't care about snipe
+   * extensions can omit it entirely.
+   */
+  snipeExtension?: SnipeExtensionSignal;
 }
 
 type Variant = "unauth" | "unverified" | "seller" | "ended" | "bidder";
@@ -62,11 +91,13 @@ function BidderPanel({
   existingProxy,
   connectionState,
   currentUserIsWinning,
+  snipeExtension,
 }: {
   auction: PublicAuctionResponse | SellerAuctionResponse;
   existingProxy: ProxyBidResponse | null;
   connectionState: ConnectionState;
   currentUserIsWinning: boolean;
+  snipeExtension?: SnipeExtensionSignal;
 }) {
   const reservePriceForIndicator =
     "reservePrice" in auction
@@ -90,6 +121,15 @@ function BidderPanel({
       data-testid="bid-panel-bidder"
       className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
     >
+      {snipeExtension ? (
+        <SnipeExtensionBanner
+          key={snipeExtension.token}
+          isVisible={snipeExtension.isVisible}
+          extensionMinutes={snipeExtension.extensionMinutes}
+          remainingAfterExtension={snipeExtension.remainingAfterExtension}
+          onExpire={snipeExtension.onExpire}
+        />
+      ) : null}
       <CurrentBidDisplay auction={auction} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -189,6 +229,7 @@ export function BidPanel({
   existingProxy,
   connectionState,
   currentUserIsWinning = false,
+  snipeExtension,
 }: BidPanelProps) {
   const variant = deriveBidPanelVariant(auction, currentUser);
 
@@ -201,12 +242,10 @@ export function BidPanel({
       return <AuthGateMessage kind="seller" />;
     case "ended":
       return (
-        <div
-          data-testid="bid-panel-ended-stub"
-          className="rounded-xl bg-surface-container-lowest p-6 text-body-md text-on-surface"
-        >
-          Auction ended — final panel coming in Task 6.
-        </div>
+        <AuctionEndedPanel
+          auction={auction}
+          currentUser={currentUser ? { id: currentUser.id } : null}
+        />
       );
     case "bidder":
     default:
@@ -216,6 +255,7 @@ export function BidPanel({
           existingProxy={existingProxy}
           connectionState={connectionState}
           currentUserIsWinning={currentUserIsWinning}
+          snipeExtension={snipeExtension}
         />
       );
   }

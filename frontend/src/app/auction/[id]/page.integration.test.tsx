@@ -469,6 +469,90 @@ describe("AuctionDetailClient", () => {
     );
   });
 
+  it("renders AuctionEndedPanel and AuctionEndedRow when status is ENDED", () => {
+    const endedAuction = publicAuctionFixture({
+      status: "ENDED",
+      currentHighBid: 2500,
+      currentBid: 2500,
+      bidCount: 3,
+    });
+    // Cast through unknown because PublicAuctionResponse doesn't carry
+    // endOutcome/winner fields — the widened cache entry in
+    // AuctionDetailClient admits them on the public shape.
+    const endedWithExtras = {
+      ...endedAuction,
+      endOutcome: "SOLD" as const,
+      finalBidAmount: 2500,
+      winnerUserId: 42,
+      winnerDisplayName: "Alice",
+    } as unknown as PublicAuctionResponse;
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={endedWithExtras}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    const panel = screen.getByTestId("auction-ended-panel");
+    expect(panel).toHaveAttribute("data-outcome", "SOLD");
+    expect(screen.getByTestId("auction-ended-headline")).toHaveTextContent(
+      "Sold for L$2,500",
+    );
+    const row = screen.getByTestId("auction-ended-row");
+    expect(row).toHaveAttribute("data-outcome", "SOLD");
+    expect(row).toHaveTextContent("Auction ended — L$2,500");
+  });
+
+  it("surfaces the snipe-extension banner on a snipe-triggering envelope", async () => {
+    let capturedOnMessage:
+      | ((env: AuctionEnvelope) => void)
+      | null = null;
+    subscribeMock.mockImplementation(
+      (_destination: string, onMessage: (env: AuctionEnvelope) => void) => {
+        capturedOnMessage = onMessage;
+        return () => {};
+      },
+    );
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    // Craft an envelope whose newBid carries a snipe-extension stamp.
+    const futureEndsAt = new Date(Date.now() + 2 * 3_600_000).toISOString();
+    act(() => {
+      capturedOnMessage!(
+        bidSettlement({
+          endsAt: futureEndsAt,
+          newBids: [
+            bidHistoryEntry({
+              bidId: 99,
+              amount: 2000,
+              bidderDisplayName: "Bob",
+              snipeExtensionMinutes: 15,
+              newEndsAt: futureEndsAt,
+            }),
+          ],
+        }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("snipe-extension-banner"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("snipe-extension-banner")).toHaveTextContent(
+      "Auction extended by 15m",
+    );
+  });
+
   it("reflects connection state on the bid-panel slot", () => {
     let capturedListener:
       | ((state: { status: string }) => void)
