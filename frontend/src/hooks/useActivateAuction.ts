@@ -36,7 +36,12 @@ export function activateAuctionKey(id: number | string): readonly unknown[] {
 export function useActivateAuction(id: number | string) {
   return useQuery<SellerAuctionResponse>({
     queryKey: activateAuctionKey(id),
-    queryFn: () => getAuction(id),
+    // The activate-flow route is guarded seller-only, so the backend always
+    // returns a SellerAuctionResponse here — cast the public/seller union
+    // from {@code getAuction} down to the seller shape the polling logic
+    // assumes (it reads {@code verificationMethod}, {@code pendingVerification},
+    // etc., which the public DTO omits).
+    queryFn: () => getAuction(id) as Promise<SellerAuctionResponse>,
     refetchInterval: (q) => {
       const data = q.state.data as SellerAuctionResponse | undefined;
       if (!data) return 5_000;

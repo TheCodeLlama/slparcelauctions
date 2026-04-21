@@ -87,23 +87,11 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite (cosmetic)
 - **Notes:** `frontend/src/components/user/ProfilePictureUploader.tsx`.
 
-### My Bids dashboard frontend (consume the backend endpoint)
-- **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
-- **Why:** Tab skeleton ships with empty-state placeholder. Backend `GET /api/v1/users/me/bids` landed in Epic 04 sub-spec 1 Task 8 with derived status across all 7 buckets; the frontend consumer (My Bids tab UI, paginated list, status filter chips) is out-of-scope for sub-spec 1 and lands in sub-spec 2 per its scope split.
-- **When:** Epic 04 sub-spec 2
-- **Notes:** `frontend/src/app/dashboard/(verified)/bids/page.tsx` currently renders `<EmptyState>`. Backend DTOs live in `backend/src/main/java/com/slparcelauctions/backend/auction/mybids/` (`MyBidSummary`, `AuctionSummaryForMyBids`, `MyBidStatus`).
-
 ### Recent reviews section on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
 - **Why:** Review data requires the reviews model from Epic 06. Public profile ships with empty-state placeholder.
 - **When:** Epic 06 (Ratings & Reputation)
 - **Notes:** `PublicProfileView` renders `<EmptyState icon={MessageSquare}>` for this section.
-
-### Active listings section on public profile
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Listing data requires auction/listing model from Epic 03/04. Public profile ships with empty-state placeholder.
-- **When:** Epic 04 (Auction Engine)
-- **Notes:** `PublicProfileView` renders `<EmptyState icon={Gavel}>` for this section.
 
 ### PARCEL code generation rate tracking (fraud signal)
 - **From:** Epic 03 sub-spec 1 (Method B rezzable callback flow)
@@ -134,12 +122,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** `BotTaskTimeoutJob` only times out PENDING tasks — tasks that were never claimed by a worker. Once Epic 06 workers claim a task and flip it to `IN_PROGRESS`, a crashed worker leaves the task stuck in IN_PROGRESS forever with no cleanup.
 - **When:** Epic 06 (SL bot service) — when claim-flow is implemented, extend the timeout job with a separate `IN_PROGRESS`-status query + cutoff (likely shorter than 48h, since "worker picked it up but did not finish" is a different signal than "no worker claimed it").
 - **Notes:** The right cutoff for IN_PROGRESS is probably 15-30 minutes (a real verify should take seconds). Failing behavior on timeout is the same: task FAILED with reason `TIMEOUT`, auction flipped to `VERIFICATION_FAILED` only if still `VERIFICATION_PENDING`.
-
-### Public listing page target for "View public listing" links
-- **From:** Epic 03 sub-spec 2 (Task 10 My Listings row actions)
-- **Why:** `ListingSummaryRow`'s "View listing" (for ACTIVE / ENDED / escrow / completed / expired) and "View details" (for CANCELLED / DISPUTED / SUSPENDED) links both target `/auction/[id]`. The dynamic auction route exists today and serves the public DTO, but the polished buyer-facing listing page (photo gallery, bid ladder, snipe-protection messaging, seller profile block, watch button) is scoped to Epic 04.
-- **When:** Epic 04 (Auction Engine — public listing page).
-- **Notes:** The spec §6.3 footnote acknowledges these links may be "dead" (i.e., render a sparse placeholder page) until Epic 04 lands. Do not re-home the links to a different route when the full page ships — `/auction/[id]` is the canonical URL.
 
 ### Real in-world listing-fee terminal
 - **From:** Epic 03 sub-spec 2 (activate page fee payment)
@@ -218,6 +200,54 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** When a seller cancels an ACTIVE auction with bids (rare — requires explicit confirmation through the sub-spec 2 cancel modal), no `/topic/auction/{id}` envelope is currently published. Bidders watching the auction detail page in real-time see no update until they reload. This is a consistency gap with the bid/end broadcasts that both publish on `afterCommit`.
 - **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
 - **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
+
+### Per-user public listings page `/users/{id}/listings`
+- **From:** Epic 04 sub-spec 2 (Task 9 `ActiveListingsSection` on public profile)
+- **Why:** The "View all" link from `ActiveListingsSection` on `/users/{id}` points at `/users/{id}/listings`, which does not exist yet. The active-listings section itself ships with a page-size-limited preview (top N listings returned by `GET /api/v1/users/{userId}/auctions?status=ACTIVE`). A dedicated paginated, filterable, sort-aware "all listings by this seller" page belongs to the Browse surface in Epic 07.
+- **When:** Epic 07 (Browse & Search).
+- **Notes:** Consider conditionally rendering the "View all" link as disabled / hidden until the route ships, so the anchor doesn't dead-end on a 404. Touchpoint: `frontend/src/components/user/ActiveListingsSection.tsx`. The endpoint `GET /api/v1/users/{userId}/auctions?status=ACTIVE` already exists (SUSPENDED always excluded server-side) and is the data source the Epic 07 page will consume.
+
+### Bid history infinite scroll
+- **From:** Epic 04 sub-spec 2 (Task 6 `BidHistory`)
+- **Why:** Phase 1 ships bid history as a paginated "load more" (page size 20, click-to-fetch-next-page). Infinite scroll with intersection-observer-driven auto-fetch is a UX upgrade that adds dependencies (scroll-position restore, focus management on SPA navigation, screen-reader announcement of newly-loaded rows) that deserve their own scoped design pass.
+- **When:** Indefinite — pull in alongside a broader "list UX polish" sub-spec once a second surface (Browse, search results) demands it.
+- **Notes:** Current implementation at `frontend/src/components/auction/BidHistory.tsx`. The React Query layer is already structured for `useInfiniteQuery` if the pattern is adopted — the change is mostly UI + A11y.
+
+### Ended-auction escrow flow UI
+- **From:** Epic 04 sub-spec 2 (Task 6 `AuctionEndedPanel`)
+- **Why:** When an auction ends with `endOutcome=SOLD`, the panel renders the winner + final bid but has no action button to "proceed to escrow" / "initiate L$ transfer" / "claim the parcel". The buyer and seller are left with no next-step affordance because the escrow pipeline itself does not exist yet — it's scoped to Epic 05.
+- **When:** Epic 05 (Escrow Manager) — when the escrow state machine is live, `AuctionEndedPanel` gains role-aware CTAs (buyer: "Pay L$X to claim", seller: "Transfer parcel after payment confirmed") driven by a new `escrow_status` field on the auction DTO.
+- **Notes:** `AuctionEndedPanel` currently uses `inferEndOutcome` as a defensive fallback when the DTO's `endOutcome` field is null (see the nullability entry below). The Epic 05 sub-spec should decide whether escrow-state UI lives in the same panel or splits out.
+
+### WS reconnect telemetry
+- **From:** Epic 04 sub-spec 2 (Task 1 WS client hardening + Task 7 reconnecting banner)
+- **Why:** The WS client reconnects automatically on drop, re-attaches subscriptions via the live-Map sweep (F.68), and renders a reconnecting banner + form-disable on disconnect. There is no logging / metrics hook that reports connection drops, average reconnect duration, or subscription re-attach counts to a backend telemetry endpoint. A production deployment deserves a dashboard that shows "median reconnect time" and "reconnect frequency per user" so ops can spot a flaky LB or a regional network issue.
+- **When:** Epic 09 (Notifications) or Epic 10 (Admin & Moderation) — whichever ships the first observability surface. The data plane is a new `POST /api/v1/telemetry/ws-events` (authenticated, rate-limited) or equivalent, with the client batching events on `beforeunload`.
+- **Notes:** Current reconnect state lives in `frontend/src/lib/ws/client.ts` (`useConnectionState` hook). Adding telemetry is a small addition at the state-transition boundaries — the footwork is the backend storage + aggregation side.
+
+### Saved / watchlist "Curator Tray"
+- **From:** Epic 04 sub-spec 2 (spec §19 — design system reference to Curator Tray)
+- **Why:** The "Digital Curator" design system docs reference a "Curator Tray" — a pull-out drawer where logged-in users can stash saved / watched listings for later comparison. The auction detail page in sub-spec 2 ships without a "save" / "watchlist" button because the backing model (saved_auctions table, REST endpoints, hydration into the tray) is Browse-surface territory.
+- **When:** Epic 07 (Browse & Search) — the tray is cross-surface (any card anywhere in the app can flip its saved state) so it ships alongside the Browse data model.
+- **Notes:** Design reference: `docs/stitch_generated-design/DESIGN.md` section on Curator Tray. The auction detail page's `AuctionHeroGallery` and bid panel both have space reserved next to the title for a future heart/bookmark toggle — add the button when the model lands, do not shoehorn it in earlier.
+
+### `BidSheet` swipe-to-dismiss
+- **From:** Epic 04 sub-spec 2 (spec §13 — mobile pattern)
+- **Why:** Intentionally out of scope. Spec §13 excludes swipe-to-dismiss to keep the dependency surface thin (no gesture library) and the A11y story tight. The drag handle on the sheet is `aria-hidden` and purely decorative.
+- **When:** Indefinite — only if swipe-to-dismiss is explicitly demanded by a future UX review, and only with its own scoped design pass (threshold, cancel region, keyboard parity, screen-reader announcement).
+- **Notes:** See FOOTGUNS §F.74. Do NOT add this "while you're in there" on an unrelated sheet refactor — the exclusion is deliberate, not accidental.
+
+### AuctionEndedPanel / ListingSummaryRow enrichment DTO field nullability
+- **From:** Epic 04 sub-spec 2 (Task 6 `AuctionEndedPanel`, Task 9 `ListingSummaryRow` enrichment)
+- **Why:** `endOutcome`, `finalBidAmount`, and `winnerDisplayName` are sometimes missing from the auction DTOs returned by the backend (legacy rows, or scenarios where the seller DTO `ActiveListingAuctionSummary` didn't project them). The frontend currently handles this via `inferEndOutcome` (compares `status` + `currentBid` + `reservePrice` to derive the outcome client-side) plus a lazy fetch for `winnerDisplayName` via the profile endpoint. The backend could project these fields inline on the seller enrichment DTO and the frontend could drop both workarounds.
+- **When:** Near-term backend cleanup — a one-file change on the DTO mapper + a small spec sweep to document the contract. Pull in during the next Epic 04 maintenance task or alongside the Epic 05 escrow DTO additions.
+- **Notes:** Touchpoints: `frontend/src/components/auction/inferEndOutcome.ts`, `frontend/src/components/auction/AuctionEndedPanel.tsx`, `frontend/src/components/user/ListingSummaryRow.tsx`, and the backend `AuctionDtoMapper` / `ActiveListingAuctionSummary` DTO. Once the backend always projects the three fields, `inferEndOutcome` becomes dead code and can be deleted.
+
+### Richer outbid toast shape (warning variant + structured action button)
+- **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
+- **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
+- **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
+- **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
 
 ---
 

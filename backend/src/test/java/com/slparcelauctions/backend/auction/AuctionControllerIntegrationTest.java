@@ -361,6 +361,143 @@ class AuctionControllerIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
+    // GET /users/{userId}/auctions — public active-listings (spec §14)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getUserAuctions_returnsOnlyActiveForSeller() throws Exception {
+        seedAuctionFor(seedExtraParcel(0x71), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x72), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x73), AuctionStatus.DRAFT, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x74), AuctionStatus.SUSPENDED, false, 0,
+                VerificationMethod.UUID_ENTRY);
+
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.content[1].status").value("ACTIVE"))
+                // PublicAuctionResponse shape — no seller-only fields leak
+                .andExpect(jsonPath("$.content[0].listingFeePaid").doesNotExist())
+                .andExpect(jsonPath("$.content[0].commissionRate").doesNotExist())
+                .andExpect(jsonPath("$.content[0].winnerId").doesNotExist())
+                .andExpect(jsonPath("$.content[0].verificationNotes").doesNotExist());
+    }
+
+    @Test
+    void getUserAuctions_suspendedAlwaysExcluded() throws Exception {
+        seedAuctionFor(seedExtraParcel(0x81), AuctionStatus.SUSPENDED, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x82), AuctionStatus.SUSPENDED, false, 0,
+                VerificationMethod.UUID_ENTRY);
+
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void getUserAuctions_emptyWhenNoActive() throws Exception {
+        // Seller has only DRAFT listings — no ACTIVE — so the page is empty.
+        seedAuctionFor(seedExtraParcel(0x91), AuctionStatus.DRAFT, false, 0,
+                VerificationMethod.UUID_ENTRY);
+
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void getUserAuctions_pagination() throws Exception {
+        seedAuctionFor(seedExtraParcel(0xA1), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0xA2), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0xA3), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE")
+                .param("page", "0")
+                .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.number").value(0))
+                .andExpect(jsonPath("$.size").value(2));
+    }
+
+    @Test
+    void getUserAuctions_anonymousAccessAllowed() throws Exception {
+        seedAuctionFor(seedExtraParcel(0xB1), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+
+        // No Authorization header — spec §14 marks this endpoint public.
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1));
+    }
+
+    @Test
+    void getUserAuctions_rejectsNonActiveStatus() throws Exception {
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ENDED"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void getUserAuctions_orderedByEndsAtAscending() throws Exception {
+        // Stagger endsAt across three ACTIVE auctions — the public profile
+        // surfaces soonest-ending first, so the content array must be in
+        // ascending endsAt order regardless of insertion order. Seed them
+        // out-of-order to make sure the ORDER BY is actually doing the work.
+        Auction aLater = seedAuctionFor(seedExtraParcel(0xC2), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        Auction aSoonest = seedAuctionFor(seedExtraParcel(0xC1), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        Auction aMiddle = seedAuctionFor(seedExtraParcel(0xC3), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        OffsetDateTime now = OffsetDateTime.now();
+        aSoonest.setEndsAt(now.plusHours(1));
+        aMiddle.setEndsAt(now.plusDays(1));
+        aLater.setEndsAt(now.plusWeeks(1));
+        auctionRepository.save(aSoonest);
+        auctionRepository.save(aMiddle);
+        auctionRepository.save(aLater);
+
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(3))
+                .andExpect(jsonPath("$.content[0].id").value(aSoonest.getId()))
+                .andExpect(jsonPath("$.content[1].id").value(aMiddle.getId()))
+                .andExpect(jsonPath("$.content[2].id").value(aLater.getId()));
+    }
+
+    @Test
+    void getUserAuctions_nonexistentUser_returns200EmptyPage() throws Exception {
+        // Endpoint is intentionally permissive about nonexistent userIds to
+        // avoid leaking user existence on this public surface. A 404 would
+        // let callers enumerate valid user IDs by diffing status codes.
+        mockMvc.perform(get("/api/v1/users/99999999/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -462,6 +599,26 @@ class AuctionControllerIntegrationTest {
             a.setOriginalEndsAt(now.plusDays(1));
         }
         return auctionRepository.save(a);
+    }
+
+    /**
+     * Seeds an agent-owned verified parcel directly via the repository. Used
+     * by tests that need multiple parcels (e.g. multi-auction scenarios) so
+     * they don't trip the parcel-locking partial unique index.
+     */
+    private Parcel seedExtraParcel(int seed) {
+        UUID parcelUuid = new UUID(0L, 0x10000000L + seed);
+        UUID ownerUuid = new UUID(0L, 0x20000000L + seed);
+        Parcel p = Parcel.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(ownerUuid)
+                .ownerType("agent")
+                .regionName("Coniston")
+                .continentName("Sansara")
+                .areaSqm(1024)
+                .verified(true)
+                .build();
+        return parcelRepository.save(p);
     }
 
     /**

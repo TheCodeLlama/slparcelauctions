@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
-import { AlertCircle, BadgeCheck, Gavel, MessageSquare } from "@/components/ui/icons";
+import { AlertCircle, BadgeCheck, MessageSquare } from "@/components/ui/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -10,6 +10,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { isApiError } from "@/lib/api";
 import { userApi } from "@/lib/user/api";
+import { ActiveListingsSection } from "./ActiveListingsSection";
 import { ReputationStars } from "./ReputationStars";
 import { NewSellerBadge } from "./NewSellerBadge";
 import { VerifiedIdentityCard } from "./VerifiedIdentityCard";
@@ -124,17 +125,13 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
         </Card.Body>
       </Card>
 
-      {/* Placeholder: Listings */}
+      {/* Active listings (Epic 04 sub-spec 2 §14) */}
       <Card>
         <Card.Header>
-          <h2 className="text-title-md font-bold">Listings</h2>
+          <h2 className="text-title-md font-bold">Active listings</h2>
         </Card.Header>
         <Card.Body>
-          <EmptyState
-            icon={Gavel}
-            headline="No listings yet"
-            description="Active and past auction listings will appear here."
-          />
+          <ActiveListingsSection userId={profile.id} />
         </Card.Body>
       </Card>
     </div>

@@ -1,12 +1,5 @@
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Gavel } from "@/components/ui/icons";
+import { MyBidsTab } from "@/components/bids/MyBidsTab";
 
 export default function BidsPage() {
-  return (
-    <EmptyState
-      icon={Gavel}
-      headline="No bids yet"
-      description="Your active and historical bids will appear here once auctions go live."
-    />
-  );
+  return <MyBidsTab />;
 }

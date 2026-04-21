@@ -89,6 +89,20 @@ All three must pass before the task is considered done.
 
 Until then, controllers can expose `/me` endpoints with placeholder auth (e.g., a fake authenticated user injected via `@AuthenticationPrincipal` resolver). Do not defer building the domain logic waiting on auth - build the logic, stub the auth.
 
+### `PagedResponse<T>` — use this, not raw `Page<T>`
+
+All REST endpoints that return paginated data MUST return `PagedResponse<T>` (located at `backend/src/main/java/com/slparcelauctions/backend/common/PagedResponse.java`), NOT `Page<T>` directly.
+
+**Rationale:** Spring Data 3.3+ emits a startup warning — `"Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!"` — and the JSON shape may drift between Spring versions. `PagedResponse<T>` pins a flat `{content, totalElements, totalPages, number, size}` shape matching the frontend's `types/page.ts` type.
+
+**Controller pattern:**
+
+```java
+return PagedResponse.from(page.map(dtoMapper::toDto));
+```
+
+A reviewer who sees `ResponseEntity<Page<T>>` or `Page<T>` as a controller return type in a new PR should reject it and ask for `PagedResponse<T>`. See FOOTGUNS §F.73 for the full story.
+
 ---
 
 ## Frontend (Next.js)

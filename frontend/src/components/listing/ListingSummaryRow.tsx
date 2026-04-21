@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Building2,
@@ -10,12 +11,31 @@ import {
   MoreHorizontal,
 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/Button";
+import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
 import { cn } from "@/lib/cn";
-import type { SellerAuctionResponse } from "@/types/auction";
+import { userApi, type PublicUserProfile } from "@/lib/user/api";
+import type {
+  AuctionEndOutcome,
+  SellerAuctionResponse,
+} from "@/types/auction";
 import { ListingStatusBadge } from "./ListingStatusBadge";
 import { CancelListingModal } from "./CancelListingModal";
+
+/**
+ * Shape of the extended fields that may land on a seller auction DTO once
+ * Epic 04's auction-end pipeline stamps terminal-outcome metadata. Treated
+ * as a soft-widening of {@link SellerAuctionResponse} so
+ * {@link ListingSummaryRow} reads them defensively — the backend DTO
+ * enrichment lands in a follow-up (see DEFERRED_WORK.md "SellerAuctionResponse
+ * end-outcome fields" once Epic 05 broadens the response shape).
+ */
+type ListingRowAuction = SellerAuctionResponse & {
+  endOutcome?: AuctionEndOutcome | null;
+  finalBidAmount?: number | null;
+  winnerDisplayName?: string | null;
+};
 
 export interface ListingSummaryRowProps {
   auction: SellerAuctionResponse;
@@ -70,10 +90,7 @@ export function ListingSummaryRow({
           <p className="text-body-sm text-on-surface-variant">
             {auction.parcel.regionName} · {auction.parcel.areaSqm} m²
           </p>
-          <BidSummaryLine
-            currentHighBid={auction.currentHighBid}
-            bidderCount={auction.bidderCount}
-          />
+          <BidSummaryLine auction={auction} />
         </div>
         <div className="flex items-center gap-2">
           <PrimaryActions
@@ -130,24 +147,151 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
   );
 }
 
-function BidSummaryLine({
-  currentHighBid,
-  bidderCount,
+/**
+ * Renders the status-conditional sub-line beneath the region/area row (spec
+ * §13).
+ *
+ * <ul>
+ *   <li>{@code ACTIVE}: {@code L$42,500 current · 12 bids · 2h 14m left}</li>
+ *   <li>{@code ENDED} + SOLD/BOUGHT_NOW: {@code Sold for L$X to @winner}</li>
+ *   <li>{@code ENDED} + RESERVE_NOT_MET: {@code Ended — reserve not met
+ *       (highest bid L$X)}</li>
+ *   <li>{@code ENDED} + NO_BIDS: {@code Ended with no bids}</li>
+ *   <li>All other statuses (DRAFT, VERIFICATION_*, CANCELLED, SUSPENDED, escrow
+ *       in-flight, etc.): no sub-line — keeps the row short for the seller
+ *       who is mid-setup or post-terminal and doesn't benefit from a
+ *       bid-summary repeat.</li>
+ * </ul>
+ *
+ * ENDED-outcome inference mirrors {@code AuctionEndedPanel} — if the DTO
+ * ships with {@code endOutcome} the component uses it directly; otherwise we
+ * derive from {@code reservePrice}/{@code buyNowPrice}/{@code currentHighBid}
+ * so the right sub-line renders immediately on first fetch.
+ */
+function BidSummaryLine({ auction }: { auction: ListingRowAuction }) {
+  const highBid = normalizeBid(auction.currentHighBid);
+
+  if (auction.status === "ACTIVE") {
+    return <ActiveBidSummary auction={auction} highBid={highBid} />;
+  }
+  if (auction.status === "ENDED") {
+    return <EndedBidSummary auction={auction} highBid={highBid} />;
+  }
+  return null;
+}
+
+function ActiveBidSummary({
+  auction,
+  highBid,
 }: {
-  currentHighBid: number | string | null;
-  bidderCount: number;
+  auction: ListingRowAuction;
+  highBid: number | null;
 }) {
-  const highBid = normalizeBid(currentHighBid);
-  const bidderText =
-    bidderCount === 1 ? "1 bidder" : `${bidderCount} bidders`;
+  const bidCount = auction.bidCount ?? 0;
+  const bidsText = bidCount === 1 ? "1 bid" : `${bidCount} bids`;
+  const endsAtDate = parseDate(auction.endsAt);
   return (
     <p className="text-body-sm text-on-surface-variant">
       <span className="font-medium text-on-surface">
-        {highBid == null ? "—" : `L$${highBid}`}
+        {highBid == null ? "—" : `L$${highBid.toLocaleString()}`}
       </span>
-      <span> · {bidderText}</span>
+      <span>{` current · ${bidsText}`}</span>
+      {endsAtDate != null ? (
+        <>
+          {" · "}
+          <CountdownTimer
+            expiresAt={endsAtDate}
+            format="hh:mm:ss"
+            className="inline text-body-sm"
+          />
+          {" left"}
+        </>
+      ) : null}
     </p>
   );
+}
+
+function EndedBidSummary({
+  auction,
+  highBid,
+}: {
+  auction: ListingRowAuction;
+  highBid: number | null;
+}) {
+  const outcome: AuctionEndOutcome =
+    auction.endOutcome ?? inferEndOutcome(auction, highBid);
+
+  // Winner display-name fallback mirrors AuctionEndedPanel. The query runs
+  // only when we have a winnerId but no inline display name. Same cache key
+  // as AuctionEndedPanel so the two share any pre-fetched profile data.
+  const winnerId = auction.winnerId;
+  const needWinnerFetch =
+    (outcome === "SOLD" || outcome === "BOUGHT_NOW") &&
+    winnerId != null &&
+    (auction.winnerDisplayName == null || auction.winnerDisplayName === "");
+  const winnerQuery = useQuery<PublicUserProfile>({
+    queryKey: ["publicProfile", winnerId],
+    queryFn: () => userApi.publicProfile(winnerId as number),
+    enabled: needWinnerFetch,
+    staleTime: 60_000,
+  });
+  const winnerDisplayName =
+    auction.winnerDisplayName ??
+    winnerQuery.data?.displayName ??
+    (winnerId != null ? `User ${winnerId}` : null);
+
+  if (outcome === "SOLD" || outcome === "BOUGHT_NOW") {
+    const finalAmount = auction.finalBidAmount ?? highBid;
+    const formattedAmount = finalAmount == null ? "—" : `L$${finalAmount.toLocaleString()}`;
+    return (
+      <p className="text-body-sm text-on-surface-variant">
+        Sold for{" "}
+        <span className="font-medium text-on-surface">{formattedAmount}</span>
+        {winnerDisplayName ? (
+          <>
+            {" to "}
+            <span className="font-medium text-on-surface">{`@${winnerDisplayName}`}</span>
+          </>
+        ) : null}
+      </p>
+    );
+  }
+  if (outcome === "RESERVE_NOT_MET") {
+    const formattedBid = highBid == null ? "—" : `L$${highBid.toLocaleString()}`;
+    return (
+      <p className="text-body-sm text-on-surface-variant">
+        {"Ended — reserve not met (highest bid "}
+        <span className="font-medium text-on-surface">{formattedBid}</span>
+        {")"}
+      </p>
+    );
+  }
+  // NO_BIDS (default for ENDED without bids)
+  return (
+    <p className="text-body-sm text-on-surface-variant">
+      Ended with no bids
+    </p>
+  );
+}
+
+function inferEndOutcome(
+  auction: ListingRowAuction,
+  highBid: number | null,
+): AuctionEndOutcome {
+  if (highBid == null || (auction.bidCount ?? 0) === 0) return "NO_BIDS";
+  if (auction.buyNowPrice != null && highBid >= auction.buyNowPrice) {
+    return "BOUGHT_NOW";
+  }
+  if (auction.reservePrice != null && highBid < auction.reservePrice) {
+    return "RESERVE_NOT_MET";
+  }
+  return "SOLD";
+}
+
+function parseDate(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function normalizeBid(raw: number | string | null): number | null {

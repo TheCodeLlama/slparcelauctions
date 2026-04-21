@@ -193,4 +193,4 @@ sketch
 # Git worktrees
 .worktrees/
 
-.claude/
+.claude/.superpowers/
