@@ -34,7 +34,7 @@ import jakarta.persistence.PersistenceContext;
  * </ul>
  *
  * <p>The partial unique index is created by
- * {@link ProxyBidPartialUniqueIndexInitializer} on
+ * {@link com.slparcelauctions.backend.auction.config.ProxyBidPartialUniqueIndexInitializer} on
  * {@link org.springframework.boot.context.event.ApplicationReadyEvent} — so
  * loading the Spring context is sufficient to see it.
  */

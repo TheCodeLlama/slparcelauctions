@@ -1,4 +1,4 @@
-package com.slparcelauctions.backend.auction;
+package com.slparcelauctions.backend.auction.config;
 
 import javax.sql.DataSource;
 
@@ -6,6 +6,9 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+
+import com.slparcelauctions.backend.auction.ProxyBid;
+import com.slparcelauctions.backend.auction.ProxyBidStatus;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
  * EXISTS}.
  *
  * <p>Mirrors the boot-time DDL pattern used by
- * {@link com.slparcelauctions.backend.auction.config.AuctionStatusCheckConstraintInitializer}.
+ * {@link AuctionStatusCheckConstraintInitializer}.
  */
 @Component
 @RequiredArgsConstructor

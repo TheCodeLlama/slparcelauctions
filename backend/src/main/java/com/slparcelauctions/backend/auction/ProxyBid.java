@@ -33,7 +33,7 @@ import lombok.Setter;
  * <p>A single bidder may only have one {@link ProxyBidStatus#ACTIVE} proxy per
  * auction at a time. That invariant is enforced at the database layer via the
  * partial unique index {@code proxy_bids_one_active_per_user}, created by
- * {@link ProxyBidPartialUniqueIndexInitializer}. Non-active rows
+ * {@link com.slparcelauctions.backend.auction.config.ProxyBidPartialUniqueIndexInitializer}. Non-active rows
  * ({@code EXHAUSTED}, {@code CANCELLED}) are preserved for audit so retiring a
  * proxy and creating a new one still round-trips cleanly.
  */

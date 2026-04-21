@@ -5,7 +5,7 @@ package com.slparcelauctions.backend.auction;
  *
  * <p>Enforced by the partial unique index {@code proxy_bids_one_active_per_user}
  * — at most one {@code ACTIVE} row per {@code (auction_id, user_id)}. See
- * {@link ProxyBidPartialUniqueIndexInitializer}.
+ * {@link com.slparcelauctions.backend.auction.config.ProxyBidPartialUniqueIndexInitializer}.
  */
 public enum ProxyBidStatus {
     /** Still able to emit automatic bids up to {@code maxAmount}. */

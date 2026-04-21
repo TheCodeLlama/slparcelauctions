@@ -44,6 +44,29 @@ class AuctionRepositoryLockTest {
     @Autowired PlatformTransactionManager txManager;
     @Autowired JdbcTemplate jdbc;
 
+    /**
+     * Counts the pids — other than the caller's own backend pid — that hold a
+     * {@code RowShareLock} on the {@code auctions} relation. {@code SELECT ...
+     * FOR UPDATE} takes that relation-level lock in addition to tagging the
+     * row via its {@code xmax} (Postgres doesn't usually surface an
+     * uncontended tuple lock in {@code pg_locks}, so we can't filter on
+     * {@code locktype='tuple'}). Excluding {@code pg_backend_pid()} removes
+     * this assertion query's own session; baselining before vs after the
+     * holder thread grabs its lock makes the assertion robust to background
+     * beans (ownership-monitor scheduler, verification sweeps) that may also
+     * touch the {@code auctions} table in parallel.
+     */
+    private long countHolderSessionRowShareLocks() {
+        Long count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pg_locks "
+                        + "WHERE relation = 'auctions'::regclass "
+                        + "AND mode = 'RowShareLock' "
+                        + "AND pid <> pg_backend_pid() "
+                        + "AND granted = true",
+                Long.class);
+        return count == null ? 0L : count;
+    }
+
     @Test
     void findByIdForUpdate_holdsRowLockUntilCommit() throws Exception {
         TransactionTemplate txTemplate = new TransactionTemplate(txManager);
@@ -91,6 +114,12 @@ class AuctionRepositoryLockTest {
         CountDownLatch release = new CountDownLatch(1);
         AtomicReference<Throwable> threadError = new AtomicReference<>();
 
+        // Snapshot the lock count before the holder thread enters its tx, so
+        // we can assert a delta rather than an absolute count. Background
+        // beans (ownership-monitor scheduler, verification sweeps) may be
+        // holding their own RowShareLocks on auctions during this test.
+        long baselineLocks = countHolderSessionRowShareLocks();
+
         Thread holder = new Thread(() -> {
             try {
                 txTemplate.executeWithoutResult(status -> {
@@ -123,16 +152,22 @@ class AuctionRepositoryLockTest {
             assertThat(lockAcquired.await(5, TimeUnit.SECONDS)).isTrue();
             assertThat(threadError.get()).isNull();
 
-            // pg_locks reports a row-exclusive lock on the auctions table
-            // whenever a transaction holds a SELECT ... FOR UPDATE. A tuple
-            // lock is also recorded; we just need to confirm at least one
-            // write-intent lock is open while the holder's tx is alive.
-            Integer heldLocks = jdbc.queryForObject(
-                    "SELECT COUNT(*) FROM pg_locks "
-                            + "WHERE relation = 'auctions'::regclass "
-                            + "AND mode IN ('RowExclusiveLock', 'RowShareLock')",
-                    Integer.class);
-            assertThat(heldLocks).isNotNull().isGreaterThan(0);
+            // Assert a delta: once the holder thread has taken its SELECT ...
+            // FOR UPDATE, at least one additional non-self session should be
+            // holding RowShareLock on the auctions table compared to the
+            // baseline we captured before the holder started. Asserting a
+            // delta (rather than an absolute count) immunises the test
+            // against background beans — ownership-monitor scheduler,
+            // verification sweeps — that may independently hold
+            // RowShareLocks on auctions in parallel, while still catching
+            // the case where findByIdForUpdate quietly stopped taking a
+            // row-level lock at all.
+            long heldLocks = countHolderSessionRowShareLocks();
+            assertThat(heldLocks - baselineLocks)
+                    .as("findByIdForUpdate should add at least one RowShareLock "
+                            + "on auctions from a non-self session "
+                            + "(baseline=%d, observed=%d)", baselineLocks, heldLocks)
+                    .isGreaterThanOrEqualTo(1L);
         } finally {
             release.countDown();
             holder.join(5_000);

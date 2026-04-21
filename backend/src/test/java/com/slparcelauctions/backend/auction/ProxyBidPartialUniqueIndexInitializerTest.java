@@ -11,6 +11,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
+import com.slparcelauctions.backend.auction.config.ProxyBidPartialUniqueIndexInitializer;
+
 /**
  * Asserts {@link ProxyBidPartialUniqueIndexInitializer} fired during context
  * startup by querying {@code pg_indexes} for the expected index name. Also
