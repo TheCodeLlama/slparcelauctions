@@ -35,6 +35,12 @@ type MockStompClient = {
   triggerConnect: () => void;
   triggerClose: () => void;
   deliver: (destination: string, payload: unknown) => void;
+  // One-shot hook: when set to a destination string, the next `client.subscribe`
+  // call for that destination synchronously invokes the handler with `{body:"{}"}`
+  // before returning the subscription. Used to model "replayed frame delivered
+  // mid-attach", which lets a test exercise the onConnect sweep's mid-iteration
+  // Map mutations. Cleared after firing so re-entrant subscribes are safe.
+  _invokeHandlerSyncOnce: string | null;
 };
 
 let mockClientInstance: MockStompClient | null = null;
@@ -62,6 +68,13 @@ vi.mock("@stomp/stompjs", () => {
           }),
         };
         instance._subs.push(sub);
+        // One-shot synchronous handler invocation hook (see type def). Consumed
+        // by the first matching subscribe call so re-entrant subscribe() paths
+        // triggered by the handler don't re-enter this branch recursively.
+        if (instance._invokeHandlerSyncOnce === destination) {
+          instance._invokeHandlerSyncOnce = null;
+          handler({ body: "{}" });
+        }
         return sub;
       }),
       connected: false,
@@ -72,6 +85,7 @@ vi.mock("@stomp/stompjs", () => {
       onWebSocketClose: config.onWebSocketClose,
       onStompError: config.onStompError,
       _subs: [],
+      _invokeHandlerSyncOnce: null,
       triggerConnect: () => {
         instance.connected = true;
         instance.active = true;
@@ -327,41 +341,68 @@ describe("lib/ws/client", () => {
   });
 
   it("subscribeDuringSweep_lateAddedEntryAttachedInSamePass", async () => {
-    const msgs1: string[] = [];
-    const msgs2: string[] = [];
+    // This test verifies that when an `onMessage` handler triggered during
+    // the onConnect sweep synchronously subscribes to a new topic, the new
+    // entry gets attached in the same sweep pass due to live-Map iteration.
+    //
+    // Scenario: the sweep iterates `entries.values()`. A handler fires
+    // synchronously inside `client.subscribe("/topic/a", ...)` (modeling a
+    // replayed frame delivered during attach). The handler calls
+    // `subscribe("/topic/b-late")` — but first it flips `client.connected`
+    // to false and back, which short-circuits subscribe()'s direct
+    // `ensureAttached` path. That forces `/topic/b-late` to rely ENTIRELY on
+    // the sweep's visit for attachment:
+    //   - Live-Map iteration: sweep yields the newly-added entry-b-late and
+    //     calls ensureAttached → `client.subscribe("/topic/b-late")` fires,
+    //     b-late ends up in `_subs`.
+    //   - Snapshot iteration (`Array.from(entries.values())`): sweep already
+    //     finished its snapshot with only [entry-a], so b-late is orphaned,
+    //     NOT in `_subs`. A second reconnect would be needed to rescue it.
+    //
+    // Swapping the production sweep to `Array.from(...)` makes the final
+    // assertion fail — which is how we prove the test genuinely covers the
+    // live-iteration invariant.
+
+    let reentrantSubscribeFired = false;
     let unsub2: () => void = () => {};
 
-    // First handler: synchronously subscribe to a second topic when the
-    // re-attach sweep hits /topic/a. The sweep iterates the LIVE Map, so the
-    // late-added entry must be visited in the same pass and be live before
-    // the test delivers to /topic/b below.
-    const unsub1 = subscribe<string>("/topic/a", () => {
-      msgs1.push("tick");
-      if (msgs1.length === 1) {
-        unsub2 = subscribe<string>("/topic/b", (p) => msgs2.push(p));
+    // Pre-existing subscription. When its handler fires synchronously during
+    // the sweep (via the one-shot mock hook below), it momentarily flips
+    // `connected` to false so subscribe()'s direct `ensureAttached` is a
+    // no-op — forcing the sweep's visit to be the sole path that attaches
+    // `/topic/b-late`.
+    const unsub1 = subscribe<unknown>("/topic/a", () => {
+      reentrantSubscribeFired = true;
+      const wasConnected = mockClientInstance!.connected;
+      mockClientInstance!.connected = false;
+      try {
+        unsub2 = subscribe<unknown>("/topic/b-late", () => {});
+      } finally {
+        mockClientInstance!.connected = wasConnected;
       }
     });
 
+    // Arm the one-shot hook so the sweep's `client.subscribe("/topic/a", ...)`
+    // call fires the handler synchronously — the handler's reentrant
+    // `subscribe("/topic/b-late")` happens INSIDE the sweep's iteration.
+    mockClientInstance!._invokeHandlerSyncOnce = "/topic/a";
+
+    // Single triggerConnect — no reconnect cycle.
     mockClientInstance!.triggerConnect();
     await flushAll();
 
-    // Disconnect + reconnect. During the reconnect the sweep re-attaches
-    // /topic/a. We then deliver a message to /topic/a — the handler runs
-    // synchronously inside `client.subscribe`'s callback, and that handler
-    // calls subscribe("/topic/b") mid-iteration. The new entry must be
-    // attached during the same sweep (when onConnect reaches it) rather than
-    // left orphaned until the next reconnect.
-    mockClientInstance!.triggerClose();
-    mockClientInstance!.triggerConnect();
-    await flushAll();
+    expect(reentrantSubscribeFired).toBe(true);
 
-    // Deliver to /topic/a — the handler synchronously calls subscribe("/topic/b").
-    // Because the Map is live, the new entry is seen later in the same sweep.
-    mockClientInstance!.deliver("/topic/a", "msg-1");
-    await flushAll();
-
-    mockClientInstance!.deliver("/topic/b", "msg-b");
-    expect(msgs2).toEqual(["msg-b"]);
+    // Critical assertion: `/topic/b-late` must be in `_subs` after this ONE
+    // triggerConnect. Because subscribe()'s direct attach was no-op'd, the
+    // only way for b-late to reach `_subs` is via the sweep visiting the
+    // Map entry that was added DURING iteration — i.e. live-Map iteration.
+    // Snapshotting `entries.values()` would orphan it.
+    const activeDestinations = mockClientInstance!._subs
+      .filter((s) => s.active)
+      .map((s) => s.destination);
+    expect(activeDestinations).toContain("/topic/a");
+    expect(activeDestinations).toContain("/topic/b-late");
 
     unsub1();
     unsub2();
