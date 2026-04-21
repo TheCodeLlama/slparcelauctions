@@ -171,6 +171,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
+### Migrate Epic 02/03 write paths onto NotVerifiedException
+- **From:** Epic 04 sub-spec 1 (Task 2 — bid placement)
+- **Why:** `NotVerifiedException` was introduced to give the bid path a clean `NOT_VERIFIED` (403) error code. Pre-existing verification checks in `AuctionController.requireVerified`, parcel controllers, and other write paths still throw raw `AccessDeniedException` with inline message strings, producing `ACCESS_DENIED` instead of `NOT_VERIFIED`. Frontend UX distinguishing the two codes will only see `NOT_VERIFIED` from the bid path until the migration lands.
+- **When:** Near-term — trivially, a one-line swap at each existing call site. Deferred from Task 2 to keep the scope tight; pick up as a standalone cleanup task or roll into the Epic 04 sub-spec 2 frontend work when the UX for verification prompts is wired.
+- **Notes:** Search for `AccessDeniedException` call sites that include the string "verification required" (or equivalent) — those are the migration targets. `NotVerifiedException` already exists at `backend/src/main/java/com/slparcelauctions/backend/auction/exception/NotVerifiedException.java` and has an existing handler in `AuctionExceptionHandler.java`.
+
 ---
 
 ## Removal Criteria
