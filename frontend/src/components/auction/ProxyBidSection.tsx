@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FocusEvent, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -58,6 +58,7 @@ export function ProxyBidSection({
 }: ProxyBidSectionProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const maxInputId = useId();
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [maxInput, setMaxInput] = useState<string>("");
   const [pending, setPending] = useState<PendingAction>({ kind: "none" });
@@ -213,13 +214,13 @@ export function ProxyBidSection({
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div>
           <label
-            htmlFor="proxy-bid-max"
+            htmlFor={maxInputId}
             className="text-label-md text-on-surface-variant"
           >
             Your max bid
           </label>
           <Input
-            id="proxy-bid-max"
+            id={maxInputId}
             type="number"
             inputMode="numeric"
             min={1}
@@ -229,6 +230,7 @@ export function ProxyBidSection({
               setMaxInput(e.target.value);
               setInlineError(null);
             }}
+            onFocus={scrollInputIntoView}
             placeholder="L$"
             leftIcon={<span className="text-label-md">L$</span>}
             className="text-right"
@@ -300,4 +302,19 @@ export function ProxyBidSection({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Scrolls the focused input into the vertical centre of the viewport —
+ * spec §11's mobile-keyboard UX. iOS/Android soft keyboards cover the
+ * lower half of the screen on focus; without this the submit button
+ * ends up behind the keyboard. Guarded against environments where
+ * {@code scrollIntoView} isn't implemented (JSDOM, happy-dom ≤ 17) so
+ * focus events don't crash unit tests.
+ */
+function scrollInputIntoView(e: FocusEvent<HTMLInputElement>): void {
+  const el = e.currentTarget;
+  if (el instanceof HTMLElement && typeof el.scrollIntoView === "function") {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }

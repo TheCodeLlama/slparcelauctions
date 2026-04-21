@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FocusEvent, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -50,6 +50,7 @@ type ConfirmKind =
 export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const amountInputId = useId();
   const [amount, setAmount] = useState<string>("");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmKind>({ kind: "none" });
@@ -149,13 +150,13 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
     <form onSubmit={onSubmit} data-testid="place-bid-form" className="flex flex-col gap-3">
       <div>
         <label
-          htmlFor="place-bid-amount"
+          htmlFor={amountInputId}
           className="text-label-md text-on-surface-variant"
         >
           Your bid
         </label>
         <Input
-          id="place-bid-amount"
+          id={amountInputId}
           type="number"
           inputMode="numeric"
           min={min}
@@ -165,6 +166,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
             setAmount(e.target.value);
             setInlineError(null);
           }}
+          onFocus={scrollInputIntoView}
           placeholder={`L$${min.toLocaleString()}`}
           leftIcon={<span className="text-label-md">L$</span>}
           className="text-right"
@@ -227,6 +229,21 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
       ) : null}
     </form>
   );
+}
+
+/**
+ * Scrolls the focused input into the vertical centre of the viewport —
+ * spec §11's mobile-keyboard UX. iOS/Android soft keyboards cover the
+ * lower half of the screen on focus; without this the submit button
+ * ends up behind the keyboard. Guarded against environments where
+ * {@code scrollIntoView} isn't implemented (JSDOM, happy-dom ≤ 17) so
+ * focus events don't crash unit tests.
+ */
+function scrollInputIntoView(e: FocusEvent<HTMLInputElement>): void {
+  const el = e.currentTarget;
+  if (el instanceof HTMLElement && typeof el.scrollIntoView === "function") {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 /**
