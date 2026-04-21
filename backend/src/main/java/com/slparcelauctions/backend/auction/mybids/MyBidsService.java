@@ -32,9 +32,10 @@ import lombok.extern.slf4j.Slf4j;
  * <ol>
  *   <li>Page the set of {@link Auction}s the caller has bid on (SQL filter by
  *       parent status when {@code status=active|won|lost}).</li>
- *   <li>For each, load the full {@code Auction} aggregate (parcel + seller
- *       eager-fetched via {@code @EntityGraph}) and the caller's max bid
- *       amount + timestamp.</li>
+ *   <li>For each, load the full {@code Auction} aggregate (parcel + tags
+ *       eager-fetched via {@code @EntityGraph}; seller is lazy and fetched
+ *       per-row when the summary reads its display name) and the caller's
+ *       max bid amount + timestamp.</li>
  *   <li>Look up any {@code ACTIVE} proxy the caller owns on the page's
  *       auctions, so the dashboard shows the cap the user set.</li>
  *   <li>Derive {@link MyBidStatus} via {@link MyBidStatusDeriver}.</li>
@@ -88,9 +89,12 @@ public class MyBidsService {
             return new PageImpl<>(List.of(), effective, auctionIdsPage.getTotalElements());
         }
 
-        // Load auctions (parcel+tags eager via findById's @EntityGraph; we do
-        // this one-by-one so seller is also re-fetched with a JOIN in practice
-        // — bulk findAllById does not trip @EntityGraph.)
+        // Hydrate auctions via findById to trip the @EntityGraph on parcel+tags.
+        // Note: auction.seller is FetchType.LAZY and is NOT in the EntityGraph,
+        // so each summary touches seller.getDisplayName() causing one extra
+        // SELECT per auction. At page size 20 this is bounded (~43 queries per
+        // page). See DEFERRED_WORK.md ("N+1 on My Bids auction loading") for
+        // the followup to join seller into the graph.
         Map<Long, Auction> byId = new HashMap<>();
         for (Long id : ids) {
             auctionRepo.findById(id).ifPresent(a -> byId.put(id, a));

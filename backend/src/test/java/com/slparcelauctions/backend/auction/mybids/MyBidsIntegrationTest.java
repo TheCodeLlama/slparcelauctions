@@ -226,6 +226,76 @@ class MyBidsIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
+    // Pagination tiebreaker: identical endsAt -> deterministic id ordering
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_identicalEndsAt_ordersByAuctionIdAscending() throws Exception {
+        // Two fresh ACTIVE auctions sharing the EXACT same endsAt. Without a
+        // stable tiebreaker the DB is free to interleave these across pages,
+        // which causes duplicate / missing rows in a paginated traversal.
+        OffsetDateTime sharedEndsAt = OffsetDateTime.now().plusDays(2).withNano(0);
+        Parcel pA = seedParcel(100);
+        Parcel pB = seedParcel(101);
+        Auction auctionA = seedAuctionWithEndsAt(pA, sharedEndsAt);
+        Auction auctionB = seedAuctionWithEndsAt(pB, sharedEndsAt);
+        saveBid(auctionA, bidderId, 2500L);
+        saveBid(auctionB, bidderId, 2500L);
+
+        Long lowerId = Math.min(auctionA.getId(), auctionB.getId());
+        Long higherId = Math.max(auctionA.getId(), auctionB.getId());
+
+        // Invoke the endpoint twice and assert stable ordering across calls —
+        // the two new auctions must appear in id-ascending order both times.
+        for (int i = 0; i < 2; i++) {
+            MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
+                            .param("status", "active")
+                            .header("Authorization", "Bearer " + bidderAccessToken))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString())
+                    .get("content");
+
+            // Extract the order of our two new auction ids from the content.
+            java.util.List<Long> orderedNew = new java.util.ArrayList<>();
+            for (JsonNode row : content) {
+                long id = row.get("auction").get("id").asLong();
+                if (id == lowerId || id == higherId) {
+                    orderedNew.add(id);
+                }
+            }
+            org.assertj.core.api.Assertions.assertThat(orderedNew)
+                    .as("identical endsAt must break ties by auction id ASC on iteration %d", i)
+                    .containsExactly(lowerId, higherId);
+        }
+    }
+
+    private Auction seedAuctionWithEndsAt(Parcel parcelForAuction, OffsetDateTime endsAt) {
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        OffsetDateTime now = OffsetDateTime.now();
+        Auction a = Auction.builder()
+                .parcel(parcelForAuction)
+                .seller(seller)
+                .status(AuctionStatus.ACTIVE)
+                .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
+                .startingBid(1000L)
+                .durationHours(168)
+                .snipeProtect(false)
+                .listingFeePaid(true)
+                .currentBid(2500L)
+                .bidCount(1)
+                .consecutiveWorldApiFailures(0)
+                .commissionRate(new BigDecimal("0.05"))
+                .agentFeeRate(BigDecimal.ZERO)
+                .build();
+        a.setStartsAt(now.minusHours(1));
+        a.setEndsAt(endsAt);
+        a.setOriginalEndsAt(endsAt);
+        return auctionRepository.save(a);
+    }
+
+    // -------------------------------------------------------------------------
     // Auth sanity: no token -> 401/403
     // -------------------------------------------------------------------------
 

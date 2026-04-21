@@ -171,6 +171,18 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
+### N+1 on My Bids auction loading
+- **From:** Epic 04 sub-spec 1 (Task 8)
+- **Why:** `MyBidsService.findAuctionPage` loads auctions one-by-one via `AuctionRepository.findById` to trip the `@EntityGraph` on parcel + tags. `Auction.seller` is not in the EntityGraph and lazy-loads per-row, producing ~2 extra queries per auction on a page of 20 (up to ~43 queries total per page). At Phase 1 volumes this is acceptable (bounded by page size = 20) but is worth fixing before scale.
+- **When:** Near-term cleanup after sub-spec 2 frontend lands — likely the frontend will reveal whether seller display name is needed for every card.
+- **Notes:** Fix options: (a) add `seller` to the existing `@EntityGraph` on `findById` (affects all callers); (b) add a dedicated `findAllByIdWithParcelAndSeller(Collection<Long>)` query that `MyBidsService` uses instead of the per-id loop.
+
+### My Bids non-ACTIVE sort key deviation
+- **From:** Epic 04 sub-spec 1 (Task 8)
+- **Why:** Spec §10 specifies conditional `ORDER BY` using `CASE WHEN a.status = 'ACTIVE' THEN a.ends_at END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.ended_at END DESC`. The actual query uses unconditional `a.endsAt DESC, a.endedAt DESC`, which means non-ACTIVE auctions are ordered by `endsAt` first. At Phase 1 volumes the drift is small (snipe-extended auctions diverge by at most 2-60 minutes) but is a documented spec deviation.
+- **When:** Fix when sub-spec 2 frontend surfaces sort-order concerns, or during an Epic 04 cleanup pass.
+- **Notes:** Replace `a.endsAt DESC, a.endedAt DESC` with `CASE WHEN a.status = 'ACTIVE' THEN a.endsAt END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.endedAt END DESC` (Postgres tolerates NULLs in CASE-based ORDER BY).
+
 ### Migrate Epic 02/03 write paths onto NotVerifiedException
 - **From:** Epic 04 sub-spec 1 (Task 2 — bid placement)
 - **Why:** `NotVerifiedException` was introduced to give the bid path a clean `NOT_VERIFIED` (403) error code. Pre-existing verification checks in `AuctionController.requireVerified`, parcel controllers, and other write paths still throw raw `AccessDeniedException` with inline message strings, producing `ACCESS_DENIED` instead of `NOT_VERIFIED`. Frontend UX distinguishing the two codes will only see `NOT_VERIFIED` from the bid path until the migration lands.

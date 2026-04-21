@@ -53,7 +53,8 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
                      a.endedAt
             ORDER BY CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END ASC,
                      a.endsAt DESC,
-                     a.endedAt DESC
+                     a.endedAt DESC,
+                     b.auction.id ASC
             """,
             countQuery = """
             SELECT COUNT(DISTINCT b.auction.id)
@@ -84,7 +85,8 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
                      a.endedAt
             ORDER BY CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END ASC,
                      a.endsAt DESC,
-                     a.endedAt DESC
+                     a.endedAt DESC,
+                     b.auction.id ASC
             """,
             countQuery = """
             SELECT COUNT(DISTINCT b.auction.id)
