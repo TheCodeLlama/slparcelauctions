@@ -1,7 +1,11 @@
 package com.slparcelauctions.backend.auction.broadcast;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -14,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
@@ -77,6 +82,43 @@ class StompAuctionBroadcastPublisherTest {
                 4);
 
         publisher.publishEnded(envelope);
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/auction/77"), (Object) eq(envelope));
+        verifyNoMoreInteractions(messagingTemplate);
+    }
+
+    @Test
+    void publishSettlement_swallowsMessagingException() {
+        // convertAndSend runs inside afterCommit. A throw here would
+        // re-surface as an ERROR log from Spring's
+        // TransactionSynchronizationUtils and cloud operator noise. The
+        // auction state is already committed; losing the WS publish is
+        // best-effort degradation, not data loss.
+        OffsetDateTime now = OffsetDateTime.parse("2026-04-20T12:00:00Z");
+        BidSettlementEnvelope envelope = new BidSettlementEnvelope(
+                "BID_SETTLEMENT", 42L, now, 500L, 20L, "Alice", 1,
+                now.plusDays(1), now.plusDays(1), List.of());
+        doThrow(new MessagingException("broker down"))
+                .when(messagingTemplate).convertAndSend(anyString(), any(Object.class));
+
+        assertThatCode(() -> publisher.publishSettlement(envelope))
+                .doesNotThrowAnyException();
+
+        verify(messagingTemplate).convertAndSend(eq("/topic/auction/42"), (Object) eq(envelope));
+        verifyNoMoreInteractions(messagingTemplate);
+    }
+
+    @Test
+    void publishEnded_swallowsMessagingException() {
+        OffsetDateTime now = OffsetDateTime.parse("2026-04-20T12:00:00Z");
+        AuctionEndedEnvelope envelope = new AuctionEndedEnvelope(
+                "AUCTION_ENDED", 77L, now, now, AuctionEndOutcome.SOLD,
+                1_500L, 33L, "Bob", 4);
+        doThrow(new MessagingException("serialization failed"))
+                .when(messagingTemplate).convertAndSend(anyString(), any(Object.class));
+
+        assertThatCode(() -> publisher.publishEnded(envelope))
+                .doesNotThrowAnyException();
 
         verify(messagingTemplate).convertAndSend(eq("/topic/auction/77"), (Object) eq(envelope));
         verifyNoMoreInteractions(messagingTemplate);

@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auction.broadcast;
 
+import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,18 @@ import lombok.extern.slf4j.Slf4j;
  * <p>{@link SimpMessagingTemplate#convertAndSend} tolerates the no-subscriber
  * case silently — tests running without an active STOMP client do not fail
  * here; they just never see the envelope, which is the desired behaviour.
+ *
+ * <p><strong>Error handling:</strong> {@code convertAndSend} can throw
+ * {@link MessagingException} if the broker channel is down or payload
+ * serialization fails. These publishes run inside a
+ * {@code TransactionSynchronization.afterCommit} callback — the auction
+ * state is already durable in the DB by the time we get here, and clients
+ * on reconnect re-fetch current state. A dropped publish is therefore
+ * best-effort degradation, not data loss. We catch and log at WARN with
+ * full context so the exception does not escape back into the
+ * afterCommit callback, where Spring's
+ * {@code TransactionSynchronizationUtils} would re-log it at ERROR and
+ * drown operators in alarm noise.
  */
 @Component
 @RequiredArgsConstructor
@@ -44,7 +57,12 @@ public class StompAuctionBroadcastPublisher implements AuctionBroadcastPublisher
         log.debug("Publishing BID_SETTLEMENT to {}: currentBid={}, bidCount={}, newBids={}",
                 destination, envelope.currentBid(), envelope.bidCount(),
                 envelope.newBids() == null ? 0 : envelope.newBids().size());
-        messagingTemplate.convertAndSend(destination, envelope);
+        try {
+            messagingTemplate.convertAndSend(destination, envelope);
+        } catch (MessagingException e) {
+            log.warn("Failed to publish BID_SETTLEMENT for auction {}: {}",
+                    envelope.auctionId(), e.getMessage(), e);
+        }
     }
 
     @Override
@@ -52,6 +70,11 @@ public class StompAuctionBroadcastPublisher implements AuctionBroadcastPublisher
         String destination = "/topic/auction/" + envelope.auctionId();
         log.info("Publishing AUCTION_ENDED to {}: outcome={}, finalBid={}, winnerUserId={}",
                 destination, envelope.endOutcome(), envelope.finalBid(), envelope.winnerUserId());
-        messagingTemplate.convertAndSend(destination, envelope);
+        try {
+            messagingTemplate.convertAndSend(destination, envelope);
+        } catch (MessagingException e) {
+            log.warn("Failed to publish AUCTION_ENDED for auction {}: {}",
+                    envelope.auctionId(), e.getMessage(), e);
+        }
     }
 }

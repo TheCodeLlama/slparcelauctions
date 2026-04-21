@@ -2,6 +2,8 @@ package com.slparcelauctions.backend.auth;
 
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import java.util.regex.Pattern;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
@@ -30,8 +32,10 @@ import org.springframework.stereotype.Component;
  * <p><strong>SUBSCRIBE gate:</strong> to prevent an anonymous session from
  * subscribing to authenticated topics (e.g. {@code /topic/ws-test} in
  * dev/test, and any future per-user queues), SUBSCRIBE frames are checked
- * against an allowlist of public destination prefixes. Everything outside
- * the allowlist requires a principal on the session.
+ * against a strict regex allowlist of public destinations
+ * ({@link #PUBLIC_AUCTION_DESTINATION}). Everything outside the allowlist
+ * requires a principal on the session. See FOOTGUNS §F.16.1 for why this is
+ * a regex rather than a prefix check.
  *
  * <p><strong>Why CONNECT-only for JWT validation:</strong> Task 01-09 spec
  * §3 (Q3c-i). Matching the HTTP filter's one-check-per-request behavior.
@@ -54,10 +58,22 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class JwtChannelInterceptor implements ChannelInterceptor {
 
-    /** Destination prefixes a non-authenticated session may SUBSCRIBE to. */
-    private static final String[] PUBLIC_SUBSCRIBE_PREFIXES = {
-        "/topic/auction/"
-    };
+    /**
+     * Exact-shape allowlist for destinations a non-authenticated session may
+     * SUBSCRIBE to. Matches {@code /topic/auction/{id}} where {@code id} is a
+     * positive integer (the auction primary key).
+     *
+     * <p>Using a strict regex rather than a {@code startsWith} prefix check
+     * guards against path-traversal-style escapes if the broker is ever
+     * swapped from Spring's simple in-memory broker (which treats destinations
+     * as opaque strings) to a relay like RabbitMQ that normalizes paths. A
+     * crafted destination such as {@code /topic/auction/../ws-test} would pass
+     * a prefix check but could route to {@code /topic/ws-test} on a
+     * normalizing broker. The regex forces {@code id} to be digits only, so
+     * any traversal or extension segment fails the match.
+     */
+    private static final Pattern PUBLIC_AUCTION_DESTINATION =
+        Pattern.compile("^/topic/auction/\\d+$");
 
     private final JwtService jwtService;
 
@@ -88,7 +104,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         if (StompCommand.SEND.equals(command)) {
             // All current SEND destinations require authentication. If future
             // features introduce public SEND destinations, mirror the
-            // handleSubscribe allowlist here.
+            // handleSubscribe regex allowlist here.
             if (accessor.getUser() == null) {
                 log.debug("STOMP SEND rejected: anonymous session cannot send");
                 throw new MessagingException(message, "Authentication required to send");
@@ -135,11 +151,9 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             throw new MessagingException(message, "SUBSCRIBE missing destination");
         }
 
-        for (String prefix : PUBLIC_SUBSCRIBE_PREFIXES) {
-            if (destination.startsWith(prefix)) {
-                log.debug("STOMP SUBSCRIBE accepted as anonymous: {}", destination);
-                return;
-            }
+        if (PUBLIC_AUCTION_DESTINATION.matcher(destination).matches()) {
+            log.debug("STOMP SUBSCRIBE accepted as anonymous: {}", destination);
+            return;
         }
 
         log.debug("STOMP SUBSCRIBE rejected: anonymous session cannot subscribe to {}", destination);

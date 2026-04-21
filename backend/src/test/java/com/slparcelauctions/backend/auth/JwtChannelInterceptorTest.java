@@ -175,6 +175,40 @@ class JwtChannelInterceptorTest {
     }
 
     @Test
+    @DisplayName("SUBSCRIBE to auction path with traversal segment is rejected for anonymous session")
+    void subscribe_toAuctionWithPathTraversal_isRejected() {
+        // A simple in-memory broker treats every literal string as a distinct
+        // topic, so the traversal attempt has no subscribers today — but a
+        // future swap to a STOMP relay (RabbitMQ, etc.) that normalizes paths
+        // could let /topic/auction/../ws-test escape the allowlist and land
+        // on /topic/ws-test. The strict regex rejects anything that isn't
+        // /topic/auction/{positive-integer}.
+        Message<byte[]> traversalFromRoot = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/../ws-test", null);
+        assertThatThrownBy(() -> interceptor.preSend(traversalFromRoot, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        Message<byte[]> traversalAfterId = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42/../ws-test", null);
+        assertThatThrownBy(() -> interceptor.preSend(traversalAfterId, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        Message<byte[]> trailingSegment = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42/extra", null);
+        assertThatThrownBy(() -> interceptor.preSend(trailingSegment, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        Message<byte[]> nonNumericId = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/abc", null);
+        assertThatThrownBy(() -> interceptor.preSend(nonNumericId, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+    }
+
+    @Test
     @DisplayName("SUBSCRIBE without destination is rejected for anonymous session")
     void preSend_subscribe_missingDestination_anonymousRejected() {
         Message<byte[]> msg = stompMessage(
