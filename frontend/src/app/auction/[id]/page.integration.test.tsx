@@ -256,6 +256,17 @@ describe("AuctionDetailClient", () => {
     bidHistoryEntry({ bidId: 1, amount: 1500 }),
   ]);
 
+  // Verified non-seller user — triggers the BidPanel bidder variant so the
+  // current-bid readout renders. Anonymous renders the unauth gate, which
+  // deliberately omits the current-bid display (spec §9).
+  const verifiedBidder = {
+    id: 999,
+    email: "bidder@example.com",
+    displayName: "Bidder",
+    slAvatarUuid: "99999999-9999-9999-9999-999999999999",
+    verified: true,
+  } as const;
+
   beforeEach(() => {
     subscribeMock.mockReset();
     subscribeMock.mockImplementation(() => () => {});
@@ -308,7 +319,7 @@ describe("AuctionDetailClient", () => {
         initialAuction={auction}
         initialBidPage={initialBids}
       />,
-      { auth: "anonymous" },
+      { auth: "authenticated", authUser: verifiedBidder },
     );
 
     // ParcelInfoPanel consumes the seeded parcel + auction fields.
@@ -324,17 +335,46 @@ describe("AuctionDetailClient", () => {
       "data-variant",
       "placeholder",
     );
-    // Task 5-8 placeholders still read from the seeded cache.
     expect(screen.getByTestId("bid-history-total")).toHaveTextContent("1");
+    // BidPanel bidder variant renders the current-high + bidder count.
     expect(screen.getByTestId("bid-panel-current-high")).toHaveTextContent(
       "L$ 1,500",
     );
     expect(screen.getByTestId("bid-panel-bidder-count")).toHaveTextContent(
       "2",
     );
-    expect(screen.getByTestId("bid-panel-ws-state")).toHaveTextContent(
-      "WS state: connected",
+    // WS state is surfaced via the panel-slot data attribute so the
+    // AuctionDetailClient shell can keep exposing it regardless of the
+    // rendered variant.
+    expect(screen.getByTestId("bid-panel-slot")).toHaveAttribute(
+      "data-ws-state",
+      "connected",
     );
+  });
+
+  it("renders the unauth gate for anonymous viewers", () => {
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "anonymous" },
+    );
+    const gate = screen.getByTestId("auth-gate-message");
+    expect(gate).toHaveAttribute("data-kind", "unauth");
+  });
+
+  it("renders the bidder panel with place-bid form for a verified non-seller", () => {
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+    expect(screen.getByTestId("bid-panel-bidder")).toBeInTheDocument();
+    expect(screen.getByTestId("place-bid-form")).toBeInTheDocument();
+    expect(screen.getByTestId("proxy-bid-section")).toBeInTheDocument();
   });
 
   it("subscribes to the auction topic on mount", () => {
@@ -343,7 +383,7 @@ describe("AuctionDetailClient", () => {
         initialAuction={auction}
         initialBidPage={initialBids}
       />,
-      { auth: "anonymous" },
+      { auth: "authenticated", authUser: verifiedBidder },
     );
 
     expect(subscribeMock).toHaveBeenCalledTimes(1);
@@ -367,7 +407,7 @@ describe("AuctionDetailClient", () => {
         initialAuction={auction}
         initialBidPage={initialBids}
       />,
-      { auth: "anonymous" },
+      { auth: "authenticated", authUser: verifiedBidder },
     );
 
     expect(capturedOnMessage).not.toBeNull();
@@ -406,7 +446,7 @@ describe("AuctionDetailClient", () => {
         initialAuction={auction}
         initialBidPage={initialBids}
       />,
-      { auth: "anonymous" },
+      { auth: "authenticated", authUser: verifiedBidder },
     );
 
     // Envelope carries a bid whose id matches the seeded row (1).
@@ -429,7 +469,7 @@ describe("AuctionDetailClient", () => {
     );
   });
 
-  it("reflects connection state in the WS-state placeholder", () => {
+  it("reflects connection state on the bid-panel slot", () => {
     let capturedListener:
       | ((state: { status: string }) => void)
       | null = null;
@@ -447,18 +487,20 @@ describe("AuctionDetailClient", () => {
         initialAuction={auction}
         initialBidPage={initialBids}
       />,
-      { auth: "anonymous" },
+      { auth: "authenticated", authUser: verifiedBidder },
     );
 
-    expect(screen.getByTestId("bid-panel-ws-state")).toHaveTextContent(
-      "WS state: reconnecting",
+    expect(screen.getByTestId("bid-panel-slot")).toHaveAttribute(
+      "data-ws-state",
+      "reconnecting",
     );
 
     act(() => {
       capturedListener!({ status: "connected" });
     });
-    expect(screen.getByTestId("bid-panel-ws-state")).toHaveTextContent(
-      "WS state: connected",
+    expect(screen.getByTestId("bid-panel-slot")).toHaveAttribute(
+      "data-ws-state",
+      "connected",
     );
   });
 });

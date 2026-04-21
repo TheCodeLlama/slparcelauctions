@@ -21,6 +21,7 @@ import {
   SellerProfileCard,
   type SellerProfileCardSeller,
 } from "@/components/auction/SellerProfileCard";
+import { BidPanel } from "@/components/auction/BidPanel";
 
 /**
  * Client shell for the auction detail page.
@@ -66,7 +67,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
 
   const auctionQuery = useAuction(id, initialAuction);
   const bidHistoryQuery = useBidHistory(id, 0, initialBidPage);
-  useMyProxy(id, {
+  const myProxyQuery = useMyProxy(id, {
     enabled: currentUserId != null && !isSellerViewer,
   });
 
@@ -253,36 +254,25 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           <SellerProfileCard seller={sellerCardData} />
         </div>
         <aside className="hidden lg:block lg:col-span-4">
-          <div className="sticky top-24">
-            <div
-              data-testid="bid-panel-placeholder"
-              className="rounded-xl bg-surface-container-lowest p-6"
-            >
-              <div className="text-xs uppercase tracking-wider text-on-surface-variant">
-                Current bid
-              </div>
-              <div
-                className="text-3xl font-display font-bold"
-                data-testid="bid-panel-current-high"
-              >
-                L$ {formatHighBid(auction.currentHighBid)}
-              </div>
-              <div className="text-sm text-on-surface-variant mt-2">
-                <span data-testid="bid-panel-bidder-count">
-                  {auction.bidderCount}
-                </span>{" "}
-                bids
-              </div>
-              <div className="text-xs text-on-surface-variant mt-4">
-                BidPanel placeholder (Task 5)
-              </div>
-              <div
-                className="text-xs text-on-surface-variant mt-1"
-                data-testid="bid-panel-ws-state"
-              >
-                WS state: {connectionState.status}
-              </div>
-            </div>
+          <div
+            className="sticky top-24"
+            data-testid="bid-panel-slot"
+            data-ws-state={connectionState.status}
+          >
+            <BidPanel
+              auction={auction}
+              currentUser={
+                session.status === "authenticated"
+                  ? {
+                      id: session.user.id,
+                      verified: session.user.verified,
+                    }
+                  : null
+              }
+              existingProxy={myProxyQuery.data ?? null}
+              connectionState={connectionState}
+              currentUserIsWinning={false}
+            />
           </div>
         </aside>
       </div>
