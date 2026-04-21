@@ -278,10 +278,31 @@ describe("AuctionDetailClient", () => {
           { status: 404 },
         ),
       ),
+      // Seller profile enrichment — Task 9 will inline this on the auction
+      // DTO, until then AuctionDetailClient fetches it client-side.
+      http.get("*/api/v1/users/:id", () =>
+        HttpResponse.json({
+          id: auction.sellerId,
+          displayName: "Seller",
+          bio: null,
+          profilePicUrl: null,
+          slAvatarUuid: null,
+          slAvatarName: null,
+          slUsername: null,
+          slDisplayName: null,
+          verified: true,
+          avgSellerRating: null,
+          avgBuyerRating: null,
+          totalSellerReviews: 0,
+          totalBuyerReviews: 0,
+          completedSales: 0,
+          createdAt: "2026-04-01T00:00:00Z",
+        }),
+      ),
     );
   });
 
-  it("renders seeded auction data into the placeholders", () => {
+  it("renders seeded auction data into the real subcomponents", () => {
     renderWithProviders(
       <AuctionDetailClient
         initialAuction={auction}
@@ -290,9 +311,20 @@ describe("AuctionDetailClient", () => {
       { auth: "anonymous" },
     );
 
-    expect(screen.getByTestId("parcel-info-placeholder")).toHaveTextContent(
+    // ParcelInfoPanel consumes the seeded parcel + auction fields.
+    expect(screen.getByTestId("parcel-info-panel")).toHaveTextContent(
       "Heterocera",
     );
+    expect(screen.getByTestId("parcel-info-panel-title")).toHaveTextContent(
+      "Beachfront parcel",
+    );
+    // The auction-hero falls back to the placeholder variant when no photos
+    // and no parcel snapshot are present (as in this fixture).
+    expect(screen.getByTestId("auction-hero")).toHaveAttribute(
+      "data-variant",
+      "placeholder",
+    );
+    // Task 5-8 placeholders still read from the seeded cache.
     expect(screen.getByTestId("bid-history-total")).toHaveTextContent("1");
     expect(screen.getByTestId("bid-panel-current-high")).toHaveTextContent(
       "L$ 1,500",

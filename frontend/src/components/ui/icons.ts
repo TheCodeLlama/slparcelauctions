@@ -52,3 +52,10 @@ export {
   Plus,
   MoreHorizontal,
 } from "lucide-react";
+
+// Epic 04 sub-spec 2 additions (auction detail page)
+export {
+  Code2,
+  Globe,
+  UserCheck,
+} from "lucide-react";

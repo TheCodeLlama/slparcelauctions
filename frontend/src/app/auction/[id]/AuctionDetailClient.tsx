@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AuctionEnvelope,
   BidHistoryEntry,
@@ -14,6 +14,13 @@ import { useAuth } from "@/lib/auth";
 import { useAuction, auctionKey } from "@/hooks/useAuction";
 import { useBidHistory, bidHistoryKey } from "@/hooks/useBidHistory";
 import { useMyProxy, myProxyKey } from "@/hooks/useMyProxy";
+import { userApi, type PublicUserProfile } from "@/lib/user/api";
+import { AuctionHero } from "@/components/auction/AuctionHero";
+import { ParcelInfoPanel } from "@/components/auction/ParcelInfoPanel";
+import {
+  SellerProfileCard,
+  type SellerProfileCardSeller,
+} from "@/components/auction/SellerProfileCard";
 
 /**
  * Client shell for the auction detail page.
@@ -61,6 +68,18 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   const bidHistoryQuery = useBidHistory(id, 0, initialBidPage);
   useMyProxy(id, {
     enabled: currentUserId != null && !isSellerViewer,
+  });
+
+  // Task 4: seller profile fetch. The public auction DTO only exposes
+  // {@code sellerId} — Task 9 adds server-side enrichment so the seller
+  // ships inline with the auction payload. Until then we fetch the public
+  // profile here and hand it to {@link SellerProfileCard}. The card copes
+  // with a pending / errored profile by rendering a minimal shape (id +
+  // display-name fallback) so the page layout never waits on this call.
+  const sellerQuery = useQuery<PublicUserProfile>({
+    queryKey: ["publicProfile", initialAuction.sellerId],
+    queryFn: () => userApi.publicProfile(initialAuction.sellerId),
+    staleTime: 60_000,
   });
 
   const auction = auctionQuery.data ?? initialAuction;
@@ -192,22 +211,37 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   const bidCountDisplay =
     bidHistoryQuery.data?.totalElements ?? initialBidPage.totalElements;
 
+  // Map the public-profile query into the shape SellerProfileCard expects.
+  // When the fetch is pending / errored we still render the card with just
+  // the auction.sellerId so the layout slot is stable — the card treats
+  // missing enrichment fields as "no data yet" (no ratings, zero sales →
+  // "New Seller" badge, which is an acceptable default for the few hundred
+  // ms before the profile lands).
+  const sellerCardData: SellerProfileCardSeller = sellerQuery.data
+    ? {
+        id: sellerQuery.data.id,
+        displayName: sellerQuery.data.displayName ?? "Seller",
+        slAvatarName: sellerQuery.data.slAvatarName,
+        profilePicUrl: sellerQuery.data.profilePicUrl,
+        avgSellerRating: sellerQuery.data.avgSellerRating,
+        totalSellerReviews: sellerQuery.data.totalSellerReviews,
+        completedSales: sellerQuery.data.completedSales,
+      }
+    : {
+        id: auction.sellerId,
+        displayName: "Seller",
+      };
+
   return (
     <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-24 pb-24 lg:pb-12">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
         <div className="lg:col-span-8 space-y-8 lg:space-y-12">
-          <div
-            data-testid="auction-hero-placeholder"
-            className="rounded-xl bg-surface-container-low p-8"
-          >
-            Hero placeholder (Task 4)
-          </div>
-          <div
-            data-testid="parcel-info-placeholder"
-            className="rounded-xl bg-surface-container-low p-8"
-          >
-            ParcelInfoPanel placeholder (Task 4) — {auction.parcel.regionName}
-          </div>
+          <AuctionHero
+            photos={auction.photos}
+            snapshotUrl={auction.parcel.snapshotUrl}
+            regionName={auction.parcel.regionName}
+          />
+          <ParcelInfoPanel auction={auction} />
           <div
             data-testid="bid-history-placeholder"
             className="rounded-xl bg-surface-container-low p-8"
@@ -216,12 +250,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             <span data-testid="bid-history-total">{bidCountDisplay}</span>{" "}
             bids
           </div>
-          <div
-            data-testid="seller-card-placeholder"
-            className="rounded-xl bg-surface-container-low p-8"
-          >
-            SellerProfileCard placeholder (Task 4) — seller #{auction.sellerId}
-          </div>
+          <SellerProfileCard seller={sellerCardData} />
         </div>
         <aside className="hidden lg:block lg:col-span-4">
           <div className="sticky top-24">
