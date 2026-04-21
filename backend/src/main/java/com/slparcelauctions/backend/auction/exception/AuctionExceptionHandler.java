@@ -32,10 +32,60 @@ public class AuctionExceptionHandler {
                 HttpStatus.CONFLICT, e.getMessage());
         pd.setTitle("Invalid Auction State");
         pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "AUCTION_INVALID_STATE");
+        // Bid-placement paths hit this when auction.status != ACTIVE — surface
+        // the bid-oriented error code so the frontend can distinguish it from
+        // a seller-driven update/cancel conflict. All other callers (UPDATE,
+        // CANCEL, VERIFY) keep the generic AUCTION_INVALID_STATE code.
+        String code = "BID".equals(e.getAttemptedAction())
+                ? "AUCTION_NOT_ACTIVE"
+                : "AUCTION_INVALID_STATE";
+        pd.setProperty("code", code);
         pd.setProperty("auctionId", e.getAuctionId());
         pd.setProperty("currentState", e.getCurrentState().name());
         pd.setProperty("attemptedAction", e.getAttemptedAction());
+        return pd;
+    }
+
+    @ExceptionHandler(BidTooLowException.class)
+    public ProblemDetail handleBidTooLow(BidTooLowException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Bid Too Low");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BID_TOO_LOW");
+        pd.setProperty("minRequired", e.getMinRequired());
+        return pd;
+    }
+
+    @ExceptionHandler(SellerCannotBidException.class)
+    public ProblemDetail handleSellerCannotBid(SellerCannotBidException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Seller Cannot Bid");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SELLER_CANNOT_BID");
+        return pd;
+    }
+
+    @ExceptionHandler(NotVerifiedException.class)
+    public ProblemDetail handleNotVerified(NotVerifiedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Not Verified");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_VERIFIED");
+        return pd;
+    }
+
+    @ExceptionHandler(AuctionAlreadyEndedException.class)
+    public ProblemDetail handleAuctionAlreadyEnded(
+            AuctionAlreadyEndedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Auction Already Ended");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "AUCTION_ALREADY_ENDED");
+        pd.setProperty("endsAt", e.getEndsAt().toString());
         return pd;
     }
 

@@ -100,6 +100,11 @@ public class SecurityConfig {
                         // Authenticated seller-only upload + delete.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/photos").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/auctions/*/photos/**").authenticated()
+                        // Public bid history (Epic 04 sub-spec 1). Spec §4 marks
+                        // GET /auctions/{id}/bids as public — bid identity is
+                        // public per DESIGN.md §1589-1591. Must sit before the
+                        // /api/v1/** catch-all. FOOTGUNS §B.5.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/bids").permitAll()
                         // --- End Epic 03 sub-spec 1 Task 9 additions ---
                         // Bot worker queue (Epic 03 sub-spec 1, Task 8). Ships without auth
                         // in sub-spec 1 — Epic 06 (SL bot service) will add bot worker

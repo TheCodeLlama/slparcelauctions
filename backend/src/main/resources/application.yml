@@ -1,5 +1,13 @@
 server:
   port: 8080
+  # Honour X-Forwarded-For when the deployment sits behind a trusted proxy
+  # / load balancer (Epic 04 sub-spec 1 §6 IP capture). Spring installs a
+  # ForwardedHeaderFilter that rewrites HttpServletRequest.getRemoteAddr()
+  # and getRequestURL() before the controller runs, so BidController's
+  # extractClientIp helper sees the original client IP. When deployed
+  # without a trusted proxy, the header must not be spoofable at the edge —
+  # configure the reverse proxy to scrub/overwrite it.
+  forward-headers-strategy: framework
 
 spring:
   application:
