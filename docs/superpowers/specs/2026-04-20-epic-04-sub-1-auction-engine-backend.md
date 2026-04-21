@@ -39,7 +39,7 @@ Build the backend auction engine: bid placement with pessimistic-locked concurre
 4. Concurrent bid + ownership-suspension → deterministic outcome; bid that commits before the suspension is preserved, bid that commits after sees `409`.
 5. 15-second scheduler tick closes every expired auction within 30s of `ends_at`, including snipe-extended ones.
 6. Proxy resolution produces a clean 1-or-2-row bid history per transaction (no simulated climbing ladder).
-7. **Manual bid at exactly `P_max` → `400 BID_TOO_LOW`; the proxy retains the position.** (Tie flips to proxy per Q3 decision.)
+7. **Manual bid at exactly `P_max` → proxy counters at `P_max` and retains the position** (2 bid rows emitted: manual at `P_max`, then proxy auto-bid at `P_max` — proxy wins by being the last emitted). Per Q3 decision: strict `>` exhausts the proxy; equality keeps it ACTIVE.
 8. **Increasing an `EXHAUSTED` proxy's max via `PUT` reactivates the row to `ACTIVE` and re-runs step 2 resolution** against the current winning proxy (if any), emitting correct bid rows inline.
 9. `GET /api/v1/users/me/bids` returns correct derived status for all 7 buckets (`WINNING`, `OUTBID`, `WON`, `LOST`, `RESERVE_NOT_MET`, `CANCELLED`, `SUSPENDED`).
 10. WebSocket envelopes arrive only after DB commit (reader never observes "current bid X on WS, but GET shows X-1").

@@ -208,7 +208,7 @@ public class ProxyBidService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void cancelProxy(Long auctionId, Long bidderId) {
-        auctionRepo.findByIdForUpdate(auctionId)
+        Auction lockedAuction = auctionRepo.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
 
         ProxyBid proxy = proxyBidRepo
@@ -216,10 +216,11 @@ public class ProxyBidService {
                 .filter(p -> p.getStatus() == ProxyBidStatus.ACTIVE)
                 .orElseThrow(ProxyBidNotFoundException::new);
 
-        // Use the pre-reloaded auction via the proxy relationship — same row
-        // we just locked. Reading currentBidderId is safe here.
-        Long currentBidderId = proxy.getAuction().getCurrentBidderId();
-        if (Objects.equals(bidderId, currentBidderId)) {
+        // Read currentBidderId from the locked handle directly so the
+        // lock-to-read dependency is explicit in the code — a future refactor
+        // that moves the lock acquisition can't silently let this fall back to
+        // a lazy-loaded proxy.getAuction() traversal.
+        if (Objects.equals(bidderId, lockedAuction.getCurrentBidderId())) {
             throw new CannotCancelWinningProxyException();
         }
 
