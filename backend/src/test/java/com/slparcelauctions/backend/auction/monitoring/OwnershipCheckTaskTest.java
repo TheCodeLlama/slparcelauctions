@@ -69,7 +69,7 @@ class OwnershipCheckTaskTest {
     void ownerMatches_updatesTimestamp_resetsFailureCounter_doesNotSuspend() {
         Auction a = buildActive();
         a.setConsecutiveWorldApiFailures(3);
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
 
@@ -85,7 +85,7 @@ class OwnershipCheckTaskTest {
     @Test
     void ownerMismatch_delegatesToSuspensionService_forOwnershipChange() {
         Auction a = buildActive();
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         ParcelMetadata changed = meta(OTHER_AVATAR, "agent");
         when(worldApi.fetchParcel(PARCEL_UUID)).thenReturn(Mono.just(changed));
 
@@ -102,7 +102,7 @@ class OwnershipCheckTaskTest {
         // mismatch — a group owning the parcel means the seller no longer
         // controls it as an individual.
         Auction a = buildActive();
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         ParcelMetadata groupOwned = meta(SELLER_AVATAR, "group");
         when(worldApi.fetchParcel(PARCEL_UUID)).thenReturn(Mono.just(groupOwned));
 
@@ -114,7 +114,7 @@ class OwnershipCheckTaskTest {
     @Test
     void parcelNotFound_delegatesToSuspensionService_forDeletedParcel() {
         Auction a = buildActive();
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.error(new ParcelNotFoundInSlException(PARCEL_UUID)));
 
@@ -128,7 +128,7 @@ class OwnershipCheckTaskTest {
     void worldApiTimeout_incrementsCounter_updatesTimestamp_doesNotSuspend() {
         Auction a = buildActive();
         a.setConsecutiveWorldApiFailures(2);
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcel(PARCEL_UUID))
                 .thenReturn(Mono.error(new ExternalApiTimeoutException("World", "upstream 503")));
 
@@ -145,7 +145,7 @@ class OwnershipCheckTaskTest {
     void nonActiveAuction_shortCircuits_noWorldApiCall_noSuspension() {
         Auction a = buildActive();
         a.setStatus(AuctionStatus.SUSPENDED);
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
 
         task.checkOne(AUCTION_ID);
 
@@ -156,12 +156,28 @@ class OwnershipCheckTaskTest {
 
     @Test
     void missingAuction_shortCircuits_noWorldApiCall() {
-        when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.empty());
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.empty());
 
         task.checkOne(AUCTION_ID);
 
         verifyNoInteractions(worldApi);
         verifyNoInteractions(suspensionService);
+    }
+
+    // Epic 04 Task 7 — prove the lock entry path is the pessimistic variant.
+    // A regression that reverts to findById would hide the race between a
+    // bid placement and an ownership suspension.
+    @Test
+    void lockEntryPath_usesFindByIdForUpdate_notFindById() {
+        Auction a = buildActive();
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(worldApi.fetchParcel(PARCEL_UUID))
+                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+
+        task.checkOne(AUCTION_ID);
+
+        verify(auctionRepo).findByIdForUpdate(AUCTION_ID);
+        verify(auctionRepo, never()).findById(AUCTION_ID);
     }
 
     // -------------------------------------------------------------------------

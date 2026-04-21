@@ -111,8 +111,11 @@ public class AuctionController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody AuctionCancelRequest req) {
         requireVerified(principal.userId());
-        Auction a = auctionService.loadForSeller(id, principal.userId());
-        Auction cancelled = cancellationService.cancel(a, req.reason());
+        // Non-locking load authorises the seller; the service re-fetches under
+        // a pessimistic write lock for the state transition so cancellation
+        // races with bid placement / auction end serialise on the row lock.
+        auctionService.loadForSeller(id, principal.userId());
+        Auction cancelled = cancellationService.cancel(id, req.reason());
         return mapper.toSellerResponse(cancelled, null);
     }
 

@@ -59,7 +59,12 @@ public class OwnershipCheckTask {
     @Async
     @Transactional
     public void checkOne(Long auctionId) {
-        Auction auction = auctionRepo.findById(auctionId).orElse(null);
+        // Pessimistic write lock so an ownership-driven suspension does not race
+        // against a concurrent bid-placement or auction-end close. If BidService
+        // holds the lock we block until it commits, then the non-ACTIVE guard
+        // or a fresh view of currentBid decides the outcome. See
+        // BidSuspendRaceTest for the regression pin.
+        Auction auction = auctionRepo.findByIdForUpdate(auctionId).orElse(null);
         if (auction == null) {
             log.debug("Ownership check skipped: auction {} not found", auctionId);
             return;
