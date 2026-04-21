@@ -158,9 +158,12 @@ function BidHistoryPage({
     // Open the animation window on a microtask and close it after
     // ANIMATION_MS. Wrapping the open in {@code queueMicrotask} keeps
     // the state update off the effect's synchronous path so the lint
-    // rule doesn't flag a cascading render.
+    // rule doesn't flag a cascading render. {@code queueMicrotask} has
+    // no cancel handle — a stale open firing after unmount is harmless
+    // because {@code lastFiredRef} guards re-entry and React 19 no-ops
+    // {@code setState} on unmounted components.
     const targetId = topBidId;
-    const openHandle = queueMicrotask(() => {
+    queueMicrotask(() => {
       setAnimatedId(targetId);
     });
     const closeHandle = setTimeout(() => {
@@ -168,12 +171,6 @@ function BidHistoryPage({
     }, ANIMATION_MS);
     return () => {
       clearTimeout(closeHandle);
-      // queueMicrotask has no direct cancel — it fires before the
-      // next macrotask. In practice the close timeout runs long
-      // after the microtask, so a stale open firing after unmount
-      // is harmless: setAnimatedId on an unmounted component is a
-      // no-op in React 19, and the next mount re-initializes.
-      void openHandle;
     };
   }, [topBidId]);
 

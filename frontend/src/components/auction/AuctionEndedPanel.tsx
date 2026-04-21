@@ -287,14 +287,26 @@ function formatAmount(value: number | null): string {
  * the page rendered with an already-ENDED DTO from the REST fetch), we
  * infer the outcome from available fields. Seller DTOs carry
  * {@code reservePrice} + {@code buyNowPrice}; public DTOs expose
- * {@code reserveMet}. Defaults to {@code SOLD} when we have a high bid
- * and to {@code NO_BIDS} otherwise.
+ * {@code reserveMet}. Buy-now is checked first because a qualifying
+ * final bid means {@code BOUGHT_NOW} regardless of reserve state;
+ * defaults to {@code SOLD} when we have a high bid and to {@code NO_BIDS}
+ * otherwise.
  */
 function inferOutcomeFromDto(
   auction: PublicAuctionResponse | SellerAuctionResponse,
 ): AuctionEndOutcome {
   const high = numericHighBid(auction.currentHighBid);
   if (high == null || auction.bidCount === 0) return "NO_BIDS";
+  // Buy-now check first — if the final high bid meets or exceeds the
+  // buy-now price, the auction terminated via buy-now even if the cache
+  // hasn't been stamped with {@code endOutcome} yet.
+  if (
+    "buyNowPrice" in auction &&
+    auction.buyNowPrice != null &&
+    high >= auction.buyNowPrice
+  ) {
+    return "BOUGHT_NOW";
+  }
   if ("hasReserve" in auction && auction.hasReserve && !auction.reserveMet) {
     return "RESERVE_NOT_MET";
   }

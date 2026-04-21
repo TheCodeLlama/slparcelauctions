@@ -26,9 +26,13 @@ export interface BidHistoryRowProps {
  * Single entry in the bid-history list. Layout (LTR):
  *
  * <pre>
- *   [avatar] [name + chips]                       [amount]
- *                                                 [2m ago]
+ *   [avatar name + chips]                         [amount]
+ *   [2m ago]
  * </pre>
+ *
+ * Avatar and display name share a single profile {@code <Link>} — two
+ * separate anchors to the same target would create redundant tab stops
+ * and duplicate screen-reader announcements.
  *
  * Type chips follow spec §10:
  * <ul>
@@ -56,26 +60,26 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
         isAnimated && "animate-pulse bg-primary-container/40",
       )}
     >
-      <Link
-        href={`/users/${entry.userId}`}
-        className="shrink-0"
-        aria-label={`View ${entry.bidderDisplayName}'s profile`}
-      >
-        <Avatar
-          alt={entry.bidderDisplayName}
-          name={entry.bidderDisplayName}
-          size="sm"
-        />
-      </Link>
-
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {/*
+           * Single profile link covers both the avatar and the display
+           * name — wrapping each separately creates redundant tab stops
+           * and duplicated screen-reader announcements.
+           */}
           <Link
             href={`/users/${entry.userId}`}
-            className="text-title-sm font-semibold text-on-surface hover:underline underline-offset-2"
+            className="flex items-center gap-3 hover:underline underline-offset-2"
             data-testid="bid-history-row-name"
           >
-            {entry.bidderDisplayName}
+            <Avatar
+              alt={entry.bidderDisplayName}
+              name={entry.bidderDisplayName}
+              size="sm"
+            />
+            <span className="text-title-sm font-semibold text-on-surface">
+              {entry.bidderDisplayName}
+            </span>
           </Link>
           <BidTypeChip type={entry.bidType} />
           {entry.snipeExtensionMinutes != null ? (
@@ -89,13 +93,14 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
             </StatusBadge>
           ) : null}
         </div>
-        <span
+        <time
+          dateTime={entry.createdAt}
           className="text-label-sm text-on-surface-variant"
           title={absolute}
           data-testid="bid-history-row-time"
         >
           {relative}
-        </span>
+        </time>
       </div>
 
       <span
