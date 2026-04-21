@@ -34,45 +34,55 @@ class JwtChannelInterceptorTest {
     }
 
     private Message<byte[]> stompMessage(StompCommand command, String authHeader) {
+        return stompMessage(command, authHeader, null, null);
+    }
+
+    private Message<byte[]> stompMessage(
+            StompCommand command,
+            String authHeader,
+            String destination,
+            Principal user) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
         if (authHeader != null) {
             accessor.setNativeHeader("Authorization", authHeader);
+        }
+        if (destination != null) {
+            accessor.setDestination(destination);
+        }
+        if (user != null) {
+            accessor.setUser(user);
         }
         accessor.setLeaveMutable(true);
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 
+    // ------------------------------------------------------------------------
+    // CONNECT-frame behaviour
+    // ------------------------------------------------------------------------
+
     @Test
-    @DisplayName("non-CONNECT frames pass through unchanged")
-    void preSend_nonConnectFrame_passesThrough() {
-        Message<byte[]> msg = stompMessage(StompCommand.SEND, null);
+    @DisplayName("CONNECT without Authorization header is accepted as anonymous")
+    void preSend_connectFrame_missingAuthHeader_allowsAnonymous() {
+        Message<byte[]> msg = stompMessage(StompCommand.CONNECT, null);
 
         Message<?> result = interceptor.preSend(msg, channel);
 
         assertThat(result).isSameAs(msg);
+        // No principal attached → session is anonymous; SUBSCRIBE gate
+        // enforces per-destination authorization downstream.
+        StompHeaderAccessor resultAccessor = StompHeaderAccessor.wrap(result);
+        assertThat(resultAccessor.getUser()).isNull();
         Mockito.verifyNoInteractions(jwtService);
     }
 
     @Test
-    @DisplayName("CONNECT with missing Authorization header is rejected")
-    void preSend_connectFrame_missingAuthHeader_throws() {
-        Message<byte[]> msg = stompMessage(StompCommand.CONNECT, null);
-
-        assertThatThrownBy(() -> interceptor.preSend(msg, channel))
-            .isInstanceOf(MessagingException.class)
-            .hasMessageContaining("Missing or invalid Authorization header");
-
-        Mockito.verifyNoInteractions(jwtService);
-    }
-
-    @Test
-    @DisplayName("CONNECT with malformed Bearer header is rejected")
+    @DisplayName("CONNECT with malformed (non-Bearer) Authorization header is rejected")
     void preSend_connectFrame_malformedBearer_throws() {
         Message<byte[]> msg = stompMessage(StompCommand.CONNECT, "NotBearer foo");
 
         assertThatThrownBy(() -> interceptor.preSend(msg, channel))
             .isInstanceOf(MessagingException.class)
-            .hasMessageContaining("Missing or invalid Authorization header");
+            .hasMessageContaining("Invalid Authorization header");
 
         Mockito.verifyNoInteractions(jwtService);
     }
@@ -123,5 +133,132 @@ class JwtChannelInterceptorTest {
         assertThatThrownBy(() -> interceptor.preSend(msg, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Invalid or expired access token");
+    }
+
+    // ------------------------------------------------------------------------
+    // SUBSCRIBE-frame authorization
+    // ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("SUBSCRIBE to /topic/auction/** is allowed for anonymous sessions")
+    void preSend_subscribe_publicAuctionTopic_anonymousAllowed() {
+        Message<byte[]> msg = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42", null);
+
+        Message<?> result = interceptor.preSend(msg, channel);
+
+        assertThat(result).isSameAs(msg);
+    }
+
+    @Test
+    @DisplayName("SUBSCRIBE to authenticated topic from anonymous session is rejected")
+    void preSend_subscribe_authedTopic_anonymousRejected() {
+        Message<byte[]> msg = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/ws-test", null);
+
+        assertThatThrownBy(() -> interceptor.preSend(msg, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+    }
+
+    @Test
+    @DisplayName("SUBSCRIBE from an authenticated session is allowed regardless of destination")
+    void preSend_subscribe_authedSession_allowed() {
+        Principal principal = new StompAuthenticationToken(
+            new AuthPrincipal(42L, "u@e.com", 1L));
+        Message<byte[]> msg = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/ws-test", principal);
+
+        Message<?> result = interceptor.preSend(msg, channel);
+
+        assertThat(result).isSameAs(msg);
+    }
+
+    @Test
+    @DisplayName("SUBSCRIBE to auction path with traversal segment is rejected for anonymous session")
+    void subscribe_toAuctionWithPathTraversal_isRejected() {
+        // A simple in-memory broker treats every literal string as a distinct
+        // topic, so the traversal attempt has no subscribers today — but a
+        // future swap to a STOMP relay (RabbitMQ, etc.) that normalizes paths
+        // could let /topic/auction/../ws-test escape the allowlist and land
+        // on /topic/ws-test. The strict regex rejects anything that isn't
+        // /topic/auction/{positive-integer}.
+        Message<byte[]> traversalFromRoot = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/../ws-test", null);
+        assertThatThrownBy(() -> interceptor.preSend(traversalFromRoot, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        Message<byte[]> traversalAfterId = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42/../ws-test", null);
+        assertThatThrownBy(() -> interceptor.preSend(traversalAfterId, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        Message<byte[]> trailingSegment = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42/extra", null);
+        assertThatThrownBy(() -> interceptor.preSend(trailingSegment, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        Message<byte[]> nonNumericId = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/abc", null);
+        assertThatThrownBy(() -> interceptor.preSend(nonNumericId, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+    }
+
+    @Test
+    @DisplayName("SUBSCRIBE without destination is rejected for anonymous session")
+    void preSend_subscribe_missingDestination_anonymousRejected() {
+        Message<byte[]> msg = stompMessage(
+            StompCommand.SUBSCRIBE, null, null, null);
+
+        assertThatThrownBy(() -> interceptor.preSend(msg, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("SUBSCRIBE missing destination");
+    }
+
+    // ------------------------------------------------------------------------
+    // SEND-frame authorization
+    // ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("SEND from anonymous session is rejected")
+    void preSend_send_anonymousRejected() {
+        Message<byte[]> msg = stompMessage(
+            StompCommand.SEND, null, "/app/bid", null);
+
+        assertThatThrownBy(() -> interceptor.preSend(msg, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required to send");
+    }
+
+    @Test
+    @DisplayName("SEND from authenticated session passes through")
+    void preSend_send_authed_passesThrough() {
+        Principal principal = new StompAuthenticationToken(
+            new AuthPrincipal(42L, "u@e.com", 1L));
+        Message<byte[]> msg = stompMessage(
+            StompCommand.SEND, null, "/app/bid", principal);
+
+        Message<?> result = interceptor.preSend(msg, channel);
+
+        assertThat(result).isSameAs(msg);
+    }
+
+    // ------------------------------------------------------------------------
+    // Other frames
+    // ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("DISCONNECT frames pass through unchanged")
+    void preSend_disconnect_passesThrough() {
+        Message<byte[]> msg = stompMessage(StompCommand.DISCONNECT, null);
+
+        Message<?> result = interceptor.preSend(msg, channel);
+
+        assertThat(result).isSameAs(msg);
+        Mockito.verifyNoInteractions(jwtService);
     }
 }

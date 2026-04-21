@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
@@ -49,6 +52,17 @@ class CancellationServiceTest {
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
+    /**
+     * The service re-fetches via {@code findByIdForUpdate} for the pessimistic
+     * lock. The tests pre-build an {@link Auction} and route it through the
+     * stubbed repository so each {@code cancel} call exercises the real
+     * pessimistic-lock entry path.
+     */
+    private Auction cancel(Auction a, String reason) {
+        lenient().when(auctionRepo.findByIdForUpdate(anyLong())).thenReturn(Optional.of(a));
+        return service.cancel(a.getId(), reason);
+    }
+
     // -------------------------------------------------------------------------
     // Pre-live cancellation: allowed. Refund iff fee paid.
     // -------------------------------------------------------------------------
@@ -57,7 +71,7 @@ class CancellationServiceTest {
     void cancel_draft_noFee_noBids_succeedsWithLogOnly() {
         Auction a = build(AuctionStatus.DRAFT, false, 0);
 
-        Auction out = service.cancel(a, "changed my mind");
+        Auction out = cancel(a, "changed my mind");
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.CANCELLED);
         verify(logRepo).save(any(CancellationLog.class));
@@ -71,7 +85,7 @@ class CancellationServiceTest {
         Auction a = build(AuctionStatus.DRAFT_PAID, true, 0);
         a.setListingFeeAmt(100L);
 
-        service.cancel(a, null);
+        cancel(a, null);
 
         ArgumentCaptor<ListingFeeRefund> cap = ArgumentCaptor.forClass(ListingFeeRefund.class);
         verify(refundRepo).save(cap.capture());
@@ -84,7 +98,7 @@ class CancellationServiceTest {
         Auction a = build(AuctionStatus.VERIFICATION_PENDING, true, 0);
         a.setListingFeeAmt(100L);
 
-        service.cancel(a, null);
+        cancel(a, null);
 
         verify(refundRepo).save(any(ListingFeeRefund.class));
     }
@@ -94,7 +108,7 @@ class CancellationServiceTest {
         Auction a = build(AuctionStatus.VERIFICATION_FAILED, true, 0);
         a.setListingFeeAmt(100L);
 
-        service.cancel(a, null);
+        cancel(a, null);
 
         verify(refundRepo).save(any(ListingFeeRefund.class));
     }
@@ -109,7 +123,7 @@ class CancellationServiceTest {
         a.setListingFeeAmt(100L);
         a.setEndsAt(OffsetDateTime.now(fixed).plusHours(10));
 
-        service.cancel(a, null);
+        cancel(a, null);
 
         verify(refundRepo, never()).save(any());
         verify(userRepo, never()).save(any());
@@ -122,7 +136,7 @@ class CancellationServiceTest {
         a.setListingFeeAmt(100L);
         a.setEndsAt(OffsetDateTime.now(fixed).plusHours(10));
 
-        service.cancel(a, null);
+        cancel(a, null);
 
         verify(refundRepo, never()).save(any());
         verify(userRepo).save(seller);
@@ -134,7 +148,7 @@ class CancellationServiceTest {
         Auction a = build(AuctionStatus.ACTIVE, false, 0);
         a.setEndsAt(OffsetDateTime.now(fixed).minusMinutes(1));
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -146,7 +160,7 @@ class CancellationServiceTest {
     void cancel_ended_throwsInvalidState() {
         Auction a = build(AuctionStatus.ENDED, false, 0);
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -154,7 +168,7 @@ class CancellationServiceTest {
     void cancel_escrowPending_throwsInvalidState() {
         Auction a = build(AuctionStatus.ESCROW_PENDING, false, 0);
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -162,7 +176,7 @@ class CancellationServiceTest {
     void cancel_completed_throwsInvalidState() {
         Auction a = build(AuctionStatus.COMPLETED, false, 0);
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -170,7 +184,7 @@ class CancellationServiceTest {
     void cancel_alreadyCancelled_throwsInvalidState() {
         Auction a = build(AuctionStatus.CANCELLED, false, 0);
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -178,7 +192,7 @@ class CancellationServiceTest {
     void cancel_expired_throwsInvalidState() {
         Auction a = build(AuctionStatus.EXPIRED, false, 0);
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
@@ -186,15 +200,23 @@ class CancellationServiceTest {
     void cancel_disputed_throwsInvalidState() {
         Auction a = build(AuctionStatus.DISPUTED, false, 0);
 
-        assertThatThrownBy(() -> service.cancel(a, null))
+        assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
+    }
+
+    @Test
+    void cancel_missingAuction_throwsNotFound() {
+        lenient().when(auctionRepo.findByIdForUpdate(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancel(999L, "gone"))
+                .isInstanceOf(AuctionNotFoundException.class);
     }
 
     @Test
     void cancel_cancellationLogCapturesFromStatus() {
         Auction a = build(AuctionStatus.DRAFT, false, 0);
 
-        service.cancel(a, "manual test reason");
+        cancel(a, "manual test reason");
 
         ArgumentCaptor<CancellationLog> cap = ArgumentCaptor.forClass(CancellationLog.class);
         verify(logRepo).save(cap.capture());

@@ -182,8 +182,7 @@ class ParcelLockingRaceIntegrationTest {
         // this task; the lock-release semantics we care about are owned by the service.
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(ts -> {
-            Auction a1 = auctionRepository.findById(a1Id).orElseThrow();
-            cancellationService.cancel(a1, "switching");
+            cancellationService.cancel(a1Id, "switching");
         });
 
         // After the failed verify above, @Transactional rolled back the VERIFICATION_PENDING

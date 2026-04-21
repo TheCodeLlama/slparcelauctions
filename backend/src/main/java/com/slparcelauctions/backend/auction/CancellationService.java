@@ -7,6 +7,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -19,6 +20,14 @@ import lombok.extern.slf4j.Slf4j;
  * states; disallowed from ENDED+ (transfer in progress) and terminal states.
  * Refund records are created for any state where listingFeePaid=true. Bid counter
  * increments only when cancelling an ACTIVE auction with bids.
+ *
+ * <p><strong>Concurrency model.</strong> The method accepts an id rather than a
+ * pre-loaded entity and re-fetches under {@link AuctionRepository#findByIdForUpdate}
+ * so that a cancellation racing against {@code BidService.placeBid} or
+ * {@code AuctionEndTask.closeOne} serialises at the database row lock. The
+ * loser sees whichever status the winner committed (ACTIVE → CANCELLED or
+ * ACTIVE → ENDED) and surfaces a {@link InvalidAuctionStateException}. See
+ * {@code BidCancelRaceTest} for the pin.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,7 +48,9 @@ public class CancellationService {
     private final Clock clock;
 
     @Transactional
-    public Auction cancel(Auction a, String reason) {
+    public Auction cancel(Long auctionId, String reason) {
+        Auction a = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
         if (!CANCELLABLE.contains(a.getStatus())) {
             throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "CANCEL");
         }

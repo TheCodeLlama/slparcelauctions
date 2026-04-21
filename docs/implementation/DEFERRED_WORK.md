@@ -87,11 +87,11 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite (cosmetic)
 - **Notes:** `frontend/src/components/user/ProfilePictureUploader.tsx`.
 
-### Real data for My Bids tab
+### My Bids dashboard frontend (consume the backend endpoint)
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
-- **Why:** Tab skeleton ships with empty-state placeholder. Real data requires auction model from Epic 04.
-- **When:** Epic 04 (Auction Engine)
-- **Notes:** `frontend/src/app/dashboard/(verified)/bids/page.tsx` currently renders `<EmptyState>`.
+- **Why:** Tab skeleton ships with empty-state placeholder. Backend `GET /api/v1/users/me/bids` landed in Epic 04 sub-spec 1 Task 8 with derived status across all 7 buckets; the frontend consumer (My Bids tab UI, paginated list, status filter chips) is out-of-scope for sub-spec 1 and lands in sub-spec 2 per its scope split.
+- **When:** Epic 04 sub-spec 2
+- **Notes:** `frontend/src/app/dashboard/(verified)/bids/page.tsx` currently renders `<EmptyState>`. Backend DTOs live in `backend/src/main/java/com/slparcelauctions/backend/auction/mybids/` (`MyBidSummary`, `AuctionSummaryForMyBids`, `MyBidStatus`).
 
 ### Recent reviews section on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
@@ -170,6 +170,54 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** The Button `destructive` variant landed in Task 10 with `bg-error text-on-error`, sufficient for the `CancelListingModal` use case. Future destructive surfaces (delete-account, bulk cancel, fraud-flag un-suspend) may want a richer treatment — e.g. an icon-left convention, a "are you sure" two-step gesture, or a reduced-emphasis destructive outline variant for less consequential destructive actions.
 - **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
+
+### N+1 on My Bids auction loading
+- **From:** Epic 04 sub-spec 1 (Task 8)
+- **Why:** `MyBidsService.findAuctionPage` loads auctions one-by-one via `AuctionRepository.findById` to trip the `@EntityGraph` on parcel + tags. `Auction.seller` is not in the EntityGraph and lazy-loads per-row, producing ~2 extra queries per auction on a page of 20 (up to ~43 queries total per page). At Phase 1 volumes this is acceptable (bounded by page size = 20) but is worth fixing before scale.
+- **When:** Near-term cleanup after sub-spec 2 frontend lands — likely the frontend will reveal whether seller display name is needed for every card.
+- **Notes:** Fix options: (a) add `seller` to the existing `@EntityGraph` on `findById` (affects all callers); (b) add a dedicated `findAllByIdWithParcelAndSeller(Collection<Long>)` query that `MyBidsService` uses instead of the per-id loop.
+
+### My Bids non-ACTIVE sort key deviation
+- **From:** Epic 04 sub-spec 1 (Task 8)
+- **Why:** Spec §10 specifies conditional `ORDER BY` using `CASE WHEN a.status = 'ACTIVE' THEN a.ends_at END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.ended_at END DESC`. The actual query uses unconditional `a.endsAt DESC, a.endedAt DESC`, which means non-ACTIVE auctions are ordered by `endsAt` first. At Phase 1 volumes the drift is small (snipe-extended auctions diverge by at most 2-60 minutes) but is a documented spec deviation.
+- **When:** Fix when sub-spec 2 frontend surfaces sort-order concerns, or during an Epic 04 cleanup pass.
+- **Notes:** Replace `a.endsAt DESC, a.endedAt DESC` with `CASE WHEN a.status = 'ACTIVE' THEN a.endsAt END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.endedAt END DESC` (Postgres tolerates NULLs in CASE-based ORDER BY).
+
+### Migrate Epic 02/03 write paths onto NotVerifiedException
+- **From:** Epic 04 sub-spec 1 (Task 2 — bid placement)
+- **Why:** `NotVerifiedException` was introduced to give the bid path a clean `NOT_VERIFIED` (403) error code. Pre-existing verification checks in `AuctionController.requireVerified`, parcel controllers, and other write paths still throw raw `AccessDeniedException` with inline message strings, producing `ACCESS_DENIED` instead of `NOT_VERIFIED`. Frontend UX distinguishing the two codes will only see `NOT_VERIFIED` from the bid path until the migration lands.
+- **When:** Near-term — trivially, a one-line swap at each existing call site. Deferred from Task 2 to keep the scope tight; pick up as a standalone cleanup task or roll into the Epic 04 sub-spec 2 frontend work when the UX for verification prompts is wired.
+- **Notes:** Search for `AccessDeniedException` call sites that include the string "verification required" (or equivalent) — those are the migration targets. `NotVerifiedException` already exists at `backend/src/main/java/com/slparcelauctions/backend/auction/exception/NotVerifiedException.java` and has an existing handler in `AuctionExceptionHandler.java`.
+
+### DESIGN.md §554 stale wording cleanup
+- **From:** Epic 04 sub-spec 1 (spec §15 follow-up)
+- **Why:** DESIGN.md §554 says "Bid history (anonymized or public - configurable)" — leftover wording from an earlier iteration of the spec. §1589-1591 explicitly resolves bidder identity visibility as public (display name + avatar, no anonymization toggle) and Epic 04 sub-spec 1 ships the public-identity behavior. Anyone grepping DESIGN.md for "anonymized" will hit a contradiction.
+- **When:** Next doc sweep / any epic that reopens DESIGN.md for structural edits.
+- **Notes:** One-sentence replacement — "Bid history (public — displayName + avatar only, no IP or full name)" lines up with the implemented behavior.
+
+### Outbid / won / reserve-not-met / auction-ended notifications
+- **From:** Epic 04 sub-spec 1 (spec §15)
+- **Why:** Epic 04 sub-spec 1 publishes the data sources — `Bid` rows carry `OUTBID` / `WON` / `LOST` derivable state, `Auction.endOutcome` carries `SOLD` / `RESERVE_NOT_MET` / `NO_BIDS` / `BOUGHT_NOW`, and the WS settlement + auction-ended envelopes broadcast the transitions. No email / SL IM fan-out exists yet. Bidders learn they've been outbid only by reloading the auction page or watching the live WS update; sellers learn the auction ended only by reloading My Listings.
+- **When:** Epic 09 (Notifications) — hook a `BidSettlementEnvelope` / `AuctionEndedEnvelope` listener into the notification publisher once email + SL IM channels exist.
+- **Notes:** The data sources are stable — `BidType`, `Auction.endOutcome`, `Auction.winnerUserId`, and the existing WS envelopes carry everything Epic 09 needs. No schema changes required on the Epic 04 side.
+
+### User-targeted WebSocket queues (`/user/{id}/queue/*`)
+- **From:** Epic 04 sub-spec 1 (spec §15)
+- **Why:** Phase 1 broadcasts use only the public `/topic/auction/{id}` destination. Personal events (e.g., "you were outbid on auction X" toast) are derived on the frontend by comparing the public envelope's `currentBidderId` against the logged-in user. Per-user STOMP queues (`/user/{id}/queue/outbid`, `/user/{id}/queue/won`) would let the backend push targeted events without a public broadcast and would integrate with Epic 09's notification fan-out.
+- **When:** Epic 09 (Notifications) — when email + SL IM + in-app push unify on a single publisher, add the user-queue destination at the same time for consistency.
+- **Notes:** The `JwtChannelInterceptor` already understands principal-gated destinations — adding `/user/**` to the gate is a small change. The frontend's `useStompSubscription` hook would grow a `/user/queue/*` variant.
+
+### Escrow handoff from ENDED + SOLD
+- **From:** Epic 04 sub-spec 1 (spec §15)
+- **Why:** `AuctionEndTask.closeOne` flips an auction to `ENDED` with `endOutcome=SOLD` + `winnerUserId` + `finalBidAmount`, but nothing downstream picks it up to drive the L$ handoff from buyer to seller or the in-world parcel transfer. The auction sits in `ENDED+SOLD` awaiting Epic 05's escrow pipeline.
+- **When:** Epic 05 (Escrow Manager) — poll `auctions WHERE status='ENDED' AND end_outcome='SOLD' AND escrow_status IS NULL` (new column) and drive the buyer-charge + seller-payout + parcel-transfer sequence.
+- **Notes:** The Epic 05 spec will define the `escrow_status` column (or equivalent lifecycle table) and the retry semantics for buyer-payment-failure. Do not repurpose `auction.status` for escrow states — keep status at `ENDED` so the public DTO collapses to `ENDED` per spec §7.
+
+### Cancellation WS broadcast on active-auction cancel
+- **From:** Epic 04 sub-spec 1 (spec §15)
+- **Why:** When a seller cancels an ACTIVE auction with bids (rare — requires explicit confirmation through the sub-spec 2 cancel modal), no `/topic/auction/{id}` envelope is currently published. Bidders watching the auction detail page in real-time see no update until they reload. This is a consistency gap with the bid/end broadcasts that both publish on `afterCommit`.
+- **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
+- **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
 
 ---
 

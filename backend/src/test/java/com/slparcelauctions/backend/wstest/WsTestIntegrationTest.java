@@ -158,12 +158,18 @@ class WsTestIntegrationTest {
     }
 
     @Test
-    void stompConnectWithoutAuthHeader_isRejected() {
-        // No Authorization header in connectHeaders — interceptor throws
-        // MessagingException which surfaces as a connect failure.
+    void stompConnectWithoutAuthHeader_acceptsButCannotSubscribeToAuthedTopic() throws Exception {
+        // Epic 04 sub-spec 1 §4: /topic/auction/** is public, so anonymous
+        // CONNECTs are permitted. The SUBSCRIBE gate then rejects attempts
+        // to subscribe to authenticated destinations such as /topic/ws-test.
+        // The server responds with a STOMP ERROR frame which Spring's
+        // client surfaces through handleException / handleTransportError
+        // before closing the session.
         StompHeaders connectHeaders = new StompHeaders();
 
         CompletableFuture<StompSession> sessionFuture = new CompletableFuture<>();
+        CompletableFuture<Throwable> subscribeError = new CompletableFuture<>();
+
         stompClient.connectAsync(
             wsUrl(),
             new WebSocketHttpHeaders(),
@@ -177,20 +183,41 @@ class WsTestIntegrationTest {
                 @Override
                 public void handleException(StompSession session, StompCommand command,
                                             StompHeaders headers, byte[] payload, Throwable exception) {
-                    sessionFuture.completeExceptionally(exception);
+                    if (!sessionFuture.isDone()) {
+                        sessionFuture.completeExceptionally(exception);
+                    } else {
+                        subscribeError.complete(exception);
+                    }
                 }
 
                 @Override
                 public void handleTransportError(StompSession session, Throwable exception) {
                     if (!sessionFuture.isDone()) {
                         sessionFuture.completeExceptionally(exception);
+                    } else if (!subscribeError.isDone()) {
+                        subscribeError.complete(exception);
                     }
                 }
             }
         );
 
-        assertThatThrownBy(() -> sessionFuture.get(5, TimeUnit.SECONDS))
-            .isInstanceOfAny(ExecutionException.class, TimeoutException.class);
+        StompSession session = sessionFuture.get(5, TimeUnit.SECONDS);
+        assertThat(session.isConnected())
+            .as("anonymous CONNECT must be accepted per Epic 04 §4")
+            .isTrue();
+
+        session.subscribe("/topic/ws-test", new StompFrameHandler() {
+            @Override
+            public java.lang.reflect.Type getPayloadType(StompHeaders headers) {
+                return Map.class;
+            }
+            @Override
+            public void handleFrame(StompHeaders headers, Object payload) { /* unused */ }
+        });
+
+        assertThat(subscribeError.get(5, TimeUnit.SECONDS))
+            .as("server must reject anonymous SUBSCRIBE to authed destination")
+            .isNotNull();
     }
 
     @Test

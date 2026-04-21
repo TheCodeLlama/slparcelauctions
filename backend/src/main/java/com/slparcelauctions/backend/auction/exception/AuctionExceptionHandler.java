@@ -32,10 +32,60 @@ public class AuctionExceptionHandler {
                 HttpStatus.CONFLICT, e.getMessage());
         pd.setTitle("Invalid Auction State");
         pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "AUCTION_INVALID_STATE");
+        // Bid-placement paths hit this when auction.status != ACTIVE — surface
+        // the bid-oriented error code so the frontend can distinguish it from
+        // a seller-driven update/cancel conflict. All other callers (UPDATE,
+        // CANCEL, VERIFY) keep the generic AUCTION_INVALID_STATE code.
+        String code = "BID".equals(e.getAttemptedAction())
+                ? "AUCTION_NOT_ACTIVE"
+                : "AUCTION_INVALID_STATE";
+        pd.setProperty("code", code);
         pd.setProperty("auctionId", e.getAuctionId());
         pd.setProperty("currentState", e.getCurrentState().name());
         pd.setProperty("attemptedAction", e.getAttemptedAction());
+        return pd;
+    }
+
+    @ExceptionHandler(BidTooLowException.class)
+    public ProblemDetail handleBidTooLow(BidTooLowException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Bid Too Low");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BID_TOO_LOW");
+        pd.setProperty("minRequired", e.getMinRequired());
+        return pd;
+    }
+
+    @ExceptionHandler(SellerCannotBidException.class)
+    public ProblemDetail handleSellerCannotBid(SellerCannotBidException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Seller Cannot Bid");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SELLER_CANNOT_BID");
+        return pd;
+    }
+
+    @ExceptionHandler(NotVerifiedException.class)
+    public ProblemDetail handleNotVerified(NotVerifiedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Not Verified");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_VERIFIED");
+        return pd;
+    }
+
+    @ExceptionHandler(AuctionAlreadyEndedException.class)
+    public ProblemDetail handleAuctionAlreadyEnded(
+            AuctionAlreadyEndedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Auction Already Ended");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "AUCTION_ALREADY_ENDED");
+        pd.setProperty("endsAt", e.getEndsAt().toString());
         return pd;
     }
 
@@ -127,6 +177,63 @@ public class AuctionExceptionHandler {
         pd.setProperty("code", "PHOTO_LIMIT_EXCEEDED");
         pd.setProperty("currentCount", e.getCurrentCount());
         pd.setProperty("maxAllowed", e.getMaxAllowed());
+        return pd;
+    }
+
+    @ExceptionHandler(ProxyBidAlreadyExistsException.class)
+    public ProblemDetail handleProxyBidAlreadyExists(
+            ProxyBidAlreadyExistsException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Proxy Bid Already Exists");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PROXY_BID_ALREADY_EXISTS");
+        return pd;
+    }
+
+    @ExceptionHandler(ProxyBidNotFoundException.class)
+    public ProblemDetail handleProxyBidNotFound(
+            ProxyBidNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Proxy Bid Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PROXY_BID_NOT_FOUND");
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidProxyStateException.class)
+    public ProblemDetail handleInvalidProxyState(
+            InvalidProxyStateException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Invalid Proxy State");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INVALID_PROXY_STATE");
+        pd.setProperty("reason", e.getReason());
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidProxyMaxException.class)
+    public ProblemDetail handleInvalidProxyMax(
+            InvalidProxyMaxException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Invalid Proxy Max");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INVALID_PROXY_MAX");
+        pd.setProperty("reason", e.getReason());
+        return pd;
+    }
+
+    @ExceptionHandler(CannotCancelWinningProxyException.class)
+    public ProblemDetail handleCannotCancelWinningProxy(
+            CannotCancelWinningProxyException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Cannot Cancel Winning Proxy");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "CANNOT_CANCEL_WINNING_PROXY");
         return pd;
     }
 

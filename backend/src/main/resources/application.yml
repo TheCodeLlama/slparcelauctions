@@ -1,5 +1,12 @@
 server:
   port: 8080
+  # Spring's ForwardedHeaderFilter resolves X-Forwarded-For into
+  # getRemoteAddr(). This is only safe when the deployment sits behind a
+  # trusted reverse proxy (e.g. Cloudflare, AWS ALB, nginx) that overwrites
+  # or strips client-supplied X-Forwarded-For headers. Local dev without a
+  # proxy falls back to the socket peer address, which is correct.
+  # Production deployments MUST front the app with a scrubbing proxy.
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -87,3 +94,6 @@ slpa:
     check-interval-minutes: 30
     scheduler-frequency: PT30S
     jitter-max-minutes: 5
+  auction-end:
+    enabled: true
+    scheduler-frequency: PT15S
