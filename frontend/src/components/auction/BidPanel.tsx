@@ -10,6 +10,7 @@ import { AuctionEndedPanel } from "./AuctionEndedPanel";
 import { AuthGateMessage } from "./AuthGateMessage";
 import { PlaceBidForm } from "./PlaceBidForm";
 import { ProxyBidSection } from "./ProxyBidSection";
+import { ReconnectingBanner } from "./ReconnectingBanner";
 import { ReserveStatusIndicator } from "./ReserveStatusIndicator";
 import { SnipeExtensionBanner } from "./SnipeExtensionBanner";
 import { SnipeProtectionBadge } from "./SnipeProtectionBadge";
@@ -121,6 +122,7 @@ function BidderPanel({
       data-testid="bid-panel-bidder"
       className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
     >
+      <ReconnectingBanner state={connectionState} />
       {snipeExtension ? (
         <SnipeExtensionBanner
           key={snipeExtension.token}

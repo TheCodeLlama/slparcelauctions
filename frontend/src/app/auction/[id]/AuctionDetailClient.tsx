@@ -25,6 +25,8 @@ import { BidPanel } from "@/components/auction/BidPanel";
 import { BidHistoryList } from "@/components/auction/BidHistoryList";
 import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
 import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner";
+import { OutbidToastProvider } from "@/components/auction/OutbidToastProvider";
+import { useToast } from "@/components/ui/Toast";
 
 /**
  * Client shell for the auction detail page.
@@ -53,14 +55,26 @@ interface Props {
  * {@code endOutcome}, {@code finalBidAmount}, {@code winnerUserId}) so the
  * cache needs a type that admits both. TypeScript narrows back to each DTO
  * at consumer sites via discriminators like {@code status}.
+ *
+ * {@code currentBidderId} is persisted from every {@link BidSettlementEnvelope}
+ * so {@link OutbidToastProvider.maybeFire} has a reliable pre-settlement
+ * snapshot and {@code currentUserIsWinning} can be derived without a
+ * separate query. Neither DTO carries this field today — the initial
+ * server fetch leaves it {@code undefined}, which is indistinguishable
+ * from "no one has bid yet" for the outbid-guard (and that's the correct
+ * semantics: the first envelope can never displace the caller).
  */
-type AuctionCacheEntry =
+type AuctionCacheEntry = (
   | PublicAuctionResponse
   | SellerAuctionResponse
-  | (PublicAuctionResponse & Partial<SellerAuctionResponse>);
+  | (PublicAuctionResponse & Partial<SellerAuctionResponse>)
+) & {
+  currentBidderId?: number | null;
+};
 
 export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const session = useAuth();
   const currentUserId =
     session.status === "authenticated" ? session.user.id : null;
@@ -144,6 +158,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             return {
               ...prev,
               currentHighBid: env.currentBid,
+              currentBidderId: env.currentBidderId,
               bidderCount: env.bidCount,
               endsAt: env.endsAt,
               originalEndsAt: env.originalEndsAt,
@@ -210,19 +225,19 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           }));
         }
 
-        // Outbid-toast hook point. The full was-winning-guard + toast
-        // plumbing ships in Task 7 via {@code OutbidToastProvider.maybeFire};
-        // until then the snapshot above keeps the signature stable so Task 7
-        // doesn't need to rewire the envelope flow.
-        void prevAuction;
-        void currentUserId;
+        // Outbid-toast signal. Guards documented inside
+        // {@link OutbidToastProvider.maybeFire}: was-winning + now-
+        // losing, with anonymous / first-envelope / still-winning cases
+        // short-circuiting. The cache snapshot taken before the merge
+        // above is the authoritative pre-settlement state.
+        OutbidToastProvider.maybeFire(prevAuction, env, currentUserId, toast);
       }
 
       if (env.type === "AUCTION_ENDED") {
         queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
       }
     },
-    [queryClient, id, currentUserId],
+    [queryClient, id, currentUserId, toast],
   );
 
   useStompSubscription<AuctionEnvelope>(
@@ -310,10 +325,11 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
               }
               existingProxy={myProxyQuery.data ?? null}
               connectionState={connectionState}
-              // TODO(task-7): derive from BID_SETTLEMENT.currentBidderId snapshot —
-              // Task 7 (OutbidToastProvider) already computes prevAuction +
-              // currentUserId, so that's the natural place to thread this through.
-              currentUserIsWinning={false}
+              currentUserIsWinning={
+                currentUserId != null &&
+                (auction as AuctionCacheEntry).currentBidderId ===
+                  currentUserId
+              }
               snipeExtension={{ ...snipeSignal, onExpire: clearSnipeSignal }}
             />
           </div>

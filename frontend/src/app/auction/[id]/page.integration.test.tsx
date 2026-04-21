@@ -587,4 +587,187 @@ describe("AuctionDetailClient", () => {
       "connected",
     );
   });
+
+  // ---------------------------------------------------------------
+  // Task 7: outbid toast + ReconnectingBanner + form disable.
+  // ---------------------------------------------------------------
+
+  it("fires the outbid toast when the caller is displaced by a BID_SETTLEMENT", async () => {
+    let capturedOnMessage:
+      | ((env: AuctionEnvelope) => void)
+      | null = null;
+    subscribeMock.mockImplementation(
+      (_destination: string, onMessage: (env: AuctionEnvelope) => void) => {
+        capturedOnMessage = onMessage;
+        return () => {};
+      },
+    );
+
+    // Seed a first envelope that marks the caller (id=999) as the high
+    // bidder, then a second envelope that displaces them.
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    act(() => {
+      capturedOnMessage!(
+        bidSettlement({
+          currentBid: 1800,
+          currentBidderId: verifiedBidder.id,
+          newBids: [
+            bidHistoryEntry({
+              bidId: 10,
+              userId: verifiedBidder.id,
+              amount: 1800,
+            }),
+          ],
+        }),
+      );
+    });
+
+    // Now a competitor outbids the caller.
+    act(() => {
+      capturedOnMessage!(
+        bidSettlement({
+          currentBid: 2500,
+          currentBidderId: 55,
+          newBids: [
+            bidHistoryEntry({
+              bidId: 11,
+              userId: 55,
+              bidderDisplayName: "Bob",
+              amount: 2500,
+            }),
+          ],
+        }),
+      );
+    });
+
+    // The ToastProvider defers setToasts via setTimeout(0). waitFor's
+    // default 1s polling is plenty to flush the tick on real timers.
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/outbid/i);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("L$2,500");
+  });
+
+  it("does NOT fire the outbid toast when the caller wasn't winning", async () => {
+    let capturedOnMessage:
+      | ((env: AuctionEnvelope) => void)
+      | null = null;
+    subscribeMock.mockImplementation(
+      (_destination: string, onMessage: (env: AuctionEnvelope) => void) => {
+        capturedOnMessage = onMessage;
+        return () => {};
+      },
+    );
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    // First envelope: some other bidder (id=77) takes the lead.
+    act(() => {
+      capturedOnMessage!(
+        bidSettlement({
+          currentBid: 1800,
+          currentBidderId: 77,
+          newBids: [
+            bidHistoryEntry({
+              bidId: 20,
+              userId: 77,
+              amount: 1800,
+            }),
+          ],
+        }),
+      );
+    });
+
+    // Second envelope: a different competitor outbids 77. Our viewer
+    // was never winning, so no toast should fire.
+    act(() => {
+      capturedOnMessage!(
+        bidSettlement({
+          currentBid: 2500,
+          currentBidderId: 55,
+          newBids: [
+            bidHistoryEntry({
+              bidId: 21,
+              userId: 55,
+              amount: 2500,
+            }),
+          ],
+        }),
+      );
+    });
+
+    // Let the Toast provider's setTimeout(0) flush — if a toast were
+    // going to fire, it would have by now. Wait a tick via waitFor so
+    // we're not racing the microtask queue.
+    await waitFor(() => {
+      expect(screen.getByTestId("bid-panel-current-high")).toHaveTextContent(
+        "L$ 2,500",
+      );
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("renders the ReconnectingBanner inside the BidPanel when WS is reconnecting", () => {
+    getConnectionStateMock.mockReturnValue({ status: "reconnecting" });
+    subscribeToConnectionStateMock.mockImplementation(
+      (listener: (state: { status: string }) => void) => {
+        listener({ status: "reconnecting" });
+        return () => {};
+      },
+    );
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    const banner = screen.getByTestId("reconnecting-banner");
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveTextContent(/Reconnecting/);
+    // The banner renders inside the bidder variant container, not as a
+    // sibling of the whole panel slot.
+    expect(
+      screen.getByTestId("bid-panel-bidder").contains(banner),
+    ).toBe(true);
+  });
+
+  it("disables the place-bid submit when connection is not connected", () => {
+    getConnectionStateMock.mockReturnValue({ status: "reconnecting" });
+    subscribeToConnectionStateMock.mockImplementation(
+      (listener: (state: { status: string }) => void) => {
+        listener({ status: "reconnecting" });
+        return () => {};
+      },
+    );
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    expect(screen.getByTestId("place-bid-submit")).toBeDisabled();
+    expect(screen.getByTestId("proxy-bid-submit")).toBeDisabled();
+    expect(
+      screen.getByTestId("place-bid-connection-helper"),
+    ).toHaveTextContent(/Waiting for connection/);
+  });
 });
