@@ -1,0 +1,20 @@
+package com.slparcelauctions.backend.escrow.broadcast;
+
+/**
+ * Abstraction over the WebSocket broadcast layer for escrow events. The
+ * production implementation is {@link StompEscrowBroadcastPublisher}; a
+ * no-op fallback steps aside for slices that don't need real broadcasts.
+ * Every publish method is safe to invoke from a
+ * {@code TransactionSynchronization.afterCommit} callback. Method set
+ * grows per task as new envelope variants land.
+ */
+public interface EscrowBroadcastPublisher {
+
+    /**
+     * Publishes an {@link EscrowCreatedEnvelope} after the auction-end
+     * transaction commits. Called by {@code EscrowService.createForEndedAuction}
+     * via an {@code afterCommit} callback so subscribers never observe a row
+     * that gets rolled back with the close.
+     */
+    void publishCreated(EscrowCreatedEnvelope envelope);
+}
