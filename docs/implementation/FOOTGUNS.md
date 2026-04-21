@@ -964,6 +964,14 @@ Discovered during MSW lifecycle wiring in Task 01-08 Task 4.
 
 **How to apply:** when editing `SecurityConfig.authorizeHttpRequests`, verify the `/ws/**` matcher is still above `/api/**`. If code review proposes "tightening" it to `.authenticated()`, reject — browsers cannot send the required header.
 
+### F.16.1 Anonymous STOMP CONNECT is intentional — SUBSCRIBE gate is where auth lives
+
+**Rule:** Epic 04 sub-spec 1 §4 requires `/topic/auction/**` to be publicly subscribable. `JwtChannelInterceptor.handleConnect` therefore accepts CONNECT frames with no `Authorization` header (no principal attached → session is anonymous). Authorization for per-destination access moves into `handleSubscribe`, which only lets anonymous sessions SUBSCRIBE to prefixes in `PUBLIC_SUBSCRIBE_PREFIXES`. SEND and all other authenticated-destination SUBSCRIBEs require a principal.
+
+**Why:** browsers cannot put a bearer on the WebSocket upgrade, and forcing auth on CONNECT would lock unauthenticated viewers out of the public auction feed — but auth still has to live somewhere. Moving it to SUBSCRIBE keeps the public topic genuinely public while preventing an anonymous session from piggybacking on the `/topic/ws-test` / `/user/**` queues. An invalid or expired token in CONNECT is still rejected — only *absence* of the header opts the session into anonymous mode.
+
+**How to apply:** every new STOMP destination must be consciously labelled public or authenticated. Public → add its prefix to `PUBLIC_SUBSCRIBE_PREFIXES` in `JwtChannelInterceptor`. Authenticated → do nothing; the default path rejects anonymous SUBSCRIBEs. Never "simplify" the SUBSCRIBE branch back to a pass-through; doing so re-opens every current and future topic to anonymous subscribers.
+
 ### F.17 `ensureFreshAccessToken` stampede guard — `finally` inside the IIFE
 
 **Rule:** In `lib/auth/refresh.ts`, the `inFlightRefresh = null` cleanup MUST live inside the IIFE's `try { ... } finally { inFlightRefresh = null; }`, not after the outer promise chain. The shared promise between HTTP 401 interceptor and STOMP `beforeConnect` depends on this: if the cleanup runs outside the IIFE, every awaiter nulls the ref as they resolve, and a concurrent refresh kicked off during the resolution window sees `null` and fires a second `/api/auth/refresh`, defeating the stampede guard.

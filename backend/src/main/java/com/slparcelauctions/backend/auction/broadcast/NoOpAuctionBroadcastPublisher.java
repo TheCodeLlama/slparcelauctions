@@ -7,13 +7,13 @@ import org.springframework.context.annotation.Configuration;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Default {@link AuctionBroadcastPublisher} configuration for Task 2 — logs
- * the envelope type and drops it. Task 5 registers a STOMP-backed
- * implementation; because the production bean is declared elsewhere, this
- * {@code @ConditionalOnMissingBean} default steps aside automatically once
- * the real publisher exists. This lets the bid-placement path compile, run
- * tests, and publish envelopes in dev/test profiles without standing up a
- * WebSocket broker.
+ * Fallback {@link AuctionBroadcastPublisher} that logs the envelope and drops
+ * it. Kept on the classpath as a safety net for unit-test slices or
+ * degenerate configurations that omit
+ * {@link StompAuctionBroadcastPublisher}. In normal dev/prod runs the Stomp
+ * bean is present, this {@code @ConditionalOnMissingBean} default steps
+ * aside automatically, and the real publisher fans the envelope out to
+ * {@code /topic/auction/{id}}.
  *
  * <p>Wired through a dedicated {@code @Configuration} class (not a
  * {@code @Component}) so {@code @ConditionalOnMissingBean} is evaluated
