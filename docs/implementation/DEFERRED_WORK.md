@@ -87,11 +87,11 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite (cosmetic)
 - **Notes:** `frontend/src/components/user/ProfilePictureUploader.tsx`.
 
-### Real data for My Bids tab
+### My Bids dashboard frontend (consume the backend endpoint)
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
-- **Why:** Tab skeleton ships with empty-state placeholder. Real data requires auction model from Epic 04.
-- **When:** Epic 04 (Auction Engine)
-- **Notes:** `frontend/src/app/dashboard/(verified)/bids/page.tsx` currently renders `<EmptyState>`.
+- **Why:** Tab skeleton ships with empty-state placeholder. Backend `GET /api/v1/users/me/bids` landed in Epic 04 sub-spec 1 Task 8 with derived status across all 7 buckets; the frontend consumer (My Bids tab UI, paginated list, status filter chips) is out-of-scope for sub-spec 1 and lands in sub-spec 2 per its scope split.
+- **When:** Epic 04 sub-spec 2
+- **Notes:** `frontend/src/app/dashboard/(verified)/bids/page.tsx` currently renders `<EmptyState>`. Backend DTOs live in `backend/src/main/java/com/slparcelauctions/backend/auction/mybids/` (`MyBidSummary`, `AuctionSummaryForMyBids`, `MyBidStatus`).
 
 ### Recent reviews section on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)

@@ -1,0 +1,430 @@
+package com.slparcelauctions.backend.auction.mybids;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.Bid;
+import com.slparcelauctions.backend.auction.BidRepository;
+import com.slparcelauctions.backend.auction.BidType;
+import com.slparcelauctions.backend.auction.VerificationMethod;
+import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
+import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.sl.SlMapApiClient;
+import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
+
+import reactor.core.publisher.Mono;
+
+/**
+ * Full-stack coverage for {@code GET /api/v1/users/me/bids}. Seeds one bidder
+ * across seven auctions — one per {@link MyBidStatus} bucket — and verifies
+ * the derived-status output across the four supported {@code ?status=} filters
+ * (unspecified/all, active, won, lost).
+ *
+ * <p>Bids and proxy rows are seeded via direct JPA saves rather than the
+ * {@link com.slparcelauctions.backend.auction.BidService} flow — buckets like
+ * CANCELLED, SUSPENDED, and RESERVE_NOT_MET are terminal states that the
+ * service refuses to let bids through. The point of this test is the
+ * read-side query + derivation, not the write-side lifecycle.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("dev")
+@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@Transactional
+class MyBidsIntegrationTest {
+
+    private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
+
+    @Autowired MockMvc mockMvc;
+    @Autowired ParcelRepository parcelRepository;
+    @Autowired AuctionRepository auctionRepository;
+    @Autowired BidRepository bidRepository;
+    @Autowired UserRepository userRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @MockitoBean SlWorldApiClient worldApi;
+    @MockitoBean SlMapApiClient mapApi;
+    @MockitoBean AuctionBroadcastPublisher broadcastPublisher;
+
+    private String sellerAccessToken;
+    private Long sellerId;
+    private String bidderAccessToken;
+    private Long bidderId;
+    private Long otherBidderId;
+    private java.util.List<Parcel> parcels;
+
+    private Long winningAuctionId;
+    private Long outbidAuctionId;
+    private Long wonAuctionId;
+    private Long lostAuctionId;
+    private Long reserveNotMetAuctionId;
+    private Long cancelledAuctionId;
+    private Long suspendedAuctionId;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        sellerAccessToken = registerAndVerifyUser(
+                "mybids-seller@example.com", "MyBidsSeller",
+                "11111111-aaaa-bbbb-cccc-000000000101");
+        sellerId = userRepository.findByEmail("mybids-seller@example.com").orElseThrow().getId();
+
+        bidderAccessToken = registerAndVerifyUser(
+                "mybids-bidder@example.com", "MyBidsBidder",
+                "22222222-aaaa-bbbb-cccc-000000000102");
+        bidderId = userRepository.findByEmail("mybids-bidder@example.com").orElseThrow().getId();
+
+        registerAndVerifyUser(
+                "mybids-other@example.com", "MyBidsOther",
+                "33333333-aaaa-bbbb-cccc-000000000103");
+        otherBidderId = userRepository.findByEmail("mybids-other@example.com").orElseThrow().getId();
+
+        parcels = new java.util.ArrayList<>(7);
+        for (int i = 0; i < 7; i++) {
+            parcels.add(seedParcel(i));
+        }
+
+        winningAuctionId = seedWinning();
+        outbidAuctionId = seedOutbid();
+        wonAuctionId = seedWon();
+        lostAuctionId = seedLost();
+        reserveNotMetAuctionId = seedReserveNotMet();
+        cancelledAuctionId = seedCancelled();
+        suspendedAuctionId = seedSuspended();
+    }
+
+    // -------------------------------------------------------------------------
+    // status=all (default)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_statusAll_returnsAllSevenBuckets() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
+                        .param("status", "all")
+                        .header("Authorization", "Bearer " + bidderAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(7))
+                .andReturn();
+
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        JsonNode content = root.get("content");
+        // Collect by auctionId -> derived status for assertion stability.
+        java.util.Map<Long, String> statusByAuction = new java.util.HashMap<>();
+        for (JsonNode row : content) {
+            long id = row.get("auction").get("id").asLong();
+            String s = row.get("myBidStatus").asText();
+            statusByAuction.put(id, s);
+        }
+        org.assertj.core.api.Assertions.assertThat(statusByAuction).containsOnly(
+                org.assertj.core.api.Assertions.entry(winningAuctionId, "WINNING"),
+                org.assertj.core.api.Assertions.entry(outbidAuctionId, "OUTBID"),
+                org.assertj.core.api.Assertions.entry(wonAuctionId, "WON"),
+                org.assertj.core.api.Assertions.entry(lostAuctionId, "LOST"),
+                org.assertj.core.api.Assertions.entry(reserveNotMetAuctionId, "RESERVE_NOT_MET"),
+                org.assertj.core.api.Assertions.entry(cancelledAuctionId, "CANCELLED"),
+                org.assertj.core.api.Assertions.entry(suspendedAuctionId, "SUSPENDED"));
+    }
+
+    // -------------------------------------------------------------------------
+    // status=active
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_statusActive_returnsWinningAndOutbid() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
+                        .param("status", "active")
+                        .header("Authorization", "Bearer " + bidderAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andReturn();
+
+        JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString()).get("content");
+        java.util.Set<String> statuses = new java.util.HashSet<>();
+        for (JsonNode row : content) {
+            statuses.add(row.get("myBidStatus").asText());
+        }
+        org.assertj.core.api.Assertions.assertThat(statuses)
+                .containsExactlyInAnyOrder("WINNING", "OUTBID");
+    }
+
+    // -------------------------------------------------------------------------
+    // status=won
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_statusWon_returnsOnlyWon() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
+                        .param("status", "won")
+                        .header("Authorization", "Bearer " + bidderAccessToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString()).get("content");
+        org.assertj.core.api.Assertions.assertThat(content.size()).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(content.get(0).get("myBidStatus").asText()).isEqualTo("WON");
+        org.assertj.core.api.Assertions.assertThat(content.get(0).get("auction").get("id").asLong())
+                .isEqualTo(wonAuctionId);
+    }
+
+    // -------------------------------------------------------------------------
+    // status=lost
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_statusLost_returnsLostBucket() throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
+                        .param("status", "lost")
+                        .header("Authorization", "Bearer " + bidderAccessToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString()).get("content");
+        java.util.Map<Long, String> statusByAuction = new java.util.HashMap<>();
+        for (JsonNode row : content) {
+            statusByAuction.put(
+                    row.get("auction").get("id").asLong(),
+                    row.get("myBidStatus").asText());
+        }
+        org.assertj.core.api.Assertions.assertThat(statusByAuction).containsOnly(
+                org.assertj.core.api.Assertions.entry(lostAuctionId, "LOST"),
+                org.assertj.core.api.Assertions.entry(reserveNotMetAuctionId, "RESERVE_NOT_MET"),
+                org.assertj.core.api.Assertions.entry(cancelledAuctionId, "CANCELLED"),
+                org.assertj.core.api.Assertions.entry(suspendedAuctionId, "SUSPENDED"));
+    }
+
+    // -------------------------------------------------------------------------
+    // Auth sanity: no token -> 401/403
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_withoutAuth_returnsUnauthorizedOrForbidden() throws Exception {
+        // Matches SecurityConfig's catch-all .authenticated(): Spring returns
+        // 403 when anonymous access is rejected.
+        mockMvc.perform(get("/api/v1/users/me/bids"))
+                .andExpect(r -> {
+                    int s = r.getResponse().getStatus();
+                    org.assertj.core.api.Assertions.assertThat(s)
+                            .isIn(401, 403);
+                });
+    }
+
+    // -------------------------------------------------------------------------
+    // Seeding helpers — direct JPA saves so we can create terminal states
+    // (CANCELLED, SUSPENDED) that BidService wouldn't let bids through.
+    // -------------------------------------------------------------------------
+
+    private Long seedWinning() {
+        // ACTIVE, caller is currentBidder.
+        Auction a = seedAuction(parcels.get(0), AuctionStatus.ACTIVE, 1500L, 1);
+        a.setCurrentBidderId(bidderId);
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 1500L);
+        return a.getId();
+    }
+
+    private Long seedOutbid() {
+        // ACTIVE, someone else is currentBidder; caller still has a bid on record.
+        Auction a = seedAuction(parcels.get(1), AuctionStatus.ACTIVE, 2000L, 2);
+        a.setCurrentBidderId(otherBidderId);
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 1500L);
+        saveBid(a, otherBidderId, 2000L);
+        return a.getId();
+    }
+
+    private Long seedWon() {
+        // ENDED + SOLD, caller is winner.
+        Auction a = seedAuction(parcels.get(2), AuctionStatus.ENDED, 3000L, 1);
+        a.setEndOutcome(AuctionEndOutcome.SOLD);
+        a.setCurrentBidderId(bidderId);
+        a.setWinnerUserId(bidderId);
+        a.setFinalBidAmount(3000L);
+        a.setEndedAt(OffsetDateTime.now().minusHours(1));
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 3000L);
+        return a.getId();
+    }
+
+    private Long seedLost() {
+        // ENDED + SOLD, someone else is winner; caller bid earlier.
+        Auction a = seedAuction(parcels.get(3), AuctionStatus.ENDED, 4000L, 2);
+        a.setEndOutcome(AuctionEndOutcome.SOLD);
+        a.setCurrentBidderId(otherBidderId);
+        a.setWinnerUserId(otherBidderId);
+        a.setFinalBidAmount(4000L);
+        a.setEndedAt(OffsetDateTime.now().minusHours(2));
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 2000L);
+        saveBid(a, otherBidderId, 4000L);
+        return a.getId();
+    }
+
+    private Long seedReserveNotMet() {
+        // ENDED + RESERVE_NOT_MET, caller was the high bidder.
+        Auction a = seedAuction(parcels.get(4), AuctionStatus.ENDED, 1200L, 1);
+        a.setReservePrice(5000L);
+        a.setEndOutcome(AuctionEndOutcome.RESERVE_NOT_MET);
+        a.setCurrentBidderId(bidderId);
+        // No winner set — reserve wasn't met.
+        a.setEndedAt(OffsetDateTime.now().minusHours(3));
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 1200L);
+        return a.getId();
+    }
+
+    private Long seedCancelled() {
+        // CANCELLED by seller after caller had already bid.
+        Auction a = seedAuction(parcels.get(5), AuctionStatus.CANCELLED, 1000L, 1);
+        a.setEndedAt(OffsetDateTime.now().minusHours(4));
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 1000L);
+        return a.getId();
+    }
+
+    private Long seedSuspended() {
+        // SUSPENDED via ownership-check path. Caller bid earlier.
+        Auction a = seedAuction(parcels.get(6), AuctionStatus.SUSPENDED, 1100L, 1);
+        a.setEndedAt(OffsetDateTime.now().minusHours(5));
+        auctionRepository.save(a);
+        saveBid(a, bidderId, 1100L);
+        return a.getId();
+    }
+
+    private Auction seedAuction(
+            Parcel parcelForAuction, AuctionStatus status, long currentBid, int bidCount) {
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        OffsetDateTime now = OffsetDateTime.now();
+        Auction a = Auction.builder()
+                .parcel(parcelForAuction)
+                .seller(seller)
+                .status(status)
+                .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
+                .startingBid(1000L)
+                .durationHours(168)
+                .snipeProtect(false)
+                .listingFeePaid(true)
+                .currentBid(currentBid)
+                .bidCount(bidCount)
+                .consecutiveWorldApiFailures(0)
+                .commissionRate(new BigDecimal("0.05"))
+                .agentFeeRate(BigDecimal.ZERO)
+                .build();
+        a.setStartsAt(now.minusHours(1));
+        if (status == AuctionStatus.ACTIVE) {
+            a.setEndsAt(now.plusDays(1));
+            a.setOriginalEndsAt(now.plusDays(1));
+        } else {
+            a.setEndsAt(now.minusHours(1));
+            a.setOriginalEndsAt(now.minusHours(1));
+        }
+        return auctionRepository.save(a);
+    }
+
+    private void saveBid(Auction a, Long userId, Long amount) {
+        User user = userRepository.findById(userId).orElseThrow();
+        Bid b = Bid.builder()
+                .auction(a)
+                .bidder(user)
+                .amount(amount)
+                .bidType(BidType.MANUAL)
+                .build();
+        bidRepository.save(b);
+    }
+
+    private String registerUser(String email, String displayName) throws Exception {
+        String body = String.format(
+                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                email, displayName);
+        MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode json = objectMapper.readTree(reg.getResponse().getContentAsString());
+        return json.get("accessToken").asText();
+    }
+
+    private String registerAndVerifyUser(String email, String displayName, String avatarUuid)
+            throws Exception {
+        String token = registerUser(email, displayName);
+        MvcResult gen = mockMvc.perform(post("/api/v1/verification/generate")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andReturn();
+        String code = objectMapper.readTree(gen.getResponse().getContentAsString())
+                .get("code").asText();
+        String body = String.format("""
+            {
+              "verificationCode":"%s",
+              "avatarUuid":"%s",
+              "avatarName":"%s",
+              "displayName":"%s",
+              "username":"test.resident",
+              "bornDate":"2012-05-15",
+              "payInfo":3
+            }
+            """, code, avatarUuid, displayName, displayName);
+        mockMvc.perform(post("/api/v1/sl/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .header("X-SecondLife-Shard", "Production")
+                        .header("X-SecondLife-Owner-Key", TRUSTED_OWNER))
+                .andExpect(status().isOk());
+        return token;
+    }
+
+    private Parcel seedParcel(int index) throws Exception {
+        UUID parcelUuid = UUID.fromString(
+                String.format("44444444-4444-4444-4444-%012d", 110 + index));
+        UUID ownerUuid = UUID.fromString(
+                String.format("55555555-5555-5555-5555-%012d", 120 + index));
+        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
+                parcelUuid, ownerUuid, "agent",
+                "MyBids Parcel " + index, "MyBidsRegion" + index,
+                2048, "Seed description " + index,
+                "http://example.com/mybids-snap-" + index + ".jpg",
+                "MATURE",
+                128.0 + index, 64.0 + index, 22.0)));
+        when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
+
+        mockMvc.perform(post("/api/v1/parcels/lookup")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
+                .andExpect(status().isOk());
+
+        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+    }
+}

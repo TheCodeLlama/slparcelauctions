@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.auction;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -45,6 +47,16 @@ public interface ProxyBidRepository extends JpaRepository<ProxyBid, Long> {
             + "p.updatedAt = CURRENT_TIMESTAMP "
             + "WHERE p.auction.id = :auctionId AND p.status = com.slparcelauctions.backend.auction.ProxyBidStatus.ACTIVE")
     int exhaustAllActiveByAuctionId(@Param("auctionId") Long auctionId);
+
+    /**
+     * Returns the caller's proxy rows of the given {@code status} on every
+     * auction in {@code auctionIds}. Used by the My Bids dashboard to hydrate
+     * the {@code myProxyMaxAmount} column — only {@code ACTIVE} proxies are
+     * surfaced on the dashboard (an EXHAUSTED or CANCELLED proxy doesn't
+     * modify the caller's current cap).
+     */
+    List<ProxyBid> findByBidderIdAndAuctionIdInAndStatus(
+            Long bidderId, Collection<Long> auctionIds, ProxyBidStatus status);
 
     /**
      * Bulk-deletes every proxy row for the given auction. Test-only helper
