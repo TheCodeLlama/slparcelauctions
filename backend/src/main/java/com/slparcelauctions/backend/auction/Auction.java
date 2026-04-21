@@ -21,6 +21,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
@@ -33,7 +34,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "auctions")
+@Table(name = "auctions",
+        indexes = {
+            @Index(name = "ix_auctions_status_ends_at", columnList = "status, ends_at")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -131,6 +135,22 @@ public class Auction {
 
     @Column(name = "winner_id")
     private Long winnerId;
+
+    @Column(name = "current_bidder_id")
+    private Long currentBidderId;
+
+    @Column(name = "winner_user_id")
+    private Long winnerUserId;
+
+    @Column(name = "final_bid_amount")
+    private Long finalBidAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "end_outcome", length = 32)
+    private AuctionEndOutcome endOutcome;
+
+    @Column(name = "ended_at")
+    private OffsetDateTime endedAt;
 
     @Column(name = "duration_hours", nullable = false)
     private Integer durationHours;

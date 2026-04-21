@@ -5,8 +5,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -73,4 +76,24 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
             ORDER BY a.lastOwnershipCheckAt ASC NULLS FIRST
             """)
     List<Long> findDueForOwnershipCheck(@Param("cutoff") OffsetDateTime cutoff);
+
+    /**
+     * Acquires a {@code PESSIMISTIC_WRITE} (i.e. {@code SELECT ... FOR UPDATE})
+     * row lock on the auction inside the caller's transaction. Used by the
+     * bid-placement, buy-now, cancellation, and ownership-check paths so any
+     * two writers racing on the same auction serialise at the DB rather than
+     * stepping on each other's reads of {@code currentBid}/{@code endsAt}.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Auction a WHERE a.id = :id")
+    Optional<Auction> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * IDs of ACTIVE auctions whose {@code ends_at} is at or before {@code now}
+     * — i.e. ripe for the auction-end scheduler to close out. Returned as bare
+     * IDs so the scheduler can re-load each one under a pessimistic lock
+     * before deciding the outcome.
+     */
+    @Query("SELECT a.id FROM Auction a WHERE a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE AND a.endsAt <= :now")
+    List<Long> findActiveIdsDueForEnd(@Param("now") OffsetDateTime now);
 }
