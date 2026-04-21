@@ -94,3 +94,6 @@ slpa:
     check-interval-minutes: 30
     scheduler-frequency: PT30S
     jitter-max-minutes: 5
+  auction-end:
+    enabled: true
+    scheduler-frequency: PT15S
