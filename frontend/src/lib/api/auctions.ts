@@ -34,8 +34,24 @@ export function updateAuction(
   return api.put<SellerAuctionResponse>(`/api/v1/auctions/${id}`, body);
 }
 
-export function getAuction(id: number | string): Promise<SellerAuctionResponse> {
-  return api.get<SellerAuctionResponse>(`/api/v1/auctions/${id}`);
+/**
+ * GET /api/v1/auctions/{id}. Backend returns either a
+ * {@link SellerAuctionResponse} (when the caller owns the auction) or a
+ * {@link PublicAuctionResponse} (all other viewers, including anonymous) —
+ * the same endpoint path with a server-side DTO discriminator on status +
+ * viewer identity. The union type matches that contract.
+ *
+ * Consumers that need seller-only fields (verification metadata, reserve
+ * price, listing-fee txn, etc.) narrow on the presence of those fields or on
+ * the status enum: SellerAuctionResponse carries every status, while
+ * PublicAuctionResponse collapses to `ACTIVE | ENDED`.
+ */
+export function getAuction(
+  id: number | string,
+): Promise<PublicAuctionResponse | SellerAuctionResponse> {
+  return api.get<PublicAuctionResponse | SellerAuctionResponse>(
+    `/api/v1/auctions/${id}`,
+  );
 }
 
 /**

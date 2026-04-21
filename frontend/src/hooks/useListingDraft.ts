@@ -173,7 +173,11 @@ export function useListingDraft(
 
   const fetchQ = useQuery({
     queryKey: ["auction", options.id],
-    queryFn: () => getAuction(options.id!),
+    // The edit flow is seller-only, so the server always returns a
+    // SellerAuctionResponse here — narrow the public/seller union from the
+    // shared {@code getAuction} (a verified non-seller on this route would
+    // have been bounced by the route guard before hitting the query).
+    queryFn: () => getAuction(options.id!) as Promise<SellerAuctionResponse>,
     // Only fetch when we're editing AND sessionStorage didn't already
     // hydrate us (no need to round-trip the server if we have a
     // preserved-across-tab-close draft).
@@ -375,8 +379,9 @@ export function useListingDraft(
     }
 
     // Refetch to get the canonical server view (includes freshly uploaded
-    // photos with real URLs + ids).
-    const refreshed = await getAuction(auction.id);
+    // photos with real URLs + ids). The save flow is seller-only so the
+    // response is always the seller shape — narrow the union accordingly.
+    const refreshed = (await getAuction(auction.id)) as SellerAuctionResponse;
     qc.setQueryData(["auction", refreshed.id], refreshed);
 
     setState({
