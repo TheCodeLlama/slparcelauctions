@@ -219,6 +219,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
 - **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
 
+### Richer outbid toast shape (warning variant + structured action button)
+- **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
+- **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
+- **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
+- **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
+
 ---
 
 ## Removal Criteria
