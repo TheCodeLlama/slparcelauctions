@@ -14,18 +14,24 @@ export const MY_BIDS_FILTERS: ReadonlyArray<{
 ];
 
 export interface MyBidsFilterTabsProps {
-  /** Currently-selected filter; drives the {@code aria-selected} state. */
+  /** Currently-selected filter; drives the {@code aria-checked} state. */
   value: MyBidsFilter;
-  /** Fired on tab click. Callers sync this to the URL {@code ?status=} param. */
+  /** Fired on option click. Callers sync this to the URL {@code ?status=} param. */
   onChange: (next: MyBidsFilter) => void;
   className?: string;
 }
 
 /**
- * Four-tab filter control for the My Bids dashboard (spec §12). Presented as
- * a {@code role="tablist"} so assistive tech announces the segmented control.
- * The component is purely presentational — it does not touch the router; the
- * caller ({@code MyBidsTab}) owns the URL sync so the tabs stay reusable.
+ * Four-way filter control for the My Bids dashboard (spec §12). Presented as
+ * a {@code role="radiogroup"} rather than a {@code role="tablist"} because
+ * the four options filter the same list of bid rows — there is no separate
+ * tabpanel per option, which is what the ARIA tab pattern requires. A radio
+ * group accurately models "pick one of N to filter" and needs no matching
+ * panel element, so assistive tech announces the control correctly without
+ * the incomplete-tab-pattern smell the original markup had.
+ *
+ * <p>The component is purely presentational — it does not touch the router;
+ * the caller ({@code MyBidsTab}) owns the URL sync so this stays reusable.
  */
 export function MyBidsFilterTabs({
   value,
@@ -34,7 +40,7 @@ export function MyBidsFilterTabs({
 }: MyBidsFilterTabsProps) {
   return (
     <div
-      role="tablist"
+      role="radiogroup"
       aria-label="Filter bids"
       className={cn(
         "flex gap-1 border-b border-outline-variant",
@@ -47,8 +53,8 @@ export function MyBidsFilterTabs({
           <button
             key={tab.id}
             type="button"
-            role="tab"
-            aria-selected={selected}
+            role="radio"
+            aria-checked={selected}
             onClick={() => onChange(tab.id)}
             className={cn(
               "px-4 py-2 text-label-lg transition-colors",

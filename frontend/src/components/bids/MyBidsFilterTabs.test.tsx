@@ -4,30 +4,30 @@ import userEvent from "@testing-library/user-event";
 import { MyBidsFilterTabs } from "./MyBidsFilterTabs";
 
 describe("MyBidsFilterTabs", () => {
-  it("renders all four tabs", () => {
+  it("renders all four options as radio buttons", () => {
     render(<MyBidsFilterTabs value="all" onChange={() => {}} />);
-    expect(screen.getByRole("tab", { name: "All" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Active" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Won" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Lost" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "All" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Active" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Won" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Lost" })).toBeInTheDocument();
   });
 
-  it("marks the selected tab as aria-selected", () => {
+  it("marks the selected option as aria-checked", () => {
     render(<MyBidsFilterTabs value="active" onChange={() => {}} />);
-    expect(screen.getByRole("tab", { name: "Active" })).toHaveAttribute(
-      "aria-selected",
+    expect(screen.getByRole("radio", { name: "Active" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
-    expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute(
-      "aria-selected",
+    expect(screen.getByRole("radio", { name: "All" })).toHaveAttribute(
+      "aria-checked",
       "false",
     );
   });
 
-  it("calls onChange with the tab id when clicked", async () => {
+  it("calls onChange with the option id when clicked", async () => {
     const onChange = vi.fn();
     render(<MyBidsFilterTabs value="all" onChange={onChange} />);
-    await userEvent.click(screen.getByRole("tab", { name: "Won" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Won" }));
     expect(onChange).toHaveBeenCalledWith("won");
   });
 });

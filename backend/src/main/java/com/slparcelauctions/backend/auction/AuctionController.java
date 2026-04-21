@@ -2,7 +2,6 @@ package com.slparcelauctions.backend.auction;
 
 import java.util.List;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -27,6 +26,7 @@ import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -143,9 +143,15 @@ public class AuctionController {
      * The default page size of 6 matches the
      * {@code ActiveListingsSection} grid on the public profile page — callers
      * can override with {@code size=...}.
+     *
+     * <p><strong>Permissive on unknown {@code userId}:</strong> a nonexistent
+     * {@code userId} resolves to an empty page (200), not a 404. This is a
+     * deliberate privacy choice — returning 404 for missing users would let
+     * callers enumerate valid user IDs by diffing status codes against this
+     * public surface.
      */
     @GetMapping("/users/{userId}/auctions")
-    public Page<PublicAuctionResponse> getUserAuctions(
+    public PagedResponse<PublicAuctionResponse> getUserAuctions(
             @PathVariable Long userId,
             @RequestParam(name = "status") String status,
             @PageableDefault(size = 6) Pageable pageable) {
@@ -154,8 +160,8 @@ public class AuctionController {
                     "Unsupported status filter: '" + status
                             + "'. Only 'ACTIVE' is supported.");
         }
-        return auctionService.loadActiveBySeller(userId, pageable)
-                .map(mapper::toPublicResponse);
+        return PagedResponse.from(auctionService.loadActiveBySeller(userId, pageable)
+                .map(mapper::toPublicResponse));
     }
 
     /**

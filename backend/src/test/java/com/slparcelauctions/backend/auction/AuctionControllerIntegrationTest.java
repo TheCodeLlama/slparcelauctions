@@ -456,6 +456,47 @@ class AuctionControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 
+    @Test
+    void getUserAuctions_orderedByEndsAtAscending() throws Exception {
+        // Stagger endsAt across three ACTIVE auctions — the public profile
+        // surfaces soonest-ending first, so the content array must be in
+        // ascending endsAt order regardless of insertion order. Seed them
+        // out-of-order to make sure the ORDER BY is actually doing the work.
+        Auction aLater = seedAuctionFor(seedExtraParcel(0xC2), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        Auction aSoonest = seedAuctionFor(seedExtraParcel(0xC1), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        Auction aMiddle = seedAuctionFor(seedExtraParcel(0xC3), AuctionStatus.ACTIVE, false, 0,
+                VerificationMethod.UUID_ENTRY);
+        OffsetDateTime now = OffsetDateTime.now();
+        aSoonest.setEndsAt(now.plusHours(1));
+        aMiddle.setEndsAt(now.plusDays(1));
+        aLater.setEndsAt(now.plusWeeks(1));
+        auctionRepository.save(aSoonest);
+        auctionRepository.save(aMiddle);
+        auctionRepository.save(aLater);
+
+        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(3))
+                .andExpect(jsonPath("$.content[0].id").value(aSoonest.getId()))
+                .andExpect(jsonPath("$.content[1].id").value(aMiddle.getId()))
+                .andExpect(jsonPath("$.content[2].id").value(aLater.getId()));
+    }
+
+    @Test
+    void getUserAuctions_nonexistentUser_returns200EmptyPage() throws Exception {
+        // Endpoint is intentionally permissive about nonexistent userIds to
+        // avoid leaking user existence on this public surface. A 404 would
+        // let callers enumerate valid user IDs by diffing status codes.
+        mockMvc.perform(get("/api/v1/users/99999999/auctions")
+                .param("status", "ACTIVE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(0))
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

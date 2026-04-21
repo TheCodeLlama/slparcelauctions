@@ -1,12 +1,16 @@
 package com.slparcelauctions.backend.auction;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -147,10 +151,39 @@ public class AuctionService {
      * Paginated active listings for the public user profile (spec §14).
      * SUSPENDED and pre-ACTIVE statuses are excluded at the repository level
      * regardless of requester identity.
+     *
+     * <p>Implemented as a two-query pattern to avoid Hibernate's
+     * {@code HHH90003004} in-memory pagination warning — see
+     * {@link AuctionRepository#findActiveBySellerIdIds}. First query pages the
+     * IDs at the DB; second query hydrates just those IDs with
+     * {@code parcel} + {@code tags} eagerly fetched so the downstream mapper
+     * runs outside the transaction boundary. The hydrated list is re-sequenced
+     * against the ID page to preserve the page's {@code endsAt ASC} order and
+     * wrapped in a {@link PageImpl} that carries the original total.
      */
     @Transactional(readOnly = true)
     public Page<Auction> loadActiveBySeller(Long sellerId, Pageable pageable) {
-        return auctionRepo.findActiveBySellerId(sellerId, pageable);
+        Page<Long> idsPage = auctionRepo.findActiveBySellerIdIds(sellerId, pageable);
+        List<Long> ids = idsPage.getContent();
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, idsPage.getTotalElements());
+        }
+        List<Auction> hydrated = auctionRepo.findAllByIdInWithParcelAndTags(ids);
+        // Preserve page order — IN-clause results aren't order-preserving across
+        // DBs even with ORDER BY a.endsAt on the hydration query, because ties
+        // (equal endsAt) may arrive in any order. Re-sequence by the ID page.
+        Map<Long, Auction> byId = new HashMap<>(hydrated.size());
+        for (Auction a : hydrated) {
+            byId.put(a.getId(), a);
+        }
+        List<Auction> ordered = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            Auction a = byId.get(id);
+            if (a != null) {
+                ordered.add(a);
+            }
+        }
+        return new PageImpl<>(ordered, pageable, idsPage.getTotalElements());
     }
 
     private Set<ParcelTag> resolveTags(Set<String> codes) {

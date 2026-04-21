@@ -92,8 +92,8 @@ describe("MyBidsTab", () => {
       expect(captured).not.toBeNull();
       expect(captured!.searchParams.get("status")).toBe("won");
     });
-    expect(screen.getByRole("tab", { name: "Won" })).toHaveAttribute(
-      "aria-selected",
+    expect(screen.getByRole("radio", { name: "Won" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
   });
@@ -110,7 +110,7 @@ describe("MyBidsTab", () => {
       expect(screen.getByText("No bids yet")).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("tab", { name: "Active" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Active" }));
     expect(mockReplace).toHaveBeenCalledWith("/dashboard/bids?status=active");
   });
 
@@ -129,7 +129,7 @@ describe("MyBidsTab", () => {
       ).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("tab", { name: "All" }));
+    await userEvent.click(screen.getByRole("radio", { name: "All" }));
     expect(mockReplace).toHaveBeenCalledWith("/dashboard/bids");
   });
 

@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.auction.mybids;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.common.PagedResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,10 +34,10 @@ public class MyBidsController {
     private final MyBidsService service;
 
     @GetMapping
-    public Page<MyBidSummary> getMyBids(
+    public PagedResponse<MyBidSummary> getMyBids(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(name = "status", required = false) String status,
             @PageableDefault(size = 20) Pageable pageable) {
-        return service.getMyBids(principal.userId(), status, pageable);
+        return PagedResponse.from(service.getMyBids(principal.userId(), status, pageable));
     }
 }

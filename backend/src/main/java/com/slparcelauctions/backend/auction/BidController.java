@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.auction;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +15,7 @@ import com.slparcelauctions.backend.auction.dto.BidHistoryEntry;
 import com.slparcelauctions.backend.auction.dto.BidResponse;
 import com.slparcelauctions.backend.auction.dto.PlaceBidRequest;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.common.PagedResponse;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -69,10 +69,10 @@ public class BidController {
     }
 
     @GetMapping
-    public Page<BidHistoryEntry> bidHistory(
+    public PagedResponse<BidHistoryEntry> bidHistory(
             @PathVariable Long auctionId,
             Pageable pageable) {
-        return bidRepo.findByAuctionIdOrderByCreatedAtDesc(auctionId, pageable)
-                .map(BidHistoryEntry::from);
+        return PagedResponse.from(bidRepo.findByAuctionIdOrderByCreatedAtDesc(auctionId, pageable)
+                .map(BidHistoryEntry::from));
     }
 }

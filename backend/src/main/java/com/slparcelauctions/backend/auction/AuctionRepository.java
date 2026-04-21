@@ -100,18 +100,37 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     List<Long> findActiveIdsDueForEnd(@Param("now") OffsetDateTime now);
 
     /**
-     * Paginated page of ACTIVE auctions owned by the given seller, ordered by
+     * IDs-only page of ACTIVE auctions owned by the given seller, ordered by
      * {@code endsAt} ascending so listings closest to ending surface first on
-     * the public profile. Eagerly fetches {@code parcel} + {@code tags} so the
-     * downstream mapper can run outside the transaction boundary (see
-     * class-level note on {@link #findBySellerIdOrderByCreatedAtDesc}).
+     * the public profile. Paired with {@link #findAllByIdInWithParcelAndTags}
+     * to sidestep Hibernate's {@code HHH90003004} in-memory pagination warning:
+     * combining {@code @EntityGraph} over a to-many collection ({@code tags})
+     * with {@code Pageable} causes Hibernate to drop SQL {@code LIMIT}/
+     * {@code OFFSET} and paginate in the JVM, which would fetch every ACTIVE
+     * listing for the seller on every page request. This query selects bare
+     * IDs so the DB paginates cleanly, and a follow-up call hydrates the page
+     * of entities with parcel + tags eagerly fetched.
      *
      * <p>SUSPENDED and pre-ACTIVE statuses are deliberately excluded — the
      * public {@code GET /users/{id}/auctions?status=ACTIVE} endpoint must not
      * leak draft prep work or suspended listings regardless of requester
      * identity (spec §14).
      */
+    @Query("SELECT a.id FROM Auction a WHERE a.seller.id = :sellerId AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE ORDER BY a.endsAt ASC")
+    Page<Long> findActiveBySellerIdIds(@Param("sellerId") Long sellerId, Pageable pageable);
+
+    /**
+     * Hydrates the {@link Auction} entities for a page of IDs produced by
+     * {@link #findActiveBySellerIdIds}, eagerly fetching {@code parcel} +
+     * {@code tags} so the downstream {@link AuctionDtoMapper} can run outside
+     * the transaction boundary without tripping
+     * {@link org.hibernate.LazyInitializationException} under
+     * {@code spring.jpa.open-in-view=false}. Results are ordered by
+     * {@code endsAt} ascending to match the ID page's ordering — the service
+     * layer re-sequences them against the incoming ID list to preserve exact
+     * page order (same pattern as {@code MyBidsService}).
+     */
     @EntityGraph(attributePaths = {"parcel", "tags"})
-    @Query("SELECT a FROM Auction a WHERE a.seller.id = :sellerId AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE ORDER BY a.endsAt ASC")
-    Page<Auction> findActiveBySellerId(@Param("sellerId") Long sellerId, Pageable pageable);
+    @Query("SELECT a FROM Auction a WHERE a.id IN :ids ORDER BY a.endsAt ASC")
+    List<Auction> findAllByIdInWithParcelAndTags(@Param("ids") Collection<Long> ids);
 }
