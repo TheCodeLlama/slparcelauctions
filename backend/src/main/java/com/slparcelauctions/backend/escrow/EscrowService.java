@@ -498,8 +498,9 @@ public class EscrowService {
      * ownership-check transaction fails fast: there must be a locked escrow
      * row in scope for the afterCommit envelope to be sound.
      *
-     * <p>Task 7 will replace {@link #queuePayoutOnConfirm(Escrow)} with a real
-     * {@code terminalCommandService.queuePayout(escrow)} call.
+     * <p>{@link #queuePayoutOnConfirm(Escrow)} delegates to
+     * {@code terminalCommandService.queuePayout(escrow)} so the dispatcher
+     * picks up the payout on the next 30s tick.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void confirmTransfer(Escrow escrow, OffsetDateTime now) {
