@@ -268,6 +268,75 @@ public class BotTaskService {
     }
 
     /**
+     * IN_PROGRESS tasks whose {@code lastUpdatedAt} is older than
+     * {@code threshold}. Used by the IN_PROGRESS timeout sweep. For VERIFY
+     * tasks this is a crashed-worker signal; for MONITOR_* tasks it means
+     * the worker picked up a due check but never reported back.
+     */
+    @Transactional(readOnly = true)
+    public List<BotTask> findInProgressOlderThan(Duration threshold) {
+        OffsetDateTime cutoff = OffsetDateTime.now(clock).minus(threshold);
+        return botTaskRepo.findByStatusAndLastUpdatedAtBefore(
+                BotTaskStatus.IN_PROGRESS, cutoff);
+    }
+
+    /**
+     * Applies divergent IN_PROGRESS-timeout behavior per spec §3.7:
+     * <ul>
+     *   <li>VERIFY → FAILED with reason {@code "TIMEOUT (IN_PROGRESS)"}; if
+     *       the auction is still VERIFICATION_PENDING, flip it to
+     *       VERIFICATION_FAILED with a retry-friendly note (same as PENDING
+     *       sweep).</li>
+     *   <li>MONITOR_* → <strong>re-armed</strong>: status=PENDING,
+     *       nextRunAt = now + recurrenceIntervalSeconds, assignedBotUuid
+     *       cleared. A different worker (or the same one) will retry next
+     *       cycle. No FAILED row.</li>
+     * </ul>
+     */
+    @Transactional
+    public void handleInProgressTimeout(BotTask stale) {
+        // Re-fetch inside the active transaction. The caller's BotTask was
+        // loaded under the read-only sweep transaction (see
+        // findInProgressOlderThan) and its lazy Auction proxy would fail to
+        // initialize here. Same pattern as EscrowTimeoutJob → EscrowTimeoutTask.
+        BotTask task = botTaskRepo.findById(stale.getId()).orElse(null);
+        if (task == null || task.getStatus() != BotTaskStatus.IN_PROGRESS) {
+            log.debug("Skipping IN_PROGRESS timeout for bot task {} (status={})",
+                    stale.getId(), task == null ? "MISSING" : task.getStatus());
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        if (task.getTaskType() == BotTaskType.VERIFY) {
+            task.setStatus(BotTaskStatus.FAILED);
+            task.setFailureReason("TIMEOUT (IN_PROGRESS)");
+            task.setCompletedAt(now);
+            botTaskRepo.save(task);
+
+            Auction auction = task.getAuction();
+            if (auction.getStatus() == AuctionStatus.VERIFICATION_PENDING) {
+                auction.setStatus(AuctionStatus.VERIFICATION_FAILED);
+                auction.setVerificationNotes(
+                        "Sale-to-bot task stalled mid-verify. "
+                                + "You can retry at no extra cost.");
+                auctionRepo.save(auction);
+            }
+            log.info("Bot VERIFY task {} timed out mid-IN_PROGRESS (auctionId={})",
+                    task.getId(), auction.getId());
+            return;
+        }
+        // MONITOR_AUCTION or MONITOR_ESCROW — re-arm.
+        int interval = task.getRecurrenceIntervalSeconds() == null
+                ? 0 : task.getRecurrenceIntervalSeconds();
+        task.setStatus(BotTaskStatus.PENDING);
+        task.setNextRunAt(now.plusSeconds(interval));
+        task.setAssignedBotUuid(null);
+        botTaskRepo.save(task);
+        log.info("Bot MONITOR task {} re-armed after IN_PROGRESS timeout "
+                        + "(type={}, nextRunAt={})",
+                task.getId(), task.getTaskType(), task.getNextRunAt());
+    }
+
+    /**
      * Times out a PENDING bot task. Transitions the task to FAILED with
      * reason {@code "TIMEOUT"} and flips the auction back to
      * VERIFICATION_FAILED — but only if the auction is still

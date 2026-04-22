@@ -57,6 +57,18 @@ public class BotTaskController {
     }
 
     /**
+     * VERIFY callback: terminates the task (COMPLETED/FAILED) and
+     * transitions the auction. See {@link BotTaskService#complete} for
+     * the full contract.
+     */
+    @PutMapping("/{taskId}/verify")
+    public BotTaskResponse completeVerify(
+            @PathVariable Long taskId,
+            @Valid @RequestBody BotTaskCompleteRequest body) {
+        return BotTaskResponse.from(service.complete(taskId, body));
+    }
+
+    /**
      * DEPRECATED Task 4 shim: forwards to {@code completeVerify}. Task 12
      * removes this method once all live workers are on the {@code /verify}
      * path.
@@ -66,6 +78,6 @@ public class BotTaskController {
     public BotTaskResponse completeLegacy(
             @PathVariable Long taskId,
             @Valid @RequestBody BotTaskCompleteRequest body) {
-        return BotTaskResponse.from(service.complete(taskId, body));
+        return completeVerify(taskId, body);
     }
 }

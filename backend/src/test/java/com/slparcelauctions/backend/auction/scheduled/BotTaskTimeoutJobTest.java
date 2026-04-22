@@ -52,7 +52,7 @@ class BotTaskTimeoutJobTest {
         when(service.findPendingOlderThan(Duration.ofHours(48)))
                 .thenReturn(List.of(a, b));
 
-        job.sweep();
+        job.sweepPending();
 
         verify(service).markTimedOut(a);
         verify(service).markTimedOut(b);
@@ -63,7 +63,7 @@ class BotTaskTimeoutJobTest {
         when(service.findPendingOlderThan(Duration.ofHours(48)))
                 .thenReturn(List.of());
 
-        job.sweep();
+        job.sweepPending();
 
         verify(service, never()).markTimedOut(org.mockito.ArgumentMatchers.any());
     }
@@ -76,7 +76,7 @@ class BotTaskTimeoutJobTest {
         when(service.findPendingOlderThan(Duration.ofHours(24)))
                 .thenReturn(List.of());
 
-        job.sweep();
+        job.sweepPending();
 
         verify(service).findPendingOlderThan(Duration.ofHours(24));
     }
@@ -95,7 +95,7 @@ class BotTaskTimeoutJobTest {
         // The forEach propagates — confirming we aren't silently swallowing.
         assertThat(
                 org.junit.jupiter.api.Assertions.assertThrows(
-                        RuntimeException.class, () -> job.sweep()))
+                        RuntimeException.class, () -> job.sweepPending()))
                 .hasMessage("simulated");
     }
 }
