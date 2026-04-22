@@ -320,12 +320,19 @@ public class TerminalCommandService {
     }
 
     private void registerAfterCommit(Runnable r) {
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        r.run();
-                    }
-                });
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            r.run();
+                        }
+                    });
+        } else {
+            // Defensive path for unit tests / callers that forgot to wrap
+            // in a transaction — production always runs inside
+            // @Transactional, so the afterCommit branch is the hot path.
+            r.run();
+        }
     }
 }
