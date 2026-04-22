@@ -97,6 +97,15 @@ public class AuctionDtoMapper {
     }
 
     public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending) {
+        return toSellerResponse(a, pending, resolveEscrow(a));
+    }
+
+    /**
+     * Batch-safe overload — pass the already-loaded escrow (or null) to avoid
+     * the fallback fetch inside {@link #toSellerResponse(Auction,
+     * PendingVerification)}.
+     */
+    public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending, Escrow escrow) {
         return new SellerAuctionResponse(
                 a.getId(),
                 a.getSeller().getId(),
@@ -130,7 +139,9 @@ public class AuctionDtoMapper {
                 a.getCommissionRate(),
                 a.getCommissionAmt(),
                 a.getCreatedAt(),
-                a.getUpdatedAt());
+                a.getUpdatedAt(),
+                escrow == null ? null : escrow.getState(),
+                escrow == null ? null : escrow.getTransferConfirmedAt());
     }
 
     /**

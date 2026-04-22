@@ -1,6 +1,8 @@
 package com.slparcelauctions.backend.auction;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -27,6 +29,8 @@ import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
+import com.slparcelauctions.backend.escrow.Escrow;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -52,6 +56,7 @@ public class AuctionController {
     private final CancellationService cancellationService;
     private final AuctionDtoMapper mapper;
     private final UserRepository userRepository;
+    private final EscrowRepository escrowRepository;
 
     @PostMapping("/auctions")
     @ResponseStatus(HttpStatus.CREATED)
@@ -82,8 +87,10 @@ public class AuctionController {
     @GetMapping("/users/me/auctions")
     public List<SellerAuctionResponse> listMine(
             @AuthenticationPrincipal AuthPrincipal principal) {
-        return auctionService.loadOwnedBy(principal.userId()).stream()
-                .map(a -> mapper.toSellerResponse(a, null))
+        List<Auction> auctions = auctionService.loadOwnedBy(principal.userId());
+        Map<Long, Escrow> escrows = loadEscrowsFor(auctions);
+        return auctions.stream()
+                .map(a -> mapper.toSellerResponse(a, null, escrows.get(a.getId())))
                 .toList();
     }
 
@@ -160,8 +167,38 @@ public class AuctionController {
                     "Unsupported status filter: '" + status
                             + "'. Only 'ACTIVE' is supported.");
         }
-        return PagedResponse.from(auctionService.loadActiveBySeller(userId, pageable)
-                .map(mapper::toPublicResponse));
+        // ACTIVE-only filter today means no escrow rows exist for this page,
+        // but we still batch-load so the response shape stays consistent when
+        // status filtering expands (Epic 07). One query per page beats one
+        // per row once ENDED variants become reachable here.
+        var page = auctionService.loadActiveBySeller(userId, pageable);
+        Map<Long, Escrow> escrows = loadEscrowsFor(page.getContent());
+        return PagedResponse.from(page.map(a ->
+                mapper.toPublicResponse(a, escrows.get(a.getId()))));
+    }
+
+    /**
+     * Batch-loads escrows for a collection of auctions, keyed by auction id.
+     * Returns an empty map for empty inputs. Auctions without an escrow row
+     * are simply absent from the map (callers pass the missing lookup as
+     * null to the mapper overloads).
+     */
+    private Map<Long, Escrow> loadEscrowsFor(List<Auction> auctions) {
+        if (auctions.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = auctions.stream().map(Auction::getId).filter(id -> id != null).toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Escrow> byAuctionId = new HashMap<>();
+        for (Escrow e : escrowRepository.findByAuctionIdIn(ids)) {
+            Long aId = e.getAuction() == null ? null : e.getAuction().getId();
+            if (aId != null) {
+                byAuctionId.put(aId, e);
+            }
+        }
+        return byAuctionId;
     }
 
     /**
