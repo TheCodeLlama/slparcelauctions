@@ -217,7 +217,7 @@ describe("ListingSummaryRow", () => {
     expect(screen.queryByText(/^Ended/)).not.toBeInTheDocument();
   });
 
-  it("infers SOLD outcome from reservePrice when endOutcome is missing", () => {
+  it("renders Sold for ENDED + SOLD when DTO explicitly sets endOutcome", () => {
     renderWithProviders(
       <ListingSummaryRow
         auction={
@@ -229,6 +229,8 @@ describe("ListingSummaryRow", () => {
             buyNowPrice: null,
             winnerId: 99,
             ...({
+              endOutcome: "SOLD",
+              finalBidAmount: 5000,
               winnerDisplayName: "Buyer",
             } as Partial<SellerAuctionResponse>)
           })
@@ -286,8 +288,17 @@ describe("ListingSummaryRow", () => {
   ] as const)(
     "renders only View listing (no cancel menu) for %s",
     (status) => {
+      // ENDED rows need an endOutcome per backend invariant (Epic 05
+      // sub-spec 1). Non-ENDED statuses ignore the field but we set it
+      // uniformly so the it.each fixture is consistent.
       renderWithProviders(
-        <ListingSummaryRow auction={baseAuction({ status })} />,
+        <ListingSummaryRow
+          auction={baseAuction({
+            status,
+            bidCount: 0,
+            ...({ endOutcome: "NO_BIDS" } as Partial<SellerAuctionResponse>),
+          })}
+        />,
         { auth: "authenticated" },
       );
       expect(
@@ -361,7 +372,11 @@ describe("ListingSummaryRow", () => {
   });
 
   it("keeps existing view-listing link when escrowState is null", () => {
-    const auction = baseAuction({ status: "ENDED" });
+    const auction = baseAuction({
+      status: "ENDED",
+      bidCount: 0,
+      ...({ endOutcome: "NO_BIDS" } as Partial<SellerAuctionResponse>),
+    });
     renderWithProviders(<ListingSummaryRow auction={auction} />, {
       auth: "authenticated",
     });

@@ -59,8 +59,17 @@ export function AuctionEndedPanel({
   ) &
     EndedAuctionFields;
 
-  const outcome: AuctionEndOutcome =
-    ended.endOutcome ?? inferOutcomeFromDto(auction);
+  // Backend always projects endOutcome on ENDED auctions post Epic 05
+  // sub-spec 1. If this field is ever null on an ENDED auction, it's a
+  // backend invariant violation — let it surface rather than papering
+  // over it with a heuristic.
+  if (ended.endOutcome == null) {
+    throw new Error(
+      `AuctionEndedPanel rendered for auction ${auction.id} with null endOutcome — ` +
+        "backend enrichment invariant violated (Epic 05 sub-spec 1).",
+    );
+  }
+  const outcome: AuctionEndOutcome = ended.endOutcome;
   const finalBid = ended.finalBidAmount ?? numericHighBid(auction.currentHighBid);
   const winnerId = ended.winnerUserId ?? null;
 
@@ -404,42 +413,4 @@ function numericHighBid(
 function formatAmount(value: number | null): string {
   if (value == null) return "—";
   return value.toLocaleString();
-}
-
-/**
- * When the cache hasn't been written by the envelope handler yet (e.g.,
- * the page rendered with an already-ENDED DTO from the REST fetch), we
- * infer the outcome from available fields. Seller DTOs carry
- * {@code reservePrice} + {@code buyNowPrice}; public DTOs expose
- * {@code reserveMet}. Buy-now is checked first because a qualifying
- * final bid means {@code BOUGHT_NOW} regardless of reserve state;
- * defaults to {@code SOLD} when we have a high bid and to {@code NO_BIDS}
- * otherwise.
- */
-function inferOutcomeFromDto(
-  auction: PublicAuctionResponse | SellerAuctionResponse,
-): AuctionEndOutcome {
-  const high = numericHighBid(auction.currentHighBid);
-  if (high == null || auction.bidCount === 0) return "NO_BIDS";
-  // Buy-now check first — if the final high bid meets or exceeds the
-  // buy-now price, the auction terminated via buy-now even if the cache
-  // hasn't been stamped with {@code endOutcome} yet.
-  if (
-    "buyNowPrice" in auction &&
-    auction.buyNowPrice != null &&
-    high >= auction.buyNowPrice
-  ) {
-    return "BOUGHT_NOW";
-  }
-  if ("hasReserve" in auction && auction.hasReserve && !auction.reserveMet) {
-    return "RESERVE_NOT_MET";
-  }
-  if (
-    "reservePrice" in auction &&
-    auction.reservePrice != null &&
-    high < auction.reservePrice
-  ) {
-    return "RESERVE_NOT_MET";
-  }
-  return "SOLD";
 }

@@ -172,10 +172,10 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
  *       bid-summary repeat.</li>
  * </ul>
  *
- * ENDED-outcome inference mirrors {@code AuctionEndedPanel} — if the DTO
- * ships with {@code endOutcome} the component uses it directly; otherwise we
- * derive from {@code reservePrice}/{@code buyNowPrice}/{@code currentHighBid}
- * so the right sub-line renders immediately on first fetch.
+ * ENDED rows read {@code endOutcome} directly from the DTO. Backend always
+ * projects this field post Epic 05 sub-spec 1; a null value on an ENDED
+ * auction is a backend invariant violation and surfaces as an error rather
+ * than being papered over with a heuristic.
  */
 function BidSummaryLine({ auction }: { auction: ListingRowAuction }) {
   const highBid = normalizeBid(auction.currentHighBid);
@@ -227,8 +227,17 @@ function EndedBidSummary({
   auction: ListingRowAuction;
   highBid: number | null;
 }) {
-  const outcome: AuctionEndOutcome =
-    auction.endOutcome ?? inferEndOutcome(auction, highBid);
+  // Backend always projects endOutcome on ENDED auctions post Epic 05
+  // sub-spec 1. If this field is ever null on an ENDED auction, it's a
+  // backend invariant violation — let it surface rather than papering
+  // over it with a heuristic.
+  if (auction.endOutcome == null) {
+    throw new Error(
+      `ListingSummaryRow rendered ENDED auction ${auction.id} with null endOutcome — ` +
+        "backend enrichment invariant violated (Epic 05 sub-spec 1).",
+    );
+  }
+  const outcome: AuctionEndOutcome = auction.endOutcome;
 
   // Winner display-name fallback mirrors AuctionEndedPanel. The query runs
   // only when we have a winnerId but no inline display name. Same cache key
@@ -281,20 +290,6 @@ function EndedBidSummary({
       Ended with no bids
     </p>
   );
-}
-
-function inferEndOutcome(
-  auction: ListingRowAuction,
-  highBid: number | null,
-): AuctionEndOutcome {
-  if (highBid == null || (auction.bidCount ?? 0) === 0) return "NO_BIDS";
-  if (auction.buyNowPrice != null && highBid >= auction.buyNowPrice) {
-    return "BOUGHT_NOW";
-  }
-  if (auction.reservePrice != null && highBid < auction.reservePrice) {
-    return "RESERVE_NOT_MET";
-  }
-  return "SOLD";
 }
 
 function parseDate(s: string | null | undefined): Date | null {
