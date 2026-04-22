@@ -10,6 +10,7 @@ The full design lives in [`docs/initial-design/DESIGN.md`](docs/initial-design/D
 |----------|---------------------------------------------------|
 | Frontend | Next.js 16, React 19, TypeScript 5, Tailwind 4    |
 | Backend  | Spring Boot 4, Java 26, Maven, JPA (Hibernate DDL) |
+| Bot      | .NET 8, LibreMetaverse (see [`bot/README.md`](bot/README.md)) |
 | Storage  | PostgreSQL 17, Redis 7, MinIO (S3-compatible)     |
 | In-world | LSL scripts (Phase 6+)                            |
 
