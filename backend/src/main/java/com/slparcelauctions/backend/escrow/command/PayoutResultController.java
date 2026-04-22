@@ -32,8 +32,8 @@ import lombok.RequiredArgsConstructor;
  * <p>Returns an {@link SlCallbackResponse} {@code OK} on every recognised
  * outcome (success, retry scheduled, stall) so the terminal's LSL script
  * can simply log and return. The non-2xx cases are reserved for the two
- * 403 gates (headers + secret) and the 404-shaped {@code ESCROW_NOT_FOUND}
- * mapping for an unknown idempotency key.
+ * 403 gates (headers + secret) and the 404-shaped
+ * {@code TERMINAL_COMMAND_NOT_FOUND} mapping for an unknown idempotency key.
  */
 @RestController
 @RequestMapping("/api/v1/sl/escrow")

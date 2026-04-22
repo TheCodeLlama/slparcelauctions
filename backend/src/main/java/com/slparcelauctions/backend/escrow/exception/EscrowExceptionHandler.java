@@ -9,6 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -64,6 +65,17 @@ public class EscrowExceptionHandler {
         pd.setTitle("Terminal Auth Failed");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "SECRET_MISMATCH");
+        return pd;
+    }
+
+    @ExceptionHandler(UnknownTerminalCommandException.class)
+    public ProblemDetail handleUnknownTerminalCommand(
+            UnknownTerminalCommandException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Terminal Command Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "TERMINAL_COMMAND_NOT_FOUND");
+        pd.setProperty("idempotencyKey", e.getIdempotencyKey());
         return pd;
     }
 

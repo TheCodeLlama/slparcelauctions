@@ -25,7 +25,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowCompletedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowRefundCompletedEnvelope;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
-import com.slparcelauctions.backend.escrow.exception.EscrowNotFoundException;
+import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -131,7 +131,7 @@ public class TerminalCommandService {
     @Transactional
     public void applyCallback(PayoutResultRequest req) {
         TerminalCommand initial = cmdRepo.findByIdempotencyKey(req.idempotencyKey())
-                .orElseThrow(() -> new EscrowNotFoundException(-1L));
+                .orElseThrow(() -> new UnknownTerminalCommandException(req.idempotencyKey()));
         TerminalCommand cmd = cmdRepo.findByIdForUpdate(initial.getId()).orElseThrow();
 
         if (cmd.getStatus() == TerminalCommandStatus.COMPLETED) {

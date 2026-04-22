@@ -24,8 +24,8 @@ import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
+import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
 import com.slparcelauctions.backend.escrow.exception.EscrowExceptionHandler;
-import com.slparcelauctions.backend.escrow.exception.EscrowNotFoundException;
 import com.slparcelauctions.backend.escrow.exception.TerminalAuthException;
 import com.slparcelauctions.backend.escrow.terminal.TerminalService;
 import com.slparcelauctions.backend.sl.SlHeaderValidator;
@@ -159,19 +159,21 @@ class PayoutResultControllerSliceTest {
     }
 
     @Test
-    void unknownIdempotencyKey_returns404EscrowNotFound() throws Exception {
+    void unknownIdempotencyKey_returns404TerminalCommandNotFound() throws Exception {
+        String unknownKey = "ESC-999-PAYOUT-1";
         doNothing().when(headerValidator).validate(SHARD, OWNER_KEY);
         doNothing().when(terminalService).assertSharedSecret(SHARED_SECRET);
-        doThrow(new EscrowNotFoundException(-1L))
+        doThrow(new UnknownTerminalCommandException(unknownKey))
                 .when(terminalCommandService).applyCallback(any(PayoutResultRequest.class));
 
         mockMvc.perform(post("/api/v1/sl/escrow/payout-result")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-SecondLife-Shard", SHARD)
                         .header("X-SecondLife-Owner-Key", OWNER_KEY)
-                        .content(successBody("ESC-999-PAYOUT-1")))
+                        .content(successBody(unknownKey)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("ESCROW_NOT_FOUND"));
+                .andExpect(jsonPath("$.code").value("TERMINAL_COMMAND_NOT_FOUND"))
+                .andExpect(jsonPath("$.idempotencyKey").value(unknownKey));
     }
 
     @Test
