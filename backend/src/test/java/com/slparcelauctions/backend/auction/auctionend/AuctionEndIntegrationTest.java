@@ -68,7 +68,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
-        "slpa.ownership-monitor.enabled=false"
+        "slpa.ownership-monitor.enabled=false",
+        "slpa.escrow.ownership-monitor-job.enabled=false"
 })
 @Import(AuctionEndIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
