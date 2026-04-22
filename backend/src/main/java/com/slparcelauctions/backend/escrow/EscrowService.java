@@ -760,7 +760,6 @@ public class EscrowService {
      * envelope shape is deferred until the escrow UI needs it (tracked in
      * DEFERRED_WORK — "TRANSFER_READY_OBSERVED envelope shape").
      */
-    @Transactional
     public void publishTransferReadyObserved(Escrow escrow) {
         log.info("Escrow {} observed TRANSFER_READY (seller configured sale-to-winner)",
                 escrow.getId());

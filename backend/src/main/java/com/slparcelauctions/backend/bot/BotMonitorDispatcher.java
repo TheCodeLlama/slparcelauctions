@@ -197,9 +197,9 @@ public class BotMonitorDispatcher {
 
     private static Map<String, Object> evidence(BotMonitorResultRequest req) {
         Map<String, Object> ev = new HashMap<>();
-        if (req.observedOwner() != null) ev.put("observedOwner", req.observedOwner().toString());
-        if (req.observedAuthBuyer() != null) ev.put("observedAuthBuyer", req.observedAuthBuyer().toString());
-        if (req.observedSalePrice() != null) ev.put("observedSalePrice", req.observedSalePrice());
+        if (req.observedOwner() != null) ev.put("observed_owner", req.observedOwner().toString());
+        if (req.observedAuthBuyer() != null) ev.put("observed_auth_buyer", req.observedAuthBuyer().toString());
+        if (req.observedSalePrice() != null) ev.put("observed_sale_price", req.observedSalePrice());
         if (req.note() != null) ev.put("note", req.note());
         return ev;
     }
