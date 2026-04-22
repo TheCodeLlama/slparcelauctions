@@ -177,7 +177,7 @@ public class BidService {
         // auction to ENDED with endOutcome=BOUGHT_NOW; when that happens
         // every ACTIVE proxy on the auction is marked EXHAUSTED so the
         // partial unique index is cleared and no zombie proxies linger.
-        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, clock, proxyBidRepo);
+        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, now, proxyBidRepo);
 
         // Step 8 — update auction aggregate state. The last emitted bid is
         // always the current top (for Task 3 that's the same as the only
@@ -195,13 +195,16 @@ public class BidService {
 
         // Inline buy-it-now closes stamp the ESCROW_PENDING row in the same
         // transaction as the status flip so close + escrow are atomic; a
-        // rollback reverts both. Uses `now` (not auction.getEndedAt()) so
-        // the 48h payment deadline anchors to the same instant `now` used
-        // by the caller and the AuctionEndedEnvelope's serverTime — keeps
-        // cross-channel event ordering tight and the deadline arithmetic
-        // trivial to reason about. ESCROW_CREATED is registered on
-        // afterCommit inside createForEndedAuction and fires BEFORE the
-        // AUCTION_ENDED afterCommit below (registration order).
+        // rollback reverts both. The single `now` read at step 3 is threaded
+        // through applySnipeAndBuyNow (stamps auction.endedAt), the escrow
+        // stamp below (anchors the 48h payment deadline), and the
+        // AuctionEndedEnvelope.of(auction, winner, now) factory (stamps
+        // serverTime) so all three values derive from one clock read —
+        // otherwise independent OffsetDateTime.now(clock) reads drift by
+        // microseconds under Clock.systemUTC() and break cross-channel
+        // event ordering. ESCROW_CREATED is registered on afterCommit
+        // inside createForEndedAuction and fires BEFORE the AUCTION_ENDED
+        // afterCommit below (registration order).
         final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
         if (ended) {
             escrowService.createForEndedAuction(auction, now);
@@ -217,7 +220,7 @@ public class BidService {
                 ? null
                 : BidSettlementEnvelope.of(auction, emitted, topBidder, clock);
         final AuctionEndedEnvelope endedEnv = ended
-                ? AuctionEndedEnvelope.of(auction, topBidder, clock)
+                ? AuctionEndedEnvelope.of(auction, topBidder, now)
                 : null;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

@@ -114,8 +114,13 @@ public class ProxyBidService {
                 .build());
 
         // Steps 6-8 — shared resolution + snipe/buy-now + auction aggregate.
+        // Single-source-of-truth timestamp for the placement; threaded into
+        // applySnipeAndBuyNow (stamps auction.endedAt on buy-it-now close)
+        // so it matches whatever the envelope factory consumes on the
+        // afterCommit path.
         List<Bid> emitted = resolveProxyResolution(auction, proxy);
-        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, clock, proxyBidRepo);
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, now, proxyBidRepo);
         updateAuctionTopBidder(auction, emitted);
         auctionRepo.save(auction);
 
@@ -190,7 +195,11 @@ public class ProxyBidService {
             emitted = resolveProxyResolution(auction, proxy);
         }
 
-        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, clock, proxyBidRepo);
+        // Single clock read threaded through the helper (see createProxy
+        // for the rationale — keeps auction.endedAt / escrow deadline /
+        // envelope serverTime pinned to one instant if buy-it-now fires).
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, now, proxyBidRepo);
         updateAuctionTopBidder(auction, emitted);
         auctionRepo.save(auction);
 

@@ -165,14 +165,16 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
         assertThat(escrow.getTransferDeadline()).isNull();
         assertThat(escrow.getFundedAt()).isNull();
-        // paymentDeadline is anchored to the `now` passed into
-        // createForEndedAuction (line 110 of BidService.placeBid), which
-        // is a separate clock read from the one applySnipeAndBuyNow uses
-        // for auction.endedAt. Under Clock.systemUTC() they can drift by
-        // milliseconds, so the auction's endedAt is NOT load-bearing for
-        // the deadline comparison — the envelope's serverTime is. Assert
-        // the deadline against the envelope serverTime + 48h instead.
-        assertThat(escrow.getPaymentDeadline()).isAfter(refreshed.getEndedAt());
+        // paymentDeadline, auction.endedAt, and the envelope serverTime are
+        // all anchored to the same `now` read in BidService.placeBid (step
+        // 3); it's threaded through applySnipeAndBuyNow (endedAt),
+        // createForEndedAuction (paymentDeadline = now + 48h), and
+        // AuctionEndedEnvelope.of(..., now) (serverTime). So
+        // paymentDeadline == endedAt + 48h exactly, modulo Postgres
+        // TIMESTAMPTZ nanosecond→microsecond rounding on the persisted
+        // column (1μs tolerance covers it).
+        assertThat(escrow.getPaymentDeadline())
+                .isCloseTo(refreshed.getEndedAt().plusHours(48), within(1, ChronoUnit.MICROS));
 
         assertThat(capturingEscrowPublisher.created).hasSize(1);
         EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);

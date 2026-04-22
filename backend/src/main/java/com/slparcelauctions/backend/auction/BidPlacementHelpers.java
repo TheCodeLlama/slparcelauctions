@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.auction;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -38,19 +37,31 @@ public final class BidPlacementHelpers {
      * resolution. Behaviour is identical to the original
      * {@code BidService.applySnipeAndBuyNow} method.
      *
+     * <p>The {@code now} argument MUST be the same instant the caller uses as
+     * its top-level "this placement" timestamp — specifically, the same value
+     * passed to {@code EscrowService.createForEndedAuction(auction, now)} and
+     * to {@code AuctionEndedEnvelope.of(auction, winner, now)}. Threading a
+     * single read through all three anchors keeps the persisted
+     * {@code auction.endedAt}, the escrow's {@code paymentDeadline} (endedAt
+     * + 48h), and the broadcast envelope's {@code serverTime} byte-identical
+     * — otherwise three independent {@code OffsetDateTime.now(clock)} reads
+     * separated by microseconds drift under {@code Clock.systemUTC()} and
+     * break cross-channel event ordering.
+     *
      * @param auction      the in-memory auction aggregate; mutated in-place
      * @param emitted      ordered list of bid rows emitted by the caller
      *                     (manual-first, proxy-counter-last for manual paths;
      *                     proxy-resolution-order for proxy paths)
-     * @param clock        the service clock, for stamping {@code endedAt} on
-     *                     inline buy-it-now closes
+     * @param now          the placement's single-source-of-truth timestamp;
+     *                     stamped onto {@code auction.endedAt} when inline
+     *                     buy-it-now fires
      * @param proxyBidRepo repository used to exhaust every remaining ACTIVE
      *                     proxy on the auction when buy-it-now fires
      */
     public static void applySnipeAndBuyNow(
             Auction auction,
             List<Bid> emitted,
-            Clock clock,
+            OffsetDateTime now,
             ProxyBidRepository proxyBidRepo) {
         // Snipe protection — per-emitted-row extension that stacks.
         if (Boolean.TRUE.equals(auction.getSnipeProtect()) && auction.getSnipeWindowMin() != null) {
@@ -82,7 +93,7 @@ public final class BidPlacementHelpers {
                     auction.setEndOutcome(AuctionEndOutcome.BOUGHT_NOW);
                     auction.setWinnerUserId(top.getBidder().getId());
                     auction.setFinalBidAmount(top.getAmount());
-                    auction.setEndedAt(OffsetDateTime.now(clock));
+                    auction.setEndedAt(now);
                     proxyBidRepo.exhaustAllActiveByAuctionId(auction.getId());
                     return;
                 }
