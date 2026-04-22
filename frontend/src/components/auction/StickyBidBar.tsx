@@ -365,10 +365,13 @@ function formatAmount(value: number | null): string {
 }
 
 /**
- * Mirrors {@code inferOutcomeFromDto} in {@link AuctionEndedPanel}. When
- * the cache hasn't yet been written by the envelope handler (e.g. the
- * REST fetch returned an already-{@code ENDED} DTO), infer from the
- * fields the DTO does carry.
+ * Local defensive fallback when the cache hasn't yet been written by the
+ * envelope handler (e.g. the REST fetch returned an already-{@code ENDED}
+ * DTO) — infer outcome from the fields the DTO does carry. See FOOTGUNS
+ * §F.85 for why the cache-side {@code inferOutcomeFromDto} and
+ * {@code inferEndOutcome} helpers were retired in Epic 05 sub-spec 2;
+ * this {@code StickyBidBar}-local helper stays because the sticky bar can
+ * render in a narrow window before the envelope handler hydrates the cache.
  */
 function inferOutcome(
   auction: PublicAuctionResponse | SellerAuctionResponse,
