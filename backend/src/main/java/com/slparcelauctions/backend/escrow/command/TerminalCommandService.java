@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
+import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowService;
@@ -65,6 +66,7 @@ public class TerminalCommandService {
     private final ListingFeeRefundRepository listingFeeRefundRepo;
     private final UserRepository userRepo;
     private final EscrowBroadcastPublisher broadcastPublisher;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -213,6 +215,9 @@ public class TerminalCommandService {
         escrow.setState(EscrowState.COMPLETED);
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
+
+        // Cancel any live MONITOR_ESCROW rows. No-op for non-BOT escrows.
+        monitorLifecycle.onEscrowTerminal(escrow);
 
         // PAYOUT and COMMISSION land as separate ledger rows so audit and
         // accounting can bucket them independently. Spec §7.2.

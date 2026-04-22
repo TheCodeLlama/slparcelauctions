@@ -19,6 +19,7 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
+import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
@@ -83,6 +84,7 @@ public class EscrowService {
     private final TerminalService terminalService;
     private final TerminalRepository terminalRepo;
     private final TerminalCommandService terminalCommandService;
+    private final BotMonitorLifecycleService monitorLifecycle;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -142,6 +144,9 @@ public class EscrowService {
 
         log.info("Escrow {} created for auction {} (final L${}, commission L${}, payout L${})",
                 saved.getId(), auction.getId(), finalBid, saved.getCommissionAmt(), saved.getPayoutAmt());
+        // Seed MONITOR_ESCROW for BOT-tier auctions so the bot watches the
+        // seller→winner ownership transition. No-op for non-BOT tiers.
+        monitorLifecycle.onEscrowCreatedBot(saved);
         return saved;
     }
 
@@ -186,6 +191,8 @@ public class EscrowService {
         escrow.setDisputeReasonCategory(req.reasonCategory().name());
         escrow.setDisputeDescription(req.description());
         escrow = escrowRepo.save(escrow);
+
+        monitorLifecycle.onEscrowTerminal(escrow);
 
         queueRefundIfFunded(escrow);
 
@@ -563,6 +570,8 @@ public class EscrowService {
                 .resolved(false)
                 .build());
 
+        monitorLifecycle.onEscrowTerminal(escrow);
+
         queueRefundIfFunded(escrow);
 
         final EscrowFrozenEnvelope envelope = EscrowFrozenEnvelope.of(escrow, now);
@@ -629,6 +638,8 @@ public class EscrowService {
         escrow.setExpiredAt(now);
         escrow = escrowRepo.save(escrow);
 
+        monitorLifecycle.onEscrowTerminal(escrow);
+
         final EscrowExpiredEnvelope envelope =
                 EscrowExpiredEnvelope.of(escrow, "PAYMENT_TIMEOUT", now);
         TransactionSynchronizationManager.registerSynchronization(
@@ -670,6 +681,8 @@ public class EscrowService {
         escrow.setState(EscrowState.EXPIRED);
         escrow.setExpiredAt(now);
         escrow = escrowRepo.save(escrow);
+
+        monitorLifecycle.onEscrowTerminal(escrow);
 
         queueRefundIfFunded(escrow);
 

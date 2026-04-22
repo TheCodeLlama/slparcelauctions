@@ -1,10 +1,12 @@
 package com.slparcelauctions.backend.bot;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -41,4 +43,47 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
      */
     List<BotTask> findByStatusAndLastUpdatedAtBefore(
             BotTaskStatus status, OffsetDateTime threshold);
+
+    /**
+     * Bulk-cancels live (PENDING or IN_PROGRESS) monitor rows for an auction
+     * on close / suspend / cancel. {@code lastUpdatedAt = :now} is explicit in
+     * the SET clause because {@link org.springframework.data.jpa.repository.Modifying}
+     * bypasses Hibernate's {@link org.hibernate.annotations.UpdateTimestamp}
+     * handler (FOOTGUNS §F.87). Idempotent: returns 0 when no rows match.
+     */
+    @Modifying
+    @Query("""
+            UPDATE BotTask t
+               SET t.status = com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED,
+                   t.completedAt = :now,
+                   t.lastUpdatedAt = :now
+             WHERE t.auction.id = :auctionId
+               AND t.taskType IN :types
+               AND t.status IN (com.slparcelauctions.backend.bot.BotTaskStatus.PENDING,
+                                com.slparcelauctions.backend.bot.BotTaskStatus.IN_PROGRESS)
+            """)
+    int cancelLiveByAuctionIdAndTypes(
+            @Param("auctionId") Long auctionId,
+            @Param("types") Collection<BotTaskType> types,
+            @Param("now") OffsetDateTime now);
+
+    /**
+     * Bulk-cancels live MONITOR_ESCROW rows for an escrow on its terminal
+     * transition. Same {@code lastUpdatedAt} caveat as
+     * {@link #cancelLiveByAuctionIdAndTypes}. Idempotent.
+     */
+    @Modifying
+    @Query("""
+            UPDATE BotTask t
+               SET t.status = com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED,
+                   t.completedAt = :now,
+                   t.lastUpdatedAt = :now
+             WHERE t.escrow.id = :escrowId
+               AND t.taskType = com.slparcelauctions.backend.bot.BotTaskType.MONITOR_ESCROW
+               AND t.status IN (com.slparcelauctions.backend.bot.BotTaskStatus.PENDING,
+                                com.slparcelauctions.backend.bot.BotTaskStatus.IN_PROGRESS)
+            """)
+    int cancelLiveByEscrowId(
+            @Param("escrowId") Long escrowId,
+            @Param("now") OffsetDateTime now);
 }

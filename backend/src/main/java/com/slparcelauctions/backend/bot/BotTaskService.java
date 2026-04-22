@@ -67,6 +67,7 @@ public class BotTaskService {
     private final ParcelRepository parcelRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final BotMonitorDispatcher dispatcher;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     @Value("${slpa.bot-task.sentinel-price-lindens:999999999}")
@@ -235,6 +236,11 @@ public class BotTaskService {
                     taskId, auction.getId(), e.getMessage());
             throw new ParcelAlreadyListedException(parcel.getId(), -1L);
         }
+        // Seed the MONITOR_AUCTION row in the same transaction as the auction
+        // state flip so the auction row and the monitor row commit together.
+        // No-op for non-BOT tiers, but the SUCCESS path here always lands
+        // BOT tier.
+        monitorLifecycle.onAuctionActivatedBot(auction);
         log.info("Bot task {} COMPLETED: auctionId={} -> ACTIVE tier=BOT, ends {}",
                 taskId, auction.getId(), endsAt);
         return task;

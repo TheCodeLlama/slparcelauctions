@@ -14,6 +14,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
+import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class SuspensionService {
 
     private final AuctionRepository auctionRepo;
     private final FraudFlagRepository fraudFlagRepo;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     @Transactional
@@ -73,6 +75,8 @@ public class SuspensionService {
                 .resolved(false)
                 .build());
 
+        monitorLifecycle.onAuctionClosed(auction);
+
         log.warn("Auction {} SUSPENDED for ownership change: expected={}, detected={}",
                 auction.getId(), ev.get("expected_owner"), ev.get("detected_owner"));
     }
@@ -95,6 +99,8 @@ public class SuspensionService {
                 .evidenceJson(ev)
                 .resolved(false)
                 .build());
+
+        monitorLifecycle.onAuctionClosed(auction);
 
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
                 auction.getId(), auction.getParcel().getSlParcelUuid());
@@ -125,6 +131,8 @@ public class SuspensionService {
                 .evidenceJson(evidence)
                 .resolved(false)
                 .build());
+
+        monitorLifecycle.onAuctionClosed(auction);
 
         log.warn("Auction {} SUSPENDED by bot monitor: reason={}, evidence={}",
                 auction.getId(), reason, evidence);
