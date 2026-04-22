@@ -97,3 +97,27 @@ slpa:
   auction-end:
     enabled: true
     scheduler-frequency: PT15S
+  escrow:
+    enabled: true
+    # No default — must be set via SLPA_ESCROW_TERMINAL_SHARED_SECRET in
+    # non-dev profiles. EscrowStartupValidator fails fast if missing or
+    # shorter than 16 characters. Dev profile overrides this in
+    # application-dev.yml.
+    terminal-shared-secret: ${SLPA_ESCROW_TERMINAL_SHARED_SECRET:}
+    terminal-live-window: PT15M
+    command-in-flight-timeout: PT5M
+    ownership-api-failure-threshold: 5
+    ownership-reminder-delay: PT24H
+    # --- Scheduled job cadences (Tasks 6/7/8/9 wire the actual jobs) ---
+    timeout-job:
+      enabled: true
+      fixed-delay: PT5M
+    ownership-monitor-job:
+      enabled: true
+      fixed-delay: PT5M
+    command-dispatcher-job:
+      enabled: true
+      fixed-delay: PT30S
+    listing-fee-refund-job:
+      enabled: true
+      fixed-delay: PT1M
