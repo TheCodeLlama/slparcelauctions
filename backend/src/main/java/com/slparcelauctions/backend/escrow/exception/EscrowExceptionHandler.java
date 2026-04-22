@@ -9,6 +9,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,6 +55,36 @@ public class EscrowExceptionHandler {
         pd.setProperty("escrowId", e.getEscrowId());
         pd.setProperty("currentState", e.getCurrentState().name());
         pd.setProperty("attemptedTarget", e.getAttemptedTarget().name());
+        return pd;
+    }
+
+    @ExceptionHandler(TerminalAuthException.class)
+    public ProblemDetail handleTerminalAuth(TerminalAuthException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Terminal Auth Failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SECRET_MISMATCH");
+        return pd;
+    }
+
+    /**
+     * Mirror of {@code SlExceptionHandler.handleInvalidHeaders}, scoped to the
+     * escrow package. SL-header validation is delegated to
+     * {@link com.slparcelauctions.backend.sl.SlHeaderValidator} inside the
+     * escrow SL callback controllers (terminal register + payment + payout),
+     * but {@code SlExceptionHandler} is scoped to {@code backend.sl} so it
+     * would not catch the exception when thrown from an escrow-package
+     * controller. Keeping a parallel mapping here preserves the same
+     * 403/SL_INVALID_HEADERS shape without re-scoping the sl-package handler.
+     */
+    @ExceptionHandler(InvalidSlHeadersException.class)
+    public ProblemDetail handleInvalidSlHeaders(
+            InvalidSlHeadersException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/sl/invalid-headers"));
+        pd.setTitle("Invalid SL headers");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_INVALID_HEADERS");
         return pd;
     }
 }
