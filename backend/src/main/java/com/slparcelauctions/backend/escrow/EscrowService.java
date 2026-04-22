@@ -22,6 +22,7 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowExpiredEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFrozenEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
@@ -603,6 +604,84 @@ public class EscrowService {
         escrow.setLastCheckedAt(now);
         escrow.setConsecutiveWorldApiFailures(0);
         escrowRepo.save(escrow);
+    }
+
+    /**
+     * Expires an {@link EscrowState#ESCROW_PENDING} escrow whose 48h
+     * {@code paymentDeadline} has passed — the winner never paid. No refund
+     * is queued because no L$ is held in the terminal account. Stamps
+     * {@code expiredAt} and registers an {@link EscrowExpiredEnvelope}
+     * ({@code reason=PAYMENT_TIMEOUT}) on {@code afterCommit} so subscribers
+     * never observe an expiry that gets rolled back on a late DB failure.
+     * Spec §4.6.
+     *
+     * <p>{@link Propagation#MANDATORY} so a stray call outside the
+     * timeout-task transaction fails fast — the caller must hold a
+     * pessimistic write lock on the escrow row for the afterCommit envelope
+     * to be sound.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void expirePayment(Escrow escrow, OffsetDateTime now) {
+        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.EXPIRED);
+        escrow.setState(EscrowState.EXPIRED);
+        escrow.setExpiredAt(now);
+        escrow = escrowRepo.save(escrow);
+
+        final EscrowExpiredEnvelope envelope =
+                EscrowExpiredEnvelope.of(escrow, "PAYMENT_TIMEOUT", now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishExpired(envelope);
+                    }
+                });
+        log.info("Escrow {} EXPIRED (payment timeout, no refund): auction {}",
+                escrow.getId(), escrow.getAuction().getId());
+    }
+
+    /**
+     * Expires a {@link EscrowState#TRANSFER_PENDING} escrow whose 72h
+     * {@code transferDeadline} has passed AND no PAYOUT command is in flight —
+     * the seller never transferred the parcel. Queues a REFUND
+     * {@link com.slparcelauctions.backend.escrow.command.TerminalCommand} so
+     * the winner's L$ is returned, stamps {@code expiredAt}, and registers
+     * an {@link EscrowExpiredEnvelope} ({@code reason=TRANSFER_TIMEOUT}) on
+     * {@code afterCommit}. Spec §4.6.
+     *
+     * <p>Caller must pre-filter by the payout-in-flight guard via
+     * {@link EscrowRepository#findExpiredTransferPendingIds}; this method
+     * does NOT re-validate the guard — the repo query is the enforcement
+     * point. The rare race where a PAYOUT command is created between the
+     * repo query and the per-escrow lock is benign: the refund we'd queue
+     * is a duplicate, and both commands would be resolved by the admin
+     * dispute path rather than silently double-spending, because the
+     * escrow row state would first need to have been flipped by another
+     * caller.
+     *
+     * <p>{@link Propagation#MANDATORY} so a stray call outside the
+     * timeout-task transaction fails fast.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void expireTransfer(Escrow escrow, OffsetDateTime now) {
+        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.EXPIRED);
+        escrow.setState(EscrowState.EXPIRED);
+        escrow.setExpiredAt(now);
+        escrow = escrowRepo.save(escrow);
+
+        queueRefundIfFunded(escrow);
+
+        final EscrowExpiredEnvelope envelope =
+                EscrowExpiredEnvelope.of(escrow, "TRANSFER_TIMEOUT", now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishExpired(envelope);
+                    }
+                });
+        log.info("Escrow {} EXPIRED (transfer timeout, refund queued): auction {}",
+                escrow.getId(), escrow.getAuction().getId());
     }
 
     /**
