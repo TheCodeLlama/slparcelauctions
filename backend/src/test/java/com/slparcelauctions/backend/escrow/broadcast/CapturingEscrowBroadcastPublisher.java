@@ -20,6 +20,7 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
 
     public final List<EscrowCreatedEnvelope> created = new CopyOnWriteArrayList<>();
     public final List<EscrowDisputedEnvelope> disputed = new CopyOnWriteArrayList<>();
+    public final List<EscrowFundedEnvelope> funded = new CopyOnWriteArrayList<>();
 
     @Override
     public void publishCreated(EscrowCreatedEnvelope envelope) {
@@ -31,9 +32,15 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
         disputed.add(envelope);
     }
 
+    @Override
+    public void publishFunded(EscrowFundedEnvelope envelope) {
+        funded.add(envelope);
+    }
+
     /** Clears every capture list; useful in {@code @BeforeEach} hooks. */
     public void reset() {
         created.clear();
         disputed.clear();
+        funded.clear();
     }
 }

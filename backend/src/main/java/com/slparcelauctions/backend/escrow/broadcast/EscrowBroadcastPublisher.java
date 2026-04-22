@@ -25,4 +25,12 @@ public interface EscrowBroadcastPublisher {
      * transition that gets rolled back.
      */
     void publishDisputed(EscrowDisputedEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowFundedEnvelope} after the payment-receiving
+     * transaction commits. Called by {@code EscrowService.acceptPayment} via
+     * an {@code afterCommit} callback so subscribers never see a FUNDED →
+     * TRANSFER_PENDING transition that gets rolled back on a late DB failure.
+     */
+    void publishFunded(EscrowFundedEnvelope envelope);
 }
