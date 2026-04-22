@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
+import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
@@ -86,6 +87,14 @@ export function ListingSummaryRow({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-title-sm text-on-surface truncate">{title}</h3>
             <ListingStatusBadge status={auction.status} />
+            {auction.escrowState != null && (
+              <EscrowChip
+                state={auction.escrowState}
+                transferConfirmedAt={auction.transferConfirmedAt}
+                role="seller"
+                size="sm"
+              />
+            )}
           </div>
           <p className="text-body-sm text-on-surface-variant">
             {auction.parcel.regionName} · {auction.parcel.areaSqm} m²
@@ -308,13 +317,15 @@ function PrimaryActions({
   auction,
   onOpenCancel,
 }: {
-  auction: SellerAuctionResponse;
+  auction: ListingRowAuction;
   onOpenCancel: () => void;
 }) {
   const id = auction.id;
   const publicHref = `/auction/${id}`;
+  const escrowHref = `/auction/${id}/escrow`;
   const editHref = `/listings/${id}/edit`;
   const activateHref = `/listings/${id}/activate`;
+  const hasEscrow = auction.escrowState != null;
 
   const cancelItem: DropdownItem = {
     label: "Cancel listing",
@@ -370,13 +381,13 @@ function PrimaryActions({
     case "COMPLETED":
     case "EXPIRED":
       return (
-        <Link href={publicHref}>
+        <Link href={hasEscrow ? escrowHref : publicHref}>
           <Button
             variant="secondary"
             size="sm"
             leftIcon={<ExternalLink className="size-4" />}
           >
-            View listing
+            {hasEscrow ? "View escrow" : "View listing"}
           </Button>
         </Link>
       );
@@ -385,11 +396,12 @@ function PrimaryActions({
     case "SUSPENDED":
       // View-details link points at the public auction page (spec §6.3
       // footnote — may be a dead link until Epic 04 wires the public
-      // listing page).
+      // listing page). When an escrow exists (typically DISPUTED) we route
+      // the seller directly to the escrow page instead.
       return (
-        <Link href={publicHref}>
+        <Link href={hasEscrow ? escrowHref : publicHref}>
           <Button variant="secondary" size="sm">
-            View details
+            {hasEscrow ? "View escrow" : "View details"}
           </Button>
         </Link>
       );

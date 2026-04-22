@@ -343,4 +343,30 @@ describe("ListingSummaryRow", () => {
     );
     expect(img).not.toBeNull();
   });
+
+  it("renders escrow chip + view-escrow link when escrowState is set", () => {
+    const auction = baseAuction({
+      status: "ESCROW_PENDING",
+      ...({
+        escrowState: "ESCROW_PENDING",
+        transferConfirmedAt: null,
+      } as Partial<SellerAuctionResponse>),
+    });
+    renderWithProviders(<ListingSummaryRow auction={auction} />, {
+      auth: "authenticated",
+    });
+    expect(screen.getByText(/awaiting payment/i)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /view escrow/i });
+    expect(link).toHaveAttribute("href", `/auction/${auction.id}/escrow`);
+  });
+
+  it("keeps existing view-listing link when escrowState is null", () => {
+    const auction = baseAuction({ status: "ENDED" });
+    renderWithProviders(<ListingSummaryRow auction={auction} />, {
+      auth: "authenticated",
+    });
+    expect(screen.queryByText(/awaiting payment/i)).not.toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /view listing/i });
+    expect(link).toHaveAttribute("href", `/auction/${auction.id}`);
+  });
 });
