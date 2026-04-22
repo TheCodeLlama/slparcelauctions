@@ -35,7 +35,9 @@ import lombok.RequiredArgsConstructor;
  * PendingVerification)}) resolve the optional {@link Escrow} via
  * {@link EscrowRepository#findByAuctionId(Long)} on demand. Batch callers
  * should pre-load escrows into a map and use the
- * {@code ...WithEscrow(auction, ..., escrow)} overloads to avoid N+1 queries.
+ * {@code toPublicResponse(Auction, Escrow)} /
+ * {@code toSellerResponse(Auction, PendingVerification, Escrow)} overloads
+ * to avoid N+1 queries.
  */
 @Component
 @RequiredArgsConstructor
@@ -185,14 +187,37 @@ public class AuctionDtoMapper {
 
     /**
      * On-demand escrow lookup for single-auction mapper entry points. Returns
-     * null for unpersisted auctions (tests) and for auctions that have not yet
-     * reached ENDED. Batch callers should pre-load escrows and use the
+     * null for unpersisted auctions (tests) and for auctions whose status
+     * cannot possibly carry an escrow row (ACTIVE and pre-ACTIVE states, plus
+     * CANCELLED/EXPIRED/SUSPENDED terminal states where no sale occurred).
+     * Batch callers should pre-load escrows and use the
      * {@code (Auction, Escrow)} overloads to avoid one query per row.
      */
     private Escrow resolveEscrow(Auction a) {
         if (a.getId() == null) {
             return null;
         }
+        if (!hasEscrowBearingStatus(a.getStatus())) {
+            return null;
+        }
         return escrowRepo.findByAuctionId(a.getId()).orElse(null);
+    }
+
+    /**
+     * Whether an auction in the given status might have an escrow row. Escrow
+     * rows are created only on ENDED + (SOLD|BOUGHT_NOW) and then follow the
+     * ESCROW_PENDING → ESCROW_FUNDED → TRANSFER_PENDING → COMPLETED lifecycle
+     * (with DISPUTED as a possible off-ramp). ACTIVE and pre-ACTIVE statuses,
+     * plus CANCELLED/EXPIRED/SUSPENDED terminal statuses (where no sale
+     * occurred), never carry an escrow row, so we skip the repo query for
+     * them.
+     */
+    private static boolean hasEscrowBearingStatus(AuctionStatus s) {
+        return switch (s) {
+            case DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED,
+                    ACTIVE, CANCELLED, EXPIRED, SUSPENDED -> false;
+            case ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING,
+                    COMPLETED, DISPUTED -> true;
+        };
     }
 }
