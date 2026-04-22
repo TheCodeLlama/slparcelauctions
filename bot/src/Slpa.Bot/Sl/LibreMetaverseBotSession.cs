@@ -227,6 +227,12 @@ public sealed class LibreMetaverseBotSession : IBotSession
                 or TeleportStatus.Cancelled)
             {
                 _client.Self.TeleportProgress -= handler!;
+                if (e.Status == TeleportStatus.Failed)
+                {
+                    _log.LogDebug(
+                        "TeleportStatus.Failed raw message: {Message}",
+                        e.Message);
+                }
                 var result = e.Status == TeleportStatus.Finished
                     ? TeleportResult.Ok()
                     : TeleportResult.Fail(ClassifyFailure(e.Message));
@@ -268,11 +274,33 @@ public sealed class LibreMetaverseBotSession : IBotSession
         var sim = _client.Network.CurrentSim;
         if (sim is null) return null;
 
+        // RequestAllSimParcels fires ParcelProperties once per parcel in the
+        // sim. We need the parcel containing (x, y), not just the first one
+        // LibreMetaverse happens to hand us. The sim's ParcelMap is a 64x64
+        // grid of 4m cells mapping to local parcel IDs; look up the cell
+        // under the landing point and only resolve when that ID arrives.
+        int row = Math.Clamp((int)(y / 4.0), 0, 63);
+        int col = Math.Clamp((int)(x / 4.0), 0, 63);
+        int expectedLocalId = sim.ParcelMap[row, col];
+        bool hasExpectedId = expectedLocalId != 0;
+        if (!hasExpectedId)
+        {
+            _log.LogWarning(
+                "ParcelMap empty at ({X}, {Y}) for sim {Sim}; falling back " +
+                "to first ParcelProperties event. Caller should retry.",
+                x, y, sim.Name);
+        }
+
         var tcs = new TaskCompletionSource<ParcelSnapshot?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<ParcelPropertiesEventArgs>? handler = null;
         handler = (_, e) =>
         {
+            if (hasExpectedId && e.Parcel.LocalID != expectedLocalId)
+            {
+                // Not the parcel we're after — stay subscribed for the next.
+                return;
+            }
             _client.Parcels.ParcelProperties -= handler!;
             tcs.TrySetResult(new ParcelSnapshot(
                 OwnerId: Guid.Parse(e.Parcel.OwnerID.ToString()),
@@ -310,7 +338,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
         if (string.IsNullOrEmpty(message)) return TeleportFailureKind.Other;
         var m = message.ToLowerInvariant();
         if (m.Contains("denied") || m.Contains("banned")
-            || m.Contains("restrict")) return TeleportFailureKind.AccessDenied;
+            || m.Contains("restricted")) return TeleportFailureKind.AccessDenied;
         if (m.Contains("not found") || m.Contains("does not exist"))
             return TeleportFailureKind.RegionNotFound;
         return TeleportFailureKind.Other;

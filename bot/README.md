@@ -53,6 +53,8 @@ tests never touch `GridClient` directly.
 4. Verify `GET http://localhost:8081/health` → `Online` within ~10 s.
 5. Queue a VERIFY task via the Postman `Dev/Bot simulate verify` helper.
 6. Confirm the bot teleports and posts to `PUT /api/v1/bot/tasks/{id}/verify`.
+7. Verify bot reads the correct parcel at the landing coordinates, not an
+   arbitrary parcel in the same region.
 
 ## Prerequisites
 
