@@ -46,6 +46,20 @@ public class NoOpEscrowBroadcastPublisher {
                         envelope.auctionId(), envelope.escrowId(), envelope.state(),
                         envelope.transferDeadline());
             }
+
+            @Override
+            public void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope) {
+                log.debug("no-op publishTransferConfirmed: auctionId={}, escrowId={}, state={}, transferConfirmedAt={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.transferConfirmedAt());
+            }
+
+            @Override
+            public void publishFrozen(EscrowFrozenEnvelope envelope) {
+                log.debug("no-op publishFrozen: auctionId={}, escrowId={}, state={}, reason={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.reason());
+            }
         };
     }
 }

@@ -33,4 +33,21 @@ public interface EscrowBroadcastPublisher {
      * TRANSFER_PENDING transition that gets rolled back on a late DB failure.
      */
     void publishFunded(EscrowFundedEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowTransferConfirmedEnvelope} after the
+     * ownership-monitor transaction commits. Called by
+     * {@code EscrowService.confirmTransfer} via an {@code afterCommit}
+     * callback so subscribers never see a confirmation that gets rolled
+     * back on a late DB failure.
+     */
+    void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowFrozenEnvelope} after the freeze transaction
+     * commits. Called by {@code EscrowService.freezeForFraud} via an
+     * {@code afterCommit} callback so subscribers never see a freeze that
+     * gets rolled back.
+     */
+    void publishFrozen(EscrowFrozenEnvelope envelope);
 }

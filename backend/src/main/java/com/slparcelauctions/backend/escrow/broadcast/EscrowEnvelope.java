@@ -9,11 +9,17 @@ import java.time.OffsetDateTime;
  *
  * <p>The {@code permits} clause widens per task as new escrow transition
  * variants land. Task 2 shipped {@link EscrowCreatedEnvelope}; Task 3
- * added {@link EscrowDisputedEnvelope}; Task 5 adds
- * {@link EscrowFundedEnvelope}.
+ * added {@link EscrowDisputedEnvelope}; Task 5 added
+ * {@link EscrowFundedEnvelope}; Task 6 adds
+ * {@link EscrowTransferConfirmedEnvelope} and {@link EscrowFrozenEnvelope}
+ * for the ownership-monitor outcomes.
  */
 public sealed interface EscrowEnvelope
-        permits EscrowCreatedEnvelope, EscrowDisputedEnvelope, EscrowFundedEnvelope {
+        permits EscrowCreatedEnvelope,
+                EscrowDisputedEnvelope,
+                EscrowFundedEnvelope,
+                EscrowTransferConfirmedEnvelope,
+                EscrowFrozenEnvelope {
 
     String type();
     Long auctionId();

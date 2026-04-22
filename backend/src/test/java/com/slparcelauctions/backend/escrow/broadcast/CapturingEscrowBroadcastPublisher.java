@@ -21,6 +21,8 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
     public final List<EscrowCreatedEnvelope> created = new CopyOnWriteArrayList<>();
     public final List<EscrowDisputedEnvelope> disputed = new CopyOnWriteArrayList<>();
     public final List<EscrowFundedEnvelope> funded = new CopyOnWriteArrayList<>();
+    public final List<EscrowTransferConfirmedEnvelope> transferConfirmed = new CopyOnWriteArrayList<>();
+    public final List<EscrowFrozenEnvelope> frozen = new CopyOnWriteArrayList<>();
 
     @Override
     public void publishCreated(EscrowCreatedEnvelope envelope) {
@@ -37,10 +39,22 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
         funded.add(envelope);
     }
 
+    @Override
+    public void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope) {
+        transferConfirmed.add(envelope);
+    }
+
+    @Override
+    public void publishFrozen(EscrowFrozenEnvelope envelope) {
+        frozen.add(envelope);
+    }
+
     /** Clears every capture list; useful in {@code @BeforeEach} hooks. */
     public void reset() {
         created.clear();
         disputed.clear();
         funded.clear();
+        transferConfirmed.clear();
+        frozen.clear();
     }
 }
