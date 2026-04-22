@@ -50,4 +50,32 @@ public interface EscrowBroadcastPublisher {
      * gets rolled back.
      */
     void publishFrozen(EscrowFrozenEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowCompletedEnvelope} after the terminal's
+     * payout-result callback transaction commits. Called by
+     * {@code TerminalCommandService.applyCallback} via an
+     * {@code afterCommit} callback so subscribers never observe a completion
+     * that gets rolled back on a late DB failure.
+     */
+    void publishCompleted(EscrowCompletedEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowRefundCompletedEnvelope} after a REFUND
+     * command's callback transaction commits. Called by
+     * {@code TerminalCommandService.applyCallback} so subscribers never
+     * observe a rolled-back refund completion.
+     */
+    void publishRefundCompleted(EscrowRefundCompletedEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowPayoutStalledEnvelope} after a terminal
+     * command exhausts its retry budget and is flipped to
+     * {@code requires_manual_review = true}. Called by both
+     * {@code TerminalCommandService.applyCallback} (when the terminal
+     * reports a final failure) and
+     * {@code TerminalCommandDispatcherTask.dispatchOne} (when transport
+     * failures run the counter past {@code MAX_ATTEMPTS}).
+     */
+    void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope);
 }

@@ -58,6 +58,21 @@ public class StompEscrowBroadcastPublisher implements EscrowBroadcastPublisher {
         publish(envelope, envelope.auctionId(), "ESCROW_FROZEN");
     }
 
+    @Override
+    public void publishCompleted(EscrowCompletedEnvelope envelope) {
+        publish(envelope, envelope.auctionId(), "ESCROW_COMPLETED");
+    }
+
+    @Override
+    public void publishRefundCompleted(EscrowRefundCompletedEnvelope envelope) {
+        publish(envelope, envelope.auctionId(), "ESCROW_REFUND_COMPLETED");
+    }
+
+    @Override
+    public void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope) {
+        publish(envelope, envelope.auctionId(), "ESCROW_PAYOUT_STALLED");
+    }
+
     void publish(EscrowEnvelope envelope, Long auctionId, String logLabel) {
         String destination = "/topic/auction/" + auctionId;
         log.info("Publishing {} to {}: escrowId={}", logLabel, destination, envelope.escrowId());

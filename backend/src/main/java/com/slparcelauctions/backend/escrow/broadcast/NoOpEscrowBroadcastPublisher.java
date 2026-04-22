@@ -60,6 +60,27 @@ public class NoOpEscrowBroadcastPublisher {
                         envelope.auctionId(), envelope.escrowId(), envelope.state(),
                         envelope.reason());
             }
+
+            @Override
+            public void publishCompleted(EscrowCompletedEnvelope envelope) {
+                log.debug("no-op publishCompleted: auctionId={}, escrowId={}, state={}, completedAt={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.completedAt());
+            }
+
+            @Override
+            public void publishRefundCompleted(EscrowRefundCompletedEnvelope envelope) {
+                log.debug("no-op publishRefundCompleted: auctionId={}, escrowId={}, state={}, refundAmount={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.refundAmount());
+            }
+
+            @Override
+            public void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope) {
+                log.debug("no-op publishPayoutStalled: auctionId={}, escrowId={}, attemptCount={}, lastError={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.attemptCount(),
+                        envelope.lastError());
+            }
         };
     }
 }
