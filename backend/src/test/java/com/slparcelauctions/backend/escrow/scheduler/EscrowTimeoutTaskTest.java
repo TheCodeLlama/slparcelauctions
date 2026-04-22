@@ -29,6 +29,7 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 
@@ -40,9 +41,11 @@ import com.slparcelauctions.backend.user.User;
  * past the now we carry from the sweep. Both guards exist to neutralise
  * races between the sweep's snapshot read and the per-escrow transaction
  * (e.g. a concurrent payment acceptance flipping ESCROW_PENDING to
- * TRANSFER_PENDING between the two calls). The repo-level payout-in-flight
- * guard is covered at the integration layer, not here, because the task
- * deliberately does NOT re-check it (per plan).
+ * TRANSFER_PENDING between the two calls). The payout-in-flight guard is
+ * also re-checked inside the lock (Task 8 follow-up): the happy-path
+ * expireTransfer case stubs {@code countActivePayoutCommands} to zero, and
+ * {@link #expireTransfer_withActivePayoutRacingIn_skipsAndLogs()} covers
+ * the race where a PAYOUT was queued between the sweep query and this lock.
  */
 @ExtendWith(MockitoExtension.class)
 class EscrowTimeoutTaskTest {
@@ -60,6 +63,7 @@ class EscrowTimeoutTaskTest {
 
     @Mock EscrowRepository escrowRepo;
     @Mock EscrowService escrowService;
+    @Mock TerminalCommandRepository terminalCommandRepo;
 
     EscrowTimeoutTask task;
     Clock fixed;
@@ -69,7 +73,7 @@ class EscrowTimeoutTaskTest {
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-22T12:00:00Z"), ZoneOffset.UTC);
         now = OffsetDateTime.now(fixed);
-        task = new EscrowTimeoutTask(escrowRepo, escrowService);
+        task = new EscrowTimeoutTask(escrowRepo, escrowService, terminalCommandRepo);
     }
 
     // -------------------------------------------------------------------------
@@ -156,10 +160,30 @@ class EscrowTimeoutTaskTest {
         Escrow escrow = buildEscrow(EscrowState.TRANSFER_PENDING);
         escrow.setTransferDeadline(now.minusHours(1));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(terminalCommandRepo.countActivePayoutCommands(ESCROW_ID)).thenReturn(0L);
 
         task.expireTransfer(ESCROW_ID, now);
 
         verify(escrowService).expireTransfer(escrow, now);
+        verify(escrowService, never()).expirePayment(any(), any());
+    }
+
+    @Test
+    void expireTransfer_withActivePayoutRacingIn_skipsAndLogs() {
+        // Race window: findExpiredTransferPendingIds filtered out escrows
+        // with active payouts at sweep time, but the ownership monitor
+        // queued a PAYOUT between that query and this lock. Re-checking
+        // under the lock is authoritative (the ownership confirm path
+        // takes the same row lock we hold here), and must short-circuit
+        // to prevent a REFUND racing the in-flight PAYOUT (double-spend).
+        Escrow escrow = buildEscrow(EscrowState.TRANSFER_PENDING);
+        escrow.setTransferDeadline(now.minusHours(1));
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(terminalCommandRepo.countActivePayoutCommands(ESCROW_ID)).thenReturn(1L);
+
+        task.expireTransfer(ESCROW_ID, now);
+
+        verify(escrowService, never()).expireTransfer(any(), any());
         verify(escrowService, never()).expirePayment(any(), any());
     }
 

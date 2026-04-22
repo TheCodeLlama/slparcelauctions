@@ -10,6 +10,7 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class EscrowTimeoutTask {
 
     private final EscrowRepository escrowRepo;
     private final EscrowService escrowService;
+    private final TerminalCommandRepository terminalCommandRepo;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void expirePayment(Long escrowId, OffsetDateTime now) {
@@ -71,13 +73,20 @@ public class EscrowTimeoutTask {
             log.debug("Escrow {} transfer-timeout skipped: deadline not yet past", escrowId);
             return;
         }
-        // Note: the payout-in-flight guard was already applied by the
-        // findExpiredTransferPendingIds query. We do not re-check it here
-        // because a PAYOUT command created between the query and this lock
-        // would be a benign race (the rare case where ownership confirm
-        // + queue happens in the same 5min window as the deadline passes).
-        // If it becomes an issue in practice, tighten by re-querying
-        // countActivePayoutCommands here.
+        // Re-check payout-in-flight under the lock. The
+        // findExpiredTransferPendingIds query filtered this at sweep time,
+        // but the ownership monitor can queue a PAYOUT between that query
+        // and this lock. If we expired now, the dispatcher would later see
+        // both PAYOUT and REFUND for the same escrow and attempt both —
+        // a double-spend. The lock we hold here serialises against
+        // EscrowService.confirmTransfer (which queues the payout), so a
+        // fresh count under this transaction is authoritative.
+        long activePayouts = terminalCommandRepo.countActivePayoutCommands(escrow.getId());
+        if (activePayouts > 0) {
+            log.info("Escrow {} transfer-timeout skipped under lock: {} active PAYOUT command(s) raced the sweep",
+                    escrowId, activePayouts);
+            return;
+        }
         escrowService.expireTransfer(escrow, now);
     }
 }
