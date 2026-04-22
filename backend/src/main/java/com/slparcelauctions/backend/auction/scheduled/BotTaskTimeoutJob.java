@@ -14,16 +14,22 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Times out stuck Method C (SALE_TO_BOT) bot tasks.
+ * Times out stuck bot tasks. Two passes:
+ * <ul>
+ *   <li>{@link #sweepPending()} — existing 48h PENDING sweep (unclaimed
+ *       tasks that were never picked up).</li>
+ *   <li>{@link #sweepInProgress()} — new in Epic 06. Catches workers that
+ *       crashed mid-execution. VERIFY tasks flip to FAILED; MONITOR_* tasks
+ *       re-arm to PENDING (different worker retries next cycle). Closes
+ *       the "IN_PROGRESS bot task timeout" deferred item.</li>
+ * </ul>
  *
- * <p>Runs every {@code slpa.bot-task.timeout-check-interval} (default
- * {@code PT15M}). For every PENDING task older than
- * {@code slpa.bot-task.timeout-hours} (default 48 h), transitions the task to
- * FAILED with reason {@code "TIMEOUT"} and flips the associated auction back
- * to VERIFICATION_FAILED (only if it is still VERIFICATION_PENDING — defensive
- * guard for auctions that were cancelled or otherwise moved on). There is no
- * refund: the seller still owes the listing fee and can click Verify again
- * for a fresh task.
+ * <p>For PENDING tasks older than {@code slpa.bot-task.timeout-hours}
+ * (default 48 h) the task is flipped to FAILED with reason {@code "TIMEOUT"}
+ * and the auction reverts to VERIFICATION_FAILED (only if it is still
+ * VERIFICATION_PENDING — defensive guard for auctions that were cancelled
+ * or otherwise moved on). There is no refund: the seller still owes the
+ * listing fee and can click Verify again for a fresh task.
  */
 @Component
 @RequiredArgsConstructor
@@ -35,12 +41,26 @@ public class BotTaskTimeoutJob {
     @Value("${slpa.bot-task.timeout-hours:48}")
     private int timeoutHours;
 
+    @Value("${slpa.bot-task.in-progress-timeout:PT20M}")
+    private Duration inProgressTimeout;
+
     @Scheduled(fixedDelayString = "${slpa.bot-task.timeout-check-interval:PT15M}")
-    public void sweep() {
+    public void sweepPending() {
         Duration threshold = Duration.ofHours(timeoutHours);
         List<BotTask> timedOut = service.findPendingOlderThan(threshold);
         if (timedOut.isEmpty()) return;
         timedOut.forEach(service::markTimedOut);
-        log.info("BotTaskTimeoutJob: timed out {} bot task(s) this sweep", timedOut.size());
+        log.info("BotTaskTimeoutJob: PENDING sweep timed out {} task(s)",
+                timedOut.size());
+    }
+
+    @Scheduled(fixedDelayString = "${slpa.bot-task.timeout-check-interval:PT15M}")
+    public void sweepInProgress() {
+        List<BotTask> stalled = service.findInProgressOlderThan(inProgressTimeout);
+        if (stalled.isEmpty()) return;
+        stalled.forEach(service::handleInProgressTimeout);
+        log.info("BotTaskTimeoutJob: IN_PROGRESS sweep cleared {} task(s) "
+                        + "(threshold={})",
+                stalled.size(), inProgressTimeout);
     }
 }

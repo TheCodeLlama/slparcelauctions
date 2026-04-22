@@ -57,6 +57,7 @@ class AuctionEndTaskTest {
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
     @Mock EscrowService escrowService;
+    @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
 
     Clock fixed;
     AuctionEndTask task;
@@ -64,7 +65,8 @@ class AuctionEndTaskTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-20T12:00:00Z"), ZoneOffset.UTC);
-        task = new AuctionEndTask(auctionRepo, proxyBidRepo, userRepo, publisher, escrowService, fixed);
+        task = new AuctionEndTask(auctionRepo, proxyBidRepo, userRepo, publisher, escrowService,
+                monitorLifecycle, fixed);
         // Manually init synchronization so registerSynchronization inside
         // closeOne does not blow up (the @Transactional proxy normally
         // handles this but the unit test invokes closeOne directly).

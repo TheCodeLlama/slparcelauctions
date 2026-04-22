@@ -194,3 +194,10 @@ sketch
 .worktrees/
 
 .claude/.superpowers/
+
+# .NET / C# (bot service)
+bot/**/bin/
+bot/**/obj/
+*.user
+*.suo
+.vs/

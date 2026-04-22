@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.bot.exception.BotEscrowTerminalException;
+import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
+import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
+import com.slparcelauctions.backend.bot.exception.BotTaskWrongTypeException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +30,10 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>{@link IllegalArgumentException} → 400 {@code INVALID_REQUEST}</li>
  *   <li>{@link InvalidAuctionStateException} → 409 {@code AUCTION_INVALID_STATE}</li>
  *   <li>{@link ParcelAlreadyListedException} → 409 {@code PARCEL_ALREADY_LISTED}</li>
+ *   <li>{@link BotTaskNotFoundException} → 404 {@code BOT_TASK_NOT_FOUND}</li>
+ *   <li>{@link BotTaskNotClaimedException} → 409 {@code BOT_TASK_NOT_CLAIMED}</li>
+ *   <li>{@link BotTaskWrongTypeException} → 409 {@code BOT_TASK_WRONG_TYPE}</li>
+ *   <li>{@link BotEscrowTerminalException} → 409 {@code BOT_ESCROW_TERMINAL}</li>
  * </ul>
  *
  * <p>Runs at {@code HIGHEST_PRECEDENCE + 10} so it intercepts before the
@@ -71,6 +79,58 @@ public class BotTaskExceptionHandler {
         pd.setProperty("code", "PARCEL_ALREADY_LISTED");
         pd.setProperty("parcelId", e.getParcelId());
         pd.setProperty("blockingAuctionId", e.getBlockingAuctionId());
+        return pd;
+    }
+
+    @ExceptionHandler(BotTaskNotFoundException.class)
+    public ProblemDetail handleTaskNotFound(
+            BotTaskNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Bot Task Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BOT_TASK_NOT_FOUND");
+        pd.setProperty("taskId", e.getTaskId());
+        return pd;
+    }
+
+    @ExceptionHandler(BotTaskNotClaimedException.class)
+    public ProblemDetail handleNotClaimed(
+            BotTaskNotClaimedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Bot Task Not Claimed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BOT_TASK_NOT_CLAIMED");
+        pd.setProperty("taskId", e.getTaskId());
+        pd.setProperty("currentStatus", e.getCurrentStatus().name());
+        return pd;
+    }
+
+    @ExceptionHandler(BotTaskWrongTypeException.class)
+    public ProblemDetail handleWrongType(
+            BotTaskWrongTypeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Bot Task Wrong Type");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BOT_TASK_WRONG_TYPE");
+        pd.setProperty("taskId", e.getTaskId());
+        pd.setProperty("actual", e.getActual().name());
+        pd.setProperty("expected", e.getExpected().name());
+        return pd;
+    }
+
+    @ExceptionHandler(BotEscrowTerminalException.class)
+    public ProblemDetail handleEscrowTerminal(
+            BotEscrowTerminalException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Escrow Terminal");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BOT_ESCROW_TERMINAL");
+        pd.setProperty("escrowId", e.getEscrowId());
+        pd.setProperty("state", e.getState().name());
         return pd;
     }
 }

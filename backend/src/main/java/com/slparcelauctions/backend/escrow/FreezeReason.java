@@ -1,23 +1,18 @@
 package com.slparcelauctions.backend.escrow;
 
 /**
- * Reason an escrow was moved to {@link EscrowState#FROZEN} by the
- * ownership-monitor job (spec §4.5). Persisted on
- * {@link Escrow#getFreezeReason()} as the enum {@code name()} so the dispute
- * timeline and admin dashboard can render the original trigger verbatim.
- *
- * <ul>
- *   <li>{@link #UNKNOWN_OWNER} — World API reported the parcel's owner is an
- *       avatar other than the seller or the auction winner.</li>
- *   <li>{@link #PARCEL_DELETED} — World API returned 404 for the parcel UUID
- *       (parcel deleted, merged, or returned to Linden Lab).</li>
- *   <li>{@link #WORLD_API_PERSISTENT_FAILURE} — World API was unreachable for
- *       {@code slpa.escrow.ownershipApiFailureThreshold} consecutive sweeps;
- *       we freeze rather than indefinitely stall the transfer window.</li>
- * </ul>
+ * Machine reason for an escrow freeze. Mapped to FraudFlagReason inside
+ * EscrowService.freezeForFraud. See spec §4.5 + Epic 06 spec §6.2.
  */
 public enum FreezeReason {
     UNKNOWN_OWNER,
     PARCEL_DELETED,
-    WORLD_API_PERSISTENT_FAILURE
+    WORLD_API_PERSISTENT_FAILURE,
+    /**
+     * Raised by the Epic 06 bot escrow monitor when observed OwnerID is
+     * neither seller nor winner during an active escrow. Treated identically
+     * to UNKNOWN_OWNER for state transition purposes; the FraudFlag reason
+     * differs to keep the admin-dashboard signal source explicit.
+     */
+    BOT_OWNERSHIP_CHANGED
 }

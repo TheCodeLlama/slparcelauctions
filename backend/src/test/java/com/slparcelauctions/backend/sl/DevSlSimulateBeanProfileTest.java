@@ -43,6 +43,12 @@ import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
         // EscrowStartupValidator is @Profile("!dev") and fails fast on non-dev
         // profiles when the secret is unset or shorter than 16 chars.
         "slpa.escrow.terminal-shared-secret=test-escrow-secret-at-least-sixteen-chars",
+        // BotStartupValidator (Epic 06 Task 3) is @Profile("!dev") and fails
+        // fast on blank / dev-placeholder / sub-16-char secrets and on the
+        // dev-placeholder escrow UUID. Supply production-shaped values so the
+        // non-dev profile boots.
+        "slpa.bot.shared-secret=test-bot-shared-secret-at-least-sixteen-chars",
+        "slpa.bot-task.primary-escrow-uuid=11111111-2222-3333-4444-555555555555",
         "spring.datasource.url=jdbc:postgresql://localhost:5432/slpa",
         "spring.datasource.username=slpa",
         "spring.datasource.password=slpa",

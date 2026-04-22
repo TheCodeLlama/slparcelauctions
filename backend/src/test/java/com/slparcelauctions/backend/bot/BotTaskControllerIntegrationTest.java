@@ -46,12 +46,12 @@ import reactor.core.publisher.Mono;
 /**
  * End-to-end integration test for {@link BotTaskController} — the public
  * bot-worker queue + callback endpoints. Exercises the full Spring Security
- * filter chain to verify the {@code permitAll} config on
- * {@code /api/v1/bot/tasks/*} is correctly wired (bot worker auth is deferred
- * to Epic 06).
+ * filter chain to verify the bot shared-secret auth on
+ * {@code /api/v1/bot/tasks/*} is correctly wired (Epic 06 Task 3).
  *
  * <p>Each test triggers a Method C {@code /verify} to seed a PENDING bot task
- * in the database, then exercises the bot controller.
+ * in the database, then exercises the bot controller with the dev bearer
+ * token from {@code application-dev.yml}.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -63,6 +63,11 @@ class BotTaskControllerIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
     private static final String ESCROW_UUID = "00000000-0000-0000-0000-000000000099";
     private static final long SENTINEL_PRICE = 999999999L;
+    /**
+     * Matches {@code slpa.bot.shared-secret} in {@code application-dev.yml}.
+     * Epic 06 Task 3 gates {@code /api/v1/bot/**} on this bearer token.
+     */
+    private static final String BOT_BEARER = "Bearer dev-bot-shared-secret";
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
@@ -95,7 +100,8 @@ class BotTaskControllerIntegrationTest {
 
     @Test
     void getPending_emptyQueue_returns200AndEmptyList() throws Exception {
-        mockMvc.perform(get("/api/v1/bot/tasks/pending"))
+        mockMvc.perform(get("/api/v1/bot/tasks/pending")
+                        .header("Authorization", BOT_BEARER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
@@ -106,7 +112,8 @@ class BotTaskControllerIntegrationTest {
         Long auctionId = createAndPayAuction();
         Long botTaskId = triggerVerify(auctionId);
 
-        mockMvc.perform(get("/api/v1/bot/tasks/pending"))
+        mockMvc.perform(get("/api/v1/bot/tasks/pending")
+                        .header("Authorization", BOT_BEARER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(botTaskId))
@@ -119,7 +126,7 @@ class BotTaskControllerIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // PUT /api/v1/bot/tasks/{taskId}
+    // PUT /api/v1/bot/tasks/{taskId}/verify
     // -------------------------------------------------------------------------
 
     @Test
@@ -142,7 +149,8 @@ class BotTaskControllerIntegrationTest {
             }
             """, ESCROW_UUID, SENTINEL_PRICE, sellerAvatarUuid);
 
-        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId)
+        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId + "/verify")
+                .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isOk())
@@ -169,7 +177,8 @@ class BotTaskControllerIntegrationTest {
             }
             """;
 
-        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId)
+        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId + "/verify")
+                .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isOk())
@@ -202,7 +211,8 @@ class BotTaskControllerIntegrationTest {
             }
             """, SENTINEL_PRICE, sellerAvatarUuid);
 
-        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId)
+        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId + "/verify")
+                .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isBadRequest())
@@ -222,7 +232,8 @@ class BotTaskControllerIntegrationTest {
             }
             """, ESCROW_UUID, SENTINEL_PRICE);
 
-        mockMvc.perform(put("/api/v1/bot/tasks/999999")
+        mockMvc.perform(put("/api/v1/bot/tasks/999999/verify")
+                .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isBadRequest())

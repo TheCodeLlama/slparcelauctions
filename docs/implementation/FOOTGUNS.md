@@ -1460,3 +1460,58 @@ The backend sends a single `EXPIRED` state that covers two semantically distinct
 ### F.85 inferEndOutcome / inferOutcomeFromDto helpers retired in sub-spec 2
 
 The defensive `endOutcome` fallback helpers that previously lived in `AuctionEndedPanel` + `ListingSummaryRow` are gone. Sub-spec 1 backend guarantees `endOutcome` is always projected on ENDED auctions. If you're tempted to bring the helpers back "just in case," don't — the backend is authoritative and a null `endOutcome` on ENDED should surface as a bug, not be silently papered over with heuristics.
+
+### F.86 — SKIP LOCKED is not portable SQL
+
+`SELECT ... FOR UPDATE SKIP LOCKED` is Postgres-specific syntax. Spring
+Data JPQL has no equivalent; the clause must be passed via a native query
+(`@Query(..., nativeQuery = true)`). Repository methods using SKIP LOCKED
+therefore cannot be re-used against an in-memory H2 or Derby test DB —
+integration tests that want the lock behavior must run against Testcontainers
+Postgres (or the shared dev Postgres container).
+
+**Touchpoint:** `BotTaskRepository.claimNext`. If the project ever adds
+an H2-backed test profile, the claim query has to be stubbed or the tests
+gated on `@ActiveProfiles("test")` (Postgres).
+
+### F.87 — `@Modifying` bypasses `@UpdateTimestamp`
+
+Bulk UPDATE queries annotated with `@Modifying` skip Hibernate's entity
+lifecycle, so `@UpdateTimestamp`-annotated columns like `lastUpdatedAt`
+are NOT refreshed. If a bulk query changes row state, it must also set
+`lastUpdatedAt = :now` explicitly in the SET clause.
+
+**Touchpoint:** `BotTaskRepository.cancelLiveByAuctionIdAndTypes` /
+`cancelLiveByEscrowId`. Any future bulk update on an entity with
+`@UpdateTimestamp` must follow the same pattern.
+
+### F.88 — Hibernate `ddl-auto: update` does not widen CHECK constraints
+
+When a Java enum gains a new value (e.g., `BotTaskType` adds `MONITOR_AUCTION`),
+Hibernate's `update` mode does NOT rewrite the existing Postgres CHECK
+constraint. Inserts with the new value fail at the DB level with
+`check constraint violated` until the constraint is manually refreshed.
+
+**Solution:** Register a per-(table, column, enum) `@Component` that
+invokes `EnumCheckConstraintSync.sync(...)` on `ApplicationReadyEvent`.
+See `BotTaskTypeCheckConstraintInitializer` /
+`BotTaskStatusCheckConstraintInitializer` /
+`FraudFlagReasonCheckConstraintInitializer`.
+
+**Touchpoint:** every enum column in the DB. When adding a new
+`@Enumerated(EnumType.STRING)` column, also add a constraint initializer
+alongside the entity.
+
+### F.89 — .NET 8 container default port is 8080
+
+ASP.NET Core 8 defaults to listening on port `8080` inside containers via
+`ASPNETCORE_HTTP_PORTS`. If the Dockerfile `EXPOSE`s a different port (e.g.,
+`8081`), the app still listens on `8080` and every healthcheck hitting
+the exposed port fails silently.
+
+**Solution:** set `ENV ASPNETCORE_HTTP_PORTS=<port>` in the Dockerfile
+BEFORE `ENTRYPOINT`. Or override via compose `environment:` block. Both
+patterns work; Dockerfile is more robust.
+
+**Touchpoint:** `bot/Dockerfile`. Any future .NET-in-container service
+must set this env var explicitly.

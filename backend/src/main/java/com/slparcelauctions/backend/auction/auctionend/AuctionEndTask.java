@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
+import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -54,6 +55,7 @@ public class AuctionEndTask {
     private final UserRepository userRepo;
     private final AuctionBroadcastPublisher publisher;
     private final EscrowService escrowService;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     /**
@@ -96,6 +98,11 @@ public class AuctionEndTask {
             auction.setFinalBidAmount(auction.getCurrentBid());
         }
         auctionRepo.save(auction);
+
+        // Cancel any live MONITOR_AUCTION rows in the same transaction as the
+        // status flip so the close + monitor-cancel commit atomically. No-op
+        // for non-BOT auctions.
+        monitorLifecycle.onAuctionClosed(auction);
 
         // Exhaust any lingering ACTIVE proxies inside the same transaction so
         // the partial-unique-index slot is released atomically with the status

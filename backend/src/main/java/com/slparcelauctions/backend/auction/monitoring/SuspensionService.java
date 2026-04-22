@@ -14,6 +14,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
+import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class SuspensionService {
 
     private final AuctionRepository auctionRepo;
     private final FraudFlagRepository fraudFlagRepo;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     @Transactional
@@ -73,6 +75,8 @@ public class SuspensionService {
                 .resolved(false)
                 .build());
 
+        monitorLifecycle.onAuctionClosed(auction);
+
         log.warn("Auction {} SUSPENDED for ownership change: expected={}, detected={}",
                 auction.getId(), ev.get("expected_owner"), ev.get("detected_owner"));
     }
@@ -96,7 +100,41 @@ public class SuspensionService {
                 .resolved(false)
                 .build());
 
+        monitorLifecycle.onAuctionClosed(auction);
+
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
                 auction.getId(), auction.getParcel().getSlParcelUuid());
+    }
+
+    /**
+     * Bot-monitor-triggered suspend. Unlike {@link #suspendForOwnershipChange}
+     * (which is keyed on a World-API {@link ParcelMetadata} shape), bot
+     * observations arrive as a loose evidence map. The caller supplies the
+     * specific {@link FraudFlagReason} so the admin dashboard can tell the
+     * four bot-detected causes apart. See Epic 06 spec §6.1.
+     */
+    @Transactional
+    public void suspendForBotObservation(
+            Auction auction,
+            FraudFlagReason reason,
+            Map<String, Object> evidence) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        auction.setStatus(AuctionStatus.SUSPENDED);
+        auction.setLastOwnershipCheckAt(now);
+        auctionRepo.save(auction);
+
+        fraudFlagRepo.save(FraudFlag.builder()
+                .auction(auction)
+                .parcel(auction.getParcel())
+                .reason(reason)
+                .detectedAt(now)
+                .evidenceJson(evidence)
+                .resolved(false)
+                .build());
+
+        monitorLifecycle.onAuctionClosed(auction);
+
+        log.warn("Auction {} SUSPENDED by bot monitor: reason={}, evidence={}",
+                auction.getId(), reason, evidence);
     }
 }

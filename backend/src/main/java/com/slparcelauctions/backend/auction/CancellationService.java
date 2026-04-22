@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -45,6 +46,7 @@ public class CancellationService {
     private final CancellationLogRepository logRepo;
     private final ListingFeeRefundRepository refundRepo;
     private final UserRepository userRepo;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     @Transactional
@@ -92,6 +94,7 @@ public class CancellationService {
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
+        monitorLifecycle.onAuctionClosed(saved);
         log.info("Auction {} cancelled from {} (hadBids={})", a.getId(), from, hadBids);
         return saved;
     }

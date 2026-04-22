@@ -36,6 +36,7 @@ class CancellationServiceTest {
     @Mock CancellationLogRepository logRepo;
     @Mock ListingFeeRefundRepository refundRepo;
     @Mock UserRepository userRepo;
+    @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
 
     CancellationService service;
 
@@ -46,7 +47,8 @@ class CancellationServiceTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        service = new CancellationService(auctionRepo, logRepo, refundRepo, userRepo, fixed);
+        service = new CancellationService(
+                auctionRepo, logRepo, refundRepo, userRepo, monitorLifecycle, fixed);
         seller = User.builder().id(42L).email("s@example.com").cancelledWithBids(0).build();
         parcel = Parcel.builder().id(100L).build();
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));

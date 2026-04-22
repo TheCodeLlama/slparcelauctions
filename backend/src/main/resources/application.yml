@@ -52,6 +52,22 @@ slpa:
   verification:
     parcel-code-ttl-minutes: 15
     parcel-code-expiry-check-interval: PT5M
+  bot:
+    # Bearer token for the bot worker → backend authentication (Epic 06 Task 3).
+    # No default — non-dev profiles MUST override via SLPA_BOT_SHARED_SECRET.
+    # BotStartupValidator fails fast on blank, placeholder, or sub-16-char values.
+    # Dev profile supplies a placeholder in application-dev.yml.
+    shared-secret: ${SLPA_BOT_SHARED_SECRET:}
+    # MONITOR_AUCTION cadence — how often each ACTIVE+VERIFIED auction is
+    # re-checked to confirm the escrow still owns the parcel.
+    monitor-auction-interval: PT30M
+    # MONITOR_ESCROW cadence — parcels the escrow owns but that aren't in an
+    # active auction (safety net for orphaned parcels).
+    monitor-escrow-interval: PT15M
+    # Consecutive ACCESS_DENIED observations before raising an operator alert.
+    access-denied-streak-threshold: 3
+    # Rate limit for bot teleports to avoid tripping SL anti-abuse heuristics.
+    teleports-per-minute: 6
   bot-task:
     # Sentinel sale price (L$) that the seller must set on the parcel-for-sale
     # object in-world. Deliberately large so no human would pick it by accident
@@ -60,7 +76,15 @@ slpa:
     # SLPAEscrow Resident avatar UUID. Dev placeholder; production overrides
     # via env var. This is the "buyer" the seller must target in the parcel
     # sale UI for the bot to recognize the listing.
-    primary-escrow-uuid: 00000000-0000-0000-0000-000000000099
+    primary-escrow-uuid: ${SLPA_PRIMARY_ESCROW_UUID:00000000-0000-0000-0000-000000000099}
+    # Typed PENDING-task timeout. Consumed by BotTaskConfigProperties (Task 3+)
+    # alongside the legacy timeout-hours @Value read below — the latter is
+    # migrated to this record in Task 12.
+    timeout: PT48H
+    # IN_PROGRESS timeout: claimed tasks that don't callback within this
+    # window are flipped back to PENDING so another worker can pick them up
+    # (Task 4 wires the sweeper).
+    in-progress-timeout: PT20M
     # If a PENDING bot task is not picked up + completed within this window,
     # BotTaskTimeoutJob fails it and flips the auction to VERIFICATION_FAILED.
     timeout-hours: 48

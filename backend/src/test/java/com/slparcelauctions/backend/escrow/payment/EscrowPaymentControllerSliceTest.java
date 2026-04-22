@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.exception.EscrowExceptionHandler;
@@ -63,6 +64,10 @@ class EscrowPaymentControllerSliceTest {
     @MockitoBean SlHeaderValidator headerValidator;
     @MockitoBean JwtService jwtService;
     @MockitoBean JwtConfig jwtConfig;
+    // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
+    // Slice tests don't exercise /api/v1/bot/** so a mock bean satisfies the
+    // context without pulling in the whole bot package.
+    @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     private static String body(long auctionId, long amount) {
         return body(auctionId, PAYER_UUID, amount, TXN_KEY, TERMINAL_ID, SHARED_SECRET);

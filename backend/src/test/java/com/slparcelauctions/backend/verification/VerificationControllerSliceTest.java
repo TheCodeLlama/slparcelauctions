@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 import com.slparcelauctions.backend.config.SecurityConfig;
 
 /**
@@ -43,6 +44,8 @@ class VerificationControllerSliceTest {
     @MockitoBean VerificationCodeService service;
     @MockitoBean JwtService jwtService;
     @MockitoBean JwtConfig jwtConfig;
+    // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
+    @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     @Test
     void getActive_returns401WhenUnauthenticated() throws Exception {

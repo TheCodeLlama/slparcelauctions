@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,12 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.bot.dto.BotMonitorResultRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
+import com.slparcelauctions.backend.bot.exception.BotEscrowTerminalException;
+import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
+import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
+import com.slparcelauctions.backend.bot.exception.BotTaskWrongTypeException;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 
@@ -60,6 +66,8 @@ public class BotTaskService {
     private final AuctionRepository auctionRepo;
     private final ParcelRepository parcelRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
+    private final BotMonitorDispatcher dispatcher;
+    private final BotMonitorLifecycleService monitorLifecycle;
     private final Clock clock;
 
     @Value("${slpa.bot-task.sentinel-price-lindens:999999999}")
@@ -228,9 +236,36 @@ public class BotTaskService {
                     taskId, auction.getId(), e.getMessage());
             throw new ParcelAlreadyListedException(parcel.getId(), -1L);
         }
+        // Seed the MONITOR_AUCTION row in the same transaction as the auction
+        // state flip so the auction row and the monitor row commit together.
+        // No-op for non-BOT tiers, but the SUCCESS path here always lands
+        // BOT tier.
+        monitorLifecycle.onAuctionActivatedBot(auction);
         log.info("Bot task {} COMPLETED: auctionId={} -> ACTIVE tier=BOT, ends {}",
                 taskId, auction.getId(), endsAt);
         return task;
+    }
+
+    /**
+     * Atomically claims the next due PENDING task for {@code botUuid}. Wraps
+     * {@link BotTaskRepository#claimNext} in a transaction and stamps the row
+     * with {@code assignedBotUuid} + status=IN_PROGRESS before the lock
+     * releases.
+     *
+     * <p>Returns empty if the queue has no due tasks — the worker should
+     * back off and retry. {@code SELECT ... FOR UPDATE SKIP LOCKED} means
+     * concurrent claims never block on each other; each sees the next
+     * unlocked row.
+     */
+    @Transactional
+    public Optional<BotTask> claim(UUID botUuid) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        return botTaskRepo.claimNext(now).map(task -> {
+            task.setStatus(BotTaskStatus.IN_PROGRESS);
+            task.setAssignedBotUuid(botUuid);
+            log.debug("Bot task {} claimed by {}", task.getId(), botUuid);
+            return botTaskRepo.save(task);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -245,6 +280,75 @@ public class BotTaskService {
     }
 
     /**
+     * IN_PROGRESS tasks whose {@code lastUpdatedAt} is older than
+     * {@code threshold}. Used by the IN_PROGRESS timeout sweep. For VERIFY
+     * tasks this is a crashed-worker signal; for MONITOR_* tasks it means
+     * the worker picked up a due check but never reported back.
+     */
+    @Transactional(readOnly = true)
+    public List<BotTask> findInProgressOlderThan(Duration threshold) {
+        OffsetDateTime cutoff = OffsetDateTime.now(clock).minus(threshold);
+        return botTaskRepo.findByStatusAndLastUpdatedAtBefore(
+                BotTaskStatus.IN_PROGRESS, cutoff);
+    }
+
+    /**
+     * Applies divergent IN_PROGRESS-timeout behavior per spec §3.7:
+     * <ul>
+     *   <li>VERIFY → FAILED with reason {@code "TIMEOUT (IN_PROGRESS)"}; if
+     *       the auction is still VERIFICATION_PENDING, flip it to
+     *       VERIFICATION_FAILED with a retry-friendly note (same as PENDING
+     *       sweep).</li>
+     *   <li>MONITOR_* → <strong>re-armed</strong>: status=PENDING,
+     *       nextRunAt = now + recurrenceIntervalSeconds, assignedBotUuid
+     *       cleared. A different worker (or the same one) will retry next
+     *       cycle. No FAILED row.</li>
+     * </ul>
+     */
+    @Transactional
+    public void handleInProgressTimeout(BotTask stale) {
+        // Re-fetch inside the active transaction. The caller's BotTask was
+        // loaded under the read-only sweep transaction (see
+        // findInProgressOlderThan) and its lazy Auction proxy would fail to
+        // initialize here. Same pattern as EscrowTimeoutJob → EscrowTimeoutTask.
+        BotTask task = botTaskRepo.findById(stale.getId()).orElse(null);
+        if (task == null || task.getStatus() != BotTaskStatus.IN_PROGRESS) {
+            log.debug("Skipping IN_PROGRESS timeout for bot task {} (status={})",
+                    stale.getId(), task == null ? "MISSING" : task.getStatus());
+            return;
+        }
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        if (task.getTaskType() == BotTaskType.VERIFY) {
+            task.setStatus(BotTaskStatus.FAILED);
+            task.setFailureReason("TIMEOUT (IN_PROGRESS)");
+            task.setCompletedAt(now);
+            botTaskRepo.save(task);
+
+            Auction auction = task.getAuction();
+            if (auction.getStatus() == AuctionStatus.VERIFICATION_PENDING) {
+                auction.setStatus(AuctionStatus.VERIFICATION_FAILED);
+                auction.setVerificationNotes(
+                        "Sale-to-bot task stalled mid-verify. "
+                                + "You can retry at no extra cost.");
+                auctionRepo.save(auction);
+            }
+            log.info("Bot VERIFY task {} timed out mid-IN_PROGRESS (auctionId={})",
+                    task.getId(), auction.getId());
+            return;
+        }
+        // MONITOR_AUCTION or MONITOR_ESCROW — re-arm.
+        int interval = task.getRecurrenceIntervalSeconds() == null
+                ? 0 : task.getRecurrenceIntervalSeconds();
+        task.setStatus(BotTaskStatus.PENDING);
+        task.setNextRunAt(now.plusSeconds(interval));
+        task.setAssignedBotUuid(null);
+        botTaskRepo.save(task);
+        log.info("Bot MONITOR task {} re-armed after IN_PROGRESS timeout "
+                        + "(type={}, nextRunAt={})",
+                task.getId(), task.getTaskType(), task.getNextRunAt());
+    }
+
+    /**
      * Times out a PENDING bot task. Transitions the task to FAILED with
      * reason {@code "TIMEOUT"} and flips the auction back to
      * VERIFICATION_FAILED — but only if the auction is still
@@ -253,11 +357,17 @@ public class BotTaskService {
      * queue query and this callback.
      */
     @Transactional
-    public void markTimedOut(BotTask task) {
-        if (task.getStatus() != BotTaskStatus.PENDING
-                && task.getStatus() != BotTaskStatus.IN_PROGRESS) {
+    public void markTimedOut(BotTask stale) {
+        // Re-fetch inside the active transaction. The caller's BotTask was
+        // loaded under the read-only sweep transaction (see
+        // findPendingOlderThan) and its lazy Auction proxy would fail to
+        // initialize here. Same pattern as handleInProgressTimeout.
+        BotTask task = botTaskRepo.findById(stale.getId()).orElse(null);
+        if (task == null
+                || (task.getStatus() != BotTaskStatus.PENDING
+                        && task.getStatus() != BotTaskStatus.IN_PROGRESS)) {
             log.debug("Skipping timeout for bot task {} (status={})",
-                    task.getId(), task.getStatus());
+                    stale.getId(), task == null ? "MISSING" : task.getStatus());
             return;
         }
         OffsetDateTime now = OffsetDateTime.now(clock);
@@ -279,5 +389,54 @@ public class BotTaskService {
         }
         log.info("Bot task {} timed out (auctionId={})",
                 task.getId(), auction.getId());
+    }
+
+    /**
+     * Handles a monitor callback. Loads the task, validates it is an
+     * IN_PROGRESS MONITOR_* row for the claimed endpoint's expected type,
+     * delegates to {@link BotMonitorDispatcher#dispatch}, stamps result
+     * data + {@code lastCheckAt}, and re-arms or leaves the row per the
+     * dispatcher's decision. See Epic 06 spec §6.
+     *
+     * @throws BotTaskNotFoundException if no bot task exists for {@code taskId}
+     * @throws BotTaskNotClaimedException if the task is not IN_PROGRESS
+     * @throws BotTaskWrongTypeException if the task is a VERIFY row (wrong endpoint)
+     * @throws BotEscrowTerminalException if the referenced escrow is in a terminal state
+     */
+    @Transactional
+    public BotTask recordMonitorResult(Long taskId, BotMonitorResultRequest body) {
+        BotTask task = botTaskRepo.findById(taskId)
+                .orElseThrow(() -> new BotTaskNotFoundException(taskId));
+
+        if (task.getStatus() != BotTaskStatus.IN_PROGRESS) {
+            throw new BotTaskNotClaimedException(taskId, task.getStatus());
+        }
+        if (task.getTaskType() == BotTaskType.VERIFY) {
+            throw new BotTaskWrongTypeException(
+                    taskId, task.getTaskType(), BotTaskType.MONITOR_AUCTION);
+        }
+        if (task.getTaskType() == BotTaskType.MONITOR_ESCROW
+                && task.getEscrow() != null
+                && task.getEscrow().getState().isTerminal()) {
+            throw new BotEscrowTerminalException(
+                    task.getEscrow().getId(), task.getEscrow().getState());
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        task.setLastCheckAt(now);
+
+        DispatchOutcome outcome = dispatcher.dispatch(task, body);
+        log.info("bot monitor {} auction={} outcome={} action={}",
+                taskId, task.getAuction().getId(),
+                body.outcome(), outcome.logAction());
+
+        if (outcome.shouldReArm()) {
+            int interval = task.getRecurrenceIntervalSeconds() == null
+                    ? 0 : task.getRecurrenceIntervalSeconds();
+            task.setStatus(BotTaskStatus.PENDING);
+            task.setNextRunAt(now.plusSeconds(interval));
+            task.setAssignedBotUuid(null);
+        }
+        return botTaskRepo.save(task);
     }
 }
