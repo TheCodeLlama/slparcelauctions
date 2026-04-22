@@ -195,12 +195,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — pull in alongside a broader "list UX polish" sub-spec once a second surface (Browse, search results) demands it.
 - **Notes:** Current implementation at `frontend/src/components/auction/BidHistory.tsx`. The React Query layer is already structured for `useInfiniteQuery` if the pattern is adopted — the change is mostly UI + A11y.
 
-### Ended-auction escrow flow UI
-- **From:** Epic 04 sub-spec 2 (Task 6 `AuctionEndedPanel`)
-- **Why:** When an auction ends with `endOutcome=SOLD`, the panel renders the winner + final bid but has no action button to "proceed to escrow" / "initiate L$ transfer" / "claim the parcel". Epic 05 sub-spec 1 ships the backend escrow pipeline; the frontend CTAs that consume it ship with sub-spec 2.
-- **When:** Epic 05 sub-spec 2 — when the escrow state machine is exposed via the auction DTO, `AuctionEndedPanel` gains role-aware CTAs (buyer: "Pay L$X to claim", seller: "Transfer parcel after payment confirmed"). Duplicates the broader "AuctionEndedPanel / My Bids / My Listings escrow CTAs" entry below; kept for the specific `inferEndOutcome` touchpoint note.
-- **Notes:** `AuctionEndedPanel` currently uses `inferEndOutcome` as a defensive fallback when the DTO's `endOutcome` field is null (see the nullability entry below). The Epic 05 sub-spec 2 spec should decide whether escrow-state UI lives in the same panel or splits out.
-
 ### WS reconnect telemetry
 - **From:** Epic 04 sub-spec 2 (Task 1 WS client hardening + Task 7 reconnecting banner)
 - **Why:** The WS client reconnects automatically on drop, re-attaches subscriptions via the live-Map sweep (F.68), and renders a reconnecting banner + form-disable on disconnect. There is no logging / metrics hook that reports connection drops, average reconnect duration, or subscription re-attach counts to a backend telemetry endpoint. A production deployment deserves a dashboard that shows "median reconnect time" and "reconnect frequency per user" so ops can spot a flaky LB or a regional network issue.
@@ -218,12 +212,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Intentionally out of scope. Spec §13 excludes swipe-to-dismiss to keep the dependency surface thin (no gesture library) and the A11y story tight. The drag handle on the sheet is `aria-hidden` and purely decorative.
 - **When:** Indefinite — only if swipe-to-dismiss is explicitly demanded by a future UX review, and only with its own scoped design pass (threshold, cancel region, keyboard parity, screen-reader announcement).
 - **Notes:** See FOOTGUNS §F.74. Do NOT add this "while you're in there" on an unrelated sheet refactor — the exclusion is deliberate, not accidental.
-
-### AuctionEndedPanel / ListingSummaryRow enrichment DTO field nullability
-- **From:** Epic 04 sub-spec 2 (Task 6 `AuctionEndedPanel`, Task 9 `ListingSummaryRow` enrichment)
-- **Why:** `endOutcome`, `finalBidAmount`, and `winnerDisplayName` are sometimes missing from the auction DTOs returned by the backend (legacy rows, or scenarios where the seller DTO `ActiveListingAuctionSummary` didn't project them). The frontend currently handles this via `inferEndOutcome` (compares `status` + `currentBid` + `reservePrice` to derive the outcome client-side) plus a lazy fetch for `winnerDisplayName` via the profile endpoint. The backend could project these fields inline on the seller enrichment DTO and the frontend could drop both workarounds.
-- **When:** Near-term backend cleanup — a one-file change on the DTO mapper + a small spec sweep to document the contract. Pull in during the next Epic 04 maintenance task or alongside the Epic 05 escrow DTO additions.
-- **Notes:** Touchpoints: `frontend/src/components/auction/inferEndOutcome.ts`, `frontend/src/components/auction/AuctionEndedPanel.tsx`, `frontend/src/components/user/ListingSummaryRow.tsx`, and the backend `AuctionDtoMapper` / `ActiveListingAuctionSummary` DTO. Once the backend always projects the three fields, `inferEndOutcome` becomes dead code and can be deleted.
 
 ### Shared integration-test base class for scheduler-enabled property gating
 - **From:** Epic 05 sub-spec 1 (Task 6 — ownership monitor)
@@ -283,10 +271,29 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Sub-spec 1 code injects `Clock` and calls `OffsetDateTime.now(clock)` throughout. Existing Epic 03/04 services that use raw `OffsetDateTime.now()` are unaffected but can't be cleanly tested with a frozen clock. Out of scope for this sub-spec; retrofit when touched.
 - **When:** Opportunistic — pull in during the next maintenance pass that touches the affected services.
 
-### AuctionEndedPanel / My Bids / My Listings escrow CTAs
-- **From:** Epic 05 sub-spec 1 (frontend follow-up)
-- **Why:** Backend ships the escrow state + endpoints in this sub-spec; frontend surfaces (role-aware CTA buttons on the ended auction panel, escrow status link on dashboard rows) ship in sub-spec 2.
-- **When:** Epic 05 sub-spec 2.
+### Dispute evidence attachments
+- **From:** Epic 05 sub-spec 2
+- **Why:** Sub-spec 2 ships a minimal dispute form (reasonCategory + 10-2000-char description). A real dispute workflow benefits from file uploads (screenshots), SL transaction references, an optional linked in-world chat log, and a timeline of prior attempts. The dispute route was deliberately scoped as a full page so these additions can land without re-architecting.
+- **When:** Epic 10 (Admin & Moderation) — at the same time the admin dispute-resolution tooling lands so both sides mature together.
+- **Notes:** Additions likely include file uploads (reuse Epic 02 avatar-upload's S3 path), optional `slTransactionKey` field for `PAYMENT_NOT_CREDITED` claims, evidence timeline. DTO expansion on `EscrowDisputeRequest` + new evidence entity on the backend.
+
+### `PAYMENT_NOT_CREDITED` dispute reconciliation
+- **From:** Epic 05 sub-spec 2 (design review)
+- **Why:** The reason category claims "I paid but escrow didn't advance," which is the class of claim that indicates a happy-path failure (L$ may have already left the winner's wallet). Automatic refund on this dispute category risks double-paying the winner if the original payment callback later lands via idempotent retry.
+- **When:** Epic 10 (Admin & Moderation) — alongside admin dispute-resolution tooling. The admin workflow must pull the SLPA terminal ledger balance, the winner's claimed `slTransactionKey` (see evidence-attachments opener above), and reconcile against the backend's `EscrowTransaction` ledger before any refund.
+- **Notes:** Until Epic 10, `PAYMENT_NOT_CREDITED` disputes transition to `DISPUTED` and sit awaiting manual review like every other category.
+
+### Terminal locator on PAY ESCROW state
+- **From:** Epic 05 sub-spec 2 (`PendingStateCard` winner view)
+- **Why:** The winner's `ESCROW_PENDING` card includes a "Find a terminal" button rendered disabled because no in-world terminal locator exists yet. A real implementation maps registered `Terminal` rows (sub-spec 1 §7.5) to their SL region names + SLURL links.
+- **When:** Epic 11 (LSL scripting) — when real in-world terminals are deployed. Pre-launch ops checklist.
+- **Notes:** The backend already has the data (`Terminal.region_name` + `http_in_url`). Add a public endpoint `GET /api/v1/sl/terminals/public` returning `[{ terminalId, regionName, slUrl }]` to feed the locator.
+
+### Cross-page eventbus for dashboard row escrow freshness
+- **From:** Epic 05 sub-spec 2 (§2.4)
+- **Why:** Dashboard rows pick up `escrowState` changes via `refetchOnWindowFocus` + navigation — not via envelope-driven invalidation. Lags live state by up to ~30s on a stale tab. Acceptable for Phase 1.
+- **When:** Indefinite — only pull in if user feedback shows the lag feels wrong.
+- **Notes:** Implementation is ~30 LoC (named emitter + two subscriber hooks).
 
 ---
 
