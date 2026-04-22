@@ -2,6 +2,9 @@ package com.slparcelauctions.backend.escrow;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,6 +17,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
+import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
+import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
+import com.slparcelauctions.backend.escrow.dto.EscrowTimelineEntry;
+import com.slparcelauctions.backend.escrow.exception.EscrowAccessDeniedException;
+import com.slparcelauctions.backend.escrow.exception.EscrowNotFoundException;
 import com.slparcelauctions.backend.escrow.exception.IllegalEscrowTransitionException;
 
 import lombok.RequiredArgsConstructor;
@@ -112,5 +121,140 @@ public class EscrowService {
         log.info("Escrow {} created for auction {} (final L${}, commission L${}, payout L${})",
                 saved.getId(), auction.getId(), finalBid, saved.getCommissionAmt(), saved.getPayoutAmt());
         return saved;
+    }
+
+    /**
+     * Read the escrow row for the given auction, visible only to seller or
+     * winner. The response includes a timeline built from state-column
+     * timestamps plus any {@link EscrowTransaction} ledger rows. Spec §4 / §8.
+     */
+    @Transactional(readOnly = true)
+    public EscrowStatusResponse getStatus(Long auctionId, Long currentUserId) {
+        Escrow escrow = escrowRepo.findByAuctionId(auctionId)
+                .orElseThrow(() -> new EscrowNotFoundException(auctionId));
+        assertSellerOrWinner(escrow, currentUserId);
+        return toStatusResponse(escrow);
+    }
+
+    /**
+     * Transitions the escrow to {@link EscrowState#DISPUTED}, stamps
+     * {@code disputedAt} / {@code disputeReasonCategory} / {@code disputeDescription},
+     * and broadcasts an {@link EscrowDisputedEnvelope} after commit. Only
+     * the seller or the winner may file a dispute. Spec §4.4 / §8.
+     *
+     * <p>The initial {@code findByAuctionId} is used for the access check;
+     * the mutation path re-fetches the row under a pessimistic write lock
+     * via {@link EscrowRepository#findByIdForUpdate} so the transition
+     * serialises against the ownership-monitor, timeout-job, and payment
+     * callback paths that also take that lock.
+     */
+    @Transactional
+    public EscrowStatusResponse fileDispute(
+            Long auctionId, EscrowDisputeRequest req, Long currentUserId) {
+        Escrow escrow = escrowRepo.findByAuctionId(auctionId)
+                .orElseThrow(() -> new EscrowNotFoundException(auctionId));
+        assertSellerOrWinner(escrow, currentUserId);
+        // Re-lock inside the transaction for the mutation path.
+        escrow = escrowRepo.findByIdForUpdate(escrow.getId()).orElseThrow();
+        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.DISPUTED);
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        escrow.setState(EscrowState.DISPUTED);
+        escrow.setDisputedAt(now);
+        escrow.setDisputeReasonCategory(req.reasonCategory().name());
+        escrow.setDisputeDescription(req.description());
+        escrow = escrowRepo.save(escrow);
+
+        queueRefundIfFunded(escrow);
+
+        final EscrowDisputedEnvelope envelope = EscrowDisputedEnvelope.of(escrow, now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishDisputed(envelope);
+                    }
+                });
+        log.info("Escrow {} DISPUTED by user {}: category={}, description_len={}",
+                escrow.getId(), currentUserId, req.reasonCategory(), req.description().length());
+
+        return toStatusResponse(escrow);
+    }
+
+    /**
+     * Enforces that {@code currentUserId} is either the auction's seller or
+     * its recorded winner (via {@code auction.winnerUserId}). Package-private
+     * for reuse by future service methods that also need this gate.
+     */
+    void assertSellerOrWinner(Escrow escrow, Long currentUserId) {
+        Long sellerId = escrow.getAuction().getSeller().getId();
+        Long winnerUserId = escrow.getAuction().getWinnerUserId();
+        boolean isSeller = sellerId != null && sellerId.equals(currentUserId);
+        boolean isWinner = winnerUserId != null && winnerUserId.equals(currentUserId);
+        if (!isSeller && !isWinner) {
+            throw new EscrowAccessDeniedException();
+        }
+    }
+
+    /**
+     * Placeholder for Task 7 integration. When an escrow is {@code DISPUTED},
+     * {@code FROZEN}, or {@code EXPIRED} from {@code TRANSFER_PENDING}, a refund
+     * L$ flow must be queued on the terminal command pipeline. Task 7 introduces
+     * {@code TerminalCommandService} and replaces this body with
+     * {@code if (escrow.getFundedAt() != null) terminalCommandService.queueRefund(escrow);}.
+     * In Task 3, the stub is a no-op so the dispute flow can ship without the
+     * command-queue scaffolding.
+     */
+    void queueRefundIfFunded(Escrow escrow) {
+        // Task 7 integration — see javadoc.
+    }
+
+    private EscrowStatusResponse toStatusResponse(Escrow escrow) {
+        List<EscrowTimelineEntry> timeline = buildTimeline(escrow);
+        return new EscrowStatusResponse(
+                escrow.getId(), escrow.getAuction().getId(), escrow.getState(),
+                escrow.getFinalBidAmount(), escrow.getCommissionAmt(), escrow.getPayoutAmt(),
+                escrow.getPaymentDeadline(), escrow.getTransferDeadline(),
+                escrow.getFundedAt(), escrow.getTransferConfirmedAt(), escrow.getCompletedAt(),
+                escrow.getDisputedAt(), escrow.getFrozenAt(), escrow.getExpiredAt(),
+                escrow.getDisputeReasonCategory(), escrow.getDisputeDescription(),
+                escrow.getFreezeReason(), timeline);
+    }
+
+    private List<EscrowTimelineEntry> buildTimeline(Escrow e) {
+        List<EscrowTimelineEntry> out = new ArrayList<>();
+        addIfNotNull(out, "STATE_TRANSITION", "Escrow created",
+                e.getCreatedAt(), null, "state=ESCROW_PENDING");
+        addIfNotNull(out, "STATE_TRANSITION", "Payment received",
+                e.getFundedAt(), e.getFinalBidAmount(), "state=TRANSFER_PENDING");
+        addIfNotNull(out, "STATE_TRANSITION", "Transfer confirmed",
+                e.getTransferConfirmedAt(), null, null);
+        addIfNotNull(out, "STATE_TRANSITION", "Payout complete",
+                e.getCompletedAt(), e.getPayoutAmt(), "state=COMPLETED");
+        addIfNotNull(out, "STATE_TRANSITION", "Dispute filed",
+                e.getDisputedAt(), null, e.getDisputeReasonCategory());
+        addIfNotNull(out, "STATE_TRANSITION", "Escrow frozen",
+                e.getFrozenAt(), null, e.getFreezeReason());
+        addIfNotNull(out, "STATE_TRANSITION", "Escrow expired",
+                e.getExpiredAt(), null, null);
+
+        ledgerRepo.findByEscrowIdOrderByCreatedAtAsc(e.getId()).forEach(tx -> {
+            String kind = "LEDGER_" + tx.getType().name();
+            String label = tx.getType().name().replace('_', ' ');
+            String details = tx.getStatus().name()
+                    + (tx.getSlTransactionId() != null ? " / " + tx.getSlTransactionId() : "");
+            out.add(new EscrowTimelineEntry(
+                    kind, label, tx.getCreatedAt(), tx.getAmount(), details));
+        });
+        out.sort(Comparator.comparing(EscrowTimelineEntry::at));
+        return out;
+    }
+
+    private void addIfNotNull(
+            List<EscrowTimelineEntry> out,
+            String kind, String label, OffsetDateTime at, Long amount, String details) {
+        if (at != null) {
+            out.add(new EscrowTimelineEntry(kind, label, at, amount, details));
+        }
     }
 }
