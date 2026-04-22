@@ -126,7 +126,7 @@ public sealed class HttpBackendClient : IBackendClient
                     lastException = new HttpRequestException(
                         $"Server error {(int)resp.StatusCode}");
                     resp.Dispose();
-                    if (attempt < RetryBackoff.Length)
+                    if (attempt < RetryBackoff.Length - 1)
                     {
                         _log.LogWarning(
                             "HTTP {Code}; retry {Attempt} after {Delay}",
@@ -137,7 +137,7 @@ public sealed class HttpBackendClient : IBackendClient
                 }
                 return resp;
             }
-            catch (HttpRequestException ex) when (attempt < RetryBackoff.Length)
+            catch (HttpRequestException ex) when (attempt < RetryBackoff.Length - 1)
             {
                 lastException = ex;
                 _log.LogWarning(ex,

@@ -6,5 +6,4 @@ public sealed class BackendOptions
 
     public string BaseUrl { get; set; } = "http://localhost:8080";
     public string SharedSecret { get; set; } = "";
-    public Guid PrimaryEscrowUuid { get; set; }
 }

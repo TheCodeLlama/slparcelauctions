@@ -14,7 +14,6 @@ auction monitoring, BOT-tier escrow monitoring).
 | `Bot__StartLocation`            | no       | `last`                                 | `last`, `home`, or a region name           |
 | `Backend__BaseUrl`              | no       | `http://localhost:8080`                | backend origin                             |
 | `Backend__SharedSecret`         | yes      | —                                      | matches `slpa.bot.shared-secret`           |
-| `Backend__PrimaryEscrowUuid`    | yes      | `00000000-0000-0000-0000-000000000099` | sanity ref; backend is authoritative       |
 | `RateLimit__TeleportsPerMinute` | no       | `6`                                    | SL's hard cap                              |
 
 ASP.NET uses `__` (double underscore) as the section separator for

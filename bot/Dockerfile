@@ -20,6 +20,6 @@ COPY --from=build /app/publish .
 # apt-installed above to keep the HEALTHCHECK working.
 ENV ASPNETCORE_HTTP_PORTS=8081
 EXPOSE 8081
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
     CMD curl -fsS http://localhost:8081/health || exit 1
 ENTRYPOINT ["dotnet", "Slpa.Bot.dll"]

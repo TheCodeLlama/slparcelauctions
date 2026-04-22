@@ -131,7 +131,6 @@ services:
       Bot__StartLocation: ${SLPA_BOT_START_LOCATION:-last}
       Backend__BaseUrl: http://backend:8080
       Backend__SharedSecret: ${SLPA_BOT_SHARED_SECRET}
-      Backend__PrimaryEscrowUuid: ${SLPA_PRIMARY_ESCROW_UUID}
       RateLimit__TeleportsPerMinute: "6"
     depends_on:
       backend:
