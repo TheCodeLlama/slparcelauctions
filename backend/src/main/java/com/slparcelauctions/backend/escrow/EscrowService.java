@@ -22,7 +22,9 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowFrozenEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
 import com.slparcelauctions.backend.escrow.dto.EscrowTimelineEntry;
@@ -463,6 +465,128 @@ public class EscrowService {
                 escrow.getId(), req.auctionId(), req.amount(), req.slTransactionKey());
 
         return SlCallbackResponse.ok();
+    }
+
+    /**
+     * Called by {@link com.slparcelauctions.backend.escrow.scheduler.EscrowOwnershipCheckTask}
+     * when the World API reports the parcel's owner has transitioned to the
+     * auction winner (spec §4.5). Stamps {@code transferConfirmedAt} and
+     * {@code lastCheckedAt}, and resets the consecutive World API failure
+     * counter so a run of previously-transient failures does not later tip
+     * the escrow into a false WORLD_API_PERSISTENT_FAILURE freeze.
+     *
+     * <p>State stays {@link EscrowState#TRANSFER_PENDING} — only the payout
+     * callback (Task 7) flips the row to {@link EscrowState#COMPLETED}.
+     * {@link Propagation#MANDATORY} so a stray invocation outside the
+     * ownership-check transaction fails fast: there must be a locked escrow
+     * row in scope for the afterCommit envelope to be sound.
+     *
+     * <p>Task 7 will replace the {@code TODO} with a real
+     * {@code terminalCommandService.queuePayout(escrow)} call.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void confirmTransfer(Escrow escrow, OffsetDateTime now) {
+        escrow.setTransferConfirmedAt(now);
+        escrow.setLastCheckedAt(now);
+        escrow.setConsecutiveWorldApiFailures(0);
+        escrow = escrowRepo.save(escrow);
+
+        // TODO(Task 7): terminalCommandService.queuePayout(escrow);
+
+        final EscrowTransferConfirmedEnvelope envelope =
+                EscrowTransferConfirmedEnvelope.of(escrow, now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishTransferConfirmed(envelope);
+                    }
+                });
+        log.info("Escrow {} transfer confirmed for auction {}",
+                escrow.getId(), escrow.getAuction().getId());
+    }
+
+    /**
+     * System-triggered freeze on ownership-change to an unknown third party,
+     * parcel deletion, or persistent World API failure (spec §4.5). The
+     * existing state-machine guard is enforced, so a FROZEN / COMPLETED /
+     * EXPIRED escrow cannot be re-frozen by a late monitor sweep.
+     *
+     * <p>A {@link FraudFlag} row is created for the admin review queue with
+     * the supplied evidence payload, and the refund queue is kicked via the
+     * same {@link #queueRefundIfFunded} stub that {@code fileDispute} uses —
+     * Task 7 wires the real refund dispatcher. The {@code ESCROW_FROZEN}
+     * envelope is registered afterCommit so subscribers never observe a
+     * rolled-back freeze.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void freezeForFraud(Escrow escrow, FreezeReason reason,
+                               Map<String, Object> evidence,
+                               OffsetDateTime now) {
+        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.FROZEN);
+        escrow.setState(EscrowState.FROZEN);
+        escrow.setFrozenAt(now);
+        escrow.setFreezeReason(reason.name());
+        escrow.setLastCheckedAt(now);
+        escrow = escrowRepo.save(escrow);
+
+        FraudFlagReason flagReason = switch (reason) {
+            case UNKNOWN_OWNER -> FraudFlagReason.ESCROW_UNKNOWN_OWNER;
+            case PARCEL_DELETED -> FraudFlagReason.ESCROW_PARCEL_DELETED;
+            case WORLD_API_PERSISTENT_FAILURE -> FraudFlagReason.ESCROW_WORLD_API_FAILURE;
+        };
+        fraudFlagRepo.save(FraudFlag.builder()
+                .auction(escrow.getAuction())
+                .parcel(escrow.getAuction().getParcel())
+                .reason(flagReason)
+                .detectedAt(now)
+                .evidenceJson(evidence)
+                .resolved(false)
+                .build());
+
+        queueRefundIfFunded(escrow);
+
+        final EscrowFrozenEnvelope envelope = EscrowFrozenEnvelope.of(escrow, now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishFrozen(envelope);
+                    }
+                });
+        log.warn("Escrow {} FROZEN for auction {}: reason={}, evidence={}",
+                escrow.getId(), escrow.getAuction().getId(), reason, evidence);
+    }
+
+    /**
+     * Bumps the consecutive World API failure counter on a transient
+     * upstream failure and stamps {@code lastCheckedAt}. Does NOT transition
+     * state — the ownership-check task decides whether the next step is
+     * another retry or a threshold-triggered freeze.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void incrementWorldApiFailure(Escrow escrow, OffsetDateTime now) {
+        int prior = escrow.getConsecutiveWorldApiFailures() == null
+                ? 0 : escrow.getConsecutiveWorldApiFailures();
+        escrow.setConsecutiveWorldApiFailures(prior + 1);
+        escrow.setLastCheckedAt(now);
+        escrowRepo.save(escrow);
+        log.debug("Escrow {} World API failure count now {}",
+                escrow.getId(), prior + 1);
+    }
+
+    /**
+     * Stamps {@code lastCheckedAt} and resets the World API failure counter
+     * without changing state. Used by the ownership monitor for the
+     * seller-still-owns-parcel branch — the seller has not yet transferred,
+     * but the check itself succeeded, so previous transient failures are
+     * no longer relevant.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void stampChecked(Escrow escrow, OffsetDateTime now) {
+        escrow.setLastCheckedAt(now);
+        escrow.setConsecutiveWorldApiFailures(0);
+        escrowRepo.save(escrow);
     }
 
     /**
