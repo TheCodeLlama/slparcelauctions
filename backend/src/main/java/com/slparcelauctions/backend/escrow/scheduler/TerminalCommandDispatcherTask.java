@@ -14,6 +14,7 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope;
+import com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy;
 import com.slparcelauctions.backend.escrow.command.TerminalCommand;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandBody;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
@@ -50,14 +51,6 @@ public class TerminalCommandDispatcherTask {
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final EscrowConfigProperties props;
     private final Clock clock;
-
-    static final Duration[] BACKOFF = {
-            Duration.ofMinutes(1),
-            Duration.ofMinutes(5),
-            Duration.ofMinutes(15)
-    };
-
-    static final int MAX_ATTEMPTS = 4;
 
     /**
      * Picks the given command up, bumps the attempt counter, stamps
@@ -113,7 +106,8 @@ public class TerminalCommandDispatcherTask {
 
         if (result.ack()) {
             log.info("Dispatched command {} to terminal {}: attempt {}/{}",
-                    cmd.getId(), cmd.getTerminalId(), cmd.getAttemptCount(), MAX_ATTEMPTS);
+                    cmd.getId(), cmd.getTerminalId(), cmd.getAttemptCount(),
+                    EscrowRetryPolicy.MAX_ATTEMPTS);
             // Leave IN_FLIGHT awaiting callback. Staleness sweep requeues
             // if the terminal never calls back within commandInFlightTimeout.
             return;
@@ -122,20 +116,18 @@ public class TerminalCommandDispatcherTask {
         // Transport failure — record backoff or stall.
         cmd.setStatus(TerminalCommandStatus.FAILED);
         cmd.setLastError(result.errorMessage());
-        if (cmd.getAttemptCount() >= MAX_ATTEMPTS) {
+        if (cmd.getAttemptCount() >= EscrowRetryPolicy.MAX_ATTEMPTS) {
             cmd.setRequiresManualReview(true);
             cmd = cmdRepo.save(cmd);
             publishStallIfEscrow(cmd, now);
             log.error("Terminal command {} STALLED after {} attempts (transport): err={}",
                     cmd.getId(), cmd.getAttemptCount(), result.errorMessage());
         } else {
-            int backoffIdx = Math.min(
-                    Math.max(cmd.getAttemptCount() - 1, 0),
-                    BACKOFF.length - 1);
-            cmd.setNextAttemptAt(now.plus(BACKOFF[backoffIdx]));
+            cmd.setNextAttemptAt(now.plus(
+                    EscrowRetryPolicy.backoffFor(cmd.getAttemptCount())));
             cmdRepo.save(cmd);
             log.warn("Terminal POST failed for command {}: attempt {}/{}, nextAttemptAt={}, err={}",
-                    cmd.getId(), cmd.getAttemptCount(), MAX_ATTEMPTS,
+                    cmd.getId(), cmd.getAttemptCount(), EscrowRetryPolicy.MAX_ATTEMPTS,
                     cmd.getNextAttemptAt(), result.errorMessage());
         }
     }

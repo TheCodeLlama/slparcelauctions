@@ -1,7 +1,6 @@
 package com.slparcelauctions.backend.escrow.command;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 
 import org.springframework.stereotype.Service;
@@ -67,20 +66,6 @@ public class TerminalCommandService {
     private final UserRepository userRepo;
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final Clock clock;
-
-    /**
-     * Retry backoff indexed by {@code attemptCount - 1}: attempt 1 sets
-     * backoff for attempt 2 (1m), attempt 2 sets for attempt 3 (5m),
-     * attempt 3 sets for attempt 4 (15m). Attempt 4 failure trips the
-     * stall instead of scheduling a 5th attempt. Spec §7.4.
-     */
-    static final Duration[] BACKOFF = {
-            Duration.ofMinutes(1),
-            Duration.ofMinutes(5),
-            Duration.ofMinutes(15)
-    };
-
-    static final int MAX_ATTEMPTS = 4;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -184,15 +169,13 @@ public class TerminalCommandService {
                     .build());
 
             cmd.setLastError(req.errorMessage());
-            if (cmd.getAttemptCount() < MAX_ATTEMPTS) {
+            if (cmd.getAttemptCount() < EscrowRetryPolicy.MAX_ATTEMPTS) {
                 cmd.setStatus(TerminalCommandStatus.FAILED);
-                int backoffIdx = Math.min(
-                        Math.max(cmd.getAttemptCount() - 1, 0),
-                        BACKOFF.length - 1);
-                cmd.setNextAttemptAt(now.plus(BACKOFF[backoffIdx]));
+                cmd.setNextAttemptAt(now.plus(
+                        EscrowRetryPolicy.backoffFor(cmd.getAttemptCount())));
                 cmd = cmdRepo.save(cmd);
                 log.warn("Terminal command {} callback reported failure: attempt {}/{}, nextAttemptAt={}, err={}",
-                        cmd.getId(), cmd.getAttemptCount(), MAX_ATTEMPTS,
+                        cmd.getId(), cmd.getAttemptCount(), EscrowRetryPolicy.MAX_ATTEMPTS,
                         cmd.getNextAttemptAt(), req.errorMessage());
             } else {
                 cmd.setStatus(TerminalCommandStatus.FAILED);
