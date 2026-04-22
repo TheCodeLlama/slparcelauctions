@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 import com.slparcelauctions.backend.config.SecurityConfig;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,6 +26,10 @@ class HealthControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
+    @MockitoBean
+    private BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     @Test
     void healthEndpointReturnsUpStatus() throws Exception {

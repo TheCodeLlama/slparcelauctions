@@ -25,6 +25,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.exception.EscrowExceptionHandler;
 import com.slparcelauctions.backend.escrow.exception.TerminalAuthException;
@@ -61,6 +62,8 @@ class TerminalRegistrationControllerSliceTest {
     @MockitoBean SlHeaderValidator headerValidator;
     @MockitoBean JwtService jwtService;
     @MockitoBean JwtConfig jwtConfig;
+    // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
+    @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     private static String validBody() {
         return String.format("""

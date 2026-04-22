@@ -99,17 +99,16 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 10 (Admin & Moderation) — fraud flags
 - **Notes:** Metric would be "count of PARCEL codes generated per seller over last N days where no successful callback occurred." Likely lives as a `fraud_signals` table or similar, feeding admin dashboards.
 
-### Bot service authentication
+### Bot service authentication — RESOLVED (Epic 06 Task 3, 2026-04-22)
 - **From:** Epic 03 sub-spec 1 (Method C SALE_TO_BOT bot queue)
-- **Why:** `GET /api/v1/bot/tasks/pending` and `PUT /api/v1/bot/tasks/{taskId}` ship with `permitAll` in `SecurityConfig` because the real bot worker does not exist yet. Shipping a placeholder auth scheme without a worker implementation to validate against would be premature. Body-level validation (`authBuyerId == primary-escrow-uuid`, `salePrice == sentinelPrice`) mitigates arbitrary calls but does not prevent a malicious actor from racing the real worker or flipping auction states via FAILURE callbacks.
-- **When:** Epic 06 (SL bot service) — MUST land before the real worker deploys.
-- **Notes:** See FOOTGUNS §F.46. Pick mTLS or bearer token in the Epic 06 spec. Until done, the bot endpoint surface is a locally-trusted attack surface — deploy the worker on localhost or a private network only.
+- **Resolution:** `/api/v1/bot/**` is now gated by a bearer-token shared secret. `SecurityConfig` routes the matcher through `BotSharedSecretAuthorizer`, which compares the `Authorization: Bearer` header against `slpa.bot.shared-secret` using `MessageDigest.isEqual` (constant-time, no length-leak via timing). `BotStartupValidator` (`@Profile("!dev")`) fails fast on non-dev profiles if the secret is blank, still the dev placeholder `"dev-bot-shared-secret"`, or shorter than 16 characters. Covered by `BotSharedSecretAuthorizerTest` (5 cases) + `BotStartupValidatorTest` (4 cases) + `BotTaskControllerAuthIntegrationTest` (3 cases).
 
-### Primary escrow UUID + SLPA trusted-owner-keys production config
+### Primary escrow UUID production config — RESOLVED (Epic 06 Task 3, 2026-04-22); SLPA trusted-owner-keys still DEFERRED
 - **From:** Epic 03 sub-spec 1 (Method C bot task sentinel + SL header trust)
-- **Why:** `slpa.bot-task.primary-escrow-uuid` defaults to the dev placeholder `00000000-0000-0000-0000-000000000099`, and `slpa.sl.trusted-owner-keys` is empty in `application.yml` (overridden to the dev placeholder in `application-dev.yml`). Production deployment must override both via env var / secrets manager.
+- **Resolution (primary-escrow-uuid):** `BotStartupValidator` (`@Profile("!dev")`) now throws `IllegalStateException` on non-dev profiles if `slpa.bot-task.primary-escrow-uuid` is still the dev placeholder `00000000-0000-0000-0000-000000000099`. This matches the `SlStartupValidator` forcing function for `trusted-owner-keys`.
+- **Remaining (SLPA trusted-owner-keys):** `slpa.sl.trusted-owner-keys` must still be overridden via env var / secrets manager for first production deployment. `SlStartupValidator` fails fast on prod boot if the list is empty — that is the forcing function. Track against the pre-launch ops checklist.
 - **When:** First production deployment (pre-launch ops checklist).
-- **Notes:** `SlStartupValidator` fails fast on prod boot if `trusted-owner-keys` is still empty — that is the forcing function. The primary-escrow-uuid has no equivalent startup guard yet; add one when the real SLPAEscrow Resident account is provisioned (same Epic 05 / Epic 06 timeline as the escrow integration). A companion startup guard for `slpa.escrow.terminal-shared-secret` ships with Epic 05 sub-spec 1 (`EscrowStartupValidator`). See FOOTGUNS §F.47.
+- **Notes:** A companion startup guard for `slpa.escrow.terminal-shared-secret` ships with Epic 05 sub-spec 1 (`EscrowStartupValidator`). See FOOTGUNS §F.47.
 
 ### IN_PROGRESS bot task timeout
 - **From:** Epic 03 sub-spec 1 (BotTaskTimeoutJob 48h sweep)

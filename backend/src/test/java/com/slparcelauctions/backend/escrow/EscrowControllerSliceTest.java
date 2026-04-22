@@ -27,6 +27,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
@@ -63,6 +64,8 @@ class EscrowControllerSliceTest {
     @MockitoBean EscrowService escrowService;
     @MockitoBean JwtService jwtService;
     @MockitoBean JwtConfig jwtConfig;
+    // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
+    @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     private EscrowStatusResponse stubResponse(EscrowState state) {
         OffsetDateTime now = OffsetDateTime.now();

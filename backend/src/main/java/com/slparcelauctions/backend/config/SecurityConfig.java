@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +30,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     @Value("${cors.allowed-origin:http://localhost:3000}")
     private String allowedOrigin;
@@ -127,13 +130,18 @@ public class SecurityConfig {
                         // /api/v1/users/** authenticated rules.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/auctions").permitAll()
                         // --- End Epic 03 sub-spec 1 Task 9 additions ---
-                        // Bot worker queue (Epic 03 sub-spec 1, Task 8). Ships without auth
-                        // in sub-spec 1 — Epic 06 (SL bot service) will add bot worker
-                        // authentication before the real worker is deployed. See spec §12.4
-                        // and the Epic 06 entry in DEFERRED_WORK.md. FOOTGUNS §B.5: this MUST
-                        // sit before the /api/v1/** catch-all.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/bot/tasks/pending").permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/bot/tasks/**").permitAll()
+                        // Bot worker queue + callback surface (Epic 06 Task 3).
+                        // Authentication is a shared bearer token validated by
+                        // BotSharedSecretAuthorizer (constant-time compare via
+                        // MessageDigest.isEqual). The .access(...) matcher is the
+                        // single trust boundary for every /api/v1/bot/** path:
+                        // /claim, /pending, /{id}, /{id}/verify, and the MONITOR
+                        // callback that Task 5 ships all gate through here.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins, so
+                        // this rule MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/bot/**").access((authentication, ctx) ->
+                                new AuthorizationDecision(
+                                        botSharedSecretAuthorizer.isAuthorized(ctx.getRequest())))
                         // Dev simulate helper - permit at HTTP layer always. The bean is only
                         // registered under @Profile("dev"); in prod the handler doesn't exist so
                         // the request 404s (falling through Spring MVC rather than Spring Security).
