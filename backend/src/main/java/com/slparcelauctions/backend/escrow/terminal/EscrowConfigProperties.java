@@ -12,7 +12,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "slpa.escrow")
 public record EscrowConfigProperties(
-        Boolean enabled,
         String terminalSharedSecret,
         Duration terminalLiveWindow,
         Duration commandInFlightTimeout,
@@ -20,7 +19,6 @@ public record EscrowConfigProperties(
         Duration ownershipReminderDelay) {
 
     public EscrowConfigProperties {
-        if (enabled == null) enabled = true;
         if (terminalSharedSecret == null) terminalSharedSecret = "";
         if (terminalLiveWindow == null) terminalLiveWindow = Duration.ofMinutes(15);
         if (commandInFlightTimeout == null) commandInFlightTimeout = Duration.ofMinutes(5);

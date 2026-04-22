@@ -43,7 +43,7 @@ public class EscrowStartupValidator {
                     "slpa.escrow.terminal-shared-secret must be at least 16 characters; got "
                             + props.terminalSharedSecret().length());
         }
-        log.info("Escrow startup validation OK: enabled={}, liveWindow={}, inFlightTimeout={}",
-                props.enabled(), props.terminalLiveWindow(), props.commandInFlightTimeout());
+        log.info("Escrow startup validation OK: liveWindow={}, inFlightTimeout={}",
+                props.terminalLiveWindow(), props.commandInFlightTimeout());
     }
 }

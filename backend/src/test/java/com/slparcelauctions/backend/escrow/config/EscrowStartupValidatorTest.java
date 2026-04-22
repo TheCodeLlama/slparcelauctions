@@ -25,7 +25,6 @@ class EscrowStartupValidatorTest {
 
     private static EscrowConfigProperties propsWithSecret(String secret) {
         return new EscrowConfigProperties(
-                true,
                 secret,
                 Duration.ofMinutes(15),
                 Duration.ofMinutes(5),

@@ -98,7 +98,6 @@ slpa:
     enabled: true
     scheduler-frequency: PT15S
   escrow:
-    enabled: true
     # No default — must be set via SLPA_ESCROW_TERMINAL_SHARED_SECRET in
     # non-dev profiles. EscrowStartupValidator fails fast if missing or
     # shorter than 16 characters. Dev profile overrides this in
