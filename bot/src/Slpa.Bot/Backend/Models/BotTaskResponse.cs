@@ -1,0 +1,26 @@
+namespace Slpa.Bot.Backend.Models;
+
+public sealed record BotTaskResponse(
+    long Id,
+    BotTaskType TaskType,
+    BotTaskStatus Status,
+    long AuctionId,
+    long? EscrowId,
+    Guid ParcelUuid,
+    string? RegionName,
+    double? PositionX,
+    double? PositionY,
+    double? PositionZ,
+    long SentinelPrice,
+    Guid? ExpectedOwnerUuid,
+    Guid? ExpectedAuthBuyerUuid,
+    long? ExpectedSalePriceLindens,
+    Guid? ExpectedWinnerUuid,
+    Guid? ExpectedSellerUuid,
+    long? ExpectedMaxSalePriceLindens,
+    Guid? AssignedBotUuid,
+    string? FailureReason,
+    DateTimeOffset? NextRunAt,
+    int? RecurrenceIntervalSeconds,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? CompletedAt);

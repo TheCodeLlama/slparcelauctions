@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Slpa.Bot.Backend;
 using Slpa.Bot.Health;
 using Slpa.Bot.Options;
 using Slpa.Bot.Sl;
@@ -14,6 +16,12 @@ builder.Services.Configure<RateLimitOptions>(
     builder.Configuration.GetSection(RateLimitOptions.SectionName));
 
 builder.Services.AddSingleton<IBotSession, LibreMetaverseBotSession>();
+builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =>
+{
+    var opts = sp.GetRequiredService<IOptions<BackendOptions>>().Value;
+    client.BaseAddress = new Uri(opts.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddHostedService<BotSessionBootstrapper>();
 
 var app = builder.Build();
