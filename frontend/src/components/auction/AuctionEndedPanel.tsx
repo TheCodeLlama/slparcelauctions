@@ -12,6 +12,12 @@ import type {
   PublicAuctionResponse,
   SellerAuctionResponse,
 } from "@/types/auction";
+import type { EscrowState } from "@/types/escrow";
+import type { EscrowChipRole } from "@/components/escrow/EscrowChip";
+import {
+  escrowBannerCopy,
+  type BannerTone,
+} from "@/components/escrow/escrowBannerCopy";
 import { cn } from "@/lib/cn";
 
 export interface AuctionEndedPanelProps {
@@ -53,8 +59,17 @@ export function AuctionEndedPanel({
   ) &
     EndedAuctionFields;
 
-  const outcome: AuctionEndOutcome =
-    ended.endOutcome ?? inferOutcomeFromDto(auction);
+  // Backend always projects endOutcome on ENDED auctions post Epic 05
+  // sub-spec 1. If this field is ever null on an ENDED auction, it's a
+  // backend invariant violation — let it surface rather than papering
+  // over it with a heuristic.
+  if (ended.endOutcome == null) {
+    throw new Error(
+      `AuctionEndedPanel rendered for auction ${auction.id} with null endOutcome — ` +
+        "backend enrichment invariant violated (Epic 05 sub-spec 1).",
+    );
+  }
+  const outcome: AuctionEndOutcome = ended.endOutcome;
   const finalBid = ended.finalBidAmount ?? numericHighBid(auction.currentHighBid);
   const winnerId = ended.winnerUserId ?? null;
 
@@ -117,9 +132,19 @@ export function AuctionEndedPanel({
       ) : null}
 
       {viewerWon ? (
-        <WinnerOverlay />
+        <WinnerOverlay
+          auctionId={auction.id}
+          outcome={outcome}
+          escrowState={auction.escrowState ?? null}
+          transferConfirmedAt={auction.transferConfirmedAt ?? null}
+        />
       ) : viewerIsSeller ? (
-        <SellerOverlay outcome={outcome} />
+        <SellerOverlay
+          auctionId={auction.id}
+          outcome={outcome}
+          escrowState={auction.escrowState ?? null}
+          transferConfirmedAt={auction.transferConfirmedAt ?? null}
+        />
       ) : null}
     </section>
   );
@@ -220,8 +245,22 @@ function OutcomeBlock({
   );
 }
 
-/** Winner-specific overlay — green banner + link to My Bids. */
-function WinnerOverlay() {
+/**
+ * Winner-specific overlay — green banner + link to My Bids, plus the
+ * role-aware escrow banner when the backend has surfaced an escrow state
+ * on the auction DTO (SOLD / BOUGHT_NOW only).
+ */
+function WinnerOverlay({
+  auctionId,
+  outcome,
+  escrowState,
+  transferConfirmedAt,
+}: {
+  auctionId: number;
+  outcome: AuctionEndOutcome;
+  escrowState: EscrowState | null;
+  transferConfirmedAt: string | null;
+}) {
   return (
     <div
       data-testid="auction-ended-winner-overlay"
@@ -237,15 +276,42 @@ function WinnerOverlay() {
       >
         View your winning bids
       </Link>
+      {escrowState != null &&
+      (outcome === "SOLD" || outcome === "BOUGHT_NOW") ? (
+        <EscrowBannerForPanel
+          auctionId={auctionId}
+          escrowState={escrowState}
+          transferConfirmedAt={transferConfirmedAt}
+          role="winner"
+        />
+      ) : null}
     </div>
   );
 }
 
-/** Seller-specific overlay — note about Epic 05 escrow flow. */
-function SellerOverlay({ outcome }: { outcome: AuctionEndOutcome }) {
-  const message =
+/**
+ * Seller-specific overlay. For unsold outcomes we explain no escrow will
+ * open; for SOLD / BOUGHT_NOW outcomes we delegate the progress / CTA copy
+ * to {@link EscrowBannerForPanel}, which reads the role-aware copy table
+ * in {@link escrowBannerCopy}.
+ */
+function SellerOverlay({
+  auctionId,
+  outcome,
+  escrowState,
+  transferConfirmedAt,
+}: {
+  auctionId: number;
+  outcome: AuctionEndOutcome;
+  escrowState: EscrowState | null;
+  transferConfirmedAt: string | null;
+}) {
+  const showEscrowBanner =
+    escrowState != null &&
+    (outcome === "SOLD" || outcome === "BOUGHT_NOW");
+  const fallbackMessage =
     outcome === "SOLD" || outcome === "BOUGHT_NOW"
-      ? "Your auction ended with a winning bid. Escrow flow opens in Epic 05."
+      ? "Your auction ended with a winning bid."
       : outcome === "RESERVE_NOT_MET"
         ? "Your auction ended without meeting the reserve. No escrow will open."
         : "Your auction ended without bids. No escrow will open.";
@@ -259,7 +325,74 @@ function SellerOverlay({ outcome }: { outcome: AuctionEndOutcome }) {
       )}
     >
       <span className="font-semibold">Your auction</span>
-      <p className="text-body-sm">{message}</p>
+      <p className="text-body-sm">{fallbackMessage}</p>
+      {showEscrowBanner ? (
+        <EscrowBannerForPanel
+          auctionId={auctionId}
+          escrowState={escrowState}
+          transferConfirmedAt={transferConfirmedAt}
+          role="seller"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+const bannerToneClasses: Record<BannerTone, string> = {
+  action: "bg-primary-container text-on-primary-container",
+  waiting: "bg-secondary-container text-on-secondary-container",
+  done: "bg-tertiary-container text-on-tertiary-container",
+  problem: "bg-error-container text-on-error-container",
+  muted: "bg-surface-container text-on-surface-variant",
+};
+
+interface EscrowBannerForPanelProps {
+  auctionId: number;
+  escrowState: EscrowState;
+  transferConfirmedAt: string | null;
+  role: EscrowChipRole;
+}
+
+/**
+ * Role- and state-aware escrow banner embedded in the winner/seller
+ * overlays on the ended-auction panel. Provides the short CTA + deep link
+ * to the full escrow page. {@code fundedAt} is not surfaced on the
+ * auction DTO (only escrow DTOs carry it); the current banner copy table
+ * does not branch on it — the escrow page's ExpiredStateCard handles the
+ * pre/post-fund refund split.
+ */
+function EscrowBannerForPanel({
+  auctionId,
+  escrowState,
+  transferConfirmedAt,
+  role,
+}: EscrowBannerForPanelProps) {
+  const { headline, detail, tone } = escrowBannerCopy({
+    state: escrowState,
+    role,
+    transferConfirmedAt,
+    // fundedAt not surfaced on auction DTO; banner copy doesn't branch on it.
+    fundedAt: null,
+  });
+  return (
+    <div
+      data-testid="auction-ended-escrow-banner"
+      data-tone={tone}
+      className={cn(
+        "mt-3 flex items-center gap-3 rounded-md px-3 py-2",
+        bannerToneClasses[tone],
+      )}
+    >
+      <span className="flex-1 text-body-md">
+        <strong>{headline}</strong>
+        {detail ? <> {detail}</> : null}
+      </span>
+      <Link
+        href={`/auction/${auctionId}/escrow`}
+        className="rounded-full bg-primary px-3 py-1 text-label-md font-semibold text-on-primary"
+      >
+        View escrow
+      </Link>
     </div>
   );
 }
@@ -280,42 +413,4 @@ function numericHighBid(
 function formatAmount(value: number | null): string {
   if (value == null) return "—";
   return value.toLocaleString();
-}
-
-/**
- * When the cache hasn't been written by the envelope handler yet (e.g.,
- * the page rendered with an already-ENDED DTO from the REST fetch), we
- * infer the outcome from available fields. Seller DTOs carry
- * {@code reservePrice} + {@code buyNowPrice}; public DTOs expose
- * {@code reserveMet}. Buy-now is checked first because a qualifying
- * final bid means {@code BOUGHT_NOW} regardless of reserve state;
- * defaults to {@code SOLD} when we have a high bid and to {@code NO_BIDS}
- * otherwise.
- */
-function inferOutcomeFromDto(
-  auction: PublicAuctionResponse | SellerAuctionResponse,
-): AuctionEndOutcome {
-  const high = numericHighBid(auction.currentHighBid);
-  if (high == null || auction.bidCount === 0) return "NO_BIDS";
-  // Buy-now check first — if the final high bid meets or exceeds the
-  // buy-now price, the auction terminated via buy-now even if the cache
-  // hasn't been stamped with {@code endOutcome} yet.
-  if (
-    "buyNowPrice" in auction &&
-    auction.buyNowPrice != null &&
-    high >= auction.buyNowPrice
-  ) {
-    return "BOUGHT_NOW";
-  }
-  if ("hasReserve" in auction && auction.hasReserve && !auction.reserveMet) {
-    return "RESERVE_NOT_MET";
-  }
-  if (
-    "reservePrice" in auction &&
-    auction.reservePrice != null &&
-    high < auction.reservePrice
-  ) {
-    return "RESERVE_NOT_MET";
-  }
-  return "SOLD";
 }

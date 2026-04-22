@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.escrow;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,15 @@ import org.springframework.data.repository.query.Param;
 public interface EscrowRepository extends JpaRepository<Escrow, Long> {
 
     Optional<Escrow> findByAuctionId(Long auctionId);
+
+    /**
+     * Batch lookup used by list-paging consumers (My Bids, listings) that need
+     * to enrich multiple auction projections with their escrow state in one
+     * round-trip instead of N {@link #findByAuctionId} calls. Returns zero or
+     * one {@link Escrow} per auction id (escrow rows have a unique
+     * {@code auction_id} FK).
+     */
+    List<Escrow> findByAuctionIdIn(Collection<Long> auctionIds);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT e FROM Escrow e WHERE e.id = :id")

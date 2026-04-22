@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
+import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
@@ -86,6 +87,14 @@ export function ListingSummaryRow({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-title-sm text-on-surface truncate">{title}</h3>
             <ListingStatusBadge status={auction.status} />
+            {auction.escrowState != null && (
+              <EscrowChip
+                state={auction.escrowState}
+                transferConfirmedAt={auction.transferConfirmedAt}
+                role="seller"
+                size="sm"
+              />
+            )}
           </div>
           <p className="text-body-sm text-on-surface-variant">
             {auction.parcel.regionName} · {auction.parcel.areaSqm} m²
@@ -163,10 +172,10 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
  *       bid-summary repeat.</li>
  * </ul>
  *
- * ENDED-outcome inference mirrors {@code AuctionEndedPanel} — if the DTO
- * ships with {@code endOutcome} the component uses it directly; otherwise we
- * derive from {@code reservePrice}/{@code buyNowPrice}/{@code currentHighBid}
- * so the right sub-line renders immediately on first fetch.
+ * ENDED rows read {@code endOutcome} directly from the DTO. Backend always
+ * projects this field post Epic 05 sub-spec 1; a null value on an ENDED
+ * auction is a backend invariant violation and surfaces as an error rather
+ * than being papered over with a heuristic.
  */
 function BidSummaryLine({ auction }: { auction: ListingRowAuction }) {
   const highBid = normalizeBid(auction.currentHighBid);
@@ -218,8 +227,17 @@ function EndedBidSummary({
   auction: ListingRowAuction;
   highBid: number | null;
 }) {
-  const outcome: AuctionEndOutcome =
-    auction.endOutcome ?? inferEndOutcome(auction, highBid);
+  // Backend always projects endOutcome on ENDED auctions post Epic 05
+  // sub-spec 1. If this field is ever null on an ENDED auction, it's a
+  // backend invariant violation — let it surface rather than papering
+  // over it with a heuristic.
+  if (auction.endOutcome == null) {
+    throw new Error(
+      `ListingSummaryRow rendered ENDED auction ${auction.id} with null endOutcome — ` +
+        "backend enrichment invariant violated (Epic 05 sub-spec 1).",
+    );
+  }
+  const outcome: AuctionEndOutcome = auction.endOutcome;
 
   // Winner display-name fallback mirrors AuctionEndedPanel. The query runs
   // only when we have a winnerId but no inline display name. Same cache key
@@ -274,20 +292,6 @@ function EndedBidSummary({
   );
 }
 
-function inferEndOutcome(
-  auction: ListingRowAuction,
-  highBid: number | null,
-): AuctionEndOutcome {
-  if (highBid == null || (auction.bidCount ?? 0) === 0) return "NO_BIDS";
-  if (auction.buyNowPrice != null && highBid >= auction.buyNowPrice) {
-    return "BOUGHT_NOW";
-  }
-  if (auction.reservePrice != null && highBid < auction.reservePrice) {
-    return "RESERVE_NOT_MET";
-  }
-  return "SOLD";
-}
-
 function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null;
   const d = new Date(s);
@@ -308,13 +312,15 @@ function PrimaryActions({
   auction,
   onOpenCancel,
 }: {
-  auction: SellerAuctionResponse;
+  auction: ListingRowAuction;
   onOpenCancel: () => void;
 }) {
   const id = auction.id;
   const publicHref = `/auction/${id}`;
+  const escrowHref = `/auction/${id}/escrow`;
   const editHref = `/listings/${id}/edit`;
   const activateHref = `/listings/${id}/activate`;
+  const hasEscrow = auction.escrowState != null;
 
   const cancelItem: DropdownItem = {
     label: "Cancel listing",
@@ -370,13 +376,13 @@ function PrimaryActions({
     case "COMPLETED":
     case "EXPIRED":
       return (
-        <Link href={publicHref}>
+        <Link href={hasEscrow ? escrowHref : publicHref}>
           <Button
             variant="secondary"
             size="sm"
             leftIcon={<ExternalLink className="size-4" />}
           >
-            View listing
+            {hasEscrow ? "View escrow" : "View listing"}
           </Button>
         </Link>
       );
@@ -385,11 +391,12 @@ function PrimaryActions({
     case "SUSPENDED":
       // View-details link points at the public auction page (spec §6.3
       // footnote — may be a dead link until Epic 04 wires the public
-      // listing page).
+      // listing page). When an escrow exists (typically DISPUTED) we route
+      // the seller directly to the escrow page instead.
       return (
-        <Link href={publicHref}>
+        <Link href={hasEscrow ? escrowHref : publicHref}>
           <Button variant="secondary" size="sm">
-            View details
+            {hasEscrow ? "View escrow" : "View details"}
           </Button>
         </Link>
       );

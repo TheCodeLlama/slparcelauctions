@@ -13,6 +13,8 @@ function summary(
     auctionStatus?: MyBidSummary["auction"]["status"];
     currentBid?: number | null;
     endsAt?: string | null;
+    escrowState?: MyBidSummary["auction"]["escrowState"];
+    transferConfirmedAt?: string | null;
   } = {},
 ): MyBidSummary {
   return {
@@ -35,6 +37,12 @@ function summary(
       bidderCount: 3,
       sellerUserId: 7,
       sellerDisplayName: "Seller",
+      escrowState:
+        "escrowState" in overrides ? overrides.escrowState! : null,
+      transferConfirmedAt:
+        "transferConfirmedAt" in overrides
+          ? overrides.transferConfirmedAt!
+          : null,
     },
     myHighestBidAmount: 4200,
     myHighestBidAt: "2026-04-20T12:00:00Z",
@@ -118,5 +126,27 @@ describe("MyBidSummaryRow", () => {
       />,
     );
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  });
+
+  it("renders escrow chip + view-escrow link when escrowState is set", () => {
+    const bid = summary({
+      auctionId: 101,
+      auctionStatus: "ENDED",
+      status: "WON",
+      escrowState: "ESCROW_PENDING",
+      transferConfirmedAt: null,
+    });
+    render(<MyBidSummaryRow bid={bid} />);
+    expect(screen.getByText(/pay escrow/i)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /view escrow/i });
+    expect(link).toHaveAttribute("href", `/auction/${bid.auction.id}/escrow`);
+  });
+
+  it("keeps existing view-auction link when escrowState is null", () => {
+    const bid = summary({ auctionId: 101, escrowState: null });
+    render(<MyBidSummaryRow bid={bid} />);
+    expect(screen.queryByText(/pay escrow/i)).not.toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /view auction/i });
+    expect(link).toHaveAttribute("href", `/auction/${bid.auction.id}`);
   });
 });

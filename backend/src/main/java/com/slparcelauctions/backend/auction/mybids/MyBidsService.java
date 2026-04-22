@@ -21,6 +21,8 @@ import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBid;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidStatus;
+import com.slparcelauctions.backend.escrow.Escrow;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +68,7 @@ public class MyBidsService {
     private final BidRepository bidRepo;
     private final AuctionRepository auctionRepo;
     private final ProxyBidRepository proxyBidRepo;
+    private final EscrowRepository escrowRepo;
 
     /**
      * Returns the caller's paginated My Bids page. {@code statusParam} accepts
@@ -117,6 +120,18 @@ public class MyBidsService {
             activeProxyMaxByAuction.put(p.getAuction().getId(), p.getMaxAmount());
         }
 
+        // Batch-load escrows for the page's auctions. ACTIVE auctions have no
+        // escrow row; ENDED and post-ENDED rows do. One query per page replaces
+        // what would otherwise be N separate findByAuctionId calls inside the
+        // summary builder.
+        Map<Long, Escrow> escrowsByAuctionId = new HashMap<>();
+        for (Escrow e : escrowRepo.findByAuctionIdIn(ids)) {
+            Long aId = e.getAuction() == null ? null : e.getAuction().getId();
+            if (aId != null) {
+                escrowsByAuctionId.put(aId, e);
+            }
+        }
+
         List<MyBidSummary> summaries = new ArrayList<>(ids.size());
         for (Long id : ids) {
             Auction a = byId.get(id);
@@ -130,8 +145,9 @@ public class MyBidsService {
             OffsetDateTime myMaxAt = agg == null ? null : agg.maxCreatedAt();
             Long myProxyMax = activeProxyMaxByAuction.get(id);
             MyBidStatus derived = MyBidStatusDeriver.derive(userId, a);
+            Escrow escrow = escrowsByAuctionId.get(id);
             summaries.add(new MyBidSummary(
-                    AuctionSummaryForMyBids.from(a),
+                    AuctionSummaryForMyBids.from(a, escrow),
                     myMaxAmount,
                     myMaxAt,
                     myProxyMax,

@@ -1444,3 +1444,19 @@ The `lib/ws/client.ts` `onConnect` sweep iterates `entries.values()` directly, N
 **Why:** `Escrow.consecutiveWorldApiFailures` counts the number of World API calls for an ownership check that returned a transient failure (5xx, timeout, connection refused) in a row. Default threshold is 5 (`slpa.escrow.ownership-api-failure-threshold`). At 5 consecutive failures, `EscrowOwnershipCheckTask` freezes the escrow with `FreezeReason=WORLD_API_PERSISTENT_FAILURE`. Any successful check resets the counter to 0 via `EscrowService.confirmTransfer` / `stampChecked` — meaning the threshold means "5 failures in an unbroken run" not "5 failures ever."
 
 **How to apply:** the paranoid default is deliberate — a seller who is actively defrauding SLPA could (via some plausibly complex path) disrupt World API lookups for their specific parcel; freezing on a small unbroken run protects the winner's L$ while an admin investigates. If you lower the threshold to 3, be prepared for false-positive freezes under real-world Linden Lab API flakiness. If you raise it to 10, accept that an escrow with 9 consecutive failures and an attacker who flips the parcel owner to a third party on the 10th check window squeaks through. Changing this value is not a drive-by tweak — reason about the worst case first.
+
+### F.82 Escrow WS envelopes are invalidation-only
+
+The 9 `ESCROW_*` envelope types on `/topic/auction/{id}` are coarse cache-invalidation signals per spec §7.2. DO NOT add envelope-to-DTO merge logic on the frontend. Per-variant refinements (paymentDeadline on CREATED, reason on DISPUTED, etc.) are there for Epic 09 notifications consumers — the escrow page refetches the full DTO via GET after any envelope and that's the canonical source of truth. Merging 9 different envelope shapes into a cached response with a computed timeline array defeats the backend's "coarse" design intent for zero UX win.
+
+### F.83 EscrowChip needs transferConfirmedAt to render correctly
+
+`EscrowChip` has a state→label map that sub-splits `TRANSFER_PENDING` based on whether `transferConfirmedAt` is set. Callers with only the `state` can omit it and fall back to a generic label, but the escrow page, dashboard rows, and AuctionEndedPanel all have access to the full field via their DTO enrichment — they MUST pass it. If you see "Transfer pending" on the chip when you expected "Awaiting transfer" or "Payout pending", you forgot to thread `transferConfirmedAt`.
+
+### F.84 EXPIRED state branches on fundedAt in the escrow page only
+
+The backend sends a single `EXPIRED` state that covers two semantically distinct scenarios: winner-never-paid (payment timeout) and seller-never-transferred (transfer timeout, refund queued). The escrow page's `ExpiredStateCard` branches on `fundedAt` to choose copy (`fundedAt == null` → payment timeout, `fundedAt != null` → transfer timeout, refund). The banner on the auction detail page does NOT branch — both EXPIRED sub-states just show "Escrow expired" there because the banner's one-liner can't carry both nuances. If you're tempted to add the branching to the banner, the full detail lives on the escrow page — send users there instead of overloading the banner.
+
+### F.85 inferEndOutcome / inferOutcomeFromDto helpers retired in sub-spec 2
+
+The defensive `endOutcome` fallback helpers that previously lived in `AuctionEndedPanel` + `ListingSummaryRow` are gone. Sub-spec 1 backend guarantees `endOutcome` is always projected on ENDED auctions. If you're tempted to bring the helpers back "just in case," don't — the backend is authoritative and a null `endOutcome` on ENDED should surface as a bug, not be silently papered over with heuristics.

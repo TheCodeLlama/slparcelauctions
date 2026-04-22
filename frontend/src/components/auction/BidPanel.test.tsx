@@ -155,9 +155,19 @@ describe("BidPanel", () => {
   });
 
   it("renders the AuctionEndedPanel for ENDED auctions", () => {
+    // Backend invariant: endOutcome is always projected on ENDED
+    // auctions post Epic 05 sub-spec 1. AuctionEndedPanel throws if
+    // the field is null, so the fixture supplies it explicitly.
+    const ended = {
+      ...publicAuction({ status: "ENDED" }),
+      endOutcome: "SOLD" as const,
+      finalBidAmount: 1500,
+      winnerUserId: 42,
+      winnerDisplayName: "Winner",
+    };
     renderWithProviders(
       <BidPanel
-        auction={publicAuction({ status: "ENDED" })}
+        auction={ended}
         currentUser={{ id: 1, verified: true }}
         existingProxy={null}
         connectionState={connected}
