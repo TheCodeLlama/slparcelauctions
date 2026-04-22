@@ -170,7 +170,13 @@ class TerminalRegistrationControllerSliceTest {
                         .content(reRegBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.terminalId").value(TERMINAL_ID))
-                .andExpect(jsonPath("$.httpInUrl").value(newUrl));
+                .andExpect(jsonPath("$.httpInUrl").value(newUrl))
+                // Test name promises a timestamp check: the returned lastSeenAt
+                // must be the updated value the mocked service produced (and
+                // therefore match the ISO-8601 serialization of newTimestamp).
+                .andExpect(jsonPath("$.lastSeenAt").exists())
+                .andExpect(jsonPath("$.lastSeenAt").value(
+                        newTimestamp.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)));
     }
 
     @Test
