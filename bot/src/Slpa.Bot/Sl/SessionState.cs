@@ -5,5 +5,6 @@ public enum SessionState
     Starting,
     Online,
     Reconnecting,
-    Error
+    Error,
+    Stopped
 }

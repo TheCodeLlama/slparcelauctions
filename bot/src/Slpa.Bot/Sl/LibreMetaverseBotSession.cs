@@ -54,20 +54,20 @@ public sealed class LibreMetaverseBotSession : IBotSession
 
     public async Task LogoutAsync(CancellationToken ct)
     {
-        if (State == SessionState.Error || State == SessionState.Starting)
+        if (State == SessionState.Error
+            || State == SessionState.Starting
+            || State == SessionState.Stopped)
         {
             return;
         }
         try
         {
             _client.Network.Logout();
+            TransitionTo(SessionState.Stopped);
         }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "Logout failed — may leave zombie session");
-        }
-        finally
-        {
             TransitionTo(SessionState.Error);
         }
         _runCts?.Cancel();
@@ -101,7 +101,15 @@ public sealed class LibreMetaverseBotSession : IBotSession
             loginParams.URI = LoginUri;
             loginParams.Start = _opts.StartLocation;
 
-            var loggedIn = await TryLoginAsync(loginParams).ConfigureAwait(false);
+            bool loggedIn;
+            try
+            {
+                loggedIn = await TryLoginAsync(loginParams, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
             if (!loggedIn)
             {
                 var delay = ReconnectBackoff[
@@ -117,7 +125,14 @@ public sealed class LibreMetaverseBotSession : IBotSession
             TransitionTo(SessionState.Online);
             _log.LogInformation("Bot {Uuid} ONLINE as {User}", BotUuid, _opts.Username);
 
-            await WaitForDisconnectAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await WaitForDisconnectAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
             if (ct.IsCancellationRequested) return;
 
             TransitionTo(SessionState.Reconnecting);
@@ -125,7 +140,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
         }
     }
 
-    private Task<bool> TryLoginAsync(LoginParams loginParams)
+    private async Task<bool> TryLoginAsync(LoginParams loginParams, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -146,11 +161,23 @@ public sealed class LibreMetaverseBotSession : IBotSession
             }
         };
         _client.Network.LoginProgress += handler;
-        _client.Network.BeginLogin(loginParams);
-        return tcs.Task;
+        var registration = ct.Register(() =>
+        {
+            _client.Network.LoginProgress -= handler;
+            tcs.TrySetCanceled(ct);
+        });
+        try
+        {
+            _client.Network.BeginLogin(loginParams);
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            registration.Dispose();
+        }
     }
 
-    private Task WaitForDisconnectAsync(CancellationToken ct)
+    private async Task WaitForDisconnectAsync(CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<object?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -161,12 +188,19 @@ public sealed class LibreMetaverseBotSession : IBotSession
             tcs.TrySetResult(null);
         };
         _client.Network.Disconnected += handler;
-        ct.Register(() =>
+        var registration = ct.Register(() =>
         {
             _client.Network.Disconnected -= handler!;
             tcs.TrySetCanceled(ct);
         });
-        return tcs.Task;
+        try
+        {
+            await tcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            registration.Dispose();
+        }
     }
 
     private void TransitionTo(SessionState next)

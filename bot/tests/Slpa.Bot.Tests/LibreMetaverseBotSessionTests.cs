@@ -39,13 +39,13 @@ public sealed class LibreMetaverseBotSessionTests
     }
 
     [Fact]
-    public async Task FakeSession_LogoutTransitionsToError()
+    public async Task FakeSession_LogoutTransitionsToStopped()
     {
         var session = new FakeBotSession();
         await session.StartAsync(CancellationToken.None);
         session.SimulateLoginSuccess();
         await session.LogoutAsync(CancellationToken.None);
-        session.State.Should().Be(SessionState.Error);
+        session.State.Should().Be(SessionState.Stopped);
     }
 }
 
@@ -62,7 +62,7 @@ public sealed class FakeBotSession : IBotSession
     }
     public Task LogoutAsync(CancellationToken ct)
     {
-        State = SessionState.Error;
+        State = SessionState.Stopped;
         return Task.CompletedTask;
     }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
