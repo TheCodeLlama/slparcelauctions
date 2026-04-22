@@ -33,6 +33,12 @@ public class NoOpEscrowBroadcastPublisher {
                 log.debug("no-op publishCreated: auctionId={}, escrowId={}, state={}",
                         envelope.auctionId(), envelope.escrowId(), envelope.state());
             }
+
+            @Override
+            public void publishDisputed(EscrowDisputedEnvelope envelope) {
+                log.debug("no-op publishDisputed: auctionId={}, escrowId={}, reason={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.reason());
+            }
         };
     }
 }

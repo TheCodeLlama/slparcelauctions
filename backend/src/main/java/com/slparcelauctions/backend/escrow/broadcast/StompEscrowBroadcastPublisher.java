@@ -38,6 +38,11 @@ public class StompEscrowBroadcastPublisher implements EscrowBroadcastPublisher {
         publish(envelope, envelope.auctionId(), "ESCROW_CREATED");
     }
 
+    @Override
+    public void publishDisputed(EscrowDisputedEnvelope envelope) {
+        publish(envelope, envelope.auctionId(), "ESCROW_DISPUTED");
+    }
+
     void publish(EscrowEnvelope envelope, Long auctionId, String logLabel) {
         String destination = "/topic/auction/" + auctionId;
         log.info("Publishing {} to {}: escrowId={}", logLabel, destination, envelope.escrowId());

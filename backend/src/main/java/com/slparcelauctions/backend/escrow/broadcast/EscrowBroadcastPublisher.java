@@ -17,4 +17,12 @@ public interface EscrowBroadcastPublisher {
      * that gets rolled back with the close.
      */
     void publishCreated(EscrowCreatedEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowDisputedEnvelope} after the dispute-filing
+     * transaction commits. Called by {@code EscrowService.fileDispute} via an
+     * {@code afterCommit} callback so subscribers never observe a dispute
+     * transition that gets rolled back.
+     */
+    void publishDisputed(EscrowDisputedEnvelope envelope);
 }

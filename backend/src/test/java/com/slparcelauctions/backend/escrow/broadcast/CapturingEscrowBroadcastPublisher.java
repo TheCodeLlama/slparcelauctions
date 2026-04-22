@@ -19,14 +19,21 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublisher {
 
     public final List<EscrowCreatedEnvelope> created = new CopyOnWriteArrayList<>();
+    public final List<EscrowDisputedEnvelope> disputed = new CopyOnWriteArrayList<>();
 
     @Override
     public void publishCreated(EscrowCreatedEnvelope envelope) {
         created.add(envelope);
     }
 
+    @Override
+    public void publishDisputed(EscrowDisputedEnvelope envelope) {
+        disputed.add(envelope);
+    }
+
     /** Clears every capture list; useful in {@code @BeforeEach} hooks. */
     public void reset() {
         created.clear();
+        disputed.clear();
     }
 }

@@ -8,10 +8,11 @@ import java.time.OffsetDateTime;
  * discriminator string; clients route on {@code type}. Spec §8.
  *
  * <p>The {@code permits} clause widens per task as new escrow transition
- * variants land — Task 2 ships only {@link EscrowCreatedEnvelope}.
+ * variants land. Task 2 shipped {@link EscrowCreatedEnvelope}; Task 3
+ * adds {@link EscrowDisputedEnvelope}.
  */
 public sealed interface EscrowEnvelope
-        permits EscrowCreatedEnvelope {
+        permits EscrowCreatedEnvelope, EscrowDisputedEnvelope {
 
     String type();
     Long auctionId();
