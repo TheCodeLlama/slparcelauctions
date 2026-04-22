@@ -16,15 +16,25 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * {@code POST /api/v1/sl/escrow/payment} — the in-world escrow terminal
- * posts here after receiving L$ from the auction winner. Trust pipeline:
- * SL-injected headers (validated by {@link SlHeaderValidator}) → body-carried
- * {@code sharedSecret} (re-validated inside {@link EscrowService#acceptPayment}
- * via {@code TerminalService.assertSharedSecret}) → domain checks. Header
- * and secret failures surface as 403 ProblemDetail shapes through the
- * {@code EscrowExceptionHandler}; every domain decision (OK, REFUND
- * variants, ERROR variants) comes back 200 with an LSL-friendly
+ * posts here after receiving L$ from the auction winner. Spec §13.2.
+ *
+ * <p>Controller responsibilities are intentionally narrow: validate the
+ * SL-grid-injected {@code X-SecondLife-Shard} and {@code X-SecondLife-Owner-Key}
+ * headers via {@link SlHeaderValidator}, then delegate to
+ * {@link EscrowService#acceptPayment(EscrowPaymentRequest)}. Every other
+ * trust check — shared-secret match (constant-time), idempotency on
+ * {@code slTransactionKey}, terminal-registered, escrow state, payment
+ * deadline, payer UUID match, amount match — lives inside the service so
+ * there is exactly one authoritative enforcement point. The dev-profile
+ * {@code DevEscrowController} bypasses only the SL-header check; its
+ * requests route through the same service method and therefore run through
+ * the same body-level validation pipeline.
+ *
+ * <p>Header or shared-secret failures surface as 403 ProblemDetail shapes
+ * through the {@code EscrowExceptionHandler}; every domain decision (OK,
+ * REFUND variants, ERROR variants) returns 200 with an LSL-friendly
  * {@link SlCallbackResponse} body so the terminal branches on body content
- * rather than HTTP status. See spec §13.2.
+ * rather than HTTP status.
  */
 @RestController
 @RequestMapping("/api/v1/sl/escrow")

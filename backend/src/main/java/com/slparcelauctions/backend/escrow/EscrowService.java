@@ -276,32 +276,46 @@ public class EscrowService {
     }
 
     /**
-     * Processes a terminal-posted payment callback. The flow runs the full
-     * validation pipeline — shared secret (defense in depth with the
-     * controller layer), idempotency on {@code slTransactionKey}, terminal
-     * registration, escrow existence, state gate, deadline check, payer
-     * match, amount match — before transitioning atomically through
-     * {@code ESCROW_PENDING → FUNDED → TRANSFER_PENDING} inside one
-     * transaction. The transient {@code FUNDED} is never externally
-     * observable by design (spec §4); the envelope broadcast afterCommit
-     * carries the post-atomic {@code TRANSFER_PENDING} state.
+     * Processes a terminal-posted payment callback. Spec §5.2, §5.5.
+     *
+     * <p>This method is the single authoritative enforcement point for the
+     * entire trust pipeline: shared-secret match (constant-time) →
+     * idempotency on {@code slTransactionKey} → terminal registered →
+     * escrow exists → state gate → payment deadline → payer UUID match
+     * → amount match. Both the SL-header-gated
+     * {@link com.slparcelauctions.backend.escrow.payment.EscrowPaymentController}
+     * and the dev-profile {@code DevEscrowController} route through this
+     * method, so every invocation runs every body-level check regardless of
+     * entry point — the controllers do NOT pre-validate the shared secret
+     * or any other body field.
+     *
+     * <p>After validation, the escrow transitions atomically through
+     * {@code ESCROW_PENDING → FUNDED → TRANSFER_PENDING} inside a single
+     * transaction under {@code PESSIMISTIC_WRITE}, stamps {@code fundedAt}
+     * and {@code transferDeadline = now + 72h}, writes a COMPLETED
+     * {@code AUCTION_ESCROW_PAYMENT} ledger row, and registers an
+     * {@code afterCommit} publication of the {@code ESCROW_FUNDED}
+     * envelope. The transient {@code FUNDED} state is never externally
+     * observable by design (spec §4); subscribers only ever see the
+     * {@code TRANSFER_PENDING} landing state.
      *
      * <p>On any validation failure we write a {@code FAILED} ledger row so a
      * replay of the same {@code slTransactionKey} can reconstruct the prior
-     * REFUND response without reprocessing and so the dispute timeline shows
-     * the rejected attempt. Wrong-payer also creates a {@link FraudFlag}
-     * with {@link FraudFlagReason#ESCROW_WRONG_PAYER} for the admin review
-     * queue.
+     * REFUND response without re-running domain checks and so the dispute
+     * timeline shows the rejected attempt. Wrong-payer additionally creates
+     * a {@link FraudFlag} with {@link FraudFlagReason#ESCROW_WRONG_PAYER}
+     * for the admin review queue.
      *
      * <p>Returns an {@link SlCallbackResponse} in LSL-friendly shape; the
      * HTTP status is always 200 (the domain decision is in the body). Only
-     * header and secret checks — performed by the controller + service
-     * entry points — can produce non-2xx.
+     * the SL-header check at the controller layer and the shared-secret
+     * check here can produce non-2xx.
      */
     @Transactional
     public SlCallbackResponse acceptPayment(EscrowPaymentRequest req) {
-        // 1. Shared secret — defense in depth; the controller has also
-        // enforced this by the time we're here.
+        // 1. Shared secret — the single authoritative check point. Neither
+        // the SL-gated controller nor the dev-profile controller pre-
+        // validate this; every entry path runs through here.
         terminalService.assertSharedSecret(req.sharedSecret());
 
         // 2. Idempotency check on slTransactionKey. A COMPLETED row means the
