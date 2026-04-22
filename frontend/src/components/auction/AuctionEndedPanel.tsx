@@ -12,6 +12,12 @@ import type {
   PublicAuctionResponse,
   SellerAuctionResponse,
 } from "@/types/auction";
+import type { EscrowState } from "@/types/escrow";
+import type { EscrowChipRole } from "@/components/escrow/EscrowChip";
+import {
+  escrowBannerCopy,
+  type BannerTone,
+} from "@/components/escrow/escrowBannerCopy";
 import { cn } from "@/lib/cn";
 
 export interface AuctionEndedPanelProps {
@@ -117,9 +123,19 @@ export function AuctionEndedPanel({
       ) : null}
 
       {viewerWon ? (
-        <WinnerOverlay />
+        <WinnerOverlay
+          auctionId={auction.id}
+          outcome={outcome}
+          escrowState={auction.escrowState ?? null}
+          transferConfirmedAt={auction.transferConfirmedAt ?? null}
+        />
       ) : viewerIsSeller ? (
-        <SellerOverlay outcome={outcome} />
+        <SellerOverlay
+          auctionId={auction.id}
+          outcome={outcome}
+          escrowState={auction.escrowState ?? null}
+          transferConfirmedAt={auction.transferConfirmedAt ?? null}
+        />
       ) : null}
     </section>
   );
@@ -220,8 +236,22 @@ function OutcomeBlock({
   );
 }
 
-/** Winner-specific overlay — green banner + link to My Bids. */
-function WinnerOverlay() {
+/**
+ * Winner-specific overlay — green banner + link to My Bids, plus the
+ * role-aware escrow banner when the backend has surfaced an escrow state
+ * on the auction DTO (SOLD / BOUGHT_NOW only).
+ */
+function WinnerOverlay({
+  auctionId,
+  outcome,
+  escrowState,
+  transferConfirmedAt,
+}: {
+  auctionId: number;
+  outcome: AuctionEndOutcome;
+  escrowState: EscrowState | null;
+  transferConfirmedAt: string | null;
+}) {
   return (
     <div
       data-testid="auction-ended-winner-overlay"
@@ -237,15 +267,42 @@ function WinnerOverlay() {
       >
         View your winning bids
       </Link>
+      {escrowState != null &&
+      (outcome === "SOLD" || outcome === "BOUGHT_NOW") ? (
+        <EscrowBannerForPanel
+          auctionId={auctionId}
+          escrowState={escrowState}
+          transferConfirmedAt={transferConfirmedAt}
+          role="winner"
+        />
+      ) : null}
     </div>
   );
 }
 
-/** Seller-specific overlay — note about Epic 05 escrow flow. */
-function SellerOverlay({ outcome }: { outcome: AuctionEndOutcome }) {
-  const message =
+/**
+ * Seller-specific overlay. For unsold outcomes we explain no escrow will
+ * open; for SOLD / BOUGHT_NOW outcomes we delegate the progress / CTA copy
+ * to {@link EscrowBannerForPanel}, which reads the role-aware copy table
+ * in {@link escrowBannerCopy}.
+ */
+function SellerOverlay({
+  auctionId,
+  outcome,
+  escrowState,
+  transferConfirmedAt,
+}: {
+  auctionId: number;
+  outcome: AuctionEndOutcome;
+  escrowState: EscrowState | null;
+  transferConfirmedAt: string | null;
+}) {
+  const showEscrowBanner =
+    escrowState != null &&
+    (outcome === "SOLD" || outcome === "BOUGHT_NOW");
+  const fallbackMessage =
     outcome === "SOLD" || outcome === "BOUGHT_NOW"
-      ? "Your auction ended with a winning bid. Escrow flow opens in Epic 05."
+      ? "Your auction ended with a winning bid."
       : outcome === "RESERVE_NOT_MET"
         ? "Your auction ended without meeting the reserve. No escrow will open."
         : "Your auction ended without bids. No escrow will open.";
@@ -259,7 +316,74 @@ function SellerOverlay({ outcome }: { outcome: AuctionEndOutcome }) {
       )}
     >
       <span className="font-semibold">Your auction</span>
-      <p className="text-body-sm">{message}</p>
+      <p className="text-body-sm">{fallbackMessage}</p>
+      {showEscrowBanner ? (
+        <EscrowBannerForPanel
+          auctionId={auctionId}
+          escrowState={escrowState}
+          transferConfirmedAt={transferConfirmedAt}
+          role="seller"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+const bannerToneClasses: Record<BannerTone, string> = {
+  action: "bg-primary-container text-on-primary-container",
+  waiting: "bg-secondary-container text-on-secondary-container",
+  done: "bg-tertiary-container text-on-tertiary-container",
+  problem: "bg-error-container text-on-error-container",
+  muted: "bg-surface-container text-on-surface-variant",
+};
+
+interface EscrowBannerForPanelProps {
+  auctionId: number;
+  escrowState: EscrowState;
+  transferConfirmedAt: string | null;
+  role: EscrowChipRole;
+}
+
+/**
+ * Role- and state-aware escrow banner embedded in the winner/seller
+ * overlays on the ended-auction panel. Provides the short CTA + deep link
+ * to the full escrow page. {@code fundedAt} is not surfaced on the
+ * auction DTO (only escrow DTOs carry it); the current banner copy table
+ * does not branch on it — the escrow page's ExpiredStateCard handles the
+ * pre/post-fund refund split.
+ */
+function EscrowBannerForPanel({
+  auctionId,
+  escrowState,
+  transferConfirmedAt,
+  role,
+}: EscrowBannerForPanelProps) {
+  const { headline, detail, tone } = escrowBannerCopy({
+    state: escrowState,
+    role,
+    transferConfirmedAt,
+    // fundedAt not surfaced on auction DTO; banner copy doesn't branch on it.
+    fundedAt: null,
+  });
+  return (
+    <div
+      data-testid="auction-ended-escrow-banner"
+      data-tone={tone}
+      className={cn(
+        "mt-3 flex items-center gap-3 rounded-md px-3 py-2",
+        bannerToneClasses[tone],
+      )}
+    >
+      <span className="flex-1 text-body-md">
+        <strong>{headline}</strong>
+        {detail ? <> {detail}</> : null}
+      </span>
+      <Link
+        href={`/auction/${auctionId}/escrow`}
+        className="rounded-full bg-primary px-3 py-1 text-label-md font-semibold text-on-primary"
+      >
+        View escrow
+      </Link>
     </div>
   );
 }

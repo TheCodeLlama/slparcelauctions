@@ -196,7 +196,103 @@ describe("AuctionEndedPanel", () => {
     );
     expect(
       screen.getByTestId("auction-ended-seller-overlay"),
-    ).toHaveTextContent("Escrow flow opens in Epic 05");
+    ).toHaveTextContent("Your auction");
+    // Stub phrasing from pre-Epic-05 scaffold should no longer be rendered.
+    expect(screen.queryByText(/Escrow flow opens in Epic 05/)).toBeNull();
+  });
+
+  it("renders escrow banner for SOLD auction when viewer is seller", () => {
+    const auction = endedAuction({
+      endOutcome: "SOLD",
+      finalBidAmount: 2500,
+      winnerUserId: 42,
+      winnerDisplayName: "Alice",
+      escrowState: "ESCROW_PENDING",
+      transferConfirmedAt: null,
+    });
+    renderWithProviders(
+      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+    );
+    const banner = screen.getByTestId("auction-ended-escrow-banner");
+    expect(banner).toHaveTextContent(/escrow pending/i);
+    const link = screen.getByRole("link", { name: /view escrow/i });
+    expect(link).toHaveAttribute("href", "/auction/7/escrow");
+  });
+
+  it("renders escrow banner for winner overlay with action CTA", () => {
+    const auction = endedAuction({
+      endOutcome: "SOLD",
+      finalBidAmount: 2500,
+      winnerUserId: 42,
+      winnerDisplayName: "Alice",
+      escrowState: "ESCROW_PENDING",
+      transferConfirmedAt: null,
+    });
+    renderWithProviders(
+      <AuctionEndedPanel auction={auction} currentUser={{ id: 42 }} />,
+    );
+    const banner = screen.getByTestId("auction-ended-escrow-banner");
+    expect(banner).toHaveAttribute("data-tone", "action");
+    expect(banner).toHaveTextContent(/pay escrow/i);
+    expect(
+      screen.getByRole("link", { name: /view escrow/i }),
+    ).toHaveAttribute("href", "/auction/7/escrow");
+  });
+
+  it("does not render escrow banner for public viewer", () => {
+    const auction = endedAuction({
+      endOutcome: "SOLD",
+      finalBidAmount: 2500,
+      winnerUserId: 42,
+      winnerDisplayName: "Alice",
+      escrowState: "ESCROW_PENDING",
+    });
+    renderWithProviders(
+      <AuctionEndedPanel auction={auction} currentUser={null} />,
+    );
+    expect(
+      screen.queryByTestId("auction-ended-escrow-banner"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /view escrow/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not render escrow banner for NO_BIDS outcome", () => {
+    const auction = endedAuction({
+      endOutcome: "NO_BIDS",
+      finalBidAmount: null,
+      winnerUserId: null,
+      bidCount: 0,
+      currentHighBid: null,
+      escrowState: null,
+    });
+    renderWithProviders(
+      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+    );
+    expect(
+      screen.queryByTestId("auction-ended-escrow-banner"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /view escrow/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not render escrow banner when escrowState is absent on SOLD auction", () => {
+    const auction = endedAuction({
+      endOutcome: "SOLD",
+      finalBidAmount: 2500,
+      winnerUserId: 42,
+      winnerDisplayName: "Alice",
+      // escrowState intentionally omitted — banner should be suppressed
+      // until the backend enrichment stamps it on the DTO.
+    });
+    renderWithProviders(
+      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+    );
+    expect(
+      screen.queryByTestId("auction-ended-escrow-banner"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders neutral when viewer is neither winner nor seller", () => {
