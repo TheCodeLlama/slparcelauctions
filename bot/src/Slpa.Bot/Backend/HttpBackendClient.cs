@@ -45,10 +45,6 @@ public sealed class HttpBackendClient : IBackendClient
         _http = http;
         _opts = opts.Value;
         _log = log;
-        if (_http.BaseAddress is null && !string.IsNullOrEmpty(_opts.BaseUrl))
-        {
-            _http.BaseAddress = new Uri(_opts.BaseUrl);
-        }
         _http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", _opts.SharedSecret);
     }
@@ -70,6 +66,11 @@ public sealed class HttpBackendClient : IBackendClient
             .ConfigureAwait(false);
     }
 
+    /// <remarks>
+    /// Retrying on 5xx is safe because the backend's verify/monitor handlers
+    /// are idempotent: a second call for a task in a terminal state returns
+    /// 409, never double-completes. See BotTaskService.complete + recordMonitorResult.
+    /// </remarks>
     public async Task CompleteVerifyAsync(
         long taskId, BotTaskCompleteRequest body, CancellationToken ct)
     {
@@ -85,6 +86,11 @@ public sealed class HttpBackendClient : IBackendClient
         resp.EnsureSuccessStatusCode();
     }
 
+    /// <remarks>
+    /// Retrying on 5xx is safe because the backend's verify/monitor handlers
+    /// are idempotent: a second call for a task in a terminal state returns
+    /// 409, never double-completes. See BotTaskService.complete + recordMonitorResult.
+    /// </remarks>
     public async Task PostMonitorAsync(
         long taskId, BotMonitorResultRequest body, CancellationToken ct)
     {
@@ -104,7 +110,7 @@ public sealed class HttpBackendClient : IBackendClient
         Func<HttpRequestMessage> requestFactory, CancellationToken ct)
     {
         Exception? lastException = null;
-        for (var attempt = 0; attempt <= RetryBackoff.Length; attempt++)
+        for (var attempt = 0; attempt < RetryBackoff.Length; attempt++)
         {
             HttpRequestMessage request = requestFactory();
             try
