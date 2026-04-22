@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Building2 } from "@/components/ui/icons";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
+import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
 import type { MyBidStatus, MyBidSummary } from "@/types/auction";
 import { MyBidStatusBadge } from "./MyBidStatusBadge";
@@ -67,6 +68,11 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
   const endsAtDate = parseDate(auction.endsAt);
   const isActive = auction.status === "ACTIVE" && endsAtDate != null;
   const currentBid = auction.currentBid;
+  const hasEscrow = auction.escrowState != null;
+  const href = hasEscrow
+    ? `/auction/${auction.id}/escrow`
+    : `/auction/${auction.id}`;
+  const linkLabel = hasEscrow ? "View escrow" : "View auction";
 
   return (
     <li
@@ -79,7 +85,8 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
       data-testid={`my-bid-row-${auction.id}`}
     >
       <Link
-        href={`/auction/${auction.id}`}
+        href={href}
+        aria-label={linkLabel}
         className="flex items-start gap-3 p-3 hover:bg-surface-container-low focus-visible:bg-surface-container-low focus-visible:outline-none"
       >
         <Thumbnail src={thumb} alt="" />
@@ -94,6 +101,14 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
               {parcelLabel}
             </h3>
             <MyBidStatusBadge status={myBidStatus} />
+            {auction.escrowState != null && (
+              <EscrowChip
+                state={auction.escrowState}
+                transferConfirmedAt={auction.transferConfirmedAt}
+                role="winner"
+                size="sm"
+              />
+            )}
           </div>
           <p className="text-body-sm text-on-surface-variant">
             <span>
