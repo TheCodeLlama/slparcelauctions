@@ -243,6 +243,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Near-term backend cleanup — a one-file change on the DTO mapper + a small spec sweep to document the contract. Pull in during the next Epic 04 maintenance task or alongside the Epic 05 escrow DTO additions.
 - **Notes:** Touchpoints: `frontend/src/components/auction/inferEndOutcome.ts`, `frontend/src/components/auction/AuctionEndedPanel.tsx`, `frontend/src/components/user/ListingSummaryRow.tsx`, and the backend `AuctionDtoMapper` / `ActiveListingAuctionSummary` DTO. Once the backend always projects the three fields, `inferEndOutcome` becomes dead code and can be deleted.
 
+### Shared integration-test base class for scheduler-enabled property gating
+- **From:** Epic 05 sub-spec 1 (Task 6 — ownership monitor)
+- **Why:** Each new `@Scheduled` job added to the backend requires every existing `@SpringBootTest` to add a `slpa.<job>.enabled=false` line to its `@TestPropertySource` to prevent races with test seeding. Epic 05 sub-spec 1 alone added 3+ such jobs (ownership monitor, timeout, dispatcher) and each expansion touches 8-12 tests. Shared `@TestPropertySource` on an abstract base class, or an `@IntegrationTestDefaults` meta-annotation, would let future epics add schedulers without N-test sweeps.
+- **When:** Indefinite (infrastructure polish) — trigger is when another epic adds a scheduler that requires a new wave of per-test property disables.
+- **Notes:** Touchpoint: any `@SpringBootTest` in `backend/src/test/java` with a `slpa.*.enabled=false` entry on its `@TestPropertySource`. Alternative shapes: (a) `@ActiveProfiles("integration-test")` + an `application-integration-test.yml` that disables every scheduler by default; (b) `@Import(SchedulersDisabledConfig.class)` bean-override; (c) a new `@IntegrationTest` meta-annotation that composes `@SpringBootTest` + the common property set.
+
 ### Richer outbid toast shape (warning variant + structured action button)
 - **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
 - **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
