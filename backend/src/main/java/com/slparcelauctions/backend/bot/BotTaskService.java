@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -231,6 +232,28 @@ public class BotTaskService {
         log.info("Bot task {} COMPLETED: auctionId={} -> ACTIVE tier=BOT, ends {}",
                 taskId, auction.getId(), endsAt);
         return task;
+    }
+
+    /**
+     * Atomically claims the next due PENDING task for {@code botUuid}. Wraps
+     * {@link BotTaskRepository#claimNext} in a transaction and stamps the row
+     * with {@code assignedBotUuid} + status=IN_PROGRESS before the lock
+     * releases.
+     *
+     * <p>Returns empty if the queue has no due tasks — the worker should
+     * back off and retry. {@code SELECT ... FOR UPDATE SKIP LOCKED} means
+     * concurrent claims never block on each other; each sees the next
+     * unlocked row.
+     */
+    @Transactional
+    public Optional<BotTask> claim(UUID botUuid) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        return botTaskRepo.claimNext(now).map(task -> {
+            task.setStatus(BotTaskStatus.IN_PROGRESS);
+            task.setAssignedBotUuid(botUuid);
+            log.debug("Bot task {} claimed by {}", task.getId(), botUuid);
+            return botTaskRepo.save(task);
+        });
     }
 
     @Transactional(readOnly = true)
