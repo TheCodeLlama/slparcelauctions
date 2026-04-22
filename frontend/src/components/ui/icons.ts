@@ -59,3 +59,6 @@ export {
   Globe,
   UserCheck,
 } from "lucide-react";
+
+// Epic 05 sub-spec 2 additions (escrow page chrome)
+export { FileX } from "lucide-react";

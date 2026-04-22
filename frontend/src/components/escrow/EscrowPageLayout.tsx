@@ -1,0 +1,29 @@
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { ChevronLeft } from "@/components/ui/icons";
+
+export interface EscrowPageLayoutProps {
+  auctionId: number;
+  children: ReactNode;
+}
+
+/**
+ * Page container for /auction/[id]/escrow. Holds a "Back to auction" crumb
+ * and a constrained content column — the per-state cards and header live
+ * inside the {@code space-y-6} stack. Kept role-agnostic so seller and
+ * winner views share the same frame.
+ */
+export function EscrowPageLayout({ auctionId, children }: EscrowPageLayoutProps) {
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-8">
+      <Link
+        href={`/auction/${auctionId}`}
+        className="inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-on-surface"
+      >
+        <ChevronLeft className="size-4" aria-hidden="true" />
+        Back to auction
+      </Link>
+      <div className="mt-6 space-y-6">{children}</div>
+    </main>
+  );
+}
