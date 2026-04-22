@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction.mybids;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.time.OffsetDateTime;
@@ -31,6 +32,7 @@ import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBid;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidStatus;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 
@@ -58,12 +60,17 @@ class MyBidsServiceTest {
     @Mock BidRepository bidRepo;
     @Mock AuctionRepository auctionRepo;
     @Mock ProxyBidRepository proxyBidRepo;
+    @Mock EscrowRepository escrowRepo;
 
     private MyBidsService service;
 
     @BeforeEach
     void setUp() {
-        service = new MyBidsService(bidRepo, auctionRepo, proxyBidRepo);
+        service = new MyBidsService(bidRepo, auctionRepo, proxyBidRepo, escrowRepo);
+        // Default to no escrow rows for the page — most cases target ACTIVE
+        // auctions with no escrow row yet. Marked lenient because many tests
+        // short-circuit before ids are hydrated (empty page, filter mismatch).
+        lenient().when(escrowRepo.findByAuctionIdIn(any())).thenReturn(List.of());
     }
 
     @Test
