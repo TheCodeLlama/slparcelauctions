@@ -5,6 +5,7 @@ using Slpa.Bot.Backend;
 using Slpa.Bot.Health;
 using Slpa.Bot.Options;
 using Slpa.Bot.Sl;
+using Slpa.Bot.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +23,10 @@ builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =
     client.BaseAddress = new Uri(opts.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(30);
 });
+builder.Services.AddSingleton<VerifyHandler>();
+builder.Services.AddSingleton<MonitorHandler>();
 builder.Services.AddHostedService<BotSessionBootstrapper>();
+builder.Services.AddHostedService<TaskLoop>();
 
 var app = builder.Build();
 app.MapBotHealth();
