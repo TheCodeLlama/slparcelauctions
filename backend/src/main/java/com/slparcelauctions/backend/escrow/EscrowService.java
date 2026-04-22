@@ -25,6 +25,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFrozenEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
 import com.slparcelauctions.backend.escrow.dto.EscrowTimelineEntry;
@@ -80,6 +81,7 @@ public class EscrowService {
     private final FraudFlagRepository fraudFlagRepo;
     private final TerminalService terminalService;
     private final TerminalRepository terminalRepo;
+    private final TerminalCommandService terminalCommandService;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -216,31 +218,30 @@ public class EscrowService {
     }
 
     /**
-     * Placeholder for Task 7 integration. When an escrow is {@code DISPUTED},
-     * {@code FROZEN}, or {@code EXPIRED} from {@code TRANSFER_PENDING}, a refund
-     * L$ flow must be queued on the terminal command pipeline. Task 7 introduces
-     * {@code TerminalCommandService} and replaces this body with
-     * {@code if (escrow.getFundedAt() != null) terminalCommandService.queueRefund(escrow);}.
-     * In Task 3, the stub is a no-op so the dispute flow can ship without the
-     * command-queue scaffolding.
+     * Delegates to {@link TerminalCommandService#queueRefund} when the escrow
+     * has already received L$ ({@code fundedAt != null}). The guard matters
+     * because an unfunded escrow that moves to DISPUTED / FROZEN / EXPIRED
+     * has no money held in the terminal account to refund — queuing a
+     * REFUND command for a never-funded escrow would send L$ the winner
+     * never paid. Only called from transactional methods that already hold
+     * a pessimistic lock on the escrow row.
      */
     void queueRefundIfFunded(Escrow escrow) {
-        // Task 7 integration — see javadoc.
+        if (escrow.getFundedAt() != null) {
+            terminalCommandService.queueRefund(escrow);
+        }
     }
 
     /**
-     * Placeholder for Task 7 integration. When ownership transfer is confirmed
-     * (ESCROW_TRANSFER_CONFIRMED), a payout {@code TerminalCommand} must be
-     * queued on the terminal dispatch pipeline. Task 7 introduces
-     * {@code TerminalCommandService} and replaces this body with
-     * {@code terminalCommandService.queuePayout(escrow);}. In this task the
-     * stub is a no-op so the ownership-confirm flow can ship without the
-     * command-queue scaffolding. Leaving this as a named hook (vs. a raw
-     * inline TODO) makes the Task 7 insertion point grep-able and keeps the
-     * forward-link pattern consistent with {@link #queueRefundIfFunded(Escrow)}.
+     * Delegates to {@link TerminalCommandService#queuePayout} once the
+     * ownership monitor confirms the seller has transferred the parcel to
+     * the winner. The state flip from {@code TRANSFER_PENDING} to
+     * {@code COMPLETED} is owned by the callback path in
+     * {@code TerminalCommandService.applyCallback}, not this hook — queuing
+     * the command merely schedules the terminal POST.
      */
     void queuePayoutOnConfirm(Escrow escrow) {
-        // Task 7 integration — see javadoc.
+        terminalCommandService.queuePayout(escrow);
     }
 
     private EscrowStatusResponse toStatusResponse(Escrow escrow) {
