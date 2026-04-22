@@ -1,0 +1,28 @@
+# .github/workflows/bot-ci.yml
+name: bot CI
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'bot/**'
+      - '.github/workflows/bot-ci.yml'
+  pull_request:
+    paths:
+      - 'bot/**'
+      - '.github/workflows/bot-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release --verbosity normal
