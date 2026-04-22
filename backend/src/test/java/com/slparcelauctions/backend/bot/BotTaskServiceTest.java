@@ -68,6 +68,7 @@ class BotTaskServiceTest {
     @Mock BotTaskRepository botTaskRepo;
     @Mock AuctionRepository auctionRepo;
     @Mock ParcelRepository parcelRepo;
+    @Mock BotMonitorDispatcher dispatcher;
 
     BotTaskService service;
 
@@ -82,7 +83,7 @@ class BotTaskServiceTest {
         OwnershipCheckTimestampInitializer ownershipInit =
                 new OwnershipCheckTimestampInitializer(ownershipProps, fixed);
         service = new BotTaskService(
-                botTaskRepo, auctionRepo, parcelRepo, ownershipInit, fixed);
+                botTaskRepo, auctionRepo, parcelRepo, ownershipInit, dispatcher, fixed);
         injectConfig(service, "sentinelPrice", SENTINEL_PRICE);
         injectConfig(service, "primaryEscrowUuid", ESCROW_UUID);
 

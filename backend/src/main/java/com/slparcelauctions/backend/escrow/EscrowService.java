@@ -731,4 +731,38 @@ public class EscrowService {
                     "Replay of previously-failed payment");
         }
     }
+
+    /**
+     * Flags an escrow for admin review without changing lifecycle state.
+     * Called by {@link com.slparcelauctions.backend.bot.BotMonitorDispatcher}
+     * when the bot observes persistent ACCESS_DENIED on an active escrow.
+     * Idempotent — already-flagged escrows are a no-op. Does not publish a
+     * broadcast envelope (admin-only signal per Epic 06 spec §6.3).
+     */
+    @Transactional
+    public void markReviewRequired(Escrow escrow) {
+        if (Boolean.TRUE.equals(escrow.getReviewRequired())) {
+            log.debug("Escrow {} already flagged for review", escrow.getId());
+            return;
+        }
+        escrow.setReviewRequired(true);
+        escrowRepo.save(escrow);
+        log.warn("Escrow {} flagged for admin review", escrow.getId());
+    }
+
+    /**
+     * Notifies the frontend that the bot has observed {@code AuthBuyerID ==
+     * winner} and {@code SalePrice == 0} on the parcel — i.e., the seller
+     * has configured the sale-to-winner and the winner can now accept.
+     * Idempotent. Spec §6.2.
+     *
+     * <p>Phase 1 emits a structured log only; the {@code TRANSFER_READY_OBSERVED}
+     * envelope shape is deferred until the escrow UI needs it (tracked in
+     * DEFERRED_WORK — "TRANSFER_READY_OBSERVED envelope shape").
+     */
+    @Transactional
+    public void publishTransferReadyObserved(Escrow escrow) {
+        log.info("Escrow {} observed TRANSFER_READY (seller configured sale-to-winner)",
+                escrow.getId());
+    }
 }

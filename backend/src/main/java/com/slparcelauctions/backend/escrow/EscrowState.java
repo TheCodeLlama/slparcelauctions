@@ -15,5 +15,16 @@ public enum EscrowState {
     COMPLETED,
     DISPUTED,
     EXPIRED,
-    FROZEN
+    FROZEN;
+
+    /**
+     * Terminal states never transition to another state. Bot monitor
+     * callbacks on a terminal escrow row are rejected with
+     * {@link com.slparcelauctions.backend.bot.exception.BotEscrowTerminalException}
+     * (spec §6.2).
+     */
+    public boolean isTerminal() {
+        return this == COMPLETED || this == EXPIRED
+                || this == DISPUTED || this == FROZEN;
+    }
 }

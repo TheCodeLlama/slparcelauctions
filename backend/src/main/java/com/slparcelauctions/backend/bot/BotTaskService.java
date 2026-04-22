@@ -22,7 +22,12 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.bot.dto.BotMonitorResultRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
+import com.slparcelauctions.backend.bot.exception.BotEscrowTerminalException;
+import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
+import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
+import com.slparcelauctions.backend.bot.exception.BotTaskWrongTypeException;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 
@@ -61,6 +66,7 @@ public class BotTaskService {
     private final AuctionRepository auctionRepo;
     private final ParcelRepository parcelRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
+    private final BotMonitorDispatcher dispatcher;
     private final Clock clock;
 
     @Value("${slpa.bot-task.sentinel-price-lindens:999999999}")
@@ -377,5 +383,54 @@ public class BotTaskService {
         }
         log.info("Bot task {} timed out (auctionId={})",
                 task.getId(), auction.getId());
+    }
+
+    /**
+     * Handles a monitor callback. Loads the task, validates it is an
+     * IN_PROGRESS MONITOR_* row for the claimed endpoint's expected type,
+     * delegates to {@link BotMonitorDispatcher#dispatch}, stamps result
+     * data + {@code lastCheckAt}, and re-arms or leaves the row per the
+     * dispatcher's decision. See Epic 06 spec §6.
+     *
+     * @throws BotTaskNotFoundException if no bot task exists for {@code taskId}
+     * @throws BotTaskNotClaimedException if the task is not IN_PROGRESS
+     * @throws BotTaskWrongTypeException if the task is a VERIFY row (wrong endpoint)
+     * @throws BotEscrowTerminalException if the referenced escrow is in a terminal state
+     */
+    @Transactional
+    public BotTask recordMonitorResult(Long taskId, BotMonitorResultRequest body) {
+        BotTask task = botTaskRepo.findById(taskId)
+                .orElseThrow(() -> new BotTaskNotFoundException(taskId));
+
+        if (task.getStatus() != BotTaskStatus.IN_PROGRESS) {
+            throw new BotTaskNotClaimedException(taskId, task.getStatus());
+        }
+        if (task.getTaskType() == BotTaskType.VERIFY) {
+            throw new BotTaskWrongTypeException(
+                    taskId, task.getTaskType(), BotTaskType.MONITOR_AUCTION);
+        }
+        if (task.getTaskType() == BotTaskType.MONITOR_ESCROW
+                && task.getEscrow() != null
+                && task.getEscrow().getState().isTerminal()) {
+            throw new BotEscrowTerminalException(
+                    task.getEscrow().getId(), task.getEscrow().getState());
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        task.setLastCheckAt(now);
+
+        DispatchOutcome outcome = dispatcher.dispatch(task, body);
+        log.info("bot monitor {} auction={} outcome={} action={}",
+                taskId, task.getAuction().getId(),
+                body.outcome(), outcome.logAction());
+
+        if (outcome.shouldReArm()) {
+            int interval = task.getRecurrenceIntervalSeconds() == null
+                    ? 0 : task.getRecurrenceIntervalSeconds();
+            task.setStatus(BotTaskStatus.PENDING);
+            task.setNextRunAt(now.plusSeconds(interval));
+            task.setAssignedBotUuid(null);
+        }
+        return botTaskRepo.save(task);
     }
 }

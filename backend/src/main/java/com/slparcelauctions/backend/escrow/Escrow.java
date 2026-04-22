@@ -105,6 +105,16 @@ public class Escrow {
     @Column(name = "freeze_reason", length = 40)
     private String freezeReason;
 
+    /**
+     * Set to {@code true} by {@link EscrowService#markReviewRequired} when
+     * the bot monitor observes persistent ACCESS_DENIED during escrow (spec
+     * §6.2). Does not change lifecycle state; a flag for admin triage.
+     * Default false.
+     */
+    @Builder.Default
+    @Column(name = "review_required", nullable = false)
+    private Boolean reviewRequired = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

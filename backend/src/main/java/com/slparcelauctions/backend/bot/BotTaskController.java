@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.slparcelauctions.backend.bot.dto.BotMonitorResultRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskClaimRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskResponse;
@@ -79,5 +80,17 @@ public class BotTaskController {
             @PathVariable Long taskId,
             @Valid @RequestBody BotTaskCompleteRequest body) {
         return completeVerify(taskId, body);
+    }
+
+    /**
+     * MONITOR callback: applies the bot's observation and re-arms or
+     * cancels the row per dispatcher logic. See
+     * {@link BotTaskService#recordMonitorResult}.
+     */
+    @PostMapping("/{taskId}/monitor")
+    public BotTaskResponse recordMonitorResult(
+            @PathVariable Long taskId,
+            @Valid @RequestBody BotMonitorResultRequest body) {
+        return BotTaskResponse.from(service.recordMonitorResult(taskId, body));
     }
 }

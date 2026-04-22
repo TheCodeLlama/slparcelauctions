@@ -99,4 +99,34 @@ public class SuspensionService {
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
                 auction.getId(), auction.getParcel().getSlParcelUuid());
     }
+
+    /**
+     * Bot-monitor-triggered suspend. Unlike {@link #suspendForOwnershipChange}
+     * (which is keyed on a World-API {@link ParcelMetadata} shape), bot
+     * observations arrive as a loose evidence map. The caller supplies the
+     * specific {@link FraudFlagReason} so the admin dashboard can tell the
+     * four bot-detected causes apart. See Epic 06 spec §6.1.
+     */
+    @Transactional
+    public void suspendForBotObservation(
+            Auction auction,
+            FraudFlagReason reason,
+            Map<String, Object> evidence) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        auction.setStatus(AuctionStatus.SUSPENDED);
+        auction.setLastOwnershipCheckAt(now);
+        auctionRepo.save(auction);
+
+        fraudFlagRepo.save(FraudFlag.builder()
+                .auction(auction)
+                .parcel(auction.getParcel())
+                .reason(reason)
+                .detectedAt(now)
+                .evidenceJson(evidence)
+                .resolved(false)
+                .build());
+
+        log.warn("Auction {} SUSPENDED by bot monitor: reason={}, evidence={}",
+                auction.getId(), reason, evidence);
+    }
 }
