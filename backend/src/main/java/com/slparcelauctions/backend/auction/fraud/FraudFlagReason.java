@@ -15,5 +15,27 @@ public enum FraudFlagReason {
      * the flag gives the Epic 10 admin dashboard a review handle. See spec
      * §4 / §13.2.
      */
-    ESCROW_WRONG_PAYER
+    ESCROW_WRONG_PAYER,
+    /**
+     * Raised by the escrow ownership monitor (spec §4.5) when a
+     * {@code TRANSFER_PENDING} escrow's World API owner is neither the seller
+     * nor the auction winner. The escrow is frozen, refund queued, and the
+     * admin dashboard can review the observed owner UUID from the evidence
+     * payload.
+     */
+    ESCROW_UNKNOWN_OWNER,
+    /**
+     * Raised by the escrow ownership monitor when the parcel's World API page
+     * 404s (deleted, merged, or returned to Linden Lab) while the escrow is
+     * still in {@code TRANSFER_PENDING}. The escrow is frozen and the refund
+     * pipeline kicks in.
+     */
+    ESCROW_PARCEL_DELETED,
+    /**
+     * Raised by the escrow ownership monitor after
+     * {@code slpa.escrow.ownershipApiFailureThreshold} consecutive World API
+     * failures on the same escrow. The freeze protects the transfer window
+     * from stalling indefinitely on a persistently unreachable upstream.
+     */
+    ESCROW_WORLD_API_FAILURE
 }
