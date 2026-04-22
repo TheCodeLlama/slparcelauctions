@@ -147,6 +147,12 @@ public class EscrowOwnershipCheckTask {
         int newCount = prior + 1;
         int threshold = props.ownershipApiFailureThreshold();
         if (newCount >= threshold) {
+            // Stamp the final counter on the in-memory entity so
+            // freezeForFraud's save() persists it alongside the state
+            // transition — otherwise the frozen row carries the pre-increment
+            // count and only the evidence JSON reflects the true trigger
+            // value, which is operationally confusing during incident review.
+            escrow.setConsecutiveWorldApiFailures(newCount);
             Map<String, Object> evidence = new HashMap<>();
             evidence.put("consecutiveFailures", newCount);
             evidence.put("threshold", threshold);

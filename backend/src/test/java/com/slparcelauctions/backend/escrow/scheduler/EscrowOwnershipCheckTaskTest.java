@@ -194,12 +194,19 @@ class EscrowOwnershipCheckTaskTest {
         task.checkOne(ESCROW_ID);
 
         ArgumentCaptor<Map<String, Object>> ev = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Escrow> frozen = ArgumentCaptor.forClass(Escrow.class);
         OffsetDateTime now = OffsetDateTime.now(fixed);
         verify(escrowService).freezeForFraud(
-                eq(escrow), eq(FreezeReason.WORLD_API_PERSISTENT_FAILURE), ev.capture(), eq(now));
+                frozen.capture(), eq(FreezeReason.WORLD_API_PERSISTENT_FAILURE), ev.capture(), eq(now));
         assertThat(ev.getValue())
                 .containsEntry("consecutiveFailures", FAILURE_THRESHOLD)
                 .containsEntry("threshold", FAILURE_THRESHOLD);
+        // The counter must be stamped on the entity before freezeForFraud
+        // saves it, so the persisted frozen row matches the evidence JSON —
+        // otherwise the row shows (threshold - 1) while the evidence says
+        // (threshold), which misleads incident review. See I1 fixup.
+        assertThat(frozen.getValue().getConsecutiveWorldApiFailures())
+                .isEqualTo(FAILURE_THRESHOLD);
         verify(escrowService, never()).incrementWorldApiFailure(any(), any());
     }
 
