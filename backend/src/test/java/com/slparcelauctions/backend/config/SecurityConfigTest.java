@@ -2,14 +2,18 @@ package com.slparcelauctions.backend.config;
 
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -59,6 +63,43 @@ class SecurityConfigTest {
                         throw new AssertionError(
                                 "Expected security to pass through for authenticated principal, " +
                                 "but got HTTP " + status);
+                    }
+                });
+    }
+
+    // ── escrow SL-facing endpoints (Epic 05 sub-spec 1) ───────────────────────
+
+    /**
+     * Spec §permit-list: the four escrow SL-facing endpoints are whitelisted in
+     * {@link SecurityConfig} so in-world LSL scripts (which cannot present a
+     * JWT) can POST to them. The body-carried {@code sharedSecret} + SL-injected
+     * headers form the trust boundary inside each handler, not the security
+     * filter chain.
+     *
+     * <p>This test fires an anonymous POST with no body at each of the four
+     * paths and asserts the response is NOT 401. Three of the four endpoints
+     * don't exist yet (Tasks 5/7/9 add them), so anonymous POSTs return 404 —
+     * that still proves Spring Security let the request through. The register
+     * endpoint exists and returns 400/403 for the missing body / missing SL
+     * headers, also proving pass-through.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/sl/terminal/register",
+            "/api/v1/sl/escrow/payment",
+            "/api/v1/sl/escrow/payout-result",
+            "/api/v1/sl/listing-fee/payment"
+    })
+    void escrowSlEndpoints_areNotBlockedBySecurity(String path) throws Exception {
+        mockMvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    if (status == 401) {
+                        throw new AssertionError(
+                                "Expected security to permitAll for " + path +
+                                " but got HTTP 401 (anonymous request was blocked by the filter chain)");
                     }
                 });
     }

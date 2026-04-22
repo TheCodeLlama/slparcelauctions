@@ -30,6 +30,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -55,6 +56,7 @@ class AuctionEndTaskTest {
     @Mock ProxyBidRepository proxyBidRepo;
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
+    @Mock EscrowService escrowService;
 
     Clock fixed;
     AuctionEndTask task;
@@ -62,7 +64,7 @@ class AuctionEndTaskTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-20T12:00:00Z"), ZoneOffset.UTC);
-        task = new AuctionEndTask(auctionRepo, proxyBidRepo, userRepo, publisher, fixed);
+        task = new AuctionEndTask(auctionRepo, proxyBidRepo, userRepo, publisher, escrowService, fixed);
         // Manually init synchronization so registerSynchronization inside
         // closeOne does not blow up (the @Transactional proxy normally
         // handles this but the unit test invokes closeOne directly).
@@ -105,6 +107,10 @@ class AuctionEndTaskTest {
         assertThat(auction.getEndedAt()).isEqualTo(OffsetDateTime.now(fixed));
         verify(auctionRepo).save(auction);
         verify(proxyBidRepo).exhaustAllActiveByAuctionId(100L);
+        // Escrow row creation is delegated — the SOLD branch must call the
+        // service with the same `now` used for auction.endedAt so the 48h
+        // payment deadline anchors to the same instant.
+        verify(escrowService).createForEndedAuction(auction, OffsetDateTime.now(fixed));
 
         // Fire the synchronization manually — the unit test's fake tx is
         // not actually committing, so we trigger afterCommit ourselves to
@@ -153,6 +159,8 @@ class AuctionEndTaskTest {
         // userRepo.findById must NOT be called on non-SOLD outcomes — the
         // envelope elides the display name.
         verifyNoInteractions(userRepo);
+        // RESERVE_NOT_MET is a no-escrow outcome — no payout to orchestrate.
+        verifyNoInteractions(escrowService);
 
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(s -> s.afterCommit());
@@ -188,6 +196,8 @@ class AuctionEndTaskTest {
         assertThat(auction.getFinalBidAmount()).isNull();
         verify(proxyBidRepo).exhaustAllActiveByAuctionId(102L);
         verifyNoInteractions(userRepo);
+        // NO_BIDS is a no-escrow outcome.
+        verifyNoInteractions(escrowService);
 
         TransactionSynchronizationManager.getSynchronizations()
                 .forEach(s -> s.afterCommit());
@@ -250,6 +260,7 @@ class AuctionEndTaskTest {
         verify(auctionRepo, never()).save(any());
         verify(proxyBidRepo, never()).exhaustAllActiveByAuctionId(anyLong());
         verifyNoInteractions(publisher);
+        verifyNoInteractions(escrowService);
     }
 
     @Test
@@ -272,6 +283,7 @@ class AuctionEndTaskTest {
         verify(auctionRepo, never()).save(any());
         verify(proxyBidRepo, never()).exhaustAllActiveByAuctionId(anyLong());
         verifyNoInteractions(publisher);
+        verifyNoInteractions(escrowService);
     }
 
     @Test
@@ -282,7 +294,7 @@ class AuctionEndTaskTest {
 
         verify(auctionRepo, never()).save(any());
         verify(proxyBidRepo, never()).exhaustAllActiveByAuctionId(anyLong());
-        verifyNoInteractions(publisher, userRepo);
+        verifyNoInteractions(publisher, userRepo, escrowService);
     }
 
     @Test

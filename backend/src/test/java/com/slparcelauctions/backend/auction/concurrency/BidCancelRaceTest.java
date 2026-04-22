@@ -72,7 +72,8 @@ import javax.sql.DataSource;
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
-        "slpa.ownership-monitor.enabled=false"
+        "slpa.ownership-monitor.enabled=false",
+        "slpa.escrow.ownership-monitor-job.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidCancelRaceTest {

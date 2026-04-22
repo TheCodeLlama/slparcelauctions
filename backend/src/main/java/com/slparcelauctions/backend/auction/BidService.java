@@ -22,6 +22,7 @@ import com.slparcelauctions.backend.auction.exception.BidTooLowException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -76,6 +77,7 @@ public class BidService {
     private final UserRepository userRepo;
     private final Clock clock;
     private final AuctionBroadcastPublisher publisher;
+    private final EscrowService escrowService;
 
     /**
      * Places a manual bid on an auction. See class javadoc for the
@@ -175,7 +177,7 @@ public class BidService {
         // auction to ENDED with endOutcome=BOUGHT_NOW; when that happens
         // every ACTIVE proxy on the auction is marked EXHAUSTED so the
         // partial unique index is cleared and no zombie proxies linger.
-        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, clock, proxyBidRepo);
+        BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, now, proxyBidRepo);
 
         // Step 8 — update auction aggregate state. The last emitted bid is
         // always the current top (for Task 3 that's the same as the only
@@ -191,18 +193,34 @@ public class BidService {
         auction.setBidCount(nextBidCount);
         auctionRepo.save(auction);
 
+        // Inline buy-it-now closes stamp the ESCROW_PENDING row in the same
+        // transaction as the status flip so close + escrow are atomic; a
+        // rollback reverts both. The single `now` read at step 3 is threaded
+        // through applySnipeAndBuyNow (stamps auction.endedAt), the escrow
+        // stamp below (anchors the 48h payment deadline), and the
+        // AuctionEndedEnvelope.of(auction, winner, now) factory (stamps
+        // serverTime) so all three values derive from one clock read —
+        // otherwise independent OffsetDateTime.now(clock) reads drift by
+        // microseconds under Clock.systemUTC() and break cross-channel
+        // event ordering. ESCROW_CREATED is registered on afterCommit
+        // inside createForEndedAuction and fires BEFORE the AUCTION_ENDED
+        // afterCommit below (registration order).
+        final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
+        if (ended) {
+            escrowService.createForEndedAuction(auction, now);
+        }
+
         // Step 9 — publish the envelope on afterCommit so subscribers never
         // observe an uncommitted state. The envelope variant is chosen NOW
         // (inside the tx, with entities initialised) and captured into the
         // synchronization; the publish call runs post-commit, outside the
         // persistence context. Buy-it-now closes emit AuctionEndedEnvelope;
         // everything else emits BidSettlementEnvelope.
-        final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
         final BidSettlementEnvelope settlement = ended
                 ? null
                 : BidSettlementEnvelope.of(auction, emitted, topBidder, clock);
         final AuctionEndedEnvelope endedEnv = ended
-                ? AuctionEndedEnvelope.of(auction, topBidder, clock)
+                ? AuctionEndedEnvelope.of(auction, topBidder, now)
                 : null;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

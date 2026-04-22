@@ -51,6 +51,31 @@ public class ListingFeeRefund {
     @Column(name = "processed_at")
     private OffsetDateTime processedAt;
 
+    /**
+     * FK to {@code terminal_commands.id} for the REFUND command dispatched for
+     * this refund. Modelled as a plain {@code Long} column (not a JPA
+     * relationship) because {@code TerminalCommand} lives in the escrow
+     * package and referencing it here would create a circular dependency
+     * across package boundaries. Nullable: stays null until
+     * {@link com.slparcelauctions.backend.escrow.scheduler.ListingFeeRefundProcessorJob}
+     * has queued the command. Presence is the idempotency guard — the
+     * processor skips any refund whose {@code terminalCommandId} is already
+     * set so a row that's been queued once never queues again.
+     */
+    @Column(name = "terminal_command_id")
+    private Long terminalCommandId;
+
+    /**
+     * Timestamp of the last successful queue attempt. Stamped alongside
+     * {@link #terminalCommandId} so operators can distinguish "refund
+     * created just now, processor not run yet" from "refund queued at T
+     * but command still awaiting dispatch." Purely observational — the
+     * processor does not read this field, it reads
+     * {@code terminalCommandId IS NULL}.
+     */
+    @Column(name = "last_queued_at")
+    private OffsetDateTime lastQueuedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

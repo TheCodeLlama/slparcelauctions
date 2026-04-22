@@ -40,6 +40,9 @@ import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
         // Satisfy the bean dependencies that would otherwise fail in a non-dev profile.
         "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtMTI=",
         "slpa.sl.trusted-owner-keys[0]=00000000-0000-0000-0000-000000000001",
+        // EscrowStartupValidator is @Profile("!dev") and fails fast on non-dev
+        // profiles when the secret is unset or shorter than 16 chars.
+        "slpa.escrow.terminal-shared-secret=test-escrow-secret-at-least-sixteen-chars",
         "spring.datasource.url=jdbc:postgresql://localhost:5432/slpa",
         "spring.datasource.username=slpa",
         "spring.datasource.password=slpa",

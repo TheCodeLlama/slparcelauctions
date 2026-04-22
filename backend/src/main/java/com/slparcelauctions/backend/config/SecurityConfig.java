@@ -78,6 +78,19 @@ public class SecurityConfig {
                         // /api/v1/sl/verify: header-validated inside the handler,
                         // no JWT (the SL grid cannot authenticate). FOOTGUNS §B.5.
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/parcel/verify").permitAll()
+                        // Escrow SL-facing endpoints (Epic 05 sub-spec 1 Tasks 4/5/7/9).
+                        // Same dual-layer trust model as /api/v1/sl/verify: SL headers
+                        // (X-SecondLife-Shard / X-SecondLife-Owner-Key) validated by
+                        // SlHeaderValidator inside the handler, plus a body-carried
+                        // sharedSecret verified by TerminalService.assertSharedSecret
+                        // against slpa.escrow.terminal-shared-secret. All four paths
+                        // are whitelisted now (not only the one Task 4 ships) so
+                        // Tasks 5/7/9 do not have to re-touch SecurityConfig.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/terminal/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payment").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payout-result").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/listing-fee/payment").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5

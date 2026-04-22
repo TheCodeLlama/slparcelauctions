@@ -105,29 +105,17 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 06 (SL bot service) — MUST land before the real worker deploys.
 - **Notes:** See FOOTGUNS §F.46. Pick mTLS or bearer token in the Epic 06 spec. Until done, the bot endpoint surface is a locally-trusted attack surface — deploy the worker on localhost or a private network only.
 
-### Listing fee refund processor
-- **From:** Epic 03 sub-spec 1 (cancellation refund row creation)
-- **Why:** `CancellationService` writes `listing_fee_refunds` rows with `status=PENDING` when a paid auction is cancelled before verification, but nothing processes them yet. Real L$ refunds require the in-world escrow terminal integration from Epic 05.
-- **When:** Epic 05 (Escrow Manager) — refund processor polls `listing_fee_refunds` WHERE `status=PENDING` and issues L$ refunds via the escrow terminal, stamping `processed_at` + `txn_ref` + flipping to `PROCESSED`.
-- **Notes:** Rows accumulate indefinitely until the processor ships. Operationally this is fine for Phase 1 (no real money is moving yet) but the backlog will need a one-time batch processor on the day Epic 05 ships to drain pre-existing PENDING rows.
-
 ### Primary escrow UUID + SLPA trusted-owner-keys production config
 - **From:** Epic 03 sub-spec 1 (Method C bot task sentinel + SL header trust)
 - **Why:** `slpa.bot-task.primary-escrow-uuid` defaults to the dev placeholder `00000000-0000-0000-0000-000000000099`, and `slpa.sl.trusted-owner-keys` is empty in `application.yml` (overridden to the dev placeholder in `application-dev.yml`). Production deployment must override both via env var / secrets manager.
 - **When:** First production deployment (pre-launch ops checklist).
-- **Notes:** `SlStartupValidator` fails fast on prod boot if `trusted-owner-keys` is still empty — that is the forcing function. The primary-escrow-uuid has no equivalent startup guard yet; add one when the real SLPAEscrow Resident account is provisioned (same Epic 05 / Epic 06 timeline as the escrow integration). See FOOTGUNS §F.47.
+- **Notes:** `SlStartupValidator` fails fast on prod boot if `trusted-owner-keys` is still empty — that is the forcing function. The primary-escrow-uuid has no equivalent startup guard yet; add one when the real SLPAEscrow Resident account is provisioned (same Epic 05 / Epic 06 timeline as the escrow integration). A companion startup guard for `slpa.escrow.terminal-shared-secret` ships with Epic 05 sub-spec 1 (`EscrowStartupValidator`). See FOOTGUNS §F.47.
 
 ### IN_PROGRESS bot task timeout
 - **From:** Epic 03 sub-spec 1 (BotTaskTimeoutJob 48h sweep)
 - **Why:** `BotTaskTimeoutJob` only times out PENDING tasks — tasks that were never claimed by a worker. Once Epic 06 workers claim a task and flip it to `IN_PROGRESS`, a crashed worker leaves the task stuck in IN_PROGRESS forever with no cleanup.
 - **When:** Epic 06 (SL bot service) — when claim-flow is implemented, extend the timeout job with a separate `IN_PROGRESS`-status query + cutoff (likely shorter than 48h, since "worker picked it up but did not finish" is a different signal than "no worker claimed it").
 - **Notes:** The right cutoff for IN_PROGRESS is probably 15-30 minutes (a real verify should take seconds). Failing behavior on timeout is the same: task FAILED with reason `TIMEOUT`, auction flipped to `VERIFICATION_FAILED` only if still `VERIFICATION_PENDING`.
-
-### Real in-world listing-fee terminal
-- **From:** Epic 03 sub-spec 2 (activate page fee payment)
-- **Why:** `FeePaymentInstructions` copy + the activate-flow state machine both assume an in-world rezzed escrow terminal that posts a callback to transition `DRAFT → DRAFT_PAID` with a real L$ transaction reference. Today the only payment path is `POST /api/v1/dev/auctions/{id}/pay` (dev-profile-only) which stamps a `dev-mock-<uuid>` txnRef. Production deployment MUST replace this with the real terminal callback before the app ships to real sellers.
-- **When:** Epic 05 (Escrow Manager) — the listing-fee terminal is the first in-world object that the escrow LSL scripting phase will produce.
-- **Notes:** The shape of the real callback is intentionally left TBD — the dev endpoint's `{amount?, txnRef?}` body is not the binding contract. Epic 05's spec will define the SL-header-gated callback endpoint and its body schema; the frontend's `FeePaymentInstructions` component will update to show the real terminal location + region when the UUID is provisioned.
 
 ### Notifications for suspension events
 - **From:** Epic 03 sub-spec 2 (ownership monitor SUSPENDED transition)
@@ -189,12 +177,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 09 (Notifications) — when email + SL IM + in-app push unify on a single publisher, add the user-queue destination at the same time for consistency.
 - **Notes:** The `JwtChannelInterceptor` already understands principal-gated destinations — adding `/user/**` to the gate is a small change. The frontend's `useStompSubscription` hook would grow a `/user/queue/*` variant.
 
-### Escrow handoff from ENDED + SOLD
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** `AuctionEndTask.closeOne` flips an auction to `ENDED` with `endOutcome=SOLD` + `winnerUserId` + `finalBidAmount`, but nothing downstream picks it up to drive the L$ handoff from buyer to seller or the in-world parcel transfer. The auction sits in `ENDED+SOLD` awaiting Epic 05's escrow pipeline.
-- **When:** Epic 05 (Escrow Manager) — poll `auctions WHERE status='ENDED' AND end_outcome='SOLD' AND escrow_status IS NULL` (new column) and drive the buyer-charge + seller-payout + parcel-transfer sequence.
-- **Notes:** The Epic 05 spec will define the `escrow_status` column (or equivalent lifecycle table) and the retry semantics for buyer-payment-failure. Do not repurpose `auction.status` for escrow states — keep status at `ENDED` so the public DTO collapses to `ENDED` per spec §7.
-
 ### Cancellation WS broadcast on active-auction cancel
 - **From:** Epic 04 sub-spec 1 (spec §15)
 - **Why:** When a seller cancels an ACTIVE auction with bids (rare — requires explicit confirmation through the sub-spec 2 cancel modal), no `/topic/auction/{id}` envelope is currently published. Bidders watching the auction detail page in real-time see no update until they reload. This is a consistency gap with the bid/end broadcasts that both publish on `afterCommit`.
@@ -215,9 +197,9 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Ended-auction escrow flow UI
 - **From:** Epic 04 sub-spec 2 (Task 6 `AuctionEndedPanel`)
-- **Why:** When an auction ends with `endOutcome=SOLD`, the panel renders the winner + final bid but has no action button to "proceed to escrow" / "initiate L$ transfer" / "claim the parcel". The buyer and seller are left with no next-step affordance because the escrow pipeline itself does not exist yet — it's scoped to Epic 05.
-- **When:** Epic 05 (Escrow Manager) — when the escrow state machine is live, `AuctionEndedPanel` gains role-aware CTAs (buyer: "Pay L$X to claim", seller: "Transfer parcel after payment confirmed") driven by a new `escrow_status` field on the auction DTO.
-- **Notes:** `AuctionEndedPanel` currently uses `inferEndOutcome` as a defensive fallback when the DTO's `endOutcome` field is null (see the nullability entry below). The Epic 05 sub-spec should decide whether escrow-state UI lives in the same panel or splits out.
+- **Why:** When an auction ends with `endOutcome=SOLD`, the panel renders the winner + final bid but has no action button to "proceed to escrow" / "initiate L$ transfer" / "claim the parcel". Epic 05 sub-spec 1 ships the backend escrow pipeline; the frontend CTAs that consume it ship with sub-spec 2.
+- **When:** Epic 05 sub-spec 2 — when the escrow state machine is exposed via the auction DTO, `AuctionEndedPanel` gains role-aware CTAs (buyer: "Pay L$X to claim", seller: "Transfer parcel after payment confirmed"). Duplicates the broader "AuctionEndedPanel / My Bids / My Listings escrow CTAs" entry below; kept for the specific `inferEndOutcome` touchpoint note.
+- **Notes:** `AuctionEndedPanel` currently uses `inferEndOutcome` as a defensive fallback when the DTO's `endOutcome` field is null (see the nullability entry below). The Epic 05 sub-spec 2 spec should decide whether escrow-state UI lives in the same panel or splits out.
 
 ### WS reconnect telemetry
 - **From:** Epic 04 sub-spec 2 (Task 1 WS client hardening + Task 7 reconnecting banner)
@@ -243,11 +225,68 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Near-term backend cleanup — a one-file change on the DTO mapper + a small spec sweep to document the contract. Pull in during the next Epic 04 maintenance task or alongside the Epic 05 escrow DTO additions.
 - **Notes:** Touchpoints: `frontend/src/components/auction/inferEndOutcome.ts`, `frontend/src/components/auction/AuctionEndedPanel.tsx`, `frontend/src/components/user/ListingSummaryRow.tsx`, and the backend `AuctionDtoMapper` / `ActiveListingAuctionSummary` DTO. Once the backend always projects the three fields, `inferEndOutcome` becomes dead code and can be deleted.
 
+### Shared integration-test base class for scheduler-enabled property gating
+- **From:** Epic 05 sub-spec 1 (Task 6 — ownership monitor)
+- **Why:** Each new `@Scheduled` job added to the backend requires every existing `@SpringBootTest` to add a `slpa.<job>.enabled=false` line to its `@TestPropertySource` to prevent races with test seeding. Epic 05 sub-spec 1 alone added 3+ such jobs (ownership monitor, timeout, dispatcher) and each expansion touches 8-12 tests. Shared `@TestPropertySource` on an abstract base class, or an `@IntegrationTestDefaults` meta-annotation, would let future epics add schedulers without N-test sweeps.
+- **When:** Indefinite (infrastructure polish) — trigger is when another epic adds a scheduler that requires a new wave of per-test property disables.
+- **Notes:** Touchpoint: any `@SpringBootTest` in `backend/src/test/java` with a `slpa.*.enabled=false` entry on its `@TestPropertySource`. Alternative shapes: (a) `@ActiveProfiles("integration-test")` + an `application-integration-test.yml` that disables every scheduler by default; (b) `@Import(SchedulersDisabledConfig.class)` bean-override; (c) a new `@IntegrationTest` meta-annotation that composes `@SpringBootTest` + the common property set.
+
 ### Richer outbid toast shape (warning variant + structured action button)
 - **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
 - **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
 - **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
 - **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
+
+### Shared-secret version rotation provenance on TerminalCommand
+- **From:** Epic 05 sub-spec 1 (Task 7)
+- **Why:** The `terminal_commands.shared_secret_version` column is reserved but no code populates or reads it. Used to stamp which secret version was in force at dispatch so admin tooling can reason about rotated-secret audit trails.
+- **When:** Epic 10 (Admin & Moderation) — wire alongside the admin secret-rotation endpoint already deferred.
+- **Notes:** Column is nullable today; no data loss. Touchpoint: `TerminalCommandService.queue(...)` + a future rotation endpoint that stamps the new version on in-flight commands.
+
+### FAILED ledger row on transport-failure stall
+- **From:** Epic 05 sub-spec 1 (Task 7 code review, M6)
+- **Why:** Terminal-reported failures write a FAILED `EscrowTransaction` row per attempt (audit trail). Transport-level failures (HTTP 5xx, connection refused, timeout) only set `last_error` on the command + bump `attemptCount`; the dispute timeline lacks visibility into transport failures that exhaust the retry budget. On the stall path (attempt 4), consider writing a FAILED ledger row so the dispute timeline records the stall uniformly.
+- **When:** Opportunistic — pull in during the next Epic 05 maintenance task, or alongside Epic 10 admin tooling when the dispute-timeline UI surfaces this asymmetry.
+- **Notes:** Touchpoint: `TerminalCommandDispatcherTask.dispatchOne` + `TerminalCommandService.applyCallback` (need to factor the FAILED ledger row build into a shared helper).
+
+### HMAC-SHA256 terminal auth
+- **From:** Epic 05 sub-spec 1
+- **Why:** Sub-spec 1 ships static shared secret + rotation via config + redeploy. HMAC-SHA256 adds per-request replay protection but requires SHA256 implementation in LSL (~50-100 line library). Premature to ship until a working LSL terminal exists to dogfood against.
+- **When:** Phase 2 hardening — after Epic 11 LSL terminals are stable and SHA256-in-LSL is validated.
+- **Notes:** Body + timestamp HMAC, per-request nonce, backend nonce-replay window (~60s). `TerminalCommand.shared_secret_version` column already reserved for rotation bookkeeping.
+
+### Smart regional routing for TerminalCommand dispatch
+- **From:** Epic 05 sub-spec 1
+- **Why:** Phase 1 dispatcher picks any active terminal for any command (pooled, non-sticky). If terminal deployment spreads across >5 regions and regional rate limits start to bite, smart routing (prefer terminals in the recipient's current region, fall back to pool) becomes useful.
+- **When:** Indefinite — trigger is operational, not feature-driven.
+- **Notes:** `Terminal.region_name` column reserved. Router pluggable behind a `TerminalSelector` interface.
+
+### Notifications for escrow lifecycle events
+- **From:** Epic 05 sub-spec 1
+- **Why:** State transitions (FUNDED, TRANSFER_CONFIRMED, COMPLETED, EXPIRED, DISPUTED, FROZEN) and the 24h seller-transfer reminder log at INFO but fire no email / SL IM. Consistent with Epic 04's deferral.
+- **When:** Epic 09 (Notifications) — hook a subscriber on the escrow broadcast envelope stream.
+
+### Admin tooling for DISPUTED / FROZEN resolution + secret rotation
+- **From:** Epic 05 sub-spec 1
+- **Why:** No resume path from terminal states (DISPUTED, FROZEN) in sub-spec 1. Admin also has no in-app way to rotate `slpa.escrow.terminal-shared-secret` — rotation requires config edit + redeploy.
+- **When:** Epic 10 (Admin & Moderation).
+- **Notes:** Admin endpoints `POST /api/v1/admin/escrow/{id}/resolve-dispute`, `POST /api/v1/admin/escrow/{id}/unfreeze`, `POST /api/v1/admin/terminal/rotate-secret`. State machine gains `DISPUTED → FUNDED | TRANSFER_PENDING` and `FROZEN → TRANSFER_PENDING | EXPIRED` at admin's discretion.
+
+### Daily escrow balance reconciliation
+- **From:** Epic 05 sub-spec 1
+- **Why:** DESIGN.md §5.2 suggests "sum of pending escrow amounts should match the expected SL account balance." Sub-spec 1 writes every L$ movement to the `EscrowTransaction` ledger, so the data is there — just no job reconciles it against SL grid queries.
+- **When:** Epic 10 (Admin & Moderation).
+- **Notes:** Daily job that sums `EscrowTransaction` rows by type, queries SLPAEscrow account balance via World API, alerts on mismatch.
+
+### Retrofit existing Epic 03/04 code to Clock injection
+- **From:** Epic 05 sub-spec 1
+- **Why:** Sub-spec 1 code injects `Clock` and calls `OffsetDateTime.now(clock)` throughout. Existing Epic 03/04 services that use raw `OffsetDateTime.now()` are unaffected but can't be cleanly tested with a frozen clock. Out of scope for this sub-spec; retrofit when touched.
+- **When:** Opportunistic — pull in during the next maintenance pass that touches the affected services.
+
+### AuctionEndedPanel / My Bids / My Listings escrow CTAs
+- **From:** Epic 05 sub-spec 1 (frontend follow-up)
+- **Why:** Backend ships the escrow state + endpoints in this sub-spec; frontend surfaces (role-aware CTA buttons on the ended auction panel, escrow status link on dashboard rows) ship in sub-spec 2.
+- **When:** Epic 05 sub-spec 2.
 
 ---
 

@@ -37,6 +37,7 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.CapturingAuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
@@ -67,7 +68,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
-        "slpa.ownership-monitor.enabled=false"
+        "slpa.ownership-monitor.enabled=false",
+        "slpa.escrow.ownership-monitor-job.enabled=false"
 })
 @Import(AuctionEndIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -90,6 +92,7 @@ class AuctionEndIntegrationTest {
     @Autowired UserRepository userRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
+    @Autowired EscrowRepository escrowRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingAuctionBroadcastPublisher capturingPublisher;
 
@@ -127,6 +130,9 @@ class AuctionEndIntegrationTest {
         if (seededAuctionId == null) return;
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
+            // Escrow row (Epic 05 Task 2+) must be deleted BEFORE the auction
+            // because of the FK from escrows.auction_id → auctions.id.
+            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);

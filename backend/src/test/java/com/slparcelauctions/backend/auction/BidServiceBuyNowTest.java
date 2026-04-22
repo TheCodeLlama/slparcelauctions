@@ -29,6 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.auction.dto.BidResponse;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -51,6 +52,7 @@ class BidServiceBuyNowTest {
     @Mock ProxyBidRepository proxyBidRepo;
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
+    @Mock EscrowService escrowService;
 
     BidService service;
     User seller;
@@ -60,7 +62,7 @@ class BidServiceBuyNowTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher);
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService);
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();
@@ -102,6 +104,8 @@ class BidServiceBuyNowTest {
         assertThat(auction.getEndedAt()).isNull();
         assertThat(resp.buyNowTriggered()).isFalse();
         verify(proxyBidRepo, never()).exhaustAllActiveByAuctionId(any());
+        // No close → no escrow creation.
+        verify(escrowService, never()).createForEndedAuction(any(), any());
     }
 
     @Test
@@ -118,6 +122,8 @@ class BidServiceBuyNowTest {
         assertThat(auction.getEndOutcome()).isNull();
         assertThat(resp.buyNowTriggered()).isFalse();
         verify(proxyBidRepo, never()).exhaustAllActiveByAuctionId(any());
+        // No close → no escrow creation.
+        verify(escrowService, never()).createForEndedAuction(any(), any());
     }
 
     @Test
@@ -176,6 +182,21 @@ class BidServiceBuyNowTest {
         assertThat(env.winnerUserId()).isEqualTo(20L);
         assertThat(env.winnerDisplayName()).isEqualTo("Bidder");
         assertThat(env.bidCount()).isEqualTo(1);
+    }
+
+    @Test
+    void createsEscrow_onBuyNowTrigger() {
+        // Buy-now close must delegate escrow row creation to EscrowService in
+        // the same transaction as the status flip. The `now` passed is the
+        // same one used for the auction's aggregate mutations (line 110 of
+        // placeBid), so the 48h payment deadline anchors consistently.
+        auction.setBuyNowPrice(10_000L);
+        when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(auction));
+        when(userRepo.findById(20L)).thenReturn(Optional.of(bidder));
+
+        runInTx(() -> service.placeBid(500L, 20L, 10_000L, "1.2.3.4"));
+
+        verify(escrowService, times(1)).createForEndedAuction(auction, NOW);
     }
 
     @Test

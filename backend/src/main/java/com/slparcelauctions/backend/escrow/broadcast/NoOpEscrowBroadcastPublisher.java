@@ -1,0 +1,93 @@
+package com.slparcelauctions.backend.escrow.broadcast;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Fallback {@link EscrowBroadcastPublisher} that logs the envelope and drops
+ * it. Kept on the classpath as a safety net for unit-test slices or
+ * degenerate configurations that omit {@link StompEscrowBroadcastPublisher}.
+ * In normal dev/prod runs the Stomp bean is present, this
+ * {@code @ConditionalOnMissingBean} default steps aside automatically, and
+ * the real publisher fans the envelope out to {@code /topic/auction/{id}}.
+ *
+ * <p>Wired through a dedicated {@code @Configuration} class (not a
+ * {@code @Component}) so {@code @ConditionalOnMissingBean} is evaluated
+ * against other beans of the publisher type — a class-level annotation
+ * would only check for other definitions of this same class. Mirrors the
+ * existing {@code NoOpAuctionBroadcastPublisher} pattern.
+ */
+@Configuration
+@Slf4j
+public class NoOpEscrowBroadcastPublisher {
+
+    @Bean
+    @ConditionalOnMissingBean(EscrowBroadcastPublisher.class)
+    public EscrowBroadcastPublisher defaultEscrowBroadcastPublisher() {
+        return new EscrowBroadcastPublisher() {
+            @Override
+            public void publishCreated(EscrowCreatedEnvelope envelope) {
+                log.debug("no-op publishCreated: auctionId={}, escrowId={}, state={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state());
+            }
+
+            @Override
+            public void publishDisputed(EscrowDisputedEnvelope envelope) {
+                log.debug("no-op publishDisputed: auctionId={}, escrowId={}, reason={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.reason());
+            }
+
+            @Override
+            public void publishFunded(EscrowFundedEnvelope envelope) {
+                log.debug("no-op publishFunded: auctionId={}, escrowId={}, state={}, transferDeadline={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.transferDeadline());
+            }
+
+            @Override
+            public void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope) {
+                log.debug("no-op publishTransferConfirmed: auctionId={}, escrowId={}, state={}, transferConfirmedAt={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.transferConfirmedAt());
+            }
+
+            @Override
+            public void publishFrozen(EscrowFrozenEnvelope envelope) {
+                log.debug("no-op publishFrozen: auctionId={}, escrowId={}, state={}, reason={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.reason());
+            }
+
+            @Override
+            public void publishCompleted(EscrowCompletedEnvelope envelope) {
+                log.debug("no-op publishCompleted: auctionId={}, escrowId={}, state={}, completedAt={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.completedAt());
+            }
+
+            @Override
+            public void publishRefundCompleted(EscrowRefundCompletedEnvelope envelope) {
+                log.debug("no-op publishRefundCompleted: auctionId={}, escrowId={}, state={}, refundAmount={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.refundAmount());
+            }
+
+            @Override
+            public void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope) {
+                log.debug("no-op publishPayoutStalled: auctionId={}, escrowId={}, attemptCount={}, lastError={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.attemptCount(),
+                        envelope.lastError());
+            }
+
+            @Override
+            public void publishExpired(EscrowExpiredEnvelope envelope) {
+                log.debug("no-op publishExpired: auctionId={}, escrowId={}, state={}, reason={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.reason());
+            }
+        };
+    }
+}
