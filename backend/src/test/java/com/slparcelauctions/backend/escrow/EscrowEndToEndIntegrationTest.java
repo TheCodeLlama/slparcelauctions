@@ -63,25 +63,12 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
 import reactor.core.publisher.Mono;
 
 /**
- * Full happy-path integration coverage of the escrow payout pipeline.
- * Drives the flow end-to-end through the real components:
- *
- * <ol>
- *   <li>Seed an auction with a pre-funded escrow in TRANSFER_PENDING.</li>
- *   <li>Stub {@link SlWorldApiClient} to report the winner as parcel owner.</li>
- *   <li>Sweep the {@link EscrowOwnershipMonitorJob} → confirmTransfer
- *       stamps transferConfirmedAt and queues a PAYOUT command.</li>
- *   <li>Sweep the {@link TerminalCommandDispatcherJob} → POSTs to the
- *       terminal (stubbed ACK), flips the command to IN_FLIGHT.</li>
- *   <li>Simulate the terminal callback via
- *       {@link TerminalCommandService#applyCallback} → command flips to
- *       COMPLETED, escrow to COMPLETED, ledger rows written, envelope
- *       captured.</li>
- * </ol>
- *
- * <p>Asserts the full ledger shape (PAYOUT + COMMISSION rows), the final
- * escrow state + completedAt stamp, and the fanout of the three envelopes
- * along the way (ESCROW_TRANSFER_CONFIRMED, ESCROW_COMPLETED).
+ * End-to-end coverage from TRANSFER_PENDING onwards: ownership monitor
+ * confirm → payout queued → dispatcher POSTs → callback success → state
+ * COMPLETED + ledger (PAYOUT + COMMISSION) + envelope. The earlier stages
+ * (auction-end Escrow creation + payment receipt) have their own
+ * integration tests (EscrowCreateOnAuctionEndIntegrationTest,
+ * EscrowPaymentIntegrationTest) to avoid re-seeding overhead.
  */
 @SpringBootTest
 @ActiveProfiles("dev")

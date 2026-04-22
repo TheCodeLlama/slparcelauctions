@@ -255,6 +255,18 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
 - **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
 
+### Shared-secret version rotation provenance on TerminalCommand
+- **From:** Epic 05 sub-spec 1 (Task 7)
+- **Why:** The `terminal_commands.shared_secret_version` column is reserved but no code populates or reads it. Used to stamp which secret version was in force at dispatch so admin tooling can reason about rotated-secret audit trails.
+- **When:** Epic 10 (Admin & Moderation) — wire alongside the admin secret-rotation endpoint already deferred.
+- **Notes:** Column is nullable today; no data loss. Touchpoint: `TerminalCommandService.queue(...)` + a future rotation endpoint that stamps the new version on in-flight commands.
+
+### FAILED ledger row on transport-failure stall
+- **From:** Epic 05 sub-spec 1 (Task 7 code review, M6)
+- **Why:** Terminal-reported failures write a FAILED `EscrowTransaction` row per attempt (audit trail). Transport-level failures (HTTP 5xx, connection refused, timeout) only set `last_error` on the command + bump `attemptCount`; the dispute timeline lacks visibility into transport failures that exhaust the retry budget. On the stall path (attempt 4), consider writing a FAILED ledger row so the dispute timeline records the stall uniformly.
+- **When:** Opportunistic — pull in during the next Epic 05 maintenance task, or alongside Epic 10 admin tooling when the dispute-timeline UI surfaces this asymmetry.
+- **Notes:** Touchpoint: `TerminalCommandDispatcherTask.dispatchOne` + `TerminalCommandService.applyCallback` (need to factor the FAILED ledger row build into a shared helper).
+
 ---
 
 ## Removal Criteria
