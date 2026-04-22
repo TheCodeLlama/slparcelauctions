@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act } from "@testing-library/react";
+import { QueryClient } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
@@ -11,10 +12,12 @@ import { server } from "@/test/msw/server";
 import type { Page } from "@/types/page";
 import type {
   AuctionEnvelope,
+  AuctionTopicEnvelope,
   BidHistoryEntry,
   BidSettlementEnvelope,
   PublicAuctionResponse,
 } from "@/types/auction";
+import { fakeEscrowEnvelope } from "@/test/fixtures/escrow";
 import { AuctionDetailClient } from "./AuctionDetailClient";
 import AuctionPage from "./page";
 
@@ -433,6 +436,58 @@ describe("AuctionDetailClient", () => {
     );
     // Page 0 total grew by the number of newBids (one).
     expect(screen.getByTestId("bid-history-total")).toHaveTextContent("2");
+  });
+
+  it("invalidates escrow + auction cache on ESCROW_* envelopes", async () => {
+    // Spy on the QueryClient prototype so we observe both invalidations
+    // without needing access to the wrapper-owned client instance. The
+    // invalidate-only branch (spec §7.2) short-circuits before the
+    // BID_SETTLEMENT / AUCTION_ENDED merge path, so no cache mutation or
+    // UI refetch is driven from this codepath — the spy is the
+    // authoritative assertion.
+    const invalidateSpy = vi.spyOn(
+      QueryClient.prototype,
+      "invalidateQueries",
+    );
+
+    let capturedOnMessage:
+      | ((env: AuctionTopicEnvelope) => void)
+      | null = null;
+    subscribeMock.mockImplementation(
+      (
+        _destination: string,
+        onMessage: (env: AuctionTopicEnvelope) => void,
+      ) => {
+        capturedOnMessage = onMessage;
+        return () => {};
+      },
+    );
+
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={auction}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+
+    // Clear any invalidations that fired during mount (e.g. the
+    // bootstrap `auth/session` query) so the assertions below only
+    // observe the envelope handler's calls.
+    invalidateSpy.mockClear();
+
+    act(() => {
+      capturedOnMessage!(fakeEscrowEnvelope("ESCROW_FUNDED", { auctionId: 7 }));
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["escrow", 7],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: expect.arrayContaining(["auction", 7]),
+    });
+
+    invalidateSpy.mockRestore();
   });
 
   it("dedupes envelopes that overlap with the seeded page", async () => {

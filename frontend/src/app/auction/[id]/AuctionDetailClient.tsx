@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  AuctionEnvelope,
+  AuctionTopicEnvelope,
   BidHistoryEntry,
   PublicAuctionResponse,
   SellerAuctionResponse,
@@ -148,11 +148,22 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   }, []);
 
   const handleEnvelope = useCallback(
-    (env: AuctionEnvelope) => {
+    (env: AuctionTopicEnvelope) => {
       // Refine the server-time offset on every envelope so the countdown
       // stays accurate even if the user's clock drifts mid-session.
       serverTimeOffsetRef.current =
         new Date(env.serverTime).getTime() - Date.now();
+
+      // Escrow envelopes: invalidate only — no DTO merging, per spec §7.2.
+      // The dedicated escrow page owns its own cache and will refetch; the
+      // auction detail page only needs to know the auction row may have
+      // transitioned (e.g. endOutcome changed on a frozen escrow) so the
+      // auction cache is also invalidated here.
+      if (env.type.startsWith("ESCROW_")) {
+        queryClient.invalidateQueries({ queryKey: ["escrow", id] });
+        queryClient.invalidateQueries({ queryKey: auctionKey(id) });
+        return;
+      }
 
       // Snapshot BEFORE the cache mutation so the outbid-toast hook point
       // (wired in Task 7 via OutbidToastProvider) has the pre-settlement
@@ -253,7 +264,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
     [queryClient, id, currentUserId, toast],
   );
 
-  useStompSubscription<AuctionEnvelope>(
+  useStompSubscription<AuctionTopicEnvelope>(
     `/topic/auction/${id}`,
     handleEnvelope,
   );
