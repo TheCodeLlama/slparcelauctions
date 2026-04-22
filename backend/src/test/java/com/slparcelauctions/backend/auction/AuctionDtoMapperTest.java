@@ -19,16 +19,19 @@ import org.junit.jupiter.params.provider.EnumSource;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionStatus;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 
 class AuctionDtoMapperTest {
 
     private final AuctionPhotoRepository photoRepo = mock(AuctionPhotoRepository.class);
-    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo);
+    private final EscrowRepository escrowRepo = mock(EscrowRepository.class);
+    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo);
 
     {
         when(photoRepo.findByAuctionIdOrderBySortOrderAsc(any())).thenReturn(List.of());
+        when(escrowRepo.findByAuctionId(any())).thenReturn(java.util.Optional.empty());
     }
 
     @Test
