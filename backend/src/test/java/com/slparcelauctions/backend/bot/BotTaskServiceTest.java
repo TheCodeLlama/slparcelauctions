@@ -435,6 +435,10 @@ class BotTaskServiceTest {
         // refund creation is structurally impossible from this path.
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        // markTimedOut re-fetches inside the write transaction to avoid
+        // LazyInitializationException on task.getAuction() (caller loaded
+        // under a read-only sweep tx). Stub the re-fetch.
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
 
         service.markTimedOut(task);
 
@@ -453,6 +457,7 @@ class BotTaskServiceTest {
         // query and the timeout call, don't clobber CANCELLED → VERIFICATION_FAILED.
         Auction a = build(AuctionStatus.CANCELLED);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
 
         service.markTimedOut(task);
 
@@ -465,6 +470,7 @@ class BotTaskServiceTest {
     void markTimedOut_skipsAlreadyTerminalTask() {
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.COMPLETED);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
 
         service.markTimedOut(task);
 

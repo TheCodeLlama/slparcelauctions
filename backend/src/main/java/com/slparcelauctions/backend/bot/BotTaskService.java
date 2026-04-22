@@ -345,11 +345,17 @@ public class BotTaskService {
      * queue query and this callback.
      */
     @Transactional
-    public void markTimedOut(BotTask task) {
-        if (task.getStatus() != BotTaskStatus.PENDING
-                && task.getStatus() != BotTaskStatus.IN_PROGRESS) {
+    public void markTimedOut(BotTask stale) {
+        // Re-fetch inside the active transaction. The caller's BotTask was
+        // loaded under the read-only sweep transaction (see
+        // findPendingOlderThan) and its lazy Auction proxy would fail to
+        // initialize here. Same pattern as handleInProgressTimeout.
+        BotTask task = botTaskRepo.findById(stale.getId()).orElse(null);
+        if (task == null
+                || (task.getStatus() != BotTaskStatus.PENDING
+                        && task.getStatus() != BotTaskStatus.IN_PROGRESS)) {
             log.debug("Skipping timeout for bot task {} (status={})",
-                    task.getId(), task.getStatus());
+                    stale.getId(), task == null ? "MISSING" : task.getStatus());
             return;
         }
         OffsetDateTime now = OffsetDateTime.now(clock);
