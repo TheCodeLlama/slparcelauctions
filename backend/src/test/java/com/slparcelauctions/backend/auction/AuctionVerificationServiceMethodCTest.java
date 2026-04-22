@@ -40,7 +40,7 @@ import com.slparcelauctions.backend.verification.VerificationCodeService;
  * <p>Method C is asynchronous: {@code triggerVerification} enqueues a
  * {@link BotTask} via {@code BotTaskService.createForAuction} and leaves the
  * auction in VERIFICATION_PENDING. The callback from the bot worker at
- * {@code PUT /api/v1/bot/tasks/{id}} (or dev stub
+ * {@code PUT /api/v1/bot/tasks/{id}/verify} (or dev stub
  * {@code POST /api/v1/dev/bot/tasks/{id}/complete}) drives the transition to
  * ACTIVE — that flow is covered by {@code BotTaskServiceTest} and
  * {@code BotTaskControllerIntegrationTest}.

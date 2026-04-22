@@ -28,7 +28,6 @@ import lombok.RequiredArgsConstructor;
  *   <li>{@code PUT /{id}/verify} — VERIFY callback (Task 4).</li>
  *   <li>{@code POST /{id}/monitor} — MONITOR_* callback (Task 5).</li>
  *   <li>{@code GET /pending} — read-only debug view of the PENDING queue.</li>
- *   <li>{@code PUT /{id}} — DEPRECATED Task 4 shim for {@code /verify}; removed in Task 12.</li>
  * </ul>
  */
 @RestController
@@ -67,19 +66,6 @@ public class BotTaskController {
             @PathVariable Long taskId,
             @Valid @RequestBody BotTaskCompleteRequest body) {
         return BotTaskResponse.from(service.complete(taskId, body));
-    }
-
-    /**
-     * DEPRECATED Task 4 shim: forwards to {@code completeVerify}. Task 12
-     * removes this method once all live workers are on the {@code /verify}
-     * path.
-     */
-    @PutMapping("/{taskId}")
-    @Deprecated
-    public BotTaskResponse completeLegacy(
-            @PathVariable Long taskId,
-            @Valid @RequestBody BotTaskCompleteRequest body) {
-        return completeVerify(taskId, body);
     }
 
     /**

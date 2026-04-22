@@ -23,14 +23,9 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auth.JwtService;
 
 /**
- * Slice coverage for the VERIFY callback routes:
- * <ul>
- *   <li>{@code PUT /api/v1/bot/tasks/{id}/verify} — the new Epic 06 Task 4
- *       path.</li>
- *   <li>{@code PUT /api/v1/bot/tasks/{id}} — the deprecated legacy shim,
- *       retained until Task 12. Both must forward to
- *       {@link BotTaskService#complete}.</li>
- * </ul>
+ * Slice coverage for the VERIFY callback route
+ * {@code PUT /api/v1/bot/tasks/{id}/verify} (Epic 06 Task 4). The Task 4
+ * deprecated {@code PUT /api/v1/bot/tasks/{id}} shim was removed in Task 12.
  */
 @WebMvcTest(controllers = BotTaskController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -64,19 +59,6 @@ class BotTaskControllerVerifySliceTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(5))
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
-    }
-
-    @Test
-    void legacyPath_routesToSameHandler() throws Exception {
-        BotTask task = stub(6L, BotTaskStatus.FAILED);
-        when(service.complete(eq(6L), any())).thenReturn(task);
-
-        mvc.perform(put("/api/v1/bot/tasks/6")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"result\":\"FAILURE\",\"failureReason\":\"timeout\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(6))
-                .andExpect(jsonPath("$.status").value("FAILED"));
     }
 
     private BotTask stub(long id, BotTaskStatus status) {

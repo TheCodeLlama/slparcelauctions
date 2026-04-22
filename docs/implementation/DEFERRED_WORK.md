@@ -99,22 +99,16 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 10 (Admin & Moderation) — fraud flags
 - **Notes:** Metric would be "count of PARCEL codes generated per seller over last N days where no successful callback occurred." Likely lives as a `fraud_signals` table or similar, feeding admin dashboards.
 
-### Bot service authentication — RESOLVED (Epic 06 Task 3, 2026-04-22)
-- **From:** Epic 03 sub-spec 1 (Method C SALE_TO_BOT bot queue)
-- **Resolution:** `/api/v1/bot/**` is now gated by a bearer-token shared secret. `SecurityConfig` routes the matcher through `BotSharedSecretAuthorizer`, which compares the `Authorization: Bearer` header against `slpa.bot.shared-secret` using `MessageDigest.isEqual` (constant-time, no length-leak via timing). `BotStartupValidator` (`@Profile("!dev")`) fails fast on non-dev profiles if the secret is blank, still the dev placeholder `"dev-bot-shared-secret"`, or shorter than 16 characters. Covered by `BotSharedSecretAuthorizerTest` (5 cases) + `BotStartupValidatorTest` (4 cases) + `BotTaskControllerAuthIntegrationTest` (3 cases).
-
-### Primary escrow UUID production config — RESOLVED (Epic 06 Task 3, 2026-04-22); SLPA trusted-owner-keys still DEFERRED
-- **From:** Epic 03 sub-spec 1 (Method C bot task sentinel + SL header trust)
-- **Resolution (primary-escrow-uuid):** `BotStartupValidator` (`@Profile("!dev")`) now throws `IllegalStateException` on non-dev profiles if `slpa.bot-task.primary-escrow-uuid` is still the dev placeholder `00000000-0000-0000-0000-000000000099`. This matches the `SlStartupValidator` forcing function for `trusted-owner-keys`.
-- **Remaining (SLPA trusted-owner-keys):** `slpa.sl.trusted-owner-keys` must still be overridden via env var / secrets manager for first production deployment. `SlStartupValidator` fails fast on prod boot if the list is empty — that is the forcing function. Track against the pre-launch ops checklist.
+### SLPA trusted-owner-keys production config
+- **From:** Epic 03 sub-spec 1 (SL header trust)
+- **Why:** `slpa.sl.trusted-owner-keys` is empty in `application.yml` (dev
+  override in `application-dev.yml`). Production must override via env
+  var / secrets manager.
 - **When:** First production deployment (pre-launch ops checklist).
-- **Notes:** A companion startup guard for `slpa.escrow.terminal-shared-secret` ships with Epic 05 sub-spec 1 (`EscrowStartupValidator`). See FOOTGUNS §F.47.
-
-### IN_PROGRESS bot task timeout
-- **From:** Epic 03 sub-spec 1 (BotTaskTimeoutJob 48h sweep)
-- **Why:** `BotTaskTimeoutJob` only times out PENDING tasks — tasks that were never claimed by a worker. Once Epic 06 workers claim a task and flip it to `IN_PROGRESS`, a crashed worker leaves the task stuck in IN_PROGRESS forever with no cleanup.
-- **When:** Epic 06 (SL bot service) — when claim-flow is implemented, extend the timeout job with a separate `IN_PROGRESS`-status query + cutoff (likely shorter than 48h, since "worker picked it up but did not finish" is a different signal than "no worker claimed it").
-- **Notes:** The right cutoff for IN_PROGRESS is probably 15-30 minutes (a real verify should take seconds). Failing behavior on timeout is the same: task FAILED with reason `TIMEOUT`, auction flipped to `VERIFICATION_FAILED` only if still `VERIFICATION_PENDING`.
+- **Notes:** `SlStartupValidator` already fails fast on prod boot if
+  `trusted-owner-keys` is still empty — that is the forcing function.
+  The bot half of this item (primary-escrow-uuid) landed in Epic 06 Task 3
+  via `BotStartupValidator` and is no longer deferred. See FOOTGUNS §F.47.
 
 ### Notifications for suspension events
 - **From:** Epic 03 sub-spec 2 (ownership monitor SUSPENDED transition)
@@ -293,6 +287,92 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Dashboard rows pick up `escrowState` changes via `refetchOnWindowFocus` + navigation — not via envelope-driven invalidation. Lags live state by up to ~30s on a stale tab. Acceptable for Phase 1.
 - **When:** Indefinite — only pull in if user feedback shows the lag feels wrong.
 - **Notes:** Implementation is ~30 LoC (named emitter + two subscriber hooks).
+
+### Admin pool health dashboard
+- **From:** Epic 06 (spec §1.2)
+- **Why:** Each bot container exposes `GET /health` with its
+  `SessionState`, but no admin page aggregates them. Ops must curl each
+  container directly (`docker compose exec bot-1 wget -O- http://localhost:8081/health`).
+- **When:** Epic 10 (Admin & Moderation) — fold into the broader admin
+  dashboard surface.
+- **Notes:** Aggregation endpoint shape: `GET /api/v1/admin/bot-pool/health`
+  returns `[{ botUuid, username, state, lastClaimAt, region }]`. Requires
+  a heartbeat mechanism — workers POST their state every ~60 s to a new
+  `POST /api/v1/bot/heartbeat` endpoint (same bearer auth), backend
+  persists in Redis with a TTL.
+
+### Notifications for bot-detected fraud
+- **From:** Epic 06 (spec §1.2)
+- **Why:** Bot-triggered `SuspensionService.suspendForBotObservation` writes
+  a FraudFlag row visible only in my-listings; no email / SL IM fires.
+  Consistent with Epic 04 / 05 deferrals.
+- **When:** Epic 09 (Notifications).
+- **Notes:** Hook the notification publisher into all three suspend call
+  sites + `EscrowService.freezeForFraud` and `markReviewRequired`. Do
+  NOT include the raw observation payload in the notification — admin-only.
+
+### Per-worker auth tokens (`bot_workers` table)
+- **From:** Epic 06 brainstorm
+- **Why:** Phase 1 ships a single shared bearer secret across all workers.
+  Per-worker tokens give admin auditing (which worker made which call) but
+  require a new provisioning surface. Premature at Phase 1 volume.
+- **When:** Indefinite — trigger is an audit-trail requirement.
+- **Notes:** New `bot_workers` table: `(id, name, sl_uuid, token_hash,
+  created_at, revoked_at)`. Authorizer switches from single-secret
+  compare to token-hash lookup. Rotation endpoint under `/api/v1/admin/`.
+
+### HMAC-SHA256 per-request bot auth
+- **From:** Epic 06 brainstorm
+- **Why:** Bearer token is replay-vulnerable between request and response;
+  HMAC-SHA256 over `(method, path, body, timestamp, nonce)` with a
+  replay window prevents replay. Deferred because the same improvement
+  is already deferred for the escrow terminal auth, and both should
+  land together.
+- **When:** Phase 2 hardening — same timeline as the escrow terminal
+  HMAC rollout.
+- **Notes:** Backend nonce-replay window ~60 s, stored in Redis.
+  `slpa.bot.shared-secret` stays as the HMAC key; rotation via config
+  + redeploy.
+
+### Parcel layout map generation
+- **From:** Epic 06 spec §1.2
+- **Why:** DESIGN.md §5.5 flags this as needing further design. Four
+  possible implementation routes (LSL scan, bot scan, wearable scanner,
+  seller-run scanner) with no decision yet.
+- **When:** Indefinite — pending a dedicated design pass.
+- **Notes:** The bot scan variant would live in
+  `bot/src/Slpa.Bot/Tasks/LayoutMapHandler.cs` alongside verify/monitor,
+  driven by a new `BotTaskType.LAYOUT_MAP`. Do not scaffold until the
+  design lands.
+
+### TRANSFER_READY_OBSERVED envelope shape
+- **From:** Epic 06 Task 5 (`BotMonitorDispatcher` MONITOR_ESCROW
+  TRANSFER_READY branch)
+- **Why:** `EscrowService.publishTransferReadyObserved` is a stub
+  (logs + no-op publisher) awaiting the real escrow WS envelope shape.
+  The dispatcher's first-transition log + call already lands; only the
+  outbound envelope payload is deferred.
+- **When:** Epic 05 follow-up — fold in when a second escrow WS
+  envelope needs extending so the shape can be designed once across the
+  family (status change + transfer-ready-observed together).
+- **Notes:** Sub-spec 1's escrow envelopes use cache-invalidation-only
+  semantics (FOOTGUNS §F.82). The TRANSFER_READY_OBSERVED envelope
+  should follow that convention — carry only `{ auctionId, escrowId,
+  observedAt }`, not the bot's raw observation.
+
+### BotMonitorDispatcher strategy split
+- **From:** Epic 06 Task 5 (`BotMonitorDispatcher` size)
+- **Why:** The dispatcher is already ~300 LoC handling 8 `MonitorOutcome`
+  values across MONITOR_AUCTION + MONITOR_ESCROW. If a third MONITOR_*
+  type is added or the branching grows further, splitting into per-type
+  strategy classes (`MonitorAuctionStrategy` + `MonitorEscrowStrategy`
+  behind a `MonitorDispatchStrategy` interface) would keep the single
+  class manageable.
+- **When:** Opportunistic — pull in on the next touch that grows the
+  branching beyond the current 13 dispatch-table entries.
+- **Notes:** Tests are already structured per-outcome in
+  `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
+  tests without rewriting assertions.
 
 ---
 

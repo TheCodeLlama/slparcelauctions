@@ -126,7 +126,7 @@ class BotTaskControllerIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // PUT /api/v1/bot/tasks/{taskId}
+    // PUT /api/v1/bot/tasks/{taskId}/verify
     // -------------------------------------------------------------------------
 
     @Test
@@ -149,7 +149,7 @@ class BotTaskControllerIntegrationTest {
             }
             """, ESCROW_UUID, SENTINEL_PRICE, sellerAvatarUuid);
 
-        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId)
+        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId + "/verify")
                 .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -177,7 +177,7 @@ class BotTaskControllerIntegrationTest {
             }
             """;
 
-        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId)
+        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId + "/verify")
                 .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -211,7 +211,7 @@ class BotTaskControllerIntegrationTest {
             }
             """, SENTINEL_PRICE, sellerAvatarUuid);
 
-        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId)
+        mockMvc.perform(put("/api/v1/bot/tasks/" + botTaskId + "/verify")
                 .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
@@ -232,7 +232,7 @@ class BotTaskControllerIntegrationTest {
             }
             """, ESCROW_UUID, SENTINEL_PRICE);
 
-        mockMvc.perform(put("/api/v1/bot/tasks/999999")
+        mockMvc.perform(put("/api/v1/bot/tasks/999999/verify")
                 .header("Authorization", BOT_BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))

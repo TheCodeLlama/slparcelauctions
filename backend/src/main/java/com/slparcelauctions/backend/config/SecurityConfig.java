@@ -135,8 +135,9 @@ public class SecurityConfig {
                         // BotSharedSecretAuthorizer (constant-time compare via
                         // MessageDigest.isEqual). The .access(...) matcher is the
                         // single trust boundary for every /api/v1/bot/** path:
-                        // /claim, /pending, /{id}, /{id}/verify, and the MONITOR
-                        // callback that Task 5 ships all gate through here.
+                        // /claim, /pending, /{id}/verify, and /{id}/monitor
+                        // (Task 5) all gate through here. The Task 4 deprecated
+                        // PUT /{id} shim was removed in Task 12.
                         // FOOTGUNS §B.5: matcher order is first-match-wins, so
                         // this rule MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/bot/**").access((authentication, ctx) ->
