@@ -93,6 +93,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -160,8 +161,16 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
         assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(currentBid);
-        assertThat(escrow.getCommissionAmt()).isEqualTo(250L);
-        assertThat(escrow.getPayoutAmt()).isEqualTo(4_750L);
+        // Commission math lives in EscrowCommissionCalculator (spec §4.3 —
+        // max(bid * 5%, L$50) floor). Assert against the calculator so
+        // test expectations track the business rule instead of duplicating
+        // its arithmetic. At Phase-1 rates 5000*0.05 = 250 clears the L$50
+        // floor, so commissionAmt=250 and payoutAmt=4750 — kept in the
+        // comment so a reviewer sees the expected numeric value too.
+        assertThat(escrow.getCommissionAmt())
+                .isEqualTo(commissionCalculator.commission(currentBid));
+        assertThat(escrow.getPayoutAmt())
+                .isEqualTo(commissionCalculator.payout(currentBid));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
         // paymentDeadline = endedAt + 48h. Allow 1μs tolerance for Postgres
         // TIMESTAMPTZ nanosecond→microsecond rounding.

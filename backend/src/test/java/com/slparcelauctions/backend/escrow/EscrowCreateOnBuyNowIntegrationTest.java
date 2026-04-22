@@ -91,6 +91,7 @@ class EscrowCreateOnBuyNowIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -140,28 +141,37 @@ class EscrowCreateOnBuyNowIntegrationTest {
         // buyNowPrice = L$10000. A bid at exactly L$10000 closes the auction
         // with BOUGHT_NOW and must land an ESCROW_PENDING row with the
         // 5% commission (L$500 clears the L$50 floor) + L$9500 payout.
-        seedActiveAuction(/* buyNowPrice */ 10_000L);
+        long bidAmount = 10_000L;
+        seedActiveAuction(/* buyNowPrice */ bidAmount);
 
         // Place the buy-now bid on the seeded bidder's account. BidService
         // runs inside its own @Transactional boundary; afterCommit fires on
         // return, so the capturingEscrowPublisher has the envelope by the
         // time placeBid returns to the test.
         BidResponse resp = bidService.placeBid(
-                seededAuctionId, seededBidderId, 10_000L, "1.2.3.4");
+                seededAuctionId, seededBidderId, bidAmount, "1.2.3.4");
 
         assertThat(resp.buyNowTriggered()).isTrue();
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
-        assertThat(refreshed.getFinalBidAmount()).isEqualTo(10_000L);
+        assertThat(refreshed.getFinalBidAmount()).isEqualTo(bidAmount);
         assertThat(refreshed.getWinnerUserId()).isEqualTo(seededBidderId);
 
         Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
         assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
-        assertThat(escrow.getFinalBidAmount()).isEqualTo(10_000L);
-        assertThat(escrow.getCommissionAmt()).isEqualTo(500L);
-        assertThat(escrow.getPayoutAmt()).isEqualTo(9_500L);
+        assertThat(escrow.getFinalBidAmount()).isEqualTo(bidAmount);
+        // Commission math lives in EscrowCommissionCalculator (spec §4.3 —
+        // max(bid * 5%, L$50) floor). Assert against the calculator so
+        // test expectations track the business rule instead of duplicating
+        // its arithmetic. At Phase-1 rates 10000*0.05 = 500 clears the L$50
+        // floor, so commissionAmt=500 and payoutAmt=9500 — kept in the
+        // comment so a reviewer sees the expected numeric value too.
+        assertThat(escrow.getCommissionAmt())
+                .isEqualTo(commissionCalculator.commission(bidAmount));
+        assertThat(escrow.getPayoutAmt())
+                .isEqualTo(commissionCalculator.payout(bidAmount));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
         assertThat(escrow.getTransferDeadline()).isNull();
         assertThat(escrow.getFundedAt()).isNull();
