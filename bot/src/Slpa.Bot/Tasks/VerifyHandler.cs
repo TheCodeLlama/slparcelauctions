@@ -29,11 +29,19 @@ public sealed class VerifyHandler
 
     public async Task HandleAsync(BotTaskResponse task, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(task.RegionName)
+            || task.PositionX is null || task.PositionY is null || task.PositionZ is null)
+        {
+            await _backend.CompleteVerifyAsync(task.Id,
+                Failure("MISSING_COORDS"), ct).ConfigureAwait(false);
+            return;
+        }
+
         var tp = await _session.TeleportAsync(
-            task.RegionName ?? string.Empty,
-            task.PositionX ?? 128,
-            task.PositionY ?? 128,
-            task.PositionZ ?? 20,
+            task.RegionName,
+            task.PositionX.Value,
+            task.PositionY.Value,
+            task.PositionZ.Value,
             ct).ConfigureAwait(false);
         if (!tp.Success)
         {
@@ -44,7 +52,7 @@ public sealed class VerifyHandler
         }
 
         var snapshot = await _session.ReadParcelAsync(
-            task.PositionX ?? 128, task.PositionY ?? 128, ct).ConfigureAwait(false);
+            task.PositionX.Value, task.PositionY.Value, ct).ConfigureAwait(false);
         if (snapshot is null)
         {
             await _backend.CompleteVerifyAsync(task.Id,

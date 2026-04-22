@@ -173,6 +173,25 @@ public sealed class MonitorHandlerTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task MissingCoords_PostsAccessDenied()
+    {
+        _session.SimulateLoginSuccess();
+        var task = AuctionTask(Guid.NewGuid(), Guid.NewGuid(), 999_999_999);
+        task = task with { RegionName = null };
+        var handler = new MonitorHandler(_session, _backend.Object,
+                NullLogger<MonitorHandler>.Instance);
+
+        await handler.HandleAsync(task, CancellationToken.None);
+
+        _backend.Verify(b => b.PostMonitorAsync(
+            It.IsAny<long>(),
+            It.Is<BotMonitorResultRequest>(r =>
+                r.Outcome == MonitorOutcome.ACCESS_DENIED
+                && r.Note == "MISSING_COORDS"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static ParcelSnapshot Snapshot(Guid owner, Guid authBuyer, long salePrice) =>
         new(owner, Guid.Empty, false, authBuyer, salePrice,
             "", "", 1024, 117, 0, Guid.Empty, 0);

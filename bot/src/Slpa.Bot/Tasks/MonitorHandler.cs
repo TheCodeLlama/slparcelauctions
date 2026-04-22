@@ -28,11 +28,22 @@ public sealed class MonitorHandler
 
     public async Task HandleAsync(BotTaskResponse task, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(task.RegionName)
+            || task.PositionX is null || task.PositionY is null || task.PositionZ is null)
+        {
+            await _backend.PostMonitorAsync(task.Id,
+                new BotMonitorResultRequest(
+                    MonitorOutcome.ACCESS_DENIED, null, null, null,
+                    "MISSING_COORDS"),
+                ct).ConfigureAwait(false);
+            return;
+        }
+
         var tp = await _session.TeleportAsync(
-            task.RegionName ?? string.Empty,
-            task.PositionX ?? 128,
-            task.PositionY ?? 128,
-            task.PositionZ ?? 20,
+            task.RegionName,
+            task.PositionX.Value,
+            task.PositionY.Value,
+            task.PositionZ.Value,
             ct).ConfigureAwait(false);
         if (!tp.Success)
         {
@@ -45,7 +56,7 @@ public sealed class MonitorHandler
         }
 
         var snap = await _session.ReadParcelAsync(
-            task.PositionX ?? 128, task.PositionY ?? 128, ct).ConfigureAwait(false);
+            task.PositionX.Value, task.PositionY.Value, ct).ConfigureAwait(false);
         if (snap is null)
         {
             await _backend.PostMonitorAsync(task.Id,
@@ -98,7 +109,8 @@ public sealed class MonitorHandler
             return MonitorOutcome.OWNER_CHANGED;
         if (task.ExpectedWinnerUuid is { } winnerForAuth
             && snap.AuthBuyerId == winnerForAuth
-            && snap.SalePrice <= (task.ExpectedMaxSalePriceLindens ?? 1))
+            && task.ExpectedMaxSalePriceLindens is { } maxPrice
+            && snap.SalePrice <= maxPrice)
             return MonitorOutcome.TRANSFER_READY;
         return MonitorOutcome.STILL_WAITING;
     }

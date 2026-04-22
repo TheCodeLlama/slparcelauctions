@@ -54,6 +54,10 @@ public sealed class TaskLoop : BackgroundService
         _log = log;
     }
 
+    /// <summary>
+    /// BackgroundService hook. Delegates to <see cref="RunAsync"/> so tests
+    /// can drive the loop directly without instantiating a full host.
+    /// </summary>
     protected override Task ExecuteAsync(CancellationToken ct) => RunAsync(ct);
 
     /// <summary>

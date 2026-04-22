@@ -60,6 +60,23 @@ public sealed class VerifyHandlerTests
     }
 
     [Fact]
+    public async Task MissingCoords_PostsFailureWithoutTeleporting()
+    {
+        _session.SimulateLoginSuccess();
+        var task = BuildVerifyTask() with { RegionName = null };
+        var handler = new VerifyHandler(_session, _backend.Object,
+                NullLogger<VerifyHandler>.Instance);
+
+        await handler.HandleAsync(task, CancellationToken.None);
+
+        _backend.Verify(b => b.CompleteVerifyAsync(
+            task.Id,
+            It.Is<BotTaskCompleteRequest>(r =>
+                r.Result == "FAILURE" && r.FailureReason == "MISSING_COORDS"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task ParcelReadTimeout_PostsFailure()
     {
         _session.SimulateLoginSuccess();
