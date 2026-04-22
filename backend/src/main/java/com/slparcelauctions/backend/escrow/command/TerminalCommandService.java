@@ -27,7 +27,6 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope
 import com.slparcelauctions.backend.escrow.broadcast.EscrowRefundCompletedEnvelope;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.escrow.exception.EscrowNotFoundException;
-import com.slparcelauctions.backend.escrow.terminal.TerminalService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -67,8 +66,6 @@ public class TerminalCommandService {
     private final ListingFeeRefundRepository listingFeeRefundRepo;
     private final UserRepository userRepo;
     private final EscrowBroadcastPublisher broadcastPublisher;
-    @SuppressWarnings("unused") // Reserved for shared-secret provenance tagging in callback path.
-    private final TerminalService terminalService;
     private final Clock clock;
 
     /**
