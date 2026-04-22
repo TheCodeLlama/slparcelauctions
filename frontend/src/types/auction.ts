@@ -8,6 +8,7 @@
 //   - photos[].url (not bytesUrl) + contentType + sizeBytes + uploadedAt.
 //   - bidCount: Integer, bidderCount: Long (both are `number` in TS).
 
+import type { EscrowEnvelope, EscrowState } from "./escrow";
 import type { ParcelDto } from "./parcel";
 import type { ParcelTagDto } from "./parcelTag";
 
@@ -94,6 +95,10 @@ export interface SellerAuctionResponse {
   commissionAmt: number | null;
   createdAt: string;
   updatedAt: string;
+  // Sub-spec 2: escrow enrichment. Populated once the auction reaches ENDED
+  // and an escrow row exists; null otherwise.
+  escrowState?: EscrowState | null;
+  transferConfirmedAt?: string | null;
 }
 
 /** Duration choices permitted by the backend (hours). */
@@ -166,6 +171,10 @@ export interface PublicAuctionResponse {
   sellerDesc: string | null;
   tags: ParcelTagDto[];
   photos: AuctionPhotoDto[];
+  // Sub-spec 2: escrow enrichment. Populated once the auction reaches ENDED
+  // and an escrow row exists; null otherwise.
+  escrowState?: EscrowState | null;
+  transferConfirmedAt?: string | null;
 }
 
 /**
@@ -260,6 +269,15 @@ export interface AuctionEndedEnvelope {
 export type AuctionEnvelope = BidSettlementEnvelope | AuctionEndedEnvelope;
 
 /**
+ * Every envelope type that can arrive on `/topic/auction/{id}`.
+ * {@code AuctionDetailClient} and {@code EscrowPageClient} both subscribe
+ * with this union; handlers discriminate on {@code type}. Re-exports the
+ * nine escrow variants from `./escrow` via the imported EscrowEnvelope so
+ * subscribers only need a single discriminator switch.
+ */
+export type AuctionTopicEnvelope = AuctionEnvelope | EscrowEnvelope;
+
+/**
  * POST /api/v1/auctions/{id}/bids response body. Returns the just-committed
  * bid plus the post-commit auction-level fields the client needs to render
  * without a second GET. {@code buyNowTriggered} flips true when the submitted
@@ -315,6 +333,10 @@ export interface AuctionSummaryForMyBids {
   bidderCount: number;
   sellerUserId: number | null;
   sellerDisplayName: string | null;
+  // Sub-spec 2: escrow enrichment. Populated once the auction reaches ENDED
+  // and an escrow row exists; null otherwise.
+  escrowState?: EscrowState | null;
+  transferConfirmedAt?: string | null;
 }
 
 /**
