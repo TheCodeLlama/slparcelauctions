@@ -199,6 +199,10 @@ public class TerminalCommandService {
             handleEscrowRefundSuccess(cmd, slTxn, now);
         } else if (cmd.getPurpose() == TerminalCommandPurpose.LISTING_FEE_REFUND) {
             handleListingFeeRefundSuccess(cmd, slTxn, now);
+        } else {
+            throw new IllegalStateException(
+                    "Unhandled terminal command callback: purpose=" + cmd.getPurpose()
+                            + ", action=" + cmd.getAction() + ", commandId=" + cmd.getId());
         }
     }
 
