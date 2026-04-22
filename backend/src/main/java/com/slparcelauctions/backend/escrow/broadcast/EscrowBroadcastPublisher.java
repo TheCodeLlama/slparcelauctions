@@ -78,4 +78,15 @@ public interface EscrowBroadcastPublisher {
      * failures run the counter past {@code MAX_ATTEMPTS}).
      */
     void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope);
+
+    /**
+     * Publishes an {@link EscrowExpiredEnvelope} after the timeout-sweeper
+     * transaction commits. Called by
+     * {@code EscrowService.expirePayment} (reason={@code PAYMENT_TIMEOUT},
+     * no refund queued) and
+     * {@code EscrowService.expireTransfer} (reason={@code TRANSFER_TIMEOUT},
+     * winner refund queued) via an {@code afterCommit} callback so
+     * subscribers never observe an expiry that gets rolled back.
+     */
+    void publishExpired(EscrowExpiredEnvelope envelope);
 }

@@ -81,6 +81,13 @@ public class NoOpEscrowBroadcastPublisher {
                         envelope.auctionId(), envelope.escrowId(), envelope.attemptCount(),
                         envelope.lastError());
             }
+
+            @Override
+            public void publishExpired(EscrowExpiredEnvelope envelope) {
+                log.debug("no-op publishExpired: auctionId={}, escrowId={}, state={}, reason={}",
+                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.reason());
+            }
         };
     }
 }

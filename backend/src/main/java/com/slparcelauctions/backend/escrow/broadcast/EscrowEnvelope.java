@@ -12,10 +12,11 @@ import java.time.OffsetDateTime;
  * added {@link EscrowDisputedEnvelope}; Task 5 added
  * {@link EscrowFundedEnvelope}; Task 6 added
  * {@link EscrowTransferConfirmedEnvelope} and {@link EscrowFrozenEnvelope}
- * for the ownership-monitor outcomes; Task 7 adds
+ * for the ownership-monitor outcomes; Task 7 added
  * {@link EscrowCompletedEnvelope}, {@link EscrowRefundCompletedEnvelope},
  * and {@link EscrowPayoutStalledEnvelope} for the terminal command
- * dispatcher / callback pipeline.
+ * dispatcher / callback pipeline. Task 8 adds
+ * {@link EscrowExpiredEnvelope} for the scheduled timeout sweeper.
  */
 public sealed interface EscrowEnvelope
         permits EscrowCreatedEnvelope,
@@ -25,7 +26,8 @@ public sealed interface EscrowEnvelope
                 EscrowFrozenEnvelope,
                 EscrowCompletedEnvelope,
                 EscrowRefundCompletedEnvelope,
-                EscrowPayoutStalledEnvelope {
+                EscrowPayoutStalledEnvelope,
+                EscrowExpiredEnvelope {
 
     String type();
     Long auctionId();

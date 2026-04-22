@@ -26,6 +26,7 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
     public final List<EscrowCompletedEnvelope> completed = new CopyOnWriteArrayList<>();
     public final List<EscrowRefundCompletedEnvelope> refundCompleted = new CopyOnWriteArrayList<>();
     public final List<EscrowPayoutStalledEnvelope> payoutStalled = new CopyOnWriteArrayList<>();
+    public final List<EscrowExpiredEnvelope> expired = new CopyOnWriteArrayList<>();
 
     @Override
     public void publishCreated(EscrowCreatedEnvelope envelope) {
@@ -67,6 +68,11 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
         payoutStalled.add(envelope);
     }
 
+    @Override
+    public void publishExpired(EscrowExpiredEnvelope envelope) {
+        expired.add(envelope);
+    }
+
     /** Clears every capture list; useful in {@code @BeforeEach} hooks. */
     public void reset() {
         created.clear();
@@ -77,5 +83,6 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
         completed.clear();
         refundCompleted.clear();
         payoutStalled.clear();
+        expired.clear();
     }
 }
