@@ -228,6 +228,21 @@ public class EscrowService {
         // Task 7 integration — see javadoc.
     }
 
+    /**
+     * Placeholder for Task 7 integration. When ownership transfer is confirmed
+     * (ESCROW_TRANSFER_CONFIRMED), a payout {@code TerminalCommand} must be
+     * queued on the terminal dispatch pipeline. Task 7 introduces
+     * {@code TerminalCommandService} and replaces this body with
+     * {@code terminalCommandService.queuePayout(escrow);}. In this task the
+     * stub is a no-op so the ownership-confirm flow can ship without the
+     * command-queue scaffolding. Leaving this as a named hook (vs. a raw
+     * inline TODO) makes the Task 7 insertion point grep-able and keeps the
+     * forward-link pattern consistent with {@link #queueRefundIfFunded(Escrow)}.
+     */
+    void queuePayoutOnConfirm(Escrow escrow) {
+        // Task 7 integration — see javadoc.
+    }
+
     private EscrowStatusResponse toStatusResponse(Escrow escrow) {
         List<EscrowTimelineEntry> timeline = buildTimeline(escrow);
         return new EscrowStatusResponse(
@@ -481,7 +496,7 @@ public class EscrowService {
      * ownership-check transaction fails fast: there must be a locked escrow
      * row in scope for the afterCommit envelope to be sound.
      *
-     * <p>Task 7 will replace the {@code TODO} with a real
+     * <p>Task 7 will replace {@link #queuePayoutOnConfirm(Escrow)} with a real
      * {@code terminalCommandService.queuePayout(escrow)} call.
      */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -491,7 +506,7 @@ public class EscrowService {
         escrow.setConsecutiveWorldApiFailures(0);
         escrow = escrowRepo.save(escrow);
 
-        // TODO(Task 7): terminalCommandService.queuePayout(escrow);
+        queuePayoutOnConfirm(escrow);
 
         final EscrowTransferConfirmedEnvelope envelope =
                 EscrowTransferConfirmedEnvelope.of(escrow, now);
