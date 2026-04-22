@@ -38,6 +38,27 @@ vi.mock("@/lib/ws/client", () => ({
   getConnectionState: getConnectionStateMock,
 }));
 
+// next/navigation is mocked globally in vitest.setup.ts, but each call to
+// useRouter() there returns a fresh `replace: vi.fn()` so assertions on
+// redirect calls can't pin it down. Override the mock locally with a
+// hoisted, stable replaceMock so the unauthenticated-redirect test can
+// assert on the exact invocation. Other navigation helpers the module
+// exports are included for parity with the setup mock.
+const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: replaceMock,
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+  usePathname: vi.fn(() => "/auction/7/escrow"),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // Winner fixture — id does NOT match sellerId so the client resolves
 // the viewer role to `winner`. renderWithProviders seeds the session
 // cache directly, so the session.user.id drives role derivation.
@@ -69,6 +90,7 @@ describe("EscrowPageClient", () => {
     });
     getConnectionStateMock.mockReset();
     getConnectionStateMock.mockReturnValue({ status: "connected" });
+    replaceMock.mockReset();
   });
 
   it("renders pending state for winner", async () => {
@@ -196,5 +218,32 @@ describe("EscrowPageClient", () => {
       await screen.findByText(/awaiting payment from/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/escrow · seller/i)).toBeInTheDocument();
+  });
+
+  it("redirects anonymous users to login with return path", async () => {
+    // The escrow GET should never fire for an anonymous caller — the
+    // useQuery is gated on `isAuthenticated` — but stub it anyway so a
+    // regression (e.g. the gate being removed) surfaces as a handler-not-
+    // found MSW error rather than a silent fetch.
+    server.use(
+      http.get("*/api/v1/auctions/7/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionId: 7 })),
+      ),
+    );
+
+    renderWithProviders(<EscrowPageClient auctionId={7} sellerId={42} />, {
+      auth: "anonymous",
+    });
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/login\?next=/),
+      );
+    });
+    // The returnTo is the URL-encoded path back to this page so the
+    // post-login hop lands the viewer where they started.
+    expect(replaceMock).toHaveBeenCalledWith(
+      `/login?next=${encodeURIComponent("/auction/7/escrow")}`,
+    );
   });
 });
