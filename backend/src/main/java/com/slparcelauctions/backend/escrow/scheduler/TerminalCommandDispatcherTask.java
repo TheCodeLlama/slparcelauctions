@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -33,11 +34,14 @@ import lombok.extern.slf4j.Slf4j;
  * live terminal, and handles the IN_FLIGHT staleness sweep for terminals
  * that never call back (spec §7.4).
  *
- * <p>Each call runs in a fresh transaction under a pessimistic lock on the
- * command row so the dispatcher serialises against
+ * <p>Each call runs in a fresh transaction ({@code REQUIRES_NEW}) under a
+ * pessimistic lock on the command row so the dispatcher serialises against
  * {@code TerminalCommandService.applyCallback} — one of the two can hold
  * the row at a time, preventing a callback from landing a COMPLETED flip
- * while the dispatcher is re-POSTing, and vice versa.
+ * while the dispatcher is re-POSTing, and vice versa. The explicit
+ * propagation setting keeps per-command failures isolated from the
+ * surrounding sweep even if a future refactor ever wraps it in
+ * {@code @Transactional}.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,7 +62,7 @@ public class TerminalCommandDispatcherTask {
      * terminal. On transport failure the row flips to {@code FAILED} with
      * backoff or a stall if attempts are exhausted.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void dispatchOne(Long commandId) {
         TerminalCommand cmd = cmdRepo.findByIdForUpdate(commandId).orElse(null);
         if (cmd == null) return;
@@ -144,7 +148,7 @@ public class TerminalCommandDispatcherTask {
      * recovers the "waiting for callback" row so it can participate in the
      * retry schedule.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markStaleAndRequeue(Long commandId) {
         TerminalCommand cmd = cmdRepo.findByIdForUpdate(commandId).orElse(null);
         if (cmd == null || cmd.getStatus() != TerminalCommandStatus.IN_FLIGHT) return;

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.escrow.Escrow;
@@ -29,9 +30,11 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Per-escrow ownership check worker dispatched by
  * {@link EscrowOwnershipMonitorJob} (spec §4.5). Runs under a pessimistic
- * write lock ({@code findByIdForUpdate}) in a fresh transaction so the
- * monitor serialises against the dispute, payment, and timeout paths that
- * take the same lock.
+ * write lock ({@code findByIdForUpdate}) in a fresh transaction
+ * ({@code REQUIRES_NEW}) so the monitor serialises against the dispute,
+ * payment, and timeout paths that take the same lock, and so the job's
+ * loop-level exception handling can isolate per-escrow failures even if a
+ * future refactor ever wraps the outer sweep in {@code @Transactional}.
  *
  * <p>Outcomes, mirroring the auction-level {@code OwnershipCheckTask} but
  * decision-matrix-specific to escrow:
@@ -75,7 +78,7 @@ public class EscrowOwnershipCheckTask {
     private final EscrowConfigProperties props;
     private final Clock clock;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void checkOne(Long escrowId) {
         Escrow escrow = escrowRepo.findByIdForUpdate(escrowId).orElse(null);
         if (escrow == null) {

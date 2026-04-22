@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.escrow.scheduler;
 import java.time.OffsetDateTime;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.escrow.Escrow;
@@ -26,9 +27,13 @@ import lombok.extern.slf4j.Slf4j;
  * the deadline forward. Short-circuiting in either case leaves the escrow
  * untouched; the next sweep will re-decide from the refreshed row.
  *
- * <p>Per-escrow work runs in a fresh transaction so the sweep's loop-level
- * exception handling can isolate failures — a single bad escrow can't
- * stall the rest of the sweep. Mirrors the shape of
+ * <p>Per-escrow work runs in a fresh transaction ({@code REQUIRES_NEW}) so
+ * the sweep's loop-level exception handling can isolate failures — a single
+ * bad escrow can't stall the rest of the sweep. The explicit propagation
+ * setting enforces this invariant even if a future refactor ever wraps the
+ * surrounding {@code sweep()} in {@code @Transactional}; the default
+ * {@code REQUIRED} would silently join the outer transaction and one
+ * failure would taint the whole sweep. Mirrors the shape of
  * {@link EscrowOwnershipCheckTask}.
  */
 @Service
@@ -39,7 +44,7 @@ public class EscrowTimeoutTask {
     private final EscrowRepository escrowRepo;
     private final EscrowService escrowService;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void expirePayment(Long escrowId, OffsetDateTime now) {
         Escrow escrow = escrowRepo.findByIdForUpdate(escrowId).orElse(null);
         if (escrow == null || escrow.getState() != EscrowState.ESCROW_PENDING) {
@@ -54,7 +59,7 @@ public class EscrowTimeoutTask {
         escrowService.expirePayment(escrow, now);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void expireTransfer(Long escrowId, OffsetDateTime now) {
         Escrow escrow = escrowRepo.findByIdForUpdate(escrowId).orElse(null);
         if (escrow == null || escrow.getState() != EscrowState.TRANSFER_PENDING) {
