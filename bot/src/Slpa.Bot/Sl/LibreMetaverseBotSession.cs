@@ -28,17 +28,20 @@ public sealed class LibreMetaverseBotSession : IBotSession
     private readonly BotOptions _opts;
     private readonly ILogger<LibreMetaverseBotSession> _log;
     private readonly GridClient _client;
+    private readonly TeleportRateLimiter _rateLimiter;
     private CancellationTokenSource? _runCts;
     private Task? _runTask;
     private int _stateValue = (int)SessionState.Starting;
 
     public LibreMetaverseBotSession(
         IOptions<BotOptions> opts,
+        IOptions<RateLimitOptions> rateOpts,
         ILogger<LibreMetaverseBotSession> log)
     {
         _opts = opts.Value;
         _log = log;
         _client = CreateHeadlessClient();
+        _rateLimiter = new TeleportRateLimiter(rateOpts.Value.TeleportsPerMinute);
     }
 
     public SessionState State => (SessionState)Volatile.Read(ref _stateValue);
@@ -201,6 +204,116 @@ public sealed class LibreMetaverseBotSession : IBotSession
         {
             registration.Dispose();
         }
+    }
+
+    public async Task<TeleportResult> TeleportAsync(
+        string regionName, double x, double y, double z, CancellationToken ct)
+    {
+        if (State != SessionState.Online)
+        {
+            throw new SessionLostException(
+                $"Cannot teleport in state {State}");
+        }
+
+        await _rateLimiter.AcquireAsync(ct).ConfigureAwait(false);
+
+        var tcs = new TaskCompletionSource<TeleportResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<TeleportEventArgs>? handler = null;
+        handler = (_, e) =>
+        {
+            if (e.Status is TeleportStatus.Finished
+                or TeleportStatus.Failed
+                or TeleportStatus.Cancelled)
+            {
+                _client.Self.TeleportProgress -= handler!;
+                var result = e.Status == TeleportStatus.Finished
+                    ? TeleportResult.Ok()
+                    : TeleportResult.Fail(ClassifyFailure(e.Message));
+                tcs.TrySetResult(result);
+            }
+        };
+        _client.Self.TeleportProgress += handler;
+        EventHandler<DisconnectedEventArgs>? disc = null;
+        disc = (_, _) => tcs.TrySetException(
+            new SessionLostException("Disconnected mid-teleport"));
+        _client.Network.Disconnected += disc;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+        var registration = timeoutCts.Token.Register(() =>
+            tcs.TrySetResult(TeleportResult.Fail(TeleportFailureKind.Timeout)));
+        try
+        {
+            _client.Self.Teleport(regionName, new Vector3((float)x, (float)y, (float)z));
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            registration.Dispose();
+            _client.Self.TeleportProgress -= handler;
+            _client.Network.Disconnected -= disc!;
+        }
+    }
+
+    public async Task<ParcelSnapshot?> ReadParcelAsync(
+        double x, double y, CancellationToken ct)
+    {
+        if (State != SessionState.Online)
+        {
+            throw new SessionLostException(
+                $"Cannot read parcel in state {State}");
+        }
+
+        var sim = _client.Network.CurrentSim;
+        if (sim is null) return null;
+
+        var tcs = new TaskCompletionSource<ParcelSnapshot?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        EventHandler<ParcelPropertiesEventArgs>? handler = null;
+        handler = (_, e) =>
+        {
+            _client.Parcels.ParcelProperties -= handler!;
+            tcs.TrySetResult(new ParcelSnapshot(
+                OwnerId: Guid.Parse(e.Parcel.OwnerID.ToString()),
+                GroupId: Guid.Parse(e.Parcel.GroupID.ToString()),
+                IsGroupOwned: e.Parcel.IsGroupOwned,
+                AuthBuyerId: Guid.Parse(e.Parcel.AuthBuyerID.ToString()),
+                SalePrice: e.Parcel.SalePrice,
+                Name: e.Parcel.Name ?? string.Empty,
+                Description: e.Parcel.Desc ?? string.Empty,
+                AreaSqm: e.Parcel.Area,
+                MaxPrims: e.Parcel.MaxPrims,
+                Category: (int)e.Parcel.Category,
+                SnapshotId: Guid.Parse(e.Parcel.SnapshotID.ToString()),
+                Flags: (uint)e.Parcel.Flags));
+        };
+        _client.Parcels.ParcelProperties += handler;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+        var registration = timeoutCts.Token.Register(() => tcs.TrySetResult(null));
+        try
+        {
+            _client.Parcels.RequestAllSimParcels(sim);
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            registration.Dispose();
+            _client.Parcels.ParcelProperties -= handler;
+        }
+    }
+
+    private static TeleportFailureKind ClassifyFailure(string? message)
+    {
+        if (string.IsNullOrEmpty(message)) return TeleportFailureKind.Other;
+        var m = message.ToLowerInvariant();
+        if (m.Contains("denied") || m.Contains("banned")
+            || m.Contains("restrict")) return TeleportFailureKind.AccessDenied;
+        if (m.Contains("not found") || m.Contains("does not exist"))
+            return TeleportFailureKind.RegionNotFound;
+        return TeleportFailureKind.Other;
     }
 
     private void TransitionTo(SessionState next)
