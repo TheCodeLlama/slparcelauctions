@@ -552,6 +552,7 @@ public class EscrowService {
             case UNKNOWN_OWNER -> FraudFlagReason.ESCROW_UNKNOWN_OWNER;
             case PARCEL_DELETED -> FraudFlagReason.ESCROW_PARCEL_DELETED;
             case WORLD_API_PERSISTENT_FAILURE -> FraudFlagReason.ESCROW_WORLD_API_FAILURE;
+            case BOT_OWNERSHIP_CHANGED -> FraudFlagReason.BOT_OWNERSHIP_CHANGED;
         };
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(escrow.getAuction())

@@ -37,5 +37,31 @@ public enum FraudFlagReason {
      * failures on the same escrow. The freeze protects the transfer window
      * from stalling indefinitely on a persistently unreachable upstream.
      */
-    ESCROW_WORLD_API_FAILURE
+    ESCROW_WORLD_API_FAILURE,
+    /**
+     * Raised by the bot auction monitor (Epic 06) when observed AuthBuyerID
+     * no longer equals the primary escrow account UUID during an active
+     * BOT-tier auction. Seller has revoked the sale-to-bot setting — treated
+     * as fraud because a bot-verified listing depends on that setting.
+     */
+    BOT_AUTH_BUYER_REVOKED,
+    /**
+     * Raised by the bot auction monitor when observed SalePrice no longer
+     * matches the sentinel. Seller has retargeted or lowered the price —
+     * treated as fraud on an active BOT-tier auction.
+     */
+    BOT_PRICE_DRIFT,
+    /**
+     * Raised by the bot auction or escrow monitor when observed OwnerID no
+     * longer matches the expected seller (auction) or is neither seller nor
+     * winner (escrow). Treated as fraud in both flows.
+     */
+    BOT_OWNERSHIP_CHANGED,
+    /**
+     * Raised when the bot has received ACCESS_DENIED on a parcel for
+     * slpa.bot.access-denied-streak-threshold consecutive monitor cycles
+     * (default 3). Seller has revoked bot access — treated as fraud on
+     * active auctions; the escrow flow uses markReviewRequired instead.
+     */
+    BOT_ACCESS_REVOKED
 }
