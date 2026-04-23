@@ -74,6 +74,7 @@ public class AuctionDtoMapper {
         return new PublicAuctionResponse(
                 a.getId(),
                 a.getSeller().getId(),
+                a.getTitle(),
                 ParcelResponse.from(a.getParcel()),
                 toPublicStatus(a.getStatus()),
                 a.getVerificationTier(),
@@ -111,6 +112,7 @@ public class AuctionDtoMapper {
         return new SellerAuctionResponse(
                 a.getId(),
                 a.getSeller().getId(),
+                a.getTitle(),
                 ParcelResponse.from(a.getParcel()),
                 a.getStatus(),
                 a.getVerificationMethod(),

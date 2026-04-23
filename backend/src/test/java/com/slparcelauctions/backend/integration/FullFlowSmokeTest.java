@@ -369,6 +369,7 @@ class FullFlowSmokeTest {
         String body = String.format("""
             {
               "parcelId":%d,
+              "title":"Test listing",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,

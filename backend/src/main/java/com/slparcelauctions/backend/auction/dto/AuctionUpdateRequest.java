@@ -16,6 +16,8 @@ import jakarta.validation.constraints.Size;
  * a client bypass that gate.
  */
 public record AuctionUpdateRequest(
+        @Size(max = 120, message = "title must be at most 120 characters")
+        String title,
         @Min(1) Long startingBid,
         Long reservePrice,
         Long buyNowPrice,

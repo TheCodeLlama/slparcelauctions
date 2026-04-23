@@ -25,6 +25,7 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
 public record PublicAuctionResponse(
         Long id,
         Long sellerId,
+        String title,
         ParcelResponse parcel,
         PublicAuctionStatus status,
         VerificationTier verificationTier,

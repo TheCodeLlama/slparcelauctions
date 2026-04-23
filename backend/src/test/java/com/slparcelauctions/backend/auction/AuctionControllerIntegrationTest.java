@@ -108,7 +108,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_validRequest_returns201AndDraft() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), 1000L, null, null,
+                sellerParcel.getId(), "Test listing", 1000L, null, null,
                 168, false, null, "Nice parcel", null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -118,6 +118,7 @@ class AuctionControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.sellerId").value(sellerId))
+                .andExpect(jsonPath("$.title").value("Test listing"))
                 .andExpect(jsonPath("$.startingBid").value(1000))
                 .andExpect(jsonPath("$.listingFeePaid").value(false));
     }
@@ -125,7 +126,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_asUnverifiedUser_returns403() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), 1000L, null, null,
+                sellerParcel.getId(), "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -139,7 +140,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_nonExistentParcel_returns400() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                999999L, 1000L, null, null,
+                999999L, "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -148,6 +149,78 @@ class AuctionControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void create_missingTitle_returns400WithProblemDetail() throws Exception {
+        // JSR-380 @NotBlank on AuctionCreateRequest.title fires before the
+        // service is reached; the global validation handler maps it to a
+        // standard problem-detail body with a "code" field.
+        String body = """
+                {
+                  "parcelId": %d,
+                  "startingBid": 1000,
+                  "durationHours": 168,
+                  "snipeProtect": false
+                }
+                """.formatted(sellerParcel.getId());
+        mockMvc.perform(post("/api/v1/auctions")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").exists());
+    }
+
+    @Test
+    void create_blankTitle_returns400WithProblemDetail() throws Exception {
+        String body = """
+                {
+                  "parcelId": %d,
+                  "title": "   ",
+                  "startingBid": 1000,
+                  "durationHours": 168,
+                  "snipeProtect": false
+                }
+                """.formatted(sellerParcel.getId());
+        mockMvc.perform(post("/api/v1/auctions")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").exists());
+    }
+
+    @Test
+    void create_titleTooLong_returns400WithProblemDetail() throws Exception {
+        String over120 = "x".repeat(121);
+        String body = """
+                {
+                  "parcelId": %d,
+                  "title": "%s",
+                  "startingBid": 1000,
+                  "durationHours": 168,
+                  "snipeProtect": false
+                }
+                """.formatted(sellerParcel.getId(), over120);
+        mockMvc.perform(post("/api/v1/auctions")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").exists());
+    }
+
+    @Test
+    void getAuction_includesTitleInResponse() throws Exception {
+        Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
+        a.setTitle("Seaside cottage — rare find");
+        auctionRepository.save(a);
+
+        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+                        .header("Authorization", "Bearer " + otherAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Seaside cottage — rare find"));
     }
 
     // -------------------------------------------------------------------------
@@ -251,7 +324,7 @@ class AuctionControllerIntegrationTest {
     void update_onDraft_returns200() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                2500L, null, null, null, null, null, "updated description", null);
+                null, 2500L, null, null, null, null, null, "updated description", null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -266,7 +339,7 @@ class AuctionControllerIntegrationTest {
     void update_onActive_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                2500L, null, null, null, null, null, null, null);
+                null, 2500L, null, null, null, null, null, null, null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
