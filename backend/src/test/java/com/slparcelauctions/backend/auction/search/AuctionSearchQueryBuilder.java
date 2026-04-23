@@ -32,6 +32,11 @@ class AuctionSearchQueryBuilder {
     AuctionSearchQueryBuilder maxPrice(Long v) { this.maxPrice = v; return this; }
     AuctionSearchQueryBuilder maturity(Set<String> v) { this.maturity = v; return this; }
     AuctionSearchQueryBuilder tags(Set<ParcelTag> v) { this.tags = v; return this; }
+    AuctionSearchQueryBuilder tagsMode(TagsMode v) { this.tagsMode = v; return this; }
+    AuctionSearchQueryBuilder reserveStatus(ReserveStatusFilter v) { this.reserveStatus = v; return this; }
+    AuctionSearchQueryBuilder snipeProtection(SnipeProtectionFilter v) { this.snipeProtection = v; return this; }
+    AuctionSearchQueryBuilder verificationTier(Set<VerificationTier> v) { this.verificationTier = v; return this; }
+    AuctionSearchQueryBuilder endingWithinHours(Integer v) { this.endingWithinHours = v; return this; }
     AuctionSearchQueryBuilder nearRegion(String v) { this.nearRegion = v; return this; }
     AuctionSearchQueryBuilder distance(Integer v) { this.distance = v; return this; }
     AuctionSearchQueryBuilder sellerId(Long v) { this.sellerId = v; return this; }
