@@ -274,63 +274,96 @@ public sealed class LibreMetaverseBotSession : IBotSession
         var sim = _client.Network.CurrentSim;
         if (sim is null) return null;
 
-        // RequestAllSimParcels fires ParcelProperties once per parcel in the
-        // sim. We need the parcel containing (x, y), not just the first one
-        // LibreMetaverse happens to hand us. The sim's ParcelMap is a 64x64
-        // grid of 4m cells mapping to local parcel IDs; look up the cell
-        // under the landing point and only resolve when that ID arrives.
-        int row = Math.Clamp((int)(y / 4.0), 0, 63);
-        int col = Math.Clamp((int)(x / 4.0), 0, 63);
-        int expectedLocalId = sim.ParcelMap[row, col];
-        bool hasExpectedId = expectedLocalId != 0;
-        if (!hasExpectedId)
-        {
-            _log.LogWarning(
-                "ParcelMap empty at ({X}, {Y}) for sim {Sim}; falling back " +
-                "to first ParcelProperties event. Caller should retry.",
-                x, y, sim.Name);
-        }
-
-        var tcs = new TaskCompletionSource<ParcelSnapshot?>(
+        // Wait for the simulator's parcel catalog to finish downloading.
+        // RequestAllSimParcels fires one ParcelProperties per parcel and
+        // finally a SimParcelsDownloaded once every parcel is cached.
+        // Without this wait, sim.ParcelMap is zero for the first few
+        // seconds after teleport and sim.Parcels is a partial dict —
+        // resolving too early returns whichever parcel happened to arrive
+        // first, not the one at (x, y). The backend then 400s on the
+        // mismatched observation.
+        var downloadedTcs = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        EventHandler<ParcelPropertiesEventArgs>? handler = null;
-        handler = (_, e) =>
+        EventHandler<SimParcelsDownloadedEventArgs>? downloadedHandler = null;
+        downloadedHandler = (_, args) =>
         {
-            if (hasExpectedId && e.Parcel.LocalID != expectedLocalId)
+            if (args.Simulator == sim)
             {
-                // Not the parcel we're after — stay subscribed for the next.
-                return;
+                downloadedTcs.TrySetResult(true);
             }
-            _client.Parcels.ParcelProperties -= handler!;
-            tcs.TrySetResult(new ParcelSnapshot(
-                OwnerId: Guid.Parse(e.Parcel.OwnerID.ToString()),
-                GroupId: Guid.Parse(e.Parcel.GroupID.ToString()),
-                IsGroupOwned: e.Parcel.IsGroupOwned,
-                AuthBuyerId: Guid.Parse(e.Parcel.AuthBuyerID.ToString()),
-                SalePrice: e.Parcel.SalePrice,
-                Name: e.Parcel.Name ?? string.Empty,
-                Description: e.Parcel.Desc ?? string.Empty,
-                AreaSqm: e.Parcel.Area,
-                MaxPrims: e.Parcel.MaxPrims,
-                Category: (int)e.Parcel.Category,
-                SnapshotId: Guid.Parse(e.Parcel.SnapshotID.ToString()),
-                Flags: (uint)e.Parcel.Flags));
         };
-        _client.Parcels.ParcelProperties += handler;
+        _client.Parcels.SimParcelsDownloaded += downloadedHandler;
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
-        var registration = timeoutCts.Token.Register(() => tcs.TrySetResult(null));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+        var timeoutReg = timeoutCts.Token.Register(
+            () => downloadedTcs.TrySetResult(false));
+
+        bool downloaded;
         try
         {
             _client.Parcels.RequestAllSimParcels(sim);
-            return await tcs.Task.ConfigureAwait(false);
+            downloaded = await downloadedTcs.Task.ConfigureAwait(false);
         }
         finally
         {
-            registration.Dispose();
-            _client.Parcels.ParcelProperties -= handler;
+            timeoutReg.Dispose();
+            _client.Parcels.SimParcelsDownloaded -= downloadedHandler;
         }
+
+        if (!downloaded)
+        {
+            _log.LogWarning(
+                "SimParcelsDownloaded did not fire within 30s for sim {Sim}; " +
+                "reading whatever data is cached so far.",
+                sim.Name);
+        }
+
+        // ParcelMap maps 4m grid cells -> LocalID. With the catalog fully
+        // downloaded this is populated; clamp landing coords into range.
+        int row = Math.Clamp((int)(y / 4.0), 0, 63);
+        int col = Math.Clamp((int)(x / 4.0), 0, 63);
+        int localId = sim.ParcelMap[row, col];
+        if (localId == 0)
+        {
+            _log.LogError(
+                "ParcelMap empty at ({X}, {Y}) for sim {Sim} even after " +
+                "SimParcelsDownloaded; cannot identify landing parcel.",
+                x, y, sim.Name);
+            return null;
+        }
+
+        // Pull the Parcel object directly from the simulator's cache —
+        // populated by ParcelProperties events during the download. No
+        // second round-trip needed.
+        if (!sim.Parcels.TryGetValue(localId, out var parcel) || parcel is null)
+        {
+            _log.LogError(
+                "Parcel {LocalId} found in ParcelMap at ({X}, {Y}) but not " +
+                "in sim.Parcels cache — race hazard, giving up.",
+                localId, x, y);
+            return null;
+        }
+
+        _log.LogInformation(
+            "ReadParcel resolved LocalID {LocalId} at ({X},{Y}) in {Sim}: " +
+            "name='{Name}' owner={Owner} authBuyer={AuthBuyer} salePrice={Price}",
+            localId, x, y, sim.Name, parcel.Name, parcel.OwnerID,
+            parcel.AuthBuyerID, parcel.SalePrice);
+
+        return new ParcelSnapshot(
+            OwnerId: Guid.Parse(parcel.OwnerID.ToString()),
+            GroupId: Guid.Parse(parcel.GroupID.ToString()),
+            IsGroupOwned: parcel.IsGroupOwned,
+            AuthBuyerId: Guid.Parse(parcel.AuthBuyerID.ToString()),
+            SalePrice: parcel.SalePrice,
+            Name: parcel.Name ?? string.Empty,
+            Description: parcel.Desc ?? string.Empty,
+            AreaSqm: parcel.Area,
+            MaxPrims: parcel.MaxPrims,
+            Category: (int)parcel.Category,
+            SnapshotId: Guid.Parse(parcel.SnapshotID.ToString()),
+            Flags: (uint)parcel.Flags);
     }
 
     private static TeleportFailureKind ClassifyFailure(string? message)

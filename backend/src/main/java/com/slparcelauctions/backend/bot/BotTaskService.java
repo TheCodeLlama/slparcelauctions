@@ -98,12 +98,21 @@ public class BotTaskService {
             }
         }
 
+        // Denormalize position coords from the parcel so the C# bot worker
+        // (VerifyHandler) can teleport without re-looking-up the parcel row.
+        // Matches the shape BotMonitorLifecycleService uses for MONITOR_* rows.
+        // Task 10's MISSING_COORDS guard in the worker rejects tasks without
+        // coords, so these fields are now mandatory at creation time.
+        Parcel parcel = auction.getParcel();
         BotTask task = BotTask.builder()
                 .taskType(BotTaskType.VERIFY)
                 .status(BotTaskStatus.PENDING)
                 .auction(auction)
-                .parcelUuid(auction.getParcel().getSlParcelUuid())
-                .regionName(auction.getParcel().getRegionName())
+                .parcelUuid(parcel.getSlParcelUuid())
+                .regionName(parcel.getRegionName())
+                .positionX(parcel.getPositionX())
+                .positionY(parcel.getPositionY())
+                .positionZ(parcel.getPositionZ())
                 .sentinelPrice(sentinelPrice)
                 .build();
         task = botTaskRepo.save(task);
