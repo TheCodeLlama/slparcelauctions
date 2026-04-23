@@ -11,6 +11,21 @@ server:
 spring:
   application:
     name: slpa-backend
+  # The community bucket4j-spring-boot-starter (com.giffing.*) targets Spring
+  # Boot 3 and references org.springframework.boot.autoconfigure.cache.
+  # CacheAutoConfiguration, which moved to org.springframework.boot.cache.
+  # autoconfigure.* in Spring Boot 4. We pull the starter for its programmatic
+  # API only — the rate-limit bucket on /auctions/search is wired manually via
+  # Lettuce in a later Epic 07 task. Excluding the auto-configs prevents the
+  # broken @ConditionalOnClass chain from breaking application context startup.
+  autoconfigure:
+    exclude:
+      - com.giffing.bucket4j.spring.boot.starter.Bucket4jStartupCheckConfiguration
+      - com.giffing.bucket4j.spring.boot.starter.config.cache.Bucket4jCacheConfiguration
+      - com.giffing.bucket4j.spring.boot.starter.config.aspect.Bucket4jAopConfig
+      - com.giffing.bucket4j.spring.boot.starter.config.filter.reactive.gateway.Bucket4JAutoConfigurationSpringCloudGatewayFilter
+      - com.giffing.bucket4j.spring.boot.starter.config.filter.servlet.Bucket4JAutoConfigurationServletFilter
+      - com.giffing.bucket4j.spring.boot.starter.config.filter.reactive.webflux.Bucket4JAutoConfigurationWebfluxFilter
   jpa:
     open-in-view: false
     hibernate:

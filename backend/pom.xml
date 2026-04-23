@@ -174,6 +174,31 @@
             <version>3.10.0</version>
             <scope>test</scope>
         </dependency>
+        <!-- Jackson 2.x JSR-310 (java.time) module for the Epic 07 Redis value
+             serializer. Spring Data Redis's GenericJackson2JsonRedisSerializer is
+             still Jackson-2-API (Spring Boot 4 added Jackson 3 alongside, but the
+             Redis serializer hasn't migrated). Version pinned to match the
+             jackson-databind 2.21.x already pulled by jjwt-jackson. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.21.2</version>
+        </dependency>
+        <!-- Rate limiting backed by Redis - shared bucket across backend instances.
+             groupId is com.giffing.* (community starter); the planned com.bucket4j
+             starter coordinate does not exist on Maven Central. Pairs with the
+             jdk17-lettuce bucket4j adapter, which matches the Lettuce client that
+             spring-boot-starter-data-redis already provides (no Jedis dual-stack). -->
+        <dependency>
+            <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
+            <artifactId>bucket4j-spring-boot-starter</artifactId>
+            <version>0.12.10</version>
+        </dependency>
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-lettuce</artifactId>
+            <version>8.14.0</version>
+        </dependency>
     </dependencies>
 
     <build>
