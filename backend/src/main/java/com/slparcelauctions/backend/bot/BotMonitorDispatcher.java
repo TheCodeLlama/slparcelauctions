@@ -11,6 +11,7 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.monitoring.SuspensionService;
 import com.slparcelauctions.backend.bot.dto.BotMonitorResultRequest;
 import com.slparcelauctions.backend.escrow.EscrowService;
+import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.FreezeReason;
 
 import lombok.RequiredArgsConstructor;
@@ -130,6 +131,15 @@ public class BotMonitorDispatcher {
                     // winner-match race. Treat as TRANSFER_COMPLETE.
                     escrowService.confirmTransfer(task.getEscrow(), now);
                     return new DispatchOutcome(false, "CONFIRMED_TRANSFER_VIA_OWNER_CHANGED");
+                }
+                // Pre-funded escrow: no L$ held yet. Epic 05's state machine
+                // only allows FROZEN from FUNDED / TRANSFER_PENDING. Flag for
+                // admin review instead — semantics is "seller transferred to
+                // a third party before the winner paid", which is fraudulent
+                // but has nothing to unwind.
+                if (task.getEscrow().getState() == EscrowState.ESCROW_PENDING) {
+                    escrowService.markReviewRequired(task.getEscrow());
+                    return new DispatchOutcome(false, "REVIEW_REQUIRED_OWNER_CHANGED_PRE_FUND");
                 }
                 escrowService.freezeForFraud(
                         task.getEscrow(),

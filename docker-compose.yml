@@ -80,6 +80,13 @@ services:
       # integration. See docs/testing/EPIC_6_TESTING.md §3.3-§3.4.
       SLPA_PRIMARY_ESCROW_UUID: ${SLPA_PRIMARY_ESCROW_UUID:-00000000-0000-0000-0000-000000000099}
       SLPA_BOT_SHARED_SECRET: ${SLPA_BOT_SHARED_SECRET:-dev-bot-shared-secret}
+      # Optional timing overrides (useful for §10/§13 tests to shrink cycle + sweep).
+      # Map to Spring keys: slpa.bot.monitor-*-interval, slpa.bot-task.in-progress-timeout,
+      # slpa.bot-task.timeout-check-interval. Defaults in application.yml apply if unset.
+      SLPA_BOT_MONITOR_AUCTION_INTERVAL: ${SLPA_BOT_MONITOR_AUCTION_INTERVAL:-PT30M}
+      SLPA_BOT_MONITOR_ESCROW_INTERVAL: ${SLPA_BOT_MONITOR_ESCROW_INTERVAL:-PT15M}
+      SLPA_BOT_TASK_IN_PROGRESS_TIMEOUT: ${SLPA_BOT_TASK_IN_PROGRESS_TIMEOUT:-PT20M}
+      SLPA_BOT_TASK_TIMEOUT_CHECK_INTERVAL: ${SLPA_BOT_TASK_TIMEOUT_CHECK_INTERVAL:-PT15M}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
