@@ -183,7 +183,7 @@ All new endpoints return the standard error envelope on 4xx / 5xx:
 | `verification_tier` | multi-enum | `SCRIPT`, `BOT`, `HUMAN`. |
 | `ending_within` | int (hours) | e.g. `ending_within=24` → `ends_at <= NOW() + 24h AND ends_at > NOW()`. |
 | `near_region` | string | Region name for distance anchor. Resolved via `CachedRegionResolver`. |
-| `distance` | int (regions) | Max radius. Clamped to ≤ 50 silently. Ignored when `near_region` absent. |
+| `distance` | int (regions) | Max radius. Clamped to ≤ 50 silently. 400 `DISTANCE_REQUIRES_NEAR_REGION` if supplied without `near_region`. |
 | `seller_id` | long | Filter to auctions by this seller. |
 | `sort` | enum | `newest` (default), `ending_soonest`, `most_bids`, `lowest_price`, `largest_area`, `nearest`. |
 | `page` | int | 0-indexed. `< 0` clamped to 0. |
@@ -276,6 +276,7 @@ Shared by `/auctions/search`, the three `/featured/*` endpoints, and `/me/saved/
 - 400 `INVALID_RANGE` — `min > max` on a range pair.
 - 400 `REGION_NOT_FOUND` — `near_region` couldn't be resolved by Grid Survey.
 - 400 `NEAREST_REQUIRES_NEAR_REGION` — `sort=nearest` without `near_region`.
+- 400 `DISTANCE_REQUIRES_NEAR_REGION` — `distance` parameter supplied without `near_region`.
 - 429 `TOO_MANY_REQUESTS` + `Retry-After` header — per-IP bucket exhausted.
 - 503 `REGION_LOOKUP_UNAVAILABLE` — Grid Survey upstream 5xx / timeout (distance search degrades visibly, doesn't silently drop the filter).
 
@@ -370,10 +371,10 @@ Paginated full-card list for the Curator Tray drawer. Shares search vocabulary.
 | Value | Predicate |
 |---|---|
 | `active_only` (default) | `auction.status = 'ACTIVE'` |
-| `ended_only` | `auction.status NOT IN ('DRAFT', 'DRAFT_PAID', 'VERIFICATION_PENDING', 'ACTIVE')` |
+| `ended_only` | `auction.status NOT IN ('DRAFT', 'DRAFT_PAID', 'VERIFICATION_PENDING', 'VERIFICATION_FAILED', 'ACTIVE')` |
 | `all` | no status predicate |
 
-The `ended_only` predicate is an exclusion of pre-active states rather than an enumeration of terminal states — any future terminal state added to `AuctionStatus` automatically falls into "ended" without a predicate touch-up. The `VERIFICATION_FAILED` status isn't listed in the exclusion set because the POST guard in `§5.4` ensures no saved row can point to a pre-active auction.
+The `ended_only` predicate is an exclusion of pre-active states rather than an enumeration of terminal states — any future terminal state added to `AuctionStatus` automatically falls into "ended" without a predicate touch-up. `VERIFICATION_FAILED` is included in the exclusion because it's a pre-activation "never went live" state, not an ended state. The POST guard in `§5.4` should prevent saved rows from ever pointing to pre-active auctions, but the `ended_only` predicate must be semantically correct at the query layer independent of the write-time guard — it runs against `auction.status`, not against whether the user's save call was allowed.
 
 **Default sort:** `saved_at DESC`. All other `/search` sorts accepted.
 
@@ -490,7 +491,7 @@ Semantic validation sits in `AuctionSearchQueryValidator` and runs before the pr
 - `sort=nearest` without `near_region` → 400 `NEAREST_REQUIRES_NEAR_REGION`.
 - `size > 100` → clamp silently, log at DEBUG.
 - `page < 0` → clamp to 0, log at DEBUG.
-- `distance` without `near_region` → inert parameter, logged at DEBUG but not an error.
+- `distance` without `near_region` → 400 `DISTANCE_REQUIRES_NEAR_REGION`. Silently dropping an explicit filter is worse than a clear error — matches the `REGION_NOT_FOUND` / `NEAREST_REQUIRES_NEAR_REGION` invariant: 400 on semantic errors that indicate caller intent, clamp only on scalar overshoots within a valid request.
 - Unknown query parameter names → ignored silently (forward-compat).
 
 ---
@@ -1028,6 +1029,7 @@ All 4xx / 5xx responses use the standard envelope:
 | `INVALID_FILTER_VALUE` | 400 | Unknown enum value on a search filter. `field` set. |
 | `INVALID_RANGE` | 400 | `min > max` on a range pair. `field` set to the range name. |
 | `NEAREST_REQUIRES_NEAR_REGION` | 400 | `sort=nearest` without `near_region`. |
+| `DISTANCE_REQUIRES_NEAR_REGION` | 400 | `distance` parameter without `near_region`. |
 | `REGION_NOT_FOUND` | 400 | Grid Survey returned no match for `near_region`. |
 | `REGION_LOOKUP_UNAVAILABLE` | 503 | Grid Survey upstream 5xx / timeout. |
 | `TOO_MANY_REQUESTS` | 429 | Per-IP search bucket exhausted. `Retry-After` header set. |
