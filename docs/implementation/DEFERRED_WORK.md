@@ -47,21 +47,21 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Email change flow
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile edit)
-- **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b.
-- **When:** Epic 07 (user settings expansion)
-- **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`.
+- **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b. Not a browse/discovery concern — does not belong in Epic 07.
+- **When:** Epic 09 Task 02 (email notifications) — the re-verification flow reuses the same transactional-email plumbing Task 02 stands up (templates, SMTP client, signed-token links). Ship the email-change flow as a follow-on within Epic 09 once that plumbing exists.
+- **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`. Adding a new email column + verification token table can wait for the same migration pass that lands email-notification persistence.
 
 ### Account deletion UI
 - **From:** Epic 02 sub-spec 2a (Task 02-03 user profile backend)
-- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a.
-- **When:** Future Epic 02 GDPR sub-spec, or Epic 07
-- **Notes:** Dashboard has no delete button. Backend endpoint returns 501.
+- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a. Not a browse/discovery concern — does not belong in Epic 07.
+- **When:** Epic 10 (Admin & Moderation). The same epic introduces soft-delete / ban / content-removal primitives across users, listings, and reviews — user-initiated deletion shares cascade rules and audit-log infrastructure with admin-initiated takedowns, so shipping both together avoids building cascade logic twice.
+- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history) alongside Epic 10 Task 03 (ban system), not before.
 
 ### Notification preferences editor
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
 - **Why:** `CurrentUser.notifyEmail` and `notifySlIm` are returned by `/me` but no UI exposes them for editing. Editor design blocked on the notifications system coming online.
-- **When:** Epic 07 (settings expansion) or Epic 09 (notifications)
-- **Notes:** Shape of the JSON objects is defined — just needs a form.
+- **When:** Epic 09 Task 04 (notification preferences UI) — that task already exists and is the canonical home.
+- **Notes:** Shape of the JSON objects is defined — just needs a form. Touchpoint: `frontend/src/components/user/ProfileEditForm.tsx`. No Epic 07 ambiguity.
 
 ### Realty group badge on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
@@ -78,8 +78,8 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 ### Profile page SEO metadata (OpenGraph)
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
 - **Why:** Nice-to-have polish. Next.js 16 `generateMetadata` could emit OpenGraph tags for social sharing.
-- **When:** Epic 07 or later
-- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`.
+- **When:** Epic 07 (Browse & Search) — public profile OG metadata is folded into the same SSR/SEO sweep that makes listing detail + browse pages crawlable, so the SEO work lands in one coherent pass.
+- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`. Same `generateMetadata` pattern used by Epic 07's listing detail enhancements.
 
 ### Drag-drop animation polish on ProfilePictureUploader
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile picture upload)
