@@ -247,7 +247,7 @@ class OwnershipMonitorIntegrationTest {
                 <meta name="ownerid" content="%s">
                 <meta name="ownertype" content="%s">
                 <meta name="area" content="1024">
-                <meta name="maturityrating" content="MATURE">
+                <meta name="maturityrating" content="Mature">
                 </head><body></body></html>
                 """.formatted(title, parcelUuid, ownerUuid, ownerType);
         wireMock.stubFor(get(urlPathMatching("/place/.*"))

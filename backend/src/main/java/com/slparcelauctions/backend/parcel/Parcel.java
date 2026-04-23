@@ -97,7 +97,10 @@ public class Parcel {
     private String slurl;
 
     @Column(name = "maturity_rating", length = 10)
-    private String maturityRating;  // "PG", "MATURE", "ADULT"
+    // "GENERAL", "MODERATE", "ADULT" — canonical SL terminology.
+    // Translated from the SL World API XML values ("PG", "Mature", "Adult")
+    // at ingest (SlWorldApiClient.parseHtml). See Epic 07 sub-spec 1.
+    private String maturityRating;
 
     @Builder.Default
     @Column(nullable = false)

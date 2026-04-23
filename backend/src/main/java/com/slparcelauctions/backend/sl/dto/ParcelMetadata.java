@@ -16,7 +16,7 @@ public record ParcelMetadata(
         Integer areaSqm,
         String description,
         String snapshotUrl,
-        String maturityRating,   // "PG", "MATURE", "ADULT"
+        String maturityRating,   // canonical: "GENERAL", "MODERATE", "ADULT" (normalized at ingest)
         Double positionX,
         Double positionY,
         Double positionZ) {
