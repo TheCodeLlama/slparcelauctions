@@ -1,9 +1,9 @@
 package com.slparcelauctions.backend.sl;
 
 /**
- * Thrown by {@link SlWorldApiClient} when the World API response cannot be
- * mapped to a valid {@code ParcelMetadata} — including unknown or missing
- * {@code maturityrating} values. Bubbles up to the caller;
+ * Thrown by {@link SlWorldApiClient#fetchParcel} when the World API response
+ * cannot be mapped to a valid {@code ParcelMetadata} — including unknown or
+ * missing {@code maturityrating} values. Bubbles up to the caller;
  * {@link com.slparcelauctions.backend.parcel.ParcelLookupService} surfaces
  * as a parcel-lookup failure rather than silently storing an invalid row.
  */

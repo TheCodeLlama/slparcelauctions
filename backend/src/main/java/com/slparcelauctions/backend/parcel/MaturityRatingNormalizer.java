@@ -19,6 +19,7 @@ import java.util.Set;
  */
 public final class MaturityRatingNormalizer {
 
+    // Used by Task 3 search-filter validation.
     public static final Set<String> CANONICAL_VALUES = Set.of("GENERAL", "MODERATE", "ADULT");
 
     private static final Map<String, String> XML_TO_CANONICAL = Map.of(
