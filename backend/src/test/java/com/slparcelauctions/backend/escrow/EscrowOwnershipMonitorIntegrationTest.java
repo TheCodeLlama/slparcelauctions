@@ -294,7 +294,7 @@ class EscrowOwnershipMonitorIntegrationTest {
                     .regionName("EscrowMonitorRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
@@ -351,7 +351,7 @@ class EscrowOwnershipMonitorIntegrationTest {
         return new ParcelMetadata(
                 seededParcelUuid, owner, ownerType,
                 "Test Parcel", "EscrowMonitorRegion",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
     }
 }

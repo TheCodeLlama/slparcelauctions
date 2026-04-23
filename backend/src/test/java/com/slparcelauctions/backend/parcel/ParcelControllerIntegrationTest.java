@@ -245,7 +245,7 @@ class ParcelControllerIntegrationTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, ownerUuid, "agent",
                 "Test Parcel", regionName,
-                1024, "Test description", "http://example.com/snap.jpg", "MATURE",
+                1024, "Test description", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(gridX, gridY)));
     }

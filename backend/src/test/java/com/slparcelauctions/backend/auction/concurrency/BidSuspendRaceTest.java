@@ -156,7 +156,7 @@ class BidSuspendRaceTest {
                 .thenReturn(Mono.just(new ParcelMetadata(
                         parcelUuid, attacker, "agent",
                         "Hijacked", "SuspendRaceRegion",
-                        1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                        1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                         128.0, 64.0, 22.0)));
 
         TransactionTemplate txTemplate = new TransactionTemplate(txManager);
@@ -295,7 +295,7 @@ class BidSuspendRaceTest {
                 .regionName("SuspendRaceRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());

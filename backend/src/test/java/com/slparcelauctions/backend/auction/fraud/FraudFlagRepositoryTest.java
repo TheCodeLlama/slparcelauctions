@@ -60,7 +60,7 @@ class FraudFlagRepositoryTest {
                 .ownerType("agent")
                 .regionName("TestRegion")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
@@ -126,7 +126,7 @@ class FraudFlagRepositoryTest {
                 .ownerType("agent")
                 .regionName("TestRegion")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());

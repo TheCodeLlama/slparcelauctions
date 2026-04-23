@@ -221,7 +221,7 @@ class BotMonitorLifecycleServiceTest {
                     .regionName("BotLifecycleRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .positionX(128.0)
                     .positionY(64.0)
                     .positionZ(22.0)

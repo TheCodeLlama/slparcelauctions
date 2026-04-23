@@ -485,7 +485,7 @@ class MyBidsIntegrationTest {
                 "MyBids Parcel " + index, "MyBidsRegion" + index,
                 2048, "Seed description " + index,
                 "http://example.com/mybids-snap-" + index + ".jpg",
-                "MATURE",
+                "MODERATE",
                 128.0 + index, 64.0 + index, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 

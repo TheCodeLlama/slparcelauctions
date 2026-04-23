@@ -260,7 +260,7 @@ class ParcelLockingRaceIntegrationTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, ownerUuid, ownerType,
                 "Locking Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
     }
 
@@ -331,7 +331,7 @@ class ParcelLockingRaceIntegrationTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, sellerAvatar, "agent",
                 "Locking Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 

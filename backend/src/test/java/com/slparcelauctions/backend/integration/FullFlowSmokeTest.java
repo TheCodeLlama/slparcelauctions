@@ -432,7 +432,7 @@ class FullFlowSmokeTest {
         when(worldApi.fetchParcel(parcel)).thenReturn(Mono.just(new ParcelMetadata(
                 parcel, owner, "agent",
                 "Seed Parcel", "Coniston",
-                1024, "Seed description", "http://example.com/snap.jpg", "MATURE",
+                1024, "Seed description", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         // Coniston sits inside the Sansara Mainland bounding box (coords sourced
         // from ContinentDetector); the MainlandContinents check passes.

@@ -228,7 +228,7 @@ class BidWebSocketIntegrationTest {
                     .regionName("WsTestRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
