@@ -129,6 +129,7 @@ class BidPersistenceTest {
 
     private static Auction newAuction(User seller, Parcel parcel) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

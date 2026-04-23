@@ -45,6 +45,7 @@ class AuctionPhotoServiceTest {
 
         User seller = User.builder().id(42L).email("s@example.com").build();
         draftAuction = Auction.builder()
+                .title("Test listing")
                 .id(1L)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
@@ -92,7 +93,7 @@ class AuctionPhotoServiceTest {
 
     @Test
     void upload_draftPaidAllowed() {
-        Auction paid = Auction.builder().id(1L).status(AuctionStatus.DRAFT_PAID).build();
+        Auction paid = Auction.builder().title("Test listing").id(1L).status(AuctionStatus.DRAFT_PAID).build();
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(paid);
         when(photoRepo.countByAuctionId(1L)).thenReturn(0L);
         when(processor.process(any(byte[].class)))
@@ -109,7 +110,7 @@ class AuctionPhotoServiceTest {
 
     @Test
     void upload_activeStatus_rejectedWithInvalidState() {
-        Auction active = Auction.builder().id(1L).status(AuctionStatus.ACTIVE).build();
+        Auction active = Auction.builder().title("Test listing").id(1L).status(AuctionStatus.ACTIVE).build();
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(active);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -155,7 +156,7 @@ class AuctionPhotoServiceTest {
 
     @Test
     void delete_activeStatus_rejected() {
-        Auction active = Auction.builder().id(1L).status(AuctionStatus.ACTIVE).build();
+        Auction active = Auction.builder().title("Test listing").id(1L).status(AuctionStatus.ACTIVE).build();
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(active);
 
         assertThatThrownBy(() -> service.delete(1L, 77L, 42L))
@@ -166,7 +167,7 @@ class AuctionPhotoServiceTest {
 
     @Test
     void delete_photoFromDifferentAuction_rejected() {
-        Auction otherAuction = Auction.builder().id(999L).status(AuctionStatus.DRAFT).build();
+        Auction otherAuction = Auction.builder().title("Test listing").id(999L).status(AuctionStatus.DRAFT).build();
         AuctionPhoto photo = AuctionPhoto.builder()
                 .id(77L).auction(otherAuction).objectKey("listings/999/x.png")
                 .contentType("image/png").sizeBytes(1L).sortOrder(1).build();

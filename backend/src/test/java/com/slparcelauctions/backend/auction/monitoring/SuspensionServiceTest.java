@@ -123,6 +123,7 @@ class SuspensionServiceTest {
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
                 .regionName("Coniston").continentName("Sansara").verified(true).build();
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)

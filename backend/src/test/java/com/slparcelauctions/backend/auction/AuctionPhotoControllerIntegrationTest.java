@@ -358,6 +358,7 @@ class AuctionPhotoControllerIntegrationTest {
     private Auction seedDraftAuction() {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(sellerParcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)

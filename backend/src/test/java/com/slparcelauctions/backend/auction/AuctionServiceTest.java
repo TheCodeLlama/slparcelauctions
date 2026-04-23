@@ -104,6 +104,45 @@ class AuctionServiceTest {
     }
 
     @Test
+    void create_nullTitle_throwsValidation() {
+        // The @NotBlank on AuctionCreateRequest is enforced at the controller
+        // boundary; this asserts the service-direct guard rejects null too so
+        // the invariant holds for every entry point.
+        AuctionCreateRequest req = minimalCreateRequest(null);
+
+        assertThatThrownBy(() -> service.create(42L, req))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_titleTooLong_throwsValidation() {
+        // Mirrors the @Size(max = 120) on AuctionCreateRequest.title — direct
+        // service callers must not be able to write past the column length.
+        String over120 = "x".repeat(121);
+        AuctionCreateRequest req = minimalCreateRequest(over120);
+
+        assertThatThrownBy(() -> service.create(42L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 120 characters");
+    }
+
+    @Test
+    void update_titleTooLong_throwsValidation() {
+        // Symmetric with create's length guard so partial updates can't write
+        // past the column length even when the controller-side @Size is bypassed.
+        Auction existing = buildAuction(AuctionStatus.DRAFT);
+        when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
+
+        String over120 = "x".repeat(121);
+        AuctionUpdateRequest req = new AuctionUpdateRequest(
+                over120, null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.update(1L, 42L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 120 characters");
+    }
+
+    @Test
     void update_blankTitle_throwsValidation() {
         // Per the partial-update contract, null = "don't touch" but an explicit
         // blank must still be rejected so the @NotBlank invariant on create
@@ -400,6 +439,7 @@ class AuctionServiceTest {
 
     private Auction buildAuction(AuctionStatus status) {
         return Auction.builder()
+                .title("Test listing")
                 .id(1L).seller(seller).parcel(parcel).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)

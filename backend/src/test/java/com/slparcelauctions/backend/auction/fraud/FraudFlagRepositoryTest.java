@@ -66,6 +66,7 @@ class FraudFlagRepositoryTest {
                 .build());
 
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
@@ -160,6 +161,7 @@ class FraudFlagRepositoryTest {
 
     private Auction buildDraft(User seller, Parcel parcel) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)

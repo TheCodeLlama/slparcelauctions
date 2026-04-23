@@ -98,6 +98,7 @@ class SlParcelVerifyServiceTest {
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
                 .regionName("Coniston").continentName("Sansara").verified(true).build();
         auction = Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
                 .status(AuctionStatus.VERIFICATION_PENDING)
                 .verificationMethod(VerificationMethod.REZZABLE)
@@ -300,7 +301,7 @@ class SlParcelVerifyServiceTest {
         when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
                 PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
-        Auction blocker = Auction.builder().id(55L).build();
+        Auction blocker = Auction.builder().title("Test listing").id(55L).build();
         when(auctionRepo.findFirstByParcelIdAndStatusIn(
                 PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));

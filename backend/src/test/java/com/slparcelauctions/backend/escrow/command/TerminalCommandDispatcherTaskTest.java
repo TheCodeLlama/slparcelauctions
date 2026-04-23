@@ -280,6 +280,7 @@ class TerminalCommandDispatcherTaskTest {
                 .ownerUuid(seller.getSlAvatarUuid()).ownerType("agent")
                 .regionName("Reg").continentName("Sansara").verified(true).build();
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(1001L).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ENDED)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)

@@ -274,6 +274,7 @@ class MyBidsIntegrationTest {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcelForAuction)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
@@ -398,6 +399,7 @@ class MyBidsIntegrationTest {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcelForAuction)
                 .seller(seller)
                 .status(status)

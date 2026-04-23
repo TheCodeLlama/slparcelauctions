@@ -247,6 +247,7 @@ class DevAuctionControllerTest {
     private Auction seedAuction(AuctionStatus status) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(sellerParcel)
                 .seller(seller)
                 .status(status)

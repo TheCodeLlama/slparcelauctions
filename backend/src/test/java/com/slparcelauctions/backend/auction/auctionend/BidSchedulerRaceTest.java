@@ -266,6 +266,7 @@ class BidSchedulerRaceTest {
         // threads race past their 1.2s barrier, the clock has crossed it.
         OffsetDateTime endsAt = now.plusSeconds(1);
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

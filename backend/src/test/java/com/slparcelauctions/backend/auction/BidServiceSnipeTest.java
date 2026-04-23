@@ -71,6 +71,7 @@ class BidServiceSnipeTest {
                 .displayName("Bidder").verified(true).build();
 
         auction = Auction.builder()
+                .title("Test listing")
                 .id(500L)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

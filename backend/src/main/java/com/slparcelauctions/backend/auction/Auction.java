@@ -119,15 +119,12 @@ public class Auction {
     /**
      * Seller-written headline for the listing (1–120 chars, NOT NULL). Distinct
      * from the SL parcel name, which is often low-signal ("Object", "Gov Linden's
-     * 1024"). Required at create via {@code AuctionCreateRequest#title}; the
-     * builder default of "Untitled" exists solely so direct {@code Auction.builder()}
-     * fixtures in test code don't have to set it explicitly. Production writes
-     * always go through {@code AuctionService.create}, which sets the title from
-     * the validated request DTO.
+     * 1024"). Required at create via {@code AuctionCreateRequest#title};
+     * production writes always go through {@code AuctionService.create}, which
+     * sets the title from the validated request DTO.
      */
-    @Builder.Default
     @Column(name = "title", nullable = false, length = 120)
-    private String title = "Untitled";
+    private String title;
 
     @Column(name = "starting_bid", nullable = false)
     private Long startingBid;

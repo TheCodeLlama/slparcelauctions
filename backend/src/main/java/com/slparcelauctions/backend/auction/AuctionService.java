@@ -102,8 +102,14 @@ public class AuctionService {
         if (req.title() != null) {
             // null = "don't touch", but an explicit blank must be rejected so
             // partial updates can't sneak past the @NotBlank rule on create.
+            // Length check is duplicated here (and on AuctionUpdateRequest) so
+            // direct service callers can't bypass the controller-boundary @Size
+            // — keeps create/update validation symmetric.
             if (req.title().isBlank()) {
                 throw new IllegalArgumentException("title must not be blank");
+            }
+            if (req.title().length() > 120) {
+                throw new IllegalArgumentException("title must be at most 120 characters");
             }
             a.setTitle(req.title());
         }

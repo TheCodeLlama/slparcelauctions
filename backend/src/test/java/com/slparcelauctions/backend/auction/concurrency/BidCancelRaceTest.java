@@ -287,6 +287,7 @@ class BidCancelRaceTest {
                 .build());
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

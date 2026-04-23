@@ -284,6 +284,7 @@ class EscrowOwnershipCheckTaskTest {
                 .regionName("EscrowMonitorRegion").continentName("Sansara")
                 .verified(true).build();
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ENDED)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)

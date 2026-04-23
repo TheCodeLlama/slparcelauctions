@@ -265,6 +265,7 @@ class AuctionEndIntegrationTest {
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)

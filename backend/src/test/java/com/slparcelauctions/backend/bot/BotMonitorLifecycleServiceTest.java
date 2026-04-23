@@ -232,6 +232,7 @@ class BotMonitorLifecycleServiceTest {
 
             OffsetDateTime now = OffsetDateTime.now();
             Auction.AuctionBuilder b = Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(status)

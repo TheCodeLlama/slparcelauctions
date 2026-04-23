@@ -316,6 +316,7 @@ class EscrowPaymentIntegrationTest {
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)

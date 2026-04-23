@@ -652,6 +652,7 @@ class AuctionControllerIntegrationTest {
             boolean listingFeePaid, int bidCount, VerificationMethod method) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(status)

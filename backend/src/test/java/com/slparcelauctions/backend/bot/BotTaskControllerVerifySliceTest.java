@@ -66,7 +66,7 @@ class BotTaskControllerVerifySliceTest {
                 .id(id)
                 .taskType(BotTaskType.VERIFY)
                 .status(status)
-                .auction(Auction.builder().id(42L).build())
+                .auction(Auction.builder().title("Test listing").id(42L).build())
                 .parcelUuid(UUID.randomUUID())
                 .sentinelPrice(999_999_999L)
                 .createdAt(OffsetDateTime.now())

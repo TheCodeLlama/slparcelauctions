@@ -290,6 +290,7 @@ class EscrowTimeoutIntegrationTest {
             OffsetDateTime base = OffsetDateTime.now(testClock);
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
@@ -341,6 +342,7 @@ class EscrowTimeoutIntegrationTest {
             OffsetDateTime base = OffsetDateTime.now(testClock);
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)

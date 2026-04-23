@@ -269,6 +269,7 @@ class ParcelLockingRaceIntegrationTest {
         return tx.execute(ts -> {
             User seller = userRepository.findById(sellerId).orElseThrow();
             Auction a = Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.DRAFT_PAID)

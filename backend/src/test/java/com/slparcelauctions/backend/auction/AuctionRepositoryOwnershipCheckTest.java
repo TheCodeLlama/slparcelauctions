@@ -104,6 +104,7 @@ class AuctionRepositoryOwnershipCheckTest {
 
     private Auction build(User seller, Parcel parcel, AuctionStatus status, OffsetDateTime lastCheck) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(status)

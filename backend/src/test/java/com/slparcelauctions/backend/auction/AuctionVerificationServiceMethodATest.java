@@ -338,6 +338,7 @@ class AuctionVerificationServiceMethodATest {
 
     private Auction build(AuctionStatus status) {
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
