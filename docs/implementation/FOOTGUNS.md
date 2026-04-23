@@ -964,6 +964,16 @@ Discovered during MSW lifecycle wiring in Task 01-08 Task 4.
 
 **How to apply:** when editing `SecurityConfig.authorizeHttpRequests`, verify the `/ws/**` matcher is still above `/api/**`. If code review proposes "tightening" it to `.authenticated()`, reject — browsers cannot send the required header.
 
+### F.16.1 Anonymous STOMP CONNECT is intentional — SUBSCRIBE gate is where auth lives
+
+**Rule:** Epic 04 sub-spec 1 §4 requires `/topic/auction/**` to be publicly subscribable. `JwtChannelInterceptor.handleConnect` therefore accepts CONNECT frames with no `Authorization` header (no principal attached → session is anonymous). Authorization for per-destination access moves into `handleSubscribe`, which only lets anonymous sessions SUBSCRIBE to destinations matching the strict regex `PUBLIC_AUCTION_DESTINATION` — `^/topic/auction/\d+$`, nothing else. SEND and all other authenticated-destination SUBSCRIBEs require a principal.
+
+**Why:** browsers cannot put a bearer on the WebSocket upgrade, and forcing auth on CONNECT would lock unauthenticated viewers out of the public auction feed — but auth still has to live somewhere. Moving it to SUBSCRIBE keeps the public topic genuinely public while preventing an anonymous session from piggybacking on the `/topic/ws-test` / `/user/**` queues. An invalid or expired token in CONNECT is still rejected — only *absence* of the header opts the session into anonymous mode.
+
+**Why a regex instead of `startsWith`:** Spring's default simple in-memory broker treats every destination string as opaque — `/topic/auction/../ws-test` is just another literal with zero subscribers, so a crafted traversal is harmless *today*. But any future swap to a STOMP relay (RabbitMQ, ActiveMQ, etc.) that normalizes destination paths would let a prefix check like `startsWith("/topic/auction/")` escape the allowlist: the anonymous SUBSCRIBE passes the prefix gate, the broker normalizes to `/topic/ws-test`, and the session starts receiving auth-gated frames. The `^/topic/auction/\d+$` regex forces the suffix to be digits (auction primary key) only, so traversal segments, extra path components, and non-numeric ids all fail the match. `JwtChannelInterceptorTest#subscribe_toAuctionWithPathTraversal_isRejected` pins this.
+
+**How to apply:** every new STOMP destination must be consciously labelled public or authenticated. Public → add a dedicated `Pattern` for its exact shape alongside `PUBLIC_AUCTION_DESTINATION` in `JwtChannelInterceptor` and OR it into `handleSubscribe`. Do NOT loosen to a prefix check. Authenticated → do nothing; the default path rejects anonymous SUBSCRIBEs. Never "simplify" the SUBSCRIBE branch back to a pass-through or a prefix check; doing so re-opens every current and future topic to anonymous subscribers on any path-normalizing broker.
+
 ### F.17 `ensureFreshAccessToken` stampede guard — `finally` inside the IIFE
 
 **Rule:** In `lib/auth/refresh.ts`, the `inFlightRefresh = null` cleanup MUST live inside the IIFE's `try { ... } finally { inFlightRefresh = null; }`, not after the outer promise chain. The shared promise between HTTP 401 interceptor and STOMP `beforeConnect` depends on this: if the cleanup runs outside the IIFE, every awaiter nulls the ref as they resolve, and a concurrent refresh kicked off during the resolution window sees `null` and fires a second `/api/auth/refresh`, defeating the stampede guard.
@@ -984,15 +994,13 @@ If either canary starts failing with "fetch called twice instead of once", the `
 
 **How to apply:** when reviewing `beforeConnect` changes, verify that the catch block only stores state, never throws or calls `client.deactivate()`. The setState call path is safe; throw is not.
 
-### F.19 `@stomp/stompjs` `subscribe()` only works when `client.connected === true`
+### F.19 `@stomp/stompjs` `subscribe()` only works when `client.connected === true` — use the re-attach registry, not deferred listeners
 
-**Rule:** `client.subscribe(destination, callback)` throws if called before the client is connected. Our `lib/ws/client.ts` handles this by deferring the actual `client.subscribe()` call until `onConnect` fires, via an inline `subscribeToConnectionState` listener that unsubscribes itself after one fire.
+**Rule:** `client.subscribe(destination, callback)` throws if called before the client is connected. Our `lib/ws/client.ts` handles this via a module-level registry: every `subscribe()` call immediately inserts a `SubscriptionEntry` into the `entries` Map (regardless of connection state), and then calls the idempotent `ensureAttached(entry)`. If `client.connected` is false, `ensureAttached` is a no-op and the entry sits with `handle === null`. On `onConnect`, a single sweep iterates every entry and re-attaches every null-handle one. On `onWebSocketClose`, every handle is nulled so the next `onConnect` sweep re-attaches everything from scratch.
 
-**Why:** without the deferral, calling `useStompSubscription` during initial page load (before the WS handshake completes) throws a runtime error that crashes the React tree. The deferral is ~6 lines but load-bearing — do not "simplify" it away.
+**Why:** the earlier shape — a per-subscribe inline `subscribeToConnectionState` listener that unsubscribes itself on first fire — had a race: a rapid `onConnect → onWebSocketClose` sequence before the listener fired could leave the deferred subscribe waiting mid-cycle, delayed by a reconnect. The registry model removes the race entirely because the "attach" decision is purely structural: if the entry is in the Map and the client is connected, attach. Idempotency (checking `entry.handle !== null`) makes duplicate sweeps safe. Epic 04 sub-spec 2 Task 1 (§6) implemented this hardening.
 
-A known edge case lives here (spec §14.7): a rapid `onConnect → onWebSocketClose` sequence can leave the deferred listener waiting mid-cycle. The subscription is not lost — it attaches on the next successful connect — just delayed by one reconnect. Epic 04 may harden this with re-attach-on-every-transition + subscription dedup when auction-room subscriptions need robustness under flaky networks.
-
-**How to apply:** any path that eagerly invokes `client.subscribe` must first check `client.connected`, and if false, defer via the state listener. This rule applies equally to Epic 04's auction-room subscription code.
+**How to apply:** any new path that needs to subscribe to a STOMP destination goes through `subscribe()` in `lib/ws/client.ts`. Do not add ad-hoc `client.subscribe` calls elsewhere, and do not reintroduce the deferred-listener pattern — the registry sweep is the only attach path. See F.68 for the critical live-Map iteration invariant in the sweep.
 
 ### F.20 `LivePill` has no "use client" directive — do not add hooks
 
@@ -1183,3 +1191,327 @@ Discovered during Task 4b: a slice test tried to assert that a 3MB upload return
 **Why:** `ProfilePictureUploader` supports both drag-and-drop (`onDragOver` / `onDrop`) and a hidden `<input type="file">` click path. JSDOM's `DragEvent` and `DataTransfer` constructors do not round-trip `files` — `new DataTransfer()` exists but `dataTransfer.files` is always empty after assignment in jsdom. This means `fireEvent.drop(element, { dataTransfer: { files: [file] } })` silently delivers an empty file list to the handler and the test asserts against the "no file" path instead of the upload path. The test passes for the wrong reason.
 
 **How to apply:** in vitest/jsdom tests, exercise the file-selection path by firing a `change` event on the hidden `<input type="file">` element: `fireEvent.change(input, { target: { files: [file] } })`. This works because jsdom supports `input.files` assignment. Reserve drag-and-drop assertions for browser-level smoke tests (Playwright, Cypress) where the real `DataTransfer` API is available. If you need to unit-test the drop handler logic in isolation, extract it into a pure function that takes a `FileList` and test the function directly.
+
+### F.42 Continent bounding boxes are static data — annual review is the update cadence
+
+**Why:** `MainlandContinents` embeds 17 axis-aligned bounding boxes sourced from the Second Life wiki's `ContinentDetector` page (snapshot taken 2026-04-16). The SL Grid Survey API would be the "live" data source, but it is unreliable (frequent 5xx, no SLA, and Linden has not committed to keeping it running). We intentionally trade freshness for availability: the grid layout has been effectively frozen for years, and the cost of a missed continent addition is a few sellers being told "not on Mainland" when they are — a recoverable UX glitch, not data loss.
+
+**How to apply:** when Linden adds a new Mainland continent (or extends an existing one) the `MainlandContinents` constant table must be updated manually. Add an annual task to the ops calendar to diff the wiki page against `MainlandContinents.CONTINENTS`. Do not re-introduce a Grid Survey API dependency — if freshness matters enough to justify a live call, the right move is a cached + circuit-broken adapter, not a direct call.
+
+### F.43 Flyway disabled in Phase 1 — entities are the schema source of truth
+
+**Why:** The `V1__*.sql` and `V2__*.sql` Flyway migrations were deleted during Epic 03 sub-spec 1. Phase 1 uses `spring.jpa.hibernate.ddl-auto: update` in dev + prod while the schema stabilizes. This means: (a) any entity field or annotation change IS the schema change — no separate migration file exists; (b) DROP COLUMN / RENAME / narrowing NOT NULL are unsafe via Hibernate DDL-auto and must be applied manually via `psql` or a one-off `ALTER TABLE`; (c) on a fresh Postgres, running `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` creates every table from entities on startup. On existing dev DBs with an `flyway_schema_history` row, the table is harmless and can be dropped.
+
+**How to apply:** when adding a new column, do it via a `@Column` on the entity — Hibernate adds it on next boot. When dropping or renaming, add a manual `ALTER TABLE` to the team's shared dev-ops notes and run it before the PR lands so every developer's local DB stays in sync. Before production deployment (future Phase 2 ops work), swap `ddl-auto: validate` + re-introduce Flyway with a baseline migration generated from the current Hibernate schema. Do not re-add `ddl-auto: update` in prod — it is a tripwire, not a migration strategy.
+
+### F.44 `PublicAuctionStatus` enum is a compile-time privacy boundary
+
+**Why:** `AuctionDtoMapper.toPublicStatus(AuctionStatus)` is an exhaustive `switch` that maps the 9-value `AuctionStatus` to the 2-value `PublicAuctionStatus { ACTIVE, ENDED }`. If a new `AuctionStatus` is added without mapping it, Java's pattern-exhaustiveness check fires a compile error — you cannot forget. The four terminal statuses (COMPLETED / CANCELLED / EXPIRED / DISPUTED) all collapse to `ENDED` so non-sellers cannot distinguish them — this is a deliberate privacy guarantee (bidders learning "this auction was cancelled, not completed" leaks seller intent). The four pre-ACTIVE statuses (DRAFT / DRAFT_PAID / VERIFICATION_PENDING / VERIFICATION_FAILED) throw `IllegalStateException` from the mapper because `AuctionController.get()` is responsible for 404-hiding those from non-sellers before the mapper is ever called.
+
+**How to apply:** when adding a new `AuctionStatus` value, the compiler will force you into `toPublicStatus`. Ask: can a non-seller see this, and if so, should they see ACTIVE or ENDED? Do not add a third `PublicAuctionStatus` value without a full spec review — the two-value constraint is what makes the privacy boundary auditable. `AuctionControllerIntegrationTest.get_cancelledAsNonSeller_returnsEndedWithoutWinnerOrFeeFields` and `FullFlowSmokeTest.visibility_sellerGetsFullView_publicGetsCollapsedView` pin this behavior — do not weaken them to make a new status "convenient".
+
+### F.45 Parcel locking has two independent layers — bypass either and duplicate ACTIVE auctions become possible
+
+**Why:** Only one auction per parcel can be in a "locking" status (`ACTIVE` / `VERIFICATION_PENDING`) at a time. This is enforced in two places: (1) a service-layer pre-check `AuctionRepository.existsByParcelIdAndStatusInAndIdNot` called from `AuctionVerificationService` + `SlParcelVerifyService` + `BotTaskService.complete`, throwing `ParcelAlreadyListedException(parcelId, blockingAuctionId)`; (2) a Postgres partial unique index `uq_auctions_parcel_locked_status ON auctions(parcel_id) WHERE status IN ('ACTIVE', 'VERIFICATION_PENDING')` created at boot by `ParcelLockingIndexInitializer`, surfacing as `DataIntegrityViolationException` → `ParcelAlreadyListedException(parcelId, -1L)` (the sentinel `-1L` means "race-caught, blocker ID unavailable at catch-time"). Both layers are load-bearing: the service check short-circuits the fast path and gives a useful error message with the blocker ID; the DB index catches the concurrent-verify race where two transactions both pass the pre-check then try to save simultaneously.
+
+**How to apply:** never write `auctionRepo.save(a)` with `a.status = ACTIVE` without the partial-unique-index backstop path — always go through `saveAndFlush` inside a try/catch that maps `DataIntegrityViolationException` with constraint name `uq_auctions_parcel_locked_status` to `ParcelAlreadyListedException(-1L)`. Direct database writes (e.g. a future admin tool or data migration) that bypass both layers can create duplicate ACTIVE auctions. `ParcelLockingRaceIntegrationTest` is the canary — do not delete it, do not weaken it to a mock-based test.
+
+### F.46 Bot endpoints ship without authentication in sub-spec 1 — Epic 06 MUST add it
+
+**Why:** `SecurityConfig` has `permitAll` on `GET /api/v1/bot/tasks/pending` and `PUT /api/v1/bot/tasks/{taskId}` because the SL bot worker (Epic 06) does not exist yet, and inventing a bot-auth scheme without a worker implementation to validate against would be premature. The validation that DOES happen is body-level: `authBuyerId == slpa.bot-task.primary-escrow-uuid` and `salePrice == sentinelPrice` must both match, so an attacker cannot simply call `PUT /bot/tasks/{id}` with arbitrary data — but they CAN race the real worker to claim a task, or flip auction states via FAILURE callbacks. This is an acceptable short-term tradeoff only because no real bot is running yet.
+
+**How to apply:** Epic 06 MUST add bot worker authentication (mTLS or bearer token — pick one in the Epic 06 spec) before the real worker deploys. The `DEFERRED_WORK.md` entry "Bot service authentication (Epic 06)" is the forcing function — do not close that entry until real auth is wired. Until then, `/api/v1/bot/tasks/**` is a locally-trusted attack surface and the bot worker must be a localhost-or-private-network-only deployment.
+
+### F.47 `/sl/parcel/verify` and `/sl/verify` trust SL headers — Linden's proxy is the trust boundary
+
+**Why:** Both endpoints are `permitAll` at Spring Security because an in-world LSL script cannot present a JWT (SL avatars are not web sessions). The trust comes from `X-SecondLife-Shard: Production` and `X-SecondLife-Owner-Key: <uuid>` headers that Linden's grid proxy injects on outbound `llHTTPRequest` calls — these headers CANNOT be set by client code inside LSL, so an attacker outside the grid cannot forge them as long as the request reaches us via the real SL proxy. `SlHeaderValidator` checks both: shard matches `slpa.sl.expected-shard` and owner-key is in `slpa.sl.trusted-owner-keys` (the list of UUIDs that own the authorized in-world scripted terminals).
+
+**How to apply:** local dev + Postman testing REQUIRES manually setting the SL headers — there is no backdoor. The Postman collection + `DevSlSimulateController` + integration tests all set the dev-placeholder `X-SecondLife-Owner-Key: 00000000-0000-0000-0000-000000000001` explicitly. Production deployment MUST override `slpa.sl.trusted-owner-keys` with the real script-owner UUIDs via env var; `SlStartupValidator` fails fast on prod boot if the list is empty. Do not log the headers — they are not secrets per se, but logging them invites someone to "helpfully" grep the logs for UUIDs to "debug" and accidentally publish the trust anchor.
+
+### F.48 WebClient retry policy covers 5xx + network errors only — 4xx is not retried
+
+**Why:** Both `SlWorldApiClient` and `SlMapApiClient` use a WebFlux `retryWhen(Retry.backoff(...).filter(is5xxOrNetwork))` loop. This is deliberate: 5xx + network errors are transient (retry makes sense), 4xx errors are terminal (retry will not change the outcome, and for 429 rate-limit it would make things worse). But it means the callers see fast-failure on any 4xx from the SL API — including `429 Too Many Requests` if Linden ever imposes rate limits. In the current implementation, `ExternalApiTimeoutException` (→ HTTP 504) is the catch-all for "SL API failed"; a 429 would surface as a 504 to the end user, which is misleading.
+
+**How to apply:** if/when we see real 429s in production logs, add a specific `Retry-After`-honoring retry path for 429 — but do NOT extend the existing generic retry loop to cover all 4xx (that would retry 400/404/422 and burn retries on terminal errors). The right pattern is a second `retryWhen` layered before the main one that matches only 429 and respects the `Retry-After` header. Track this in `DEFERRED_WORK.md` when it surfaces — it is not a day-one concern because Linden has not published rate limits on the World/Map APIs we use.
+
+### F.49 Photo GET bytes is public but respects auction visibility
+
+**Why:** `GET /api/v1/auctions/{id}/photos/{photoId}/bytes` is `permitAll` so the frontend can render `<img>` tags without proxying through the API client. But the handler enforces that pre-ACTIVE auctions (DRAFT / DRAFT_PAID / VERIFICATION_PENDING / VERIFICATION_FAILED) return 404 to non-sellers — the seller must be the authenticated caller to fetch their own draft photos. If this check is removed or weakened, an attacker who guesses photo IDs can enumerate draft listings before they go live, leaking seller intent.
+
+**How to apply:** the visibility check lives in `AuctionPhotoService.getBytes` (or the controller — check which). When modifying photo endpoints, run the `AuctionPhotoControllerIntegrationTest` public-GET-bytes case to verify the 404-hides-pre-ACTIVE path still fires. Do not refactor the public bytes proxy into a pure "stream whatever is at this MinIO key" endpoint — the auction-status check is the access control.
+
+### F.50 Jackson `fail-on-unknown-properties: true` is global — extra fields in any request body return 400
+
+**Why:** `application.yml` sets `spring.jackson.deserialization.fail-on-unknown-properties: true` globally (Epic 02 added it as a privilege-escalation guard for `PUT /api/v1/users/me`). Every request DTO in the codebase inherits this — sending a field Jackson does not recognize returns 400 with `HttpMessageNotReadableException` (mapped to a ProblemDetail by `UserExceptionHandler` for user endpoints, `GlobalExceptionHandler` for everything else). This is desirable for the fail-closed security posture but means clients that send "extra just in case" fields will see 400s.
+
+**How to apply:** when clients report "my request worked yesterday, now 400 with USER_UNKNOWN_FIELD or similar", check the diff for a newly-added field they might be sending that the server renamed or removed. Do not disable the global flag to "make the error go away" — the flag is a load-bearing canary (see `UserControllerUpdateMeSliceTest.put_me_rejectsUnknownFields_returns400`). If a specific DTO genuinely needs to tolerate extra fields (e.g., webhook-style payloads from a third party), annotate THAT specific type with `@JsonIgnoreProperties(ignoreUnknown = true)` — do not flip the global.
+
+### F.51 Adding an `AuctionStatus` enum value requires refreshing the Postgres CHECK constraint — `ddl-auto` does not
+
+**Why:** Hibernate creates an `auctions_status_check` CHECK constraint listing every enum value at first-boot, but `ddl-auto=update` does NOT rewrite that constraint when you add a new value in a later release. Adding `SUSPENDED` (sub-spec 2 Task 4) without a refresh step means the column type accepts `SUSPENDED` but the CHECK constraint rejects it — every INSERT/UPDATE carrying the new value fails with `violates check constraint "auctions_status_check"` and the failure is often caught silently inside a `@Transactional` method that just rolls back. The test suite catches it because the constraint-rejection happens before you return a DTO; production would manifest as "suspending this listing didn't save but returned 200". The companion to F.43 (Flyway disabled — entities are the schema source of truth): when the schema source is entities, the schema refresh has to run on boot, and for CHECK constraints that means DDL, not Hibernate.
+
+**How to apply:** when adding a new `AuctionStatus` value, update the DDL in `AuctionStatusCheckConstraintInitializer` to list every enum value in the new canonical order. The initializer drops the constraint and re-adds it at every `ApplicationReadyEvent`, which is idempotent — first boot after a deploy picks up the new value, subsequent boots are no-ops. The same pattern applies to any other enum-backed column with a CHECK constraint: `bot_tasks.status`, `cancellation_logs.from_status`, etc. When a new status lands, touch the initializer in the same commit as the enum change — there is no "I'll add it in the next PR" that works here because the first deploy between the two commits will break on every write of the new status. `AuctionVerificationServiceMethodATest` + the ownership-monitor integration tests pin the constraint refresh by actually persisting `SUSPENDED` rows; do not relax them to mock-only tests.
+
+### F.52 React 19 strict mode forbids `Date.now()` reads during render — use a `useState` initializer
+
+**Why:** React 19's strict-mode purity check fires on any `Date.now()` / `Math.random()` call that executes during the render phase, under the principle "renders must be pure". The lint rule `react-hooks/purity` (new in React 19 plugin) flags `const expired = Date.now() > expiresAt.getTime()` inline in a component body as a violation. The failure mode is not a crash — it's a noisy dev-only warning and, more insidiously, render-phase state that silently diverges across strict-mode's double-render during development. The first render and second render disagree because `Date.now()` advances, and the `useState` initialization that reads it gets different values on the two passes.
+
+Discovered in sub-spec 2 Task 9 when `VerificationMethodRezzable` tried to seed its `expired` state inline from `expiresAt <= Date.now()` — the lint failed the build and stepping through with a slowed clock showed the two strict-mode renders disagreeing.
+
+**How to apply:** any component-initial state derived from `Date.now()` (expiry flags, countdown anchors, stable "mounted at" timestamps) must be computed inside a `useState` initializer function — the initializer runs BEFORE the render phase, not during it, and strict mode does not double-invoke it. Example: `const [expired, setExpired] = useState<boolean>(() => expiresAt ? expiresAt.getTime() <= Date.now() : false);`. For advancing state (e.g. the "expiry has now occurred" transition), schedule a `setTimeout` in a `useEffect` and flip the state from the effect callback. See `VerificationMethodRezzable.tsx` for the canonical pattern. If you need a stable reference timestamp that never updates (e.g. "page loaded at"), combine `useState(() => Date.now())` with an empty dependency array — the initializer runs once, the value is stable across renders. Do not reach for `useMemo(() => Date.now(), [])` as a workaround — `useMemo` may recompute on dep changes you didn't expect, and its reads still count as render-phase.
+
+### F.53 `sessionStorage.setItem` on every keystroke is expensive — debounce the persistence
+
+**Why:** `useListingDraft` persists the entire draft-state object to `sessionStorage` so a tab close / refresh doesn't nuke in-progress wizard work. The naive version writes on every state change — including every keystroke in the `sellerDesc` textarea — and `sessionStorage.setItem` is a synchronous operation that JSON-serializes the whole object each time. On a complex draft (50+ tags, 10 photo refs, long description) this is visibly laggy in production builds on slower machines and a flamegraph hotspot in profiling. The sync call is also a main-thread blocker, so other keystrokes queued during the serialize-and-persist stall and the input feels "sticky".
+
+**How to apply:** wrap the persist call in a debounced effect — sub-spec 2's `useListingDraft.ts` uses a 150ms debounce via `setTimeout`/`clearTimeout` in an effect that resets the timer on every state change, so only the last value in a rapid burst actually hits `sessionStorage`. Also register an unmount flush so the tail of a burst still persists when the component tears down before the timer fires: capture the latest state in a ref, then write synchronously from a final `useEffect(() => () => { writeNow(ref.current); }, [])`. Do NOT try to throttle per-input (e.g. one timer per field) — the composed state is one JSON blob and the expensive path is the serialization, not the identity of the field that changed. Do NOT set a shorter debounce than ~100ms thinking "it feels more live" — the user-visible difference is zero (sessionStorage is only read on mount) and the cost grows linearly with the debounce rate.
+
+### F.54 Hibernate `ddl-auto: update` does not backfill DB-level defaults — persist a `columnDefinition` default for new NOT NULL columns
+
+**Why:** adding a new `@NotNull` column to an existing entity via `ddl-auto: update` adds the column (Hibernate issues `ALTER TABLE ADD COLUMN`) but does NOT add a DB-level `DEFAULT 0` clause — Hibernate's null-safety is enforced by the entity builder setting the Java field, not by the column DDL. On a fresh dev DB with no prior rows this works. On an existing dev DB with pre-existing `auctions` rows, the `ALTER TABLE ADD COLUMN ... NOT NULL` fails because Postgres cannot find a value for the existing rows. Hibernate's default in this case is to add the column as nullable, leaving a latent footgun: reads that hit pre-existing rows see `null` and the Integer-to-int unboxing in service code NPEs at runtime with no hint about why.
+
+Discovered during sub-spec 2 Task 4 when `Auction.consecutiveWorldApiFailures` (Integer, NOT NULL, @Builder.Default = 0) was added — the entity-side default covered new rows created after the deploy, but any existing auction row had `NULL` in the new column and `OwnershipCheckTask` threw NPE the first time it ran.
+
+**How to apply:** for any new NOT NULL column added to an existing entity, set both the entity-side default AND a `columnDefinition` that Hibernate emits verbatim as part of the `ALTER TABLE` statement. The pattern:
+```java
+@Builder.Default
+@Column(name = "consecutive_world_api_failures", nullable = false,
+        columnDefinition = "integer NOT NULL DEFAULT 0")
+private Integer consecutiveWorldApiFailures = 0;
+```
+The `columnDefinition` override makes Hibernate emit `ALTER TABLE auctions ADD COLUMN consecutive_world_api_failures integer NOT NULL DEFAULT 0`, which Postgres fills for existing rows using the default. Drop the `DEFAULT` clause from `columnDefinition` on the next deploy if you want to tighten the app-layer contract ("new rows must always set this explicitly"); Postgres keeps the filled-in values for existing rows once they're there. Do NOT rely on a migration / initializer to UPDATE the pre-existing rows — it works for tables the team controls but is racy if the upgrade runs while other pods are writing, and it's a maintenance burden that compounds with every new column. The `columnDefinition` path is a one-line fix in the entity.
+
+### F.55 Hibernate `@JdbcTypeCode(SqlTypes.JSON)` maps to Postgres `jsonb` — the column is Postgres-specific
+
+**Why:** `FraudFlag.evidenceJson` is a free-form `Map<String, Object>` serialized to a `jsonb` column via `@JdbcTypeCode(SqlTypes.JSON) + columnDefinition = "jsonb"`. This is a deliberate schema choice: evidence payloads are a grab-bag of fields (new World API response, detected owner UUID, consecutive-failure count at time of detection, etc.) that evolve as new fraud signals are added, and a typed column-per-field explosion is worse than a `jsonb` blob queried via `@>` operators from the future Epic 10 admin dashboard. The tradeoff: the column is Postgres-specific. H2 / MySQL / SQLite do not have a native `jsonb` type, and Hibernate's `SqlTypes.JSON` either falls back to `text` (loses query-ability) or fails on DDL generation depending on the dialect. For this project, that is fine — prod is Postgres, tests run against Testcontainers Postgres (or the dev Postgres when running locally), and `H2 mode` is not part of the test strategy.
+
+**How to apply:** when adding a new `jsonb` column, always pair `@JdbcTypeCode(SqlTypes.JSON)` with `columnDefinition = "jsonb"` — without the override, Hibernate falls back to its dialect-default JSON type (Postgres: `varchar` via `JsonFormatMapper`, NOT `jsonb`) and you lose the GIN-indexable, operator-queryable advantages that motivated the `jsonb` choice. Don't write tests that assume H2 compatibility for these entities — `@DataJpaTest` with the default H2 replaces the `jsonb` column with `clob` and query semantics break silently. Use `@SpringBootTest` + Testcontainers Postgres (the existing pattern) or the `@AutoConfigureDataJpaTest` override that keeps the project's Postgres datasource. If a future hypothetical requires a non-Postgres database, the column has to be split into typed fields or migrated to `TEXT` with application-layer JSON parse-on-read — both ugly, both tracked in DEFERRED_WORK if it becomes real.
+
+### F.56 `isApiError(e)` and `instanceof ApiError` are both needed — MSW + Vite HMR can produce cross-realm error objects
+
+**Why:** the `ApiError` class check `e instanceof ApiError` is the natural first-line detection in a mutation's `onError` handler. In production this is enough. In the Vitest + MSW + Vite setup, however, HMR-style reloads and the React Query test wrapper can produce an error object whose prototype is a *structurally identical but different* `ApiError` class from a prior bundle — `e instanceof ApiError` returns `false` even though the shape is right. The `isApiError` duck-type helper (`typeof e.problem === "object" && typeof e.problem.status === "number"`) catches this cross-realm case.
+
+Discovered during sub-spec 2 Task 9 cancel-modal tests when the error-branch assertion failed intermittently — `instanceof` missed the cross-realm instance and the handler fell through to the generic fallback message. The canonical pattern — `if (e instanceof ApiError || isApiError(e)) { /* use e.problem */ }` — covers both.
+
+**How to apply:** in every mutation `onError` that wants to read `error.problem`, use the OR pattern: `e instanceof ApiError || isApiError(e)`. `CancelListingModal`, `useActivateAuction`, and the listing-wizard forms are the reference callers. Adding `instanceof` alone is the common mistake — the test will pass 9 times out of 10 and fail once on a suspicious rerun.
+
+### F.57 `listMyAuctions` status query param is ignored by the backend today — filter client-side
+
+**Why:** the sub-spec 2 Task 10 My Listings tab needs a bucketed filter (Active / Drafts / Ended / Cancelled / Suspended — see `FILTER_GROUPS` in `lib/listing/auctionStatus.ts`). The natural implementation is to pass `status=ACTIVE` or `status=DRAFT,DRAFT_PAID,VERIFICATION_PENDING,VERIFICATION_FAILED` on `GET /api/v1/users/me/auctions` and let the backend do the heavy lifting. As of sub-spec 2, the backend's `AuctionController.listMine` ignores query params entirely — it returns every auction the seller owns regardless of filter (see `AuctionService.loadOwnedBy`). The frontend `listMyAuctions(params)` accepts the params for forward compatibility but they're dropped in flight. Shipping "now" with a client-side filter is correct — Phase 1 sellers have at most a few dozen listings — but a future implementer reading just the frontend API client might assume the param works and wire UI that silently falls through.
+
+**How to apply:** the My Listings tab filters client-side via `useMyListings.applyFilter` (see `hooks/useMyListings.ts`). When the backend grows a real filter (likely when listing volume per seller crosses ~100 and the all-listings payload gets expensive), update `AuctionController.listMine` to accept a `status` multi-value param, update `AuctionService.loadOwnedByFiltered`, and drop `applyFilter` from the hook. Do NOT do both — either the backend filters or the frontend filters, not both, or you'll have to keep the two bucket mappings in sync forever. The canonical status-bucket definition is `FILTER_GROUPS` in `frontend/src/lib/listing/auctionStatus.ts`; mirror it server-side when the backend starts honoring the param.
+
+### F.58 Pessimistic lock on the auction row requires an active transaction to actually lock
+
+**Why:** `AuctionRepository.findByIdForUpdate` is annotated `@Lock(LockModeType.PESSIMISTIC_WRITE)` — it issues a `SELECT ... FOR UPDATE` and blocks concurrent writers on the same row. But Hibernate only honors the lock when the query runs inside an active Spring-managed transaction. Calling `findByIdForUpdate` from a non-`@Transactional` method (or from a `@Transactional(propagation = NOT_SUPPORTED)` boundary) issues the SQL but acquires no row lock — concurrent bid/cancel/suspend paths will race silently. This is the class of bug that passes every unit test (the repo call succeeds, data comes back) and fails only under real concurrent load.
+
+**How to apply:** every state-mutating path on an auction (`BidService.placeBid`, `ProxyBidService.create/update/cancel`, `AuctionEndTask.closeOne`, `CancellationService.cancel`, `OwnershipCheckTask.checkOne`) MUST enter through a `@Transactional` boundary before calling `findByIdForUpdate`. When adding a new mutator, the checklist is: (1) the entry method has `@Transactional`; (2) the first repo call inside it is `findByIdForUpdate`; (3) no other repo calls on the auction row bypass the locked instance. The concurrency-regression pins (`BidBidRaceTest`, `BidCancelRaceTest`, `BidSuspendRaceTest`, `BidSchedulerRaceTest`) exist specifically to catch regressions where a new call site forgets the transaction — a new mutator without a race test will pass today and manifest as a Phase 1 production anomaly months later.
+
+### F.59 Spring `@Transactional` self-invocation bypasses the proxy — schedulers MUST dispatch to a separate bean
+
+**Why:** Spring's `@Transactional` is enforced by an AOP proxy — the annotation only takes effect when the call crosses the proxy boundary. If `AuctionEndScheduler.sweep()` (a `@Scheduled` method) directly called a `@Transactional` helper on the same class, the call would bypass the proxy entirely and the "transactional" method would run with no transaction — meaning `findByIdForUpdate` acquires no lock (F.58), `afterCommit` synchronisations never fire, and any rollback is silent. This is the #1 gotcha when wiring scheduled transactional work.
+
+**How to apply:** `AuctionEndScheduler.sweep()` (no transaction, just iterates) dispatches to `AuctionEndTask.closeOne(Long)` (`@Transactional`, lives in a separate `@Service` bean) for exactly this reason. When adding a new scheduler that dispatches transactional work, the worker MUST live in a separate bean and be autowired in — even if "it's only one method" and "it feels tidier to keep it in the scheduler class." Inline-helper-on-same-class is the bug; separate-bean is the fix. There is no `@Transactional(propagation = REQUIRES_NEW)` escape hatch that makes self-invocation work — the annotation processor runs at the proxy, and the proxy is never in the picture on a same-instance call.
+
+### F.60 Snipe-extension evaluation must happen per emitted bid row, not per transaction
+
+**Why:** A single `BidService.placeBid` call can emit TWO bid rows (a manual bid at L$500 against a competing proxy with `maxAmount=1000` emits both the manual row and a `PROXY_AUTO` counter at L$550). Spec §7 says snipe-extension is evaluated against each bid's timestamp — so if both bids land inside the snipe window, `endsAt` extends from the first bid's timestamp AND from the second bid's timestamp sequentially. Hoisting the snipe check outside the bid-emission loop (evaluating it once per transaction) would only apply one extension, silently dropping the second extension that the spec requires.
+
+**How to apply:** `BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, clock, proxyBidRepo)` iterates `emitted` and re-evaluates the snipe window against `auction.endsAt` on EVERY iteration — the list of emitted bids is processed sequentially, and each iteration can mutate `auction.endsAt`. Do not refactor this to "compute the max timestamp and evaluate once" — the extensions stack. `BidServiceSnipeTest` + `BidVsProxyCounterIntegrationTest` pin the per-row semantics; if you need to add a new snipe branch, add a case to those suites and run them against real Postgres (not a mock that happens to accept the simpler form).
+
+### F.61 `PROXY_AUTO` bid rows always persist `ip_address = null` — never inherit the upstream caller's IP
+
+**Why:** When a manual bid triggers a proxy counter-bid, the naive implementation is to copy the manual bid's request metadata (including IP) onto the proxy's emitted row. This is wrong on two levels: (1) the proxy owner did not initiate this request, so logging their "IP address" as the manual bidder's IP misattributes network-layer evidence; (2) anti-fraud correlation (Epic 10) clusters by IP + userId — contaminating the proxy owner's IP history with manual bidders' IPs flags legitimate users as coordinating with strangers. The bug is invisible until Epic 10 starts triaging fraud signals and the signals are all wrong.
+
+**How to apply:** every `BidType.PROXY_AUTO` row is persisted with `ipAddress=null`. The helper methods that insert proxy counter-bids (`BidService.insertProxyAutoBid`, `ProxyBidService.resolveProxyResolution` when it emits two rows) must pass `null` for the IP argument regardless of what the upstream HTTP request carried. Do not "plumb through the IP for completeness" — the null is load-bearing. Code review rule: any `new Bid(...)` with `type = PROXY_AUTO` and a non-null `ipAddress` is a bug.
+
+### F.62 WebSocket publish must fire from `TransactionSynchronization.afterCommit` — never inline during the transaction
+
+**Why:** If `BidService.placeBid` called `broadcastPublisher.publishSettlement(...)` inline, subscribers on `/topic/auction/{id}` could receive an envelope containing a `currentBid` that the transaction has not yet committed — and in the worst case, has not yet rolled back. Two failure modes: (1) the frontend displays a `currentBid` that vanishes on next page load because the transaction rolled back; (2) a subscribing client's subsequent `GET /api/v1/auctions/{id}` returns a stale value because replica lag makes the read-after-broadcast-but-before-commit ordering possible. Both are silent data-integrity bugs that are untestable without real concurrency.
+
+**How to apply:** every `broadcastPublisher.publish*` call goes through `TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() { @Override public void afterCommit() { publisher.publishX(envelope); } })`. `BidService`, `ProxyBidService`, `AuctionEndTask`, `CancellationService`, and `OwnershipCheckTask` all follow this pattern. Consequences for correctness: (a) if the transaction rolls back, no publish happens (correct — there is no state to broadcast); (b) the subscriber observes the envelope after the DB has committed, so a follow-up REST read is guaranteed to see at least the broadcast state. Do not bypass the synchronization to "make the test easier" — tests that need to observe the envelope should use `CapturingAuctionBroadcastPublisher` + `@DirtiesContext` to hold a real transaction open.
+
+### F.63 Auction-end scheduler MUST re-acquire the lock AND re-check conditions inside `closeOne`
+
+**Why:** `AuctionRepository.findActiveIdsDueForEnd(now)` is a lock-free read that returns candidate IDs for closing. Between the scheduler's query and `AuctionEndTask.closeOne(id)` opening its transaction, two things can happen: (1) a bid on that auction extends `endsAt` via snipe-protection, pushing it past `now` — closing now would terminate a legitimately-active auction mid-bid; (2) a concurrent `CancellationService.cancel` flips status to `CANCELLED` — closing now would overwrite a user-driven cancel with a scheduler-driven close. Both are silent correctness bugs.
+
+**How to apply:** `AuctionEndTask.closeOne(Long)` opens with `findByIdForUpdate(id)` (F.58) and THEN re-checks three gates: (1) auction present, (2) `status == ACTIVE`, (3) `endsAt <= now(clock)`. All three must pass before closing. If any gate fails, the transaction commits a no-op and moves on — this is how the snipe-race is resolved deterministically. `AuctionEndTaskTest` pins all three skip paths; `BidSchedulerRaceTest` drives the full race at `@SpringBootTest` scale. When adding a new scheduler-driven transition, the same pattern applies: acquire the lock, re-read state, re-verify every precondition the scheduler-query implied.
+
+### F.64 Partial unique indexes are not expressible via JPA `@Index` — use a startup initializer
+
+**Why:** `proxy_bids` needs `(auction_id, user_id) UNIQUE WHERE status = 'ACTIVE'` — there can be at most one ACTIVE proxy per (auction, bidder) pair, but EXHAUSTED / CANCELLED history rows must be allowed to accumulate (resurrection flips one back to ACTIVE; old ones stay for audit). JPA's `@Index` syntax supports only column lists — no `WHERE` clause — so there is no `@Table(indexes = ...)` annotation that produces this constraint. Letting Hibernate auto-generate an unconditional `UNIQUE (auction_id, user_id)` instead would reject every legitimate EXHAUSTED history row.
+
+**How to apply:** `ProxyBidActiveIndexInitializer` runs on `ApplicationReadyEvent` and executes `CREATE UNIQUE INDEX IF NOT EXISTS uq_proxy_bids_active_per_bidder ON proxy_bids (auction_id, user_id) WHERE status = 'ACTIVE'`. The `IF NOT EXISTS` clause makes it idempotent across restarts. The same initializer pattern handles `uq_auctions_parcel_locked_status` (Epic 03 sub-spec 1) and the `auctions_status_check` constraint refresh (F.51). When adding a new partial index or a CHECK constraint that depends on a runtime enum value, follow the initializer pattern — do not try to coerce JPA annotations into expressing it. Do not write a Flyway migration either: F.43 established that entities are the schema source of truth for Phase 1.
+
+### F.65 STOMP `/topic/auction/{id}` allowlist uses a full regex match, not a prefix match
+
+**Why:** `JwtChannelInterceptor` allows anonymous `SUBSCRIBE` to `/topic/auction/{id}` (spec §4: auction detail pages are public). The naive implementation is `destination.startsWith("/topic/auction/")` — this is wrong. Prefix matching allows `/topic/auction/../admin/wiretap` or any broker-normalized path that happens to share the prefix on a broker swap that does not canonicalize. Even on SimpleBrokerMessageHandler today (which does not normalize), a future migration to RabbitMQ or ActiveMQ could quietly change that posture. A regex that pins the full shape closes the ambiguity.
+
+**How to apply:** the allowlist is `Pattern.compile("^/topic/auction/\\d+$")` — anchored start-to-end, digits only for the auction id. Any new public destination (e.g., `/topic/market-stats`, `/topic/region/{regionName}`) must add an equivalent full-regex pattern — not a prefix check. `JwtChannelInterceptorTest` covers the allowlist matrix; when adding a new public destination, add a positive case for the allowed shape AND a negative case for an attempted bypass (`/topic/auction/1/../other`, `/topic/auction/1%2Fother`, etc.). Authenticated destinations (principal-gated) do not need the regex — they go through the default gate.
+
+### F.66 Postgres TIMESTAMPTZ stores microseconds, not nanoseconds — test comparisons must tolerate rounding
+
+**Why:** Java `OffsetDateTime` carries nanosecond precision. Postgres `TIMESTAMPTZ` stores microseconds — the last three digits of the nanosecond field are discarded on write, and the exact rounding behavior (truncate vs half-up) depends on the JDBC driver version and connection settings. A test that stamps `auction.endsAt = OffsetDateTime.now(clock)`, persists the auction, re-loads it, and asserts `reloaded.endsAt.isEqualTo(original)` will pass on one driver and fail on another — the flake is driver-dependent and survives CI reruns.
+
+**How to apply:** when a test compares an in-memory `OffsetDateTime` to a DB-reloaded `OffsetDateTime`, use AssertJ's `isCloseTo(original, within(1, ChronoUnit.MICROS))` instead of `isEqualTo(original)`. The same applies to `Instant` comparisons through the same column type. If the production code needs microsecond equality (e.g., "did this bid land in the snipe window"), normalize both sides to microseconds before comparing (`.truncatedTo(ChronoUnit.MICROS)`) rather than assuming nanosecond equality. Do not "fix" a flaky test by retrying — the flake is a real correctness bug that a retry hides.
+
+### F.67 Integration tests that need real commits must clean up explicitly — no transactional rollback safety net
+
+**Why:** The default Spring Boot test style (`@Transactional` at the class level) rolls the transaction back after each test, so stored rows never leak across test methods. Epic 04 sub-spec 1 has multiple suites that CANNOT use this pattern because they rely on real commits: `BidWebSocketIntegrationTest` (the STOMP subscriber receives the envelope only after `afterCommit` fires, which needs a real commit); `BidBidRaceTest` / `BidCancelRaceTest` / `BidSuspendRaceTest` / `BidSchedulerRaceTest` (two transactions must actually conflict on the DB, which needs real commits on both threads); `AuctionEndIntegrationTest` (scheduler-driven closes depend on real state). These tests run with no class-level `@Transactional` — which means rows persist across methods unless the test cleans up.
+
+**How to apply:** integration tests that need real commits MUST: (1) use `@DirtiesContext(classMode = AFTER_CLASS)` so Hikari pools reset between suites and Postgres's 100-connection ceiling is not exhausted; (2) have an explicit `@AfterEach` that deletes every row the test may have created — prefer JPA (`auctionRepo.deleteAll()`, `bidRepo.deleteAll()`, etc.) when the dependency order is obvious, or raw JDBC (`jdbcTemplate.execute("TRUNCATE bids, proxy_bids, auctions, parcels, users CASCADE")`) when it is not. Do not rely on "the next test overwrites it" — inserts are additive, not overwrite-by-default, and unique constraints will trip. When a new real-commit test is added and other tests in the suite start failing mysteriously, the first suspect is always incomplete cleanup in the new test's `@AfterEach`.
+
+### F.68 WS re-attach registry: iterate live Map, not a snapshot
+
+The `lib/ws/client.ts` `onConnect` sweep iterates `entries.values()` directly, NOT `Array.from(entries.values())`. This is load-bearing: if an `onMessage` callback synchronously calls `subscribe()` for a new topic during the sweep, the new entry gets attached in the same pass. Map iteration is spec-defined to visit entries added during iteration if not yet reached; snapshotting would require a second reconnect cycle to pick up the late entry.
+
+**Trap to avoid:** a well-meaning refactor that swaps `for (const entry of entries.values())` → `for (const entry of Array.from(entries.values()))` "for safety" will silently reintroduce a timing race. The regression test at `client.test.ts::subscribeDuringSweep_lateAddedEntryAttachedInSamePass` pins this invariant — if that test breaks, DO NOT work around it by reordering code; understand what the snapshot lost.
+
+### F.69 Auction detail mobile/desktop toggle: render both, let CSS pick — no `useMediaQuery`
+
+**Why:** The `/auction/[id]` page renders BOTH the desktop sidebar `BidPanel` (wrapped `hidden lg:block`) AND the mobile `StickyBidBar` + `BidSheet` (wrapped `lg:hidden`) in the DOM. A naive "pick one based on `useMediaQuery('(min-width: 1024px)')`" approach would cause a hydration flash on mobile: the server has no viewport, renders the desktop sidebar, and the client swaps to the mobile bar after hydration. The flash is visible, janky, and the first interaction can target the wrong element. CSS visibility toggle is instant, SSR-safe, and costs only a slightly larger DOM. Do not regress this to a media-query hook "for performance" — measure the DOM cost before accepting the flash.
+
+**How to apply:** any component that needs a breakpoint-driven layout switch on a primary interactive surface (auction detail, checkout, anything a user will interact with in the first second) should render both variants and toggle via `hidden lg:block` / `lg:hidden`. Hooks like `useMediaQuery` are fine for peripheral decisions (log-level, analytics flag, a collapsed nav preference) where a post-hydration swap is invisible. The tradeoff is DOM size — if a variant pair is very heavy (e.g. two full-screen editors), consider `lazy()` / `dynamic()` loading for the inactive variant instead of hoisting to a hook.
+
+### F.70 Buy-now overspend guard fires on both place-bid and proxy-bid forms
+
+**Why:** Backend accepts `amount > buyNowPrice` on place-bid (clamps to buyNowPrice, ends the auction inline with `endOutcome=BOUGHT_NOW`) AND `maxAmount >= buyNowPrice` on proxy-bid (immediately triggers buy-now through proxy resolution). Both are legal backend states, but the user needs to understand what is about to happen before submitting — a naive frontend that only guards one form lets the other slip through with no confirmation, and the user pays full buy-now instead of the increment they intended.
+
+**How to apply:** place-bid form fires `ConfirmBidDialog` when `amount > buyNowPrice` with copy explaining "your bid exceeds buy-now — you won't pay more than L$buyNowPrice". Proxy-bid form fires the same dialog when `maxAmount >= buyNowPrice` with copy explaining "this will trigger immediate buy-now at L$buyNowPrice". The dialog's dismiss state is session-scoped (dismissed = don't re-prompt on large-bid threshold within the same session) but the buy-now threshold is always confirmed — large-bid is an opinion, buy-now is a binding terminal action. Both forms MUST share the same `ConfirmBidDialog` component so the copy stays in lockstep. `BidForm.test.tsx` and `ProxyBidForm.test.tsx` each pin the guard; do not consolidate into one test that stubs out half the surface.
+
+### F.71 Server-time offset corrects countdown for client clock drift
+
+**Why:** `CountdownTimer` renders `remaining = endsAt - now`. If the user's clock is skewed (common on phones, Windows suspending the sync service, deliberate time-zone tricks), `now` is wrong and the countdown disagrees with the server's notion of "when does this auction actually end". The auction-end scheduler is driven by server time — a user whose client is 5 minutes ahead will see the timer hit zero five minutes before the auction actually ends, place a "last-second" bid that the server treats as normal, and be confused when snipe-extension doesn't fire the way they expected.
+
+**How to apply:** `AuctionDetailClient` stores `serverTimeOffset = envelope.serverTime - clientNow()` in a module-level ref. `CountdownTimer` uses this offset: `remaining = endsAt - (clientNow() + offset)`. The first offset value comes from the server component's fetch response `Date` header (conservative fallback — may be off by a few seconds of network latency, but bounded). Every WS envelope carries `serverTime` and refines the offset on every message. Do not compute offset from a synthetic `/api/v1/server-time` endpoint — the existing WS envelope already carries the data; a separate endpoint is extra latency for no benefit.
+
+### F.72 Merging WS envelope bids into React Query cache — dedupe by `bidId`
+
+**Why:** Page 0 of the bid history list is kept fresh by merging `BID_SETTLEMENT.newBids[]` into the TanStack Query cache on every envelope. A reconnect race delivers the same bid through two paths: (a) the HTTP re-fetch on reconnect pulls the bid from the backend; (b) the in-flight WS envelope delivers it via `newBids`. Without dedup, the UI renders the same bid twice — visible artifacts in the history list and a double-count in the "X bidders" badge.
+
+**How to apply:** the merge function builds a `Set<bidId>` from the existing cache entries, filters `newBids` to drop anything already present, then concatenates. `totalElements` is incremented by `newBids.length` (post-dedup) — in the duplicate-replay case it's deliberately over-counted by zero because the filter ran; in a missed-envelope case where the REST fetch sees a bid the WS didn't, the next REST reconcile (either pagination or an invalidate) corrects any drift. Do not drop the `bidId` dedup "because it adds allocation" — the allocation is bounded (page size = 20), and the correctness win is load-bearing. `BidHistory.test.tsx::mergesNewBidsAndDedupes` pins the invariant.
+
+### F.73 `PagedResponse<T>` over raw `Page<T>` for JSON-stable pagination
+
+**Why:** Spring Data 3.3+ emits a warning — `"Serializing PageImpl instances as-is is not supported, meaning that there is no guarantee about the stability of the resulting JSON structure!"` — whenever a controller returns `Page<T>` directly. The JSON shape today happens to be `{content, totalElements, totalPages, number, size, pageable: {...}, sort: {...}, ...}` but Spring reserves the right to change it between minor versions. The frontend's `types/page.ts` interface expects a pinned flat shape; a shape drift breaks every paginated list silently (the fields vanish and the UI renders empty-state instead of the rows).
+
+**How to apply:** every REST controller that returns paginated data MUST return `PagedResponse<T>` (at `backend/src/main/java/com/slparcelauctions/backend/common/PagedResponse.java`), NOT `Page<T>` directly. The record pins `{content, totalElements, totalPages, number, size}`. Controller pattern: `return PagedResponse.from(page.map(dtoMapper::toDto));`. See CONVENTIONS.md for the convention note. A reviewer who sees `ResponseEntity<Page<T>>` in a new controller should reject the PR and ask for `PagedResponse<T>` — this is non-negotiable for consistency with the 7+ existing paginated endpoints.
+
+### F.74 Headless UI Dialog — no swipe-to-dismiss on `BidSheet` (by spec)
+
+**Why:** The mobile `BidSheet` closes via backdrop click, Escape, or the close button only. There is NO gesture library, NO custom touch math, NO swipe-to-dismiss. The drag handle at the top of the sheet is purely decorative (`aria-hidden`) — it signals "this is a sheet" visually but does nothing. Epic 04 sub-spec 2 §13 explicitly excludes swipe-to-dismiss to keep the dependency surface thin and the keyboard/screen-reader story tight. Adding a gesture library (react-spring, framer-motion, or a hand-rolled touch handler) pulls in a non-trivial bundle, introduces test-flakiness in JSDOM (touch events don't round-trip), and opens questions the spec does not answer (velocity threshold? rubber-banding? cancel region?).
+
+**How to apply:** if swipe-to-dismiss is ever demanded, it's a deliberate scope addition with its own spec — not "a small UX polish". Draft the behavior matrix (threshold, cancel region, keyboard parity, accessibility announcement on dismiss) before touching the code. Until then, keep the drag handle `aria-hidden` and do not wire an `onTouchStart` to the sheet root. `BidSheet.test.tsx` asserts only the three supported close paths; do not add a "swipe dismiss" test that passes via direct handler invocation — that's a false signal.
+
+### F.75 Pool-not-sticky terminal model — any terminal can execute any command
+
+**Why:** All L$ held at the SLPA avatar account level, not per-terminal. Any registered terminal can execute any command (Task 4's registration pool + Task 7's `findAnyLive` selection in `TerminalCommandDispatcherTask`). This is by design — it keeps the queue simple, avoids region-affinity hotspots, and lets terminals fail without stranding L$ that was "paid to them." The flipside is that the terminal that received a listing-fee payment is almost never the one that executes the refund; the terminal that received escrow funding is almost never the one that executes the payout.
+
+**How to apply:** when debugging a commands-vs-terminals mismatch, don't chase "which terminal did this command originate from." The answer is "whichever one the dispatcher picked at the moment of `findAnyLive`." `TerminalCommand.terminalId` is stamped at dispatch time, not at queue time — the queued row has `terminalId=null`. If you ever feel the need to add "sticky" routing (same terminal that received payment executes refund), re-read spec §7.4 first; the current model is not an oversight.
+
+### F.76 Atomic `ESCROW_PENDING → FUNDED → TRANSFER_PENDING` — the intermediate state is never externally observable
+
+**Why:** `EscrowService.acceptPayment` walks the state machine `ESCROW_PENDING → FUNDED → TRANSFER_PENDING` inside a single transaction with both transitions validated against `ALLOWED_TRANSITIONS`. The row is saved in `TRANSFER_PENDING`; the `ESCROW_FUNDED` envelope's `state` field is already `TRANSFER_PENDING` when subscribers see it. The `FUNDED` state exists in the enum for state-machine auditability (so you can write down which transitions are legal in exactly one place) but there is no persistable FUNDED row and no `/topic` envelope showing `state=FUNDED`.
+
+**How to apply:** if you are writing UI or admin tooling that needs to display the escrow in a "funded, awaiting transfer" state, use `state=TRANSFER_PENDING && fundedAt != null && transferConfirmedAt == null` as the predicate. Do not add a "funded" filter to the dashboard that looks for `state=FUNDED` — there will be zero rows. Do not add an envelope subscriber that listens for `state=FUNDED` — the type discriminator is `ESCROW_FUNDED` but the state value is never FUNDED.
+
+### F.77 `TRANSFER_PENDING → COMPLETED` only flips on the payout callback — not on ownership confirmation
+
+**Why:** `EscrowOwnershipCheckTask` confirming the seller has transferred the parcel does NOT flip the escrow to COMPLETED. It stamps `transferConfirmedAt` and calls `TerminalCommandService.queuePayout(escrow)`; the dispatcher POSTs to the terminal, the terminal executes `llTransferLindenDollars` to the seller's avatar, and only the payout-result callback (`POST /api/v1/sl/escrow/payout-result`) flips the state to COMPLETED. There is a window — "transfer confirmed, payout mid-flight" — where `state=TRANSFER_PENDING && transferConfirmedAt != null` is the normal steady state, not a bug.
+
+**How to apply:** if you see an escrow row with `transferConfirmedAt != null && state=TRANSFER_PENDING`, don't mark it anomalous. Check `TerminalCommand` rows: if there's a PAYOUT command in QUEUED / IN_FLIGHT / FAILED-retrying state, the payout is still trying. Only when the PAYOUT is COMPLETED does the escrow flip to COMPLETED; only when the PAYOUT exhausts retries does it stall with `requires_manual_review=true` + an `ESCROW_PAYOUT_STALLED` envelope. The `EscrowStatusResponse.timeline` surfaces this naturally: "Transfer confirmed" appears at `transferConfirmedAt`, then the `LEDGER_AUCTION_ESCROW_PAYOUT` row appears at payout completion. A transfer-confirmed-but-not-completed row viewed before the payout lands shows the confirmed step and no ledger row yet.
+
+### F.78 Payout-in-flight guard on the transfer-timeout sweep — do not drop the `NOT EXISTS` clause
+
+**Why:** `EscrowRepository.findExpiredTransferPendingIds` filters out any escrow that has an active PAYOUT command (`status IN ('QUEUED','IN_FLIGHT','FAILED')` — the last because a FAILED command awaiting retry is still "in flight" for this purpose). Without the filter, an escrow whose ownership was confirmed and whose payout is mid-retry (transient terminal outage) would race with the 72h transfer-deadline sweep: the sweep would queue a REFUND while the PAYOUT is still attempting to deliver. Both eventually succeed and the escrow account double-spends.
+
+**How to apply:** do NOT refactor the query to "simplify" by dropping the `NOT EXISTS` subquery. Do NOT re-implement the sweep as "find expired, then filter in Java" — the filtering must happen in the SQL WHERE clause so a concurrent `TerminalCommand` INSERT between `findAll()` and `filter()` doesn't slip through. `EscrowTimeoutTask.expireTransfer` additionally re-checks `countActivePayoutCommands` under the per-escrow pessimistic lock for the fine-grained race (see F.78 cross-ref with the timeout integration test). If you change the filter, the regression pin is `EscrowTimeoutIntegrationTest.transferTimeout_skipsEscrowsWithActivePayoutCommand`.
+
+### F.79 Clock injection discipline — new escrow code uses injected `Clock`, Epic 03/04 code does not
+
+**Why:** Every new service, scheduler, and task added in Epic 05 sub-spec 1 injects `Clock` via the `ClockConfig` bean and calls `OffsetDateTime.now(clock)` instead of `OffsetDateTime.now()`. This lets deadline tests advance a `MutableFixedClock` and assert that the code hits the expected branch. Existing Epic 03 / Epic 04 services use raw `.now()` — they're unaffected at runtime (both resolve to `Clock.systemDefaultZone()`), but they can't be cleanly tested with a frozen clock.
+
+**How to apply:** if you add a test that fast-forwards the clock and the assertion unexpectedly passes under wall-clock timing (or fails non-deterministically), the code path you're exercising probably hits a raw `.now()` somewhere. Grep for `OffsetDateTime\.now\(\)` (no argument) in the touched service — that's the bug. The fix is usually to inject `Clock` and swap the call. The "retrofit" entry in DEFERRED_WORK.md tracks the opportunistic cleanup pass.
+
+### F.80 Enum CHECK constraint refresh — no manual DDL needed, but the initializer must stay on the classpath
+
+**Why:** Adding an enum value to `FraudFlagReason`, `AuctionStatus`, `EscrowState`, etc. requires no migration. `EnumCheckConstraintSync` (a shared common helper) runs on `ApplicationReadyEvent` for each registered enum-column pair and rewrites the Postgres `CHECK` constraint to match the enum's current values. This is how new `FraudFlagReason` entries (`ESCROW_WRONG_PAYER`, `ESCROW_UNKNOWN_OWNER`, etc.) landed in Epic 05 sub-spec 1 without a Flyway migration. If you ever see a `DataIntegrityViolationException` containing `violates check constraint "<table>_<column>_check"` on a fresh enum value, the initializer component is either missing, disabled, or didn't register the enum/column pair.
+
+**How to apply:** never write manual DDL to update an enum check constraint. If adding a new enum value, do nothing special — the initializer handles it on next boot. If the constraint rejects a new value in a test, verify the `@Component` is still on the classpath, check the startup logs for the `"Refreshed <name>_check CHECK constraint to N values"` line, and confirm the enum / column pair is registered in `EnumCheckConstraintInitializer` / `EscrowEnumCheckConstraintInitializer` / equivalent. Do NOT mark the schema with `ddl-auto: create` to "reset" — that wipes all data and still doesn't help if the initializer isn't running.
+
+### F.81 Consecutive World API failure threshold — conservative default of 5, reset on any success
+
+**Why:** `Escrow.consecutiveWorldApiFailures` counts the number of World API calls for an ownership check that returned a transient failure (5xx, timeout, connection refused) in a row. Default threshold is 5 (`slpa.escrow.ownership-api-failure-threshold`). At 5 consecutive failures, `EscrowOwnershipCheckTask` freezes the escrow with `FreezeReason=WORLD_API_PERSISTENT_FAILURE`. Any successful check resets the counter to 0 via `EscrowService.confirmTransfer` / `stampChecked` — meaning the threshold means "5 failures in an unbroken run" not "5 failures ever."
+
+**How to apply:** the paranoid default is deliberate — a seller who is actively defrauding SLPA could (via some plausibly complex path) disrupt World API lookups for their specific parcel; freezing on a small unbroken run protects the winner's L$ while an admin investigates. If you lower the threshold to 3, be prepared for false-positive freezes under real-world Linden Lab API flakiness. If you raise it to 10, accept that an escrow with 9 consecutive failures and an attacker who flips the parcel owner to a third party on the 10th check window squeaks through. Changing this value is not a drive-by tweak — reason about the worst case first.
+
+### F.82 Escrow WS envelopes are invalidation-only
+
+The 9 `ESCROW_*` envelope types on `/topic/auction/{id}` are coarse cache-invalidation signals per spec §7.2. DO NOT add envelope-to-DTO merge logic on the frontend. Per-variant refinements (paymentDeadline on CREATED, reason on DISPUTED, etc.) are there for Epic 09 notifications consumers — the escrow page refetches the full DTO via GET after any envelope and that's the canonical source of truth. Merging 9 different envelope shapes into a cached response with a computed timeline array defeats the backend's "coarse" design intent for zero UX win.
+
+### F.83 EscrowChip needs transferConfirmedAt to render correctly
+
+`EscrowChip` has a state→label map that sub-splits `TRANSFER_PENDING` based on whether `transferConfirmedAt` is set. Callers with only the `state` can omit it and fall back to a generic label, but the escrow page, dashboard rows, and AuctionEndedPanel all have access to the full field via their DTO enrichment — they MUST pass it. If you see "Transfer pending" on the chip when you expected "Awaiting transfer" or "Payout pending", you forgot to thread `transferConfirmedAt`.
+
+### F.84 EXPIRED state branches on fundedAt in the escrow page only
+
+The backend sends a single `EXPIRED` state that covers two semantically distinct scenarios: winner-never-paid (payment timeout) and seller-never-transferred (transfer timeout, refund queued). The escrow page's `ExpiredStateCard` branches on `fundedAt` to choose copy (`fundedAt == null` → payment timeout, `fundedAt != null` → transfer timeout, refund). The banner on the auction detail page does NOT branch — both EXPIRED sub-states just show "Escrow expired" there because the banner's one-liner can't carry both nuances. If you're tempted to add the branching to the banner, the full detail lives on the escrow page — send users there instead of overloading the banner.
+
+### F.85 inferEndOutcome / inferOutcomeFromDto helpers retired in sub-spec 2
+
+The defensive `endOutcome` fallback helpers that previously lived in `AuctionEndedPanel` + `ListingSummaryRow` are gone. Sub-spec 1 backend guarantees `endOutcome` is always projected on ENDED auctions. If you're tempted to bring the helpers back "just in case," don't — the backend is authoritative and a null `endOutcome` on ENDED should surface as a bug, not be silently papered over with heuristics.
+
+### F.86 — SKIP LOCKED is not portable SQL
+
+`SELECT ... FOR UPDATE SKIP LOCKED` is Postgres-specific syntax. Spring
+Data JPQL has no equivalent; the clause must be passed via a native query
+(`@Query(..., nativeQuery = true)`). Repository methods using SKIP LOCKED
+therefore cannot be re-used against an in-memory H2 or Derby test DB —
+integration tests that want the lock behavior must run against Testcontainers
+Postgres (or the shared dev Postgres container).
+
+**Touchpoint:** `BotTaskRepository.claimNext`. If the project ever adds
+an H2-backed test profile, the claim query has to be stubbed or the tests
+gated on `@ActiveProfiles("test")` (Postgres).
+
+### F.87 — `@Modifying` bypasses `@UpdateTimestamp`
+
+Bulk UPDATE queries annotated with `@Modifying` skip Hibernate's entity
+lifecycle, so `@UpdateTimestamp`-annotated columns like `lastUpdatedAt`
+are NOT refreshed. If a bulk query changes row state, it must also set
+`lastUpdatedAt = :now` explicitly in the SET clause.
+
+**Touchpoint:** `BotTaskRepository.cancelLiveByAuctionIdAndTypes` /
+`cancelLiveByEscrowId`. Any future bulk update on an entity with
+`@UpdateTimestamp` must follow the same pattern.
+
+### F.88 — Hibernate `ddl-auto: update` does not widen CHECK constraints
+
+When a Java enum gains a new value (e.g., `BotTaskType` adds `MONITOR_AUCTION`),
+Hibernate's `update` mode does NOT rewrite the existing Postgres CHECK
+constraint. Inserts with the new value fail at the DB level with
+`check constraint violated` until the constraint is manually refreshed.
+
+**Solution:** Register a per-(table, column, enum) `@Component` that
+invokes `EnumCheckConstraintSync.sync(...)` on `ApplicationReadyEvent`.
+See `BotTaskTypeCheckConstraintInitializer` /
+`BotTaskStatusCheckConstraintInitializer` /
+`FraudFlagReasonCheckConstraintInitializer`.
+
+**Touchpoint:** every enum column in the DB. When adding a new
+`@Enumerated(EnumType.STRING)` column, also add a constraint initializer
+alongside the entity.
+
+### F.89 — .NET 8 container default port is 8080
+
+ASP.NET Core 8 defaults to listening on port `8080` inside containers via
+`ASPNETCORE_HTTP_PORTS`. If the Dockerfile `EXPOSE`s a different port (e.g.,
+`8081`), the app still listens on `8080` and every healthcheck hitting
+the exposed port fails silently.
+
+**Solution:** set `ENV ASPNETCORE_HTTP_PORTS=<port>` in the Dockerfile
+BEFORE `ENTRYPOINT`. Or override via compose `environment:` block. Both
+patterns work; Dockerfile is more robust.
+
+**Touchpoint:** `bot/Dockerfile`. Any future .NET-in-container service
+must set this env var explicitly.

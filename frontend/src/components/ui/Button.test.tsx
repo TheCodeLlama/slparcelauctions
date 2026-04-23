@@ -21,6 +21,14 @@ describe("Button", () => {
     expect(button.className).toContain("shadow-soft");
   });
 
+  it("renders the destructive variant with error tokens", () => {
+    renderWithProviders(<Button variant="destructive">Cancel listing</Button>);
+    const button = screen.getByRole("button", { name: "Cancel listing" });
+    expect(button.className).toContain("bg-error");
+    expect(button.className).toContain("text-on-error");
+    expect(button.className).not.toContain("bg-gradient-to-br");
+  });
+
   it("renders the tertiary text-only variant", () => {
     renderWithProviders(<Button variant="tertiary">Forgot password?</Button>);
     const button = screen.getByRole("button", { name: "Forgot password?" });

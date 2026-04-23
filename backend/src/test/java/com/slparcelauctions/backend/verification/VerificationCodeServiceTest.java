@@ -41,7 +41,7 @@ class VerificationCodeServiceTest {
     void setup() {
         repository = mock(VerificationCodeRepository.class);
         userRepository = mock(UserRepository.class);
-        service = new VerificationCodeService(repository, userRepository, FIXED_CLOCK);
+        service = new VerificationCodeService(repository, userRepository, FIXED_CLOCK, 15);
     }
 
     @Test

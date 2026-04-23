@@ -1,0 +1,85 @@
+<h2>Task 01-10 — Landing Page (updated)</h2>
+<p class="subtitle">Stats Bar dropped. Four layers: Hero → How It Works → Features → Bottom CTA. Icons in real code come from <code>@/components/ui/icons.ts</code> (lucide-react). Mockup below uses plain text labels instead of emoji stand-ins.</p>
+
+<div class="section">
+  <span class="label">Layer 0 · Shell (already ships via AppShell)</span>
+  <div class="mockup">
+    <div class="mockup-header">Sticky glass header + Footer — Task 01-10 does NOT touch</div>
+    <div class="mockup-body">
+      <div class="mock-nav">SLPA · Browse · Dashboard · Create Listing · · · Theme · Bell · Sign in / Register (or User menu)</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <span class="label">Layer 1 · Hero (7/5 editorial grid)</span>
+  <div class="mockup">
+    <div class="mockup-header">Live pill · headline · subtitle · 2 CTAs (auth-aware) · featured parcel card</div>
+    <div class="mockup-body">
+      <div style="display:flex; gap:1rem; align-items:stretch">
+        <div class="mock-content" style="flex:7; min-height:240px">
+          <div style="font-size:0.7rem; letter-spacing:0.2em; color:var(--accent); text-transform:uppercase">● LIVE AUCTIONS ACTIVE</div>
+          <h3 style="margin-top:0.75rem; font-size:1.6rem; line-height:1.1">Buy &amp; Sell Second Life Land at Auction</h3>
+          <p style="color:var(--muted); margin-top:0.5rem">The premium digital land curator. Verified listings, real-time bidding, secure escrow.</p>
+          <div style="display:flex; gap:0.5rem; margin-top:1rem">
+            <button class="mock-button">Browse Listings</button>
+            <button class="mock-button" style="background:transparent; border:1px solid var(--border); color:var(--text)">Start Selling / Go to Dashboard</button>
+          </div>
+        </div>
+        <div class="placeholder" style="flex:5; min-height:240px; display:flex; align-items:flex-end; padding:1rem">
+          <div>
+            <div style="font-weight:700">Oceanic Retreat Parcel</div>
+            <div style="font-size:0.8rem; color:var(--muted)">Starting Bid: L$ 45,000</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <span class="label">Layer 2 · How It Works (4-step grid)</span>
+  <div class="mockup">
+    <div class="mockup-header">Verify · List · Auction · Settle — icons from lucide (ShieldCheck, ListChecks, Gavel, CreditCard)</div>
+    <div class="mockup-body" style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.75rem">
+      <div class="placeholder" style="min-height:120px; padding:0.75rem"><strong>Verify</strong><div style="font-size:0.75rem; color:var(--muted)">Identity &amp; ownership</div></div>
+      <div class="placeholder" style="min-height:120px; padding:0.75rem"><strong>List</strong><div style="font-size:0.75rem; color:var(--muted)">Dimensions &amp; photos</div></div>
+      <div class="placeholder" style="min-height:120px; padding:0.75rem"><strong>Auction</strong><div style="font-size:0.75rem; color:var(--muted)">Real-time bidding</div></div>
+      <div class="placeholder" style="min-height:120px; padding:0.75rem"><strong>Settle</strong><div style="font-size:0.75rem; color:var(--muted)">Escrow transfer</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <span class="label">Layer 3 · Features (bento grid, fidelity TBD)</span>
+  <div class="mockup">
+    <div class="mockup-header">6 features in an asymmetric 3-column bento</div>
+    <div class="mockup-body">
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:80px; gap:0.5rem">
+        <div class="placeholder" style="grid-column:span 2">Real-Time Bidding</div>
+        <div class="placeholder">Secure Escrow</div>
+        <div class="placeholder">Snipe Protection</div>
+        <div class="placeholder" style="grid-column:span 2; background:#222; color:#eee">Verified Listings</div>
+        <div class="placeholder">Proxy Bidding</div>
+        <div class="placeholder" style="grid-column:span 2">Reputation System</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <span class="label">Layer 4 · Bottom CTA (hidden for authenticated users)</span>
+  <div class="mockup">
+    <div class="mockup-header">Primary gradient block — "Ready to acquire your next parcel?"</div>
+    <div class="mockup-body" style="background:linear-gradient(135deg,#7b5808,#c99e4c); color:#fff; padding:2rem; text-align:center; border-radius:0.5rem">
+      <h3 style="margin:0; font-size:1.4rem">Ready to acquire your next parcel?</h3>
+      <p style="margin-top:0.5rem; opacity:0.85">Join thousands of curators building their digital footprint on SLPA.</p>
+      <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1rem">
+        <button class="mock-button" style="background:#fff; color:#7b5808">Create Free Account</button>
+        <button class="mock-button" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff">View Active Auctions</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">Q2 coming in the terminal — about the images referenced in the Stitch template.</p>

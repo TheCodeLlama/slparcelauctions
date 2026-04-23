@@ -74,6 +74,19 @@ services:
       SLPA_STORAGE_ENDPOINT: http://minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-slpa-dev-key}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-slpa-dev-secret}
+      # Bot + escrow integration — backend validates bot callbacks against this UUID
+      # and gates /api/v1/bot/** with this shared secret. Both have dev-profile
+      # defaults in application-dev.yml; override via shell/env to test real SL
+      # integration. See docs/testing/EPIC_6_TESTING.md §3.3-§3.4.
+      SLPA_PRIMARY_ESCROW_UUID: ${SLPA_PRIMARY_ESCROW_UUID:-00000000-0000-0000-0000-000000000099}
+      SLPA_BOT_SHARED_SECRET: ${SLPA_BOT_SHARED_SECRET:-dev-bot-shared-secret}
+      # Optional timing overrides (useful for §10/§13 tests to shrink cycle + sweep).
+      # Map to Spring keys: slpa.bot.monitor-*-interval, slpa.bot-task.in-progress-timeout,
+      # slpa.bot-task.timeout-check-interval. Defaults in application.yml apply if unset.
+      SLPA_BOT_MONITOR_AUCTION_INTERVAL: ${SLPA_BOT_MONITOR_AUCTION_INTERVAL:-PT30M}
+      SLPA_BOT_MONITOR_ESCROW_INTERVAL: ${SLPA_BOT_MONITOR_ESCROW_INTERVAL:-PT15M}
+      SLPA_BOT_TASK_IN_PROGRESS_TIMEOUT: ${SLPA_BOT_TASK_IN_PROGRESS_TIMEOUT:-PT20M}
+      SLPA_BOT_TASK_TIMEOUT_CHECK_INTERVAL: ${SLPA_BOT_TASK_TIMEOUT_CHECK_INTERVAL:-PT15M}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
@@ -117,6 +130,29 @@ services:
       - frontend-next-cache:/app/.next
     networks:
       - slpa-net
+
+  bot-1:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    env_file:
+      - ./bot/.env.bot-1
+    environment:
+      Bot__Username: ${SLPA_BOT_USERNAME}
+      Bot__Password: ${SLPA_BOT_PASSWORD}
+      Bot__BotUuid: ${SLPA_BOT_UUID}
+      Bot__StartLocation: ${SLPA_BOT_START_LOCATION:-last}
+      Backend__BaseUrl: http://backend:8080
+      Backend__SharedSecret: ${SLPA_BOT_SHARED_SECRET}
+      RateLimit__TeleportsPerMinute: "6"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - slpa-net
+    # Add bot-2..bot-5 by copying this block and referencing
+    # ./bot/.env.bot-2, ./bot/.env.bot-3, etc.
 
 volumes:
   postgres-data:

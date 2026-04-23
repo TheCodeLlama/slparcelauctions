@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
+import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +30,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final BotSharedSecretAuthorizer botSharedSecretAuthorizer;
 
     @Value("${cors.allowed-origin:http://localhost:3000}")
     private String allowedOrigin;
@@ -43,6 +46,11 @@ public class SecurityConfig {
                 // endpoints — always add new matchers above the "/api/v1/**" catch-all.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
+                        // Public listing-fee config (Epic 03 sub-spec 2 §7.6). The browse
+                        // page and unauthenticated /activate landing both render the
+                        // current fee so sellers see the exact cost before paying.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/config/listing-fee").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
@@ -69,6 +77,23 @@ public class SecurityConfig {
                         // and is the actual trust boundary. FOOTGUNS §B.5: this MUST sit
                         // before the /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/verify").permitAll()
+                        // Method B (REZZABLE) LSL callback — same trust model as
+                        // /api/v1/sl/verify: header-validated inside the handler,
+                        // no JWT (the SL grid cannot authenticate). FOOTGUNS §B.5.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/parcel/verify").permitAll()
+                        // Escrow SL-facing endpoints (Epic 05 sub-spec 1 Tasks 4/5/7/9).
+                        // Same dual-layer trust model as /api/v1/sl/verify: SL headers
+                        // (X-SecondLife-Shard / X-SecondLife-Owner-Key) validated by
+                        // SlHeaderValidator inside the handler, plus a body-carried
+                        // sharedSecret verified by TerminalService.assertSharedSecret
+                        // against slpa.escrow.terminal-shared-secret. All four paths
+                        // are whitelisted now (not only the one Task 4 ships) so
+                        // Tasks 5/7/9 do not have to re-touch SecurityConfig.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/terminal/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payment").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payout-result").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/listing-fee/payment").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
@@ -79,6 +104,45 @@ public class SecurityConfig {
                         // Authenticated profile edit (explicit for grep-ability; catch-all also covers it).
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me").authenticated()
                         // --- End Epic 02 sub-spec 2a additions ---
+                        // --- New in Epic 03 sub-spec 1 Task 9 ---
+                        // Public parcel tag reference — any authenticated caller.
+                        // Catch-all /api/v1/** .authenticated() below covers this,
+                        // but it's listed here for grep-ability.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").authenticated()
+                        // Public listing-photo byte proxy. Must come before the
+                        // /api/v1/** catch-all and before the seller-only upload
+                        // endpoint. FOOTGUNS §B.5: matcher order is first-match-wins.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/photos/*/bytes").permitAll()
+                        // Authenticated seller-only upload + delete.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/photos").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/auctions/*/photos/**").authenticated()
+                        // Public bid history (Epic 04 sub-spec 1). Spec §4 marks
+                        // GET /auctions/{id}/bids as public — bid identity is
+                        // public per DESIGN.md §1589-1591. Must sit before the
+                        // /api/v1/** catch-all. FOOTGUNS §B.5.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/bids").permitAll()
+                        // Public user-scoped active listings (Epic 04 sub-spec 2 §14).
+                        // Anonymous access is allowed; SUSPENDED and pre-ACTIVE
+                        // statuses are filtered server-side in the repository query
+                        // so the response shape never leaks seller-only state.
+                        // FOOTGUNS §B.5: this MUST sit before the /api/v1/**
+                        // catch-all and — because first-match-wins — before any
+                        // /api/v1/users/** authenticated rules.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*/auctions").permitAll()
+                        // --- End Epic 03 sub-spec 1 Task 9 additions ---
+                        // Bot worker queue + callback surface (Epic 06 Task 3).
+                        // Authentication is a shared bearer token validated by
+                        // BotSharedSecretAuthorizer (constant-time compare via
+                        // MessageDigest.isEqual). The .access(...) matcher is the
+                        // single trust boundary for every /api/v1/bot/** path:
+                        // /claim, /pending, /{id}/verify, and /{id}/monitor
+                        // (Task 5) all gate through here. The Task 4 deprecated
+                        // PUT /{id} shim was removed in Task 12.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins, so
+                        // this rule MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/bot/**").access((authentication, ctx) ->
+                                new AuthorizationDecision(
+                                        botSharedSecretAuthorizer.isAuthorized(ctx.getRequest())))
                         // Dev simulate helper - permit at HTTP layer always. The bean is only
                         // registered under @Profile("dev"); in prod the handler doesn't exist so
                         // the request 404s (falling through Spring MVC rather than Spring Security).

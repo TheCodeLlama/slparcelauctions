@@ -1,0 +1,109 @@
+<h2>Features section — grid layout</h2>
+<p class="subtitle">Six features: Real-Time Bidding · Secure Escrow · Snipe Protection · Verified Listings · Proxy Bidding · Reputation System. Two layout options below.</p>
+
+<div class="split">
+
+  <div class="mockup">
+    <div class="mockup-header">Option A — Asymmetric bento (matches Stitch reference)</div>
+    <div class="mockup-body">
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:100px; gap:0.5rem">
+        <div class="placeholder" style="grid-column:span 2; background:var(--surface2)">
+          <div style="padding:0.75rem">
+            <div style="font-size:0.9rem; font-weight:700">Real-Time Bidding</div>
+            <div style="font-size:0.7rem; color:var(--muted)">Milliseconds. Data-viz bg.</div>
+          </div>
+        </div>
+        <div class="placeholder" style="background:linear-gradient(135deg,#7b5808,#c99e4c); color:#fff">
+          <div style="padding:0.75rem">
+            <div style="font-size:0.85rem; font-weight:700">Secure Escrow</div>
+            <div style="font-size:0.7rem; opacity:0.85">Multi-sig</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div style="padding:0.75rem">
+            <div style="font-size:0.85rem; font-weight:700">Snipe Protection</div>
+            <div style="font-size:0.7rem; color:var(--muted)">Auto-extend</div>
+          </div>
+        </div>
+        <div class="placeholder" style="grid-column:span 2; background:#1a1d1f; color:#eee">
+          <div style="padding:0.75rem">
+            <div style="font-size:0.9rem; font-weight:700">Verified Listings</div>
+            <div style="font-size:0.7rem; opacity:0.7">Region cross-ref</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div style="padding:0.75rem">
+            <div style="font-size:0.85rem; font-weight:700">Proxy Bidding</div>
+            <div style="font-size:0.7rem; color:var(--muted)">Set max bid</div>
+          </div>
+        </div>
+        <div class="placeholder" style="grid-column:span 2; background:var(--surface)">
+          <div style="padding:0.75rem">
+            <div style="font-size:0.9rem; font-weight:700">Reputation System</div>
+            <div style="font-size:0.7rem; color:var(--muted)">+8k reviews</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Option B — Uniform 3×2 grid</div>
+    <div class="mockup-body">
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:160px; gap:0.5rem">
+        <div class="placeholder"><div style="padding:0.75rem"><div style="font-size:0.85rem; font-weight:700">Real-Time Bidding</div><div style="font-size:0.7rem; color:var(--muted)">Milliseconds</div></div></div>
+        <div class="placeholder"><div style="padding:0.75rem"><div style="font-size:0.85rem; font-weight:700">Secure Escrow</div><div style="font-size:0.7rem; color:var(--muted)">Multi-sig</div></div></div>
+        <div class="placeholder"><div style="padding:0.75rem"><div style="font-size:0.85rem; font-weight:700">Snipe Protection</div><div style="font-size:0.7rem; color:var(--muted)">Auto-extend</div></div></div>
+        <div class="placeholder"><div style="padding:0.75rem"><div style="font-size:0.85rem; font-weight:700">Verified Listings</div><div style="font-size:0.7rem; color:var(--muted)">Region cross-ref</div></div></div>
+        <div class="placeholder"><div style="padding:0.75rem"><div style="font-size:0.85rem; font-weight:700">Proxy Bidding</div><div style="font-size:0.7rem; color:var(--muted)">Set max bid</div></div></div>
+        <div class="placeholder"><div style="padding:0.75rem"><div style="font-size:0.85rem; font-weight:700">Reputation System</div><div style="font-size:0.7rem; color:var(--muted)">+8k reviews</div></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section">
+  <h3>Tradeoffs</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Option A — Bento</h4>
+      <ul>
+        <li>Matches Stitch reference &amp; "intentional asymmetry" from DESIGN.md §1</li>
+        <li>Natural visual hierarchy — the 3 large cards draw the eye first, small cards fill in</li>
+        <li>Visually "breathed into existence" per the Digital Curator aesthetic</li>
+        <li>One <code>FeatureCard</code> component with a <code>size="sm" | "lg"</code> variant prop</li>
+        <li>Real-Time Bidding + Verified Listings can use the decorative <code>bidding-bg-light.png</code> image + dark-surface variant respectively</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Option B — Uniform Grid</h4>
+      <ul>
+        <li>Simpler mental model — one card size, clean CSS</li>
+        <li>Easier to add/remove features later without re-balancing the bento</li>
+        <li>Better responsive collapse — grid just stacks on mobile</li>
+        <li>Bends the "intentional asymmetry" rule — feels more template-y</li>
+        <li>Loses the editorial-first composition the spec explicitly asks for</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Asymmetric bento (recommended)</h3>
+      <p>Three 2-span large cards alternating with three 1-span small cards. Matches Stitch reference. FeatureCard supports size="sm" | "lg" + variant="surface" | "primary" | "dark".</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Uniform 3×2 grid</h3>
+      <p>Six identical cards. Simpler, but loses the editorial composition.</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">Look at both layouts on <a href="http://localhost:54560">http://localhost:54560</a> and let me know A or B. Click to select.</p>

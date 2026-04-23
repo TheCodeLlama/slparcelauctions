@@ -35,3 +35,30 @@ export {
 
 // Sub-spec 2b additions
 export { Copy, CheckCircle2, AlertCircle, MessageSquare, Upload } from "lucide-react";
+
+// Sub-spec 2 additions (listing create/edit UI + ownership monitoring)
+export {
+  UploadCloud,
+  ImagePlus,
+  AlertTriangle,
+  XCircle,
+  Building2,
+  MapPin,
+  Tag,
+  Trash2,
+  ExternalLink,
+  ArrowRight,
+  Edit,
+  Plus,
+  MoreHorizontal,
+} from "lucide-react";
+
+// Epic 04 sub-spec 2 additions (auction detail page)
+export {
+  Code2,
+  Globe,
+  UserCheck,
+} from "lucide-react";
+
+// Epic 05 sub-spec 2 additions (escrow page chrome)
+export { FileX } from "lucide-react";

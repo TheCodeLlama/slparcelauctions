@@ -49,6 +49,9 @@ npm run lint      # ESLint (v9)
 
 - `docs/initial-design/DESIGN.md` - Full specification (architecture, user flows, API contracts, DB schema, security)
 - `docs/implementation/PHASES.md` - 11 implementation phases with dependency graph
+- `docs/implementation/CONVENTIONS.md` - project-wide implementation rules; read before every epic/task
+- `docs/implementation/DEFERRED_WORK.md` - running ledger of deferred items; read before every epic/task alongside CONVENTIONS.md
+- `docs/implementation/FOOTGUNS.md` - captured gotchas and pitfalls from prior tasks
 - `docs/implementation/epic-NN/` - Detailed task breakdowns per phase with acceptance criteria
 - `backend/src/main/resources/db/migration/` - Flyway SQL migrations (naming: `V1__description.sql`)
 - `backend/src/main/java/com/slparcelauctions/backend/` - Java source root

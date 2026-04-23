@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,20 +20,28 @@ import com.slparcelauctions.backend.verification.exception.AlreadyVerifiedExcept
 import com.slparcelauctions.backend.verification.exception.CodeCollisionException;
 import com.slparcelauctions.backend.verification.exception.CodeNotFoundException;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class VerificationCodeService {
-
-    public static final Duration CODE_TTL = Duration.ofMinutes(15);
 
     private final VerificationCodeRepository repository;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final Duration codeTtl;
     private final SecureRandom random = new SecureRandom();
+
+    public VerificationCodeService(
+            VerificationCodeRepository repository,
+            UserRepository userRepository,
+            Clock clock,
+            @Value("${slpa.verification.parcel-code-ttl-minutes:15}") int codeTtlMinutes) {
+        this.repository = repository;
+        this.userRepository = userRepository;
+        this.clock = clock;
+        this.codeTtl = Duration.ofMinutes(codeTtlMinutes);
+    }
 
     /** Generate a fresh code for the given user, voiding any prior active codes. */
     @Transactional
@@ -44,7 +53,7 @@ public class VerificationCodeService {
         }
         voidActive(userId, type);
         String code = String.format("%06d", random.nextInt(1_000_000));
-        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(CODE_TTL);
+        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(codeTtl);
         VerificationCode row = repository.save(
                 VerificationCode.builder()
                         .userId(userId)
@@ -64,6 +73,50 @@ public class VerificationCodeService {
         return repository
                 .findFirstByUserIdAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
                         userId, type, OffsetDateTime.now(clock))
+                .map(c -> new ActiveCodeResponse(c.getCode(), c.getExpiresAt()));
+    }
+
+    /**
+     * Generate a PARCEL-type code bound to a specific draft auction. Voids any
+     * prior active PARCEL code for this auction. Unlike {@link #generate}, does
+     * NOT check the user's verified flag — PARCEL codes presuppose a verified
+     * user (the caller is the seller of an auction, and the auction-create path
+     * already gates on {@code AuctionController.requireVerified}).
+     */
+    @Transactional
+    public GenerateCodeResponse generateForParcel(Long userId, Long auctionId) {
+        voidActiveParcelCodes(auctionId);
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(codeTtl);
+        VerificationCode row = repository.save(
+                VerificationCode.builder()
+                        .userId(userId)
+                        .auctionId(auctionId)
+                        .code(code)
+                        .type(VerificationCodeType.PARCEL)
+                        .expiresAt(expiresAt)
+                        .used(false)
+                        .build());
+        log.info("Generated PARCEL verification code for user {} auction {} (id={})",
+                userId, auctionId, row.getId());
+        return new GenerateCodeResponse(code, expiresAt);
+    }
+
+    /**
+     * Non-destructive read of the active PARCEL code for an auction, if any.
+     * Callers filter out expired rows here rather than pushing a time filter
+     * into the repository so the same repository finder can feed the expiry
+     * sweep job (which needs to see ALL unused rows to decide "no active code").
+     */
+    @Transactional(readOnly = true)
+    public Optional<ActiveCodeResponse> findActiveForParcel(Long userId, Long auctionId) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        return repository
+                .findByAuctionIdAndTypeAndUsedFalse(auctionId, VerificationCodeType.PARCEL)
+                .stream()
+                .filter(c -> userId == null || userId.equals(c.getUserId()))
+                .filter(c -> c.getExpiresAt().isAfter(now))
+                .findFirst()
                 .map(c -> new ActiveCodeResponse(c.getCode(), c.getExpiresAt()));
     }
 
@@ -111,5 +164,14 @@ public class VerificationCodeService {
         active.forEach(c -> c.setUsed(true));
         repository.saveAll(active);
         log.info("Voided {} prior active code(s) for user {}", active.size(), userId);
+    }
+
+    private void voidActiveParcelCodes(Long auctionId) {
+        List<VerificationCode> active = repository
+                .findByAuctionIdAndTypeAndUsedFalse(auctionId, VerificationCodeType.PARCEL);
+        if (active.isEmpty()) return;
+        active.forEach(c -> c.setUsed(true));
+        repository.saveAll(active);
+        log.info("Voided {} prior active PARCEL code(s) for auction {}", active.size(), auctionId);
     }
 }

@@ -43,3 +43,15 @@ slpa:
     path-style-access: true
     access-key-id: ${MINIO_ROOT_USER:slpa-dev-key}
     secret-access-key: ${MINIO_ROOT_PASSWORD:slpa-dev-secret}
+  escrow:
+    # DEV ONLY — production reads slpa.escrow.terminal-shared-secret
+    # from SLPA_ESCROW_TERMINAL_SHARED_SECRET env var.
+    # EscrowStartupValidator is @Profile("!dev") so the dev profile
+    # intentionally bypasses the min-length check for local iteration.
+    terminal-shared-secret: dev-escrow-secret-do-not-use-in-prod
+  bot:
+    # DEV ONLY — production reads slpa.bot.shared-secret from
+    # SLPA_BOT_SHARED_SECRET env var. BotStartupValidator is @Profile("!dev")
+    # so the dev profile intentionally keeps this placeholder for local
+    # iteration; the validator rejects this exact string on non-dev profiles.
+    shared-secret: dev-bot-shared-secret

@@ -10,6 +10,9 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.sl.exception.AvatarAlreadyLinkedException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.verification.exception.AlreadyVerifiedException;
@@ -102,6 +105,74 @@ public class SlExceptionHandler {
         pd.setTitle("Verification failed");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "SL_CODE_COLLISION");
+        return pd;
+    }
+
+    // -------------------------------------------------------------------------
+    // Method B (POST /api/v1/sl/parcel/verify) — auction-package exceptions.
+    // The auction-package {@code AuctionExceptionHandler} is scoped to
+    // {@code basePackages = "backend.auction"} and does not apply to this
+    // controller; we re-handle the same exception types here so the LSL
+    // response stays narrow (no leakage of unrelated auction internals).
+    // -------------------------------------------------------------------------
+
+    @ExceptionHandler(AuctionNotFoundException.class)
+    public ProblemDetail handleAuctionNotFound(
+            AuctionNotFoundException e, HttpServletRequest req) {
+        // 400 rather than 404: from the LSL caller's perspective this is a bad
+        // code (the caller does not know auction ids). Matches the code-not-found
+        // narrowness above.
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Verification code does not match any active auction.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/auction-not-found"));
+        pd.setTitle("Verification failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_AUCTION_NOT_FOUND");
+        return pd;
+    }
+
+    @ExceptionHandler(InvalidAuctionStateException.class)
+    public ProblemDetail handleInvalidAuctionState(
+            InvalidAuctionStateException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Auction is not awaiting in-world verification. Re-trigger verification from the dashboard.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/auction-invalid-state"));
+        pd.setTitle("Auction not pending verification");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_AUCTION_INVALID_STATE");
+        pd.setProperty("currentState", e.getCurrentState().name());
+        return pd;
+    }
+
+    @ExceptionHandler(ParcelAlreadyListedException.class)
+    public ProblemDetail handleParcelAlreadyListed(
+            ParcelAlreadyListedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "This parcel is already part of another active auction.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/parcel-already-listed"));
+        pd.setTitle("Parcel already listed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_PARCEL_ALREADY_LISTED");
+        return pd;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(
+            IllegalArgumentException e, HttpServletRequest req) {
+        // Method B validation failures (parcel UUID mismatch, owner UUID mismatch)
+        // surface as IllegalArgumentException inside SlParcelVerifyService. Map to
+        // 400 with the message passed through so the LSL script can surface it on
+        // the in-world whisper. Keep this handler narrow: it only runs for
+        // controllers in the sl package (advice is package-scoped).
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/sl/invalid-request"));
+        pd.setTitle("Invalid request");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_INVALID_REQUEST");
         return pd;
     }
 
