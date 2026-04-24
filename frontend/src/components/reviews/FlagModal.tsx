@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { Button } from "@/components/ui/Button";
-import { FormError } from "@/components/ui/FormError";
-import { ApiError, isApiError } from "@/lib/api";
+import { isApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useFlagReview } from "@/hooks/useReviews";
 import type { ReviewFlagReason } from "@/types/review";
@@ -37,7 +36,6 @@ export interface FlagModalProps {
 export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
   const [reason, setReason] = useState<ReviewFlagReason | null>(null);
   const [elaboration, setElaboration] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const mutation = useFlagReview(reviewId);
 
   // Local state resets on unmount — callers (ReviewCard) mount this modal
@@ -53,7 +51,6 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
 
   const submit = async () => {
     if (!canSubmit || reason === null) return;
-    setError(null);
     const trimmed = elaboration.trim();
     try {
       await mutation.mutateAsync({
@@ -68,13 +65,8 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
         onClose();
         return;
       }
-      if (e instanceof ApiError) {
-        setError(
-          e.problem.detail ?? e.problem.title ?? "Could not flag this review.",
-        );
-        return;
-      }
-      setError("Could not flag this review. Please try again.");
+      // Non-409 errors surface via the hook's toast; leave the modal open
+      // with the form preserved so the user can retry.
     }
   };
 
@@ -96,7 +88,6 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
             Tell us why this review needs moderator attention. Flagging is
             confidential — the reviewer is not notified.
           </p>
-          <FormError message={error ?? undefined} />
 
           <fieldset
             className="flex flex-col gap-2"

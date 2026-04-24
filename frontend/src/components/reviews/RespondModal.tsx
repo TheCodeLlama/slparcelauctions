@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { Button } from "@/components/ui/Button";
-import { FormError } from "@/components/ui/FormError";
-import { ApiError, isApiError } from "@/lib/api";
+import { isApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useRespondToReview } from "@/hooks/useReviews";
 
@@ -26,7 +25,6 @@ export interface RespondModalProps {
  */
 export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
   const [text, setText] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const mutation = useRespondToReview(reviewId);
 
   // Local state resets automatically when the modal unmounts — callers
@@ -40,7 +38,6 @@ export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
 
   const submit = async () => {
     if (!canSubmit) return;
-    setError(null);
     try {
       await mutation.mutateAsync({ text: trimmed });
       onClose();
@@ -51,11 +48,8 @@ export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
         onClose();
         return;
       }
-      if (e instanceof ApiError) {
-        setError(e.problem.detail ?? e.problem.title ?? "Could not respond.");
-        return;
-      }
-      setError("Could not respond. Please try again.");
+      // Non-409 errors surface via the hook's toast; leave the modal open
+      // with the textarea preserved so the user can retry.
     }
   };
 
@@ -77,7 +71,6 @@ export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
             Your response appears publicly beneath the review. You can only
             respond once — no edits.
           </p>
-          <FormError message={error ?? undefined} />
           <label className="flex flex-col gap-1">
             <span className="sr-only">Response text</span>
             <textarea

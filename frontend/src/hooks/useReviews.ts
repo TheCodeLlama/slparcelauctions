@@ -112,11 +112,15 @@ export function useSubmitReview(
           "It appears when the other party submits theirs or on day 14.",
       });
     },
-    onError: () =>
+    onError: (err) => {
+      const already = err instanceof ApiError && err.status === 409;
       toast.error({
-        title: "Could not submit review",
-        description: "Please try again.",
-      }),
+        title: already ? "Already reviewed" : "Could not submit review",
+        description: already
+          ? "You've already submitted a review for this auction."
+          : "Please try again.",
+      });
+    },
   });
 }
 
