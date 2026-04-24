@@ -8,10 +8,9 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
@@ -20,9 +19,18 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * RedisTemplate&lt;String, Object&gt; used by SearchResponseCache,
  * FeaturedCache, PublicStatsCache, and CachedRegionResolver.
  *
- * <p>Serialization uses GenericJackson2JsonRedisSerializer with a typed
- * ObjectMapper so polymorphic DTOs (e.g. SearchPagedResponse&lt;T&gt;) round-trip
- * correctly. Java 8 date/time support registered via JavaTimeModule.
+ * <p>Serialization uses GenericJackson2JsonRedisSerializer's builder with
+ * defaultTyping enabled, so the serializer installs its own
+ * TypeResolverBuilder that emits an {@code @class} hint at every node
+ * (including record/final roots). We then layer JavaTimeModule onto the
+ * mapper so java.time values round-trip as ISO-8601 strings rather than
+ * timestamps. Configuring default typing on the mapper directly does
+ * <strong>not</strong> work here — when the builder also applies its own
+ * type resolver, but more importantly the previous setup using
+ * {@code activateDefaultTyping(NON_FINAL, As.PROPERTY)} omitted
+ * {@code @class} on final types (records like SearchPagedResponse), so
+ * reads failed with {@code missing type id property '@class'} and the
+ * cache fell through to recompute on every call.
  *
  * <p>This config is distinct from spring-session-data-redis's session
  * serializer - sessions use their own template. Do not consolidate.
@@ -39,20 +47,14 @@ public class RedisCacheConfig {
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
-        mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
-        mapper.activateDefaultTyping(
-                BasicPolymorphicTypeValidator.builder()
-                        .allowIfSubType("com.slparcelauctions.backend")
-                        .allowIfSubType("java.util")
-                        .allowIfSubType("java.time")
-                        .allowIfSubType("java.math")
-                        .build(),
-                ObjectMapper.DefaultTyping.NON_FINAL,
-                JsonTypeInfo.As.PROPERTY);
 
         GenericJackson2JsonRedisSerializer valueSerializer =
-                new GenericJackson2JsonRedisSerializer(mapper);
+                GenericJackson2JsonRedisSerializer.builder()
+                        .objectMapper(mapper)
+                        .defaultTyping(true)
+                        .build();
         template.setValueSerializer(valueSerializer);
         template.setHashValueSerializer(valueSerializer);
         template.afterPropertiesSet();
