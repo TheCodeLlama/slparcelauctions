@@ -176,12 +176,17 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
 - **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
 
-### Per-user public listings page `/users/{id}/listings`
-> **Backend resolved in Epic 07 sub-spec 1.** GET /api/v1/auctions/search?seller_id=N now returns the seller's listings. The dedicated /users/{id}/listings page UI lands in sub-spec 2.
-- **From:** Epic 04 sub-spec 2 (Task 9 `ActiveListingsSection` on public profile)
-- **Why:** The "View all" link from `ActiveListingsSection` on `/users/{id}` points at `/users/{id}/listings`, which does not exist yet. The active-listings section itself ships with a page-size-limited preview (top N listings returned by `GET /api/v1/users/{userId}/auctions?status=ACTIVE`). A dedicated paginated, filterable, sort-aware "all listings by this seller" page belongs to the Browse surface in Epic 07.
-- **When:** Epic 07 (Browse & Search).
-- **Notes:** Consider conditionally rendering the "View all" link as disabled / hidden until the route ships, so the anchor doesn't dead-end on a 404. Touchpoint: `frontend/src/components/user/ActiveListingsSection.tsx`. The endpoint `GET /api/v1/users/{userId}/auctions?status=ACTIVE` already exists (SUSPENDED always excluded server-side) and is the data source the Epic 07 page will consume.
+### Region autocomplete for DistanceSearchBlock
+- **From:** Epic 07 sub-spec 2 (Task 2b)
+- **Why:** Phase 1 ships a free-form region text input with server-side validation on submit (REGION_NOT_FOUND surfaces inline under the input). Client-side autocomplete needs a new lightweight `/sl/regions/search?q=` endpoint, debounced input, keyboard nav, and a popover primitive — scope for its own design pass.
+- **When:** Phase 2 polish.
+- **Notes:** Touchpoint: `DistanceSearchBlock.tsx`.
+
+### Infinite-scroll on browse grid
+- **From:** Epic 07 sub-spec 2 (Task 2b)
+- **Why:** Phase 1 ships numbered pagination — shareable URLs, SSR-friendly, back-button sane. Infinite scroll introduces scroll-position restore, focus management, SR announcements that deserve their own scoped design pass.
+- **When:** Indefinite — trigger is user feedback demanding it. Consolidates with the existing BidHistory infinite-scroll deferral.
+- **Notes:** Touchpoint: `BrowseShell.tsx` + `useAuctionSearch`. React Query already supports `useInfiniteQuery`.
 
 ### Bid history infinite scroll
 - **From:** Epic 04 sub-spec 2 (Task 6 `BidHistory`)
