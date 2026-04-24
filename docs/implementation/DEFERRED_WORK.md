@@ -381,6 +381,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
   tests without rewriting assertions.
 
+### Public StatsBar on homepage (activity-threshold gated)
+- **From:** Epic 07 sub-spec 2 (Task 3)
+- **Why:** Backend `GET /api/v1/stats/public` is live from sub-spec 1 but the homepage deliberately does not render a stats bar. Launching with low numbers ("2 active bidders") reads as a liability, not social proof. Re-enable once activity is strong enough that the numbers flatter the product.
+- **When:** Product decision — trigger is an activity threshold, not a technical readiness gate.
+- **Notes:** Touchpoint: `app/page.tsx`. Component to add: `StatsBar` in `components/marketing/`. `/stats/public` response shape already documented in sub-spec 1 §5.3.
+
 ### Auction.title NOT NULL backfill on first production deploy (Epic 07)
 - **From:** Epic 07 sub-spec 1 (Task 2)
 - **Why:** Hibernate `ddl-auto: update` emits `ADD COLUMN title VARCHAR(120) NOT NULL` which Postgres refuses without a DEFAULT. Dev profile is covered by `AuctionTitleDevTouchUp`; production is unaffected today (no auctions yet) but the first deployment to a populated DB needs either (a) manual `ALTER TABLE auctions ADD COLUMN title VARCHAR(120); UPDATE auctions SET title = 'Untitled'; ALTER TABLE auctions ALTER COLUMN title SET NOT NULL;` ahead of the deploy, or (b) Flyway-managed migration once Flyway returns.
