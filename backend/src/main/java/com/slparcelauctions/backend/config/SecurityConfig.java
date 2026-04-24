@@ -137,6 +137,13 @@ public class SecurityConfig {
                         // FOOTGUNS §B.5: matcher order is first-match-wins,
                         // so this rule MUST sit before /api/v1/**.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/featured/*").permitAll()
+                        // Public bundled stats (Epic 07 sub-spec 1 §5.4).
+                        // Anonymous homepage callers need the four-count
+                        // snapshot; the response is wrapped in a 60s public
+                        // Cache-Control matching the underlying Redis TTL.
+                        // FOOTGUNS §B.5: this MUST sit before the
+                        // /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/stats/public").permitAll()
                         // Public user-scoped active listings (Epic 04 sub-spec 2 §14).
                         // Anonymous access is allowed; SUSPENDED and pre-ACTIVE
                         // statuses are filtered server-side in the repository query
