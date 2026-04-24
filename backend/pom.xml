@@ -38,6 +38,15 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Micrometer core (MeterRegistry / Timer). Spring Boot transitively
+             pulls in micrometer-observation/-commons but not -core, which is
+             where MeterRegistry lives. Used by FeaturedService and other
+             Epic 07+ components to record latency on cache-miss paths
+             without requiring the full actuator starter. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-flyway</artifactId>
