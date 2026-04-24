@@ -2,18 +2,34 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act, within, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { useToast } from "./useToast";
+import type { ToastPayload } from "./ToastProvider";
 
 // Small helper that renders a button wired to the hook under test.
 function ToastTrigger({
   kind,
   message,
 }: {
-  kind: "success" | "error";
+  kind: "success" | "error" | "warning" | "info";
   message: string;
 }) {
   const toast = useToast();
   return (
     <button onClick={() => toast[kind](message)} data-testid="trigger">
+      fire
+    </button>
+  );
+}
+
+function ToastStructuredTrigger({
+  kind,
+  payload,
+}: {
+  kind: "success" | "error" | "warning" | "info";
+  payload: ToastPayload;
+}) {
+  const toast = useToast();
+  return (
+    <button onClick={() => toast[kind](payload)} data-testid="trigger">
       fire
     </button>
   );
@@ -155,5 +171,46 @@ describe("Toast", () => {
     expect(toasts[1]).toHaveAttribute("role", "alert");
     expect(toasts[2]).toHaveTextContent("Third");
     expect(toasts[2]).toHaveAttribute("role", "status");
+  });
+
+  it("warning variant uses alert role", () => {
+    renderWithProviders(<ToastTrigger kind="warning" message="Careful" />);
+    clickAndFlush(screen.getByTestId("trigger"));
+    const warn = screen.getByRole("alert");
+    expect(warn).toHaveTextContent("Careful");
+  });
+
+  it("info variant uses status role", () => {
+    renderWithProviders(<ToastTrigger kind="info" message="Heads up" />);
+    clickAndFlush(screen.getByTestId("trigger"));
+    const info = screen.getByRole("status");
+    expect(info).toHaveTextContent("Heads up");
+  });
+
+  it("renders a structured warning toast with title + description", () => {
+    renderWithProviders(
+      <ToastStructuredTrigger
+        kind="warning"
+        payload={{ title: "Sign in to save", description: "Authenticated users only" }}
+      />,
+    );
+    clickAndFlush(screen.getByTestId("trigger"));
+    const toast = screen.getByRole("alert");
+    expect(toast).toHaveTextContent("Sign in to save");
+    expect(toast).toHaveTextContent("Authenticated users only");
+  });
+
+  it("renders an action button and fires its onClick when pressed", () => {
+    const onClick = vi.fn();
+    renderWithProviders(
+      <ToastStructuredTrigger
+        kind="warning"
+        payload={{ title: "Heads up", action: { label: "Act", onClick } }}
+      />,
+    );
+    clickAndFlush(screen.getByTestId("trigger"));
+    const action = screen.getByRole("button", { name: "Act" });
+    fireEvent.click(action);
+    expect(onClick).toHaveBeenCalled();
   });
 });
