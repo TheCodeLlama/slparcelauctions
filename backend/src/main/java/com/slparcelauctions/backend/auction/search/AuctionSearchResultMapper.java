@@ -136,6 +136,6 @@ public class AuctionSearchResultMapper {
     }
 
     private String avatarUrl(User u) {
-        return u.getId() == null ? null : "/api/users/" + u.getId() + "/avatar";
+        return u.getId() == null ? null : "/api/v1/users/" + u.getId() + "/avatar/256";
     }
 }

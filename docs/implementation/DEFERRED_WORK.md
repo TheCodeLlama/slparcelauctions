@@ -376,6 +376,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
   tests without rewriting assertions.
 
+### Auction.title NOT NULL backfill on first production deploy (Epic 07)
+- **From:** Epic 07 sub-spec 1 (Task 2)
+- **Why:** Hibernate `ddl-auto: update` emits `ADD COLUMN title VARCHAR(120) NOT NULL` which Postgres refuses without a DEFAULT. Dev profile is covered by `AuctionTitleDevTouchUp`; production is unaffected today (no auctions yet) but the first deployment to a populated DB needs either (a) manual `ALTER TABLE auctions ADD COLUMN title VARCHAR(120); UPDATE auctions SET title = 'Untitled'; ALTER TABLE auctions ALTER COLUMN title SET NOT NULL;` ahead of the deploy, or (b) Flyway-managed migration once Flyway returns.
+- **When:** Pre-launch ops checklist; remove after first prod deployment lands cleanly.
+- **Notes:** `AuctionTitleDevTouchUp` is the dev-side workaround. `MaturityRatingDevTouchUp` is the same pattern for the maturity_rating canonicalization.
+
 ---
 
 ## Removal Criteria
