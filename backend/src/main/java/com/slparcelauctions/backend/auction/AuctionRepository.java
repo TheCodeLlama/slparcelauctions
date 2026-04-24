@@ -64,6 +64,20 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     Optional<Auction> findById(Long id);
 
     /**
+     * Single-row hydration for {@code GET /api/v1/auctions/{id}}. Fetches
+     * {@code parcel}, {@code seller}, {@code photos}, and {@code tags} in one
+     * LEFT JOIN so the listing-detail mapper builds the seller card + photo
+     * carousel off one query instead of three lazy proxies. The HHH90003004
+     * in-memory pagination warning that bites
+     * {@link #findActiveBySellerIdIds}/{@link #findAllByIdInWithParcelAndTags}
+     * does not apply here: this is a single-row lookup with no
+     * {@code Pageable}, so the multiple to-many fetches stay safe.
+     */
+    @EntityGraph(attributePaths = {"parcel", "seller", "photos", "tags"})
+    @Query("SELECT a FROM Auction a WHERE a.id = :id")
+    Optional<Auction> findByIdForDetail(@Param("id") Long id);
+
+    /**
      * Returns the IDs of ACTIVE auctions whose {@code lastOwnershipCheckAt} is
      * either null (never checked — happens on fresh activation when the
      * jitter-seeded timestamp lands before the cutoff) or at/before the cutoff.

@@ -72,7 +72,11 @@ public class AuctionController {
     public Object get(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal) {
-        Auction a = auctionService.load(id);
+        // loadForDetail eagerly hydrates parcel + seller + photos + tags so
+        // the public/seller mappers downstream can render the seller card +
+        // photo carousel off a single LEFT JOIN. Single-row fetch — no
+        // HHH90003004 risk from the multiple to-many entity-graph branches.
+        Auction a = auctionService.loadForDetail(id);
         Long userId = principal == null ? null : principal.userId();
         boolean isSeller = userId != null && a.getSeller().getId().equals(userId);
         if (!isSeller) {

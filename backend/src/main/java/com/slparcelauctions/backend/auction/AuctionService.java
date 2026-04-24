@@ -158,6 +158,19 @@ public class AuctionService {
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
     }
 
+    /**
+     * Listing-detail load path used by {@code GET /api/v1/auctions/{id}}.
+     * Differs from {@link #load(Long)} by hydrating {@code seller} and
+     * {@code photos} (in addition to the standard {@code parcel} +
+     * {@code tags}) so the public detail mapper can render the seller card
+     * and photo carousel without fanning out to extra lazy fetches.
+     */
+    @Transactional(readOnly = true)
+    public Auction loadForDetail(Long auctionId) {
+        return auctionRepo.findByIdForDetail(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+    }
+
     @Transactional(readOnly = true)
     public List<Auction> loadOwnedBy(Long sellerId) {
         return auctionRepo.findBySellerIdOrderByCreatedAtDesc(sellerId);

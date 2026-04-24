@@ -9,12 +9,15 @@ import org.springframework.stereotype.Component;
 import com.slparcelauctions.backend.auction.dto.AuctionPhotoResponse;
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
+import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse.SellerSummary;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionStatus;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
+import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
+import com.slparcelauctions.backend.user.User;
 
 import lombok.RequiredArgsConstructor;
 
@@ -95,6 +98,7 @@ public class AuctionDtoMapper {
                 a.getSellerDesc(),
                 tagList(a),
                 photoList(a),
+                sellerSummary(a.getSeller()),
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt());
     }
@@ -185,6 +189,35 @@ public class AuctionDtoMapper {
         return photoRepo.findByAuctionIdOrderBySortOrderAsc(a.getId()).stream()
                 .map(AuctionPhotoResponse::from)
                 .toList();
+    }
+
+    /**
+     * Builds the {@link SellerSummary} block for {@link PublicAuctionResponse}.
+     * Returns {@code null} only when the seller association is unset (defensive
+     * — every persisted auction has a non-null seller). Avatar URL points at
+     * the existing {@code GET /api/v1/users/{id}/avatar/256} endpoint, which
+     * already serves cached + placeholder avatars. {@code completionRate} is
+     * delegated to {@link SellerCompletionRateMapper#compute(int, int)} so the
+     * rounding + zero-denominator policy lives in one place and the private
+     * {@code cancelledWithBids} counter never reaches the wire.
+     */
+    private SellerSummary sellerSummary(User s) {
+        if (s == null) {
+            return null;
+        }
+        Integer completed = s.getCompletedSales();
+        Integer cancelled = s.getCancelledWithBids();
+        int completedInt = completed == null ? 0 : completed;
+        int cancelledInt = cancelled == null ? 0 : cancelled;
+        return new SellerSummary(
+                s.getId(),
+                s.getDisplayName(),
+                s.getId() == null ? null : "/api/v1/users/" + s.getId() + "/avatar/256",
+                s.getAvgSellerRating(),
+                s.getTotalSellerReviews(),
+                completed,
+                SellerCompletionRateMapper.compute(completedInt, cancelledInt),
+                s.getCreatedAt() == null ? null : s.getCreatedAt().toLocalDate());
     }
 
     /**

@@ -2,7 +2,9 @@ package com.slparcelauctions.backend.auction;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,6 +28,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -210,6 +213,18 @@ public class Auction {
             inverseJoinColumns = @JoinColumn(name = "tag_id"),
             indexes = @Index(name = "ix_auction_tags_tag_id", columnList = "tag_id"))
     private Set<ParcelTag> tags = new HashSet<>();
+
+    /**
+     * Read-only inverse side of {@link AuctionPhoto#getAuction()}. Hibernate
+     * loads this collection lazily; the listing-detail repo method opts into
+     * eager hydration via {@code @EntityGraph} so the seller card + photo
+     * carousel render off a single LEFT JOIN. Writes still go through
+     * {@link AuctionPhotoRepository} so this collection is intentionally not
+     * cascaded — keeping the photo upload path the single source of mutation.
+     */
+    @Builder.Default
+    @OneToMany(mappedBy = "auction", fetch = FetchType.LAZY)
+    private List<AuctionPhoto> photos = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

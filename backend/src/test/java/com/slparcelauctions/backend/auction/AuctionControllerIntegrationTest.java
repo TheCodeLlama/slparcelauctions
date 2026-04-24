@@ -64,6 +64,7 @@ class AuctionControllerIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
+    @Autowired AuctionPhotoRepository photoRepository;
     @Autowired UserRepository userRepository;
     @Autowired ListingFeeRefundRepository refundRepository;
 
@@ -221,6 +222,66 @@ class AuctionControllerIntegrationTest {
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Seaside cottage — rare find"));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /auctions/{id} — listing-detail enrichments (Epic 07 sub-spec 1)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getAuction_includesPhotosArray() throws Exception {
+        Long auctionId = seedActiveAuctionWithPhotos(3);
+        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+                        .header("Authorization", "Bearer " + otherAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photos").isArray())
+                .andExpect(jsonPath("$.photos.length()").value(3))
+                .andExpect(jsonPath("$.photos[0].sortOrder").value(0))
+                .andExpect(jsonPath("$.photos[1].sortOrder").value(1))
+                .andExpect(jsonPath("$.photos[2].sortOrder").value(2));
+    }
+
+    @Test
+    void getAuction_sellerBlockIncludesRatingAndCompletionRate() throws Exception {
+        Long auctionId = seedActiveAuctionWithSellerRating(
+                new BigDecimal("4.82"), 12, 8, 4);
+
+        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+                        .header("Authorization", "Bearer " + otherAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seller.id").value(sellerId))
+                .andExpect(jsonPath("$.seller.averageRating").value(4.82))
+                .andExpect(jsonPath("$.seller.reviewCount").value(12))
+                .andExpect(jsonPath("$.seller.completedSales").value(8))
+                .andExpect(jsonPath("$.seller.completionRate").value(0.67))
+                .andExpect(jsonPath("$.seller.memberSince").exists())
+                .andExpect(jsonPath("$.seller.avatarUrl").value(
+                        "/api/v1/users/" + sellerId + "/avatar/256"));
+    }
+
+    @Test
+    void getAuction_response_doesNotContain_cancelledWithBids() throws Exception {
+        Long auctionId = seedActiveAuctionWithSellerRating(
+                new BigDecimal("4.5"), 10, 8, 4);
+
+        String body = mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+                        .header("Authorization", "Bearer " + otherAccessToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("cancelledWithBids");
+    }
+
+    @Test
+    void getAuction_completionRate_isNull_forNewSeller() throws Exception {
+        Long auctionId = seedActiveAuctionWithSellerRating(null, 0, 0, 0);
+
+        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+                        .header("Authorization", "Bearer " + otherAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.seller.completionRate").doesNotExist())
+                .andExpect(jsonPath("$.seller.averageRating").doesNotExist())
+                .andExpect(jsonPath("$.seller.completedSales").value(0));
     }
 
     // -------------------------------------------------------------------------
@@ -673,6 +734,45 @@ class AuctionControllerIntegrationTest {
             a.setOriginalEndsAt(now.plusDays(1));
         }
         return auctionRepository.save(a);
+    }
+
+    /**
+     * Seeds an ACTIVE auction over the default seller parcel and attaches
+     * {@code n} {@link AuctionPhoto} rows with sequential sort orders. Returns
+     * the auction id so callers can assert on the JSON shape of the photos
+     * array surfaced by the listing-detail endpoint.
+     */
+    private Long seedActiveAuctionWithPhotos(int n) {
+        Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
+        for (int i = 0; i < n; i++) {
+            photoRepository.save(AuctionPhoto.builder()
+                    .auction(a)
+                    .objectKey("listings/" + a.getId() + "/stub-" + i + ".png")
+                    .contentType("image/png")
+                    .sizeBytes(1L)
+                    .sortOrder(i)
+                    .build());
+        }
+        return a.getId();
+    }
+
+    /**
+     * Seeds an ACTIVE auction and primes the seller's reputation counters so
+     * the listing-detail endpoint's seller card has values to surface. The
+     * {@code cancelledWithBids} arg is set on the user but must NOT appear in
+     * the response — a regression-guard test asserts that explicitly.
+     */
+    private Long seedActiveAuctionWithSellerRating(
+            BigDecimal avgRating, int reviewCount,
+            int completedSales, int cancelledWithBids) {
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        seller.setAvgSellerRating(avgRating);
+        seller.setTotalSellerReviews(reviewCount);
+        seller.setCompletedSales(completedSales);
+        seller.setCancelledWithBids(cancelledWithBids);
+        userRepository.save(seller);
+        Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
+        return a.getId();
     }
 
     /**
