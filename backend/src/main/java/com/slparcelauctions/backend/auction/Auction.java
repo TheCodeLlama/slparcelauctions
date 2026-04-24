@@ -36,7 +36,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "auctions",
         indexes = {
-            @Index(name = "ix_auctions_status_ends_at", columnList = "status, ends_at")
+            @Index(name = "ix_auctions_status_ends_at", columnList = "status, ends_at"),
+            @Index(name = "ix_auctions_status_starts_at", columnList = "status, starts_at DESC"),
+            @Index(name = "ix_auctions_status_current_bid", columnList = "status, current_bid"),
+            @Index(name = "ix_auctions_seller_status", columnList = "seller_id, status"),
+            @Index(name = "ix_auctions_status_reserve", columnList = "status, reserve_price")
         })
 @Getter
 @Setter
@@ -203,7 +207,8 @@ public class Auction {
     @JoinTable(
             name = "auction_tags",
             joinColumns = @JoinColumn(name = "auction_id"),
-            inverseJoinColumns = @JoinColumn(name = "tag_id"))
+            inverseJoinColumns = @JoinColumn(name = "tag_id"),
+            indexes = @Index(name = "ix_auction_tags_tag_id", columnList = "tag_id"))
     private Set<ParcelTag> tags = new HashSet<>();
 
     @CreationTimestamp

@@ -14,6 +14,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,7 +30,12 @@ import lombok.Setter;
  * auctions.verified_at}. See spec §5.1.
  */
 @Entity
-@Table(name = "parcels")
+@Table(name = "parcels",
+        indexes = {
+            @Index(name = "ix_parcels_grid_coords", columnList = "grid_x, grid_y"),
+            @Index(name = "ix_parcels_area_sqm", columnList = "area_sqm"),
+            @Index(name = "ix_parcels_maturity", columnList = "maturity_rating")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
