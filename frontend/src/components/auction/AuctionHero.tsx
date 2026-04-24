@@ -3,7 +3,7 @@
  * convention where next/image's remotePatterns loader is unnecessary. */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Building2 } from "@/components/ui/icons";
 import { Lightbox } from "@/components/ui/Lightbox";
 import { cn } from "@/lib/cn";
@@ -52,12 +52,16 @@ export function AuctionHero({
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // If the photos array changes under us (soft navigation to a sibling
-  // auction, live seller update), close the Lightbox rather than leave a
-  // stale index pointing past the end of the new array. The Lightbox's own
-  // guards prevent a crash, but they render a visibly empty dialog.
-  useEffect(() => {
-    setLightboxIndex(null);
-  }, [photos]);
+  // auction, live seller update), a previously-set lightboxIndex can point
+  // past the end of the new array. Derive the effective index at render
+  // time rather than syncing via a state-mutating useEffect — the Lightbox
+  // treats `null` as closed, so a stale index collapses to a closed dialog
+  // without a re-render round-trip (and without tripping the
+  // react-hooks/set-state-in-effect lint rule).
+  const effectiveLightboxIndex =
+    lightboxIndex !== null && lightboxIndex < sorted.length
+      ? lightboxIndex
+      : null;
 
   if (sorted.length === 0) {
     if (snapshotUrl) {
@@ -129,7 +133,7 @@ export function AuctionHero({
         </button>
         <Lightbox
           images={lightboxImages}
-          openIndex={lightboxIndex}
+          openIndex={effectiveLightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onIndexChange={setLightboxIndex}
         />
@@ -243,7 +247,7 @@ export function AuctionHero({
       </div>
       <Lightbox
         images={lightboxImages}
-        openIndex={lightboxIndex}
+        openIndex={effectiveLightboxIndex}
         onClose={() => setLightboxIndex(null)}
         onIndexChange={setLightboxIndex}
       />
