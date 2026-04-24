@@ -22,6 +22,13 @@ export interface ParcelDto {
   regionName: string;
   gridX: number;
   gridY: number;
+  // In-region coordinates of the parcel (World API-derived). Nullable to
+  // match backend legacy rows where positions were not yet ingested; the
+  // frontend detail page's VisitInSecondLifeBlock falls back to the
+  // region-centre 128/128/0 when null.
+  positionX: number | null;
+  positionY: number | null;
+  positionZ: number | null;
   continentName: string | null;
   areaSqm: number;
   description: string | null;

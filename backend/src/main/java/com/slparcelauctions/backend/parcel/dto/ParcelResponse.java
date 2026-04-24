@@ -18,6 +18,9 @@ public record ParcelResponse(
         String regionName,
         Double gridX,
         Double gridY,
+        Double positionX,
+        Double positionY,
+        Double positionZ,
         String continentName,
         Integer areaSqm,
         String description,
@@ -32,7 +35,9 @@ public record ParcelResponse(
     public static ParcelResponse from(Parcel p) {
         return new ParcelResponse(
                 p.getId(), p.getSlParcelUuid(), p.getOwnerUuid(), p.getOwnerType(),
-                p.getRegionName(), p.getGridX(), p.getGridY(), p.getContinentName(),
+                p.getRegionName(), p.getGridX(), p.getGridY(),
+                p.getPositionX(), p.getPositionY(), p.getPositionZ(),
+                p.getContinentName(),
                 p.getAreaSqm(), p.getDescription(), p.getSnapshotUrl(), p.getSlurl(),
                 p.getMaturityRating(), p.getVerified(), p.getVerifiedAt(),
                 p.getLastChecked(), p.getCreatedAt());

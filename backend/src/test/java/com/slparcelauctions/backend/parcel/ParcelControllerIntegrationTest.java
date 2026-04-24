@@ -97,7 +97,11 @@ class ParcelControllerIntegrationTest {
                 .andExpect(jsonPath("$.regionName").value("Coniston"))
                 .andExpect(jsonPath("$.continentName").value("Sansara"))
                 .andExpect(jsonPath("$.verified").value(true))
-                .andExpect(jsonPath("$.slurl").value(org.hamcrest.Matchers.containsString("Coniston")));
+                .andExpect(jsonPath("$.slurl").value(org.hamcrest.Matchers.containsString("Coniston")))
+                // Detail-page VisitInSecondLifeBlock reads these off the DTO.
+                .andExpect(jsonPath("$.positionX").value(128.0))
+                .andExpect(jsonPath("$.positionY").value(64.0))
+                .andExpect(jsonPath("$.positionZ").value(22.0));
 
         assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }

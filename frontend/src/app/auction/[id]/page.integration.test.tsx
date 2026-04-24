@@ -96,6 +96,9 @@ function publicAuctionFixture(
       regionName: "Heterocera",
       gridX: 0,
       gridY: 0,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
       continentName: null,
       areaSqm: 1024,
       description: "Beachfront parcel",
@@ -490,6 +493,45 @@ describe("AuctionDetailClient", () => {
     expect(screen.getByTestId("bid-panel-slot")).toHaveAttribute(
       "data-ws-state",
       "connected",
+    );
+    // VisitInSecondLifeBlock must thread through the parcel's actual
+    // position fields so the viewer-protocol + map URLs land on the
+    // parcel rather than defaulting to region-centre 128/128/0 when the
+    // backend sends real coords. The fixture seeds 128/128/0 here so we
+    // assert the href is built from the parcel fields and not a
+    // hardcoded null fallback.
+    expect(
+      screen.getByTestId("visit-in-sl-viewer").getAttribute("href"),
+    ).toBe("secondlife:///app/teleport/Heterocera/128/128/0");
+    expect(screen.getByTestId("visit-in-sl-map").getAttribute("href")).toBe(
+      "https://maps.secondlife.com/secondlife/Heterocera/128/128/0",
+    );
+  });
+
+  it("threads non-null parcel positions through VisitInSecondLifeBlock", () => {
+    // Guards against the hardcoded-null regression on AuctionDetailClient:
+    // when the backend sends real in-parcel coords, the hrefs must reflect
+    // them instead of collapsing to the 128/128/0 region-centre default.
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={{
+          ...auction,
+          parcel: {
+            ...auction.parcel,
+            positionX: 45,
+            positionY: 72,
+            positionZ: 24,
+          },
+        }}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+    expect(
+      screen.getByTestId("visit-in-sl-viewer").getAttribute("href"),
+    ).toBe("secondlife:///app/teleport/Heterocera/45/72/24");
+    expect(screen.getByTestId("visit-in-sl-map").getAttribute("href")).toBe(
+      "https://maps.secondlife.com/secondlife/Heterocera/45/72/24",
     );
   });
 

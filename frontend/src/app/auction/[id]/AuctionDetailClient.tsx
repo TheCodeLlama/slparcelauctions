@@ -363,9 +363,9 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           <ParcelInfoPanel auction={auction} />
           <VisitInSecondLifeBlock
             regionName={auction.parcel.regionName}
-            positionX={null}
-            positionY={null}
-            positionZ={null}
+            positionX={auction.parcel.positionX}
+            positionY={auction.parcel.positionY}
+            positionZ={auction.parcel.positionZ}
           />
           {auction.status === "ENDED" ? (
             <AuctionEndedRow auction={auction} />
