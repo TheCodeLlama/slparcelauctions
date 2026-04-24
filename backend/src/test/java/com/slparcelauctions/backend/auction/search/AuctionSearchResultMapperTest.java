@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.parcel.Parcel;
@@ -78,6 +79,21 @@ class AuctionSearchResultMapperTest {
     void distanceRegions_null_whenNotProvided() {
         AuctionSearchResultDto dto = mapOne(auction(8L, 500L, null));
         assertThat(dto.distanceRegions()).isNull();
+    }
+
+    @Test
+    void endOutcome_null_forActiveAuction() {
+        AuctionSearchResultDto dto = mapOne(auction(9L, 500L, null));
+        assertThat(dto.endOutcome()).isNull();
+    }
+
+    @Test
+    void endOutcome_populated_whenSetOnAuction() {
+        Auction a = auction(10L, 500L, null);
+        a.setStatus(AuctionStatus.ENDED);
+        a.setEndOutcome(AuctionEndOutcome.SOLD);
+        AuctionSearchResultDto dto = mapOne(a);
+        assertThat(dto.endOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
     }
 
     private AuctionSearchResultDto mapOne(Auction a) {
