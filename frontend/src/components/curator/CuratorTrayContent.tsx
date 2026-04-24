@@ -18,6 +18,13 @@ export interface CuratorTrayContentProps {
    */
   query?: AuctionSearchQuery;
   onQueryChange?: (next: AuctionSearchQuery) => void;
+  /**
+   * Optional callback fired when the empty-state "Browse listings" CTA is
+   * clicked. The drawer/sheet host threads in its onClose so the tray is
+   * dismissed before /browse navigation; page hosts omit it (default Link
+   * behaviour is correct when the whole viewport is the page).
+   */
+  onBrowse?: () => void;
   className?: string;
 }
 
@@ -36,6 +43,7 @@ const INITIAL_QUERY: AuctionSearchQuery = {
 export function CuratorTrayContent({
   query: controlledQuery,
   onQueryChange,
+  onBrowse,
   className,
 }: CuratorTrayContentProps) {
   const isControlled = typeof onQueryChange === "function";
@@ -61,14 +69,31 @@ export function CuratorTrayContent({
 
   const count = result.data?.totalElements ?? 0;
   const listings = result.data?.content ?? [];
+  // "No saves yet" is independent of statusFilter — the tray's status segment
+  // just partitions the already-saved set. If the user has never saved
+  // anything, the empty-state copy is correct whether the current filter is
+  // active_only, all, or ended_only. Every OTHER filter field has to be empty
+  // though, because a non-empty filter could be hiding saves we do have.
+  const hasNoNonStatusFilters =
+    !query.region &&
+    query.minArea === undefined &&
+    query.maxArea === undefined &&
+    query.minPrice === undefined &&
+    query.maxPrice === undefined &&
+    !query.maturity?.length &&
+    !query.tags?.length &&
+    !query.verificationTier?.length &&
+    query.reserveStatus === undefined &&
+    query.snipeProtection === undefined &&
+    query.endingWithin === undefined &&
+    !query.nearRegion &&
+    query.distance === undefined &&
+    query.sellerId === undefined;
   const showEmpty =
     !result.isLoading &&
     !result.isError &&
     listings.length === 0 &&
-    !query.region &&
-    !query.minPrice &&
-    !query.maxPrice &&
-    !query.tags?.length;
+    hasNoNonStatusFilters;
 
   return (
     <div className={className}>
@@ -78,8 +103,8 @@ export function CuratorTrayContent({
         onQueryChange={applyQuery}
         className="mb-4"
       />
-      {showEmpty && query.statusFilter === "active_only" ? (
-        <CuratorTrayEmpty />
+      {showEmpty ? (
+        <CuratorTrayEmpty onBrowse={onBrowse} />
       ) : (
         <ResultsGrid
           listings={listings}

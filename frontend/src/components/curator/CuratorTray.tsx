@@ -19,16 +19,20 @@ const DESKTOP_QUERY = "(min-width: 768px)";
  */
 export function CuratorTray({ open, onClose }: CuratorTrayProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  // Dismiss the tray before navigating to /browse so the user lands on the
+  // browse page with a clean viewport — the drawer/sheet lingering behind
+  // the new page would leak stale context.
+  const handleBrowse = () => onClose();
   if (isDesktop) {
     return (
       <Drawer open={open} onClose={onClose} title="Your Curator Tray">
-        <CuratorTrayContent />
+        <CuratorTrayContent onBrowse={handleBrowse} />
       </Drawer>
     );
   }
   return (
     <BottomSheet open={open} onClose={onClose} title="Your Curator Tray">
-      <CuratorTrayContent />
+      <CuratorTrayContent onBrowse={handleBrowse} />
     </BottomSheet>
   );
 }

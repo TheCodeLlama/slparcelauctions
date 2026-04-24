@@ -111,7 +111,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
           )}
         >
           {imageSrc && (
-            // eslint-disable-next-line @next/next/no-img-element -- parcel snapshot URLs are external SL CDN paths; next/image requires remote-pattern config we keep deferred until Task 5.
+            // eslint-disable-next-line @next/next/no-img-element -- Deferred: swap to next/image once the backend returns image dimensions (avoids layout shift) and a stable remotePatterns list for SL CDN hosts is agreed upon.
             <img
               src={imageSrc}
               alt=""

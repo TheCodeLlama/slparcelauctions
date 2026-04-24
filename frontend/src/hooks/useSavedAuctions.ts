@@ -6,6 +6,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -70,6 +71,13 @@ export function useSavedIds(): {
     refetchOnWindowFocus: false,
   });
 
+  // Memoize on the query.data reference — React Query v5 preserves the
+  // same array reference across refetches that return equal content, so this
+  // avoids rebuilding the Set on every ListingCard render (up to 500 saves
+  // x every mounted card) when nothing changed upstream.
+  const data = query.data ?? EMPTY_IDS;
+  const ids = useMemo(() => new Set<number>(data.ids), [data]);
+
   if (!authed) {
     return {
       ids: new Set<number>(),
@@ -78,8 +86,6 @@ export function useSavedIds(): {
     };
   }
 
-  const data = query.data ?? EMPTY_IDS;
-  const ids = new Set<number>(data.ids);
   return {
     ids,
     isSaved: (id: number) => ids.has(id),

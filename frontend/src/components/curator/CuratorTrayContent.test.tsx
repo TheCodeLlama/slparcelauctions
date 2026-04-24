@@ -40,6 +40,44 @@ describe("CuratorTrayContent", () => {
     });
   });
 
+  it("shows CuratorTrayEmpty when the user has no saves, even under status_filter=all", async () => {
+    server.use(
+      http.get("*/api/v1/me/saved/auctions", () =>
+        HttpResponse.json(emptySearch),
+      ),
+    );
+    const query: AuctionSearchQuery = {
+      sort: "newest",
+      statusFilter: "all",
+    };
+    renderWithProviders(
+      <CuratorTrayContent query={query} onQueryChange={() => {}} />,
+      { auth: "authenticated" },
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/save parcels to review them here/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("invokes onBrowse when the empty-state CTA is clicked in drawer mode", async () => {
+    server.use(
+      http.get("*/api/v1/me/saved/auctions", () =>
+        HttpResponse.json(emptySearch),
+      ),
+    );
+    const onBrowse = vi.fn();
+    renderWithProviders(<CuratorTrayContent onBrowse={onBrowse} />, {
+      auth: "authenticated",
+    });
+    const btn = await screen.findByRole("button", {
+      name: /browse listings/i,
+    });
+    await userEvent.click(btn);
+    expect(onBrowse).toHaveBeenCalledTimes(1);
+  });
+
   it("wires onQueryChange when controlled (URL-synced /saved page usage)", async () => {
     server.use(
       http.get("*/api/v1/me/saved/auctions", () =>
