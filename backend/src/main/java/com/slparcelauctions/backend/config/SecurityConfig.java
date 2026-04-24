@@ -162,6 +162,19 @@ public class SecurityConfig {
                         // FOOTGUNS §B.5: this MUST sit before the
                         // /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/reviews").authenticated()
+                        // Review read endpoints (Epic 08 sub-spec 1 Task 2).
+                        // GET /auctions/{id}/reviews and
+                        // GET /users/{id}/reviews are public — the service
+                        // enriches the auction-scoped response when a
+                        // principal is present but non-party or anon
+                        // callers see only visible reviews.
+                        // GET /users/me/pending-reviews is authenticated
+                        // so only the owner sees their pending queue.
+                        // The /me/ rule MUST come before the /{id}
+                        // wildcard (first-match-wins, FOOTGUNS §B.5).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/reviews").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/pending-reviews").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*/reviews").permitAll()
                         // Bot worker queue + callback surface (Epic 06 Task 3).
                         // Authentication is a shared bearer token validated by
                         // BotSharedSecretAuthorizer (constant-time compare via

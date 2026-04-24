@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
+import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
 import com.slparcelauctions.backend.review.dto.ReviewSubmitRequest;
 import com.slparcelauctions.backend.review.exception.ReviewAlreadySubmittedException;
@@ -54,6 +55,7 @@ class ReviewServiceSubmitTest {
     @Mock AuctionRepository auctionRepo;
     @Mock EscrowRepository escrowRepo;
     @Mock UserRepository userRepo;
+    @Mock ReviewBroadcastPublisher broadcastPublisher;
 
     ReviewService service;
 
@@ -67,7 +69,7 @@ class ReviewServiceSubmitTest {
     void setUp() {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         service = new ReviewService(reviewRepo, responseRepo, auctionRepo,
-                escrowRepo, userRepo, clock);
+                escrowRepo, userRepo, broadcastPublisher, clock);
 
         seller = User.builder().email("seller@example.com").passwordHash("x").build();
         seller.setId(10L);

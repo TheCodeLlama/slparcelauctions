@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -67,4 +68,29 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             order by r.id
             """)
     List<Review> findRevealable(@Param("threshold") OffsetDateTime threshold, Pageable page);
+
+    /**
+     * Visible reviews for an auction (both sides — seller + buyer). Used
+     * by {@code GET /api/v1/auctions/{id}/reviews} to populate the
+     * {@code reviews} array. {@code revealedAt DESC} ordering matches the
+     * public profile listing contract so the most recent reveal appears
+     * first.
+     */
+    @Query("""
+            select r from Review r
+            where r.auction.id = :auctionId
+              and r.visible = true
+            order by r.revealedAt desc
+            """)
+    List<Review> findByAuctionIdAndVisibleTrue(@Param("auctionId") Long auctionId);
+
+    /**
+     * Paginated visible reviews for a user in a specific role — backs
+     * the public profile page's reviews tab. Derived-query method name
+     * resolves to {@code reviewee_id + reviewed_role + visible} which
+     * exactly hits the composite index
+     * {@code idx_reviews_reviewee_visible}.
+     */
+    Page<Review> findByRevieweeIdAndReviewedRoleAndVisibleTrue(
+            Long revieweeId, ReviewedRole reviewedRole, Pageable page);
 }

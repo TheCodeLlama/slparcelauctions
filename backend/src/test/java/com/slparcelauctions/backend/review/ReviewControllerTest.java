@@ -2,12 +2,15 @@ package com.slparcelauctions.backend.review;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -23,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.review.dto.AuctionReviewsResponse;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
 import com.slparcelauctions.backend.review.dto.ReviewSubmitRequest;
 import com.slparcelauctions.backend.review.exception.ReviewAlreadySubmittedException;
@@ -184,5 +188,37 @@ class ReviewControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("REVIEW_ALREADY_SUBMITTED"));
+    }
+
+    @Test
+    void listReviews_anon_returns200_withVisibleReviewsOnly() throws Exception {
+        when(reviewService.listForAuction(eq(555L), isNull()))
+                .thenReturn(new AuctionReviewsResponse(
+                        List.of(sampleDto()), null, false, null));
+
+        mockMvc.perform(get("/api/v1/auctions/555/reviews"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reviews").isArray())
+                .andExpect(jsonPath("$.reviews[0].id").value(1_234))
+                .andExpect(jsonPath("$.myPendingReview").doesNotExist())
+                .andExpect(jsonPath("$.canReview").value(false))
+                .andExpect(jsonPath("$.windowClosesAt").doesNotExist());
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void listReviews_authenticatedParty_returns200_withEnrichedShape() throws Exception {
+        User caller = User.builder().email("test@example.com").passwordHash("x").build();
+        caller.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
+        OffsetDateTime windowCloses = OffsetDateTime.now().plusDays(13);
+        when(reviewService.listForAuction(eq(555L), any(User.class)))
+                .thenReturn(new AuctionReviewsResponse(
+                        List.of(), null, true, windowCloses));
+
+        mockMvc.perform(get("/api/v1/auctions/555/reviews"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canReview").value(true))
+                .andExpect(jsonPath("$.windowClosesAt").exists());
     }
 }
