@@ -53,51 +53,72 @@ public class AuctionSearchPredicateBuilder {
             // SUSPENDED, and ENDED rows must not leak through search.
             predicates.add(cb.equal(root.get("status"), AuctionStatus.ACTIVE));
 
-            Join<Object, Object> parcel = root.join("parcel");
-
-            if (q.region() != null && !q.region().isBlank()) {
-                predicates.add(cb.equal(
-                        cb.lower(parcel.get("regionName")),
-                        q.region().toLowerCase()));
-            }
-            if (q.minArea() != null) {
-                predicates.add(cb.greaterThanOrEqualTo(
-                        parcel.get("areaSqm"), q.minArea()));
-            }
-            if (q.maxArea() != null) {
-                predicates.add(cb.lessThanOrEqualTo(
-                        parcel.get("areaSqm"), q.maxArea()));
-            }
-            if (q.minPrice() != null) {
-                predicates.add(cb.greaterThanOrEqualTo(
-                        root.get("currentBid"), q.minPrice()));
-            }
-            if (q.maxPrice() != null) {
-                predicates.add(cb.lessThanOrEqualTo(
-                        root.get("currentBid"), q.maxPrice()));
-            }
-            if (q.maturity() != null && !q.maturity().isEmpty()) {
-                predicates.add(parcel.get("maturityRating").in(q.maturity()));
-            }
-            if (q.verificationTier() != null && !q.verificationTier().isEmpty()) {
-                predicates.add(root.get("verificationTier").in(q.verificationTier()));
-            }
-            if (q.sellerId() != null) {
-                Join<Object, Object> seller = root.join("seller");
-                predicates.add(cb.equal(seller.get("id"), q.sellerId()));
-            }
-            if (q.endingWithinHours() != null) {
-                OffsetDateTime now = OffsetDateTime.now();
-                OffsetDateTime upper = now.plusHours(q.endingWithinHours());
-                predicates.add(cb.greaterThan(root.get("endsAt"), now));
-                predicates.add(cb.lessThanOrEqualTo(root.get("endsAt"), upper));
-            }
-            addReserveFilter(predicates, q, root, cb);
-            addSnipeFilter(predicates, q, root, cb);
-            addTagsFilter(predicates, q, root, query, cb);
+            addFilterPredicates(predicates, q, root, query, cb);
 
             return cb.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    /**
+     * Same filter chain as {@link #build} but without the {@code status =
+     * ACTIVE} clamp. Used by the saved-auctions list (Task 7) where
+     * {@code statusFilter=ended_only} or {@code all} needs to surface
+     * non-ACTIVE rows. Callers that want to scope by status must apply
+     * their own status predicate on top.
+     */
+    public Specification<Auction> buildWithoutStatusClamp(AuctionSearchQuery q) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            addFilterPredicates(predicates, q, root, query, cb);
+            return cb.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private void addFilterPredicates(
+            List<Predicate> predicates, AuctionSearchQuery q,
+            Root<Auction> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
+        Join<Object, Object> parcel = root.join("parcel");
+
+        if (q.region() != null && !q.region().isBlank()) {
+            predicates.add(cb.equal(
+                    cb.lower(parcel.get("regionName")),
+                    q.region().toLowerCase()));
+        }
+        if (q.minArea() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(
+                    parcel.get("areaSqm"), q.minArea()));
+        }
+        if (q.maxArea() != null) {
+            predicates.add(cb.lessThanOrEqualTo(
+                    parcel.get("areaSqm"), q.maxArea()));
+        }
+        if (q.minPrice() != null) {
+            predicates.add(cb.greaterThanOrEqualTo(
+                    root.get("currentBid"), q.minPrice()));
+        }
+        if (q.maxPrice() != null) {
+            predicates.add(cb.lessThanOrEqualTo(
+                    root.get("currentBid"), q.maxPrice()));
+        }
+        if (q.maturity() != null && !q.maturity().isEmpty()) {
+            predicates.add(parcel.get("maturityRating").in(q.maturity()));
+        }
+        if (q.verificationTier() != null && !q.verificationTier().isEmpty()) {
+            predicates.add(root.get("verificationTier").in(q.verificationTier()));
+        }
+        if (q.sellerId() != null) {
+            Join<Object, Object> seller = root.join("seller");
+            predicates.add(cb.equal(seller.get("id"), q.sellerId()));
+        }
+        if (q.endingWithinHours() != null) {
+            OffsetDateTime now = OffsetDateTime.now();
+            OffsetDateTime upper = now.plusHours(q.endingWithinHours());
+            predicates.add(cb.greaterThan(root.get("endsAt"), now));
+            predicates.add(cb.lessThanOrEqualTo(root.get("endsAt"), upper));
+        }
+        addReserveFilter(predicates, q, root, cb);
+        addSnipeFilter(predicates, q, root, cb);
+        addTagsFilter(predicates, q, root, query, cb);
     }
 
     /**

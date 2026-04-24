@@ -31,9 +31,11 @@ class PgIndexExistenceTest {
                 "ix_parcels_grid_coords",
                 "ix_parcels_area_sqm",
                 "ix_parcels_maturity",
-                "ix_auction_tags_tag_id"
-                // ix_saved_auctions_user_saved_at + uk_saved_auctions_user_auction
-                // land in Task 7; this test gets those added later.
+                "ix_auction_tags_tag_id",
+                // Task 7: saved-auctions composite read index + per-user uniqueness
+                // (Postgres backs UNIQUE constraints with a same-named btree index).
+                "ix_saved_auctions_user_saved_at",
+                "uk_saved_auctions_user_auction"
         );
 
         Set<String> actual = jdbc.queryForList(
