@@ -1,0 +1,188 @@
+package com.slparcelauctions.backend.review;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.OffsetDateTime;
+import java.util.Optional;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
+import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.review.dto.ReviewDto;
+import com.slparcelauctions.backend.review.dto.ReviewSubmitRequest;
+import com.slparcelauctions.backend.review.exception.ReviewAlreadySubmittedException;
+import com.slparcelauctions.backend.review.exception.ReviewExceptionHandler;
+import com.slparcelauctions.backend.review.exception.ReviewIneligibleException;
+import com.slparcelauctions.backend.review.exception.ReviewWindowClosedException;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
+
+/**
+ * Slice tests for {@link ReviewController}. Mirrors the shape of
+ * {@code UserControllerTest}: filters off (the security filter chain is
+ * exercised in {@code SecurityConfigTest}), slice + global exception
+ * handlers imported so status-code mappings resolve, and both the
+ * service and user repository mocked.
+ */
+@WebMvcTest(controllers = ReviewController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({GlobalExceptionHandler.class, ReviewExceptionHandler.class})
+class ReviewControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @MockitoBean private ReviewService reviewService;
+    @MockitoBean private UserRepository userRepository;
+    @MockitoBean private JwtService jwtService;
+
+    private ReviewDto sampleDto() {
+        return new ReviewDto(
+                1_234L,
+                555L,
+                "Lakefront",
+                "/api/v1/auctions/555/photos/1/bytes",
+                1L,
+                "Viewer",
+                "/api/v1/users/1/avatar/256",
+                10L,
+                ReviewedRole.SELLER,
+                5,
+                "Great",
+                false,
+                true,
+                OffsetDateTime.now(),
+                null,
+                null);
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_returns201_withDto() throws Exception {
+        User caller = User.builder().email("test@example.com").passwordHash("x").build();
+        caller.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
+        when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
+                .thenReturn(sampleDto());
+
+        ReviewSubmitRequest req = new ReviewSubmitRequest(5, "Great");
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1_234))
+                .andExpect(jsonPath("$.auctionId").value(555))
+                .andExpect(jsonPath("$.pending").value(true))
+                .andExpect(jsonPath("$.visible").value(false));
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_ratingOutOfRange_returns400() throws Exception {
+        ReviewSubmitRequest req = new ReviewSubmitRequest(6, null);
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.rating").exists());
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_ratingZero_returns400() throws Exception {
+        ReviewSubmitRequest req = new ReviewSubmitRequest(0, null);
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.rating").exists());
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_ratingMissing_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.rating").exists());
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_textTooLong_returns400() throws Exception {
+        String tooLong = "a".repeat(501);
+        ReviewSubmitRequest req = new ReviewSubmitRequest(5, tooLong);
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.text").exists());
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_ineligible_returns422_REVIEW_INELIGIBLE() throws Exception {
+        User caller = User.builder().email("test@example.com").passwordHash("x").build();
+        caller.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
+        when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
+                .thenThrow(new ReviewIneligibleException("Reviews are only accepted once the escrow has completed."));
+
+        ReviewSubmitRequest req = new ReviewSubmitRequest(5, null);
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("REVIEW_INELIGIBLE"));
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_windowClosed_returns422_REVIEW_WINDOW_CLOSED() throws Exception {
+        User caller = User.builder().email("test@example.com").passwordHash("x").build();
+        caller.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
+        when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
+                .thenThrow(new ReviewWindowClosedException("Window closed"));
+
+        ReviewSubmitRequest req = new ReviewSubmitRequest(5, null);
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("REVIEW_WINDOW_CLOSED"));
+    }
+
+    @Test
+    @WithMockAuthPrincipal(userId = 1L)
+    void submitReview_duplicate_returns409_REVIEW_ALREADY_SUBMITTED() throws Exception {
+        User caller = User.builder().email("test@example.com").passwordHash("x").build();
+        caller.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
+        when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
+                .thenThrow(new ReviewAlreadySubmittedException("Already submitted"));
+
+        ReviewSubmitRequest req = new ReviewSubmitRequest(5, null);
+        mockMvc.perform(post("/api/v1/auctions/555/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("REVIEW_ALREADY_SUBMITTED"));
+    }
+}

@@ -96,7 +96,8 @@ public class AuctionSearchResultMapper {
                 s.getDisplayName(),
                 avatarUrl(s),
                 s.getAvgSellerRating(),
-                s.getTotalSellerReviews());
+                s.getTotalSellerReviews(),
+                s.getCompletedSales());
 
         boolean snipeProtect = Boolean.TRUE.equals(a.getSnipeProtect());
 

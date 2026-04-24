@@ -154,6 +154,14 @@ public class SecurityConfig {
                         // /api/v1/users/** authenticated rules.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/auctions").permitAll()
                         // --- End Epic 03 sub-spec 1 Task 9 additions ---
+                        // Review submit endpoint (Epic 08 sub-spec 1 Task 1).
+                        // JWT-required so ReviewController can read the
+                        // caller's userId off the AuthPrincipal. Explicit
+                        // so Task 2's GET /reviews paths (public) can be
+                        // added in-place without disturbing the POST rule.
+                        // FOOTGUNS §B.5: this MUST sit before the
+                        // /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/reviews").authenticated()
                         // Bot worker queue + callback surface (Epic 06 Task 3).
                         // Authentication is a shared bearer token validated by
                         // BotSharedSecretAuthorizer (constant-time compare via
