@@ -264,7 +264,7 @@ class ReviewServiceSubmitTest {
     }
 
     @Test
-    void submit_acceptsAtExactWindowCloseMinusOneSecond() {
+    void submit_acceptsAtExactWindowBoundary() {
         // Boundary: exactly at escrow.completedAt + 14 days = now. isAfter
         // returns false at the boundary (strict inequality), so submit
         // succeeds. A submit at now + 1 nanosecond would be rejected.
