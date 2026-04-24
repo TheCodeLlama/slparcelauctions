@@ -2,12 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
-import { AlertCircle, BadgeCheck, MessageSquare } from "@/components/ui/icons";
+import { AlertCircle, BadgeCheck } from "@/components/ui/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ProfileReviewTabs } from "@/components/reviews/ProfileReviewTabs";
 import { isApiError } from "@/lib/api";
 import { userApi } from "@/lib/user/api";
 import { ActiveListingsSection } from "./ActiveListingsSection";
@@ -111,16 +112,18 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
         </Card.Body>
       </Card>
 
-      {/* Placeholder: Reviews */}
+      {/* Reviews (Epic 08 sub-spec 1 §8.2) */}
       <Card>
         <Card.Header>
           <h2 className="text-title-md font-bold">Reviews</h2>
         </Card.Header>
         <Card.Body>
-          <EmptyState
-            icon={MessageSquare}
-            headline="No reviews yet"
-            description="Reviews will appear here once this user completes transactions."
+          <ProfileReviewTabs
+            userId={profile.id}
+            avgSellerRating={profile.avgSellerRating}
+            avgBuyerRating={profile.avgBuyerRating}
+            totalSellerReviews={profile.totalSellerReviews}
+            totalBuyerReviews={profile.totalBuyerReviews}
           />
         </Card.Body>
       </Card>
