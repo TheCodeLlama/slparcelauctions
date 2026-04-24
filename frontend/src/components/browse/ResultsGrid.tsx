@@ -1,5 +1,5 @@
 "use client";
-import { ListingCard } from "@/components/auction/ListingCard";
+import { ListingCard, type ListingCardVariant } from "@/components/auction/ListingCard";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AlertCircle } from "@/components/ui/icons";
@@ -19,6 +19,12 @@ export interface ResultsGridProps {
   onRetry?: () => void;
   /** Optional filters pinned by the surrounding page (e.g. {@code sellerId}). */
   fixedFilters?: Partial<AuctionSearchQuery>;
+  /**
+   * Density preset passed through to each {@link ListingCard}. Default is
+   * {@code "default"} (the 3-column browse grid); the Curator Tray uses
+   * {@code "compact"} for its narrower drawer surface.
+   */
+  variant?: ListingCardVariant;
   className?: string;
 }
 
@@ -93,15 +99,20 @@ export function ResultsGrid({
   onClearFilters,
   onRetry,
   fixedFilters,
+  variant = "default",
   className,
 }: ResultsGridProps) {
+  const gridClasses =
+    variant === "compact"
+      ? "grid grid-cols-1 gap-3"
+      : GRID_CLASSES;
   if (isLoading) {
     return (
       <div
         role="status"
         aria-busy="true"
         aria-label="Loading listings"
-        className={cn(GRID_CLASSES, className)}
+        className={cn(gridClasses, className)}
       >
         {Array.from({ length: SKELETON_COUNT }, (_, i) => (
           <ListingCardSkeleton key={i} />
@@ -146,9 +157,9 @@ export function ResultsGrid({
   }
 
   return (
-    <div className={cn(GRID_CLASSES, className)}>
+    <div className={cn(gridClasses, className)}>
       {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} variant="default" />
+        <ListingCard key={listing.id} listing={listing} variant={variant} />
       ))}
     </div>
   );

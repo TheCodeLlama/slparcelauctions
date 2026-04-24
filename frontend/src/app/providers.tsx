@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { configureApiClient } from "@/lib/api";
 import { ToastProvider } from "@/components/ui/Toast";
+import { CuratorTrayMount } from "@/components/curator/CuratorTrayMount";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => {
@@ -26,7 +27,10 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          {children}
+          <CuratorTrayMount />
+        </ToastProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

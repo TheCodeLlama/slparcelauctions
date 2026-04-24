@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
-import { useToast } from "@/components/ui/Toast/useToast";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { ShieldCheck, MapPin, Heart } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { deriveStatusChip } from "@/lib/search/status-chip";
+import { useSavedIds, useToggleSaved } from "@/hooks/useSavedAuctions";
 import type { AuctionSearchResultDto } from "@/types/search";
 
 export type ListingCardVariant = "default" | "compact" | "featured";
@@ -69,10 +69,12 @@ const MAX_TAGS: Record<ListingCardVariant, number> = {
  * heart overlay intercepts its own click (preventDefault + stopPropagation)
  * so navigating away doesn't happen when the user means to save.
  *
- * Heart behavior in Task 2a: always surfaces a {@code toast.warning} with
- * an in-place "Sign in" action button — the full save/unsave mutation
- * lands in Task 5 with useSavedAuctions. Pre-active statuses never show a
- * heart at all.
+ * Heart behavior (Task 5): unauthenticated callers get a
+ * {@code toast.warning} with a Sign in action button. Authenticated callers
+ * flip the saved state via {@link useToggleSaved} — optimistic update on
+ * {@code ["saved", "ids"]}, rollback on error, targeted toast copy for 409
+ * {@code SAVED_LIMIT_REACHED} / 403 {@code CANNOT_SAVE_PRE_ACTIVE} / 404.
+ * Pre-active statuses never show a heart at all.
  */
 export function ListingCard({ listing, variant, className }: ListingCardProps) {
   const chip = deriveStatusChip({
@@ -191,46 +193,49 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
           )}
         </div>
       </Link>
-      {showHeart && <HeartOverlay title={listing.title} />}
+      {showHeart && (
+        <HeartOverlay auctionId={listing.id} title={listing.title} />
+      )}
     </article>
   );
 }
 
 /**
- * Placeholder heart overlay. Full hook-backed implementation (optimistic
- * toggle + delete undo + rate-limit handling) lands in Task 5 when
- * useSavedAuctions ships. For Task 2a the button always behaves as if the
- * caller is anonymous: surfaces a warning toast with a "Sign in" action
- * button that navigates back to the current page post-login.
+ * Heart-save button overlaid on every ListingCard. Reads the authenticated
+ * caller's saved-id set via {@link useSavedIds} (empty set when
+ * unauthenticated — no network round-trip) and dispatches to
+ * {@link useToggleSaved} which handles the auth gate, optimistic update,
+ * rollback, and error toasts.
  */
-function HeartOverlay({ title }: { title: string }) {
-  const toast = useToast();
+function HeartOverlay({
+  auctionId,
+  title,
+}: {
+  auctionId: number;
+  title: string;
+}) {
+  const { isSaved } = useSavedIds();
+  const { toggle } = useToggleSaved();
+  const saved = isSaved(auctionId);
   return (
     <button
       type="button"
-      aria-label={`Save ${title}`}
+      aria-pressed={saved}
+      aria-label={`${saved ? "Unsave" : "Save"} ${title}`}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toast.warning({
-          title: "Sign in to save parcels",
-          action: {
-            label: "Sign in",
-            onClick: () => {
-              if (typeof window !== "undefined") {
-                window.location.assign(
-                  `/login?next=${encodeURIComponent(
-                    window.location.pathname + window.location.search,
-                  )}`,
-                );
-              }
-            },
-          },
-        });
+        void toggle(auctionId);
       }}
       className="absolute top-2 right-2 rounded-full bg-surface-container-lowest/80 backdrop-blur p-2 hover:bg-surface-container-lowest focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
     >
-      <Heart className="size-5 text-on-surface-variant" aria-hidden="true" />
+      <Heart
+        className={cn(
+          "size-5",
+          saved ? "fill-primary text-primary" : "text-on-surface-variant",
+        )}
+        aria-hidden="true"
+      />
     </button>
   );
 }

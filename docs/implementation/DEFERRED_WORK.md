@@ -194,13 +194,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 09 (Notifications) or Epic 10 (Admin & Moderation) — whichever ships the first observability surface. The data plane is a new `POST /api/v1/telemetry/ws-events` (authenticated, rate-limited) or equivalent, with the client batching events on `beforeunload`.
 - **Notes:** Current reconnect state lives in `frontend/src/lib/ws/client.ts` (`useConnectionState` hook). Adding telemetry is a small addition at the state-transition boundaries — the footwork is the backend storage + aggregation side.
 
-### Saved / watchlist "Curator Tray"
-> **Partially resolved in Epic 07 sub-spec 1 (commit b8a3fba — backend).** Saved-auctions entity + four endpoints (POST /api/v1/me/saved, DELETE /me/saved/{id}, GET /me/saved/ids, GET /me/saved/auctions) shipped. The Curator Tray drawer UI lands in sub-spec 2.
-- **From:** Epic 04 sub-spec 2 (spec §19 — design system reference to Curator Tray)
-- **Why:** The "Digital Curator" design system docs reference a "Curator Tray" — a pull-out drawer where logged-in users can stash saved / watched listings for later comparison. The auction detail page in sub-spec 2 ships without a "save" / "watchlist" button because the backing model (saved_auctions table, REST endpoints, hydration into the tray) is Browse-surface territory.
-- **When:** Epic 07 (Browse & Search) — the tray is cross-surface (any card anywhere in the app can flip its saved state) so it ships alongside the Browse data model.
-- **Notes:** Design reference: `docs/stitch_generated-design/DESIGN.md` section on Curator Tray. The auction detail page's `AuctionHeroGallery` and bid panel both have space reserved next to the title for a future heart/bookmark toggle — add the button when the model lands, do not shoehorn it in earlier.
-
 ### `BidSheet` swipe-to-dismiss
 - **From:** Epic 04 sub-spec 2 (spec §13 — mobile pattern)
 - **Why:** Intentionally out of scope. Spec §13 excludes swipe-to-dismiss to keep the dependency surface thin (no gesture library) and the A11y story tight. The drag handle on the sheet is `aria-hidden` and purely decorative.
@@ -212,12 +205,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Each new `@Scheduled` job added to the backend requires every existing `@SpringBootTest` to add a `slpa.<job>.enabled=false` line to its `@TestPropertySource` to prevent races with test seeding. Epic 05 sub-spec 1 alone added 3+ such jobs (ownership monitor, timeout, dispatcher) and each expansion touches 8-12 tests. Shared `@TestPropertySource` on an abstract base class, or an `@IntegrationTestDefaults` meta-annotation, would let future epics add schedulers without N-test sweeps.
 - **When:** Indefinite (infrastructure polish) — trigger is when another epic adds a scheduler that requires a new wave of per-test property disables.
 - **Notes:** Touchpoint: any `@SpringBootTest` in `backend/src/test/java` with a `slpa.*.enabled=false` entry on its `@TestPropertySource`. Alternative shapes: (a) `@ActiveProfiles("integration-test")` + an `application-integration-test.yml` that disables every scheduler by default; (b) `@Import(SchedulersDisabledConfig.class)` bean-override; (c) a new `@IntegrationTest` meta-annotation that composes `@SpringBootTest` + the common property set.
-
-### Richer outbid toast shape (warning variant + structured action button)
-- **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
-- **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
-- **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
-- **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
 
 ### Shared-secret version rotation provenance on TerminalCommand
 - **From:** Epic 05 sub-spec 1 (Task 7)

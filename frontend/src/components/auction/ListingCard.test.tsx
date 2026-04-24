@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderWithProviders, screen, userEvent } from "@/test/render";
+import { http, HttpResponse } from "msw";
+import { renderWithProviders, screen, userEvent, waitFor } from "@/test/render";
+import { server } from "@/test/msw/server";
 import { ListingCard } from "./ListingCard";
 import type { AuctionSearchResultDto } from "@/types/search";
 
@@ -147,5 +149,35 @@ describe("ListingCard", () => {
     expect(
       screen.queryByRole("button", { name: /save/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("authenticated heart click toggles the saved state (optimistic)", async () => {
+    // Stateful handler so the onSettled invalidation refetch returns the
+    // new state rather than clobbering the optimistic update.
+    const saved = new Set<number>();
+    server.use(
+      http.get("*/api/v1/me/saved/ids", () =>
+        HttpResponse.json({ ids: Array.from(saved) }),
+      ),
+      http.post("*/api/v1/me/saved", async ({ request }) => {
+        const body = (await request.json()) as { auctionId: number };
+        saved.add(body.auctionId);
+        return HttpResponse.json(
+          { auctionId: body.auctionId, savedAt: "2026-04-23T00:00:00Z" },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<ListingCard listing={sample} variant="default" />, {
+      auth: "authenticated",
+    });
+    const heart = await screen.findByRole("button", { name: /save/i });
+    expect(heart).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(heart);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /unsave/i }),
+      ).toHaveAttribute("aria-pressed", "true");
+    });
   });
 });

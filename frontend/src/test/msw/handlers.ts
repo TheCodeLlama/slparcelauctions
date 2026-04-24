@@ -182,6 +182,62 @@ export const userHandlers = {
     ),
 };
 
+export const savedHandlers = {
+  idsEmpty: () =>
+    http.get("*/api/v1/me/saved/ids", () =>
+      HttpResponse.json({ ids: [] as number[] }),
+    ),
+
+  idsPopulated: (ids: number[]) =>
+    http.get("*/api/v1/me/saved/ids", () => HttpResponse.json({ ids })),
+
+  auctionsEmpty: () =>
+    http.get("*/api/v1/me/saved/auctions", () =>
+      HttpResponse.json({
+        content: [],
+        page: 0,
+        size: 24,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }),
+    ),
+
+  saveSuccess: (auctionId: number) =>
+    http.post("*/api/v1/me/saved", () =>
+      HttpResponse.json(
+        { auctionId, savedAt: "2026-04-23T00:00:00Z" },
+        { status: 201 },
+      ),
+    ),
+
+  saveLimitReached: () =>
+    http.post("*/api/v1/me/saved", () =>
+      HttpResponse.json(
+        { status: 409, code: "SAVED_LIMIT_REACHED", title: "Limit reached" },
+        { status: 409 },
+      ),
+    ),
+
+  savePreActive: () =>
+    http.post("*/api/v1/me/saved", () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "CANNOT_SAVE_PRE_ACTIVE",
+          title: "Not available",
+        },
+        { status: 403 },
+      ),
+    ),
+
+  unsaveSuccess: () =>
+    http.delete("*/api/v1/me/saved/:id", () =>
+      new HttpResponse(null, { status: 204 }),
+    ),
+};
+
 export const verificationHandlers = {
   activeNone: () =>
     http.get("*/api/v1/verification/active", () =>
