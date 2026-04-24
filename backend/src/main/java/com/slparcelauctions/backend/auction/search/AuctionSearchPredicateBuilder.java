@@ -13,6 +13,7 @@ import com.slparcelauctions.backend.parceltag.ParcelTag;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -33,7 +34,13 @@ import jakarta.persistence.criteria.Subquery;
  * (HHH90003004), pulling every matching auction into memory before
  * slicing.
  *
- * <p>Distance predicate integration lands in Task 4.
+ * <p>Distance search uses {@link #buildWithDistance}: it combines the
+ * regular filter predicates with a bounding-box pre-filter
+ * ({@code grid_x BETWEEN x0 - r AND x0 + r}, same for {@code grid_y})
+ * AND a squared-distance refinement ({@code (dx)² + (dy)² <= r²}). The
+ * bounding box is emitted explicitly rather than relying on the planner
+ * to derive it from the squared-distance expression — that derivation
+ * would not be index-usable.
  */
 @Component
 public class AuctionSearchPredicateBuilder {
@@ -91,6 +98,31 @@ public class AuctionSearchPredicateBuilder {
 
             return cb.and(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    /**
+     * Combine the standard filter predicates with a bounding-box
+     * distance filter centered on {@code (x0, y0)} with radius
+     * {@code radius} (in regions). The squared-distance refinement is
+     * applied so corners of the bounding box that exceed the true
+     * Euclidean radius are excluded.
+     */
+    public Specification<Auction> buildWithDistance(
+            AuctionSearchQuery q, double x0, double y0, int radius) {
+        Specification<Auction> base = build(q);
+        return base.and((root, query, cb) -> {
+            Join<Object, Object> parcel = root.join("parcel");
+
+            Expression<Double> dx = cb.diff(parcel.<Double>get("gridX"), cb.literal(x0));
+            Expression<Double> dy = cb.diff(parcel.<Double>get("gridY"), cb.literal(y0));
+            Expression<Double> distSquared = cb.sum(cb.prod(dx, dx), cb.prod(dy, dy));
+
+            List<Predicate> dp = new ArrayList<>();
+            dp.add(cb.between(parcel.<Double>get("gridX"), x0 - radius, x0 + radius));
+            dp.add(cb.between(parcel.<Double>get("gridY"), y0 - radius, y0 + radius));
+            dp.add(cb.lessThanOrEqualTo(distSquared, (double) radius * radius));
+            return cb.and(dp.toArray(Predicate[]::new));
+        });
     }
 
     private void addReserveFilter(

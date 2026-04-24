@@ -10,11 +10,14 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,8 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.sl.SlMapApiClient;
+import com.slparcelauctions.backend.sl.dto.RegionResolution;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -46,16 +51,38 @@ class AuctionSearchControllerIntegrationTest {
     @Autowired UserRepository userRepo;
     @Autowired ParcelRepository parcelRepo;
     @Autowired AuctionRepository auctionRepo;
+    @Autowired StringRedisTemplate redis;
+
+    /**
+     * Mocked so distance tests can stub region resolution without
+     * hitting the real Grid Survey CAP service. Filter / pagination
+     * tests don't transit through this bean since they pass no
+     * {@code near_region} parameter.
+     */
+    @MockitoBean SlMapApiClient slMapApiClient;
 
     @BeforeEach
     void seed() {
+        // Cache state from prior tests can shadow stubbed lookups; clear
+        // both the resolver cache and the response cache up-front.
+        clearRedisKeys("slpa:grid-coord:*");
+        clearRedisKeys("slpa:search:*");
+        Mockito.reset(slMapApiClient);
+
         User seller = userRepo.save(User.builder()
                 .email("seller-" + UUID.randomUUID() + "@ex.com")
                 .passwordHash("x").slAvatarUuid(UUID.randomUUID())
                 .displayName("Seller").verified(true).build());
-        seedActive(seller, "Tula", 1024, "GENERAL");
-        seedActive(seller, "Luna", 2048, "MODERATE");
-        seedActive(seller, "Terra", 4096, "ADULT");
+        seedActive(seller, "Tula", 1024, "GENERAL", 997.0, 1036.0);
+        seedActive(seller, "Luna", 2048, "MODERATE", 1000.0, 1040.0);
+        seedActive(seller, "Terra", 4096, "ADULT", 1100.0, 1100.0);
+    }
+
+    private void clearRedisKeys(String pattern) {
+        var keys = redis.keys(pattern);
+        if (keys != null && !keys.isEmpty()) {
+            redis.delete(keys);
+        }
     }
 
     @Test
@@ -137,10 +164,36 @@ class AuctionSearchControllerIntegrationTest {
                 .andExpect(jsonPath("$.size").value(100));
     }
 
-    private void seedActive(User seller, String region, int area, String maturity) {
+    @Test
+    void nearRegion_unknown_returns400RegionNotFound() throws Exception {
+        Mockito.when(slMapApiClient.resolve("Nowhere-x9z"))
+                .thenReturn(new RegionResolution.NotFound());
+
+        mockMvc.perform(get("/api/v1/auctions/search").param("near_region", "Nowhere-x9z"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REGION_NOT_FOUND"))
+                .andExpect(jsonPath("$.field").value("near_region"));
+    }
+
+    @Test
+    void nearRegion_resolved_populatesMeta() throws Exception {
+        Mockito.when(slMapApiClient.resolve("Tula"))
+                .thenReturn(new RegionResolution.Found(997.0, 1036.0));
+
+        mockMvc.perform(get("/api/v1/auctions/search").param("near_region", "Tula"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.nearRegionResolved.name").value("Tula"))
+                .andExpect(jsonPath("$.meta.nearRegionResolved.gridX").value(997.0))
+                .andExpect(jsonPath("$.meta.nearRegionResolved.gridY").value(1036.0));
+    }
+
+    private void seedActive(
+            User seller, String region, int area, String maturity,
+            Double gridX, Double gridY) {
         Parcel p = parcelRepo.save(Parcel.builder()
                 .slParcelUuid(UUID.randomUUID())
                 .regionName(region).areaSqm(area).maturityRating(maturity)
+                .gridX(gridX).gridY(gridY)
                 .verified(true).build());
         auctionRepo.save(Auction.builder()
                 .parcel(p).seller(seller).title("Test")

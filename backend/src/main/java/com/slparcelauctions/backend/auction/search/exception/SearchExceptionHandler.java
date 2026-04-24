@@ -66,4 +66,28 @@ public class SearchExceptionHandler {
         pd.setProperty("code", "DISTANCE_REQUIRES_NEAR_REGION");
         return pd;
     }
+
+    @ExceptionHandler(RegionNotFoundException.class)
+    public ProblemDetail handleRegionNotFound(RegionNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Region Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REGION_NOT_FOUND");
+        pd.setProperty("field", "near_region");
+        pd.setProperty("regionName", e.getRegionName());
+        return pd;
+    }
+
+    @ExceptionHandler(RegionLookupUnavailableException.class)
+    public ProblemDetail handleRegionLookupUnavailable(
+            RegionLookupUnavailableException e, HttpServletRequest req) {
+        log.warn("Grid Survey upstream failure: {}", e.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Region lookup upstream unavailable");
+        pd.setTitle("Region Lookup Unavailable");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REGION_LOOKUP_UNAVAILABLE");
+        return pd;
+    }
 }
