@@ -194,6 +194,7 @@ sketch
 .worktrees/
 
 .claude/.superpowers/
+.superpowers/
 
 # .NET / C# (bot service)
 bot/**/bin/
