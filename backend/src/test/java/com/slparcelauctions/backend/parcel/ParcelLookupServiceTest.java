@@ -68,6 +68,12 @@ class ParcelLookupServiceTest {
         assertThat(result.continentName()).isEqualTo("Sansara");
         assertThat(result.slurl()).contains("Coniston").contains("128").contains("64");
         assertThat(result.verified()).isTrue();
+        // positionX/Y/Z must flow through so the frontend's
+        // VisitInSecondLifeBlock lands users on the actual parcel instead
+        // of defaulting to region-centre 128/128/0.
+        assertThat(result.positionX()).isEqualTo(128.0);
+        assertThat(result.positionY()).isEqualTo(64.0);
+        assertThat(result.positionZ()).isEqualTo(22.0);
     }
 
     @Test

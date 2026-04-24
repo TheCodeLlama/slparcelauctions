@@ -15,7 +15,9 @@
       "Bash(npx tsc:*)",
       "Bash(npx vitest:*)",
       "Bash(npm test *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(cp /Users/heath/.claude/plugins/marketplaces/superpowers-extended-cc-marketplace/hooks/pre-commit-check-tasks /Users/heath/.claude/plugins/cache/superpowers-extended-cc-marketplace/superpowers-extended-cc/5.2.3/hooks/pre-commit-check-tasks)",
+      "Read(//Users/heath/.claude/plugins/cache/superpowers-extended-cc-marketplace/superpowers-extended-cc/5.2.3/hooks/**)"
     ]
   }
 }

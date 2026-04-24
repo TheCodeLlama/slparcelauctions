@@ -206,3 +206,27 @@
 .animate-slide-in-from-top {
   animation: slide-in-from-top 200ms ease-out;
 }
+
+/*
+ * RangeSlider pointer-events layering.
+ *
+ * Two stacked <input type="range"> elements share a transparent track so
+ * both handles remain reachable by mouse and touch. Without this rule the
+ * top input would absorb every pointer event, leaving the lower input
+ * draggable only via keyboard. The track is made pointer-inert and the
+ * thumb is re-enabled so each handle captures its own pointer region.
+ */
+.range-slider-input {
+  pointer-events: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.range-slider-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.range-slider-input::-moz-range-thumb {
+  pointer-events: auto;
+}

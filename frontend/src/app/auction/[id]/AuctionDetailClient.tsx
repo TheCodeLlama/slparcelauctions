@@ -16,11 +16,14 @@ import { useBidHistory, bidHistoryKey } from "@/hooks/useBidHistory";
 import { useMyProxy, myProxyKey } from "@/hooks/useMyProxy";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import { AuctionHero } from "@/components/auction/AuctionHero";
+import { BreadcrumbNav } from "@/components/auction/BreadcrumbNav";
 import { ParcelInfoPanel } from "@/components/auction/ParcelInfoPanel";
+import { ParcelLayoutMapPlaceholder } from "@/components/auction/ParcelLayoutMapPlaceholder";
 import {
   SellerProfileCard,
   type SellerProfileCardSeller,
 } from "@/components/auction/SellerProfileCard";
+import { VisitInSecondLifeBlock } from "@/components/auction/VisitInSecondLifeBlock";
 import { BidPanel } from "@/components/auction/BidPanel";
 import { BidHistoryList } from "@/components/auction/BidHistoryList";
 import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
@@ -93,16 +96,19 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
     enabled: currentUserId != null && !isSellerViewer,
   });
 
-  // Task 4: seller profile fetch. The public auction DTO only exposes
-  // {@code sellerId} — Task 9 adds server-side enrichment so the seller
-  // ships inline with the auction payload. Until then we fetch the public
-  // profile here and hand it to {@link SellerProfileCard}. The card copes
-  // with a pending / errored profile by rendering a minimal shape (id +
-  // display-name fallback) so the page layout never waits on this call.
+  // Seller enrichment. Epic 07 sub-spec 1 Task 2 added an inline
+  // {@code seller} block to {@code PublicAuctionResponse} — prefer that
+  // when present, falling back to the {@code /api/v1/users/{id}} fetch so
+  // legacy server builds / fixtures that predate the DTO widening still
+  // render a complete card. The client query is only enabled when the
+  // inline block is absent, so the normal request path is a single SSR
+  // fetch.
+  const sellerEnriched = initialAuction.seller ?? null;
   const sellerQuery = useQuery<PublicUserProfile>({
     queryKey: ["publicProfile", initialAuction.sellerId],
     queryFn: () => userApi.publicProfile(initialAuction.sellerId),
     staleTime: 60_000,
+    enabled: sellerEnriched == null,
   });
 
   const auction = auctionQuery.data ?? initialAuction;
@@ -294,26 +300,40 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   // fetch).
   void bidHistoryQuery;
 
-  // Map the public-profile query into the shape SellerProfileCard expects.
-  // When the fetch is pending / errored we still render the card with just
-  // the auction.sellerId so the layout slot is stable — the card treats
-  // missing enrichment fields as "no data yet" (no ratings, zero sales →
-  // "New Seller" badge, which is an acceptable default for the few hundred
-  // ms before the profile lands).
-  const sellerCardData: SellerProfileCardSeller = sellerQuery.data
+  // Map whichever source is available into the card's expected shape.
+  // The inline {@code seller} block (sub-spec 1) wins when present; the
+  // profile-fetch fallback only runs when it isn't, and the
+  // {@code PublicUserProfile} fields are projected into the enriched
+  // shape (completionRate / memberSince aren't in the public-profile
+  // response, so they stay null → the card renders the "Too new to
+  // calculate" and New Seller copy gracefully).
+  const sellerCardData: SellerProfileCardSeller = sellerEnriched
     ? {
-        id: sellerQuery.data.id,
-        displayName: sellerQuery.data.displayName ?? "Seller",
-        slAvatarName: sellerQuery.data.slAvatarName,
-        profilePicUrl: sellerQuery.data.profilePicUrl,
-        avgSellerRating: sellerQuery.data.avgSellerRating,
-        totalSellerReviews: sellerQuery.data.totalSellerReviews,
-        completedSales: sellerQuery.data.completedSales,
+        id: sellerEnriched.id,
+        displayName: sellerEnriched.displayName,
+        avatarUrl: sellerEnriched.avatarUrl,
+        averageRating: sellerEnriched.averageRating,
+        reviewCount: sellerEnriched.reviewCount,
+        completedSales: sellerEnriched.completedSales,
+        completionRate: sellerEnriched.completionRate,
+        memberSince: sellerEnriched.memberSince,
       }
-    : {
-        id: auction.sellerId,
-        displayName: "Seller",
-      };
+    : sellerQuery.data
+      ? {
+          id: sellerQuery.data.id,
+          displayName: sellerQuery.data.displayName ?? "Seller",
+          avatarUrl: sellerQuery.data.profilePicUrl,
+          averageRating: sellerQuery.data.avgSellerRating,
+          reviewCount: sellerQuery.data.totalSellerReviews,
+          completedSales: sellerQuery.data.completedSales,
+          completionRate: null,
+          memberSince: sellerQuery.data.createdAt,
+        }
+      : {
+          id: auction.sellerId,
+          displayName: "Seller",
+          completedSales: 0,
+        };
 
   // Hoisted viewer projection + winning-state derivation so the desktop
   // sidebar BidPanel, the mobile sheet BidPanel, and the StickyBidBar
@@ -329,7 +349,11 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
 
   return (
     <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-24 pb-24 lg:pb-12">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
+      <BreadcrumbNav
+        region={auction.parcel.regionName}
+        title={auction.title}
+      />
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
         <div className="lg:col-span-8 space-y-8 lg:space-y-12">
           <AuctionHero
             photos={auction.photos}
@@ -337,9 +361,16 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             regionName={auction.parcel.regionName}
           />
           <ParcelInfoPanel auction={auction} />
+          <VisitInSecondLifeBlock
+            regionName={auction.parcel.regionName}
+            positionX={auction.parcel.positionX}
+            positionY={auction.parcel.positionY}
+            positionZ={auction.parcel.positionZ}
+          />
           {auction.status === "ENDED" ? (
             <AuctionEndedRow auction={auction} />
           ) : null}
+          <ParcelLayoutMapPlaceholder />
           <BidHistoryList auctionId={id} />
           <SellerProfileCard seller={sellerCardData} />
         </div>

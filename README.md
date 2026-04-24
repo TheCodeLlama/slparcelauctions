@@ -160,6 +160,21 @@ Avatars get two new endpoints: `POST /api/v1/users/me/avatar` (multipart, authen
 - `GET /api/v1/me/saved/ids` — full set of saved IDs for the user.
 - `GET /api/v1/me/saved/auctions` — paginated full-card list.
 
+### Frontend routes (Phase 1)
+
+- `/` — landing page.
+- `/browse` — filterable, sortable auction search with URL-synced state.
+- `/auction/[id]` — public auction detail page (live bid panel + history + ended state).
+- `/auction/[id]/escrow` (+ `/escrow/dispute`) — authenticated escrow timeline.
+- `/users/[id]` — public seller profile with reputation + active listings.
+- `/users/[id]/listings` — seller-scoped browse surface (all statuses, same shell as `/browse`).
+- `/saved` — the URL-synced Curator Tray companion page (logged-in only).
+- `/dashboard/{overview,bids,listings}` — verified-user dashboard tabs.
+- `/listings/create` + `/listings/[id]/edit` + `/listings/[id]/activate` — seller wizard.
+- `/register`, `/login`, `/forgot-password` — auth flows.
+
+**Phase 1 status — Epic 07 (Browse & Search).** The search-API backend (`GET /api/v1/auctions/search`, three featured rails, public stats) and the authenticated saved-auctions surface (four endpoints backing the Curator Tray) are live. The frontend ships the full `/browse` shell (filter sidebar + bottom-sheet on mobile, URL-synced state, SSR-seeded initial render, active-filter chips, Clear all, pagination), three featured rails on the landing page with partial-failure isolation, seller-scoped `/users/[id]/listings`, and the Curator Tray (heart on every ListingCard, right-anchored glass drawer on desktop, BottomSheet on mobile, URL-synced `/saved` page). Every heart toggle uses optimistic updates with rollback on error and targeted toast copy for the three known error codes (409 `SAVED_LIMIT_REACHED`, 403 `CANNOT_SAVE_PRE_ACTIVE`, 404).
+
 ## Running tests
 
 ```bash

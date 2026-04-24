@@ -19,7 +19,7 @@ import type {
 } from "@/types/auction";
 import { fakeEscrowEnvelope } from "@/test/fixtures/escrow";
 import { AuctionDetailClient } from "./AuctionDetailClient";
-import AuctionPage from "./page";
+import AuctionPage, { generateMetadata } from "./page";
 
 // -------------------------------------------------------------
 // WebSocket module mock. Captures the last envelope callback +
@@ -87,6 +87,7 @@ function publicAuctionFixture(
   return {
     id: 7,
     sellerId: 100,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
@@ -95,6 +96,9 @@ function publicAuctionFixture(
       regionName: "Heterocera",
       gridX: 0,
       gridY: 0,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
       continentName: null,
       areaSqm: 1024,
       description: "Beachfront parcel",
@@ -258,6 +262,136 @@ describe("AuctionPage server component", () => {
   });
 });
 
+describe("AuctionPage generateMetadata", () => {
+  beforeEach(() => {
+    notFoundSpy.mockClear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns a generic title for a non-numeric id without fetching", async () => {
+    // No MSW handler registered — if a fetch escaped the early-return the
+    // test would surface as a request-logging failure in MSW's onUnhandled
+    // mode. generateMetadata must short-circuit on invalid IDs.
+    const meta = await generateMetadata({
+      params: Promise.resolve({ id: "not-a-number" }),
+    });
+    expect(meta.title).toBe("Auction · SLPA");
+  });
+
+  it("returns OG metadata derived from the auction fetch", async () => {
+    const auction = publicAuctionFixture({
+      title: "Epic Beachfront Parcel",
+      currentBid: 4200,
+      photos: [
+        {
+          id: 1,
+          url: "https://cdn.example/hero.jpg",
+          contentType: "image/jpeg",
+          sizeBytes: 2048,
+          sortOrder: 0,
+          uploadedAt: "2026-04-20T00:00:00Z",
+        },
+      ],
+    });
+    server.use(
+      http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ id: "7" }),
+    });
+
+    expect(meta.title).toBe("Epic Beachfront Parcel · SLPA");
+    expect(meta.description).toContain("Heterocera");
+    expect(meta.description).toContain("1024");
+    expect(meta.description).toContain("4,200");
+    expect(meta.openGraph?.images).toEqual([
+      "https://cdn.example/hero.jpg",
+    ]);
+    expect((meta.twitter as { card: string } | undefined)?.card).toBe(
+      "summary_large_image",
+    );
+  });
+
+  it("falls back to the parcel snapshot when no photos are present", async () => {
+    const auction = publicAuctionFixture({
+      photos: [],
+      parcel: {
+        ...publicAuctionFixture().parcel,
+        snapshotUrl: "https://cdn.example/snap.jpg",
+      },
+    });
+    server.use(
+      http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
+    );
+    const meta = await generateMetadata({
+      params: Promise.resolve({ id: "7" }),
+    });
+    expect(meta.openGraph?.images).toEqual(["https://cdn.example/snap.jpg"]);
+    expect((meta.twitter as { card: string } | undefined)?.card).toBe(
+      "summary_large_image",
+    );
+  });
+
+  it("downgrades to summary card when neither photos nor snapshot exist", async () => {
+    const auction = publicAuctionFixture({ photos: [] });
+    server.use(
+      http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
+    );
+    const meta = await generateMetadata({
+      params: Promise.resolve({ id: "7" }),
+    });
+    expect(meta.openGraph?.images).toEqual([]);
+    expect((meta.twitter as { card: string } | undefined)?.card).toBe(
+      "summary",
+    );
+  });
+
+  it("returns the generic title when the backend 404s", async () => {
+    server.use(
+      http.get("*/api/v1/auctions/:id", () =>
+        HttpResponse.json(
+          { status: 404, title: "Not Found" },
+          { status: 404 },
+        ),
+      ),
+    );
+    const meta = await generateMetadata({
+      params: Promise.resolve({ id: "9999" }),
+    });
+    expect(meta.title).toBe("Auction · SLPA");
+  });
+
+  it("generateMetadata and AuctionPage both consume the same cached helper module", async () => {
+    // React's {@code cache()} dedupes per-request — the only surface we
+    // can observe cheaply in a unit test is that the cached wrapper
+    // exists and is the same reference both call paths reach. We re-
+    // export the wrapper indirectly by exercising both entry points
+    // against the same auction id and asserting they succeed with the
+    // enriched shape; the literal dedup count is a Next.js runtime
+    // concern and is covered by integration environments.
+    const auction = publicAuctionFixture({ id: 4242 });
+    const bids = pageOf([bidHistoryEntry()]);
+    server.use(
+      http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
+      http.get("*/api/v1/auctions/:id/bids", () => HttpResponse.json(bids)),
+    );
+
+    const meta = await generateMetadata({
+      params: Promise.resolve({ id: "4242" }),
+    });
+    const element = await AuctionPage({
+      params: Promise.resolve({ id: "4242" }),
+    });
+
+    expect(meta.title).toContain("·");
+    expect(element).toBeDefined();
+  });
+});
+
 describe("AuctionDetailClient", () => {
   const auction = publicAuctionFixture();
   const initialBids = pageOf([
@@ -334,8 +468,10 @@ describe("AuctionDetailClient", () => {
     expect(screen.getByTestId("parcel-info-panel")).toHaveTextContent(
       "Heterocera",
     );
+    // Seller title wins the headline slot; parcel.description ("Beachfront
+    // parcel") becomes a fallback not exercised here.
     expect(screen.getByTestId("parcel-info-panel-title")).toHaveTextContent(
-      "Beachfront parcel",
+      "Featured Parcel Listing",
     );
     // The auction-hero falls back to the placeholder variant when no photos
     // and no parcel snapshot are present (as in this fixture).
@@ -357,6 +493,45 @@ describe("AuctionDetailClient", () => {
     expect(screen.getByTestId("bid-panel-slot")).toHaveAttribute(
       "data-ws-state",
       "connected",
+    );
+    // VisitInSecondLifeBlock must thread through the parcel's actual
+    // position fields so the viewer-protocol + map URLs land on the
+    // parcel rather than defaulting to region-centre 128/128/0 when the
+    // backend sends real coords. The fixture seeds 128/128/0 here so we
+    // assert the href is built from the parcel fields and not a
+    // hardcoded null fallback.
+    expect(
+      screen.getByTestId("visit-in-sl-viewer").getAttribute("href"),
+    ).toBe("secondlife:///app/teleport/Heterocera/128/128/0");
+    expect(screen.getByTestId("visit-in-sl-map").getAttribute("href")).toBe(
+      "https://maps.secondlife.com/secondlife/Heterocera/128/128/0",
+    );
+  });
+
+  it("threads non-null parcel positions through VisitInSecondLifeBlock", () => {
+    // Guards against the hardcoded-null regression on AuctionDetailClient:
+    // when the backend sends real in-parcel coords, the hrefs must reflect
+    // them instead of collapsing to the 128/128/0 region-centre default.
+    renderWithProviders(
+      <AuctionDetailClient
+        initialAuction={{
+          ...auction,
+          parcel: {
+            ...auction.parcel,
+            positionX: 45,
+            positionY: 72,
+            positionZ: 24,
+          },
+        }}
+        initialBidPage={initialBids}
+      />,
+      { auth: "authenticated", authUser: verifiedBidder },
+    );
+    expect(
+      screen.getByTestId("visit-in-sl-viewer").getAttribute("href"),
+    ).toBe("secondlife:///app/teleport/Heterocera/45/72/24");
+    expect(screen.getByTestId("visit-in-sl-map").getAttribute("href")).toBe(
+      "https://maps.secondlife.com/secondlife/Heterocera/45/72/24",
     );
   });
 

@@ -75,12 +75,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite
 - **Notes:** Not in the Phase 1 design document.
 
-### Profile page SEO metadata (OpenGraph)
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Nice-to-have polish. Next.js 16 `generateMetadata` could emit OpenGraph tags for social sharing.
-- **When:** Epic 07 (Browse & Search) — public profile OG metadata is folded into the same SSR/SEO sweep that makes listing detail + browse pages crawlable, so the SEO work lands in one coherent pass.
-- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`. Same `generateMetadata` pattern used by Epic 07's listing detail enhancements.
-
 ### Drag-drop animation polish on ProfilePictureUploader
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile picture upload)
 - **Why:** Current drop zone uses a static border highlight. Polished version would animate border-color transition and a scale effect on drop.
@@ -176,12 +170,17 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
 - **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
 
-### Per-user public listings page `/users/{id}/listings`
-> **Backend resolved in Epic 07 sub-spec 1.** GET /api/v1/auctions/search?seller_id=N now returns the seller's listings. The dedicated /users/{id}/listings page UI lands in sub-spec 2.
-- **From:** Epic 04 sub-spec 2 (Task 9 `ActiveListingsSection` on public profile)
-- **Why:** The "View all" link from `ActiveListingsSection` on `/users/{id}` points at `/users/{id}/listings`, which does not exist yet. The active-listings section itself ships with a page-size-limited preview (top N listings returned by `GET /api/v1/users/{userId}/auctions?status=ACTIVE`). A dedicated paginated, filterable, sort-aware "all listings by this seller" page belongs to the Browse surface in Epic 07.
-- **When:** Epic 07 (Browse & Search).
-- **Notes:** Consider conditionally rendering the "View all" link as disabled / hidden until the route ships, so the anchor doesn't dead-end on a 404. Touchpoint: `frontend/src/components/user/ActiveListingsSection.tsx`. The endpoint `GET /api/v1/users/{userId}/auctions?status=ACTIVE` already exists (SUSPENDED always excluded server-side) and is the data source the Epic 07 page will consume.
+### Region autocomplete for DistanceSearchBlock
+- **From:** Epic 07 sub-spec 2 (Task 2b)
+- **Why:** Phase 1 ships a free-form region text input with server-side validation on submit (REGION_NOT_FOUND surfaces inline under the input). Client-side autocomplete needs a new lightweight `/sl/regions/search?q=` endpoint, debounced input, keyboard nav, and a popover primitive — scope for its own design pass.
+- **When:** Phase 2 polish.
+- **Notes:** Touchpoint: `DistanceSearchBlock.tsx`.
+
+### Infinite-scroll on browse grid
+- **From:** Epic 07 sub-spec 2 (Task 2b)
+- **Why:** Phase 1 ships numbered pagination — shareable URLs, SSR-friendly, back-button sane. Infinite scroll introduces scroll-position restore, focus management, SR announcements that deserve their own scoped design pass.
+- **When:** Indefinite — trigger is user feedback demanding it. Consolidates with the existing BidHistory infinite-scroll deferral.
+- **Notes:** Touchpoint: `BrowseShell.tsx` + `useAuctionSearch`. React Query already supports `useInfiniteQuery`.
 
 ### Bid history infinite scroll
 - **From:** Epic 04 sub-spec 2 (Task 6 `BidHistory`)
@@ -195,13 +194,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 09 (Notifications) or Epic 10 (Admin & Moderation) — whichever ships the first observability surface. The data plane is a new `POST /api/v1/telemetry/ws-events` (authenticated, rate-limited) or equivalent, with the client batching events on `beforeunload`.
 - **Notes:** Current reconnect state lives in `frontend/src/lib/ws/client.ts` (`useConnectionState` hook). Adding telemetry is a small addition at the state-transition boundaries — the footwork is the backend storage + aggregation side.
 
-### Saved / watchlist "Curator Tray"
-> **Partially resolved in Epic 07 sub-spec 1 (commit b8a3fba — backend).** Saved-auctions entity + four endpoints (POST /api/v1/me/saved, DELETE /me/saved/{id}, GET /me/saved/ids, GET /me/saved/auctions) shipped. The Curator Tray drawer UI lands in sub-spec 2.
-- **From:** Epic 04 sub-spec 2 (spec §19 — design system reference to Curator Tray)
-- **Why:** The "Digital Curator" design system docs reference a "Curator Tray" — a pull-out drawer where logged-in users can stash saved / watched listings for later comparison. The auction detail page in sub-spec 2 ships without a "save" / "watchlist" button because the backing model (saved_auctions table, REST endpoints, hydration into the tray) is Browse-surface territory.
-- **When:** Epic 07 (Browse & Search) — the tray is cross-surface (any card anywhere in the app can flip its saved state) so it ships alongside the Browse data model.
-- **Notes:** Design reference: `docs/stitch_generated-design/DESIGN.md` section on Curator Tray. The auction detail page's `AuctionHeroGallery` and bid panel both have space reserved next to the title for a future heart/bookmark toggle — add the button when the model lands, do not shoehorn it in earlier.
-
 ### `BidSheet` swipe-to-dismiss
 - **From:** Epic 04 sub-spec 2 (spec §13 — mobile pattern)
 - **Why:** Intentionally out of scope. Spec §13 excludes swipe-to-dismiss to keep the dependency surface thin (no gesture library) and the A11y story tight. The drag handle on the sheet is `aria-hidden` and purely decorative.
@@ -213,12 +205,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Each new `@Scheduled` job added to the backend requires every existing `@SpringBootTest` to add a `slpa.<job>.enabled=false` line to its `@TestPropertySource` to prevent races with test seeding. Epic 05 sub-spec 1 alone added 3+ such jobs (ownership monitor, timeout, dispatcher) and each expansion touches 8-12 tests. Shared `@TestPropertySource` on an abstract base class, or an `@IntegrationTestDefaults` meta-annotation, would let future epics add schedulers without N-test sweeps.
 - **When:** Indefinite (infrastructure polish) — trigger is when another epic adds a scheduler that requires a new wave of per-test property disables.
 - **Notes:** Touchpoint: any `@SpringBootTest` in `backend/src/test/java` with a `slpa.*.enabled=false` entry on its `@TestPropertySource`. Alternative shapes: (a) `@ActiveProfiles("integration-test")` + an `application-integration-test.yml` that disables every scheduler by default; (b) `@Import(SchedulersDisabledConfig.class)` bean-override; (c) a new `@IntegrationTest` meta-annotation that composes `@SpringBootTest` + the common property set.
-
-### Richer outbid toast shape (warning variant + structured action button)
-- **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
-- **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
-- **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
-- **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
 
 ### Shared-secret version rotation provenance on TerminalCommand
 - **From:** Epic 05 sub-spec 1 (Task 7)
@@ -375,6 +361,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Tests are already structured per-outcome in
   `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
   tests without rewriting assertions.
+
+### Public StatsBar on homepage (activity-threshold gated)
+- **From:** Epic 07 sub-spec 2 (Task 3)
+- **Why:** Backend `GET /api/v1/stats/public` is live from sub-spec 1 but the homepage deliberately does not render a stats bar. Launching with low numbers ("2 active bidders") reads as a liability, not social proof. Re-enable once activity is strong enough that the numbers flatter the product.
+- **When:** Product decision — trigger is an activity threshold, not a technical readiness gate.
+- **Notes:** Touchpoint: `app/page.tsx`. Component to add: `StatsBar` in `components/marketing/`. `/stats/public` response shape already documented in sub-spec 1 §5.3.
 
 ### Auction.title NOT NULL backfill on first production deploy (Epic 07)
 - **From:** Epic 07 sub-spec 1 (Task 2)

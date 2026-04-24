@@ -1,20 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { BidSettlementEnvelope, BidHistoryEntry } from "@/types/auction";
+import type { ToastPayload } from "@/components/ui/Toast";
 import {
   OutbidToastProvider,
   type AuctionSnapshot,
   type OutbidToastHandle,
 } from "./OutbidToastProvider";
 
-function fakeToast(): OutbidToastHandle & { error: ReturnType<typeof vi.fn> } {
-  // Typed as (message: string) => void so the returned object satisfies
-  // OutbidToastHandle; the inner no-op body still lets vi.fn record the
-  // call arguments for assertion in each test.
-  const errorMock: OutbidToastHandle["error"] & ReturnType<typeof vi.fn> =
-    vi.fn((message: string) => {
-      void message;
+function fakeToast(): OutbidToastHandle & {
+  warning: ReturnType<typeof vi.fn>;
+} {
+  const warningMock: OutbidToastHandle["warning"] & ReturnType<typeof vi.fn> =
+    vi.fn((payload: string | ToastPayload) => {
+      void payload;
     });
-  return { error: errorMock };
+  return { warning: warningMock };
 }
 
 function envelope(
@@ -43,9 +43,10 @@ describe("OutbidToastProvider.maybeFire", () => {
   beforeEach(() => {
     scrollSpy = vi.fn();
     // JSDOM / happy-dom don't implement scrollIntoView; stub it so the
-    // guard-path tests can observe whether the helper was invoked.
+    // action-button click path can observe whether the helper was invoked.
     origScroll = HTMLElement.prototype.scrollIntoView;
-    HTMLElement.prototype.scrollIntoView = scrollSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView =
+      scrollSpy as unknown as typeof HTMLElement.prototype.scrollIntoView;
     document.body.innerHTML = "";
   });
 
@@ -56,7 +57,7 @@ describe("OutbidToastProvider.maybeFire", () => {
     document.body.innerHTML = "";
   });
 
-  it("fires toast.error when the caller was winning and is now losing", () => {
+  it("fires toast.warning with structured payload when the caller was winning and is now losing", () => {
     const toast = fakeToast();
     const prev: AuctionSnapshot = { currentBidderId: 42 };
 
@@ -67,13 +68,15 @@ describe("OutbidToastProvider.maybeFire", () => {
       toast,
     );
 
-    expect(toast.error).toHaveBeenCalledTimes(1);
-    const msg = toast.error.mock.calls[0][0] as string;
-    expect(msg).toContain("outbid");
-    expect(msg).toContain("L$2,000");
+    expect(toast.warning).toHaveBeenCalledTimes(1);
+    const payload = toast.warning.mock.calls[0][0] as ToastPayload;
+    expect(payload.title).toBe("You've been outbid");
+    expect(payload.description).toBe("Current bid is L$2,000.");
+    expect(payload.action).toBeDefined();
+    expect(payload.action!.label).toBe("Place a new bid");
   });
 
-  it("attempts to scroll the bid panel into view after firing", () => {
+  it("does not scroll on fire — scroll is deferred to the action-button onClick", () => {
     const slot = document.createElement("div");
     slot.setAttribute("data-testid", "bid-panel-slot");
     document.body.appendChild(slot);
@@ -85,6 +88,24 @@ describe("OutbidToastProvider.maybeFire", () => {
       fakeToast(),
     );
 
+    expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
+  it("the action-button onClick scrolls the bid panel into view", () => {
+    const slot = document.createElement("div");
+    slot.setAttribute("data-testid", "bid-panel-slot");
+    document.body.appendChild(slot);
+
+    const toast = fakeToast();
+    OutbidToastProvider.maybeFire(
+      { currentBidderId: 42 },
+      envelope({ currentBidderId: 55 }),
+      42,
+      toast,
+    );
+
+    const payload = toast.warning.mock.calls[0][0] as ToastPayload;
+    payload.action!.onClick();
     expect(scrollSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -96,7 +117,7 @@ describe("OutbidToastProvider.maybeFire", () => {
       42,
       toast,
     );
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 
   it("does NOT fire when the caller is still winning (duplicate envelope)", () => {
@@ -107,7 +128,7 @@ describe("OutbidToastProvider.maybeFire", () => {
       42,
       toast,
     );
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 
   it("does NOT fire when currentUserId is null (anonymous viewer)", () => {
@@ -118,7 +139,7 @@ describe("OutbidToastProvider.maybeFire", () => {
       null,
       toast,
     );
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 
   it("does NOT fire when prevAuction is undefined (first envelope on stale cache)", () => {
@@ -129,7 +150,7 @@ describe("OutbidToastProvider.maybeFire", () => {
       42,
       toast,
     );
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 
   it("does NOT fire when prevAuction has no currentBidderId yet", () => {
@@ -144,6 +165,6 @@ describe("OutbidToastProvider.maybeFire", () => {
       42,
       toast,
     );
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 });

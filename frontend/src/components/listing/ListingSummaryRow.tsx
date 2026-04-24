@@ -16,6 +16,7 @@ import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
 import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
+import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
   AuctionEndOutcome,
@@ -70,7 +71,26 @@ export function ListingSummaryRow({
 }: ListingSummaryRowProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const thumb = auction.photos[0]?.url ?? auction.parcel.snapshotUrl ?? null;
-  const title = auction.parcel.description?.trim() || "(unnamed parcel)";
+  // Seller-authored title is the primary row label. Parcel name +
+  // region fall through as the secondary line (spec §6.3 post sub-spec 2).
+  // Legacy rows with no title fall back to parcel.description so pre-
+  // Epic 07 listings keep a meaningful label. Shared resolver keeps the
+  // chain in sync with ListingPreviewCard + ParcelInfoPanel; the
+  // "(unnamed parcel)" tail is a defensive guard — regionName should
+  // always be present server-side.
+  const primaryLabel =
+    resolveListingHeadline({
+      title: auction.title,
+      parcelDescription: auction.parcel.description,
+      regionName: auction.parcel.regionName,
+    }) || "(unnamed parcel)";
+  const parcelLabel = auction.parcel.description?.trim();
+  const secondaryParts = [
+    parcelLabel && parcelLabel !== primaryLabel ? parcelLabel : null,
+    auction.parcel.regionName,
+    `${auction.parcel.areaSqm} m²`,
+  ].filter((s): s is string => typeof s === "string" && s.length > 0);
+  const secondaryLabel = secondaryParts.join(" · ");
   const isSuspended = auction.status === "SUSPENDED";
 
   return (
@@ -85,7 +105,12 @@ export function ListingSummaryRow({
         <Thumbnail src={thumb} alt="" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-title-sm text-on-surface truncate">{title}</h3>
+            <h3
+              className="text-title-sm text-on-surface truncate"
+              data-testid="listing-summary-primary"
+            >
+              {primaryLabel}
+            </h3>
             <ListingStatusBadge status={auction.status} />
             {auction.escrowState != null && (
               <EscrowChip
@@ -96,8 +121,11 @@ export function ListingSummaryRow({
               />
             )}
           </div>
-          <p className="text-body-sm text-on-surface-variant">
-            {auction.parcel.regionName} · {auction.parcel.areaSqm} m²
+          <p
+            className="text-body-sm text-on-surface-variant"
+            data-testid="listing-summary-secondary"
+          >
+            {secondaryLabel}
           </p>
           <BidSummaryLine auction={auction} />
         </div>

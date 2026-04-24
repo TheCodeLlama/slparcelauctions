@@ -62,3 +62,6 @@ export {
 
 // Epic 05 sub-spec 2 additions (escrow page chrome)
 export { FileX } from "lucide-react";
+
+// Epic 07 sub-spec 2 additions (browse/search UI — heart overlay on ListingCard)
+export { Heart } from "lucide-react";

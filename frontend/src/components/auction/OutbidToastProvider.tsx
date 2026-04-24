@@ -1,6 +1,7 @@
 "use client";
 
 import type { BidSettlementEnvelope } from "@/types/auction";
+import type { ToastPayload } from "@/components/ui/Toast";
 
 /**
  * Minimal toast surface consumed by {@link OutbidToastProvider.maybeFire}.
@@ -8,14 +9,14 @@ import type { BidSettlementEnvelope } from "@/types/auction";
  * handle it already has in scope; also keeps the unit tests from having
  * to render a {@code ToastProvider} just to exercise the guard logic.
  *
- * The project's concrete toast hook exposes {@code success} + {@code error}
- * only — spec §15 asks for a "warning" variant but the existing toast
- * infra doesn't have one, so outbid displacements surface via
- * {@code error(message)}. If a warning variant lands later, swap the
- * call site; the guard logic here does not change.
+ * Epic 07 sub-spec 2 widened the project-level toast primitive with a
+ * {@code warning} variant + structured payload, so the outbid signal now
+ * fires via {@code warning({ title, description, action })} with an
+ * explicit "Place a new bid" action button instead of a plain error
+ * string plus an imperative scroll side-effect.
  */
 export interface OutbidToastHandle {
-  error(message: string): void;
+  warning(payload: string | ToastPayload): void;
 }
 
 /**
@@ -33,9 +34,13 @@ export type AuctionSnapshot =
   | undefined;
 
 /**
- * In-page outbid signal, per spec §15. Fires a transient toast when an
- * incoming {@link BidSettlementEnvelope} displaces the caller from the
- * current-high position.
+ * In-page outbid signal, per spec §15. Fires a transient
+ * {@code toast.warning} with a structured "Place a new bid" action
+ * button when an incoming {@link BidSettlementEnvelope} displaces the
+ * caller from the current-high position. The action button owns the
+ * scroll side-effect (previously an imperative {@code scrollIntoView}
+ * call on every fire); users who want to stay where they are can simply
+ * ignore the button.
  *
  * Guards:
  * <ul>
@@ -66,10 +71,14 @@ export const OutbidToastProvider = {
     const wasWinning = prevAuction.currentBidderId === currentUserId;
     const nowLosing = env.currentBidderId !== currentUserId;
     if (!(wasWinning && nowLosing)) return;
-    toast.error(
-      `You've been outbid — current bid is L$${formatAmount(env.currentBid)}.`,
-    );
-    scrollToBidPanel();
+    toast.warning({
+      title: "You've been outbid",
+      description: `Current bid is L$${formatAmount(env.currentBid)}.`,
+      action: {
+        label: "Place a new bid",
+        onClick: scrollToBidPanel,
+      },
+    });
   },
 };
 
@@ -79,9 +88,13 @@ function formatAmount(n: number): string {
 
 /**
  * Scrolls the viewport to the sidebar BidPanel slot (or its mobile
- * equivalent). SSR-guarded — this runs only in the envelope handler,
- * which is itself client-side, but keep the guard so the module stays
- * safe to import from a server component in a future refactor.
+ * equivalent). Invoked by the toast's "Place a new bid" action button —
+ * the outbid fire itself no longer scrolls, so users who don't want to
+ * jump can simply ignore the button.
+ *
+ * SSR-guarded — this is only reachable from a browser click handler,
+ * but keep the guard so the module stays safe to import from a server
+ * component in a future refactor.
  */
 function scrollToBidPanel(): void {
   if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -89,8 +102,8 @@ function scrollToBidPanel(): void {
     document.querySelector('[data-testid="bid-panel-slot"]') ??
     document.querySelector('[data-testid="bid-panel-bidder"]');
   // {@code scrollIntoView} is not implemented in every test environment
-  // (JSDOM, happy-dom ≤ 17) — guard so the in-page outbid signal never
-  // crashes the envelope handler even when the DOM slot is missing.
+  // (JSDOM, happy-dom ≤ 17) — guard so the action-button onClick never
+  // crashes when the DOM slot is missing.
   if (
     el instanceof HTMLElement &&
     typeof el.scrollIntoView === "function"

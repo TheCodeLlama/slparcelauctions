@@ -105,10 +105,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me").authenticated()
                         // --- End Epic 02 sub-spec 2a additions ---
                         // --- New in Epic 03 sub-spec 1 Task 9 ---
-                        // Public parcel tag reference — any authenticated caller.
-                        // Catch-all /api/v1/** .authenticated() below covers this,
-                        // but it's listed here for grep-ability.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").authenticated()
+                        // Public parcel tag reference. Anon browse uses this to
+                        // render tag filters on /browse, so it must sit before
+                        // the /api/v1/** authenticated catch-all.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").permitAll()
                         // Public listing-photo byte proxy. Must come before the
                         // /api/v1/** catch-all and before the seller-only upload
                         // endpoint. FOOTGUNS §B.5: matcher order is first-match-wins.

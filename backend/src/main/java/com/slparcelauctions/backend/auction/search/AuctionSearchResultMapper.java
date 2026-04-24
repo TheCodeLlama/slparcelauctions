@@ -104,6 +104,7 @@ public class AuctionSearchResultMapper {
                 a.getId(),
                 a.getTitle(),
                 a.getStatus(),
+                a.getEndOutcome(),
                 parcelDto,
                 photoUrl,
                 sellerDto,

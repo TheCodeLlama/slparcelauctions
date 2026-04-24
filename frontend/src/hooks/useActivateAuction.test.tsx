@@ -10,6 +10,7 @@ function base(overrides: Partial<SellerAuctionResponse> = {}): SellerAuctionResp
   return {
     id: 42,
     sellerId: 1,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
@@ -18,6 +19,9 @@ function base(overrides: Partial<SellerAuctionResponse> = {}): SellerAuctionResp
       regionName: "Heterocera",
       gridX: 1000,
       gridY: 1000,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
       continentName: "Heterocera",
       areaSqm: 1024,
       description: null,

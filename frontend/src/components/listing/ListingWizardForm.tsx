@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isApiError } from "@/lib/api";
 import { listParcelTagGroups } from "@/lib/api/parcelTags";
 import { useListingDraft } from "@/hooks/useListingDraft";
+import { cn } from "@/lib/cn";
 import type { ParcelTagDto } from "@/types/parcelTag";
 import type {
   AuctionPhotoDto,
@@ -23,6 +25,19 @@ import { PhotoUploader } from "./PhotoUploader";
 
 const WIZARD_STEPS = ["Configure", "Review & Submit"];
 const MAX_DESC = 5000;
+const MAX_TITLE = 120;
+const TITLE_WARN_AT = 100;
+
+/**
+ * Submit-path Zod schema for the Listing Title field. Trims surrounding
+ * whitespace before length-checking, so a title of spaces is rejected with
+ * "Title is required" rather than silently hitting the 120-char cap.
+ */
+const titleSchema = z
+  .string()
+  .trim()
+  .min(1, "Title is required")
+  .max(MAX_TITLE, `Title must be ${MAX_TITLE} characters or less`);
 
 export interface ListingWizardFormProps {
   mode: "create" | "edit";
@@ -56,6 +71,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const isEdit = mode === "edit";
 
@@ -115,6 +131,16 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
 
   async function runSave(): Promise<SellerAuctionResponse | null> {
     setError(null);
+    // Title validation mirrors the backend's 1..120 char constraint
+    // (sub-spec 1 Task 2 DTO). Surface the Zod message inline so the
+    // seller sees what's wrong without a round-trip.
+    const titleParse = titleSchema.safeParse(draft.state.title ?? "");
+    if (!titleParse.success) {
+      const first = titleParse.error.issues[0]?.message ?? "Invalid title.";
+      setTitleError(first);
+      return null;
+    }
+    setTitleError(null);
     const previousAuctionId = draft.state.auctionId;
     try {
       const saved = await draft.save();
@@ -220,6 +246,25 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
         <div className="flex flex-col gap-6">
           <FormError message={error ?? undefined} />
           <section className="flex flex-col gap-2">
+            <label
+              htmlFor="listing-title"
+              className="text-label-md font-semibold tracking-wider uppercase text-on-surface-variant"
+            >
+              Listing Title
+            </label>
+            <p className="text-body-sm text-on-surface-variant">
+              A short, punchy headline for your listing (max 120 characters).
+            </p>
+            <TitleField
+              value={draft.state.title ?? ""}
+              onChange={(next) => {
+                draft.setTitle(next);
+                if (titleError) setTitleError(null);
+              }}
+              error={titleError}
+            />
+          </section>
+          <section className="flex flex-col gap-2">
             <h2 className="text-title-md text-on-surface">Parcel</h2>
             <ParcelLookupField
               initialParcel={parcel}
@@ -274,6 +319,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   // Review step — render a read-only preview.
   const previewAuction = parcel
     ? buildPreviewAuction({
+        title: (draft.state.title ?? "").trim(),
         parcel,
         startingBid: draft.state.startingBid,
         reservePrice: draft.state.reservePrice,
@@ -319,6 +365,57 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
         )}
       </div>
     </ListingWizardLayout>
+  );
+}
+
+/**
+ * Title input with a live character counter. The counter renders muted by
+ * default and switches to {@code text-error} once the seller crosses
+ * {@link TITLE_WARN_AT} so they can see the cap approaching before they
+ * hit it. Submit-path validation (1..120 chars after trim) lives on the
+ * parent's {@link titleSchema}; this component only renders the raw
+ * counter + optional inline error. Kept inline because the wizard is the
+ * only consumer.
+ */
+function TitleField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  error: string | null;
+}) {
+  const length = value.length;
+  const warn = length >= TITLE_WARN_AT;
+  // The visible <label htmlFor="listing-title"> lives on the parent
+  // section (alongside the helper <p>); wiring through htmlFor means
+  // getByLabelText still resolves to this input and screen readers pick
+  // up a single accessible name.
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        id="listing-title"
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Give your listing a clear, compelling headline."
+        aria-invalid={error != null}
+        aria-describedby="listing-title-counter"
+        className="w-full rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary"
+      />
+      <span
+        id="listing-title-counter"
+        className={cn(
+          "self-end text-body-sm",
+          warn ? "text-error" : "text-on-surface-variant",
+        )}
+        data-testid="title-counter"
+      >
+        {length} / {MAX_TITLE}
+      </span>
+      <FormError message={error ?? undefined} />
+    </div>
   );
 }
 
@@ -369,6 +466,7 @@ function DescriptionField({
  * like — critical in edit mode where the auction already has photos.
  */
 function buildPreviewAuction({
+  title,
   parcel,
   startingBid,
   reservePrice,
@@ -380,6 +478,7 @@ function buildPreviewAuction({
   stagedPhotos,
   uploadedPhotos,
 }: {
+  title: string;
   parcel: ListingPreviewAuction["parcel"];
   startingBid: number;
   reservePrice: number | null;
@@ -407,6 +506,7 @@ function buildPreviewAuction({
   });
 
   return {
+    title,
     parcel,
     startingBid,
     reservePrice,

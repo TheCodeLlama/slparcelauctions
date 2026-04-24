@@ -93,6 +93,23 @@ class AuctionSearchControllerIntegrationTest {
                 .andExpect(jsonPath("$.meta.sortApplied").value("newest"));
     }
 
+    /**
+     * Epic 07 sub-spec 2 added {@code endOutcome} to
+     * {@link AuctionSearchResultDto} so the frontend can derive SOLD /
+     * RESERVE_NOT_MET / NO_BIDS chips for ended auctions (surfaced on the
+     * Curator Tray's {@code ended_only} view). The {@code /search} endpoint
+     * itself filters to ACTIVE only, so the field is always null in this
+     * response — verify both that it is present on the payload and that it
+     * serializes to null for ACTIVE rows.
+     */
+    @Test
+    void response_includesEndOutcomeField_nullForActive() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions/search"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].endOutcome")
+                        .value(org.hamcrest.Matchers.nullValue()));
+    }
+
     @Test
     void includesCacheControlHeader() throws Exception {
         mockMvc.perform(get("/api/v1/auctions/search"))

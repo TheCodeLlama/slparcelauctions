@@ -12,6 +12,7 @@ function makeAuction(
   return {
     id: 42,
     sellerId: 1,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
@@ -20,6 +21,9 @@ function makeAuction(
       regionName: "Heterocera",
       gridX: 0,
       gridY: 0,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
       continentName: null,
       areaSqm: 1024,
       description: null,
