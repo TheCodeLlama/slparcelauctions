@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.config.ratelimit;
 
 import java.net.URI;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -34,7 +35,15 @@ import lombok.extern.slf4j.Slf4j;
  * header — see {@code application.yml}'s {@code forward-headers-strategy}
  * comment for the deployment contract.
  */
+/*
+ * Gated on the ProxyManager bean so {@code @WebMvcTest} slice contexts —
+ * which intentionally skip {@link SearchRateLimitConfig} — do not fail to
+ * load with an UnsatisfiedDependencyException for the search interceptor.
+ * The full {@code @SpringBootTest} contexts still register both beans, so
+ * the rate limiter remains active in production-shaped runs.
+ */
 @Component
+@ConditionalOnBean(ProxyManager.class)
 @Slf4j
 public class SearchRateLimitInterceptor implements HandlerInterceptor {
 

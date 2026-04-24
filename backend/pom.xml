@@ -188,11 +188,32 @@
              groupId is com.giffing.* (community starter); the planned com.bucket4j
              starter coordinate does not exist on Maven Central. Pairs with the
              jdk17-lettuce bucket4j adapter, which matches the Lettuce client that
-             spring-boot-starter-data-redis already provides (no Jedis dual-stack). -->
+             spring-boot-starter-data-redis already provides (no Jedis dual-stack).
+
+             The giffing starter transitively drags com.bucket4j:bucket4j-core:8.10.1
+             which ships overlapping io.github.bucket4j.* classes that win the
+             classpath race against bucket4j_jdk17-core:8.14.0 brought in by the
+             jdk17-lettuce adapter. The 8.10.1 AbstractProxyManager lacks the
+             currentTimeNanos() symbol that 8.14's LettuceBasedProxyManager calls,
+             producing a NoSuchMethodError at the first /auctions/search request.
+             Exclude both 8.10.1 artifacts so only the 8.14 line is on the
+             classpath. The giffing starter is still needed as a placeholder until
+             a Spring Boot 4 compatible com.bucket4j.* starter ships; we wire the
+             ProxyManager programmatically in SearchRateLimitConfig regardless. -->
         <dependency>
             <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
             <artifactId>bucket4j-spring-boot-starter</artifactId>
             <version>0.12.10</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.bucket4j</groupId>
+                    <artifactId>bucket4j-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.bucket4j</groupId>
+                    <artifactId>bucket4j-jcache</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.bucket4j</groupId>
