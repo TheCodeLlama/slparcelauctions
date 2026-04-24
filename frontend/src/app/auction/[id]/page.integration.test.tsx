@@ -87,6 +87,7 @@ function publicAuctionFixture(
   return {
     id: 7,
     sellerId: 100,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
@@ -334,8 +335,10 @@ describe("AuctionDetailClient", () => {
     expect(screen.getByTestId("parcel-info-panel")).toHaveTextContent(
       "Heterocera",
     );
+    // Seller title wins the headline slot; parcel.description ("Beachfront
+    // parcel") becomes a fallback not exercised here.
     expect(screen.getByTestId("parcel-info-panel-title")).toHaveTextContent(
-      "Beachfront parcel",
+      "Featured Parcel Listing",
     );
     // The auction-hero falls back to the placeholder variant when no photos
     // and no parcel snapshot are present (as in this fixture).

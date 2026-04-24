@@ -35,6 +35,7 @@ function sellerResponse(
   return {
     id: 7,
     sellerId: 42,
+    title: "Featured Parcel Listing",
     parcel: sampleParcel,
     status: "DRAFT",
     verificationMethod: null,

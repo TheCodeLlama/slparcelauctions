@@ -54,6 +54,7 @@ function sellerResponse(
   return {
     id: 7,
     sellerId: 1,
+    title: "Featured Parcel Listing",
     parcel: sampleParcel,
     status: "DRAFT",
     verificationMethod: null,
@@ -120,6 +121,10 @@ describe("ListingWizardForm (create flow)", () => {
     renderWithProviders(<ListingWizardForm mode="create" />);
 
     await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
+    await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
     );
@@ -150,6 +155,10 @@ describe("ListingWizardForm (create flow)", () => {
 
     renderWithProviders(<ListingWizardForm mode="create" />);
 
+    await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
     await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
@@ -209,6 +218,10 @@ describe("ListingWizardForm (create flow)", () => {
 
     renderWithProviders(<ListingWizardForm mode="create" />);
     await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
+    await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
     );
@@ -223,6 +236,45 @@ describe("ListingWizardForm (create flow)", () => {
 
     expect(
       await screen.findByText(/Starting bid too low/i),
+    ).toBeInTheDocument();
+  });
+
+  it("requires a non-empty title under 120 chars", async () => {
+    installHappyPathHandlers();
+
+    renderWithProviders(<ListingWizardForm mode="create" />, {
+      auth: "authenticated",
+    });
+
+    // Resolve a parcel so the submit button becomes enabled.
+    await userEvent.type(
+      screen.getByLabelText(/Parcel UUID/i),
+      VALID_UUID,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Look up/i }),
+    );
+    await screen.findByText("Beachfront retreat");
+
+    // Submit without a title → inline validation error surfaces.
+    await userEvent.click(
+      screen.getByRole("button", { name: /continue to review/i }),
+    );
+    expect(
+      await screen.findByText(/title is required/i),
+    ).toBeInTheDocument();
+
+    const titleInput = screen.getByLabelText(/listing title/i);
+    await userEvent.type(titleInput, "Premium Waterfront");
+    expect(screen.getByText("18 / 120")).toBeInTheDocument();
+
+    await userEvent.clear(titleInput);
+    await userEvent.type(titleInput, "x".repeat(121));
+    await userEvent.click(
+      screen.getByRole("button", { name: /continue to review/i }),
+    );
+    expect(
+      await screen.findByText(/120 characters or less/i),
     ).toBeInTheDocument();
   });
 });

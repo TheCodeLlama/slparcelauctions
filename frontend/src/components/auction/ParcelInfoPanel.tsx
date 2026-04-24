@@ -56,7 +56,15 @@ const MATURITY_MAP: Record<
 
 export function ParcelInfoPanel({ auction, className }: Props) {
   const { parcel } = auction;
-  const title = parcel.description?.trim() || parcel.regionName;
+  // Seller-authored listing title wins the headline slot. Falls back to
+  // parcel.description (legacy pre-sub-spec-2 listings) and ultimately
+  // the region name when neither is set. Matches the same fallback
+  // chain surfaced on ListingPreviewCard + ListingSummaryRow so the
+  // three views stay consistent.
+  const title =
+    auction.title.trim() ||
+    parcel.description?.trim() ||
+    parcel.regionName;
   const maturity = MATURITY_MAP[parcel.maturityRating];
   const showSnipe =
     auction.snipeProtect && auction.snipeWindowMin != null;

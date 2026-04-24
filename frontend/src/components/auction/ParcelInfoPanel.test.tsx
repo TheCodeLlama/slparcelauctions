@@ -9,6 +9,7 @@ function publicAuctionFixture(
   return {
     id: 7,
     sellerId: 100,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
@@ -52,19 +53,38 @@ function publicAuctionFixture(
 }
 
 describe("ParcelInfoPanel", () => {
-  it("renders the parcel description as the title when present", () => {
+  it("prefers auction.title over parcel.description for the heading", () => {
     renderWithProviders(
-      <ParcelInfoPanel auction={publicAuctionFixture()} />,
+      <ParcelInfoPanel
+        auction={publicAuctionFixture({
+          title: "Premium Waterfront",
+          parcel: {
+            ...publicAuctionFixture().parcel,
+            description: "Lorem",
+            regionName: "Tula",
+          },
+        })}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Premium Waterfront",
+    );
+  });
+
+  it("falls back to parcel.description when title is blank", () => {
+    renderWithProviders(
+      <ParcelInfoPanel auction={publicAuctionFixture({ title: "" })} />,
     );
     expect(screen.getByTestId("parcel-info-panel-title")).toHaveTextContent(
       "Beachfront parcel",
     );
   });
 
-  it("falls back to the region name when description is blank", () => {
+  it("falls back to the region name when title and description are blank", () => {
     renderWithProviders(
       <ParcelInfoPanel
         auction={publicAuctionFixture({
+          title: "",
           parcel: {
             ...publicAuctionFixture().parcel,
             description: "",

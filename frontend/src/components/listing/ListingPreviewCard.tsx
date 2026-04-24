@@ -13,6 +13,7 @@ import type { SellerAuctionResponse } from "@/types/auction";
  */
 export type ListingPreviewAuction = Pick<
   SellerAuctionResponse,
+  | "title"
   | "parcel"
   | "startingBid"
   | "reservePrice"
@@ -36,7 +37,22 @@ export function ListingPreviewCard({
   className,
 }: ListingPreviewCardProps) {
   const cover = auction.photos[0]?.url ?? null;
-  const title = auction.parcel.description?.trim() || "(unnamed parcel)";
+  // Seller-authored title is the primary headline. Falls back to
+  // parcel.description (then region name) when a draft is previewed
+  // before the seller has entered a title. The backend enforces non-null
+  // title at save time, so the fallback only triggers during in-memory
+  // preview while the wizard is still being filled out.
+  const headline =
+    auction.title.trim() ||
+    auction.parcel.description?.trim() ||
+    auction.parcel.regionName ||
+    "(unnamed parcel)";
+  // Parcel description acts as a secondary label when the title has
+  // already claimed the headline slot. Elided when equal (so we don't
+  // print the same string twice) or when the description is blank.
+  const parcelDesc = auction.parcel.description?.trim();
+  const subtitle =
+    parcelDesc && parcelDesc !== headline ? parcelDesc : null;
   return (
     <article
       className={cn(
@@ -57,7 +73,10 @@ export function ListingPreviewCard({
           className="h-48 w-full rounded-default object-cover"
         />
       ) : null}
-      <h2 className="text-title-lg text-on-surface">{title}</h2>
+      <h3 className="text-title-lg text-on-surface">{headline}</h3>
+      {subtitle ? (
+        <p className="text-body-sm text-on-surface-variant">{subtitle}</p>
+      ) : null}
       <p className="flex items-center gap-1 text-body-sm text-on-surface-variant">
         <MapPin className="size-3.5" aria-hidden="true" />
         <span>

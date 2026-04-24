@@ -24,6 +24,7 @@ function auctionFixture(
   return {
     id: 42,
     sellerId: 100,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",

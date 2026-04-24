@@ -26,8 +26,9 @@ const parcel: ParcelDto = {
   createdAt: "2026-04-17T00:00:00Z",
 };
 
-function base(): ListingPreviewAuction {
+function base(overrides: Partial<ListingPreviewAuction> = {}): ListingPreviewAuction {
   return {
+    title: "Featured Parcel Listing",
     parcel,
     startingBid: 500,
     reservePrice: null,
@@ -36,6 +37,7 @@ function base(): ListingPreviewAuction {
     tags: [],
     photos: [],
     sellerDesc: null,
+    ...overrides,
   };
 }
 
@@ -45,6 +47,15 @@ describe("ListingPreviewCard", () => {
     expect(screen.getByText("Beachfront retreat")).toBeInTheDocument();
     expect(screen.getByText("L$500")).toBeInTheDocument();
     expect(screen.getByText("3 days")).toBeInTheDocument();
+  });
+
+  it("shows auction title as the primary headline", () => {
+    renderWithProviders(
+      <ListingPreviewCard auction={base({ title: "Bayside Cottage Lot" })} />,
+    );
+    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
+      "Bayside Cottage Lot",
+    );
   });
 
   it("renders the preview banner when isPreview is set", () => {

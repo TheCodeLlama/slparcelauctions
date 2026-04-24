@@ -61,6 +61,15 @@ export interface AuctionPhotoDto {
 export interface SellerAuctionResponse {
   id: number;
   sellerId: number;
+  /**
+   * Seller-authored display title for the listing. Required by the backend
+   * (Epic 07 sub-spec 1 Task 2 added {@code title NOT NULL} to the auction
+   * row and the {@code AuctionCreateRequest} DTO). Treated as the primary
+   * headline on browse cards, summary rows, and the auction detail page;
+   * {@code parcel.description} + {@code parcel.regionName} remain as
+   * secondary / fallback text.
+   */
+  title: string;
   parcel: ParcelDto;
   status: AuctionStatus;
   verificationMethod: VerificationMethod | null;
@@ -109,6 +118,12 @@ export type AuctionSnipeWindowMin = 5 | 10 | 15 | 30 | 60;
 
 export interface AuctionCreateRequest {
   parcelId: number;
+  /**
+   * Seller-authored display title. Required by the backend (sub-spec 1
+   * Task 2); validated 1–120 chars. The wizard trims whitespace before
+   * sending.
+   */
+  title: string;
   startingBid: number;
   reservePrice?: number | null;
   buyNowPrice?: number | null;
@@ -149,6 +164,12 @@ export type PublicAuctionStatus = "ACTIVE" | "ENDED";
 export interface PublicAuctionResponse {
   id: number;
   sellerId: number;
+  /**
+   * Seller-authored display title. See {@link SellerAuctionResponse#title} —
+   * the public DTO mirrors the same field so browse cards and the public
+   * auction detail page can render the headline without a second fetch.
+   */
+  title: string;
   parcel: ParcelDto;
   status: PublicAuctionStatus;
   verificationTier: VerificationTier | null;

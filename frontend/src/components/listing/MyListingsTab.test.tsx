@@ -31,6 +31,7 @@ function row(
   return {
     id,
     sellerId: 1,
+    title: `Parcel ${id}`,
     parcel: {
       id,
       slParcelUuid: `00000000-0000-0000-0000-00000000000${id}`,
