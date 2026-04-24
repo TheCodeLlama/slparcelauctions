@@ -246,9 +246,15 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
         <div className="flex flex-col gap-6">
           <FormError message={error ?? undefined} />
           <section className="flex flex-col gap-2">
-            <h2 className="text-title-md text-on-surface">
-              Listing title
-            </h2>
+            <label
+              htmlFor="listing-title"
+              className="text-label-md font-semibold tracking-wider uppercase text-on-surface-variant"
+            >
+              Listing Title
+            </label>
+            <p className="text-body-sm text-on-surface-variant">
+              A short, punchy headline for your listing (max 120 characters).
+            </p>
             <TitleField
               value={draft.state.title ?? ""}
               onChange={(next) => {
@@ -382,11 +388,12 @@ function TitleField({
 }) {
   const length = value.length;
   const warn = length >= TITLE_WARN_AT;
+  // The visible <label htmlFor="listing-title"> lives on the parent
+  // section (alongside the helper <p>); wiring through htmlFor means
+  // getByLabelText still resolves to this input and screen readers pick
+  // up a single accessible name.
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor="listing-title" className="sr-only">
-        Listing title
-      </label>
       <input
         id="listing-title"
         type="text"

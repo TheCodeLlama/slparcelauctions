@@ -16,6 +16,7 @@ import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
 import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
+import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
   AuctionEndOutcome,
@@ -73,11 +74,16 @@ export function ListingSummaryRow({
   // Seller-authored title is the primary row label. Parcel name +
   // region fall through as the secondary line (spec §6.3 post sub-spec 2).
   // Legacy rows with no title fall back to parcel.description so pre-
-  // Epic 07 listings keep a meaningful label.
+  // Epic 07 listings keep a meaningful label. Shared resolver keeps the
+  // chain in sync with ListingPreviewCard + ParcelInfoPanel; the
+  // "(unnamed parcel)" tail is a defensive guard — regionName should
+  // always be present server-side.
   const primaryLabel =
-    auction.title.trim() ||
-    auction.parcel.description?.trim() ||
-    "(unnamed parcel)";
+    resolveListingHeadline({
+      title: auction.title,
+      parcelDescription: auction.parcel.description,
+      regionName: auction.parcel.regionName,
+    }) || "(unnamed parcel)";
   const parcelLabel = auction.parcel.description?.trim();
   const secondaryParts = [
     parcelLabel && parcelLabel !== primaryLabel ? parcelLabel : null,

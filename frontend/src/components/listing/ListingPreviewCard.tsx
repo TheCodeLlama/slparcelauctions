@@ -1,5 +1,6 @@
 import { MapPin, Tag as TagIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import type { SellerAuctionResponse } from "@/types/auction";
 
 /**
@@ -41,12 +42,16 @@ export function ListingPreviewCard({
   // parcel.description (then region name) when a draft is previewed
   // before the seller has entered a title. The backend enforces non-null
   // title at save time, so the fallback only triggers during in-memory
-  // preview while the wizard is still being filled out.
+  // preview while the wizard is still being filled out. Shared resolver
+  // keeps the three-level chain in sync with ListingSummaryRow and
+  // ParcelInfoPanel; the "(unnamed parcel)" tail stays local because it
+  // only makes sense for a preview of a brand-new draft.
   const headline =
-    auction.title.trim() ||
-    auction.parcel.description?.trim() ||
-    auction.parcel.regionName ||
-    "(unnamed parcel)";
+    resolveListingHeadline({
+      title: auction.title,
+      parcelDescription: auction.parcel.description,
+      regionName: auction.parcel.regionName,
+    }) || "(unnamed parcel)";
   // Parcel description acts as a secondary label when the title has
   // already claimed the headline slot. Elided when equal (so we don't
   // print the same string twice) or when the description is blank.
