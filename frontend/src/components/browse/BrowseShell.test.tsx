@@ -113,6 +113,48 @@ describe("BrowseShell", () => {
     });
   });
 
+  it("resets sort=nearest to the default when near_region is cleared", async () => {
+    // Regression: commitRegion(undefined) drops nearRegion + distance
+    // but leaves sort=nearest in place → backend 400
+    // NEAREST_REQUIRES_NEAR_REGION on next fetch. BrowseShell.applyQuery
+    // now normalizes sort=nearest to the default when nearRegion is
+    // absent.
+    stubEmptyTags();
+    server.use(
+      http.get("*/api/v1/auctions/search", () =>
+        HttpResponse.json(emptyResponse),
+      ),
+    );
+    searchParamsRef.current = new URLSearchParams(
+      "near_region=Tula&sort=nearest",
+    );
+    renderWithProviders(
+      <BrowseShell
+        initialQuery={{
+          ...defaultAuctionSearchQuery,
+          nearRegion: "Tula",
+          sort: "nearest",
+        }}
+        initialData={emptyResponse}
+      />,
+    );
+    // Clear the region via the Clear-all button, which routes through
+    // applyQuery with { ...defaultAuctionSearchQuery } (no nearRegion).
+    // An alternative path — typing blank in the region input — exercises
+    // the same code path in BrowseShell.
+    const removeButtons = await screen.findAllByRole("button", {
+      name: /remove filter/i,
+    });
+    await userEvent.click(removeButtons[0]);
+    expect(replaceMock).toHaveBeenCalled();
+    const url = replaceMock.mock.calls[0][0] as string;
+    // sort=nearest must have been dropped (or switched to default) when
+    // the region was cleared; the default is "newest" which is stripped
+    // on encode, so the URL should not contain sort=nearest.
+    expect(url).not.toContain("sort=nearest");
+    expect(url).not.toContain("near_region=Tula");
+  });
+
   it("preserves sellerId across sort changes when fixedFilters is set", async () => {
     stubEmptyTags();
     server.use(
@@ -136,5 +178,24 @@ describe("BrowseShell", () => {
     const url = replaceMock.mock.calls[0][0] as string;
     expect(url).toContain("seller_id=42");
     expect(url).toContain("sort=lowest_price");
+  });
+
+  it("renders in dark mode", async () => {
+    stubEmptyTags();
+    server.use(
+      http.get("*/api/v1/auctions/search", () =>
+        HttpResponse.json(emptyResponse),
+      ),
+    );
+    renderWithProviders(
+      <BrowseShell
+        initialQuery={defaultAuctionSearchQuery}
+        initialData={emptyResponse}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Browse")).toBeInTheDocument();
+    });
   });
 });

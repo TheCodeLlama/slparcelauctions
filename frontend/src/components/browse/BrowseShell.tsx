@@ -110,6 +110,14 @@ export function BrowseShell({
 
   const applyQuery = (next: AuctionSearchQuery) => {
     const merged = { ...next, ...(fixedFilters ?? {}) };
+    // If near_region was cleared but sort is still "nearest", the
+    // backend will reject the next fetch with
+    // NEAREST_REQUIRES_NEAR_REGION. Normalize defensively here so every
+    // code path (sidebar, ActiveFilters chip removal, Clear all, …)
+    // gets the same treatment.
+    if (!merged.nearRegion && merged.sort === "nearest") {
+      merged.sort = defaultAuctionSearchQuery.sort;
+    }
     setQuery(merged);
     const qs = searchParamsFromQuery(merged).toString();
     const url = qs ? `${pathname}?${qs}` : pathname;

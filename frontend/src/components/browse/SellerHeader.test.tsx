@@ -28,4 +28,12 @@ describe("SellerHeader", () => {
       /anonymous/i,
     );
   });
+
+  it("renders in dark mode", () => {
+    renderWithProviders(<SellerHeader user={mockPublicProfile} />, {
+      theme: "dark",
+      forceTheme: true,
+    });
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+  });
 });

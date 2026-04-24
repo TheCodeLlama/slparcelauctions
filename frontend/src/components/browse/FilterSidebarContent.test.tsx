@@ -82,6 +82,22 @@ describe("FilterSidebarContent — staged mode", () => {
     );
   });
 
+  it("renders in dark mode", () => {
+    stubEmptyTags();
+    renderWithProviders(
+      <FilterSidebarContent
+        mode="staged"
+        query={{}}
+        onCommit={() => {}}
+        hiddenGroups={["distance"]}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(
+      screen.getByRole("button", { name: /apply filters/i }),
+    ).toBeInTheDocument();
+  });
+
   it("reseeds local state from query on remount (close-without-apply discards)", () => {
     stubEmptyTags();
     const { unmount } = renderWithProviders(

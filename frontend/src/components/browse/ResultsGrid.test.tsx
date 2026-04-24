@@ -84,6 +84,56 @@ describe("ResultsGrid", () => {
     expect(screen.getByText(/no active auctions yet/i)).toBeInTheDocument();
   });
 
+  it("treats sort-only change as no-filters empty state", () => {
+    // Regression: a user landing on /browse?sort=ending_soonest with no
+    // actual filter fields applied should see "no active auctions yet",
+    // not "no auctions match your filters".
+    renderWithProviders(
+      <ResultsGrid
+        listings={[]}
+        isLoading={false}
+        isError={false}
+        query={{ ...defaultAuctionSearchQuery, sort: "ending_soonest" }}
+        onClearFilters={() => {}}
+      />,
+    );
+    expect(screen.getByText(/no active auctions yet/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no auctions match your filters/i),
+    ).toBeNull();
+  });
+
+  it("treats page-only change as no-filters empty state", () => {
+    renderWithProviders(
+      <ResultsGrid
+        listings={[]}
+        isLoading={false}
+        isError={false}
+        query={{ ...defaultAuctionSearchQuery, page: 2 }}
+        onClearFilters={() => {}}
+      />,
+    );
+    expect(screen.getByText(/no active auctions yet/i)).toBeInTheDocument();
+  });
+
+  it("treats seller-only query as no-filters when sellerId is a fixedFilter", () => {
+    // On /users/{id}/listings the seller id is a pinned fixedFilter, not
+    // a user-applied filter. An empty result should still render the
+    // "no active auctions yet" copy — there's nothing the visitor can
+    // clear here.
+    renderWithProviders(
+      <ResultsGrid
+        listings={[]}
+        isLoading={false}
+        isError={false}
+        query={{ ...defaultAuctionSearchQuery, sellerId: 42 }}
+        fixedFilters={{ sellerId: 42 }}
+        onClearFilters={() => {}}
+      />,
+    );
+    expect(screen.getByText(/no active auctions yet/i)).toBeInTheDocument();
+  });
+
   it("shows 'no-match' empty state with CTA when filters are applied", async () => {
     const onClear = vi.fn();
     renderWithProviders(
@@ -134,5 +184,19 @@ describe("ResultsGrid", () => {
       />,
     );
     expect(screen.getByText(/couldn't load listings/i)).toBeInTheDocument();
+  });
+
+  it("renders in dark mode", () => {
+    renderWithProviders(
+      <ResultsGrid
+        listings={[sampleListing]}
+        isLoading={false}
+        isError={false}
+        query={defaultAuctionSearchQuery}
+        onClearFilters={() => {}}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(screen.getByText("Sample Lot")).toBeInTheDocument();
   });
 });

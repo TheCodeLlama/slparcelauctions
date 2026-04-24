@@ -34,4 +34,16 @@ describe("FilterSection", () => {
     const header = screen.getByRole("button", { name: /price/i });
     expect(header).toHaveAttribute("aria-expanded", "false");
   });
+
+  it("renders in dark mode", () => {
+    renderWithProviders(
+      <FilterSection title="Price">
+        <p>content</p>
+      </FilterSection>,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(
+      screen.getByRole("button", { name: /price/i }),
+    ).toBeInTheDocument();
+  });
 });

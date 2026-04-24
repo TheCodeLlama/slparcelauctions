@@ -37,15 +37,21 @@ export default async function SellerListingsPage({
   const urlQuery = queryFromSearchParams(toSearchParams(spData));
   const query = { ...urlQuery, sellerId };
 
+  // Both calls are independent — parallelize them. A 404 on the profile
+  // fetch means "no such seller" and must trigger notFound(); a 404 on
+  // the search response is not currently expected, but any ApiError
+  // from the search will still propagate.
   let user;
+  let initialData;
   try {
-    user = await userApi.publicProfile(sellerId);
+    [user, initialData] = await Promise.all([
+      userApi.publicProfile(sellerId),
+      searchAuctions(query),
+    ]);
   } catch (e) {
     if (isApiError(e) && e.status === 404) notFound();
     throw e;
   }
-
-  const initialData = await searchAuctions(query);
 
   return (
     <div className="flex flex-col">

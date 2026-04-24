@@ -42,8 +42,23 @@ function ListingCardSkeleton() {
 }
 
 /**
+ * Strip non-filter fields ({@code sort}, {@code page}, {@code size}) so
+ * the diff in {@link hasAppliedFilters} only considers actual filter
+ * state. Without this, a URL like {@code /browse?sort=ending_soonest}
+ * would falsely report "filters applied" and surface the wrong empty
+ * state ("no match" + Clear-all CTA) when the underlying cause is
+ * simply "no active auctions yet".
+ */
+function filterFieldsOnly(query: AuctionSearchQuery): AuctionSearchQuery {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- rest-spread pattern used to project away navigation keys from the filter diff.
+  const { sort: _s, page: _p, size: _sz, ...filters } = query;
+  return filters;
+}
+
+/**
  * Compare two queries (excluding fixed filters, which are always present
- * on the surrounding page and shouldn't count as "applied filters").
+ * on the surrounding page and shouldn't count as "applied filters", and
+ * excluding sort/page/size which are navigation state, not filters).
  */
 function hasAppliedFilters(
   query: AuctionSearchQuery,
@@ -53,7 +68,10 @@ function hasAppliedFilters(
     ...defaultAuctionSearchQuery,
     ...(fixedFilters ?? {}),
   };
-  return canonicalKey(query) !== canonicalKey(baseline);
+  return (
+    canonicalKey(filterFieldsOnly(query)) !==
+    canonicalKey(filterFieldsOnly(baseline))
+  );
 }
 
 /**

@@ -59,4 +59,17 @@ describe("ResultsHeader", () => {
     );
     expect(onSortChange).toHaveBeenCalledWith("ending_soonest");
   });
+
+  it("renders in dark mode", () => {
+    renderWithProviders(
+      <ResultsHeader
+        total={3}
+        sort="newest"
+        onSortChange={() => {}}
+        nearestEnabled={false}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(screen.getByText("Browse")).toBeInTheDocument();
+  });
 });

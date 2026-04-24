@@ -64,6 +64,14 @@ describe("DistanceSearchBlock", () => {
     );
   });
 
+  it("renders in dark mode", () => {
+    renderWithProviders(
+      <DistanceSearchBlock query={{}} onChange={() => {}} />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(screen.getByLabelText(/region name/i)).toBeInTheDocument();
+  });
+
   it("clearing the region also clears the distance", async () => {
     const onChange = vi.fn();
     renderWithProviders(

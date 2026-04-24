@@ -60,6 +60,18 @@ describe("ActiveFilters", () => {
     expect(screen.getByText(/near: tula.*5 regions/i)).toBeInTheDocument();
   });
 
+  it("renders in dark mode", () => {
+    const q: AuctionSearchQuery = {
+      ...defaultAuctionSearchQuery,
+      region: "Tula",
+    };
+    renderWithProviders(<ActiveFilters query={q} onChange={() => {}} />, {
+      theme: "dark",
+      forceTheme: true,
+    });
+    expect(screen.getByText(/region: tula/i)).toBeInTheDocument();
+  });
+
   it("Clear all resets to the default query while preserving fixedFilters", async () => {
     const onChange = vi.fn();
     const q: AuctionSearchQuery = {

@@ -23,4 +23,14 @@ describe("ResultsEmpty", () => {
     );
     expect(onClear).toHaveBeenCalled();
   });
+
+  it("renders in dark mode", () => {
+    renderWithProviders(<ResultsEmpty reason="no-filters" />, {
+      theme: "dark",
+      forceTheme: true,
+    });
+    expect(
+      screen.getByText(/no active auctions yet/i),
+    ).toBeInTheDocument();
+  });
 });

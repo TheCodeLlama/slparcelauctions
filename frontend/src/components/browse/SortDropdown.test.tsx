@@ -52,4 +52,16 @@ describe("SortDropdown", () => {
     );
     expect(onChange).toHaveBeenCalledWith("ending_soonest");
   });
+
+  it("renders in dark mode", () => {
+    renderWithProviders(
+      <SortDropdown
+        value="newest"
+        onChange={() => {}}
+        nearestEnabled={false}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(screen.getByLabelText(/sort/i)).toBeInTheDocument();
+  });
 });
