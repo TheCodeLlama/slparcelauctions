@@ -280,6 +280,94 @@ class ReviewServiceListTest {
     }
 
     @Test
+    void listPendingForCaller_preservesRepositoryOrderMostUrgentFirst() {
+        // Repo query sorts by completedAt ASC (windowClosesAt = completedAt
+        // + 14d is a constant offset, so oldest completedAt = most urgent).
+        // Service must not re-order; assert the output list mirrors the
+        // repo's ascending-completedAt ordering.
+        Parcel parcel = Parcel.builder().snapshotUrl("https://snap/x.jpg").build();
+
+        Auction auctionOld = Auction.builder()
+                .title("Oldest")
+                .seller(seller)
+                .parcel(parcel)
+                .winnerUserId(winner.getId())
+                .photos(List.of())
+                .build();
+        auctionOld.setId(100L);
+        Escrow escrowOld = Escrow.builder()
+                .auction(auctionOld)
+                .state(EscrowState.COMPLETED)
+                .completedAt(NOW.minusDays(10))
+                .finalBidAmount(1_000L)
+                .commissionAmt(50L)
+                .payoutAmt(950L)
+                .paymentDeadline(NOW.minusDays(12))
+                .build();
+
+        Auction auctionMid = Auction.builder()
+                .title("Middle")
+                .seller(seller)
+                .parcel(parcel)
+                .winnerUserId(winner.getId())
+                .photos(List.of())
+                .build();
+        auctionMid.setId(200L);
+        Escrow escrowMid = Escrow.builder()
+                .auction(auctionMid)
+                .state(EscrowState.COMPLETED)
+                .completedAt(NOW.minusDays(5))
+                .finalBidAmount(1_000L)
+                .commissionAmt(50L)
+                .payoutAmt(950L)
+                .paymentDeadline(NOW.minusDays(7))
+                .build();
+
+        Auction auctionNew = Auction.builder()
+                .title("Newest")
+                .seller(seller)
+                .parcel(parcel)
+                .winnerUserId(winner.getId())
+                .photos(List.of())
+                .build();
+        auctionNew.setId(300L);
+        Escrow escrowNew = Escrow.builder()
+                .auction(auctionNew)
+                .state(EscrowState.COMPLETED)
+                .completedAt(NOW.minusHours(6))
+                .finalBidAmount(1_000L)
+                .commissionAmt(50L)
+                .payoutAmt(950L)
+                .paymentDeadline(NOW.minusDays(2))
+                .build();
+
+        // Mock returns rows already sorted ASC by completedAt (mimics the
+        // JPQL `ORDER BY e.completedAt ASC`) — service must preserve order.
+        when(escrowRepo.findCompletedEscrowsForUser(eq(winner.getId()), any()))
+                .thenReturn(List.of(escrowOld, escrowMid, escrowNew));
+        when(reviewRepo.findByAuctionIdAndReviewerId(100L, winner.getId()))
+                .thenReturn(Optional.empty());
+        when(reviewRepo.findByAuctionIdAndReviewerId(200L, winner.getId()))
+                .thenReturn(Optional.empty());
+        when(reviewRepo.findByAuctionIdAndReviewerId(300L, winner.getId()))
+                .thenReturn(Optional.empty());
+
+        List<PendingReviewDto> result = service.listPendingForCaller(winner);
+
+        assertThat(result).hasSize(3);
+        assertThat(result).extracting(PendingReviewDto::auctionId)
+                .containsExactly(100L, 200L, 300L);
+        // hoursRemaining strictly ascending rules out any re-ordering;
+        // equivalently windowClosesAt is ascending → most-urgent-first.
+        assertThat(result.get(0).hoursRemaining())
+                .isLessThan(result.get(1).hoursRemaining());
+        assertThat(result.get(1).hoursRemaining())
+                .isLessThan(result.get(2).hoursRemaining());
+        assertThat(result).extracting(PendingReviewDto::windowClosesAt)
+                .isSortedAccordingTo(OffsetDateTime::compareTo);
+    }
+
+    @Test
     void listPendingForCaller_sellerView_counterpartyIsWinner() {
         when(escrowRepo.findCompletedEscrowsForUser(eq(seller.getId()), any()))
                 .thenReturn(List.of(escrow));

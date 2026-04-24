@@ -96,12 +96,18 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
      * The caller filters out escrows the user already reviewed inside
      * the service so an already-reviewed escrow does not round-trip
      * through this method once the reviewer submits.
+     *
+     * <p>Ordered by {@code completedAt} ascending so the most-urgent
+     * rows (oldest {@code completedAt} = soonest {@code windowClosesAt}
+     * since the 14-day offset is constant) surface first in the
+     * dashboard list.
      */
     @Query("""
             SELECT e FROM Escrow e
             WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.COMPLETED
               AND e.completedAt > :threshold
               AND (e.auction.seller.id = :userId OR e.auction.winnerUserId = :userId)
+            ORDER BY e.completedAt ASC
             """)
     List<Escrow> findCompletedEscrowsForUser(
             @Param("userId") Long userId,
