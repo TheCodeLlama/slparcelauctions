@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderWithProviders, screen } from "@/test/render";
+import { renderWithProviders, screen, userEvent } from "@/test/render";
 import type { AuctionPhotoDto } from "@/types/auction";
 import { AuctionHero } from "./AuctionHero";
 
@@ -109,5 +109,52 @@ describe("AuctionHero", () => {
     expect(strip.className).toContain("overflow-x-auto");
     // 2 non-hero thumbnails.
     expect(strip.querySelectorAll("li").length).toBe(2);
+  });
+
+  it("opens the Lightbox at index 0 when the hero image is clicked (single-photo variant)", async () => {
+    renderWithProviders(
+      <AuctionHero photos={[photo(1)]} snapshotUrl={null} />,
+    );
+    expect(screen.queryByTestId("lightbox")).toBeNull();
+    await userEvent.click(screen.getByTestId("auction-hero"));
+    expect(screen.getByTestId("lightbox")).toBeInTheDocument();
+    expect(screen.getByTestId("lightbox-counter")).toHaveTextContent("1 / 1");
+  });
+
+  it("opens the Lightbox at the clicked cell's index in the gallery variant", async () => {
+    renderWithProviders(
+      <AuctionHero
+        photos={[photo(1), photo(2), photo(3)]}
+        snapshotUrl={null}
+      />,
+    );
+    // Clicking the second secondary cell (visual index 2) opens the
+    // Lightbox at index 2 — hero is 0, first secondary is 1.
+    await userEvent.click(screen.getByTestId("auction-hero-secondary-1"));
+    expect(screen.getByTestId("lightbox-counter")).toHaveTextContent("3 / 3");
+  });
+
+  it("renders the +N overlay without breaking the button click handler", async () => {
+    renderWithProviders(
+      <AuctionHero
+        photos={[photo(1), photo(2), photo(3), photo(4), photo(5)]}
+        snapshotUrl={null}
+      />,
+    );
+    // The last secondary cell carries the overlay; clicking it must still
+    // open the Lightbox (the overlay is {@code pointer-events-none}).
+    await userEvent.click(screen.getByTestId("auction-hero-secondary-1"));
+    expect(screen.getByTestId("lightbox-counter")).toHaveTextContent("3 / 5");
+  });
+
+  it("renders under the dark theme without crashing", () => {
+    renderWithProviders(
+      <AuctionHero photos={[photo(1), photo(2)]} snapshotUrl={null} />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(screen.getByTestId("auction-hero")).toHaveAttribute(
+      "data-variant",
+      "gallery",
+    );
   });
 });

@@ -75,12 +75,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite
 - **Notes:** Not in the Phase 1 design document.
 
-### Profile page SEO metadata (OpenGraph)
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Nice-to-have polish. Next.js 16 `generateMetadata` could emit OpenGraph tags for social sharing.
-- **When:** Epic 07 (Browse & Search) — public profile OG metadata is folded into the same SSR/SEO sweep that makes listing detail + browse pages crawlable, so the SEO work lands in one coherent pass.
-- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`. Same `generateMetadata` pattern used by Epic 07's listing detail enhancements.
-
 ### Drag-drop animation polish on ProfilePictureUploader
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile picture upload)
 - **Why:** Current drop zone uses a static border highlight. Polished version would animate border-color transition and a scale effect on drop.
