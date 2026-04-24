@@ -93,14 +93,14 @@ describe("FeaturedRow", () => {
 
     renderWithProviders(
       <FeaturedRow
-        title="Just Listed"
-        sortLink="/browse"
+        title="Ending Soon"
+        sortLink="/browse?sort=ending_soonest"
         result={result}
       />,
     );
 
     expect(screen.getByTestId("featured-row-empty")).toHaveTextContent(
-      /no listings just listed right now/i,
+      /no listings ending soon right now/i,
     );
     expect(screen.queryByTestId("featured-row-rail")).toBeNull();
     expect(screen.queryByTestId("featured-row-unavailable")).toBeNull();

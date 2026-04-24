@@ -42,11 +42,13 @@ export default async function HomePage() {
         title="Just Listed"
         sortLink="/browse"
         result={justListed}
+        emptyMessage="No new listings yet."
       />
       <FeaturedRow
         title="Most Active"
         sortLink="/browse?sort=most_bids"
         result={mostActive}
+        emptyMessage="No active bidding to highlight right now."
       />
       <HowItWorksSection />
       <FeaturesSection />
