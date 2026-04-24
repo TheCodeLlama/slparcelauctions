@@ -155,6 +155,21 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
 
   const handleEnvelope = useCallback(
     (env: AuctionTopicEnvelope) => {
+      // REVIEW_REVEALED envelopes piggy-back on the same topic (Epic 08
+      // sub-spec 1 §7.2) but carry none of the auction-level fields the
+      // detail page reads (no {@code serverTime}, no bid state). Handle
+      // them first so the {@code env.serverTime} read below never fires
+      // against a REVIEW_REVEALED payload. The invalidation refreshes the
+      // seller-card rating once the escrow-page ReviewPanel reveals a
+      // review — the {@code useAuctionReviews} query key mirrors the one
+      // used by {@code EscrowPageClient}.
+      if (env.type === "REVIEW_REVEALED") {
+        queryClient.invalidateQueries({
+          queryKey: ["reviews", "auction", String(id)],
+        });
+        return;
+      }
+
       // Refine the server-time offset on every envelope so the countdown
       // stays accurate even if the user's clock drifts mid-session.
       serverTimeOffsetRef.current =
@@ -198,16 +213,25 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           // `finalBidAmount`, `winnerUserId` live only on the
           // SellerAuctionResponse shape; the cache is typed wide enough to
           // admit them on the public shape too. Task 6's AuctionEndedPanel
-          // reads them back.
-          return {
-            ...prev,
-            status: "ENDED",
-            endsAt: env.endsAt,
-            endOutcome: env.endOutcome,
-            finalBidAmount: env.finalBid,
-            winnerUserId: env.winnerUserId,
-            bidderCount: env.bidCount,
-          };
+          // reads them back. The explicit {@code type === "AUCTION_ENDED"}
+          // narrows the union down past the non-type-guard
+          // {@code startsWith("ESCROW_")} early-return above so TypeScript
+          // can see we only read AUCTION_ENDED fields here.
+          if (env.type === "AUCTION_ENDED") {
+            return {
+              ...prev,
+              status: "ENDED",
+              endsAt: env.endsAt,
+              endOutcome: env.endOutcome,
+              finalBidAmount: env.finalBid,
+              winnerUserId: env.winnerUserId,
+              bidderCount: env.bidCount,
+            };
+          }
+          // Any other envelope type (ESCROW_*, REVIEW_REVEALED) is already
+          // handled by the early-returns above and never reaches this
+          // callback — leave the cache untouched as a defensive fallback.
+          return prev;
         },
       );
 
