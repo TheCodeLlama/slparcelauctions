@@ -177,6 +177,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
 
 ### Per-user public listings page `/users/{id}/listings`
+> **Backend resolved in Epic 07 sub-spec 1.** GET /api/v1/auctions/search?seller_id=N now returns the seller's listings. The dedicated /users/{id}/listings page UI lands in sub-spec 2.
 - **From:** Epic 04 sub-spec 2 (Task 9 `ActiveListingsSection` on public profile)
 - **Why:** The "View all" link from `ActiveListingsSection` on `/users/{id}` points at `/users/{id}/listings`, which does not exist yet. The active-listings section itself ships with a page-size-limited preview (top N listings returned by `GET /api/v1/users/{userId}/auctions?status=ACTIVE`). A dedicated paginated, filterable, sort-aware "all listings by this seller" page belongs to the Browse surface in Epic 07.
 - **When:** Epic 07 (Browse & Search).
@@ -195,6 +196,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Current reconnect state lives in `frontend/src/lib/ws/client.ts` (`useConnectionState` hook). Adding telemetry is a small addition at the state-transition boundaries — the footwork is the backend storage + aggregation side.
 
 ### Saved / watchlist "Curator Tray"
+> **Partially resolved in Epic 07 sub-spec 1 (commit b8a3fba — backend).** Saved-auctions entity + four endpoints (POST /api/v1/me/saved, DELETE /me/saved/{id}, GET /me/saved/ids, GET /me/saved/auctions) shipped. The Curator Tray drawer UI lands in sub-spec 2.
 - **From:** Epic 04 sub-spec 2 (spec §19 — design system reference to Curator Tray)
 - **Why:** The "Digital Curator" design system docs reference a "Curator Tray" — a pull-out drawer where logged-in users can stash saved / watched listings for later comparison. The auction detail page in sub-spec 2 ships without a "save" / "watchlist" button because the backing model (saved_auctions table, REST endpoints, hydration into the tray) is Browse-surface territory.
 - **When:** Epic 07 (Browse & Search) — the tray is cross-surface (any card anywhere in the app can flip its saved state) so it ships alongside the Browse data model.

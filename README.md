@@ -145,6 +145,21 @@ The `storage/` slice wraps an S3-compatible object store (MinIO in dev, AWS S3 i
 
 Avatars get two new endpoints: `POST /api/v1/users/me/avatar` (multipart, authenticated) runs `AvatarService.upload` which validates the 2MB limit, delegates to `AvatarImageProcessor` for format sniffing + 64/128/256 center-crop resize, puts all three PNGs to S3 under `avatars/{userId}/{size}.png`, and sets `users.profile_pic_url` to the proxy URL — all in a single `@Transactional` boundary (spec §10 + FOOTGUNS §F.29 explain why the narrow boundary was walked back). `GET /api/v1/users/{id}/avatar/{size}` is the public proxy: proxies bytes from S3 with `Cache-Control: public, max-age=86400, immutable`, or falls back to a classpath placeholder PNG for both "user has no avatar" and "orphaned DB URL, S3 key missing" paths. Three handlers land on `UserExceptionHandler` (`AvatarTooLargeException` → 413, `UnsupportedImageFormatException` → 400, `InvalidAvatarSizeException` → 400) and one on `GlobalExceptionHandler` (`MaxUploadSizeExceededException` → 413, same URI + code as the service-layer version because clients must not distinguish which layer caught the oversized upload — see FOOTGUNS §F.28 for why that one cannot live in a slice advice).
 
+### Public browse surface
+
+- `GET /api/v1/auctions/search` — filterable, sortable, paginated (30s Redis cache, 60rpm/IP).
+- `GET /api/v1/auctions/featured/ending-soon` — up to 6 (60s cache).
+- `GET /api/v1/auctions/featured/just-listed` — up to 6 (60s cache).
+- `GET /api/v1/auctions/featured/most-active` — up to 6 (60s cache).
+- `GET /api/v1/stats/public` — four-count site stats + asOf (60s cache).
+
+### Authenticated saved-auctions (Curator Tray)
+
+- `POST /api/v1/me/saved` — save an auction (body: `{auctionId}`).
+- `DELETE /api/v1/me/saved/{auctionId}` — unsave.
+- `GET /api/v1/me/saved/ids` — full set of saved IDs for the user.
+- `GET /api/v1/me/saved/auctions` — paginated full-card list.
+
 ## Running tests
 
 ```bash
