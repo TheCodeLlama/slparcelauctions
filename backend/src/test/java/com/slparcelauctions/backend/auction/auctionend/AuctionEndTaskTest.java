@@ -88,6 +88,7 @@ class AuctionEndTaskTest {
     void sold_whenBidAboveReserve_setsWinnerAndFinalBid_publishesEnvelopeWithDisplayName() {
         User winner = User.builder().id(7L).displayName("Top Bidder").build();
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(100L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -140,6 +141,7 @@ class AuctionEndTaskTest {
     @Test
     void reserveNotMet_whenBidBelowReserve_leavesWinnerAndFinalBidNull() {
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(101L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -180,6 +182,7 @@ class AuctionEndTaskTest {
     @Test
     void noBids_whenBidCountZero_elidesReserveCheck() {
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(102L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -217,6 +220,7 @@ class AuctionEndTaskTest {
         // RESERVE_NOT_MET) — the null-guard short-circuits the comparison.
         User winner = User.builder().id(9L).displayName("Any Bidder").build();
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(103L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -244,6 +248,7 @@ class AuctionEndTaskTest {
         for (AuctionStatus status : new AuctionStatus[]{
                 AuctionStatus.ENDED, AuctionStatus.CANCELLED, AuctionStatus.SUSPENDED}) {
             Auction auction = Auction.builder()
+                    .title("Test listing")
                     .id(200L)
                     .status(status)
                     .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -270,6 +275,7 @@ class AuctionEndTaskTest {
         // Scheduler saw endsAt=PAST, but a bid extended the auction between
         // the query and the lock acquisition. The re-check must let it run.
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(201L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).plusMinutes(5))
@@ -305,6 +311,7 @@ class AuctionEndTaskTest {
         // idempotence is part of the contract. Mockito default return of 0
         // confirms the path does not branch on prior presence.
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(300L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -325,6 +332,7 @@ class AuctionEndTaskTest {
         // been deleted. The envelope must still publish with a null display
         // name rather than throwing.
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(104L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))

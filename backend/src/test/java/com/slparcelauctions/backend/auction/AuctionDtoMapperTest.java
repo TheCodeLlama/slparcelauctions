@@ -159,6 +159,7 @@ class AuctionDtoMapperTest {
                 .regionName("Coniston").continentName("Sansara")
                 .verified(true).build();
         return Auction.builder()
+                .title("Test listing")
                 .id(1L).seller(seller).parcel(parcel)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)

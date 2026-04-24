@@ -274,6 +274,7 @@ class MyBidsIntegrationTest {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcelForAuction)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
@@ -398,6 +399,7 @@ class MyBidsIntegrationTest {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcelForAuction)
                 .seller(seller)
                 .status(status)
@@ -485,7 +487,7 @@ class MyBidsIntegrationTest {
                 "MyBids Parcel " + index, "MyBidsRegion" + index,
                 2048, "Seed description " + index,
                 "http://example.com/mybids-snap-" + index + ".jpg",
-                "MATURE",
+                "MODERATE",
                 128.0 + index, 64.0 + index, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 

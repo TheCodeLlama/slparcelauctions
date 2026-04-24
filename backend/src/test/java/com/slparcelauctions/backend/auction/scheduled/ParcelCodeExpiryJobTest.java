@@ -169,6 +169,7 @@ class ParcelCodeExpiryJobTest {
 
     private Auction buildAuction(Long id, VerificationMethod method) {
         return Auction.builder()
+                .title("Test listing")
                 .id(id).status(AuctionStatus.VERIFICATION_PENDING)
                 .verificationMethod(method)
                 .startingBid(1000L).durationHours(168)

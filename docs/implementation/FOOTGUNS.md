@@ -1515,3 +1515,36 @@ patterns work; Dockerfile is more robust.
 
 **Touchpoint:** `bot/Dockerfile`. Any future .NET-in-container service
 must set this env var explicitly.
+
+### F.90 — Hibernate collection-fetch + pagination = in-memory pagination (HHH90003004)
+
+Fetching a `@OneToMany` / `@ManyToMany` collection via `@EntityGraph` on
+a paginated query triggers HHH90003004 — Hibernate can't paginate in
+SQL, fetches all matching rows into memory, and paginates in Java. At a
+few hundred active rows this is invisible; at a few thousand it's a
+full-table scan into heap on every cache miss.
+
+**Rule:** on paginated queries, only join-fetch `@ManyToOne`
+associations. For collections, batch-load with a second query keyed by
+the page's IDs (`WHERE parent_id IN (:pageIds)`).
+
+**Single-row fetches** (like `GET /auctions/{id}`) are fine — no
+pagination means the trap doesn't apply. Join-fetch collections there.
+
+**Reference:** Epic 07 sub-spec 1 §6.3; mapper in
+`AuctionSearchResultMapper.java`.
+
+### F.91 — EXPLAIN ANALYZE in CI against Testcontainers / small fixtures
+
+Postgres' planner chooses between seq scan and index scan based on
+table statistics. A Testcontainers fixture with a few hundred rows
+often fits in a single page, so the planner legitimately picks
+`Seq Scan` — even though the index is present. Asserting on plan
+shape in CI flakes.
+
+**Rule:** CI tests assert on **index existence** via `pg_indexes`
+(see `PgIndexExistenceTest`). Actual `EXPLAIN ANALYZE` plan-shape
+verification happens manually against a staging-sized dataset ahead
+of releases or during query tuning, not as a CI gate.
+
+**Reference:** Epic 07 sub-spec 1 §13.

@@ -487,6 +487,7 @@ class BotTaskServiceTest {
 
     private Auction build(AuctionStatus status) {
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel).status(status)
                 .verificationMethod(VerificationMethod.SALE_TO_BOT)
                 .startingBid(1000L).durationHours(168)

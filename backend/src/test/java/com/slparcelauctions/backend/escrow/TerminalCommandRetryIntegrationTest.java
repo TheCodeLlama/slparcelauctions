@@ -247,13 +247,14 @@ class TerminalCommandRetryIntegrationTest {
                     .regionName(REGION_NAME)
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)

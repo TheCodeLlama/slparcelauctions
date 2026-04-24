@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -21,10 +22,19 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
  * escrow presence and (for COMPLETED sales) the transfer-confirmation
  * timestamp — information that is already observable via parcel-ownership —
  * without leaking amounts or dispute details.
+ *
+ * <p>{@code sellerId} is preserved as a top-level field for backwards
+ * compatibility with existing consumers; the richer {@link SellerSummary}
+ * block adds reputation + tenure signals (averageRating, reviewCount,
+ * completedSales, completionRate, memberSince) for the listing-detail
+ * page's seller card. {@code completionRate} is server-computed by
+ * {@code SellerCompletionRateMapper} so the private {@code cancelledWithBids}
+ * counter never appears in the response.
  */
 public record PublicAuctionResponse(
         Long id,
         Long sellerId,
+        String title,
         ParcelResponse parcel,
         PublicAuctionStatus status,
         VerificationTier verificationTier,
@@ -45,6 +55,25 @@ public record PublicAuctionResponse(
         String sellerDesc,
         List<ParcelTagResponse> tags,
         List<AuctionPhotoResponse> photos,
+        SellerSummary seller,
         EscrowState escrowState,
         OffsetDateTime transferConfirmedAt) {
+
+    /**
+     * Enriched seller card for the listing-detail page. {@code averageRating}
+     * and {@code completionRate} are nullable for new sellers; the UI renders
+     * "—" rather than a misleading zero. {@code completionRate} is the
+     * server-computed ratio of {@code completedSales / (completedSales +
+     * cancelledWithBids)}; the {@code cancelledWithBids} counter itself is
+     * intentionally absent from this DTO.
+     */
+    public record SellerSummary(
+            Long id,
+            String displayName,
+            String avatarUrl,
+            BigDecimal averageRating,
+            Integer reviewCount,
+            Integer completedSales,
+            BigDecimal completionRate,
+            LocalDate memberSince) {}
 }

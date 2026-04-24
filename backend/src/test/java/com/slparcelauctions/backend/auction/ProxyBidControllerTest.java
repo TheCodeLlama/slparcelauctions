@@ -417,7 +417,7 @@ class ProxyBidControllerTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, ownerUuid, "agent",
                 "Proxy Parcel", "Coniston",
-                1024, "Seed description", "http://example.com/snap.jpg", "MATURE",
+                1024, "Seed description", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 
@@ -433,6 +433,7 @@ class ProxyBidControllerTest {
     private Auction seedAuction(AuctionStatus status) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(sellerParcel)
                 .seller(seller)
                 .status(status)

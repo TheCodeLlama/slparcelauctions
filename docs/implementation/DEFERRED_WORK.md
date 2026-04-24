@@ -47,21 +47,21 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Email change flow
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile edit)
-- **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b.
-- **When:** Epic 07 (user settings expansion)
-- **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`.
+- **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b. Not a browse/discovery concern — does not belong in Epic 07.
+- **When:** Epic 09 Task 02 (email notifications) — the re-verification flow reuses the same transactional-email plumbing Task 02 stands up (templates, SMTP client, signed-token links). Ship the email-change flow as a follow-on within Epic 09 once that plumbing exists.
+- **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`. Adding a new email column + verification token table can wait for the same migration pass that lands email-notification persistence.
 
 ### Account deletion UI
 - **From:** Epic 02 sub-spec 2a (Task 02-03 user profile backend)
-- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a.
-- **When:** Future Epic 02 GDPR sub-spec, or Epic 07
-- **Notes:** Dashboard has no delete button. Backend endpoint returns 501.
+- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a. Not a browse/discovery concern — does not belong in Epic 07.
+- **When:** Epic 10 (Admin & Moderation). The same epic introduces soft-delete / ban / content-removal primitives across users, listings, and reviews — user-initiated deletion shares cascade rules and audit-log infrastructure with admin-initiated takedowns, so shipping both together avoids building cascade logic twice.
+- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history) alongside Epic 10 Task 03 (ban system), not before.
 
 ### Notification preferences editor
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
 - **Why:** `CurrentUser.notifyEmail` and `notifySlIm` are returned by `/me` but no UI exposes them for editing. Editor design blocked on the notifications system coming online.
-- **When:** Epic 07 (settings expansion) or Epic 09 (notifications)
-- **Notes:** Shape of the JSON objects is defined — just needs a form.
+- **When:** Epic 09 Task 04 (notification preferences UI) — that task already exists and is the canonical home.
+- **Notes:** Shape of the JSON objects is defined — just needs a form. Touchpoint: `frontend/src/components/user/ProfileEditForm.tsx`. No Epic 07 ambiguity.
 
 ### Realty group badge on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
@@ -78,8 +78,8 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 ### Profile page SEO metadata (OpenGraph)
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
 - **Why:** Nice-to-have polish. Next.js 16 `generateMetadata` could emit OpenGraph tags for social sharing.
-- **When:** Epic 07 or later
-- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`.
+- **When:** Epic 07 (Browse & Search) — public profile OG metadata is folded into the same SSR/SEO sweep that makes listing detail + browse pages crawlable, so the SEO work lands in one coherent pass.
+- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`. Same `generateMetadata` pattern used by Epic 07's listing detail enhancements.
 
 ### Drag-drop animation polish on ProfilePictureUploader
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile picture upload)
@@ -177,6 +177,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
 
 ### Per-user public listings page `/users/{id}/listings`
+> **Backend resolved in Epic 07 sub-spec 1.** GET /api/v1/auctions/search?seller_id=N now returns the seller's listings. The dedicated /users/{id}/listings page UI lands in sub-spec 2.
 - **From:** Epic 04 sub-spec 2 (Task 9 `ActiveListingsSection` on public profile)
 - **Why:** The "View all" link from `ActiveListingsSection` on `/users/{id}` points at `/users/{id}/listings`, which does not exist yet. The active-listings section itself ships with a page-size-limited preview (top N listings returned by `GET /api/v1/users/{userId}/auctions?status=ACTIVE`). A dedicated paginated, filterable, sort-aware "all listings by this seller" page belongs to the Browse surface in Epic 07.
 - **When:** Epic 07 (Browse & Search).
@@ -195,6 +196,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Current reconnect state lives in `frontend/src/lib/ws/client.ts` (`useConnectionState` hook). Adding telemetry is a small addition at the state-transition boundaries — the footwork is the backend storage + aggregation side.
 
 ### Saved / watchlist "Curator Tray"
+> **Partially resolved in Epic 07 sub-spec 1 (commit b8a3fba — backend).** Saved-auctions entity + four endpoints (POST /api/v1/me/saved, DELETE /me/saved/{id}, GET /me/saved/ids, GET /me/saved/auctions) shipped. The Curator Tray drawer UI lands in sub-spec 2.
 - **From:** Epic 04 sub-spec 2 (spec §19 — design system reference to Curator Tray)
 - **Why:** The "Digital Curator" design system docs reference a "Curator Tray" — a pull-out drawer where logged-in users can stash saved / watched listings for later comparison. The auction detail page in sub-spec 2 ships without a "save" / "watchlist" button because the backing model (saved_auctions table, REST endpoints, hydration into the tray) is Browse-surface territory.
 - **When:** Epic 07 (Browse & Search) — the tray is cross-surface (any card anywhere in the app can flip its saved state) so it ships alongside the Browse data model.
@@ -373,6 +375,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Tests are already structured per-outcome in
   `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
   tests without rewriting assertions.
+
+### Auction.title NOT NULL backfill on first production deploy (Epic 07)
+- **From:** Epic 07 sub-spec 1 (Task 2)
+- **Why:** Hibernate `ddl-auto: update` emits `ADD COLUMN title VARCHAR(120) NOT NULL` which Postgres refuses without a DEFAULT. Dev profile is covered by `AuctionTitleDevTouchUp`; production is unaffected today (no auctions yet) but the first deployment to a populated DB needs either (a) manual `ALTER TABLE auctions ADD COLUMN title VARCHAR(120); UPDATE auctions SET title = 'Untitled'; ALTER TABLE auctions ALTER COLUMN title SET NOT NULL;` ahead of the deploy, or (b) Flyway-managed migration once Flyway returns.
+- **When:** Pre-launch ops checklist; remove after first prod deployment lands cleanly.
+- **Notes:** `AuctionTitleDevTouchUp` is the dev-side workaround. `MaturityRatingDevTouchUp` is the same pattern for the maturity_rating canonicalization.
 
 ---
 

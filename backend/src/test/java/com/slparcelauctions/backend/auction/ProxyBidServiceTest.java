@@ -85,6 +85,7 @@ class ProxyBidServiceTest {
                 .displayName("Bidder").verified(true).build();
 
         activeAuction = Auction.builder()
+                .title("Test listing")
                 .id(500L)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import com.slparcelauctions.backend.parcel.MaturityRatingNormalizer;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
@@ -83,10 +84,19 @@ public class SlWorldApiClient {
                 optionalInt(meta(doc, "name", "area")),
                 meta(doc, "property", "og:description"),
                 meta(doc, "property", "og:image"),
-                meta(doc, "name", "maturityrating"),
+                normalizeMaturity(meta(doc, "name", "maturityrating")),
                 optionalDouble(meta(doc, "name", "position_x")),
                 optionalDouble(meta(doc, "name", "position_y")),
                 optionalDouble(meta(doc, "name", "position_z")));
+    }
+
+    private String normalizeMaturity(String xmlValue) {
+        try {
+            return MaturityRatingNormalizer.normalize(xmlValue);
+        } catch (IllegalArgumentException e) {
+            throw new ParcelIngestException(
+                    "World API returned unrecognized maturityRating: " + e.getMessage(), e);
+        }
     }
 
     private String meta(Document doc, String attr, String value) {

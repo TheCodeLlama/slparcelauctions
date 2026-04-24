@@ -221,7 +221,7 @@ class BotMonitorLifecycleServiceTest {
                     .regionName("BotLifecycleRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .positionX(128.0)
                     .positionY(64.0)
                     .positionZ(22.0)
@@ -232,6 +232,7 @@ class BotMonitorLifecycleServiceTest {
 
             OffsetDateTime now = OffsetDateTime.now();
             Auction.AuctionBuilder b = Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(status)

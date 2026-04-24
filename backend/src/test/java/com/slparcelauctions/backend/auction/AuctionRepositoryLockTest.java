@@ -87,12 +87,13 @@ class AuctionRepositoryLockTest {
                 .regionName("LockTestRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
 
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

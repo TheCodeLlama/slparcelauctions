@@ -191,6 +191,7 @@ class OwnershipCheckTaskTest {
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
                 .regionName("Coniston").continentName("Sansara").verified(true).build();
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -208,7 +209,7 @@ class OwnershipCheckTaskTest {
         return new ParcelMetadata(
                 PARCEL_UUID, owner, ownerType,
                 "Test Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
     }
 }

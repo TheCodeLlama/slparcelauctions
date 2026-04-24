@@ -47,6 +47,7 @@ public class AuctionService {
 
     @Transactional
     public Auction create(Long sellerId, AuctionCreateRequest req) {
+        validateTitle(req.title());
         validatePricing(req.startingBid(), req.reservePrice(), req.buyNowPrice());
         validateDuration(req.durationHours());
         validateSnipe(req.snipeProtect(), req.snipeWindowMin());
@@ -66,6 +67,7 @@ public class AuctionService {
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
+                .title(req.title())
                 .startingBid(req.startingBid())
                 .reservePrice(req.reservePrice())
                 .buyNowPrice(req.buyNowPrice())
@@ -97,6 +99,20 @@ public class AuctionService {
         // on PUT /auctions/{id}/verify so the group-land gate in
         // AuctionVerificationService.triggerVerification() is the single
         // enforcement point (sub-spec 2 §7.1/§7.2).
+        if (req.title() != null) {
+            // null = "don't touch", but an explicit blank must be rejected so
+            // partial updates can't sneak past the @NotBlank rule on create.
+            // Length check is duplicated here (and on AuctionUpdateRequest) so
+            // direct service callers can't bypass the controller-boundary @Size
+            // — keeps create/update validation symmetric.
+            if (req.title().isBlank()) {
+                throw new IllegalArgumentException("title must not be blank");
+            }
+            if (req.title().length() > 120) {
+                throw new IllegalArgumentException("title must be at most 120 characters");
+            }
+            a.setTitle(req.title());
+        }
         if (req.startingBid() != null) {
             a.setStartingBid(req.startingBid());
         }
@@ -139,6 +155,19 @@ public class AuctionService {
     @Transactional(readOnly = true)
     public Auction load(Long auctionId) {
         return auctionRepo.findById(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+    }
+
+    /**
+     * Listing-detail load path used by {@code GET /api/v1/auctions/{id}}.
+     * Differs from {@link #load(Long)} by hydrating {@code seller} and
+     * {@code photos} (in addition to the standard {@code parcel} +
+     * {@code tags}) so the public detail mapper can render the seller card
+     * and photo carousel without fanning out to extra lazy fetches.
+     */
+    @Transactional(readOnly = true)
+    public Auction loadForDetail(Long auctionId) {
+        return auctionRepo.findByIdForDetail(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
     }
 
@@ -196,6 +225,19 @@ public class AuctionService {
             throw new IllegalArgumentException("Unknown parcel tag codes: " + missing);
         }
         return new HashSet<>(found);
+    }
+
+    private void validateTitle(String title) {
+        // JSR-380 @NotBlank/@Size on AuctionCreateRequest.title runs at the
+        // controller boundary; this duplicate guard catches direct service
+        // callers (tests, future internal flows) so the invariant holds
+        // regardless of entry point.
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
+        if (title.length() > 120) {
+            throw new IllegalArgumentException("title must be at most 120 characters");
+        }
     }
 
     private void validatePricing(Long starting, Long reserve, Long buyNow) {

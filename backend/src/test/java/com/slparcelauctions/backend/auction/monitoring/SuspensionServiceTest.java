@@ -70,7 +70,7 @@ class SuspensionServiceTest {
         Auction a = buildActive();
         ParcelMetadata attacker = new ParcelMetadata(
                 PARCEL_UUID, ATTACKER_AVATAR, "agent",
-                "Hijacked", "Coniston", 1024, "desc", null, "MATURE",
+                "Hijacked", "Coniston", 1024, "desc", null, "MODERATE",
                 1.0, 2.0, 3.0);
 
         service.suspendForOwnershipChange(a, attacker);
@@ -123,6 +123,7 @@ class SuspensionServiceTest {
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
                 .regionName("Coniston").continentName("Sansara").verified(true).build();
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)

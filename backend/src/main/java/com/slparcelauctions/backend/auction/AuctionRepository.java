@@ -11,11 +11,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface AuctionRepository extends JpaRepository<Auction, Long> {
+public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpecificationExecutor<Auction> {
 
     /**
      * Eagerly fetches {@code parcel} + {@code tags} so {@code AuctionDtoMapper}
@@ -61,6 +62,20 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     @EntityGraph(attributePaths = {"parcel", "tags"})
     @Override
     Optional<Auction> findById(Long id);
+
+    /**
+     * Single-row hydration for {@code GET /api/v1/auctions/{id}}. Fetches
+     * {@code parcel}, {@code seller}, {@code photos}, and {@code tags} in one
+     * LEFT JOIN so the listing-detail mapper builds the seller card + photo
+     * carousel off one query instead of three lazy proxies. The HHH90003004
+     * in-memory pagination warning that bites
+     * {@link #findActiveBySellerIdIds}/{@link #findAllByIdInWithParcelAndTags}
+     * does not apply here: this is a single-row lookup with no
+     * {@code Pageable}, so the multiple to-many fetches stay safe.
+     */
+    @EntityGraph(attributePaths = {"parcel", "seller", "photos", "tags"})
+    @Query("SELECT a FROM Auction a WHERE a.id = :id")
+    Optional<Auction> findByIdForDetail(@Param("id") Long id);
 
     /**
      * Returns the IDs of ACTIVE auctions whose {@code lastOwnershipCheckAt} is

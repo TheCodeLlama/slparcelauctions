@@ -234,6 +234,7 @@ class CancellationServiceTest {
 
     private Auction build(AuctionStatus status, boolean listingFeePaid, int bidCount) {
         return Auction.builder()
+                .title("Test listing")
                 .id(1L).seller(seller).parcel(parcel).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)

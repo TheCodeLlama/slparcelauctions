@@ -96,7 +96,7 @@ class AuctionRepositoryOwnershipCheckTest {
                 .regionName("Coniston")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build();
@@ -104,6 +104,7 @@ class AuctionRepositoryOwnershipCheckTest {
 
     private Auction build(User seller, Parcel parcel, AuctionStatus status, OffsetDateTime lastCheck) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(status)

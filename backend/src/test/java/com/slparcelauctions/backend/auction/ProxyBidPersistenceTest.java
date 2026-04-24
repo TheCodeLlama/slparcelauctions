@@ -156,7 +156,7 @@ class ProxyBidPersistenceTest {
                 .regionName("ProxyTestRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build();
@@ -164,6 +164,7 @@ class ProxyBidPersistenceTest {
 
     private static Auction newAuction(User seller, Parcel parcel) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

@@ -60,12 +60,13 @@ class FraudFlagRepositoryTest {
                 .ownerType("agent")
                 .regionName("TestRegion")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
 
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
@@ -126,7 +127,7 @@ class FraudFlagRepositoryTest {
                 .ownerType("agent")
                 .regionName("TestRegion")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
@@ -160,6 +161,7 @@ class FraudFlagRepositoryTest {
 
     private Auction buildDraft(User seller, Parcel parcel) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)

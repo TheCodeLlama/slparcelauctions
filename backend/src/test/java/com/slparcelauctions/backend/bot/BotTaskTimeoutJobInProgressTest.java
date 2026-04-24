@@ -159,12 +159,13 @@ class BotTaskTimeoutJobInProgressTest {
                 .regionName("BotTimeoutRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepo.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(status)
