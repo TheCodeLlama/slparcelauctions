@@ -175,6 +175,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/reviews").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me/pending-reviews").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/reviews").permitAll()
+                        // Review secondary actions (Epic 08 sub-spec 1
+                        // Task 3). Both require a JWT so the controller
+                        // can read the caller's userId off the
+                        // AuthPrincipal for the reviewee / reviewer
+                        // identity check in the service layer. Explicit
+                        // rules (rather than relying on the /api/v1/**
+                        // catch-all) keep the auth contract for this slice
+                        // readable alongside the other review matchers
+                        // and simplifies adjusting these paths later.
+                        // FOOTGUNS §B.5: must sit before /api/v1/**.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/respond").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/flag").authenticated()
                         // Bot worker queue + callback surface (Epic 06 Task 3).
                         // Authentication is a shared bearer token validated by
                         // BotSharedSecretAuthorizer (constant-time compare via

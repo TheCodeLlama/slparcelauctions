@@ -51,6 +51,55 @@ class ReviewExceptionHandlerTest {
     }
 
     @Test
+    void knownFlagConstraint_returnsFlagAlreadyExistsProblem() {
+        // URI needs to look like the flag endpoint so the id extractor resolves.
+        MockHttpServletRequest mockReq = new MockHttpServletRequest();
+        mockReq.setRequestURI("/api/v1/reviews/42/flag");
+        HttpServletRequest flagReq = mockReq;
+
+        DataIntegrityViolationException dataEx = wrap("uq_review_flags_review_flagger");
+
+        ProblemDetail pd = handler.handleDataIntegrity(dataEx, flagReq);
+
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(pd.getType().toString())
+                .isEqualTo("https://slpa.example/problems/review/flag-already-exists");
+        assertThat(pd.getTitle()).isEqualTo("Review flag already exists");
+        assertThat(pd.getProperties()).containsEntry("code", "REVIEW_FLAG_ALREADY_EXISTS");
+    }
+
+    @Test
+    void knownResponseConstraint_returnsResponseAlreadyExistsProblem() {
+        MockHttpServletRequest mockReq = new MockHttpServletRequest();
+        mockReq.setRequestURI("/api/v1/reviews/42/respond");
+        HttpServletRequest respondReq = mockReq;
+
+        DataIntegrityViolationException dataEx = wrap("review_responses_review_id_key");
+
+        ProblemDetail pd = handler.handleDataIntegrity(dataEx, respondReq);
+
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(pd.getType().toString())
+                .isEqualTo("https://slpa.example/problems/review/response-already-exists");
+        assertThat(pd.getTitle()).isEqualTo("Review response already exists");
+        assertThat(pd.getProperties()).containsEntry("code", "REVIEW_RESPONSE_ALREADY_EXISTS");
+    }
+
+    @Test
+    void knownResponseConstraint_conventionalName_mapsTo409() {
+        MockHttpServletRequest mockReq = new MockHttpServletRequest();
+        mockReq.setRequestURI("/api/v1/reviews/42/respond");
+        HttpServletRequest respondReq = mockReq;
+
+        DataIntegrityViolationException dataEx = wrap("uq_review_responses_review");
+
+        ProblemDetail pd = handler.handleDataIntegrity(dataEx, respondReq);
+
+        assertThat(pd.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+        assertThat(pd.getProperties()).containsEntry("code", "REVIEW_RESPONSE_ALREADY_EXISTS");
+    }
+
+    @Test
     void unknownConstraint_rethrowsOriginalException() {
         DataIntegrityViolationException dataEx = wrap("some_other_constraint");
 

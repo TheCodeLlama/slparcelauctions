@@ -49,6 +49,7 @@ class ReviewServiceListTest {
 
     @Mock ReviewRepository reviewRepo;
     @Mock ReviewResponseRepository responseRepo;
+    @Mock ReviewFlagRepository flagRepo;
     @Mock AuctionRepository auctionRepo;
     @Mock EscrowRepository escrowRepo;
     @Mock UserRepository userRepo;
@@ -65,7 +66,7 @@ class ReviewServiceListTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
-        service = new ReviewService(reviewRepo, responseRepo, auctionRepo,
+        service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, clock);
 
         seller = User.builder().email("seller@example.com").passwordHash("x").build();

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -27,10 +28,15 @@ import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.AuctionReviewsResponse;
 import com.slparcelauctions.backend.review.dto.PendingReviewDto;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
+import com.slparcelauctions.backend.review.dto.ReviewFlagRequest;
+import com.slparcelauctions.backend.review.dto.ReviewResponseDto;
+import com.slparcelauctions.backend.review.dto.ReviewResponseSubmitRequest;
 import com.slparcelauctions.backend.review.dto.ReviewSubmitRequest;
 import com.slparcelauctions.backend.review.exception.ReviewAlreadySubmittedException;
+import com.slparcelauctions.backend.review.exception.ReviewFlagAlreadyExistsException;
 import com.slparcelauctions.backend.review.exception.ReviewIneligibleException;
 import com.slparcelauctions.backend.review.exception.ReviewNotFoundException;
+import com.slparcelauctions.backend.review.exception.ReviewResponseAlreadyExistsException;
 import com.slparcelauctions.backend.review.exception.ReviewWindowClosedException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
@@ -71,6 +77,7 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepo;
     private final ReviewResponseRepository responseRepo;
+    private final ReviewFlagRepository flagRepo;
     private final AuctionRepository auctionRepo;
     private final EscrowRepository escrowRepo;
     private final UserRepository userRepo;
@@ -343,6 +350,74 @@ public class ReviewService {
                 .map(e -> PendingReviewDto.of(e, caller,
                         resolveCounterparty(e, caller), now))
                 .toList();
+    }
+
+    /**
+     * Persist a one-time reviewee response to a review (Epic 08 sub-spec
+     * 1 §4.3). Only the {@code review.reviewee} may respond — every other
+     * caller (including the reviewer and any third party) is rejected as
+     * 403. A second response on the same review is rejected as 409; the
+     * {@code review_id}-unique FK on {@code review_responses} is the
+     * last-line-of-defence under concurrent double-clicks, mapped to the
+     * same 409 by {@code ReviewExceptionHandler}'s constraint-name
+     * fallback.
+     */
+    @Transactional
+    public ReviewResponseDto respondTo(Long reviewId, User caller,
+                                       ReviewResponseSubmitRequest req) {
+        Review r = reviewRepo.findById(reviewId)
+                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
+        if (!r.getReviewee().getId().equals(caller.getId())) {
+            throw new AccessDeniedException("Only the reviewee can respond to a review.");
+        }
+        if (responseRepo.existsByReviewId(reviewId)) {
+            throw new ReviewResponseAlreadyExistsException(reviewId);
+        }
+        ReviewResponse resp = responseRepo.save(ReviewResponse.builder()
+                .review(r)
+                .text(req.text())
+                .build());
+        log.info("Review {} response persisted: reviewee={}, responseId={}",
+                reviewId, caller.getId(), resp.getId());
+        return ReviewResponseDto.of(resp);
+    }
+
+    /**
+     * Persist a moderation flag against a review (Epic 08 sub-spec 1
+     * §4.4). The review's reviewer cannot flag their own review (403);
+     * every other authenticated user may flag at most one time per
+     * review. Side-effect: {@code review.flagCount} is incremented inside
+     * the same transaction so the admin moderation queue (Epic 10) sees a
+     * consistent count. No auto-hide — flags are a moderation signal, not
+     * censorship. The {@code uq_review_flags_review_flagger} unique
+     * constraint backs the pre-check; a racing flag by the same user is
+     * mapped to the same 409 by {@code ReviewExceptionHandler}'s
+     * constraint-name fallback.
+     *
+     * <p>The review row is loaded with a pessimistic write lock
+     * ({@code findByIdForUpdate}) so two concurrent flags on the same
+     * review do not race on {@code flagCount}.
+     */
+    @Transactional
+    public void flag(Long reviewId, User caller, ReviewFlagRequest req) {
+        Review r = reviewRepo.findByIdForUpdate(reviewId)
+                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
+        if (r.getReviewer().getId().equals(caller.getId())) {
+            throw new AccessDeniedException("You cannot flag your own review.");
+        }
+        if (flagRepo.existsByReviewIdAndFlaggerId(reviewId, caller.getId())) {
+            throw new ReviewFlagAlreadyExistsException(reviewId);
+        }
+        flagRepo.save(ReviewFlag.builder()
+                .review(r)
+                .flagger(caller)
+                .reason(req.reason())
+                .elaboration(req.elaboration())
+                .build());
+        r.setFlagCount(r.getFlagCount() + 1);
+        reviewRepo.save(r);
+        log.info("Review {} flagged by user {} (reason={}); flagCount={}",
+                reviewId, caller.getId(), req.reason(), r.getFlagCount());
     }
 
     private User resolveCounterparty(Escrow e, User viewer) {
