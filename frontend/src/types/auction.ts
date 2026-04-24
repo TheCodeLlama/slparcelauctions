@@ -325,13 +325,44 @@ export interface AuctionEndedEnvelope {
 export type AuctionEnvelope = BidSettlementEnvelope | AuctionEndedEnvelope;
 
 /**
+ * WebSocket envelope broadcast on {@code /topic/auction/{auctionId}} when a
+ * review flips from {@code visible=false} to {@code visible=true} — either
+ * via the simultaneous-reveal branch in {@code ReviewService.submit} or the
+ * hourly {@code BlindReviewRevealTask} scheduler sweep (Epic 08 sub-spec 1
+ * §7).
+ *
+ * <p>Subscribers should invalidate their {@code useAuctionReviews(auctionId)}
+ * query and refetch through the authenticated GET — the payload deliberately
+ * omits the rating/text fields so public subscribers can't read review
+ * content via the topic. No {@code serverTime} field: the backend
+ * {@code ReviewRevealedEnvelope} record carries only the discriminators
+ * needed to drive the client-side invalidation.
+ */
+export interface ReviewRevealedEnvelope {
+  type: "REVIEW_REVEALED";
+  auctionId: number;
+  reviewId: number;
+  reviewerId: number;
+  revieweeId: number;
+  reviewedRole: "SELLER" | "BUYER";
+  revealedAt: string;
+}
+
+/**
  * Every envelope type that can arrive on `/topic/auction/{id}`.
  * {@code AuctionDetailClient} and {@code EscrowPageClient} both subscribe
  * with this union; handlers discriminate on {@code type}. Re-exports the
  * nine escrow variants from `./escrow` via the imported EscrowEnvelope so
- * subscribers only need a single discriminator switch.
+ * subscribers only need a single discriminator switch. The review envelope
+ * lives on the same topic (Epic 08 sub-spec 1 §7) — subscribers that don't
+ * care about reviews should short-circuit on {@code type === "REVIEW_REVEALED"}
+ * before reading any envelope-specific field, since review envelopes do not
+ * carry {@code serverTime}.
  */
-export type AuctionTopicEnvelope = AuctionEnvelope | EscrowEnvelope;
+export type AuctionTopicEnvelope =
+  | AuctionEnvelope
+  | EscrowEnvelope
+  | ReviewRevealedEnvelope;
 
 /**
  * POST /api/v1/auctions/{id}/bids response body. Returns the just-committed

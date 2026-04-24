@@ -19,6 +19,7 @@ import { EscrowPageError } from "@/components/escrow/EscrowPageError";
 import { EscrowPageEmpty } from "@/components/escrow/EscrowPageEmpty";
 import { EscrowStepper } from "@/components/escrow/EscrowStepper";
 import { EscrowStepCard } from "@/components/escrow/EscrowStepCard";
+import { ReviewPanel } from "@/components/reviews/ReviewPanel";
 import { ReconnectingBanner } from "@/components/auction/ReconnectingBanner";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
@@ -95,6 +96,14 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
         // authoritative state.
         if (env.type.startsWith("ESCROW_")) {
           queryClient.invalidateQueries({ queryKey: escrowKey(auctionId) });
+        } else if (env.type === "REVIEW_REVEALED") {
+          // Epic 08 sub-spec 1 §7.2: refresh the {@code useAuctionReviews}
+          // envelope so the ReviewPanel transitions from pending → revealed
+          // (or revealed-one → revealed-both) without a page reload. The
+          // query key mirrors {@code reviewsKeys.auction} in useReviews.ts.
+          queryClient.invalidateQueries({
+            queryKey: ["reviews", "auction", String(auctionId)],
+          });
         }
       },
       [auctionId, queryClient],
@@ -148,6 +157,9 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
           <EscrowPageHeader escrow={escrow} role={role} />
           <EscrowStepper escrow={escrow} />
           <EscrowStepCard escrow={escrow} role={role} />
+          {escrow.state === "COMPLETED" && (
+            <ReviewPanel auctionId={auctionId} isParty />
+          )}
         </>
       )}
       <ReconnectingBanner state={connectionState} />
