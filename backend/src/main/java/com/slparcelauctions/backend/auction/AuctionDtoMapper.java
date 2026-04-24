@@ -197,9 +197,10 @@ public class AuctionDtoMapper {
      * — every persisted auction has a non-null seller). Avatar URL points at
      * the existing {@code GET /api/v1/users/{id}/avatar/256} endpoint, which
      * already serves cached + placeholder avatars. {@code completionRate} is
-     * delegated to {@link SellerCompletionRateMapper#compute(int, int)} so the
-     * rounding + zero-denominator policy lives in one place and the private
-     * {@code cancelledWithBids} counter never reaches the wire.
+     * delegated to {@link SellerCompletionRateMapper#compute(int, int, int)} so
+     * the rounding + zero-denominator policy lives in one place and the private
+     * {@code cancelledWithBids} + {@code escrowExpiredUnfulfilled} counters
+     * never reach the wire. See Epic 08 sub-spec 1 §3.5 for the 3-arg widening.
      */
     private SellerSummary sellerSummary(User s) {
         if (s == null) {
@@ -207,8 +208,10 @@ public class AuctionDtoMapper {
         }
         Integer completed = s.getCompletedSales();
         Integer cancelled = s.getCancelledWithBids();
+        Integer expiredUnfulfilled = s.getEscrowExpiredUnfulfilled();
         int completedInt = completed == null ? 0 : completed;
         int cancelledInt = cancelled == null ? 0 : cancelled;
+        int expiredUnfulfilledInt = expiredUnfulfilled == null ? 0 : expiredUnfulfilled;
         return new SellerSummary(
                 s.getId(),
                 s.getDisplayName(),
@@ -216,7 +219,7 @@ public class AuctionDtoMapper {
                 s.getAvgSellerRating(),
                 s.getTotalSellerReviews(),
                 completed,
-                SellerCompletionRateMapper.compute(completedInt, cancelledInt),
+                SellerCompletionRateMapper.compute(completedInt, cancelledInt, expiredUnfulfilledInt),
                 s.getCreatedAt() == null ? null : s.getCreatedAt().toLocalDate());
     }
 

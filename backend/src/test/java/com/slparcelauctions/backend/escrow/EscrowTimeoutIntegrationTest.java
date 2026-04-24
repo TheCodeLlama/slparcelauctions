@@ -196,6 +196,13 @@ class EscrowTimeoutIntegrationTest {
         assertThat(env.escrowId()).isEqualTo(seededEscrowId);
         assertThat(env.state()).isEqualTo(EscrowState.EXPIRED);
         assertThat(env.reason()).isEqualTo("PAYMENT_TIMEOUT");
+
+        // Epic 08 sub-spec 1 §6.1: a payment-timeout is buyer-fault, not
+        // seller-fault. The seller's escrowExpiredUnfulfilled counter must
+        // stay at zero — if it incremented here, a seller's completion rate
+        // would drop every time a winner failed to pay.
+        User seller = userRepo.findById(seededSellerId).orElseThrow();
+        assertThat(seller.getEscrowExpiredUnfulfilled()).isEqualTo(0);
     }
 
     @Test
@@ -228,6 +235,14 @@ class EscrowTimeoutIntegrationTest {
         EscrowExpiredEnvelope env = capturingEscrowPublisher.expired.get(0);
         assertThat(env.reason()).isEqualTo("TRANSFER_TIMEOUT");
         assertThat(env.state()).isEqualTo(EscrowState.EXPIRED);
+
+        // Epic 08 sub-spec 1 §3.4 / §6.1: a transfer-timeout is seller-fault
+        // (the seller never handed the parcel over inside the 72h window), so
+        // the seller's escrowExpiredUnfulfilled counter must bump from 0 to 1.
+        // This counter drops the seller's completion rate via the 3-arg
+        // SellerCompletionRateMapper denominator.
+        User seller = userRepo.findById(seededSellerId).orElseThrow();
+        assertThat(seller.getEscrowExpiredUnfulfilled()).isEqualTo(1);
     }
 
     @Test
