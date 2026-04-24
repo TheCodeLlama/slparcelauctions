@@ -132,10 +132,10 @@ export function queryFromSearchParams(sp: URLSearchParams): AuctionSearchQuery {
   if (sort) q.sort = sort;
 
   const page = parseInt64(sp.get("page"));
-  if (page !== undefined && page > 0) q.page = page;
+  if (page !== undefined && page !== defaultAuctionSearchQuery.page) q.page = page;
 
   const size = parseInt64(sp.get("size"));
-  if (size !== undefined && size !== 24) q.size = size;
+  if (size !== undefined && size !== defaultAuctionSearchQuery.size) q.size = size;
 
   const statusFilter = parseEnum(sp.get("status_filter"), VALID_STATUS_FILTER);
   if (statusFilter) q.statusFilter = statusFilter;
@@ -180,8 +180,10 @@ export function searchParamsFromQuery(q: AuctionSearchQuery): URLSearchParams {
   putIf(sp, "distance", q.distance, String);
   putIf(sp, "seller_id", q.sellerId, String);
   if (q.sort && q.sort !== "newest") sp.set("sort", q.sort);
-  if (q.page !== undefined && q.page > 0) sp.set("page", String(q.page));
-  if (q.size !== undefined && q.size !== 24) sp.set("size", String(q.size));
+  if (q.page !== undefined && q.page !== defaultAuctionSearchQuery.page)
+    sp.set("page", String(q.page));
+  if (q.size !== undefined && q.size !== defaultAuctionSearchQuery.size)
+    sp.set("size", String(q.size));
   if (q.statusFilter && q.statusFilter !== "active_only")
     sp.set("status_filter", q.statusFilter);
   return sp;

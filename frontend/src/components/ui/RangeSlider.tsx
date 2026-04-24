@@ -20,6 +20,14 @@ export interface RangeSliderProps {
  * {@code <input type="range">} elements sharing a transparent track. The
  * visual polish of a shared filled track is a later iteration concern per
  * the plan (Step 2a.13 note).
+ *
+ * Pointer-events layering: the {@code range-slider-input} class (see
+ * globals.css) disables pointer events on the stacked tracks and re-enables
+ * them on the thumbs so both handles stay reachable by mouse and touch.
+ * Hit-region correctness is a visual concern — jsdom cannot exercise the
+ * pseudo-element rule, so the unit test only asserts the class is applied.
+ * Manual verification: mount the component, drag the low handle from the
+ * left and then the high handle from the right; both must respond.
  */
 export function RangeSlider({
   min,
@@ -45,7 +53,7 @@ export function RangeSlider({
           const v = Number(e.target.value);
           onChange([Math.min(v, hi), hi]);
         }}
-        className="absolute inset-x-0 top-0 w-full appearance-none bg-transparent accent-primary"
+        className="range-slider-input absolute inset-x-0 top-0 w-full accent-primary"
       />
       <input
         type="range"
@@ -59,7 +67,7 @@ export function RangeSlider({
           const v = Number(e.target.value);
           onChange([lo, Math.max(v, lo)]);
         }}
-        className="absolute inset-x-0 top-0 w-full appearance-none bg-transparent accent-primary"
+        className="range-slider-input absolute inset-x-0 top-0 w-full accent-primary"
       />
     </div>
   );

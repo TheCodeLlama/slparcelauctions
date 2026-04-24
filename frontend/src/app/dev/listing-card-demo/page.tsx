@@ -47,8 +47,6 @@ const sample: AuctionSearchResultDto = {
   distanceRegions: 3.2,
 };
 
-export const dynamic = "force-dynamic";
-
 export default function ListingCardDemo() {
   return (
     <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">

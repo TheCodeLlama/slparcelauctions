@@ -30,6 +30,21 @@ const PRE_ACTIVE = new Set([
 ]);
 
 /**
+ * Compact relative-time phrase for the card aria-label. Kept independent of
+ * CountdownTimer (which is a live ticking component) because a11y labels are
+ * read at focus-time, not streamed — a one-shot render-time string is what
+ * screen readers announce.
+ */
+function relativeTimeTo(endsAt: string): string {
+  const ms = new Date(endsAt).getTime() - Date.now();
+  if (ms <= 0) return "ended";
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours >= 24) return `ends in ${Math.floor(hours / 24)} days`;
+  if (hours >= 1) return `ends in ${hours} hours`;
+  return "ends in under an hour";
+}
+
+/**
  * Tag pill overflow counts per variant. Tuned so the card foot doesn't
  * wrap to a second row in the default/compact densities, but a featured
  * card has room to surface the full tag set.
@@ -85,7 +100,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
       <Link
         href={`/auction/${listing.id}`}
         className="flex flex-col gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary rounded-default"
-        aria-label={`${listing.title} in ${listing.parcel.region}, current bid L$${listing.currentBid.toLocaleString()}`}
+        aria-label={`${listing.title} in ${listing.parcel.region}, current bid L$${listing.currentBid.toLocaleString()}, ${relativeTimeTo(listing.endsAt)}`}
       >
         <div
           className={cn(
@@ -107,7 +122,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
             tone={chip.tone}
             className="absolute top-2 left-2"
           />
-          <span className="absolute bottom-2 right-2 rounded-full bg-on-surface/70 px-2 py-0.5 text-label-sm text-on-primary">
+          <span className="absolute bottom-2 right-2 rounded-full bg-on-surface/70 px-2 py-0.5 text-label-sm text-surface">
             {listing.parcel.area}m²
           </span>
         </div>
@@ -204,7 +219,9 @@ function HeartOverlay({ title }: { title: string }) {
             onClick: () => {
               if (typeof window !== "undefined") {
                 window.location.assign(
-                  `/login?next=${encodeURIComponent(window.location.pathname)}`,
+                  `/login?next=${encodeURIComponent(
+                    window.location.pathname + window.location.search,
+                  )}`,
                 );
               }
             },

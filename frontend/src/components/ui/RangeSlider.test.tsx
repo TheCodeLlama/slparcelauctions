@@ -55,4 +55,17 @@ describe("RangeSlider", () => {
     expect(screen.getByLabelText("Min L$")).toBeInTheDocument();
     expect(screen.getByLabelText("Max L$")).toBeInTheDocument();
   });
+
+  it("applies the pointer-events layering class to both inputs", () => {
+    // Guards the globals.css hit-region fix: without the class, the top
+    // input absorbs every pointer event and the low handle is mouse-inert.
+    // Hit-region correctness itself is visual-only in jsdom — the manual
+    // test is documented on the component's JSDoc.
+    renderWithProviders(
+      <RangeSlider min={0} max={100} value={[10, 80]} onChange={() => {}} />,
+    );
+    const [lo, hi] = screen.getAllByRole("slider");
+    expect(lo).toHaveClass("range-slider-input");
+    expect(hi).toHaveClass("range-slider-input");
+  });
 });
