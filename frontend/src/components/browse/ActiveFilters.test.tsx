@@ -20,9 +20,9 @@ describe("ActiveFilters", () => {
     const onChange = vi.fn();
     const q: AuctionSearchQuery = { ...defaultAuctionSearchQuery, region: "Tula" };
     renderWithProviders(<ActiveFilters query={q} onChange={onChange} />);
-    expect(screen.getByText(/region: tula/i)).toBeInTheDocument();
+    expect(screen.getByText("Tula")).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: /remove filter: region: tula/i }),
+      screen.getByRole("button", { name: /remove filter: tula/i }),
     );
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ region: undefined, page: 0 }),
@@ -36,7 +36,7 @@ describe("ActiveFilters", () => {
       maxPrice: 500,
     };
     renderWithProviders(<ActiveFilters query={q} onChange={() => {}} />);
-    expect(screen.getByText(/price: 100-500/i)).toBeInTheDocument();
+    expect(screen.getByText("L$100–500")).toBeInTheDocument();
   });
 
   it("renders maturity csv chip", () => {
@@ -45,9 +45,7 @@ describe("ActiveFilters", () => {
       maturity: ["GENERAL", "MODERATE"],
     };
     renderWithProviders(<ActiveFilters query={q} onChange={() => {}} />);
-    expect(
-      screen.getByText(/maturity: general, moderate/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText("General, Moderate")).toBeInTheDocument();
   });
 
   it("renders near_region chip with distance", () => {
@@ -57,7 +55,7 @@ describe("ActiveFilters", () => {
       distance: 5,
     };
     renderWithProviders(<ActiveFilters query={q} onChange={() => {}} />);
-    expect(screen.getByText(/near: tula.*5 regions/i)).toBeInTheDocument();
+    expect(screen.getByText(/tula.*5 regions/i)).toBeInTheDocument();
   });
 
   it("renders in dark mode", () => {
@@ -69,7 +67,7 @@ describe("ActiveFilters", () => {
       theme: "dark",
       forceTheme: true,
     });
-    expect(screen.getByText(/region: tula/i)).toBeInTheDocument();
+    expect(screen.getByText("Tula")).toBeInTheDocument();
   });
 
   it("Clear all resets to the default query while preserving fixedFilters", async () => {

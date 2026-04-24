@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { RangeSlider } from "@/components/ui/RangeSlider";
 import { TagSelector } from "@/components/listing/TagSelector";
 import { FilterSection } from "./FilterSection";
 import { DistanceSearchBlock } from "./DistanceSearchBlock";
@@ -51,12 +50,17 @@ const SNIPE_OPTIONS: Array<{ value: SnipeFilter; label: string }> = [
   { value: "false", label: "Without" },
 ];
 
-const PRICE_MIN = 0;
-const PRICE_MAX = 1_000_000;
-const PRICE_STEP = 500;
-const SIZE_MIN = 512;
-const SIZE_MAX = 65_536;
-const SIZE_STEP = 512;
+/**
+ * Parse a number input into a non-negative integer or {@code undefined} for
+ * empty / NaN. No upper bound — L$ sales regularly exceed L$1M and parcel
+ * sizes can be as small as 4m×4m (16m²), so we don't impose arbitrary caps.
+ */
+function parseBound(raw: string): number | undefined {
+  if (raw === "") return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.max(n, 0);
+}
 
 /**
  * Filter group composition for the browse sidebar. Two modes share the
@@ -123,42 +127,74 @@ export function FilterSidebarContent({
       )}
 
       <FilterSection title="Price">
-        <RangeSlider
-          min={PRICE_MIN}
-          max={PRICE_MAX}
-          step={PRICE_STEP}
-          value={[local.minPrice ?? PRICE_MIN, local.maxPrice ?? PRICE_MAX]}
-          onChange={([lo, hi]) =>
-            update({
-              minPrice: lo === PRICE_MIN ? undefined : lo,
-              maxPrice: hi === PRICE_MAX ? undefined : hi,
-            })
-          }
-          ariaLabel={["Minimum price L$", "Maximum price L$"]}
-        />
-        <div className="flex justify-between text-label-sm text-on-surface-variant">
-          <span>L$ {(local.minPrice ?? PRICE_MIN).toLocaleString()}</span>
-          <span>L$ {(local.maxPrice ?? PRICE_MAX).toLocaleString()}</span>
+        <div className="flex items-center gap-2">
+          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
+            <span className="text-label-sm text-on-surface-variant">L$</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Min"
+              aria-label="Minimum price L$"
+              value={local.minPrice ?? ""}
+              onChange={(e) =>
+                update({ minPrice: parseBound(e.target.value) })
+              }
+              className="w-full bg-transparent text-body-md outline-none"
+            />
+          </label>
+          <span className="text-label-sm text-on-surface-variant">–</span>
+          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
+            <span className="text-label-sm text-on-surface-variant">L$</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Max"
+              aria-label="Maximum price L$"
+              value={local.maxPrice ?? ""}
+              onChange={(e) =>
+                update({ maxPrice: parseBound(e.target.value) })
+              }
+              className="w-full bg-transparent text-body-md outline-none"
+            />
+          </label>
         </div>
       </FilterSection>
 
       <FilterSection title="Size">
-        <RangeSlider
-          min={SIZE_MIN}
-          max={SIZE_MAX}
-          step={SIZE_STEP}
-          value={[local.minArea ?? SIZE_MIN, local.maxArea ?? SIZE_MAX]}
-          onChange={([lo, hi]) =>
-            update({
-              minArea: lo === SIZE_MIN ? undefined : lo,
-              maxArea: hi === SIZE_MAX ? undefined : hi,
-            })
-          }
-          ariaLabel={["Minimum area sqm", "Maximum area sqm"]}
-        />
-        <div className="flex justify-between text-label-sm text-on-surface-variant">
-          <span>{(local.minArea ?? SIZE_MIN).toLocaleString()} m²</span>
-          <span>{(local.maxArea ?? SIZE_MAX).toLocaleString()} m²</span>
+        <div className="flex items-center gap-2">
+          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Min"
+              aria-label="Minimum area sqm"
+              value={local.minArea ?? ""}
+              onChange={(e) =>
+                update({ minArea: parseBound(e.target.value) })
+              }
+              className="w-full bg-transparent text-body-md outline-none"
+            />
+            <span className="text-label-sm text-on-surface-variant">m²</span>
+          </label>
+          <span className="text-label-sm text-on-surface-variant">–</span>
+          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Max"
+              aria-label="Maximum area sqm"
+              value={local.maxArea ?? ""}
+              onChange={(e) =>
+                update({ maxArea: parseBound(e.target.value) })
+              }
+              className="w-full bg-transparent text-body-md outline-none"
+            />
+            <span className="text-label-sm text-on-surface-variant">m²</span>
+          </label>
         </div>
       </FilterSection>
 
