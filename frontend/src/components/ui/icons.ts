@@ -65,3 +65,6 @@ export { FileX } from "lucide-react";
 
 // Epic 07 sub-spec 2 additions (browse/search UI — heart overlay on ListingCard)
 export { Heart } from "lucide-react";
+
+// Epic 08 sub-spec 1 additions (reviews & reputation — flag/respond)
+export { Flag, CornerDownRight } from "lucide-react";

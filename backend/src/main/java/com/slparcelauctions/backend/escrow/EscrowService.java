@@ -686,6 +686,18 @@ public class EscrowService {
 
         queueRefundIfFunded(escrow);
 
+        // Epic 08 sub-spec 1 §3.4 / §6.1: a transfer-timeout is seller-fault
+        // (the seller never handed the parcel over inside the 72h window).
+        // Increment the seller's escrowExpiredUnfulfilled counter inside the
+        // same transaction that flips the escrow to EXPIRED so the counter
+        // can't drift on crash-between-steps. The buyer-fault counterpart
+        // (expirePayment) intentionally does NOT touch this counter.
+        User seller = escrow.getAuction().getSeller();
+        int prior = seller.getEscrowExpiredUnfulfilled() == null
+                ? 0 : seller.getEscrowExpiredUnfulfilled();
+        seller.setEscrowExpiredUnfulfilled(prior + 1);
+        userRepo.save(seller);
+
         final EscrowExpiredEnvelope envelope =
                 EscrowExpiredEnvelope.of(escrow, "TRANSFER_TIMEOUT", now);
         TransactionSynchronizationManager.registerSynchronization(

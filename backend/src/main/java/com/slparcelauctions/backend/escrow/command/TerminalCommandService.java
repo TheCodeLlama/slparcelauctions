@@ -219,6 +219,18 @@ public class TerminalCommandService {
         // Cancel any live MONITOR_ESCROW rows. No-op for non-BOT escrows.
         monitorLifecycle.onEscrowTerminal(escrow);
 
+        // Epic 08 sub-spec 1 §3.4 / §6.1: track completed sales for the
+        // seller. The counter has been declared on User since Epic 02 but
+        // was never written; sub-spec 1 starts writing it so the
+        // completion-rate mapper + reputation aggregates have a real number
+        // to work with. Incremented inside the same transaction that flipped
+        // the escrow to COMPLETED so the counter cannot drift on a crash
+        // between steps.
+        User seller = escrow.getAuction().getSeller();
+        int prior = seller.getCompletedSales() == null ? 0 : seller.getCompletedSales();
+        seller.setCompletedSales(prior + 1);
+        userRepo.save(seller);
+
         // PAYOUT and COMMISSION land as separate ledger rows so audit and
         // accounting can bucket them independently. Spec §7.2.
         ledgerRepo.save(EscrowTransaction.builder()

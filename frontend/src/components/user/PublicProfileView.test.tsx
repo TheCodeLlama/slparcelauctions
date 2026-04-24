@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { http, HttpResponse } from "msw";
 import { renderWithProviders, screen, waitFor } from "@/test/render";
 import { server } from "@/test/msw/server";
 import { userHandlers } from "@/test/msw/handlers";
@@ -8,6 +9,25 @@ import {
   mockUnverifiedPublicProfile,
 } from "@/test/msw/fixtures";
 import { PublicProfileView } from "./PublicProfileView";
+
+/**
+ * The new {@link ProfileReviewTabs} fires a user-reviews request as soon
+ * as the profile resolves — MSW is configured with
+ * {@code onUnhandledRequest: "error"}, so every test needs a catch-all
+ * reviews handler that returns an empty page. Tests that exercise the
+ * reviews surface override this.
+ */
+function mockEmptyUserReviews() {
+  return http.get("*/api/v1/users/:id/reviews", () =>
+    HttpResponse.json({
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      number: 0,
+      size: 10,
+    }),
+  );
+}
 
 const mockNotFound = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -23,7 +43,10 @@ describe("PublicProfileView", () => {
   });
 
   it("renders verified user with badge and SL identity", async () => {
-    server.use(userHandlers.publicProfileSuccess(mockPublicProfile));
+    server.use(
+      userHandlers.publicProfileSuccess(mockPublicProfile),
+      mockEmptyUserReviews(),
+    );
 
     renderWithProviders(<PublicProfileView userId={42} />);
 
@@ -36,6 +59,7 @@ describe("PublicProfileView", () => {
   it("renders unverified user with Unverified chip and no SL identity", async () => {
     server.use(
       userHandlers.publicProfileSuccess(mockUnverifiedPublicProfile),
+      mockEmptyUserReviews(),
     );
 
     renderWithProviders(<PublicProfileView userId={44} />);
@@ -58,6 +82,7 @@ describe("PublicProfileView", () => {
   it("shows NewSellerBadge when completedSales < 3", async () => {
     server.use(
       userHandlers.publicProfileSuccess(mockNewSellerPublicProfile),
+      mockEmptyUserReviews(),
     );
 
     renderWithProviders(<PublicProfileView userId={43} />);
@@ -70,11 +95,36 @@ describe("PublicProfileView", () => {
   });
 
   it("hides NewSellerBadge for established seller", async () => {
-    server.use(userHandlers.publicProfileSuccess(mockPublicProfile));
+    server.use(
+      userHandlers.publicProfileSuccess(mockPublicProfile),
+      mockEmptyUserReviews(),
+    );
 
     renderWithProviders(<PublicProfileView userId={42} />);
 
     expect(await screen.findByText("Verified Tester")).toBeInTheDocument();
     expect(screen.queryByText("New Seller")).not.toBeInTheDocument();
+  });
+
+  it("renders the ProfileReviewTabs instead of the legacy empty-state", async () => {
+    server.use(
+      userHandlers.publicProfileSuccess(mockPublicProfile),
+      mockEmptyUserReviews(),
+    );
+
+    renderWithProviders(<PublicProfileView userId={42} />);
+
+    await screen.findByText("Verified Tester");
+    expect(
+      await screen.findByTestId("profile-review-tab-seller"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("profile-review-tab-buyer")).toBeInTheDocument();
+    // The legacy placeholder copy must not appear.
+    expect(screen.queryByText("No reviews yet")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        /Reviews will appear here once this user completes transactions/,
+      ),
+    ).not.toBeInTheDocument();
   });
 });

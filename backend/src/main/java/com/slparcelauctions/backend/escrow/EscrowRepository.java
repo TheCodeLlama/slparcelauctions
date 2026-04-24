@@ -87,4 +87,29 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
                         com.slparcelauctions.backend.escrow.command.TerminalCommandStatus.FAILED))
             """)
     List<Long> findExpiredTransferPendingIds(@Param("now") OffsetDateTime now);
+
+    /**
+     * Every COMPLETED escrow where {@code userId} is either seller or
+     * winner AND the escrow completed strictly after the supplied
+     * threshold — i.e., the 14-day review window is still open. Backs
+     * the pending-reviews dashboard endpoint (Epic 08 sub-spec 1 §4.2).
+     * The caller filters out escrows the user already reviewed inside
+     * the service so an already-reviewed escrow does not round-trip
+     * through this method once the reviewer submits.
+     *
+     * <p>Ordered by {@code completedAt} ascending so the most-urgent
+     * rows (oldest {@code completedAt} = soonest {@code windowClosesAt}
+     * since the 14-day offset is constant) surface first in the
+     * dashboard list.
+     */
+    @Query("""
+            SELECT e FROM Escrow e
+            WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.COMPLETED
+              AND e.completedAt > :threshold
+              AND (e.auction.seller.id = :userId OR e.auction.winnerUserId = :userId)
+            ORDER BY e.completedAt ASC
+            """)
+    List<Escrow> findCompletedEscrowsForUser(
+            @Param("userId") Long userId,
+            @Param("threshold") OffsetDateTime threshold);
 }

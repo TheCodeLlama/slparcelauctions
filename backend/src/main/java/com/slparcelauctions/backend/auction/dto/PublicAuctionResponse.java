@@ -29,7 +29,7 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
  * completedSales, completionRate, memberSince) for the listing-detail
  * page's seller card. {@code completionRate} is server-computed by
  * {@code SellerCompletionRateMapper} so the private {@code cancelledWithBids}
- * counter never appears in the response.
+ * and {@code escrowExpiredUnfulfilled} counters never appear in the response.
  */
 public record PublicAuctionResponse(
         Long id,
@@ -64,8 +64,8 @@ public record PublicAuctionResponse(
      * and {@code completionRate} are nullable for new sellers; the UI renders
      * "—" rather than a misleading zero. {@code completionRate} is the
      * server-computed ratio of {@code completedSales / (completedSales +
-     * cancelledWithBids)}; the {@code cancelledWithBids} counter itself is
-     * intentionally absent from this DTO.
+     * cancelledWithBids + escrowExpiredUnfulfilled)}; the two denominator-
+     * only counters are intentionally absent from this DTO.
      */
     public record SellerSummary(
             Long id,

@@ -100,6 +100,26 @@ public class User {
     @Column(name = "cancelled_with_bids", nullable = false)
     private Integer cancelledWithBids = 0;
 
+    /**
+     * Count of escrows whose 72h transfer deadline elapsed with no parcel
+     * handover — the seller-fault denominator in the three-counter
+     * completion-rate formula. Incremented inside
+     * {@code EscrowService.expireTransfer} in the same transaction that
+     * flips the escrow to {@code EXPIRED}. Not touched by
+     * {@code expirePayment} (buyer-fault). Added in Epic 08 sub-spec 1
+     * §3.4; see {@link SellerCompletionRateMapper#compute(int, int, int)}.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "escrow_expired_unfulfilled", nullable = false,
+            columnDefinition = "integer not null default 0")
+    private Integer escrowExpiredUnfulfilled = 0;
+
     @Column(name = "listing_suspension_until")
     private OffsetDateTime listingSuspensionUntil;
 

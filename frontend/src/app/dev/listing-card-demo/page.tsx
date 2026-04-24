@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ListingCard } from "@/components/auction/ListingCard";
 import type { AuctionSearchResultDto } from "@/types/search";
 
@@ -48,20 +49,25 @@ const sample: AuctionSearchResultDto = {
 };
 
 export default function ListingCardDemo() {
+  // ListingCard transitively reads useSearchParams via useSavedAuctions,
+  // so the Next.js 16 prerender needs a Suspense boundary to bail out
+  // cleanly. Fallback is invisible — the demo is client-rendered anyway.
   return (
-    <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-      <section>
-        <h2 className="text-title-lg font-bold mb-3">default</h2>
-        <ListingCard listing={sample} variant="default" />
-      </section>
-      <section>
-        <h2 className="text-title-lg font-bold mb-3">compact</h2>
-        <ListingCard listing={sample} variant="compact" />
-      </section>
-      <section className="md:col-span-2">
-        <h2 className="text-title-lg font-bold mb-3">featured</h2>
-        <ListingCard listing={sample} variant="featured" />
-      </section>
-    </div>
+    <Suspense fallback={null}>
+      <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <section>
+          <h2 className="text-title-lg font-bold mb-3">default</h2>
+          <ListingCard listing={sample} variant="default" />
+        </section>
+        <section>
+          <h2 className="text-title-lg font-bold mb-3">compact</h2>
+          <ListingCard listing={sample} variant="compact" />
+        </section>
+        <section className="md:col-span-2">
+          <h2 className="text-title-lg font-bold mb-3">featured</h2>
+          <ListingCard listing={sample} variant="featured" />
+        </section>
+      </div>
+    </Suspense>
   );
 }

@@ -39,12 +39,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Phase 11
 - **Notes:** Replace the `useCurrentUser({ refetchInterval: 5000 })` polling with a STOMP subscription on `/topic/user/{userId}/verification`.
 
-### Partial-star rendering for ReputationStars
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Phase 1 ships a simpler numeric "4.7 ★" display. Partial-star SVG rendering is polish that only matters when review counts are non-trivial.
-- **When:** Epic 06 (Ratings & Reputation) when real review data exists
-- **Notes:** Current `ReputationStars.tsx` at `frontend/src/components/user/ReputationStars.tsx`.
-
 ### Email change flow
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile edit)
 - **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b. Not a browse/discovery concern — does not belong in Epic 07.
@@ -80,12 +74,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Current drop zone uses a static border highlight. Polished version would animate border-color transition and a scale effect on drop.
 - **When:** Indefinite (cosmetic)
 - **Notes:** `frontend/src/components/user/ProfilePictureUploader.tsx`.
-
-### Recent reviews section on public profile
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Review data requires the reviews model from Epic 06. Public profile ships with empty-state placeholder.
-- **When:** Epic 06 (Ratings & Reputation)
-- **Notes:** `PublicProfileView` renders `<EmptyState icon={MessageSquare}>` for this section.
 
 ### PARCEL code generation rate tracking (fraud signal)
 - **From:** Epic 03 sub-spec 1 (Method B rezzable callback flow)

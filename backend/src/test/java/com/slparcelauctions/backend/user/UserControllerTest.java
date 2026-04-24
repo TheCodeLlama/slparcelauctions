@@ -134,7 +134,7 @@ class UserControllerTest {
     void getUserProfile_returns200() throws Exception {
         UserProfileResponse profile = new UserProfileResponse(
                 42L, "Bob", "hello", null, null, null, null,
-                false, null, null, 0, 0, 0, OffsetDateTime.now());
+                false, null, null, 0, 0, 0, null, true, OffsetDateTime.now());
         when(userService.getPublicProfile(42L)).thenReturn(profile);
 
         mockMvc.perform(get("/api/v1/users/42"))
