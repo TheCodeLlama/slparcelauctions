@@ -49,11 +49,12 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
               AND a.status IN :statuses
             GROUP BY b.auction.id,
                      CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END,
+                     a.status,
                      a.endsAt,
                      a.endedAt
             ORDER BY CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END ASC,
-                     a.endsAt DESC,
-                     a.endedAt DESC,
+                     CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endsAt END DESC,
+                     CASE WHEN a.status <> com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endedAt END DESC,
                      b.auction.id ASC
             """,
             countQuery = """
@@ -81,11 +82,12 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
             WHERE b.bidder.id = :userId
             GROUP BY b.auction.id,
                      CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END,
+                     a.status,
                      a.endsAt,
                      a.endedAt
             ORDER BY CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END ASC,
-                     a.endsAt DESC,
-                     a.endedAt DESC,
+                     CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endsAt END DESC,
+                     CASE WHEN a.status <> com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endedAt END DESC,
                      b.auction.id ASC
             """,
             countQuery = """
