@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 
 /**
@@ -25,11 +26,12 @@ public class RefreshTokenCleanupJob {
     private static final int RETENTION_DAYS = 30;
 
     private final RefreshTokenRepository refreshTokenRepository;
+    private final Clock clock;
 
     @Scheduled(cron = "0 30 3 * * *")  // 03:30 server local time, daily
     @Transactional
     public void cleanupExpiredTokens() {
-        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(RETENTION_DAYS);
+        OffsetDateTime cutoff = OffsetDateTime.now(clock).minusDays(RETENTION_DAYS);
         int deleted = refreshTokenRepository.deleteOldRows(cutoff);
         log.info("Refresh token cleanup: deleted {} rows older than {}", deleted, cutoff);
     }
