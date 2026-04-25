@@ -170,6 +170,21 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         return;
       }
 
+      // AUCTION_CANCELLED envelopes (Epic 08 sub-spec 2 §8.5) flip the
+      // auction into the CANCELLED status. Like REVIEW_REVEALED, they do
+      // not carry {@code serverTime} — handle them before the offset
+      // refresh below. The invalidation refetches the public auction DTO
+      // so the next render observes {@code status === "CANCELLED"} and
+      // the bid form is replaced by the cancellation banner. {@code
+      // myProxyKey} is also invalidated so any active proxy bid surfaces
+      // its cancelled state.
+      if (env.type === "AUCTION_CANCELLED") {
+        queryClient.invalidateQueries({ queryKey: auctionKey(id) });
+        queryClient.invalidateQueries({ queryKey: bidHistoryKey(id, 0) });
+        queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
+        return;
+      }
+
       // Refine the server-time offset on every envelope so the countdown
       // stays accurate even if the user's clock drifts mid-session.
       serverTimeOffsetRef.current =
@@ -228,9 +243,10 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
               bidderCount: env.bidCount,
             };
           }
-          // Any other envelope type (ESCROW_*, REVIEW_REVEALED) is already
-          // handled by the early-returns above and never reaches this
-          // callback — leave the cache untouched as a defensive fallback.
+          // Any other envelope type (ESCROW_*, REVIEW_REVEALED,
+          // AUCTION_CANCELLED) is already handled by the early-returns
+          // above and never reaches this callback — leave the cache
+          // untouched as a defensive fallback.
           return prev;
         },
       );
