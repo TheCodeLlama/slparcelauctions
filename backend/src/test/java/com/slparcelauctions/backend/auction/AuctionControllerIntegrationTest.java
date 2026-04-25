@@ -196,7 +196,7 @@ class AuctionControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+                .andExpect(jsonPath("$.code").value("NOT_VERIFIED"));
     }
 
     @Test

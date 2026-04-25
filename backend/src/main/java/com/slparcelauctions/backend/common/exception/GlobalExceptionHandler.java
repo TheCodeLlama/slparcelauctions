@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.NotMainlandException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
@@ -79,6 +80,26 @@ public class GlobalExceptionHandler {
         pd.setTitle("Access denied");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "ACCESS_DENIED");
+        return pd;
+    }
+
+    /**
+     * Mirrors the auction-package handler so {@link NotVerifiedException}
+     * thrown from non-auction controllers (e.g. {@code ParcelController})
+     * surfaces the same {@code NOT_VERIFIED} code instead of falling through
+     * to the {@code Exception.class} 500 catch-all. The auction-package
+     * handler retains the local mapping for in-package controllers; this
+     * global mapping is the safety net for everything else.
+     */
+    @ExceptionHandler(NotVerifiedException.class)
+    public ProblemDetail handleNotVerified(NotVerifiedException e,
+                                           HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/not-verified"));
+        pd.setTitle("Not Verified");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_VERIFIED");
         return pd;
     }
 

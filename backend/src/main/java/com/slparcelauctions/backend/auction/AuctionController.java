@@ -7,7 +7,6 @@ import java.util.Map;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +26,7 @@ import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.escrow.Escrow;
@@ -224,7 +224,7 @@ public class AuctionController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         if (!Boolean.TRUE.equals(user.getVerified())) {
-            throw new AccessDeniedException(
+            throw new NotVerifiedException(
                     "SL avatar verification required to manage auctions.");
         }
     }

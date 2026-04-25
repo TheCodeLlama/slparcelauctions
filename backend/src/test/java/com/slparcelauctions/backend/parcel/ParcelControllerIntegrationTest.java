@@ -44,7 +44,7 @@ import reactor.core.publisher.Mono;
  * <p>User states covered:
  * <ul>
  *   <li>Unauthenticated -> 401 from {@code JwtAuthenticationEntryPoint}.</li>
- *   <li>Authenticated, unverified -> 403 via {@code AccessDeniedException}.</li>
+ *   <li>Authenticated, unverified -> 403 via {@code NotVerifiedException}.</li>
  *   <li>Authenticated, verified -> success paths and domain error paths.</li>
  * </ul>
  */
@@ -192,7 +192,7 @@ class ParcelControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ParcelLookupRequest(parcelUuid))))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+                .andExpect(jsonPath("$.code").value("NOT_VERIFIED"));
     }
 
     // -------------------------------------------------------------------------
