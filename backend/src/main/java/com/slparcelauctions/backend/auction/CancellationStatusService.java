@@ -1,7 +1,6 @@
 package com.slparcelauctions.backend.auction;
 
 import java.util.Comparator;
-import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,7 +47,6 @@ public class CancellationStatusService {
 
     private final CancellationLogRepository logRepo;
     private final UserRepository userRepo;
-    private final AuctionPhotoRepository photoRepo;
     private final CancellationPenaltyProperties penaltyProps;
 
     @Transactional(readOnly = true)
@@ -106,13 +104,11 @@ public class CancellationStatusService {
     }
 
     private String resolvePrimaryPhotoUrl(Auction auction) {
-        // Listing photos live on a separate table; query them via the repo
-        // rather than relying on the lazy {@code Auction.photos} collection
-        // (which is read-only inverse and not always hydrated under
-        // {@code spring.jpa.open-in-view=false}). Pick the first sort-order
+        // Photos are eagerly hydrated by the {@code @EntityGraph} on
+        // {@link CancellationLogRepository#findBySellerId} (one LEFT JOIN per
+        // page, not per row), so we read straight off the entity collection
         // and project to the byte-proxy URL the rest of the app uses.
-        List<AuctionPhoto> photos = photoRepo.findByAuctionIdOrderBySortOrderAsc(auction.getId());
-        return photos.stream()
+        return auction.getPhotos().stream()
                 .min(Comparator.comparing(AuctionPhoto::getSortOrder))
                 .map(p -> "/api/v1/auctions/" + auction.getId() + "/photos/" + p.getId() + "/bytes")
                 .orElseGet(() -> auction.getParcel() == null

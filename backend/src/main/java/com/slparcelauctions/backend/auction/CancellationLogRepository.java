@@ -26,12 +26,14 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
 
     /**
      * Paginated cancellation history for one seller, hydrated with the
-     * referenced auction (and its parcel) so the DTO mapper can pick a primary
-     * photo URL without an N+1 lazy fetch storm. Sorting is supplied by the
-     * caller via {@link Pageable} — the controller pins
+     * referenced auction (its parcel and photos) so the DTO mapper can pick a
+     * primary photo URL without an N+1 lazy fetch storm. The {@code auction.photos}
+     * collection is the only to-many in the graph, so Hibernate batches the
+     * fetch via a single LEFT JOIN without Cartesian explosion. Sorting is
+     * supplied by the caller via {@link Pageable} — the controller pins
      * {@code Sort.by("cancelledAt").descending()} per spec §7.4.
      */
-    @EntityGraph(attributePaths = {"auction", "auction.parcel"})
+    @EntityGraph(attributePaths = {"auction", "auction.parcel", "auction.photos"})
     Page<CancellationLog> findBySellerId(Long sellerId, Pageable pageable);
 
     /**

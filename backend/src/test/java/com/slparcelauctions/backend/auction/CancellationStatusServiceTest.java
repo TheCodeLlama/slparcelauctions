@@ -49,7 +49,6 @@ class CancellationStatusServiceTest {
 
     @Mock CancellationLogRepository logRepo;
     @Mock UserRepository userRepo;
-    @Mock AuctionPhotoRepository photoRepo;
 
     CancellationStatusService service;
 
@@ -60,7 +59,7 @@ class CancellationStatusServiceTest {
         CancellationPenaltyProperties penalty = new CancellationPenaltyProperties(
                 new CancellationPenaltyProperties.Penalty(1000L, 2500L, 30),
                 48);
-        service = new CancellationStatusService(logRepo, userRepo, photoRepo, penalty);
+        service = new CancellationStatusService(logRepo, userRepo, penalty);
 
         user = User.builder()
                 .id(USER_ID)
@@ -209,7 +208,8 @@ class CancellationStatusServiceTest {
                 .build();
         when(logRepo.findBySellerId(eq(USER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(log), PageRequest.of(0, 10), 1));
-        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(101L)).thenReturn(List.of());
+        // Auction has no photos (default empty list on the builder) → falls back
+        // to the parcel snapshot URL via {@code auction.photos.isEmpty()}.
 
         Page<CancellationHistoryDto> page = service.historyFor(USER_ID, PageRequest.of(0, 10));
 
@@ -242,7 +242,6 @@ class CancellationStatusServiceTest {
                 .build();
         when(logRepo.findBySellerId(eq(USER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(log), PageRequest.of(0, 10), 1));
-        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(202L)).thenReturn(List.of());
 
         Page<CancellationHistoryDto> page = service.historyFor(USER_ID, PageRequest.of(0, 10));
 
@@ -254,10 +253,15 @@ class CancellationStatusServiceTest {
 
     @Test
     void historyFor_resolvesPrimaryPhotoUrlFromAuctionPhoto() {
+        AuctionPhoto p1 = AuctionPhoto.builder().id(50L).sortOrder(1).build();
+        AuctionPhoto p2 = AuctionPhoto.builder().id(51L).sortOrder(0).build();
         Auction auction = Auction.builder()
                 .id(303L)
                 .title("Photo'd auction")
                 .parcel(Parcel.builder().id(11L).snapshotUrl("ignored.png").build())
+                // Order in the list is intentionally not sortOrder ASC — the
+                // service must pick the min(sortOrder) regardless.
+                .photos(new java.util.ArrayList<>(List.of(p1, p2)))
                 .build();
         CancellationLog log = CancellationLog.builder()
                 .id(3L)
@@ -269,11 +273,8 @@ class CancellationStatusServiceTest {
                 .penaltyAmountL(1000L)
                 .cancelledAt(OffsetDateTime.now())
                 .build();
-        AuctionPhoto p1 = AuctionPhoto.builder().id(50L).auction(auction).sortOrder(1).build();
-        AuctionPhoto p2 = AuctionPhoto.builder().id(51L).auction(auction).sortOrder(0).build();
         when(logRepo.findBySellerId(eq(USER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(log), PageRequest.of(0, 10), 1));
-        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(303L)).thenReturn(List.of(p1, p2));
 
         Page<CancellationHistoryDto> page = service.historyFor(USER_ID, PageRequest.of(0, 10));
 
