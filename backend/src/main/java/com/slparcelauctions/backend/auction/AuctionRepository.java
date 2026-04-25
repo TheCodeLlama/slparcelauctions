@@ -165,4 +165,21 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     @EntityGraph(attributePaths = {"parcel", "tags"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids ORDER BY a.endsAt ASC")
     List<Auction> findAllByIdInWithParcelAndTags(@Param("ids") Collection<Long> ids);
+
+    /**
+     * Bulk-loads auction aggregates with {@code parcel} + {@code seller} eagerly
+     * fetched. Used by {@link com.slparcelauctions.backend.auction.mybids.MyBidsService}
+     * to avoid the per-id loop + lazy-seller N+1 (~43 queries on a page of 20)
+     * that the previous {@code findById}-in-a-loop pattern produced. Tags
+     * batch-load via {@code @BatchSize} on {@code Auction.tags} so a separate
+     * fetch over them is unnecessary.
+     *
+     * <p>The DB does not guarantee ordering for {@code IN}-clause results;
+     * callers that need a specific page order must zip the returned list back
+     * against the original ID list themselves (the same pattern as
+     * {@link #findAllByIdInWithParcelAndTags}).
+     */
+    @EntityGraph(attributePaths = {"parcel", "seller"})
+    @Query("SELECT a FROM Auction a WHERE a.id IN :ids")
+    List<Auction> findAllByIdWithParcelAndSeller(@Param("ids") Collection<Long> ids);
 }

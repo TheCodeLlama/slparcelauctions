@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auction.search;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,7 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Builds a JPA {@link Specification} from a validated
@@ -43,7 +45,10 @@ import jakarta.persistence.criteria.Subquery;
  * would not be index-usable.
  */
 @Component
+@RequiredArgsConstructor
 public class AuctionSearchPredicateBuilder {
+
+    private final Clock clock;
 
     public Specification<Auction> build(AuctionSearchQuery q) {
         return (root, query, cb) -> {
@@ -111,7 +116,7 @@ public class AuctionSearchPredicateBuilder {
             predicates.add(cb.equal(seller.get("id"), q.sellerId()));
         }
         if (q.endingWithinHours() != null) {
-            OffsetDateTime now = OffsetDateTime.now();
+            OffsetDateTime now = OffsetDateTime.now(clock);
             OffsetDateTime upper = now.plusHours(q.endingWithinHours());
             predicates.add(cb.greaterThan(root.get("endsAt"), now));
             predicates.add(cb.lessThanOrEqualTo(root.get("endsAt"), upper));

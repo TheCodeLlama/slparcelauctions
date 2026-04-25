@@ -92,15 +92,14 @@ public class MyBidsService {
             return new PageImpl<>(List.of(), effective, auctionIdsPage.getTotalElements());
         }
 
-        // Hydrate auctions via findById to trip the @EntityGraph on parcel+tags.
-        // Note: auction.seller is FetchType.LAZY and is NOT in the EntityGraph,
-        // so each summary touches seller.getDisplayName() causing one extra
-        // SELECT per auction. At page size 20 this is bounded (~43 queries per
-        // page). See DEFERRED_WORK.md ("N+1 on My Bids auction loading") for
-        // the followup to join seller into the graph.
+        // Bulk-load auctions with parcel + seller eagerly fetched in one query
+        // — replaces the previous per-id findById loop that triggered ~43
+        // SELECTs on a page of 20 (one per id, plus one lazy seller fetch per
+        // row). The DB does not guarantee IN-clause ordering, so we walk the
+        // original ids list when assembling summaries to preserve page order.
         Map<Long, Auction> byId = new HashMap<>();
-        for (Long id : ids) {
-            auctionRepo.findById(id).ifPresent(a -> byId.put(id, a));
+        for (Auction a : auctionRepo.findAllByIdWithParcelAndSeller(ids)) {
+            byId.put(a.getId(), a);
         }
 
         // Caller's bid aggregates per auction.

@@ -116,30 +116,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
-### N+1 on My Bids auction loading
-- **From:** Epic 04 sub-spec 1 (Task 8)
-- **Why:** `MyBidsService.findAuctionPage` loads auctions one-by-one via `AuctionRepository.findById` to trip the `@EntityGraph` on parcel + tags. `Auction.seller` is not in the EntityGraph and lazy-loads per-row, producing ~2 extra queries per auction on a page of 20 (up to ~43 queries total per page). At Phase 1 volumes this is acceptable (bounded by page size = 20) but is worth fixing before scale.
-- **When:** Near-term cleanup after sub-spec 2 frontend lands — likely the frontend will reveal whether seller display name is needed for every card.
-- **Notes:** Fix options: (a) add `seller` to the existing `@EntityGraph` on `findById` (affects all callers); (b) add a dedicated `findAllByIdWithParcelAndSeller(Collection<Long>)` query that `MyBidsService` uses instead of the per-id loop.
-
-### My Bids non-ACTIVE sort key deviation
-- **From:** Epic 04 sub-spec 1 (Task 8)
-- **Why:** Spec §10 specifies conditional `ORDER BY` using `CASE WHEN a.status = 'ACTIVE' THEN a.ends_at END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.ended_at END DESC`. The actual query uses unconditional `a.endsAt DESC, a.endedAt DESC`, which means non-ACTIVE auctions are ordered by `endsAt` first. At Phase 1 volumes the drift is small (snipe-extended auctions diverge by at most 2-60 minutes) but is a documented spec deviation.
-- **When:** Fix when sub-spec 2 frontend surfaces sort-order concerns, or during an Epic 04 cleanup pass.
-- **Notes:** Replace `a.endsAt DESC, a.endedAt DESC` with `CASE WHEN a.status = 'ACTIVE' THEN a.endsAt END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.endedAt END DESC` (Postgres tolerates NULLs in CASE-based ORDER BY).
-
-### Migrate Epic 02/03 write paths onto NotVerifiedException
-- **From:** Epic 04 sub-spec 1 (Task 2 — bid placement)
-- **Why:** `NotVerifiedException` was introduced to give the bid path a clean `NOT_VERIFIED` (403) error code. Pre-existing verification checks in `AuctionController.requireVerified`, parcel controllers, and other write paths still throw raw `AccessDeniedException` with inline message strings, producing `ACCESS_DENIED` instead of `NOT_VERIFIED`. Frontend UX distinguishing the two codes will only see `NOT_VERIFIED` from the bid path until the migration lands.
-- **When:** Near-term — trivially, a one-line swap at each existing call site. Deferred from Task 2 to keep the scope tight; pick up as a standalone cleanup task or roll into the Epic 04 sub-spec 2 frontend work when the UX for verification prompts is wired.
-- **Notes:** Search for `AccessDeniedException` call sites that include the string "verification required" (or equivalent) — those are the migration targets. `NotVerifiedException` already exists at `backend/src/main/java/com/slparcelauctions/backend/auction/exception/NotVerifiedException.java` and has an existing handler in `AuctionExceptionHandler.java`.
-
-### DESIGN.md §554 stale wording cleanup
-- **From:** Epic 04 sub-spec 1 (spec §15 follow-up)
-- **Why:** DESIGN.md §554 says "Bid history (anonymized or public - configurable)" — leftover wording from an earlier iteration of the spec. §1589-1591 explicitly resolves bidder identity visibility as public (display name + avatar, no anonymization toggle) and Epic 04 sub-spec 1 ships the public-identity behavior. Anyone grepping DESIGN.md for "anonymized" will hit a contradiction.
-- **When:** Next doc sweep / any epic that reopens DESIGN.md for structural edits.
-- **Notes:** One-sentence replacement — "Bid history (public — displayName + avatar only, no IP or full name)" lines up with the implemented behavior.
-
 ### Outbid / won / reserve-not-met / auction-ended notifications
 - **From:** Epic 04 sub-spec 1 (spec §15)
 - **Why:** Epic 04 sub-spec 1 publishes the data sources — `Bid` rows carry `OUTBID` / `WON` / `LOST` derivable state, `Auction.endOutcome` carries `SOLD` / `RESERVE_NOT_MET` / `NO_BIDS` / `BOUGHT_NOW`, and the WS settlement + auction-ended envelopes broadcast the transitions. No email / SL IM fan-out exists yet. Bidders learn they've been outbid only by reloading the auction page or watching the live WS update; sellers learn the auction ended only by reloading My Listings.
@@ -194,12 +170,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 10 (Admin & Moderation) — wire alongside the admin secret-rotation endpoint already deferred.
 - **Notes:** Column is nullable today; no data loss. Touchpoint: `TerminalCommandService.queue(...)` + a future rotation endpoint that stamps the new version on in-flight commands.
 
-### FAILED ledger row on transport-failure stall
-- **From:** Epic 05 sub-spec 1 (Task 7 code review, M6)
-- **Why:** Terminal-reported failures write a FAILED `EscrowTransaction` row per attempt (audit trail). Transport-level failures (HTTP 5xx, connection refused, timeout) only set `last_error` on the command + bump `attemptCount`; the dispute timeline lacks visibility into transport failures that exhaust the retry budget. On the stall path (attempt 4), consider writing a FAILED ledger row so the dispute timeline records the stall uniformly.
-- **When:** Opportunistic — pull in during the next Epic 05 maintenance task, or alongside Epic 10 admin tooling when the dispute-timeline UI surfaces this asymmetry.
-- **Notes:** Touchpoint: `TerminalCommandDispatcherTask.dispatchOne` + `TerminalCommandService.applyCallback` (need to factor the FAILED ledger row build into a shared helper).
-
 ### HMAC-SHA256 terminal auth
 - **From:** Epic 05 sub-spec 1
 - **Why:** Sub-spec 1 ships static shared secret + rotation via config + redeploy. HMAC-SHA256 adds per-request replay protection but requires SHA256 implementation in LSL (~50-100 line library). Premature to ship until a working LSL terminal exists to dogfood against.
@@ -228,11 +198,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** DESIGN.md §5.2 suggests "sum of pending escrow amounts should match the expected SL account balance." Sub-spec 1 writes every L$ movement to the `EscrowTransaction` ledger, so the data is there — just no job reconciles it against SL grid queries.
 - **When:** Epic 10 (Admin & Moderation).
 - **Notes:** Daily job that sums `EscrowTransaction` rows by type, queries SLPAEscrow account balance via World API, alerts on mismatch.
-
-### Retrofit existing Epic 03/04 code to Clock injection
-- **From:** Epic 05 sub-spec 1
-- **Why:** Sub-spec 1 code injects `Clock` and calls `OffsetDateTime.now(clock)` throughout. Existing Epic 03/04 services that use raw `OffsetDateTime.now()` are unaffected but can't be cleanly tested with a frozen clock. Out of scope for this sub-spec; retrofit when touched.
-- **When:** Opportunistic — pull in during the next maintenance pass that touches the affected services.
 
 ### Dispute evidence attachments
 - **From:** Epic 05 sub-spec 2

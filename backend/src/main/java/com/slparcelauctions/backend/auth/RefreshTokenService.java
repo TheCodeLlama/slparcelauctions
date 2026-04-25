@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
 
 /**
@@ -31,6 +32,7 @@ public class RefreshTokenService {
     private final RefreshTokenRepository repository;
     private final UserService userService;
     private final JwtConfig jwtConfig;
+    private final Clock clock;
 
     // -------------------------------------------------------------------------
     // Public record types
@@ -64,7 +66,7 @@ public class RefreshTokenService {
     public IssuedRefreshToken issueForUser(Long userId, String userAgent, String ipAddress) {
         String rawToken = TokenHasher.secureRandomBase64Url(32);
         String tokenHash = TokenHasher.sha256Hex(rawToken);
-        OffsetDateTime expiresAt = OffsetDateTime.now().plus(jwtConfig.getRefreshTokenLifetime());
+        OffsetDateTime expiresAt = OffsetDateTime.now(clock).plus(jwtConfig.getRefreshTokenLifetime());
 
         String truncatedAgent = userAgent != null && userAgent.length() > MAX_USER_AGENT_LENGTH
                 ? userAgent.substring(0, MAX_USER_AGENT_LENGTH)
@@ -113,17 +115,17 @@ public class RefreshTokenService {
             // REUSE DETECTED — cascade. FOOTGUNS §B.6.
             log.warn("Refresh token reuse detected: userId={} ip={} userAgent={}",
                     row.getUserId(), ipAddress, userAgent);
-            repository.revokeAllByUserId(row.getUserId(), OffsetDateTime.now());
+            repository.revokeAllByUserId(row.getUserId(), OffsetDateTime.now(clock));
             userService.bumpTokenVersion(row.getUserId());  // invalidate live access tokens
             throw new RefreshTokenReuseDetectedException(row.getUserId());
         }
 
-        if (row.getExpiresAt().isBefore(OffsetDateTime.now())) {
+        if (row.getExpiresAt().isBefore(OffsetDateTime.now(clock))) {
             throw new TokenExpiredException("Refresh token has expired.");
         }
 
         // Happy path: rotate
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         row.setLastUsedAt(now);
         row.setRevokedAt(now);
         // Dirty checking flushes on transaction commit
@@ -144,7 +146,7 @@ public class RefreshTokenService {
         if (rawToken == null || rawToken.isBlank()) return;  // null-safe
         repository.findByTokenHash(TokenHasher.sha256Hex(rawToken)).ifPresent(row -> {
             if (row.getRevokedAt() == null) {
-                row.setRevokedAt(OffsetDateTime.now());  // dirty checking saves
+                row.setRevokedAt(OffsetDateTime.now(clock));  // dirty checking saves
             }
         });
         // NEVER throws. NEVER logs details that could leak validity (FOOTGUNS §B.7).
@@ -159,6 +161,6 @@ public class RefreshTokenService {
      */
     @Transactional
     public int revokeAllForUser(Long userId) {
-        return repository.revokeAllByUserId(userId, OffsetDateTime.now());
+        return repository.revokeAllByUserId(userId, OffsetDateTime.now(clock));
     }
 }

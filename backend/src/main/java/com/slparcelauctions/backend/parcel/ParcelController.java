@@ -1,12 +1,12 @@
 package com.slparcelauctions.backend.parcel;
 
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.parcel.dto.ParcelLookupRequest;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
@@ -21,8 +21,8 @@ import lombok.RequiredArgsConstructor;
  * Parcel lookup endpoint. Gated on authenticated + SL-verified user:
  * Spring Security enforces authentication (401 on missing/bad JWT) via
  * {@code SecurityConfig}; the verified-flag check runs inline below and
- * throws {@link AccessDeniedException} (mapped to 403 by
- * {@code GlobalExceptionHandler}) for authenticated-but-unverified users.
+ * throws {@link NotVerifiedException} (mapped to 403 NOT_VERIFIED by the
+ * global exception handler) for authenticated-but-unverified users.
  *
  * <p>No dedicated {@code @PreAuthorize} infrastructure exists in this
  * codebase yet; introducing one would be premature. When a second
@@ -49,7 +49,7 @@ public class ParcelController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         if (!Boolean.TRUE.equals(user.getVerified())) {
-            throw new AccessDeniedException(
+            throw new NotVerifiedException(
                     "SL avatar verification required to look up parcels.");
         }
     }

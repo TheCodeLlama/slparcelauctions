@@ -159,16 +159,8 @@ public class TerminalCommandService {
             Escrow escrow = cmd.getEscrowId() == null
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
-            ledgerRepo.save(EscrowTransaction.builder()
-                    .escrow(escrow)
-                    .auction(escrow == null ? null : escrow.getAuction())
-                    .type(ledgerTypeFor(cmd))
-                    .status(EscrowTransactionStatus.FAILED)
-                    .amount(cmd.getAmount())
-                    .terminalId(cmd.getTerminalId())
-                    .slTransactionId(req.slTransactionKey())
-                    .errorMessage(req.errorMessage())
-                    .build());
+            ledgerRepo.save(buildFailedLedgerRow(
+                    cmd, escrow, req.errorMessage(), req.slTransactionKey()));
 
             cmd.setLastError(req.errorMessage());
             if (cmd.getAttemptCount() < EscrowRetryPolicy.MAX_ATTEMPTS) {
@@ -307,7 +299,34 @@ public class TerminalCommandService {
         // admin flow; the auction room has no reason to observe them.
     }
 
-    private EscrowTransactionType ledgerTypeFor(TerminalCommand cmd) {
+    /**
+     * Builds a FAILED {@link EscrowTransaction} ledger row for the given
+     * command + (optional) escrow + error context. Public + static so the
+     * dispatcher's transport-failure stall path can reuse the same row shape
+     * without duplicating the {@code .builder()} chain. Callers persist the
+     * returned entity via their own {@code EscrowTransactionRepository}.
+     *
+     * <p>Both branches that emit a FAILED row — terminal-reported failures
+     * (in this service) and transport-failure stalls (in the dispatcher) —
+     * route through this helper so the dispute timeline surfaces them
+     * uniformly.
+     */
+    public static EscrowTransaction buildFailedLedgerRow(
+            TerminalCommand cmd, Escrow escrow, String errorMessage,
+            String slTransactionId) {
+        return EscrowTransaction.builder()
+                .escrow(escrow)
+                .auction(escrow == null ? null : escrow.getAuction())
+                .type(ledgerTypeFor(cmd))
+                .status(EscrowTransactionStatus.FAILED)
+                .amount(cmd.getAmount())
+                .terminalId(cmd.getTerminalId())
+                .slTransactionId(slTransactionId)
+                .errorMessage(errorMessage)
+                .build();
+    }
+
+    private static EscrowTransactionType ledgerTypeFor(TerminalCommand cmd) {
         if (cmd.getPurpose() == TerminalCommandPurpose.LISTING_FEE_REFUND) {
             return EscrowTransactionType.LISTING_FEE_REFUND;
         }

@@ -551,7 +551,7 @@ Each listing receives a verification tier badge visible to buyers. Tier is deter
 - All parcel metadata + seller description
 - Live current bid + bid count
 - Countdown timer
-- Bid history (anonymized or public - configurable)
+- Bid history (public — display name and avatar only, no IP or full name)
 - **Parcel layout map** - generated grid image showing parcel boundaries within the region (see Section 5.5)
 - **"Visit in Second Life" button** - links to SLURL (opens SL viewer and teleports user to parcel)
     - Web link format: `https://maps.secondlife.com/secondlife/Region%20Name/x/y/z`

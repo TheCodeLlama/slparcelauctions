@@ -13,12 +13,14 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.escrow.EscrowTransactionRepository;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope;
 import com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy;
 import com.slparcelauctions.backend.escrow.command.TerminalCommand;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandBody;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandStatus;
 import com.slparcelauctions.backend.escrow.command.TerminalHttpClient;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
@@ -51,6 +53,7 @@ public class TerminalCommandDispatcherTask {
     private final TerminalCommandRepository cmdRepo;
     private final TerminalRepository terminalRepo;
     private final EscrowRepository escrowRepo;
+    private final EscrowTransactionRepository ledgerRepo;
     private final TerminalHttpClient terminalHttp;
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final EscrowConfigProperties props;
@@ -123,7 +126,19 @@ public class TerminalCommandDispatcherTask {
         if (cmd.getAttemptCount() >= EscrowRetryPolicy.MAX_ATTEMPTS) {
             cmd.setRequiresManualReview(true);
             cmd = cmdRepo.save(cmd);
-            publishStallIfEscrow(cmd, now);
+            // Mirror the terminal-reported-failure ledger pattern: every
+            // exhausted attempt — whether the terminal reported a failure
+            // (TerminalCommandService.applyCallback) or the transport stalled
+            // out (this branch) — gets a FAILED row so the dispute timeline
+            // surfaces both shapes uniformly. The row is keyed to the
+            // originating escrow / auction when one exists; listing-fee
+            // refunds (no escrow) still get a row with a null escrow ref.
+            Escrow escrow = cmd.getEscrowId() == null
+                    ? null
+                    : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
+            ledgerRepo.save(TerminalCommandService.buildFailedLedgerRow(
+                    cmd, escrow, result.errorMessage(), null));
+            publishStall(cmd, escrow, now);
             log.error("Terminal command {} STALLED after {} attempts (transport): err={}",
                     cmd.getId(), cmd.getAttemptCount(), result.errorMessage());
         } else {
@@ -170,9 +185,10 @@ public class TerminalCommandDispatcherTask {
         return false;
     }
 
-    private void publishStallIfEscrow(TerminalCommand cmd, OffsetDateTime now) {
-        if (cmd.getEscrowId() == null) return;
-        Escrow escrow = escrowRepo.findById(cmd.getEscrowId()).orElse(null);
+    private void publishStall(TerminalCommand cmd, Escrow escrow, OffsetDateTime now) {
+        // No escrow row (e.g. listing-fee-refund command, or escrow vanished)
+        // — the FAILED ledger row above still captures the stall, but the
+        // PAYOUT_STALLED envelope is escrow-scoped so we skip it.
         if (escrow == null) return;
         final EscrowPayoutStalledEnvelope env =
                 EscrowPayoutStalledEnvelope.of(cmd, escrow, now);
