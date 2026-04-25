@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.sl.exception.AvatarAlreadyLinkedException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
+import com.slparcelauctions.backend.sl.exception.PenaltyOverpaymentException;
 import com.slparcelauctions.backend.verification.exception.AlreadyVerifiedException;
 import com.slparcelauctions.backend.verification.exception.CodeCollisionException;
 import com.slparcelauctions.backend.verification.exception.CodeNotFoundException;
@@ -156,6 +157,33 @@ public class SlExceptionHandler {
         pd.setTitle("Parcel already listed");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "SL_PARCEL_ALREADY_LISTED");
+        return pd;
+    }
+
+    /**
+     * Penalty payment exceeds the seller's outstanding balance
+     * (Epic 08 sub-spec 2 §7.6). 422 because the request is well-formed
+     * and authenticated but cannot be applied without driving the
+     * balance negative — the LSL terminal should refund the excess
+     * L$ in-world. Both {@code requested} and {@code available} surface
+     * on the ProblemDetail so the in-world script can render an
+     * accurate message ("you tried to pay L${requested} but only owe
+     * L${available}").
+     */
+    @ExceptionHandler(PenaltyOverpaymentException.class)
+    public ProblemDetail handlePenaltyOverpayment(
+            PenaltyOverpaymentException e, HttpServletRequest req) {
+        log.warn("Penalty overpayment rejected: requested=L${} available=L${} path={}",
+                e.getRequested(), e.getAvailable(), req.getRequestURI());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Payment amount exceeds outstanding penalty balance.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/penalty-overpayment"));
+        pd.setTitle("Penalty overpayment");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_PENALTY_OVERPAYMENT");
+        pd.setProperty("requested", e.getRequested());
+        pd.setProperty("available", e.getAvailable());
         return pd;
     }
 

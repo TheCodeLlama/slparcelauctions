@@ -34,4 +34,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.id = :id")
     Optional<User> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Projection lookup that returns only the user id for an SL avatar
+     * UUID, avoiding hydration of the full {@link User} entity into the
+     * persistence context. Used by the SL terminal penalty endpoints
+     * (Epic 08 sub-spec 2 §7.5 / §7.6) where the subsequent
+     * {@link #findByIdForUpdate(Long)} call must read the freshly
+     * locked row's state — Hibernate's session cache would otherwise
+     * return the pre-lock entity instance with stale field values
+     * and the lock would silently degrade to a no-op for the read
+     * path.
+     */
+    @Query("SELECT u.id FROM User u WHERE u.slAvatarUuid = :slAvatarUuid")
+    Optional<Long> findIdBySlAvatarUuid(@Param("slAvatarUuid") UUID slAvatarUuid);
 }
