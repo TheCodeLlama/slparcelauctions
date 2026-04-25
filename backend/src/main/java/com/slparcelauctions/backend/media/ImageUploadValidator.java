@@ -13,18 +13,24 @@ import org.springframework.stereotype.Component;
 
 import com.slparcelauctions.backend.user.exception.ImageTooLargeException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
+import com.sksamuel.scrimage.ImmutableImage;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Shared bytes-level image validation used by both {@code AvatarImageProcessor}
- * and {@code ListingPhotoProcessor}. Sniffs the format via ImageIO (trusting
+ * and {@code ListingPhotoProcessor}. Sniffs the format via byte-level magic
+ * bytes for WebP and via ImageIO's reader registry for JPEG/PNG (trusting
  * the actual bytes, not the multipart {@code Content-Type} header which is
- * trivially client-controlled) and decodes the image so callers can work on
- * a {@link BufferedImage}.
+ * trivially client-controlled). Decodes the image so callers can work on a
+ * {@link BufferedImage}.
  *
  * <p>The returned {@link ValidationResult} also carries the detected format
  * and pre-decoded dimensions so downstream processors avoid redundant I/O.
+ *
+ * <p>WebP decoding is delegated to Scrimage (subprocess-based dwebp under
+ * the hood) because the JDK's built-in ImageIO has no WebP SPI. JPEG/PNG
+ * stay on the JDK's built-in SPIs which work everywhere without native code.
  */
 @Component
 @Slf4j
@@ -57,27 +63,42 @@ public class ImageUploadValidator {
 
         BufferedImage image;
         ImageFormat format;
-        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(inputBytes))) {
-            if (iis == null) {
-                throw new UnsupportedImageFormatException("Failed to open image stream");
-            }
-            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
-            if (!readers.hasNext()) {
-                throw new UnsupportedImageFormatException("Unrecognized image format");
-            }
-            ImageReader reader = readers.next();
-            String readerFormatName = reader.getFormatName();
-            format = ImageFormat.fromImageIoName(readerFormatName)
-                    .orElseThrow(() -> new UnsupportedImageFormatException(
-                            "Format '" + readerFormatName + "' not allowed. Use JPEG, PNG, or WebP."));
-            reader.setInput(iis);
+        if (isWebpMagic(inputBytes)) {
+            format = ImageFormat.WEBP;
             try {
-                image = reader.read(0);
-            } finally {
-                reader.dispose();
+                image = ImmutableImage.loader().fromBytes(inputBytes).awt();
+            } catch (IOException e) {
+                throw new UnsupportedImageFormatException(
+                        "Failed to decode WebP image: " + e.getMessage(), e);
+            } catch (RuntimeException e) {
+                // Scrimage wraps cwebp/dwebp subprocess failures in unchecked
+                // exceptions; surface as the validator's standard reject.
+                throw new UnsupportedImageFormatException(
+                        "Failed to decode WebP image: " + e.getMessage(), e);
             }
-        } catch (IOException e) {
-            throw new UnsupportedImageFormatException("Failed to decode image: " + e.getMessage(), e);
+        } else {
+            try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(inputBytes))) {
+                if (iis == null) {
+                    throw new UnsupportedImageFormatException("Failed to open image stream");
+                }
+                Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+                if (!readers.hasNext()) {
+                    throw new UnsupportedImageFormatException("Unrecognized image format");
+                }
+                ImageReader reader = readers.next();
+                String readerFormatName = reader.getFormatName();
+                format = ImageFormat.fromImageIoName(readerFormatName)
+                        .orElseThrow(() -> new UnsupportedImageFormatException(
+                                "Format '" + readerFormatName + "' not allowed. Use JPEG, PNG, or WebP."));
+                reader.setInput(iis);
+                try {
+                    image = reader.read(0);
+                } finally {
+                    reader.dispose();
+                }
+            } catch (IOException e) {
+                throw new UnsupportedImageFormatException("Failed to decode image: " + e.getMessage(), e);
+            }
         }
 
         if (image == null) {
@@ -91,5 +112,18 @@ public class ImageUploadValidator {
                     "Image dimensions " + width + "x" + height + " exceed max " + maxDimension);
         }
         return new ValidationResult(format, image, width, height);
+    }
+
+    /**
+     * Returns {@code true} if the bytes start with the WebP RIFF container
+     * signature: {@code "RIFF" .... "WEBP"} (12-byte header where bytes 0-3
+     * are "RIFF", bytes 4-7 are the chunk size, bytes 8-11 are "WEBP").
+     */
+    private static boolean isWebpMagic(byte[] bytes) {
+        if (bytes.length < 12) {
+            return false;
+        }
+        return bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
     }
 }
