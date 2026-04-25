@@ -36,9 +36,14 @@ class ParcelTagControllerIntegrationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void list_unauthenticated_returns401() throws Exception {
+    void list_unauthenticated_returnsPublicTagCatalogue() throws Exception {
+        // GET /api/v1/parcel-tags is intentionally public so anonymous
+        // /browse callers can render tag filters without first
+        // authenticating. SecurityConfig matcher at line 123 flips this
+        // ahead of the /api/v1/** authenticated catch-all.
         mockMvc.perform(get("/api/v1/parcel-tags"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
     }
 
     @Test

@@ -362,12 +362,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — needs an arm64 build of `webp-imageio` OR a different webp library (e.g., `imageio-webp` from `com.github.gotson` which ships native arm64), OR `@DisabledOnOs` gating these tests on macOS arm64 with a clear comment.
 - **Notes:** Implementer agents have been independently re-explaining these failures in every task report on this branch. Worth either fixing or explicitly silencing so they stop polluting test reports. The files: `backend/src/test/java/com/slparcelauctions/backend/auction/photos/ListingPhotoProcessorTest.java`, `backend/src/test/java/com/slparcelauctions/backend/storage/ImageUploadValidatorTest.java`, `backend/src/test/java/com/slparcelauctions/backend/user/AvatarImageProcessorTest.java`.
 
-### `ParcelTagControllerIntegrationTest.list_unauthenticated_returns401` baseline failure
-- **From:** Pre-existing baseline noise; rediscovered by every backend test run since at least Epic 07. Surfaced in Epic 08 sub-spec 1 + sub-spec 2 implementer reports.
-- **Why:** Test asserts `GET /api/v1/parcel-tags` returns 401 when unauthenticated, but the SecurityConfig matcher for that path was flipped to `permitAll()` in an earlier task without updating the test. Test now sees 200 instead of 401. Single failure per `./mvnw test` run.
-- **When:** Indefinite — either revert the matcher to `authenticated()` OR update the test to assert 200 with the public list shape, depending on whether the public-tag-list decision was intentional. The matcher change history needs to be audited to confirm intent.
-- **Notes:** File: `backend/src/test/java/com/slparcelauctions/backend/parceltag/ParcelTagControllerIntegrationTest.java`. Quick fix is one line either way; the question is which direction is correct. Worth a 5-minute investigation rather than letting it sit.
-
 ### Real-time `PENALTY_CLEARED` push for SuspensionBanner
 - **From:** Epic 08 sub-spec 2 (§5.6 + §12)
 - **Why:** When a seller pays off their `penaltyBalanceOwed` at a SLPA terminal, the dashboard `<SuspensionBanner>` should dismiss in real time. Sub-spec 2 ships a window-focus refetch + 30s `staleTime` on `/me` as the freshness mechanism — adequate for the walk-in flow (seller tabs back from SL, banner dismisses within seconds) but not instantaneous. A `/user/{userId}/queue/account` envelope `PENALTY_CLEARED` would push the update the moment the terminal payment commits.
