@@ -123,6 +123,45 @@ public class User {
     @Column(name = "listing_suspension_until")
     private OffsetDateTime listingSuspensionUntil;
 
+    /**
+     * Outstanding penalty debt in L$ owed by this seller from cancelled-with-
+     * bids offenses on the cancellation ladder (Epic 08 sub-spec 2 §2). Pay-at-
+     * terminal model: while this is &gt; 0 the seller is suspended from creating
+     * new listings; payment at any SLPA terminal pays it down to zero, at which
+     * point the suspension lifts. Incremented atomically inside
+     * {@code CancellationService.cancel} when the ladder selects
+     * {@code PENALTY} or {@code PENALTY_AND_30D}; decremented by
+     * {@code PenaltyTerminalService} on payment receipt.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "penalty_balance_owed", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    private Long penaltyBalanceOwed = 0L;
+
+    /**
+     * Permanent listing ban flag. Set to {@code true} on the seller's 4th+
+     * cancelled-with-bids offense by {@code CancellationService.cancel} when
+     * the ladder selects {@code PERMANENT_BAN}. Once set, listing creation is
+     * permanently denied — there is no automatic clear path; admins must
+     * intervene. See spec §2 (ladder) and §7.7 (gate semantics).
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "banned_from_listing", nullable = false,
+            columnDefinition = "boolean not null default false")
+    private Boolean bannedFromListing = false;
+
     @Builder.Default
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified = false;
