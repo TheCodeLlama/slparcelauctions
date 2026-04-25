@@ -10,7 +10,7 @@
 
 ## 1. Goal
 
-Establish the in-app half of the notification system end-to-end: persistence model, publisher API, real-time delivery via Spring user-destinations, bell + dropdown + dedicated feed page, and integration into every existing event source that fires a notifiable event today. Closes six deferred-ledger entries in one shot — the deferred outbid / auction-end / escrow-lifecycle / suspension / bot-fraud notifications all start firing through this new infrastructure, plus the deferred user-targeted WebSocket queues land at the same time, and the deferred `PENALTY_CLEARED` push for `SuspensionBanner` becomes real.
+Establish the in-app half of the notification system end-to-end: 22 categories, persistence model, publisher API, real-time delivery via Spring user-destinations, bell + dropdown + dedicated feed page, and integration into every existing event source that fires a notifiable event today. Closes six deferred-ledger entries in one shot — the deferred outbid / auction-end / escrow-lifecycle / suspension / bot-fraud notifications all start firing through this new infrastructure, plus the deferred user-targeted WebSocket queues land at the same time, and the deferred `PENALTY_CLEARED` push for `SuspensionBanner` becomes real.
 
 Out of scope: email channel (sub-spec 2), SL IM queue (sub-spec 3), preferences UI (sub-spec 2 — the User entity already has the JSONB columns from Epic 02 sub-spec 2b), `REVIEW_RESPONSE_WINDOW_CLOSING` and `REALTY_GROUP_*` categories (no event source today), system announcements admin tooling (Epic 10), WS reconnect telemetry (existing deferred entry retained).
 
@@ -153,7 +153,7 @@ Notes:
 
 ### 3.4 Enums
 
-`NotificationCategory` — 21 values, one per copy variant (no conditional rendering inside a category):
+`NotificationCategory` — 22 values, one per copy variant (no conditional rendering inside a category):
 
 | Category | Group | Trigger | Recipient | Coalesce key |
 |---|---|---|---|---|
@@ -190,21 +190,33 @@ The four `AUCTION_ENDED_*` seller-facing categories are split by outcome (rather
 
 ### 3.5 Repository + DAO split
 
-`NotificationRepository` (Spring Data JPA) — read-side queries, simple CRUD, count, paged list:
+`NotificationRepository` (Spring Data JPA) — read-side queries, simple CRUD, count, paged list. Per the project-wide footgun (`BidRepository.findMyBidAuctionIds` vs `findMyBidAuctionIdsUnfiltered` split — "splitting the two shapes keeps each JPQL query literal and avoids the HQL-on-Collection-IS-NULL footgun"), filtered and unfiltered list/markAllRead queries are distinct methods. Service dispatches based on whether `group` is null.
 
 ```java
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
+    // List — group filter present
     @Query("SELECT n FROM Notification n WHERE n.user.id = :userId " +
-           "AND (:group IS NULL OR n.category IN :categoriesInGroup) " +
+           "AND n.category IN :categoriesInGroup " +
            "AND (:unreadOnly = false OR n.read = false) " +
            "ORDER BY n.updatedAt DESC, n.id DESC")
-    Page<Notification> findForUser(@Param("userId") Long userId,
-                                   @Param("group") NotificationGroup group,
-                                   @Param("categoriesInGroup") Collection<NotificationCategory> categoriesInGroup,
-                                   @Param("unreadOnly") boolean unreadOnly,
-                                   Pageable pageable);
+    Page<Notification> findForUserByGroup(
+        @Param("userId") Long userId,
+        @Param("categoriesInGroup") Collection<NotificationCategory> categoriesInGroup,
+        @Param("unreadOnly") boolean unreadOnly,
+        Pageable pageable);
+
+    // List — no group filter
+    @Query("SELECT n FROM Notification n WHERE n.user.id = :userId " +
+           "AND (:unreadOnly = false OR n.read = false) " +
+           "ORDER BY n.updatedAt DESC, n.id DESC")
+    Page<Notification> findForUserUnfiltered(
+        @Param("userId") Long userId,
+        @Param("unreadOnly") boolean unreadOnly,
+        Pageable pageable);
 
     long countByUserIdAndReadFalse(Long userId);
+
+    boolean existsByIdAndUserId(Long id, Long userId);
 
     @Query("SELECT n.category, COUNT(n) FROM Notification n " +
            "WHERE n.user.id = :userId AND n.read = false GROUP BY n.category")
@@ -215,13 +227,20 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
            "WHERE n.id = :id AND n.user.id = :userId AND n.read = false")
     int markRead(@Param("id") Long id, @Param("userId") Long userId);
 
+    // Mark-all-read — group filter present
     @Modifying
     @Query("UPDATE Notification n SET n.read = true " +
            "WHERE n.user.id = :userId AND n.read = false " +
-           "AND (:group IS NULL OR n.category IN :categoriesInGroup)")
-    int markAllRead(@Param("userId") Long userId,
-                    @Param("group") NotificationGroup group,
-                    @Param("categoriesInGroup") Collection<NotificationCategory> categoriesInGroup);
+           "AND n.category IN :categoriesInGroup")
+    int markAllReadByGroup(
+        @Param("userId") Long userId,
+        @Param("categoriesInGroup") Collection<NotificationCategory> categoriesInGroup);
+
+    // Mark-all-read — no group filter
+    @Modifying
+    @Query("UPDATE Notification n SET n.read = true " +
+           "WHERE n.user.id = :userId AND n.read = false")
+    int markAllReadUnfiltered(@Param("userId") Long userId);
 }
 ```
 
@@ -311,7 +330,9 @@ public class NotificationService {
     }
 
     public int markAllRead(long userId, NotificationGroup group) {
-        int affected = repo.markAllRead(userId, group, group != null ? group.categories() : null);
+        int affected = (group != null)
+            ? repo.markAllReadByGroup(userId, group.categories())
+            : repo.markAllReadUnfiltered(userId);
         if (affected > 0) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override public void afterCommit() {
@@ -330,7 +351,12 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public Page<NotificationDto> listFor(long userId, NotificationGroup group,
-                                         boolean unreadOnly, Pageable pageable) { ... }
+                                         boolean unreadOnly, Pageable pageable) {
+        Page<Notification> page = (group != null)
+            ? repo.findForUserByGroup(userId, group.categories(), unreadOnly, pageable)
+            : repo.findForUserUnfiltered(userId, unreadOnly, pageable);
+        return page.map(NotificationDto::from);
+    }
 }
 ```
 
@@ -1257,7 +1283,7 @@ Three pitfalls worth surfacing for future maintainers:
 **In sub-spec 1 (this spec):**
 - `Notification` entity + repo + DAO + service + controller
 - `NotificationPublisher` interface + implementation with all per-category methods
-- All 21 categories *defined* in the enum
+- All 22 categories *defined* in the enum
 - Comprehensive event-source wiring (every existing service that should fire today)
 - `/user/queue/notifications` + `/user/queue/account` STOMP destinations
 - `JwtChannelInterceptor` principal-population extension
