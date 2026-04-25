@@ -108,7 +108,7 @@ export interface CancellationHistoryDto {
   primaryPhotoUrl: string | null;
   cancelledFromStatus: string;
   hadBids: boolean;
-  reason: string;
+  reason: string | null;
   cancelledAt: string;
   penaltyApplied: CancellationHistoryPenalty | null;
 }

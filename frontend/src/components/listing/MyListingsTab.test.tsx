@@ -7,6 +7,8 @@ import {
   waitFor,
 } from "@/test/render";
 import { server } from "@/test/msw/server";
+import { mockVerifiedCurrentUser } from "@/test/msw/fixtures";
+import type { CurrentUser } from "@/lib/user/api";
 import type { AuctionStatus, SellerAuctionResponse } from "@/types/auction";
 import { MyListingsTab } from "./MyListingsTab";
 
@@ -88,9 +90,19 @@ function row(
   };
 }
 
-function seed(rows: SellerAuctionResponse[]) {
+/**
+ * Seeds the listings endpoint plus a default {@code /me} response so the
+ * component's {@code useCurrentUser} call doesn't trip MSW's
+ * {@code onUnhandledRequest: "error"} guard. Tests that exercise the
+ * disabled-CTA suspension states pass a custom user via {@code me}.
+ */
+function seed(
+  rows: SellerAuctionResponse[],
+  me: CurrentUser = mockVerifiedCurrentUser,
+) {
   server.use(
     http.get("*/api/v1/users/me/auctions", () => HttpResponse.json(rows)),
+    http.get("*/api/v1/users/me", () => HttpResponse.json(me)),
   );
 }
 
@@ -163,5 +175,72 @@ describe("MyListingsTab", () => {
     expect(
       screen.queryByRole("tab", { name: /Suspended/ }),
     ).not.toBeInTheDocument();
+  });
+
+  // Spec §8.4 first paragraph: the dashboard CTA renders disabled with the
+  // suspension-reason copy as a tooltip when the seller cannot create a new
+  // listing. The four cases below cover the three suspension reasons plus
+  // the clean-user happy path.
+  describe("Create new listing CTA — suspension states", () => {
+    it("renders an enabled link for a clean user", async () => {
+      seed([row(1, "ACTIVE")]);
+      renderWithProviders(<MyListingsTab />, { auth: "authenticated" });
+      const link = await screen.findByRole("link", {
+        name: /Create new listing/,
+      });
+      expect(link).toHaveAttribute("href", "/listings/create");
+    });
+
+    it("renders a disabled button with permanent-ban tooltip when bannedFromListing", async () => {
+      seed([row(1, "ACTIVE")], {
+        ...mockVerifiedCurrentUser,
+        bannedFromListing: true,
+      });
+      renderWithProviders(<MyListingsTab />, { auth: "authenticated" });
+      const cta = await screen.findByRole("button", {
+        name: /Create new listing/,
+      });
+      await waitFor(() => expect(cta).toBeDisabled());
+      expect(cta).toHaveAttribute(
+        "title",
+        expect.stringMatching(/permanently banned/i),
+      );
+      expect(
+        screen.queryByRole("link", { name: /Create new listing/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders a disabled button with temporary-suspension tooltip when listingSuspensionUntil is in the future", async () => {
+      const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      seed([row(1, "ACTIVE")], {
+        ...mockVerifiedCurrentUser,
+        listingSuspensionUntil: future,
+      });
+      renderWithProviders(<MyListingsTab />, { auth: "authenticated" });
+      const cta = await screen.findByRole("button", {
+        name: /Create new listing/,
+      });
+      await waitFor(() => expect(cta).toBeDisabled());
+      expect(cta).toHaveAttribute(
+        "title",
+        expect.stringMatching(/temporarily suspended/i),
+      );
+    });
+
+    it("renders a disabled button with outstanding-penalty tooltip when penaltyBalanceOwed > 0", async () => {
+      seed([row(1, "ACTIVE")], {
+        ...mockVerifiedCurrentUser,
+        penaltyBalanceOwed: 1000,
+      });
+      renderWithProviders(<MyListingsTab />, { auth: "authenticated" });
+      const cta = await screen.findByRole("button", {
+        name: /Create new listing/,
+      });
+      await waitFor(() => expect(cta).toBeDisabled());
+      expect(cta).toHaveAttribute(
+        "title",
+        expect.stringMatching(/outstanding penalty balance/i),
+      );
+    });
   });
 });
