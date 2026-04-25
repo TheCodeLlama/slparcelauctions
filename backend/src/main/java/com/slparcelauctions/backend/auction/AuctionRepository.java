@@ -78,21 +78,38 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     Optional<Auction> findByIdForDetail(@Param("id") Long id);
 
     /**
-     * Returns the IDs of ACTIVE auctions whose {@code lastOwnershipCheckAt} is
-     * either null (never checked — happens on fresh activation when the
-     * jitter-seeded timestamp lands before the cutoff) or at/before the cutoff.
-     * Sorted oldest-first so the longest-stale listings are dispatched first.
-     * Nulls sort first so fresh ACTIVE transitions that missed the jitter
-     * window still participate in the next sweep. See
-     * {@code OwnershipMonitorScheduler} for the cutoff derivation.
+     * Returns the IDs of auctions due for an ownership check. Two paths share
+     * the {@code lastOwnershipCheckAt < cutoff} cadence gate so the polling
+     * frequency is uniform across both:
+     * <ul>
+     *   <li><b>ACTIVE auctions</b> — the live ownership-monitor flow. A null
+     *       {@code lastOwnershipCheckAt} qualifies (fresh ACTIVE transitions
+     *       that missed the jitter window still get picked up).</li>
+     *   <li><b>CANCELLED auctions inside their post-cancel watch window</b> —
+     *       Epic 08 sub-spec 2 §6. {@code postCancelWatchUntil} is set on
+     *       cancel-with-bids and points {@code now + watch-hours} into the
+     *       future; rows whose window has expired are excluded by the
+     *       {@code postCancelWatchUntil > :now} predicate. The watch window
+     *       gets cleared once a {@code CANCEL_AND_SELL} flag is raised so a
+     *       single auction can flag at most once during the window.</li>
+     * </ul>
+     *
+     * <p>Sort is oldest-first within each branch so the longest-stale
+     * listings are dispatched first; nulls sort first.
      */
     @Query("""
             SELECT a.id FROM Auction a
-            WHERE a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
-              AND (a.lastOwnershipCheckAt IS NULL OR a.lastOwnershipCheckAt <= :cutoff)
+            WHERE (a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+                    AND (a.lastOwnershipCheckAt IS NULL OR a.lastOwnershipCheckAt <= :cutoff))
+               OR (a.status = com.slparcelauctions.backend.auction.AuctionStatus.CANCELLED
+                    AND a.postCancelWatchUntil IS NOT NULL
+                    AND a.postCancelWatchUntil > :now
+                    AND (a.lastOwnershipCheckAt IS NULL OR a.lastOwnershipCheckAt <= :cutoff))
             ORDER BY a.lastOwnershipCheckAt ASC NULLS FIRST
             """)
-    List<Long> findDueForOwnershipCheck(@Param("cutoff") OffsetDateTime cutoff);
+    List<Long> findDueForOwnershipCheck(
+            @Param("cutoff") OffsetDateTime cutoff,
+            @Param("now") OffsetDateTime now);
 
     /**
      * Acquires a {@code PESSIMISTIC_WRITE} (i.e. {@code SELECT ... FOR UPDATE})

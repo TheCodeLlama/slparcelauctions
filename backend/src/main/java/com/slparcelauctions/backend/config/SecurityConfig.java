@@ -161,6 +161,17 @@ public class SecurityConfig {
                         // added in-place without disturbing the POST rule.
                         // FOOTGUNS §B.5: this MUST sit before the
                         // /api/v1/** catch-all (first-match-wins).
+                        // Cancellation preview + history (Epic 08 sub-spec 2
+                        // Task 2). Both are seller-private — JWT required so
+                        // CancellationStatusController can read the caller's
+                        // userId off the AuthPrincipal. The /me/* paths sit
+                        // BEFORE the /api/v1/users/{id}-style wildcards above
+                        // because matcher order is first-match-wins
+                        // (FOOTGUNS §B.5) and well above the /api/v1/**
+                        // catch-all so the contract is explicit at this
+                        // surface.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/cancellation-status").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/cancellation-history").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/reviews").authenticated()
                         // Review read endpoints (Epic 08 sub-spec 1 Task 2).
                         // GET /auctions/{id}/reviews and

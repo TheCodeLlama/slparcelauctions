@@ -125,6 +125,67 @@ class AuctionControllerIntegrationTest {
     }
 
     @Test
+    void create_whenSellerOwesPenalty_returns403WithCodePenaltyOwed() throws Exception {
+        // Epic 08 sub-spec 2 §7.7 — suspension gate on listing creation.
+        // Mark the seller as owing a penalty balance and assert the create
+        // path 403s with the right ProblemDetail code.
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        seller.setPenaltyBalanceOwed(1000L);
+        userRepository.save(seller);
+
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                168, false, null, null, null);
+
+        mockMvc.perform(post("/api/v1/auctions")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PENALTY_OWED"))
+                .andExpect(jsonPath("$.title").value("Listing creation suspended"));
+    }
+
+    @Test
+    void create_whenSellerTimedSuspended_returns403WithCodeTimedSuspension() throws Exception {
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        seller.setListingSuspensionUntil(OffsetDateTime.now().plusDays(20));
+        userRepository.save(seller);
+
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                168, false, null, null, null);
+
+        mockMvc.perform(post("/api/v1/auctions")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("TIMED_SUSPENSION"));
+    }
+
+    @Test
+    void create_whenSellerBanned_returns403WithCodePermanentBan() throws Exception {
+        // Ban shadows penalty + timed — the gate evaluates ban first.
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        seller.setBannedFromListing(true);
+        seller.setListingSuspensionUntil(OffsetDateTime.now().plusDays(20));
+        seller.setPenaltyBalanceOwed(2500L);
+        userRepository.save(seller);
+
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                168, false, null, null, null);
+
+        mockMvc.perform(post("/api/v1/auctions")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PERMANENT_BAN"));
+    }
+
+    @Test
     void create_asUnverifiedUser_returns403() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 sellerParcel.getId(), "Test listing", 1000L, null, null,

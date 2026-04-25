@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -104,6 +105,64 @@ public class SuspensionService {
 
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
                 auction.getId(), auction.getParcel().getSlParcelUuid());
+    }
+
+    /**
+     * Raises a {@link FraudFlagReason#CANCEL_AND_SELL} flag for a CANCELLED
+     * auction whose parcel ownership has flipped to a non-seller avatar
+     * within the post-cancel watch window (Epic 08 sub-spec 2 §6). Unlike
+     * {@link #suspendForOwnershipChange}, the auction is already CANCELLED
+     * so no status transition or {@code monitorLifecycle} hook fires — the
+     * flag is for admin review only. The caller is responsible for clearing
+     * {@code postCancelWatchUntil} on the auction (preventing re-flag on
+     * subsequent ticks during the original watch window).
+     *
+     * <p>Evidence shape per spec §6.3: snapshot of cancelledAt, expected
+     * vs observed owner UUIDs, an exact {@code hoursSinceCancellation}
+     * decimal so admin reviewers can score temporal proximity, plus the
+     * parcel/auction descriptors for at-a-glance context.
+     */
+    @Transactional
+    public void raiseCancelAndSellFlag(
+            Auction auction,
+            UUID observedOwnerKey,
+            OffsetDateTime cancelledAt) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        UUID expectedSeller = auction.getSeller().getSlAvatarUuid();
+
+        Map<String, Object> ev = new HashMap<>();
+        ev.put("cancelledAt", cancelledAt == null ? null : cancelledAt.toString());
+        ev.put("expectedSellerKey", expectedSeller == null ? null : expectedSeller.toString());
+        ev.put("observedOwnerKey", observedOwnerKey == null ? null : observedOwnerKey.toString());
+        // Decimal hours so the admin UI can display "4.2h" / "31.7h" without
+        // re-deriving from raw timestamps. Null if the cancellation log is
+        // missing — should not happen on a CANCELLED auction with an open
+        // watch window, but the JSON schema is permissive.
+        if (cancelledAt != null) {
+            double hours = (now.toEpochSecond() - cancelledAt.toEpochSecond()) / 3600.0;
+            ev.put("hoursSinceCancellation", hours);
+        } else {
+            ev.put("hoursSinceCancellation", null);
+        }
+        ev.put("parcelRegion", auction.getParcel().getRegionName());
+        // The Parcel entity carries no SL-side "local id" today — surface the
+        // database id as a stable handle so admin tools can join back to the
+        // parcel without leaking SL implementation details. If a future SL
+        // local-id column lands on Parcel, swap this projection in place.
+        ev.put("parcelLocalId", auction.getParcel().getId());
+        ev.put("auctionTitle", auction.getTitle());
+
+        fraudFlagRepo.save(FraudFlag.builder()
+                .auction(auction)
+                .parcel(auction.getParcel())
+                .reason(FraudFlagReason.CANCEL_AND_SELL)
+                .detectedAt(now)
+                .evidenceJson(ev)
+                .resolved(false)
+                .build());
+
+        log.warn("Auction {} CANCEL_AND_SELL flag raised: expectedSeller={}, observedOwner={}, hoursSince={}",
+                auction.getId(), expectedSeller, observedOwnerKey, ev.get("hoursSinceCancellation"));
     }
 
     /**
