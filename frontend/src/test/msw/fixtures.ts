@@ -42,6 +42,13 @@ export const mockUnverifiedCurrentUser: CurrentUser = {
   emailVerified: true,
   notifyEmail: {},
   notifySlIm: {},
+  // Listing-suspension defaults — a clean account has no pending penalty,
+  // no timed suspension, and is not banned. Tests that exercise the
+  // SuspensionBanner / cancel-modal ban-precedence paths override these
+  // per-test (Epic 08 sub-spec 2 §7.2).
+  penaltyBalanceOwed: 0,
+  listingSuspensionUntil: null,
+  bannedFromListing: false,
   createdAt: "2026-04-01T10:00:00Z",
   updatedAt: "2026-04-01T10:00:00Z",
 };

@@ -4,6 +4,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -38,6 +40,12 @@ public class NoOpAuctionBroadcastPublisher {
             public void publishEnded(AuctionEndedEnvelope envelope) {
                 log.debug("no-op publishEnded: auctionId={}, outcome={}",
                         envelope.auctionId(), envelope.endOutcome());
+            }
+
+            @Override
+            public void publishCancelled(AuctionCancelledEnvelope envelope) {
+                log.debug("no-op publishCancelled: auctionId={}, hadBids={}",
+                        envelope.auctionId(), envelope.hadBids());
             }
         };
     }

@@ -6,7 +6,11 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
+import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
@@ -29,6 +33,15 @@ import lombok.extern.slf4j.Slf4j;
  * loser sees whichever status the winner committed (ACTIVE → CANCELLED or
  * ACTIVE → ENDED) and surfaces a {@link InvalidAuctionStateException}. See
  * {@code BidCancelRaceTest} for the pin.
+ *
+ * <p><strong>Penalty ladder (Epic 08 sub-spec 2).</strong> When an
+ * {@code ACTIVE} auction with bids is cancelled, the seller's prior
+ * cancelled-with-bids count drives a four-step ladder
+ * (see {@link CancellationOffenseKind}). The seller row is pessimistically
+ * locked BEFORE the count read so two concurrent cancellations on the same
+ * seller serialise and observe distinct ladder indices. The selected
+ * {@link CancellationOffenseKind} and L$ amount are snapshotted onto the
+ * {@link CancellationLog} row as immutable historical fact.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +60,8 @@ public class CancellationService {
     private final ListingFeeRefundRepository refundRepo;
     private final UserRepository userRepo;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final AuctionBroadcastPublisher broadcastPublisher;
+    private final CancellationPenaltyProperties penaltyProps;
     private final Clock clock;
 
     @Transactional
@@ -64,15 +79,82 @@ public class CancellationService {
 
         AuctionStatus from = a.getStatus();
         boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
+        boolean activeWithBids = from == AuctionStatus.ACTIVE && hadBids;
 
-        // Cancellation log
+        // Pessimistic lock on the seller row — must precede the COUNT so two
+        // concurrent cancellations on the same seller serialise here and
+        // observe distinct prior-offense counts. Pre-active and active-without-
+        // bids cancellations also acquire the lock to keep the path uniform;
+        // the lock is cheap and avoids branching that would matter only on
+        // the cold path.
+        User seller = userRepo.findByIdForUpdate(a.getSeller().getId())
+                .orElseThrow(); // FK guarantees existence
+
+        // Pre-INSERT count → ladder index → consequence snapshot. Indices are
+        // clamped at 3 so the 4th-and-beyond offenses all snapshot
+        // PERMANENT_BAN. This call MUST run before saving the new log row
+        // (off-by-one trap).
+        CancellationOffenseKind kind;
+        Long amountL;
+        if (activeWithBids) {
+            long prior = logRepo.countPriorOffensesWithBids(seller.getId());
+            int index = (int) Math.min(prior, 3L);
+            switch (index) {
+                case 0 -> {
+                    kind = CancellationOffenseKind.WARNING;
+                    amountL = null;
+                }
+                case 1 -> {
+                    kind = CancellationOffenseKind.PENALTY;
+                    amountL = penaltyProps.penalty().secondOffenseL();
+                }
+                case 2 -> {
+                    kind = CancellationOffenseKind.PENALTY_AND_30D;
+                    amountL = penaltyProps.penalty().thirdOffenseL();
+                }
+                default -> {
+                    kind = CancellationOffenseKind.PERMANENT_BAN;
+                    amountL = null;
+                }
+            }
+        } else {
+            kind = CancellationOffenseKind.NONE;
+            amountL = null;
+        }
+
+        // Snapshot the consequence onto the log row — immutable historical
+        // fact, never recomputed from live state.
         logRepo.save(CancellationLog.builder()
                 .auction(a)
-                .seller(a.getSeller())
+                .seller(seller)
                 .cancelledFromStatus(from.name())
                 .hadBids(hadBids)
                 .reason(reason)
+                .penaltyKind(kind)
+                .penaltyAmountL(amountL)
                 .build());
+
+        // Apply consequence + arm the post-cancel ownership-watcher window.
+        if (activeWithBids) {
+            seller.setCancelledWithBids(seller.getCancelledWithBids() + 1);
+            OffsetDateTime now = OffsetDateTime.now(clock);
+            switch (kind) {
+                case PENALTY -> seller.setPenaltyBalanceOwed(
+                        seller.getPenaltyBalanceOwed() + amountL);
+                case PENALTY_AND_30D -> {
+                    seller.setPenaltyBalanceOwed(
+                            seller.getPenaltyBalanceOwed() + amountL);
+                    seller.setListingSuspensionUntil(
+                            now.plusDays(penaltyProps.penalty().thirdOffenseSuspensionDays()));
+                }
+                case PERMANENT_BAN -> seller.setBannedFromListing(true);
+                default -> {
+                    // WARNING / NONE — log only, no consequence.
+                }
+            }
+            userRepo.save(seller);
+            a.setPostCancelWatchUntil(now.plusHours(penaltyProps.postCancelWatchHours()));
+        }
 
         // Refund record if fee was paid and this is a pre-live cancellation
         if (Boolean.TRUE.equals(a.getListingFeePaid())
@@ -85,17 +167,30 @@ public class CancellationService {
             log.info("Listing fee refund (PENDING) created for auction {}", a.getId());
         }
 
-        // cancelled_with_bids counter on ACTIVE cancellations with bids
-        if (from == AuctionStatus.ACTIVE && hadBids) {
-            User seller = a.getSeller();
-            seller.setCancelledWithBids(seller.getCancelledWithBids() + 1);
-            userRepo.save(seller);
-        }
-
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
         monitorLifecycle.onAuctionClosed(saved);
-        log.info("Auction {} cancelled from {} (hadBids={})", a.getId(), from, hadBids);
+        log.info("Auction {} cancelled from {} (hadBids={}, kind={})",
+                a.getId(), from, hadBids, kind);
+
+        // Register the WS broadcast for afterCommit only — never inside the
+        // tx. Subscribers must never observe a cancellation that rolls back
+        // on a late DB failure. Mirrors the pattern used by ReviewService.
+        AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
+                saved, hadBids, OffsetDateTime.now(clock));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcastPublisher.publishCancelled(envelope);
+                        }
+                    });
+        } else {
+            // Slice tests / non-tx callers — fire immediately.
+            broadcastPublisher.publishCancelled(envelope);
+        }
+
         return saved;
     }
 }

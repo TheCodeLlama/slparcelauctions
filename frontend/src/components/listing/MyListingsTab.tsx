@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,8 +13,73 @@ import {
   type MyListingsFilter,
 } from "@/hooks/useMyListings";
 import { ApiError, isApiError } from "@/lib/api";
+import { useCurrentUser } from "@/lib/user";
+import type { CurrentUser } from "@/lib/user/api";
 import { FilterChipsRow } from "./FilterChipsRow";
 import { ListingSummaryRow } from "./ListingSummaryRow";
+
+/**
+ * Spec §8.4 first paragraph: dashboard "Create new listing" CTA must render
+ * as a disabled button with a tooltip when the seller cannot create a new
+ * listing. The disabled-state copy mirrors the wizard's
+ * {@link SuspensionErrorModal} reason copy so the seller sees the same
+ * explanation whether they pre-clicked the dashboard CTA or hit the 403
+ * backstop in the wizard.
+ *
+ * <p>Returns {@code null} when the seller can create a listing — the call
+ * site renders the existing {@code <Link>} in that branch.
+ */
+function listingDisabledReason(user: CurrentUser | undefined): string | null {
+  if (!user) return null;
+  if (user.bannedFromListing) {
+    return "You are permanently banned from creating new listings.";
+  }
+  const owesPenalty = (user.penaltyBalanceOwed ?? 0) > 0;
+  if (owesPenalty) {
+    return "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.";
+  }
+  const suspensionUntilRaw = user.listingSuspensionUntil;
+  const suspensionUntil = suspensionUntilRaw
+    ? new Date(suspensionUntilRaw)
+    : null;
+  const timedSuspended = suspensionUntil != null && suspensionUntil > new Date();
+  if (timedSuspended) {
+    return "Your listing privileges are temporarily suspended.";
+  }
+  return null;
+}
+
+/**
+ * Wraps the create-listing CTA so the disabled-state path lives in one
+ * place. When {@link listingDisabledReason} returns {@code null} the CTA
+ * renders as the existing {@code <Link>} → {@code <Button>} composite
+ * (clean user). Otherwise it renders a disabled {@code <Button>} carrying
+ * the suspension-reason copy as a {@code title} tooltip.
+ */
+function CreateListingCta({
+  disabledReason,
+  children,
+}: {
+  disabledReason: string | null;
+  children: ReactNode;
+}) {
+  if (disabledReason) {
+    return (
+      <Button
+        leftIcon={<Plus className="size-4" />}
+        disabled
+        title={disabledReason}
+      >
+        {children}
+      </Button>
+    );
+  }
+  return (
+    <Link href="/listings/create">
+      <Button leftIcon={<Plus className="size-4" />}>{children}</Button>
+    </Link>
+  );
+}
 
 /**
  * Top-level content for {@code /dashboard/listings}. Composes:
@@ -39,6 +104,8 @@ export function MyListingsTab() {
   const [filter, setFilter] = useState<MyListingsFilter>("All");
   const { listings, all, isLoading, isError, error } = useMyListings(filter);
   const suspendedCount = useMyListingsSuspendedCount();
+  const { data: currentUser } = useCurrentUser();
+  const disabledReason = listingDisabledReason(currentUser);
 
   if (isLoading) {
     return (
@@ -67,11 +134,9 @@ export function MyListingsTab() {
         headline="No listings yet"
         description="Put your first parcel up for auction to start selling."
       >
-        <Link href="/listings/create">
-          <Button leftIcon={<Plus className="size-4" />}>
-            Create your first listing
-          </Button>
-        </Link>
+        <CreateListingCta disabledReason={disabledReason}>
+          Create your first listing
+        </CreateListingCta>
       </EmptyState>
     );
   }
@@ -85,11 +150,9 @@ export function MyListingsTab() {
             ({all.length})
           </span>
         </h2>
-        <Link href="/listings/create">
-          <Button leftIcon={<Plus className="size-4" />}>
-            Create new listing
-          </Button>
-        </Link>
+        <CreateListingCta disabledReason={disabledReason}>
+          Create new listing
+        </CreateListingCta>
       </div>
       <FilterChipsRow
         value={filter}

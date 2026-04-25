@@ -100,6 +100,19 @@ public class Auction {
     @Column(name = "last_ownership_check_at")
     private OffsetDateTime lastOwnershipCheckAt;
 
+    /**
+     * Watch-window deadline for the post-cancellation ownership probe (Epic 08
+     * sub-spec 2 §6). Set when an {@code ACTIVE}-with-bids auction is
+     * cancelled, to {@code now + slpa.cancellation.post-cancel-watch-hours}
+     * (default 48h). The ownership monitor scans for cancelled auctions whose
+     * watch window is still open and raises a {@code CANCEL_AND_SELL} fraud
+     * flag if the parcel ownership flips to a non-seller avatar within the
+     * window. {@code null} for cancellations that don't qualify (pre-active,
+     * or active-without-bids).
+     */
+    @Column(name = "post_cancel_watch_until")
+    private OffsetDateTime postCancelWatchUntil;
+
     @Builder.Default
     @Column(name = "consecutive_world_api_failures", nullable = false, columnDefinition = "integer NOT NULL DEFAULT 0")
     private Integer consecutiveWorldApiFailures = 0;

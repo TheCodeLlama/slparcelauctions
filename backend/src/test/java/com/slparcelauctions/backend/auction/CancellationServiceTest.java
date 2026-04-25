@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.parcel.Parcel;
@@ -37,21 +38,32 @@ class CancellationServiceTest {
     @Mock ListingFeeRefundRepository refundRepo;
     @Mock UserRepository userRepo;
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
+    @Mock AuctionBroadcastPublisher broadcastPublisher;
 
     CancellationService service;
 
     private User seller;
     private Parcel parcel;
     private Clock fixed;
+    private CancellationPenaltyProperties penaltyProps;
 
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
+        penaltyProps = new CancellationPenaltyProperties(
+                new CancellationPenaltyProperties.Penalty(1000L, 2500L, 30),
+                48);
         service = new CancellationService(
-                auctionRepo, logRepo, refundRepo, userRepo, monitorLifecycle, fixed);
-        seller = User.builder().id(42L).email("s@example.com").cancelledWithBids(0).build();
+                auctionRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
+                broadcastPublisher, penaltyProps, fixed);
+        seller = User.builder().id(42L).email("s@example.com")
+                .cancelledWithBids(0)
+                .penaltyBalanceOwed(0L)
+                .bannedFromListing(false)
+                .build();
         parcel = Parcel.builder().id(100L).build();
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(userRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(seller));
     }
 
     /**

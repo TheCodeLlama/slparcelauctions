@@ -7,7 +7,10 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -19,8 +22,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
+import com.slparcelauctions.backend.auction.exception.SuspensionReason;
 
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
@@ -40,6 +47,7 @@ class AuctionServiceTest {
     @Mock ParcelRepository parcelRepo;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
+    @Spy Clock clock = Clock.fixed(Instant.parse("2026-04-24T10:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks AuctionService service;
 
@@ -182,6 +190,90 @@ class AuctionServiceTest {
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getTitle()).isEqualTo("Renamed listing");
+    }
+
+    // -------------------------------------------------------------------------
+    // create(): suspension gate — Epic 08 sub-spec 2 §7.7
+    //
+    // Order is most-restrictive-first: ban → timed → penalty. The first
+    // matching condition surfaces as the SellerSuspendedException's reason
+    // and rides the 403 ProblemDetail's "code" property.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void create_throwsPenaltyOwed_whenPenaltyBalancePositive() {
+        seller.setPenaltyBalanceOwed(500L);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.PENALTY_OWED);
+    }
+
+    @Test
+    void create_throwsTimedSuspension_whenSuspensionUntilFuture() {
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.TIMED_SUSPENSION);
+    }
+
+    @Test
+    void create_succeeds_whenSuspensionUntilInPast() {
+        // Boundary: an expired suspension does not gate the create.
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).minusSeconds(1));
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        Auction created = service.create(42L, req);
+
+        assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
+    }
+
+    @Test
+    void create_throwsPermanentBan_whenBannedFromListingTrue() {
+        seller.setBannedFromListing(true);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.PERMANENT_BAN);
+    }
+
+    @Test
+    void create_throwsBan_evenWhenAlsoSuspendedAndOwesPenalty() {
+        // Order: ban → timed → penalty. The most-restrictive match wins.
+        seller.setBannedFromListing(true);
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
+        seller.setPenaltyBalanceOwed(500L);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.PERMANENT_BAN);
+    }
+
+    @Test
+    void create_throwsTimed_whenAlsoOwesPenalty() {
+        // Timed beats penalty when both are set (and ban isn't).
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
+        seller.setPenaltyBalanceOwed(500L);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.TIMED_SUSPENSION);
     }
 
     private AuctionCreateRequest minimalCreateRequest(String title) {

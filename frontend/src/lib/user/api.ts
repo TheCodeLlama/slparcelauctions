@@ -17,6 +17,28 @@ export type CurrentUser = {
   emailVerified: boolean;
   notifyEmail: Record<string, unknown>;
   notifySlIm: Record<string, unknown>;
+  /**
+   * Outstanding L$ penalty balance owed by this seller (Epic 08 sub-spec 2
+   * §7.2). Sourced from {@code User.penaltyBalanceOwed}; defaults to 0 for
+   * sellers with no offenses on the ladder. Cleared by walk-in payment at
+   * any SLPA terminal — there is no "Pay now" button on the web side.
+   */
+  penaltyBalanceOwed: number;
+  /**
+   * UTC timestamp at which the seller's listing privileges automatically
+   * resume, or {@code null} if no timed suspension is active. Independent
+   * of {@code penaltyBalanceOwed} — a seller can owe L$ without being
+   * timed-suspended (PENALTY rung) and vice-versa (PENALTY_AND_30D after
+   * payment clears).
+   */
+  listingSuspensionUntil: string | null;
+  /**
+   * {@code true} once the seller hits the fourth cancel-with-bids offense.
+   * Permanent (subject to admin reversal); a banned seller's listing
+   * wizard is gated server-side on this flag and the dashboard surfaces
+   * the {@code SuspensionBanner} permanent variant.
+   */
+  bannedFromListing: boolean;
   createdAt: string;
   updatedAt: string;
 };

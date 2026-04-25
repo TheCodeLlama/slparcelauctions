@@ -94,6 +94,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payment").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payout-result").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/listing-fee/payment").permitAll()
+                        // Cancellation-penalty terminal endpoints (Epic 08 sub-spec 2
+                        // Tasks 3 §7.5 / §7.6). Same trust model as the escrow
+                        // terminal endpoints above: permitAll at the HTTP layer,
+                        // SlHeaderValidator inside PenaltyTerminalController is the
+                        // actual security boundary (X-SecondLife-Shard +
+                        // X-SecondLife-Owner-Key). LSL scripts cannot present a
+                        // JWT, so this is the only viable trust gate for terminal
+                        // traffic. FOOTGUNS §B.5: MUST sit before the /api/v1/**
+                        // catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/penalty-lookup").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/penalty-payment").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
@@ -161,6 +172,17 @@ public class SecurityConfig {
                         // added in-place without disturbing the POST rule.
                         // FOOTGUNS §B.5: this MUST sit before the
                         // /api/v1/** catch-all (first-match-wins).
+                        // Cancellation preview + history (Epic 08 sub-spec 2
+                        // Task 2). Both are seller-private — JWT required so
+                        // CancellationStatusController can read the caller's
+                        // userId off the AuthPrincipal. The /me/* paths sit
+                        // BEFORE the /api/v1/users/{id}-style wildcards above
+                        // because matcher order is first-match-wins
+                        // (FOOTGUNS §B.5) and well above the /api/v1/**
+                        // catch-all so the contract is explicit at this
+                        // surface.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/cancellation-status").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/cancellation-history").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/reviews").authenticated()
                         // Review read endpoints (Epic 08 sub-spec 1 Task 2).
                         // GET /auctions/{id}/reviews and

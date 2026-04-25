@@ -237,6 +237,33 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    /**
+     * Listing-creation suspension gate (Epic 08 sub-spec 2 §7.7). 403 (not
+     * 422) because the resource is forbidden until the user resolves the
+     * underlying state — pay penalty at terminal, wait out suspension, or
+     * (in the ban case) admin intervention. The {@code code} property
+     * carries the {@link SuspensionReason} enum value as a String so the
+     * frontend can branch on the discriminator without parsing detail copy.
+     */
+    @ExceptionHandler(SellerSuspendedException.class)
+    public ProblemDetail handleSellerSuspended(
+            SellerSuspendedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        pd.setType(URI.create("https://slpa.example/problems/seller-suspended"));
+        pd.setTitle("Listing creation suspended");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", e.getReason().name());
+        pd.setDetail(switch (e.getReason()) {
+            case PENALTY_OWED ->
+                    "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.";
+            case TIMED_SUSPENSION ->
+                    "Your listing privileges are temporarily suspended.";
+            case PERMANENT_BAN ->
+                    "Your listing privileges have been permanently suspended.";
+        });
+        return pd;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(

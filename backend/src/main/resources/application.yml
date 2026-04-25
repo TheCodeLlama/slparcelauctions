@@ -124,6 +124,19 @@ slpa:
     amount-lindens: 100
   commission:
     default-rate: 0.05
+  cancellation:
+    # Epic 08 sub-spec 2 §2 — cancellation-penalty ladder. Applied only when
+    # an ACTIVE auction with at least one bid is cancelled. Walking the ladder
+    # is keyed off the seller's count of prior cancelled-with-bids log rows.
+    penalty:
+      second-offense-l: 1000
+      third-offense-l: 2500
+      third-offense-suspension-days: 30
+    # Sub-spec 2 §6 — post-cancel ownership watcher window. The ownership
+    # monitor scans cancelled auctions whose watch deadline is still in the
+    # future and raises CANCEL_AND_SELL if the parcel ownership flips to a
+    # non-seller avatar within the window.
+    post-cancel-watch-hours: 48
   photos:
     max-per-listing: 10
     max-bytes: 2097152

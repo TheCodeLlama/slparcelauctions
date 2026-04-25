@@ -77,7 +77,7 @@ class AuctionRepositoryOwnershipCheckTest {
         // 6) ENDED (excluded regardless of timestamp)
         Auction ended = auctionRepo.save(build(seller, p6, AuctionStatus.ENDED, now.minusHours(5)));
 
-        List<Long> due = auctionRepo.findDueForOwnershipCheck(cutoff);
+        List<Long> due = auctionRepo.findDueForOwnershipCheck(cutoff, now);
 
         assertThat(due).containsExactlyInAnyOrder(
                 stale.getId(), veryStale.getId(), neverChecked.getId());
@@ -86,6 +86,52 @@ class AuctionRepositoryOwnershipCheckTest {
         // Ordering: null (NULLS FIRST), then oldest timestamp, then newer.
         assertThat(due).containsExactly(
                 neverChecked.getId(), veryStale.getId(), stale.getId());
+    }
+
+    @Test
+    void findDueForOwnershipCheck_includesPostCancelWatched_excludesExpired() {
+        // Epic 08 sub-spec 2 §6 — a CANCELLED auction with an open watch
+        // window should be returned alongside ACTIVE due rows; one whose
+        // watch window has expired must NOT.
+        User seller = userRepo.save(User.builder()
+                .email("watch-seller-" + UUID.randomUUID() + "@example.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Watch Seller")
+                .verified(true)
+                .slAvatarUuid(UUID.randomUUID())
+                .build());
+
+        Parcel pa = parcelRepo.save(buildParcel());
+        Parcel pb = parcelRepo.save(buildParcel());
+        Parcel pc = parcelRepo.save(buildParcel());
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime cutoff = now.minusMinutes(30);
+
+        // ACTIVE, due — should be picked up.
+        Auction active = auctionRepo.save(buildWithWatch(seller, pa,
+                AuctionStatus.ACTIVE, now.minusHours(1), null));
+        // CANCELLED with open post-cancel watch — should be picked up.
+        Auction watched = buildWithWatch(seller, pb,
+                AuctionStatus.CANCELLED, now.minusHours(1), now.plusHours(24));
+        watched = auctionRepo.save(watched);
+        // CANCELLED with expired post-cancel watch — must be excluded even
+        // though lastOwnershipCheckAt is stale.
+        Auction expired = buildWithWatch(seller, pc,
+                AuctionStatus.CANCELLED, now.minusHours(1), now.minusHours(1));
+        expired = auctionRepo.save(expired);
+
+        List<Long> due = auctionRepo.findDueForOwnershipCheck(cutoff, now);
+
+        assertThat(due).contains(active.getId(), watched.getId());
+        assertThat(due).doesNotContain(expired.getId());
+    }
+
+    private Auction buildWithWatch(User seller, Parcel parcel, AuctionStatus status,
+                                   OffsetDateTime lastCheck, OffsetDateTime watchUntil) {
+        Auction a = build(seller, parcel, status, lastCheck);
+        a.setPostCancelWatchUntil(watchUntil);
+        return a;
     }
 
     private Parcel buildParcel() {

@@ -16,12 +16,34 @@ import type {
   AuctionPhotoDto,
   SellerAuctionResponse,
 } from "@/types/auction";
+import type { SuspensionReasonCode } from "@/types/cancellation";
 import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
 import { ListingPreviewCard, type ListingPreviewAuction } from "./ListingPreviewCard";
 import { ListingWizardLayout } from "./ListingWizardLayout";
 import { ParcelLookupField } from "./ParcelLookupField";
 import { PARCEL_TAGS_KEY, TagSelector } from "./TagSelector";
 import { PhotoUploader } from "./PhotoUploader";
+import { SuspensionErrorModal } from "./SuspensionErrorModal";
+
+const SUSPENSION_CODES: ReadonlySet<SuspensionReasonCode> = new Set([
+  "PENALTY_OWED",
+  "TIMED_SUSPENSION",
+  "PERMANENT_BAN",
+]);
+
+/**
+ * Narrows a 403 ProblemDetail's {@code code} field to a known
+ * {@link SuspensionReasonCode}. The backend's
+ * {@code SellerSuspendedException} stamps one of three codes; any other
+ * 403 (e.g. a plain auth failure) returns {@code null} so the wizard
+ * falls back to its generic error path.
+ */
+function asSuspensionCode(value: unknown): SuspensionReasonCode | null {
+  if (typeof value !== "string") return null;
+  return SUSPENSION_CODES.has(value as SuspensionReasonCode)
+    ? (value as SuspensionReasonCode)
+    : null;
+}
 
 const WIZARD_STEPS = ["Configure", "Review & Submit"];
 const MAX_DESC = 5000;
@@ -72,6 +94,15 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  /**
+   * Backend-driven suspension gate (Epic 08 sub-spec 2 §8.4). Set to a
+   * {@link SuspensionReasonCode} when the wizard's save call returns a
+   * 403 carrying the structured {@code code} field — drives the
+   * focused {@link SuspensionErrorModal} instead of the inline
+   * {@link FormError}. Cleared by the modal's dismiss handler.
+   */
+  const [suspensionCode, setSuspensionCode] =
+    useState<SuspensionReasonCode | null>(null);
 
   const isEdit = mode === "edit";
 
@@ -160,6 +191,21 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       }
       return saved;
     } catch (e: unknown) {
+      // Listing-suspension gate (Epic 08 sub-spec 2 §8.4). Backend
+      // emits 403 with a structured {@code code} field on
+      // {@code SellerSuspendedException} — branch on the code rather
+      // than the status alone so other 403s (e.g. auth scoping) still
+      // surface the generic inline error. Suppress the inline copy
+      // when we route to the focused modal so the seller doesn't see
+      // both at once.
+      if (isApiError(e) && e.status === 403) {
+        const code = asSuspensionCode(e.problem.code);
+        if (code) {
+          setSuspensionCode(code);
+          setError(null);
+          return null;
+        }
+      }
       setError(
         isApiError(e)
           ? e.problem.detail ?? e.problem.title ?? "Save failed."
@@ -216,8 +262,20 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       ? "Update your listing details before paying the listing fee or relisting."
       : "Set up your parcel auction. You can save a draft and return to it any time.";
 
+  // Mounted alongside both step branches so the focused suspension modal
+  // (sub-spec 2 §8.4) appears regardless of whether the seller hit the
+  // 403 from the Configure-step "Save" or the Review-step "Submit".
+  const suspensionModal = (
+    <SuspensionErrorModal
+      code={suspensionCode}
+      onClose={() => setSuspensionCode(null)}
+    />
+  );
+
   if (step === "configure") {
     return (
+      <>
+      {suspensionModal}
       <ListingWizardLayout
         steps={WIZARD_STEPS}
         currentIndex={0}
@@ -313,6 +371,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
           )}
         </div>
       </ListingWizardLayout>
+      </>
     );
   }
 
@@ -334,37 +393,40 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     : null;
 
   return (
-    <ListingWizardLayout
-      steps={WIZARD_STEPS}
-      currentIndex={1}
-      title="Review & Submit"
-      description="Double-check your listing before continuing to activate."
-      footer={
-        <>
-          <Button
-            variant="secondary"
-            onClick={() => setStep("configure")}
-            disabled={submitting}
-          >
-            Back to edit
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            loading={submitting}
-            disabled={submitting || !parcel}
-          >
-            Submit
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <FormError message={error ?? undefined} />
-        {previewAuction && (
-          <ListingPreviewCard auction={previewAuction} isPreview />
-        )}
-      </div>
-    </ListingWizardLayout>
+    <>
+      {suspensionModal}
+      <ListingWizardLayout
+        steps={WIZARD_STEPS}
+        currentIndex={1}
+        title="Review & Submit"
+        description="Double-check your listing before continuing to activate."
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setStep("configure")}
+              disabled={submitting}
+            >
+              Back to edit
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              loading={submitting}
+              disabled={submitting || !parcel}
+            >
+              Submit
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <FormError message={error ?? undefined} />
+          {previewAuction && (
+            <ListingPreviewCard auction={previewAuction} isPreview />
+          )}
+        </div>
+      </ListingWizardLayout>
+    </>
   );
 }
 

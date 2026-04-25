@@ -349,6 +349,22 @@ export interface ReviewRevealedEnvelope {
 }
 
 /**
+ * Broadcast on {@code /topic/auction/{auctionId}} when an auction transitions
+ * to {@code CANCELLED} (Epic 08 sub-spec 2 §8.5). Subscribers in the auction
+ * detail page invalidate their auction query so the page transitions to the
+ * "auction cancelled" UI on the next refetch — bidders mid-bid see their bid
+ * form replaced by the cancellation banner. Like {@link ReviewRevealedEnvelope}
+ * this envelope does not carry a {@code serverTime} field; subscribers that
+ * read it should short-circuit on the type discriminator first.
+ */
+export interface AuctionCancelledEnvelope {
+  type: "AUCTION_CANCELLED";
+  auctionId: number;
+  cancelledAt: string;
+  hadBids: boolean;
+}
+
+/**
  * Every envelope type that can arrive on `/topic/auction/{id}`.
  * {@code AuctionDetailClient} and {@code EscrowPageClient} both subscribe
  * with this union; handlers discriminate on {@code type}. Re-exports the
@@ -357,12 +373,15 @@ export interface ReviewRevealedEnvelope {
  * lives on the same topic (Epic 08 sub-spec 1 §7) — subscribers that don't
  * care about reviews should short-circuit on {@code type === "REVIEW_REVEALED"}
  * before reading any envelope-specific field, since review envelopes do not
- * carry {@code serverTime}.
+ * carry {@code serverTime}. The cancellation envelope (sub-spec 2 §8.5) is
+ * the same shape pattern — early-return on {@code type === "AUCTION_CANCELLED"}
+ * before reading {@code serverTime}.
  */
 export type AuctionTopicEnvelope =
   | AuctionEnvelope
   | EscrowEnvelope
-  | ReviewRevealedEnvelope;
+  | ReviewRevealedEnvelope
+  | AuctionCancelledEnvelope;
 
 /**
  * POST /api/v1/auctions/{id}/bids response body. Returns the just-committed

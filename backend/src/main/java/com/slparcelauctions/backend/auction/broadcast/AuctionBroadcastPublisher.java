@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.auction.broadcast;
 
+import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
+
 /**
  * Abstraction over the WebSocket broadcast layer. Bid-placement, proxy, and
  * auction-end services depend on this interface and never touch STOMP
@@ -30,4 +32,13 @@ public interface AuctionBroadcastPublisher {
      * that end the auction. Never called from Task 2's core bid path.
      */
     void publishEnded(AuctionEndedEnvelope envelope);
+
+    /**
+     * Publishes an {@link AuctionCancelledEnvelope} when an auction
+     * transitions to {@code CANCELLED}. Invoked from
+     * {@code CancellationService.cancel}'s afterCommit callback so
+     * subscribers never observe a cancellation that rolls back. Closes the
+     * deferred-ledger "Cancellation WS broadcast" entry (Epic 08 sub-spec 2).
+     */
+    void publishCancelled(AuctionCancelledEnvelope envelope);
 }

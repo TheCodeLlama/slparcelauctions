@@ -1,6 +1,8 @@
 package com.slparcelauctions.backend.auction;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +21,8 @@ import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
+import com.slparcelauctions.backend.auction.exception.SuspensionReason;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
@@ -41,6 +45,7 @@ public class AuctionService {
     private final ParcelRepository parcelRepo;
     private final UserRepository userRepo;
     private final ParcelTagRepository tagRepo;
+    private final Clock clock;
 
     @Value("${slpa.commission.default-rate:0.05}")
     private BigDecimal defaultCommissionRate;
@@ -54,6 +59,18 @@ public class AuctionService {
 
         User seller = userRepo.findById(sellerId)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + sellerId));
+
+        // Listing-creation suspension gate (Epic 08 sub-spec 2 §7.7). Order is
+        // most-restrictive-first: a permanent ban shadows a timed suspension,
+        // which shadows an outstanding penalty balance. The first match
+        // surfaces as the {@code code} on the 403 ProblemDetail so the
+        // frontend can branch on the discriminator without parsing the
+        // human-readable detail.
+        SuspensionReason suspended = checkCanCreateListing(seller);
+        if (suspended != null) {
+            throw new SellerSuspendedException(suspended);
+        }
+
         Parcel parcel = parcelRepo.findById(req.parcelId())
                 .orElseThrow(() -> new IllegalArgumentException("Parcel not found: " + req.parcelId()));
 
@@ -213,6 +230,26 @@ public class AuctionService {
             }
         }
         return new PageImpl<>(ordered, pageable, idsPage.getTotalElements());
+    }
+
+    /**
+     * Returns the most-restrictive {@link SuspensionReason} that bars the
+     * caller from creating a new listing, or {@code null} if no condition
+     * applies. Order matters: ban → timed → penalty. See Epic 08 sub-spec 2
+     * §7.7.
+     */
+    private SuspensionReason checkCanCreateListing(User u) {
+        if (Boolean.TRUE.equals(u.getBannedFromListing())) {
+            return SuspensionReason.PERMANENT_BAN;
+        }
+        if (u.getListingSuspensionUntil() != null
+                && OffsetDateTime.now(clock).isBefore(u.getListingSuspensionUntil())) {
+            return SuspensionReason.TIMED_SUSPENSION;
+        }
+        if (u.getPenaltyBalanceOwed() != null && u.getPenaltyBalanceOwed() > 0L) {
+            return SuspensionReason.PENALTY_OWED;
+        }
+        return null;
     }
 
     private Set<ParcelTag> resolveTags(Set<String> codes) {
