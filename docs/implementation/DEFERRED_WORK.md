@@ -152,12 +152,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 09 (Notifications) — when email + SL IM + in-app push unify on a single publisher, add the user-queue destination at the same time for consistency.
 - **Notes:** The `JwtChannelInterceptor` already understands principal-gated destinations — adding `/user/**` to the gate is a small change. The frontend's `useStompSubscription` hook would grow a `/user/queue/*` variant.
 
-### Cancellation WS broadcast on active-auction cancel
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** When a seller cancels an ACTIVE auction with bids (rare — requires explicit confirmation through the sub-spec 2 cancel modal), no `/topic/auction/{id}` envelope is currently published. Bidders watching the auction detail page in real-time see no update until they reload. This is a consistency gap with the bid/end broadcasts that both publish on `afterCommit`.
-- **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
-- **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
-
 ### Region autocomplete for DistanceSearchBlock
 - **From:** Epic 07 sub-spec 2 (Task 2b)
 - **Why:** Phase 1 ships a free-form region text input with server-side validation on submit (REGION_NOT_FOUND surfaces inline under the input). Client-side autocomplete needs a new lightweight `/sl/regions/search?q=` endpoint, debounced input, keyboard nav, and a popover primitive — scope for its own design pass.
