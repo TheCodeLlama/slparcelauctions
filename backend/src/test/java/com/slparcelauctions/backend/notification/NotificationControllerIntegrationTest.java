@@ -42,7 +42,8 @@ import org.springframework.transaction.support.TransactionTemplate;
         "slpa.escrow.timeout-job.enabled=false",
         "slpa.escrow.command-dispatcher-job.enabled=false",
         "slpa.review.scheduler.enabled=false",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class NotificationControllerIntegrationTest {
 

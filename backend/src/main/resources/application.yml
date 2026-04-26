@@ -185,5 +185,12 @@ slpa:
         # Dev profile supplies a placeholder in application-dev.yml.
         shared-secret: ${SL_IM_DISPATCHER_SECRET:dev-only-secret-do-not-use-in-prod}
         max-batch-limit: 50
+      cleanup:
+        enabled: true
+        cron: "0 30 3 * * *"        # 03:30 daily, zone = America/Los_Angeles
+        expiry-after-hours: 48
+        retention-after-days: 30
+        batch-size: 1000
+        top-users-in-log: 10
   web:
     base-url: ${SLPA_WEB_BASE_URL:http://localhost:3000}
