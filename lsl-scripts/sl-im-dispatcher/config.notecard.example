@@ -1,0 +1,8 @@
+# SL IM Dispatcher configuration
+# Copy this file to a notecard named "config" in the same prim, then edit
+# values for your environment.
+
+POLL_URL=https://slpa.example.com/api/v1/internal/sl-im/pending
+CONFIRM_URL_BASE=https://slpa.example.com/api/v1/internal/sl-im/
+SHARED_SECRET=<obtain from server config: slpa.notifications.sl-im.dispatcher.shared-secret>
+DEBUG_OWNER_SAY=true
