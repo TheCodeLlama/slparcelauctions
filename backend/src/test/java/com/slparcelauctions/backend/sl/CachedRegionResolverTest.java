@@ -31,7 +31,10 @@ import com.slparcelauctions.backend.sl.dto.RegionResolution;
  */
 @SpringBootTest
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 class CachedRegionResolverTest {
 
     @Autowired CachedRegionResolver resolver;

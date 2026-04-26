@@ -22,7 +22,10 @@ import com.slparcelauctions.backend.auction.config.ProxyBidPartialUniqueIndexIni
  */
 @SpringBootTest
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 class ProxyBidPartialUniqueIndexInitializerTest {
 
     @Autowired JdbcTemplate jdbc;

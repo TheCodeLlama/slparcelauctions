@@ -73,7 +73,10 @@ import com.slparcelauctions.backend.user.UserRepository;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidWebSocketIntegrationTest {
 

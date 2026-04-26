@@ -41,7 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
     "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
     "jwt.access-token-lifetime=PT15M",
-    "jwt.refresh-token-lifetime=P7D"
+    "jwt.refresh-token-lifetime=P7D",
+        "slpa.notifications.cleanup.enabled=false"
 })
 class AuthControllerTest {
 
@@ -156,6 +157,6 @@ class AuthControllerTest {
             1L, "new@example.com", "Newbie", null, null, null, null, null, null, null, null,
             null, null, null, null, null,
             0L, null, false,
-            OffsetDateTime.now(), OffsetDateTime.now());
+            OffsetDateTime.now(), OffsetDateTime.now(), 0L);
     }
 }

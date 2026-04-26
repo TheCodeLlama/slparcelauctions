@@ -70,7 +70,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidSchedulerRaceTest {

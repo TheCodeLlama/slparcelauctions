@@ -68,7 +68,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @Import(EscrowCreateOnBuyNowIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

@@ -35,9 +35,14 @@ public record UserResponse(
         OffsetDateTime listingSuspensionUntil,
         Boolean bannedFromListing,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt) {
+        OffsetDateTime updatedAt,
+        long unreadNotificationCount) {
 
     public static UserResponse from(User user) {
+        return from(user, 0L);
+    }
+
+    public static UserResponse from(User user, long unreadNotificationCount) {
         return new UserResponse(
                 user.getId(),
                 user.getEmail(),
@@ -59,6 +64,7 @@ public record UserResponse(
                 user.getListingSuspensionUntil(),
                 user.getBannedFromListing(),
                 user.getCreatedAt(),
-                user.getUpdatedAt());
+                user.getUpdatedAt(),
+                unreadNotificationCount);
     }
 }

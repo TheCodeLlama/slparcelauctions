@@ -49,7 +49,10 @@ import com.slparcelauctions.backend.user.UserRepository;
  */
 @SpringBootTest
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 class SavedAuctionConcurrencyTest {
 
     @Autowired SavedAuctionService service;

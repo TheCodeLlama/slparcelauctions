@@ -57,7 +57,10 @@ import reactor.core.publisher.Mono;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 class ParcelLockingRaceIntegrationTest {
 
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";

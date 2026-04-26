@@ -36,7 +36,8 @@ import com.slparcelauctions.backend.config.SecurityConfig;
         "auth.cleanup.enabled=false",
         "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
         "jwt.access-token-lifetime=PT15M",
-        "jwt.refresh-token-lifetime=P7D"
+        "jwt.refresh-token-lifetime=P7D",
+        "slpa.notifications.cleanup.enabled=false"
 })
 class VerificationControllerSliceTest {
 

@@ -79,7 +79,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         // ExternalApiTimeoutException in well under a second.
         "slpa.world-api.retry-attempts=2",
         "slpa.world-api.retry-backoff-ms=25",
-        "slpa.world-api.timeout-ms=2000"
+        "slpa.world-api.timeout-ms=2000",
+        "slpa.notifications.cleanup.enabled=false"
 })
 class OwnershipMonitorIntegrationTest {
 

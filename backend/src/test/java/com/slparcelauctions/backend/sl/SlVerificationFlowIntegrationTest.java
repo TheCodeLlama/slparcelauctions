@@ -38,7 +38,10 @@ import com.slparcelauctions.backend.verification.dto.ActiveCodeResponse;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 @Transactional
 class SlVerificationFlowIntegrationTest {
 

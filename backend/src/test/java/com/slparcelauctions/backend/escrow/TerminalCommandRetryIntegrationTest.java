@@ -75,7 +75,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // Keep the dispatcher bean eligible for autowiring but disable the
         // @Scheduled tick so only the explicit sweeps we drive execute.
         "slpa.escrow.command-dispatcher-job.enabled=true",
-        "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H"
+        "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @Import(TerminalCommandRetryIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

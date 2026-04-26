@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.slparcelauctions.backend.notification.NotificationService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UpdateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
@@ -32,6 +33,9 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private UserService userService;

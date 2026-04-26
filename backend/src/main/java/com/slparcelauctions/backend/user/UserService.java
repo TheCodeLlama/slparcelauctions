@@ -4,6 +4,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.notification.NotificationService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UpdateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
@@ -19,6 +20,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
@@ -39,7 +41,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
-        return UserResponse.from(loadUser(id));
+        return toResponse(loadUser(id));
     }
 
     @Transactional(readOnly = true)
@@ -91,6 +93,16 @@ public class UserService {
         User user = loadUser(userId);
         user.setTokenVersion(user.getTokenVersion() + 1);
         log.info("Bumped tokenVersion for user id={} to {}", userId, user.getTokenVersion());
+    }
+
+    /**
+     * Converts a {@link User} entity to a {@link UserResponse} DTO, populating
+     * {@code unreadNotificationCount} from {@link NotificationService}.
+     */
+    @Transactional(readOnly = true)
+    public UserResponse toResponse(User user) {
+        long unreadCount = notificationService.unreadCount(user.getId());
+        return UserResponse.from(user, unreadCount);
     }
 
     private User loadUser(Long id) {

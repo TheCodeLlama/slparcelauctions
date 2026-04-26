@@ -51,7 +51,10 @@ import reactor.core.publisher.Mono;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 @Transactional
 class ParcelControllerIntegrationTest {
 

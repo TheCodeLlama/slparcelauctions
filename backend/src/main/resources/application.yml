@@ -172,3 +172,9 @@ slpa:
     listing-fee-refund-job:
       enabled: true
       fixed-delay: PT1M
+  notifications:
+    cleanup:
+      enabled: true
+      cron: "0 30 3 * * *"        # 3:30 AM UTC daily
+      retention-days: 90
+      batch-size: 1000
