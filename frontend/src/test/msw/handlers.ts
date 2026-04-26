@@ -15,6 +15,7 @@ import {
 } from "./fixtures";
 import type { CurrentUser, PublicUserProfile, UpdateProfileRequest } from "@/lib/user/api";
 import type { NotificationDto } from "@/lib/notifications/types";
+import type { PreferencesDto, EditableGroup } from "@/lib/notifications/preferencesTypes";
 
 /**
  * Named handler factories for every auth endpoint, plus a `defaultHandlers`
@@ -330,6 +331,70 @@ export function seedNotification(partial: Partial<NotificationDto> = {}): Notifi
 export function clearNotifications(): void {
   _notifications.clear();
   _nextNotifId = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Notification Preferences handlers
+// ---------------------------------------------------------------------------
+
+const DEFAULT_PREFERENCES: PreferencesDto = {
+  slImMuted: false,
+  slIm: {
+    bidding: true,
+    auction_result: true,
+    escrow: true,
+    listing_status: true,
+    reviews: false,
+  },
+};
+
+let _currentPreferences: PreferencesDto = { ...DEFAULT_PREFERENCES, slIm: { ...DEFAULT_PREFERENCES.slIm } };
+const ALLOWED_PREFS_KEYS: Set<string> = new Set<EditableGroup>([
+  "bidding",
+  "auction_result",
+  "escrow",
+  "listing_status",
+  "reviews",
+]);
+
+export const preferencesHandlers = [
+  http.get("*/api/v1/users/me/notification-preferences", () => {
+    return HttpResponse.json(_currentPreferences);
+  }),
+  http.put(
+    "*/api/v1/users/me/notification-preferences",
+    async ({ request }) => {
+      const body = (await request.json()) as PreferencesDto;
+      if (!body.slIm) {
+        return new HttpResponse(null, { status: 400 });
+      }
+      const keys = new Set(Object.keys(body.slIm));
+      if (
+        keys.size !== ALLOWED_PREFS_KEYS.size ||
+        ![...keys].every((k) => ALLOWED_PREFS_KEYS.has(k))
+      ) {
+        return new HttpResponse(null, { status: 400 });
+      }
+      for (const v of Object.values(body.slIm)) {
+        if (typeof v !== "boolean") {
+          return new HttpResponse(null, { status: 400 });
+        }
+      }
+      if (typeof body.slImMuted !== "boolean") {
+        return new HttpResponse(null, { status: 400 });
+      }
+      _currentPreferences = body;
+      return HttpResponse.json(_currentPreferences);
+    }
+  ),
+];
+
+export function seedPreferences(p: PreferencesDto): void {
+  _currentPreferences = { ...p, slIm: { ...p.slIm } };
+}
+
+export function resetPreferences(): void {
+  _currentPreferences = { ...DEFAULT_PREFERENCES, slIm: { ...DEFAULT_PREFERENCES.slIm } };
 }
 
 /**
