@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.exception.EscrowExceptionHandler;
 import com.slparcelauctions.backend.escrow.exception.TerminalAuthException;
@@ -40,7 +41,7 @@ import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
  * ProblemDetail shapes.
  */
 @WebMvcTest(TerminalRegistrationController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class,
+@Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class,
         JwtAuthenticationEntryPoint.class, EscrowExceptionHandler.class})
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",

@@ -178,5 +178,12 @@ slpa:
       cron: "0 30 3 * * *"        # 3:30 AM UTC daily
       retention-days: 90
       batch-size: 1000
+    sl-im:
+      dispatcher:
+        # Shared secret for the SL IM terminal polling endpoints.
+        # No default — non-dev profiles MUST override via SL_IM_DISPATCHER_SECRET.
+        # Dev profile supplies a placeholder in application-dev.yml.
+        shared-secret: ${SL_IM_DISPATCHER_SECRET:dev-only-secret-do-not-use-in-prod}
+        max-batch-limit: 50
   web:
     base-url: ${SLPA_WEB_BASE_URL:http://localhost:3000}

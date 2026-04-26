@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
@@ -45,7 +46,7 @@ import com.slparcelauctions.backend.escrow.exception.IllegalEscrowTransitionExce
  * the SecurityContext without minting real JWTs.
  */
 @WebMvcTest(EscrowController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class,
+@Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class,
         JwtAuthenticationEntryPoint.class, EscrowExceptionHandler.class})
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
