@@ -1606,3 +1606,78 @@ the DAO whether the operation was insert or update without a second roundtrip.
 This drives the `isUpdate` flag on the `NOTIFICATION_UPSERTED` WS envelope,
 which the frontend uses to decide whether to prepend (insert) or replace-by-id
 (update) in the dropdown cache.
+
+### F.95 — `llInstantMessage` truncates at 1024 BYTES, not characters
+
+The natural Java `String.length()` measures UTF-16 code units; SL's
+`llInstantMessage` truncates the IM at 1024 **bytes** in UTF-8 encoding.
+Multi-byte UTF-8 characters (CJK, emoji, accented Latin) push the byte count
+above the char count. SL silently truncates from the end of the string — no
+error, no warning, no return value — and the deeplink in SLPA's IM template
+lives at the end of the assembled message. A 1023-character string with
+multi-byte content can occupy 1500+ bytes; the deeplink gets cleanly cut off.
+
+`SlImMessageBuilder` measures `text.getBytes(StandardCharsets.UTF_8).length`
+and ellipsizes the body, never the prefix or deeplink. Three mandatory test
+cases (multi-byte parcel name, emoji parcel name, long-body forcing
+truncation) verify the deeplink survives. Adding a new component to the
+assembled message (e.g., a timestamp) requires updating the byte-budget
+accounting in `SlImMessageBuilder` — the budget assumes exactly
+`PREFIX + title + SEPARATOR + body + SEPARATOR + deeplink`.
+
+### F.96 — Single-recipient publish path is afterCommit-then-REQUIRES_NEW; fan-out path is in-the-REQUIRES_NEW
+
+The two notification dispatch sites have different reliability postures and
+different transaction structures.
+
+**Single-recipient path** (`NotificationService.publish`): in-app row commits
+first as part of the parent transaction, then `afterCommit` runs
+`slImChannelDispatcher.maybeQueue` which opens its own REQUIRES_NEW. If the
+IM-queue write fails, the in-app row already committed, the parent business
+event already committed, and the only loss is the IM. **In-app guaranteed,
+IM best-effort.**
+
+**Fan-out path** (`NotificationPublisherImpl.listingCancelledBySellerFanout`):
+per-recipient REQUIRES_NEW lambda contains the in-app DAO upsert AND the IM
+queue write as siblings. If the IM-queue write fails, that recipient's
+in-app row also rolls back; the per-recipient try-catch isolates this from
+sibling recipients. **In-app + IM atomic per recipient; sibling recipients
+independent.**
+
+Mixing these mental models produces either:
+- "One bad bidder kills the cancellation" — if you put fan-out atomic with the parent transaction.
+- "In-app row exists but IM never queued because the dispatcher hook failed silently" — if you inline the dispatcher into the single-recipient path's parent transaction.
+
+Future contributors adding a new fan-out method must follow the existing
+pattern: per-recipient REQUIRES_NEW lambda containing all per-recipient writes
+as siblings, with a per-recipient try-catch wrapping the lambda. Name with a
+`Fanout` suffix (sub-spec 1's convention).
+
+### F.97 — Adding a new terminal status to `sl_im_message` requires updating the cleanup predicate
+
+`SlImCleanupJob` stage 2 deletes rows via `WHERE status IN ('DELIVERED',
+'EXPIRED', 'FAILED') AND updated_at < retention_cutoff`. The IN-list
+enumerates terminal statuses. Adding a new one (e.g., a future
+`RETRY_SCHEDULED` for a deferred retry primitive) without updating the IN-list
+means those rows accumulate forever — defeating the very `SELECT status,
+count(*) FROM sl_im_message GROUP BY status` query the rolling 30-day window
+was supposed to keep meaningful. Add the new status to the predicate in the
+same commit that introduces the status.
+
+### F.98 — LSL `llInstantMessage` is fire-and-forget; `/failed` has no LSL caller
+
+The `sl-im-dispatcher` script unconditionally calls
+`POST /api/v1/internal/sl-im/{id}/delivered` after every `llInstantMessage`
+because LSL provides no delivery signal — `llInstantMessage` returns `void`,
+raises no event on failure, and produces no observable side effect when the
+recipient UUID is invalid or offline-unreachable.
+
+This means FAILED rows in `sl_im_message` only appear via:
+1. Manual operator intervention — direct SQL UPDATE in production (rare;
+   usually for support clearing a stuck row).
+2. A future revision of `dispatcher.lsl` that pre-validates avatar UUIDs
+   (e.g., `llRequestAgentData` against `DATA_ONLINE` before sending, or a
+   `NULL_KEY` guard).
+
+If support runs `SELECT status, count(*) FROM sl_im_message GROUP BY status`
+and sees zero FAILED rows, that's correct behavior. Not a missing pipeline.

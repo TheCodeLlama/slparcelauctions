@@ -1845,6 +1845,25 @@ Users configure per-category preferences for two optional channels:
 - **Coalesce primitive.** Rows can carry an optional `coalesce_key`; events with the same key on an unread row UPSERT into that row rather than inserting a fresh one (Postgres `ON CONFLICT (user_id, coalesce_key) WHERE read = false DO UPDATE`). OUTBID is the first consumer — repeated outbids on the same auction collapse into one row, keeping the feed clean. See FOOTGUNS §F.94 for the xmax/insert-vs-update detection pattern.
 - **User-destination security pattern.** Clients subscribe to `/user/queue/notifications` and `/user/queue/account` — never a path that embeds a literal user id. The backend publishes via `convertAndSendToUser(String.valueOf(userId), "/queue/...", payload)`. Spring's `UserDestinationResolver` resolves the principal from the STOMP session established on CONNECT. Including a literal user id in the subscription path is a security hole. See FOOTGUNS §F.92.
 
+**Notes (Epic 09 sub-spec 3):**
+- The SL IM channel reuses the in-app coalesce key namespace; rows in
+  `sl_im_message` collapse during pendency (`WHERE status = 'PENDING'`),
+  with the same partial-unique-index pattern.
+- `SYSTEM` group bypasses preferences and master-mute, but never bypasses the
+  no-avatar floor.
+- `llInstantMessage` truncates at 1024 BYTES (UTF-8), not characters. The
+  backend's `SlImMessageBuilder` enforces this with body ellipsis, never
+  trimming the prefix or deeplink.
+- The polling/confirmation contract (`/api/v1/internal/sl-im/*`) uses a
+  shared secret distinct from the existing escrow-terminal secret. State
+  machines for `/delivered` and `/failed` are symmetric: PENDING →
+  terminal-status, idempotent on the matching status, 409 on the other
+  terminal statuses (FAILED/EXPIRED).
+- The system relies on SL's native offline-IM-to-email forwarding to cover
+  the email use case. Users with active SL email forwarding receive SLPA
+  notifications by email; users with disabled forwarding receive only
+  in-world IMs when online. The email channel is intentionally not built.
+
 ---
 
 ## 12. Revenue & Economics
