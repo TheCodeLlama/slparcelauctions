@@ -824,73 +824,14 @@ describe("AuctionDetailClient", () => {
   });
 
   // ---------------------------------------------------------------
-  // Task 7: outbid toast + ReconnectingBanner + form disable.
+  // Task 7: ReconnectingBanner + form disable.
+  // Note: outbid toasts were previously fired directly from BID_SETTLEMENT
+  // envelope handling via OutbidToastProvider. Epic 09 (Task 7) retired that
+  // mechanism — outbid toasts now flow through the canonical OUTBID
+  // notification via /user/queue/notifications + useNotificationStream.
   // ---------------------------------------------------------------
 
-  it("fires the outbid toast when the caller is displaced by a BID_SETTLEMENT", async () => {
-    let capturedOnMessage:
-      | ((env: AuctionEnvelope) => void)
-      | null = null;
-    subscribeMock.mockImplementation(
-      (_destination: string, onMessage: (env: AuctionEnvelope) => void) => {
-        capturedOnMessage = onMessage;
-        return () => {};
-      },
-    );
-
-    // Seed a first envelope that marks the caller (id=999) as the high
-    // bidder, then a second envelope that displaces them.
-    renderWithProviders(
-      <AuctionDetailClient
-        initialAuction={auction}
-        initialBidPage={initialBids}
-      />,
-      { auth: "authenticated", authUser: verifiedBidder },
-    );
-
-    act(() => {
-      capturedOnMessage!(
-        bidSettlement({
-          currentBid: 1800,
-          currentBidderId: verifiedBidder.id,
-          newBids: [
-            bidHistoryEntry({
-              bidId: 10,
-              userId: verifiedBidder.id,
-              amount: 1800,
-            }),
-          ],
-        }),
-      );
-    });
-
-    // Now a competitor outbids the caller.
-    act(() => {
-      capturedOnMessage!(
-        bidSettlement({
-          currentBid: 2500,
-          currentBidderId: 55,
-          newBids: [
-            bidHistoryEntry({
-              bidId: 11,
-              userId: 55,
-              bidderDisplayName: "Bob",
-              amount: 2500,
-            }),
-          ],
-        }),
-      );
-    });
-
-    // The ToastProvider defers setToasts via setTimeout(0). waitFor's
-    // default 1s polling is plenty to flush the tick on real timers.
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(/outbid/i);
-    });
-    expect(screen.getByRole("alert")).toHaveTextContent("L$2,500");
-  });
-
-  it("does NOT fire the outbid toast when the caller wasn't winning", async () => {
+  it("does NOT fire the outbid toast from BID_SETTLEMENT when the caller wasn't winning", async () => {
     let capturedOnMessage:
       | ((env: AuctionEnvelope) => void)
       | null = null;

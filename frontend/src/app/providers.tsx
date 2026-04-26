@@ -6,6 +6,12 @@ import { useState, type ReactNode } from "react";
 import { configureApiClient } from "@/lib/api";
 import { ToastProvider } from "@/components/ui/Toast";
 import { CuratorTrayMount } from "@/components/curator/CuratorTrayMount";
+import { useNotificationStream } from "@/hooks/notifications/useNotificationStream";
+
+function NotificationStreamMount() {
+  useNotificationStream();
+  return null;
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => {
@@ -30,6 +36,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <ToastProvider>
           {children}
           <CuratorTrayMount />
+          <NotificationStreamMount />
         </ToastProvider>
       </QueryClientProvider>
     </ThemeProvider>
