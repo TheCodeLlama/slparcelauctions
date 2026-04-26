@@ -8,6 +8,7 @@ import { useMarkAllRead } from "@/hooks/notifications/useMarkAllRead";
 import { NotificationDropdownRow } from "./NotificationDropdownRow";
 import { FilterChips, type FilterMode } from "./FilterChips";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Settings } from "@/components/ui/icons";
 
 export interface NotificationDropdownProps {
   onClose: () => void;
@@ -61,13 +62,21 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         )}
       </div>
 
-      <footer className="border-t border-outline-variant px-4 py-2 text-center bg-surface-container">
+      <footer className="border-t border-outline-variant px-4 py-2 flex items-center justify-between bg-surface-container">
         <Link
           href="/notifications"
           onClick={onClose}
           className="text-label-md text-primary hover:underline"
         >
           View all notifications
+        </Link>
+        <Link
+          href="/settings/notifications"
+          onClick={onClose}
+          className="text-on-surface-variant hover:text-on-surface"
+          aria-label="Notification settings"
+        >
+          <Settings className="size-4" />
         </Link>
       </footer>
     </PopoverPanel>
