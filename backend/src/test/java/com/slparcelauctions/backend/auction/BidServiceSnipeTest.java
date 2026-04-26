@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -63,7 +64,7 @@ class BidServiceSnipeTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService);
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();

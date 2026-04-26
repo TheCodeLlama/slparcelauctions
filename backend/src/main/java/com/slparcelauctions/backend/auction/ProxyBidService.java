@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.ProxyBidAlreadyExistsException;
 import com.slparcelauctions.backend.auction.exception.ProxyBidNotFoundException;
 import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -77,6 +78,7 @@ public class ProxyBidService {
     private final UserRepository userRepo;
     private final Clock clock;
     private final AuctionBroadcastPublisher publisher;
+    private final NotificationPublisher notificationPublisher;
 
     // -------------------------------------------------------------------------
     // createProxy — spec §7 "POST /proxy-bid"
@@ -118,12 +120,14 @@ public class ProxyBidService {
         // applySnipeAndBuyNow (stamps auction.endedAt on buy-it-now close)
         // so it matches whatever the envelope factory consumes on the
         // afterCommit path.
+        final Long previousHighBidderIdCreate = auction.getCurrentBidderId();
         List<Bid> emitted = resolveProxyResolution(auction, proxy);
         OffsetDateTime now = OffsetDateTime.now(clock);
         BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, now, proxyBidRepo);
         updateAuctionTopBidder(auction, emitted);
         auctionRepo.save(auction);
 
+        publishProxyNotifications(auction, proxy, previousHighBidderIdCreate);
         publishAfterCommit(auction, emitted);
         log.info("Proxy created: auctionId={}, bidderId={}, maxAmount={}, emittedBids={}",
                 auctionId, bidderId, maxAmount, emitted.size());
@@ -151,6 +155,7 @@ public class ProxyBidService {
                     "Cancelled proxy cannot be updated; create a new one");
         }
 
+        final Long previousHighBidderIdUpdate = auction.getCurrentBidderId();
         List<Bid> emitted;
 
         if (proxy.getStatus() == ProxyBidStatus.ACTIVE) {
@@ -204,6 +209,7 @@ public class ProxyBidService {
         auctionRepo.save(auction);
 
         if (!emitted.isEmpty()) {
+            publishProxyNotifications(auction, proxy, previousHighBidderIdUpdate);
             publishAfterCommit(auction, emitted);
         }
         log.info("Proxy max updated: proxyId={}, newMax={}, emittedBids={}",
@@ -395,6 +401,46 @@ public class ProxyBidService {
         auction.setCurrentBidderId(top.getBidder().getId());
         int nextBidCount = (auction.getBidCount() == null ? 0 : auction.getBidCount()) + emitted.size();
         auction.setBidCount(nextBidCount);
+    }
+
+    /**
+     * Emits in-app OUTBID and PROXY_EXHAUSTED notifications for a just-resolved
+     * proxy operation. Called inside the @Transactional boundary after
+     * resolveProxyResolution + updateAuctionTopBidder so we know the final winner.
+     *
+     * <ul>
+     *   <li>OUTBID — fires when the previous high bidder was displaced by the new
+     *       top. isProxyOutbid=true because this path is a proxy resolution.</li>
+     *   <li>PROXY_EXHAUSTED — fires when the {@code proxy} itself ended up EXHAUSTED
+     *       (it lost the resolution battle, e.g. Branch 3/4a). Separate from OUTBID
+     *       because the proxy owner may have been the newcomer, not the prior high.</li>
+     * </ul>
+     */
+    private void publishProxyNotifications(Auction auction, ProxyBid proxy,
+                                           Long previousHighBidderId) {
+        Long newTopBidderId = auction.getCurrentBidderId();
+        // The previous high bidder was displaced if they exist and are no longer on top.
+        if (previousHighBidderId != null && !previousHighBidderId.equals(newTopBidderId)) {
+            notificationPublisher.outbid(
+                    previousHighBidderId,
+                    auction.getId(),
+                    auction.getTitle(),
+                    auction.getCurrentBid(),
+                    true,   // isProxyOutbid — this displacement happened via proxy resolution
+                    auction.getEndsAt()
+            );
+        }
+        // If the new proxy itself got exhausted immediately (it lost the battle),
+        // fire PROXY_EXHAUSTED for the proxy's owner.
+        if (proxy.getStatus() == ProxyBidStatus.EXHAUSTED) {
+            notificationPublisher.proxyExhausted(
+                    proxy.getBidder().getId(),
+                    auction.getId(),
+                    auction.getTitle(),
+                    proxy.getMaxAmount(),
+                    auction.getEndsAt()
+            );
+        }
     }
 
     /**

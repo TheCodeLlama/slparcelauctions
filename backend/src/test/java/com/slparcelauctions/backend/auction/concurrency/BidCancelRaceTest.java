@@ -117,9 +117,11 @@ class BidCancelRaceTest {
                         stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
                     }
                     if (bidderId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
                     }
                     if (sellerId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                         stmt.execute("DELETE FROM users WHERE id = " + sellerId);
                     }
                 }

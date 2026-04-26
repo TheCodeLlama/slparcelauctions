@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
@@ -51,6 +52,7 @@ class SuspensionServiceTest {
     @Mock AuctionRepository auctionRepo;
     @Mock FraudFlagRepository fraudFlagRepo;
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
+    @Mock NotificationPublisher notificationPublisher;
 
     SuspensionService service;
     Clock fixed;
@@ -58,7 +60,8 @@ class SuspensionServiceTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        service = new SuspensionService(auctionRepo, fraudFlagRepo, monitorLifecycle, fixed);
+        service = new SuspensionService(auctionRepo, fraudFlagRepo, monitorLifecycle,
+                notificationPublisher, fixed);
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(fraudFlagRepo.save(any(FraudFlag.class)))

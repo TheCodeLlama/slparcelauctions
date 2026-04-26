@@ -18,6 +18,7 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
@@ -57,6 +58,7 @@ public class SlParcelVerifyService {
     private final AuctionRepository auctionRepo;
     private final ParcelRepository parcelRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
+    private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
     @Transactional
@@ -175,6 +177,9 @@ public class SlParcelVerifyService {
                     auction.getId(), e.getMessage());
             throw new ParcelAlreadyListedException(parcel.getId(), -1L);
         }
+        notificationPublisher.listingVerified(
+                seller.getId(), auction.getId(), auction.getTitle());
+
         log.info("Method B verification complete: auction {} -> ACTIVE, ends {}",
                 auction.getId(), endsAt);
     }

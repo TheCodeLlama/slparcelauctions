@@ -41,6 +41,10 @@ import com.slparcelauctions.backend.user.UserRepository;
  * <p>The fan-out tests additionally verify: each bidder gets its own row
  * (not shared), the batch only runs on commit (not on rollback), and a
  * single FK violation does not abort delivery to the remaining recipients.
+ *
+ * <p>All assertions use {@link NotificationRepository#findAllByUserId} rather
+ * than {@code findAll()} so the tests are isolated from notifications left
+ * in the shared dev database by other test classes.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -102,6 +106,11 @@ class NotificationPublisherImplTest {
         return u;
     }
 
+    /** Returns notifications for the given user, scoped to avoid cross-test contamination. */
+    private List<Notification> notifFor(Long userId) {
+        return repo.findAllByUserId(userId);
+    }
+
     // ── Bidding ───────────────────────────────────────────────────────────────
 
     @Test
@@ -114,7 +123,7 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        List<Notification> rows = repo.findAll();
+        List<Notification> rows = notifFor(alice.getId());
         assertThat(rows).hasSize(1);
         Notification n = rows.get(0);
         assertThat(n.getUser().getId()).isEqualTo(alice.getId());
@@ -137,7 +146,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(alice.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getData()).containsEntry("isProxyOutbid", true);
         assertThat(n.getCoalesceKey()).isEqualTo("outbid:" + alice.getId() + ":43");
 
@@ -154,7 +165,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(bob.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.PROXY_EXHAUSTED);
         assertThat(n.getCoalesceKey()).isEqualTo("proxy_exhausted:" + bob.getId() + ":55");
         assertThat(n.getData()).containsKeys("auctionId", "parcelName", "proxyMaxL", "endsAt");
@@ -173,7 +186,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(alice.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.AUCTION_WON);
         assertThat(n.getCoalesceKey()).isNull();
         assertThat(n.getData()).containsKeys("auctionId", "parcelName", "winningBidL");
@@ -190,7 +205,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(bob.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.AUCTION_LOST);
         assertThat(n.getCoalesceKey()).isNull();
 
@@ -206,7 +223,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.AUCTION_ENDED_SOLD);
         assertThat(n.getData()).containsKey("winningBidL");
         assertThat(((Number) n.getData().get("winningBidL")).longValue()).isEqualTo(15000L);
@@ -223,7 +242,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.AUCTION_ENDED_RESERVE_NOT_MET);
         assertThat(n.getData()).containsKeys("auctionId", "parcelName", "highestBidL");
 
@@ -239,7 +260,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.AUCTION_ENDED_NO_BIDS);
         assertThat(n.getData()).containsKeys("auctionId", "parcelName");
         assertThat(n.getCoalesceKey()).isNull();
@@ -256,7 +279,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.AUCTION_ENDED_BOUGHT_NOW);
         assertThat(n.getData()).containsKey("buyNowL");
         assertThat(((Number) n.getData().get("buyNowL")).longValue()).isEqualTo(30000L);
@@ -276,7 +301,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_FUNDED);
         assertThat(n.getCoalesceKey()).isNull();
         assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName", "transferDeadline");
@@ -293,7 +320,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_TRANSFER_CONFIRMED);
         assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName");
 
@@ -309,7 +338,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_PAYOUT);
         assertThat(n.getData()).containsKey("payoutL");
         assertThat(((Number) n.getData().get("payoutL")).longValue()).isEqualTo(18500L);
@@ -326,7 +357,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(buyer.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_EXPIRED);
         assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName");
 
@@ -342,7 +375,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(user.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_DISPUTED);
         assertThat(n.getData()).containsEntry("reasonCategory", "SELLER_NO_TRANSFER");
 
@@ -358,7 +393,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(user.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_FROZEN);
         assertThat(n.getData()).containsEntry("reason", "Suspected fraud");
 
@@ -374,7 +411,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_PAYOUT_STALLED);
         assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName");
 
@@ -391,7 +430,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_TRANSFER_REMINDER);
         assertThat(n.getCoalesceKey()).isEqualTo("transfer_reminder:" + seller.getId() + ":207");
         assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName", "transferDeadline");
@@ -410,7 +451,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.LISTING_VERIFIED);
         assertThat(n.getCoalesceKey()).isNull();
         assertThat(n.getData()).containsKeys("auctionId", "parcelName");
@@ -427,7 +470,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.LISTING_SUSPENDED);
         assertThat(n.getData()).containsEntry("reason", "Ownership verification failed");
 
@@ -443,7 +488,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.LISTING_REVIEW_REQUIRED);
         assertThat(n.getData()).containsEntry("reason", "Disputed boundary");
 
@@ -461,7 +508,9 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        Notification n = repo.findAll().get(0);
+        List<Notification> rows = notifFor(reviewee.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.REVIEW_RECEIVED);
         assertThat(n.getCoalesceKey()).isNull();
         assertThat(n.getData()).containsKeys("reviewId", "rating", "auctionId", "parcelName");
@@ -484,11 +533,16 @@ class NotificationPublisherImplTest {
             return null;
         });
 
-        List<Notification> rows = repo.findAll();
-        assertThat(rows).hasSize(3);
-        assertThat(rows).allMatch(r -> r.getCategory() == NotificationCategory.LISTING_CANCELLED_BY_SELLER);
-        assertThat(rows.stream().map(r -> r.getUser().getId()).toList())
-                .containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId());
+        // Each user should have exactly one LISTING_CANCELLED_BY_SELLER row.
+        assertThat(notifFor(a.getId())).hasSize(1);
+        assertThat(notifFor(b.getId())).hasSize(1);
+        assertThat(notifFor(c.getId())).hasSize(1);
+        assertThat(notifFor(a.getId()).get(0).getCategory())
+                .isEqualTo(NotificationCategory.LISTING_CANCELLED_BY_SELLER);
+        assertThat(notifFor(b.getId()).get(0).getCategory())
+                .isEqualTo(NotificationCategory.LISTING_CANCELLED_BY_SELLER);
+        assertThat(notifFor(c.getId()).get(0).getCategory())
+                .isEqualTo(NotificationCategory.LISTING_CANCELLED_BY_SELLER);
 
         verify(broadcasterPort, times(3)).broadcastUpsert(anyLong(), any(), any());
     }
@@ -507,7 +561,7 @@ class NotificationPublisherImplTest {
         } catch (Exception ignored) {}
 
         // Parent rolled back — fan-out NEVER fired.
-        assertThat(repo.count()).isEqualTo(0L);
+        assertThat(notifFor(a.getId())).isEmpty();
         verify(broadcasterPort, never()).broadcastUpsert(anyLong(), any(), any());
     }
 
@@ -525,10 +579,12 @@ class NotificationPublisherImplTest {
         });
 
         // Two valid recipients should land; one stale fails silently.
-        List<Notification> rows = repo.findAll();
-        assertThat(rows).hasSize(2);
-        assertThat(rows.stream().map(r -> r.getUser().getId()).toList())
-                .containsExactlyInAnyOrder(a.getId(), c.getId());
+        assertThat(notifFor(a.getId())).hasSize(1);
+        assertThat(notifFor(c.getId())).hasSize(1);
+        assertThat(notifFor(a.getId()).get(0).getCategory())
+                .isEqualTo(NotificationCategory.LISTING_CANCELLED_BY_SELLER);
+        assertThat(notifFor(c.getId()).get(0).getCategory())
+                .isEqualTo(NotificationCategory.LISTING_CANCELLED_BY_SELLER);
         verify(broadcasterPort, times(2)).broadcastUpsert(anyLong(), any(), any());
     }
 }

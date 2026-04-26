@@ -118,6 +118,7 @@ class ParcelLockingRaceIntegrationTest {
                         + "(SELECT id FROM auctions WHERE seller_id = " + sellerId + ")");
                 stmt.execute("DELETE FROM auctions WHERE seller_id = " + sellerId);
                 stmt.execute("DELETE FROM parcels WHERE id = " + parcel.getId());
+                stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM verification_codes WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM users WHERE id = " + sellerId);

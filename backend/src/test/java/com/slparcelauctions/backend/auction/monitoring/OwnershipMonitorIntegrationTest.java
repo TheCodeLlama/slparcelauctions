@@ -131,6 +131,7 @@ class OwnershipMonitorIntegrationTest {
                     stmt.execute("DELETE FROM parcels WHERE id = " + seededParcelId);
                 }
                 if (seededUserId != null) {
+                    stmt.execute("DELETE FROM notification WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM verification_codes WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM users WHERE id = " + seededUserId);

@@ -77,4 +77,19 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("UPDATE Notification n SET n.read = true " +
            "WHERE n.user.id = :userId AND n.read = false")
     int markAllReadUnfiltered(@Param("userId") Long userId);
+
+    /**
+     * All notifications for a user, ordered by id descending (newest first).
+     * Used by integration tests that need to assert on a user-scoped set.
+     */
+    @Query("SELECT n FROM Notification n WHERE n.user.id = :userId ORDER BY n.id DESC")
+    List<Notification> findAllByUserId(@Param("userId") Long userId);
+
+    /**
+     * Bulk-deletes every notification for the given user. Used by integration-
+     * test cleanup to drain the notification FK before deleting the user row.
+     */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.user.id = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

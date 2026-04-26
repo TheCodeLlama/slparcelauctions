@@ -22,6 +22,7 @@ import com.slparcelauctions.backend.escrow.EscrowTransaction;
 import com.slparcelauctions.backend.escrow.EscrowTransactionRepository;
 import com.slparcelauctions.backend.escrow.EscrowTransactionStatus;
 import com.slparcelauctions.backend.escrow.EscrowTransactionType;
+import com.slparcelauctions.backend.notification.ws.AccountStateBroadcaster;
 import com.slparcelauctions.backend.sl.dto.PenaltyLookupResponse;
 import com.slparcelauctions.backend.sl.dto.PenaltyPaymentRequest;
 import com.slparcelauctions.backend.sl.dto.PenaltyPaymentResponse;
@@ -49,13 +50,15 @@ class PenaltyTerminalServiceTest {
 
     private UserRepository userRepo;
     private EscrowTransactionRepository ledgerRepo;
+    private AccountStateBroadcaster accountBroadcaster;
     private PenaltyTerminalService service;
 
     @BeforeEach
     void setup() {
         userRepo = mock(UserRepository.class);
         ledgerRepo = mock(EscrowTransactionRepository.class);
-        service = new PenaltyTerminalService(userRepo, ledgerRepo, FIXED);
+        accountBroadcaster = mock(AccountStateBroadcaster.class);
+        service = new PenaltyTerminalService(userRepo, ledgerRepo, accountBroadcaster, FIXED);
     }
 
     private static User userWithBalance(Long id, String displayName, Long balance) {

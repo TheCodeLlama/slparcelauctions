@@ -82,6 +82,7 @@ class BidSchedulerRaceTest {
     @Autowired BidRepository bidRepository;
     @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
+    @Autowired com.slparcelauctions.backend.notification.NotificationRepository notificationRepository;
     @Autowired PlatformTransactionManager txManager;
 
     // The real publisher is a STOMP broker that isn't wired in the unit test
@@ -108,9 +109,11 @@ class BidSchedulerRaceTest {
                 parcelRepository.findById(parcelId).ifPresent(parcelRepository::delete);
             }
             if (bidderId != null) {
+                notificationRepository.deleteAllByUserId(bidderId);
                 userRepository.findById(bidderId).ifPresent(userRepository::delete);
             }
             if (sellerId != null) {
+                notificationRepository.deleteAllByUserId(sellerId);
                 userRepository.findById(sellerId).ifPresent(userRepository::delete);
             }
         });
