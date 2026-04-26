@@ -48,6 +48,7 @@ import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
@@ -95,7 +96,8 @@ import reactor.core.publisher.Mono;
         "slpa.escrow.ownership-monitor-job.fixed-delay=PT24H",
         // Low threshold is irrelevant for these scenarios — none exercise
         // the World API failure counter branch.
-        "slpa.escrow.ownership-api-failure-threshold=5"
+        "slpa.escrow.ownership-api-failure-threshold=5",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @Import(EscrowOwnershipMonitorIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -124,6 +126,7 @@ class EscrowOwnershipMonitorIntegrationTest {
     @Autowired FraudFlagRepository fraudFlagRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
+    @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -163,6 +166,7 @@ class EscrowOwnershipMonitorIntegrationTest {
                         VerificationCodeType.PLAYER).forEach(verificationCodeRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL).forEach(verificationCodeRepo::delete);
+                notificationRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });

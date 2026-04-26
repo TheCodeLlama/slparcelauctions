@@ -49,6 +49,7 @@ export const mockUnverifiedCurrentUser: CurrentUser = {
   penaltyBalanceOwed: 0,
   listingSuspensionUntil: null,
   bannedFromListing: false,
+  unreadNotificationCount: 0,
   createdAt: "2026-04-01T10:00:00Z",
   updatedAt: "2026-04-01T10:00:00Z",
 };

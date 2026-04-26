@@ -1,12 +1,16 @@
 "use client";
 
 import { useContext } from "react";
-import { ToastContext, type ToastPayload } from "./ToastProvider";
+import { ToastContext, type ToastKind, type ToastPayload } from "./ToastProvider";
 
 /**
  * Fluent toast hook. Each variant accepts either a plain string (which
  * becomes the title) or a structured {@link ToastPayload} with optional
  * description + action button.
+ *
+ * `upsert(id, kind, payload)` replaces an existing toast in place and resets
+ * its auto-dismiss timer — useful for collapsing rapid updates on a single
+ * notification (e.g. the OUTBID storm) into one visible entry.
  *
  * Example:
  * <pre>
@@ -24,5 +28,7 @@ export function useToast() {
     error: (payload: string | ToastPayload) => ctx.push("error", payload),
     warning: (payload: string | ToastPayload) => ctx.push("warning", payload),
     info: (payload: string | ToastPayload) => ctx.push("info", payload),
+    upsert: (id: string, kind: ToastKind, payload: string | ToastPayload) =>
+      ctx.upsert(id, kind, payload),
   };
 }

@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -56,11 +58,13 @@ public class CancellationService {
             AuctionStatus.ACTIVE);
 
     private final AuctionRepository auctionRepo;
+    private final BidRepository bidRepo;
     private final CancellationLogRepository logRepo;
     private final ListingFeeRefundRepository refundRepo;
     private final UserRepository userRepo;
     private final BotMonitorLifecycleService monitorLifecycle;
     private final AuctionBroadcastPublisher broadcastPublisher;
+    private final NotificationPublisher notificationPublisher;
     private final CancellationPenaltyProperties penaltyProps;
     private final Clock clock;
 
@@ -170,6 +174,16 @@ public class CancellationService {
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
         monitorLifecycle.onAuctionClosed(saved);
+
+        // Fan-out LISTING_CANCELLED_BY_SELLER to each bidder who ever bid on
+        // this auction. The publisher registers an afterCommit hook internally,
+        // so bidder notifications fire only when the cancellation commits.
+        // An empty list is a no-op; a stale bidderId causes a contained warning
+        // (no FK-violation aborts the remaining recipients).
+        List<Long> allBidderIds = bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId());
+        notificationPublisher.listingCancelledBySellerFanout(
+                a.getId(), allBidderIds, a.getTitle(), reason);
+
         log.info("Auction {} cancelled from {} (hadBids={}, kind={})",
                 a.getId(), from, hadBids, kind);
 

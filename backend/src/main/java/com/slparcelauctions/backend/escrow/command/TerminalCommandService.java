@@ -25,6 +25,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCompletedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowRefundCompletedEnvelope;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
 import com.slparcelauctions.backend.user.User;
@@ -67,6 +68,7 @@ public class TerminalCommandService {
     private final UserRepository userRepo;
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -253,6 +255,14 @@ public class TerminalCommandService {
         final Escrow finalEscrow = escrow;
         final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
+
+        // Notify seller that payout was received (ESCROW_PAYOUT → seller only).
+        notificationPublisher.escrowPayout(
+                finalEscrow.getAuction().getSeller().getId(),
+                finalEscrow.getAuction().getId(),
+                finalEscrow.getId(),
+                finalEscrow.getAuction().getTitle(),
+                cmd.getAmount());
     }
 
     private void handleEscrowRefundSuccess(TerminalCommand cmd, String slTxn, OffsetDateTime now) {
@@ -340,6 +350,16 @@ public class TerminalCommandService {
         final EscrowPayoutStalledEnvelope env =
                 EscrowPayoutStalledEnvelope.of(cmd, escrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishPayoutStalled(env));
+
+        // Notify seller of the stalled payout — only for PAYOUT actions.
+        // REFUND stalls go to admin review; no seller-facing notification.
+        if (cmd.getAction() == TerminalCommandAction.PAYOUT) {
+            notificationPublisher.escrowPayoutStalled(
+                    escrow.getAuction().getSeller().getId(),
+                    escrow.getAuction().getId(),
+                    escrow.getId(),
+                    escrow.getAuction().getTitle());
+        }
     }
 
     private void registerAfterCommit(Runnable r) {

@@ -1548,3 +1548,61 @@ verification happens manually against a staging-sized dataset ahead
 of releases or during query tuning, not as a CI gate.
 
 **Reference:** Epic 07 sub-spec 1 §13.
+
+### F.92 — Spring user-destination paths: client subscribes to `/user/queue/X`, never `/user/{id}/queue/X`
+
+The shorthand `/user/{id}/queue/*` shows up in design docs and ledger entries
+but is **never** the literal subscription path. Spring's `UserDestinationResolver`
+resolves the principal from the STOMP session (set by `JwtChannelInterceptor` on
+CONNECT via `accessor.setUser(StompAuthenticationToken)`) and translates the
+client's `/user/queue/X` subscription into a session-specific destination. The
+backend publishes via `convertAndSendToUser(String.valueOf(userId), "/queue/X", ...)`.
+
+A subscription path that includes a literal user id (e.g.,
+`/user/123/queue/notifications`) is a security hole — any authenticated user
+could subscribe to any other user's queue by guessing IDs. The `WebSocketConfig`
+broker registration must include `/queue` as a destination prefix
+(`enableSimpleBroker("/topic", "/queue")`), or `convertAndSendToUser` silently
+drops the message because there's no broker for the destination.
+
+### F.93 — Notification publish lifecycle differs by recipient cardinality
+
+Single-recipient publishers (`outbid`, `escrowFunded`, etc.) run **in-tx** with
+the originating event — atomic with the event, exceptions roll back the parent.
+Acceptable: single recipient = small surface, real failures *should* roll back.
+
+Fan-out publishers (only `listingCancelledBySellerFanout` today) run as
+**afterCommit batch** with per-recipient try-catch + `TransactionTemplate`
+configured `PROPAGATION_REQUIRES_NEW`. The cancellation is the business event;
+notification delivery is the side effect — a side effect must never block the
+primary action. afterCommit (rather than REQUIRES_NEW *inside* the parent tx)
+also prevents orphan notifications when the parent rolls back unrelatedly.
+
+Mixing these lifecycles produces either:
+- "one bad bidder kills the cancellation" (fan-out in-tx)
+- "orphan notifications when parent rolls back" (per-recipient REQUIRES_NEW
+  inside parent tx)
+
+If you add a new fan-out method, name it with a `Fanout` suffix and accept
+`List<Long>` recipients — match `listingCancelledBySellerFanout`'s shape.
+
+### F.94 — Coalesce uses Postgres ON CONFLICT, not find-then-insert-with-retry
+
+The naive race-handling pattern (catch `DataIntegrityViolationException` →
+retry as UPDATE) marks the parent transaction rollback-only on the exception,
+killing the originating business event (e.g., a bid settlement). The native
+`ON CONFLICT (user_id, coalesce_key) WHERE read = false DO UPDATE` upsert
+avoids the exception path entirely.
+
+Index design: partial unique on `(user_id, coalesce_key) WHERE read = false`,
+created via `NotificationCoalesceIndexInitializer` because Hibernate's
+`ddl-auto: update` cannot emit partial indexes. Null `coalesce_key` values
+never conflict (NULL ≠ NULL semantics in Postgres unique constraints), so the
+same UPSERT query handles both coalescing and non-coalescing categories — no
+service-layer branching.
+
+The `xmax = 0` vs `xmax = current_txid` trick in the `RETURNING` clause tells
+the DAO whether the operation was insert or update without a second roundtrip.
+This drives the `isUpdate` flag on the `NOTIFICATION_UPSERTED` WS envelope,
+which the frontend uses to decide whether to prepend (insert) or replace-by-id
+(update) in the dropdown cache.

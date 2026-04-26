@@ -57,7 +57,10 @@ import reactor.core.publisher.Mono;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 class ParcelLockingRaceIntegrationTest {
 
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
@@ -115,6 +118,7 @@ class ParcelLockingRaceIntegrationTest {
                         + "(SELECT id FROM auctions WHERE seller_id = " + sellerId + ")");
                 stmt.execute("DELETE FROM auctions WHERE seller_id = " + sellerId);
                 stmt.execute("DELETE FROM parcels WHERE id = " + parcel.getId());
+                stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM verification_codes WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM users WHERE id = " + sellerId);

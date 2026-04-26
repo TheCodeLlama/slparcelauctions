@@ -7,11 +7,14 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.slparcelauctions.backend.escrow.EscrowTransaction;
 import com.slparcelauctions.backend.escrow.EscrowTransactionRepository;
 import com.slparcelauctions.backend.escrow.EscrowTransactionStatus;
 import com.slparcelauctions.backend.escrow.EscrowTransactionType;
+import com.slparcelauctions.backend.notification.ws.AccountStateBroadcaster;
 import com.slparcelauctions.backend.sl.dto.PenaltyLookupResponse;
 import com.slparcelauctions.backend.sl.dto.PenaltyPaymentRequest;
 import com.slparcelauctions.backend.sl.dto.PenaltyPaymentResponse;
@@ -61,6 +64,7 @@ public class PenaltyTerminalService {
 
     private final UserRepository userRepo;
     private final EscrowTransactionRepository ledgerRepo;
+    private final AccountStateBroadcaster accountBroadcaster;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -132,6 +136,26 @@ public class PenaltyTerminalService {
         long newBalance = balance - req.amount();
         locked.setPenaltyBalanceOwed(newBalance);
         userRepo.save(locked);
+
+        // When the penalty balance reaches zero, broadcast PENALTY_CLEARED on
+        // afterCommit so the frontend can dismiss the SuspensionBanner. The
+        // afterCommit wrapper is critical: pushing before DB commit would let
+        // the frontend refetch and still see the old non-zero balance.
+        if (newBalance == 0L) {
+            final long uid = locked.getId();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronization() {
+                            @Override
+                            public void afterCommit() {
+                                accountBroadcaster.broadcastPenaltyCleared(uid);
+                            }
+                        });
+            } else {
+                // Defensive path for unit tests / callers without a transaction context.
+                accountBroadcaster.broadcastPenaltyCleared(uid);
+            }
+        }
 
         OffsetDateTime now = OffsetDateTime.now(clock);
         ledgerRepo.save(EscrowTransaction.builder()

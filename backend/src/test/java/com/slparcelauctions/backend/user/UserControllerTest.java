@@ -55,7 +55,7 @@ class UserControllerTest {
                 1L, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
-                OffsetDateTime.now(), OffsetDateTime.now());
+                OffsetDateTime.now(), OffsetDateTime.now(), 0L);
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
 
         CreateUserRequest request = new CreateUserRequest("alice@example.com", "password123", "Alice");
@@ -161,7 +161,7 @@ class UserControllerTest {
                 1L, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
-                OffsetDateTime.now(), OffsetDateTime.now());
+                OffsetDateTime.now(), OffsetDateTime.now(), 0L);
         when(userService.getUserById(1L)).thenReturn(expected);
 
         mockMvc.perform(get("/api/v1/users/me"))

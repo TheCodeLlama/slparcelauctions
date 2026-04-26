@@ -7,10 +7,13 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
@@ -24,6 +27,7 @@ import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
@@ -56,6 +60,43 @@ public class GlobalExceptionHandler {
         e.getBindingResult().getFieldErrors().forEach(fe ->
                 errors.put(fe.getField(), fe.getDefaultMessage()));
         pd.setProperty("errors", errors);
+        return pd;
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException e,
+                                             HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Invalid value '" + e.getValue() + "' for parameter '" + e.getName() + "'.");
+        pd.setType(URI.create("https://slpa.example/problems/type-mismatch"));
+        pd.setTitle("Type mismatch");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "TYPE_MISMATCH");
+        return pd;
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ProblemDetail handleMethodValidation(HandlerMethodValidationException e,
+                                                HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request parameter validation failed.");
+        pd.setType(URI.create("https://slpa.example/problems/validation"));
+        pd.setTitle("Validation failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "VALIDATION_FAILED");
+        return pd;
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException e,
+                                                    HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request parameter validation failed.");
+        pd.setType(URI.create("https://slpa.example/problems/validation"));
+        pd.setTitle("Validation failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "VALIDATION_FAILED");
         return pd;
     }
 
@@ -112,6 +153,18 @@ public class GlobalExceptionHandler {
         pd.setTitle("Conflict");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "CONFLICT");
+        return pd;
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ProblemDetail handleNoSuchElement(NoSuchElementException e,
+                                             HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/not-found"));
+        pd.setTitle("Not found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_FOUND");
         return pd;
     }
 

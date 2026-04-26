@@ -45,6 +45,7 @@ import com.slparcelauctions.backend.escrow.scheduler.EscrowTimeoutJob;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
@@ -87,7 +88,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // Keep the timeout bean eligible for autowiring but disable the
         // @Scheduled tick so only the explicit sweeps we drive execute.
         "slpa.escrow.timeout-job.enabled=true",
-        "slpa.escrow.timeout-job.fixed-delay=PT24H"
+        "slpa.escrow.timeout-job.fixed-delay=PT24H",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @Import({ClockOverrideConfig.class, EscrowTimeoutIntegrationTest.CapturingConfig.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -114,6 +116,7 @@ class EscrowTimeoutIntegrationTest {
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
+    @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
     @Autowired MutableFixedClock testClock;
@@ -158,6 +161,7 @@ class EscrowTimeoutIntegrationTest {
                         VerificationCodeType.PLAYER).forEach(verificationCodeRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL).forEach(verificationCodeRepo::delete);
+                notificationRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });

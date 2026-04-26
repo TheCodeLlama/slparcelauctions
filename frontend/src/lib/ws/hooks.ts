@@ -42,6 +42,7 @@ export function useStompSubscription<T>(
   callbackRef.current = onMessage;
 
   useEffect(() => {
+    if (!destination) return;
     const unsubscribe = subscribe<T>(destination, (payload) => {
       callbackRef.current(payload);
     });

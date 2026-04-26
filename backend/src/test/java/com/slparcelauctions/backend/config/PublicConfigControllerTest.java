@@ -25,7 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(PublicConfigController.class)
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class})
-@TestPropertySource(properties = "slpa.listing-fee.amount-lindens=150")
+@TestPropertySource(properties = {
+        "slpa.listing-fee.amount-lindens=150",
+        "slpa.notifications.cleanup.enabled=false"
+})
 class PublicConfigControllerTest {
 
     @Autowired

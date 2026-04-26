@@ -30,7 +30,10 @@ import com.slparcelauctions.backend.user.UserRepository;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
+})
 @Transactional
 class DevSlSimulateIntegrationTest {
 

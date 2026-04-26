@@ -24,6 +24,7 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.AuctionReviewsResponse;
 import com.slparcelauctions.backend.review.dto.PendingReviewDto;
@@ -82,6 +83,7 @@ public class ReviewService {
     private final EscrowRepository escrowRepo;
     private final UserRepository userRepo;
     private final ReviewBroadcastPublisher broadcastPublisher;
+    private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
     /**
@@ -193,6 +195,8 @@ public class ReviewService {
             recomputeAggregates(mine.getReviewee(), mine.getReviewedRole());
             recomputeAggregates(counterparty.get().getReviewee(),
                     counterparty.get().getReviewedRole());
+            publishReviewReceivedNotification(mine);
+            publishReviewReceivedNotification(counterparty.get());
             registerBroadcast(mine);
             registerBroadcast(counterparty.get());
         }
@@ -224,6 +228,7 @@ public class ReviewService {
 
         revealNow(r, OffsetDateTime.now(clock));
         recomputeAggregates(r.getReviewee(), r.getReviewedRole());
+        publishReviewReceivedNotification(r);
         registerBroadcast(r);
 
         log.info("Review {} revealed: auction={}, reviewee={}, role={}",
@@ -444,6 +449,21 @@ public class ReviewService {
                 .findFirst()
                 .map(p -> "/api/v1/auctions/" + auction.getId() + "/photos/" + p.getId() + "/bytes")
                 .orElseGet(() -> auction.getParcel() == null ? null : auction.getParcel().getSnapshotUrl());
+    }
+
+    /**
+     * Publishes a REVIEW_RECEIVED in-app notification to the reviewee.
+     * Called inside the @Transactional boundary so NotificationService's
+     * MANDATORY propagation is satisfied.
+     */
+    private void publishReviewReceivedNotification(Review r) {
+        notificationPublisher.reviewReceived(
+                r.getReviewee().getId(),
+                r.getId(),
+                r.getAuction().getId(),
+                r.getAuction().getTitle(),
+                r.getRating()
+        );
     }
 
     private void revealNow(Review r, OffsetDateTime now) {

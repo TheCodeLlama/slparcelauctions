@@ -68,3 +68,9 @@ export { Heart } from "lucide-react";
 
 // Epic 08 sub-spec 1 additions (reviews & reputation — flag/respond)
 export { Flag, CornerDownRight } from "lucide-react";
+
+// Epic 09 sub-spec 1 additions (in-app notifications)
+export { Bolt, Wallet, Trophy, AlertOctagon, Pause, Clock } from "lucide-react";
+
+// Epic 09 sub-spec 1 feed page (mobile filter drawer toggle)
+export { ListFilter as FilterIcon } from "lucide-react";

@@ -28,10 +28,8 @@ import { BidPanel } from "@/components/auction/BidPanel";
 import { BidHistoryList } from "@/components/auction/BidHistoryList";
 import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
 import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner";
-import { OutbidToastProvider } from "@/components/auction/OutbidToastProvider";
 import { StickyBidBar } from "@/components/auction/StickyBidBar";
 import { BidSheet } from "@/components/auction/BidSheet";
-import { useToast } from "@/components/ui/Toast";
 
 /**
  * Client shell for the auction detail page.
@@ -65,12 +63,10 @@ interface Props {
  * at consumer sites via discriminators like {@code status}.
  *
  * {@code currentBidderId} is persisted from every {@link BidSettlementEnvelope}
- * so {@link OutbidToastProvider.maybeFire} has a reliable pre-settlement
- * snapshot and {@code currentUserIsWinning} can be derived without a
- * separate query. Neither DTO carries this field today — the initial
- * server fetch leaves it {@code undefined}, which is indistinguishable
- * from "no one has bid yet" for the outbid-guard (and that's the correct
- * semantics: the first envelope can never displace the caller).
+ * so {@code currentUserIsWinning} can be derived without a separate query.
+ * Neither DTO carries this field today — the initial server fetch leaves it
+ * {@code undefined}, which is indistinguishable from "no one has bid yet"
+ * (first envelope can never displace the caller).
  */
 type AuctionCacheEntry = (
   | PublicAuctionResponse
@@ -82,7 +78,6 @@ type AuctionCacheEntry = (
 
 export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   const queryClient = useQueryClient();
-  const toast = useToast();
   const session = useAuth();
   const currentUserId =
     session.status === "authenticated" ? session.user.id : null;
@@ -201,15 +196,6 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         return;
       }
 
-      // Snapshot BEFORE the cache mutation so the outbid-toast hook point
-      // (wired in Task 7 via OutbidToastProvider) has the pre-settlement
-      // state available — otherwise the was-winning guard always sees the
-      // post-settlement values. Assignment preserves the snapshot for the
-      // BID_SETTLEMENT branch below.
-      const prevAuction = queryClient.getQueryData<AuctionCacheEntry>(
-        auctionKey(id),
-      );
-
       queryClient.setQueryData<AuctionCacheEntry>(
         auctionKey(id),
         (prev) => {
@@ -295,19 +281,13 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           }));
         }
 
-        // Outbid-toast signal. Guards documented inside
-        // {@link OutbidToastProvider.maybeFire}: was-winning + now-
-        // losing, with anonymous / first-envelope / still-winning cases
-        // short-circuiting. The cache snapshot taken before the merge
-        // above is the authoritative pre-settlement state.
-        OutbidToastProvider.maybeFire(prevAuction, env, currentUserId, toast);
       }
 
       if (env.type === "AUCTION_ENDED") {
         queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
       }
     },
-    [queryClient, id, currentUserId, toast],
+    [queryClient, id],
   );
 
   useStompSubscription<AuctionTopicEnvelope>(

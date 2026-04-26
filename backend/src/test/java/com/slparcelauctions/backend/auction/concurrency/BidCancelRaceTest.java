@@ -73,7 +73,8 @@ import javax.sql.DataSource;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidCancelRaceTest {
@@ -116,9 +117,11 @@ class BidCancelRaceTest {
                         stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
                     }
                     if (bidderId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
                     }
                     if (sellerId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                         stmt.execute("DELETE FROM users WHERE id = " + sellerId);
                     }
                 }

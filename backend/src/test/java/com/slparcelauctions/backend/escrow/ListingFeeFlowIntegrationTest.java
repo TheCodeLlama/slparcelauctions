@@ -86,7 +86,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // Keep the refund processor bean autowirable + slow its tick so
         // only the explicit drainPending() call we make executes.
         "slpa.escrow.listing-fee-refund-job.enabled=true",
-        "slpa.escrow.listing-fee-refund-job.fixed-delay=PT24H"
+        "slpa.escrow.listing-fee-refund-job.fixed-delay=PT24H",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ListingFeeFlowIntegrationTest {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Bell, MenuIcon } from "@/components/ui/icons";
+import { MenuIcon } from "@/components/ui/icons";
 import {
   Button,
   IconButton,
@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { MobileMenu } from "./MobileMenu";
 import { NavLink } from "./NavLink";
 import { UserMenuDropdown } from "@/components/auth/UserMenuDropdown";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,9 +52,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <div id="curator-tray-slot" />
-            <IconButton aria-label="Notifications" variant="tertiary">
-              <Bell />
-            </IconButton>
+            <NotificationBell />
 
             {status === "loading" ? null : status === "authenticated" ? (
               <UserMenuDropdown user={user} />

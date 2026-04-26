@@ -38,6 +38,7 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.CapturingAuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
@@ -69,7 +70,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false"
 })
 @Import(AuctionEndIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -93,6 +95,7 @@ class AuctionEndIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingAuctionBroadcastPublisher capturingPublisher;
 
@@ -149,6 +152,7 @@ class AuctionEndIntegrationTest {
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         com.slparcelauctions.backend.verification.VerificationCodeType.PARCEL)
                         .forEach(verificationCodeRepo::delete);
+                notificationRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });

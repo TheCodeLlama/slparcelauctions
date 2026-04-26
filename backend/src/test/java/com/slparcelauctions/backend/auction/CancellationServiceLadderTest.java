@@ -26,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -44,11 +45,13 @@ import com.slparcelauctions.backend.user.UserRepository;
 class CancellationServiceLadderTest {
 
     @Mock AuctionRepository auctionRepo;
+    @Mock BidRepository bidRepo;
     @Mock CancellationLogRepository logRepo;
     @Mock ListingFeeRefundRepository refundRepo;
     @Mock UserRepository userRepo;
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock AuctionBroadcastPublisher broadcastPublisher;
+    @Mock NotificationPublisher notificationPublisher;
 
     CancellationService service;
 
@@ -66,8 +69,8 @@ class CancellationServiceLadderTest {
                 new CancellationPenaltyProperties.Penalty(1000L, 2500L, 30),
                 48);
         service = new CancellationService(
-                auctionRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
-                broadcastPublisher, penaltyProps, fixed);
+                auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
+                broadcastPublisher, notificationPublisher, penaltyProps, fixed);
         seller = User.builder().id(42L).email("s@example.com")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)

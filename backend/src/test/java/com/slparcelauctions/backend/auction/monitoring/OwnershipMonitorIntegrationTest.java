@@ -79,7 +79,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         // ExternalApiTimeoutException in well under a second.
         "slpa.world-api.retry-attempts=2",
         "slpa.world-api.retry-backoff-ms=25",
-        "slpa.world-api.timeout-ms=2000"
+        "slpa.world-api.timeout-ms=2000",
+        "slpa.notifications.cleanup.enabled=false"
 })
 class OwnershipMonitorIntegrationTest {
 
@@ -130,6 +131,7 @@ class OwnershipMonitorIntegrationTest {
                     stmt.execute("DELETE FROM parcels WHERE id = " + seededParcelId);
                 }
                 if (seededUserId != null) {
+                    stmt.execute("DELETE FROM notification WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM verification_codes WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM users WHERE id = " + seededUserId);

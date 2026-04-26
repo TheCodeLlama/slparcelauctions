@@ -27,6 +27,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowExpiredEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFrozenEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
@@ -85,6 +86,7 @@ public class EscrowService {
     private final TerminalRepository terminalRepo;
     private final TerminalCommandService terminalCommandService;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final NotificationPublisher notificationPublisher;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -204,6 +206,19 @@ public class EscrowService {
                         broadcastPublisher.publishDisputed(envelope);
                     }
                 });
+
+        // Notify both parties of the dispute (both serve as record; plan §Step 6).
+        String disputedParcelName = escrow.getAuction().getTitle();
+        long disputedAuctionId = escrow.getAuction().getId();
+        long disputedEscrowId = escrow.getId();
+        String disputeReasonCategory = req.reasonCategory().name();
+        notificationPublisher.escrowDisputed(
+                escrow.getAuction().getWinnerUserId(),
+                disputedAuctionId, disputedEscrowId, disputedParcelName, disputeReasonCategory);
+        notificationPublisher.escrowDisputed(
+                escrow.getAuction().getSeller().getId(),
+                disputedAuctionId, disputedEscrowId, disputedParcelName, disputeReasonCategory);
+
         log.info("Escrow {} DISPUTED by user {}: category={}, description_len={}",
                 escrow.getId(), currentUserId, req.reasonCategory(), req.description().length());
 
@@ -485,6 +500,14 @@ public class EscrowService {
                     }
                 });
 
+        // Notify seller that the buyer funded escrow (spec §4: ESCROW_FUNDED → seller only).
+        notificationPublisher.escrowFunded(
+                escrow.getAuction().getSeller().getId(),
+                escrow.getAuction().getId(),
+                escrow.getId(),
+                escrow.getAuction().getTitle(),
+                escrow.getTransferDeadline());
+
         log.info("Escrow {} FUNDED (auction {}, amount L${}, txn {})",
                 escrow.getId(), req.auctionId(), req.amount(), req.slTransactionKey());
 
@@ -527,6 +550,18 @@ public class EscrowService {
                         broadcastPublisher.publishTransferConfirmed(envelope);
                     }
                 });
+
+        // Notify both parties that transfer was confirmed.
+        String transferConfirmedParcel = escrow.getAuction().getTitle();
+        long transferConfirmedAuctionId = escrow.getAuction().getId();
+        long transferConfirmedEscrowId = escrow.getId();
+        notificationPublisher.escrowTransferConfirmed(
+                escrow.getAuction().getWinnerUserId(),
+                transferConfirmedAuctionId, transferConfirmedEscrowId, transferConfirmedParcel);
+        notificationPublisher.escrowTransferConfirmed(
+                escrow.getAuction().getSeller().getId(),
+                transferConfirmedAuctionId, transferConfirmedEscrowId, transferConfirmedParcel);
+
         log.info("Escrow {} transfer confirmed for auction {}",
                 escrow.getId(), escrow.getAuction().getId());
     }
@@ -582,6 +617,19 @@ public class EscrowService {
                         broadcastPublisher.publishFrozen(envelope);
                     }
                 });
+
+        // Notify both parties that the escrow was frozen.
+        String frozenParcelName = escrow.getAuction().getTitle();
+        long frozenAuctionId = escrow.getAuction().getId();
+        long frozenEscrowId = escrow.getId();
+        String frozenReasonStr = reason.name();
+        notificationPublisher.escrowFrozen(
+                escrow.getAuction().getWinnerUserId(),
+                frozenAuctionId, frozenEscrowId, frozenParcelName, frozenReasonStr);
+        notificationPublisher.escrowFrozen(
+                escrow.getAuction().getSeller().getId(),
+                frozenAuctionId, frozenEscrowId, frozenParcelName, frozenReasonStr);
+
         log.warn("Escrow {} FROZEN for auction {}: reason={}, evidence={}",
                 escrow.getId(), escrow.getAuction().getId(), reason, evidence);
     }
@@ -649,6 +697,18 @@ public class EscrowService {
                         broadcastPublisher.publishExpired(envelope);
                     }
                 });
+
+        // Notify both parties of payment-timeout expiry.
+        String paymentExpiredParcel = escrow.getAuction().getTitle();
+        long paymentExpiredAuctionId = escrow.getAuction().getId();
+        long paymentExpiredEscrowId = escrow.getId();
+        notificationPublisher.escrowExpired(
+                escrow.getAuction().getWinnerUserId(),
+                paymentExpiredAuctionId, paymentExpiredEscrowId, paymentExpiredParcel);
+        notificationPublisher.escrowExpired(
+                escrow.getAuction().getSeller().getId(),
+                paymentExpiredAuctionId, paymentExpiredEscrowId, paymentExpiredParcel);
+
         log.info("Escrow {} EXPIRED (payment timeout, no refund): auction {}",
                 escrow.getId(), escrow.getAuction().getId());
     }
@@ -707,6 +767,18 @@ public class EscrowService {
                         broadcastPublisher.publishExpired(envelope);
                     }
                 });
+
+        // Notify both parties of transfer-timeout expiry.
+        String transferExpiredParcel = escrow.getAuction().getTitle();
+        long transferExpiredAuctionId = escrow.getAuction().getId();
+        long transferExpiredEscrowId = escrow.getId();
+        notificationPublisher.escrowExpired(
+                escrow.getAuction().getWinnerUserId(),
+                transferExpiredAuctionId, transferExpiredEscrowId, transferExpiredParcel);
+        notificationPublisher.escrowExpired(
+                escrow.getAuction().getSeller().getId(),
+                transferExpiredAuctionId, transferExpiredEscrowId, transferExpiredParcel);
+
         log.info("Escrow {} EXPIRED (transfer timeout, refund queued): auction {}",
                 escrow.getId(), escrow.getAuction().getId());
     }

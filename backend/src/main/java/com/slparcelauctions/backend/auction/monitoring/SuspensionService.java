@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class SuspensionService {
     private final AuctionRepository auctionRepo;
     private final FraudFlagRepository fraudFlagRepo;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
     @Transactional
@@ -78,6 +80,12 @@ public class SuspensionService {
 
         monitorLifecycle.onAuctionClosed(auction);
 
+        notificationPublisher.listingSuspended(
+                auction.getSeller().getId(),
+                auction.getId(),
+                auction.getTitle(),
+                FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN.name());
+
         log.warn("Auction {} SUSPENDED for ownership change: expected={}, detected={}",
                 auction.getId(), ev.get("expected_owner"), ev.get("detected_owner"));
     }
@@ -102,6 +110,12 @@ public class SuspensionService {
                 .build());
 
         monitorLifecycle.onAuctionClosed(auction);
+
+        notificationPublisher.listingSuspended(
+                auction.getSeller().getId(),
+                auction.getId(),
+                auction.getTitle(),
+                FraudFlagReason.PARCEL_DELETED_OR_MERGED.name());
 
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
                 auction.getId(), auction.getParcel().getSlParcelUuid());
@@ -192,6 +206,12 @@ public class SuspensionService {
                 .build());
 
         monitorLifecycle.onAuctionClosed(auction);
+
+        notificationPublisher.listingSuspended(
+                auction.getSeller().getId(),
+                auction.getId(),
+                auction.getTitle(),
+                reason.name());
 
         log.warn("Auction {} SUSPENDED by bot monitor: reason={}, evidence={}",
                 auction.getId(), reason, evidence);

@@ -37,6 +37,7 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
@@ -89,8 +90,10 @@ class SlParcelVerifyServiceTest {
         OwnershipMonitorProperties ownershipProps = new OwnershipMonitorProperties();
         OwnershipCheckTimestampInitializer ownershipInit =
                 new OwnershipCheckTimestampInitializer(ownershipProps, FIXED);
+        NotificationPublisher notificationPublisher = mock(NotificationPublisher.class);
         service = new SlParcelVerifyService(
-                headerValidator, codeRepo, auctionRepo, parcelRepo, ownershipInit, FIXED);
+                headerValidator, codeRepo, auctionRepo, parcelRepo, ownershipInit,
+                notificationPublisher, FIXED);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
