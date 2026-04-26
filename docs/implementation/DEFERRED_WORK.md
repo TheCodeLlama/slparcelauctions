@@ -92,11 +92,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   The bot half of this item (primary-escrow-uuid) landed in Epic 06 Task 3
   via `BotStartupValidator` and is no longer deferred. See FOOTGUNS §F.47.
 
-### Notifications for suspension events
-- **From:** Epic 03 sub-spec 2 (ownership monitor SUSPENDED transition)
-- **Why:** When `SuspensionService.suspend()` flips an auction to SUSPENDED and writes a `FraudFlag` row, the seller learns about it only via the My Listings tab (`ListingSummaryRow`'s inline red callout). No email / SL IM / in-app notification is fired. This is fine for Phase 1 (the dashboard is the only communication surface) but a production launch deserves a real "your listing was suspended — contact support" email with the fraud reason summarized.
-- **When:** Epic 09 (Notifications) — hook `SuspensionService.suspend()` into the notification publisher once the email + SL IM channels exist.
-- **Notes:** The notification template should NOT include the full FraudFlag `evidence_json` payload (that's admin-only — leaking it could help an attacker calibrate their next attempt). Stick to a human-readable reason string from `FraudFlagReason`.
 
 ### Admin dashboard for fraud_flag resolution
 - **From:** Epic 03 sub-spec 2 (FraudFlag entity + SuspensionService)
@@ -116,17 +111,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
-### Outbid / won / reserve-not-met / auction-ended notifications
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** Epic 04 sub-spec 1 publishes the data sources — `Bid` rows carry `OUTBID` / `WON` / `LOST` derivable state, `Auction.endOutcome` carries `SOLD` / `RESERVE_NOT_MET` / `NO_BIDS` / `BOUGHT_NOW`, and the WS settlement + auction-ended envelopes broadcast the transitions. No email / SL IM fan-out exists yet. Bidders learn they've been outbid only by reloading the auction page or watching the live WS update; sellers learn the auction ended only by reloading My Listings.
-- **When:** Epic 09 (Notifications) — hook a `BidSettlementEnvelope` / `AuctionEndedEnvelope` listener into the notification publisher once email + SL IM channels exist.
-- **Notes:** The data sources are stable — `BidType`, `Auction.endOutcome`, `Auction.winnerUserId`, and the existing WS envelopes carry everything Epic 09 needs. No schema changes required on the Epic 04 side.
-
-### User-targeted WebSocket queues (`/user/{id}/queue/*`)
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** Phase 1 broadcasts use only the public `/topic/auction/{id}` destination. Personal events (e.g., "you were outbid on auction X" toast) are derived on the frontend by comparing the public envelope's `currentBidderId` against the logged-in user. Per-user STOMP queues (`/user/{id}/queue/outbid`, `/user/{id}/queue/won`) would let the backend push targeted events without a public broadcast and would integrate with Epic 09's notification fan-out.
-- **When:** Epic 09 (Notifications) — when email + SL IM + in-app push unify on a single publisher, add the user-queue destination at the same time for consistency.
-- **Notes:** The `JwtChannelInterceptor` already understands principal-gated destinations — adding `/user/**` to the gate is a small change. The frontend's `useStompSubscription` hook would grow a `/user/queue/*` variant.
 
 ### Region autocomplete for DistanceSearchBlock
 - **From:** Epic 07 sub-spec 2 (Task 2b)
@@ -182,10 +166,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — trigger is operational, not feature-driven.
 - **Notes:** `Terminal.region_name` column reserved. Router pluggable behind a `TerminalSelector` interface.
 
-### Notifications for escrow lifecycle events
-- **From:** Epic 05 sub-spec 1
-- **Why:** State transitions (FUNDED, TRANSFER_CONFIRMED, COMPLETED, EXPIRED, DISPUTED, FROZEN) and the 24h seller-transfer reminder log at INFO but fire no email / SL IM. Consistent with Epic 04's deferral.
-- **When:** Epic 09 (Notifications) — hook a subscriber on the escrow broadcast envelope stream.
 
 ### Admin tooling for DISPUTED / FROZEN resolution + secret rotation
 - **From:** Epic 05 sub-spec 1
@@ -236,15 +216,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   `POST /api/v1/bot/heartbeat` endpoint (same bearer auth), backend
   persists in Redis with a TTL.
 
-### Notifications for bot-detected fraud
-- **From:** Epic 06 (spec §1.2)
-- **Why:** Bot-triggered `SuspensionService.suspendForBotObservation` writes
-  a FraudFlag row visible only in my-listings; no email / SL IM fires.
-  Consistent with Epic 04 / 05 deferrals.
-- **When:** Epic 09 (Notifications).
-- **Notes:** Hook the notification publisher into all three suspend call
-  sites + `EscrowService.freezeForFraud` and `markReviewRequired`. Do
-  NOT include the raw observation payload in the notification — admin-only.
 
 ### Per-worker auth tokens (`bot_workers` table)
 - **From:** Epic 06 brainstorm
@@ -321,11 +292,31 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Pre-launch ops checklist; remove after first prod deployment lands cleanly.
 - **Notes:** `AuctionTitleDevTouchUp` is the dev-side workaround. `MaturityRatingDevTouchUp` is the same pattern for the maturity_rating canonicalization.
 
-### Real-time `PENALTY_CLEARED` push for SuspensionBanner
-- **From:** Epic 08 sub-spec 2 (§5.6 + §12)
-- **Why:** When a seller pays off their `penaltyBalanceOwed` at a SLPA terminal, the dashboard `<SuspensionBanner>` should dismiss in real time. Sub-spec 2 ships a window-focus refetch + 30s `staleTime` on `/me` as the freshness mechanism — adequate for the walk-in flow (seller tabs back from SL, banner dismisses within seconds) but not instantaneous. A `/user/{userId}/queue/account` envelope `PENALTY_CLEARED` would push the update the moment the terminal payment commits.
-- **When:** Behind the existing "User-targeted WebSocket queues" deferred entry (above) — once the principal-gated `/user/**` STOMP destination lands, `PenaltyTerminalService.pay` registers an `afterCommit` callback that publishes `PENALTY_CLEARED` to the user's queue when balance hits 0.
-- **Notes:** `PenaltyTerminalService.pay` already has the right hook point (the `if (newBalance == 0)` branch); just no publisher yet. Frontend `SuspensionBanner` would subscribe to `/user/queue/account` (currently doesn't exist) and on `PENALTY_CLEARED` invalidate `["currentUser"]`. No backend data shape change needed beyond the new envelope record.
+### Email channel for notifications
+- **From:** Epic 09 sub-spec 1
+- **Why:** Scoped to sub-spec 2. Sub-spec 1 ships in-app only.
+- **When:** Epic 09 sub-spec 2.
+- **Notes:** Per-category templates (HTML + plain text), signed-token unsubscribe, debounce/dedupe matching the coalesce pattern. Email-change flow (deferred from Epic 02 sub-spec 2b) lands at the same time — both depend on the same email plumbing.
+
+### SL IM channel for notifications
+- **From:** Epic 09 sub-spec 1
+- **Why:** Scoped to sub-spec 3. Backend queue + terminal polling endpoint; actual delivery awaits Epic 11 LSL terminal.
+- **When:** Epic 09 sub-spec 3.
+
+### Notification preferences UI
+- **From:** Epic 09 sub-spec 1
+- **Why:** Scoped to sub-spec 2 — lands with the email channel. The User entity already has the `notify_email` / `notify_sl_im` JSONB columns from Epic 02 sub-spec 2b; sub-spec 1 doesn't read them because the in-app channel is always-on. The toggle grid + global mute switches + quiet hours pickers belong with sub-spec 2.
+- **When:** Epic 09 sub-spec 2.
+
+### REVIEW_RESPONSE_WINDOW_CLOSING notification + scheduler
+- **From:** Epic 09 sub-spec 1
+- **Why:** No event source today; needs a scheduler that fires N hours before the response window closes. Sub-spec 1 wires every existing event source but doesn't add new schedulers.
+- **When:** Epic 10 (Admin & Moderation) — alongside the response-window scheduler for review responses, since both share the timing primitive.
+
+### ESCROW_TRANSFER_REMINDER scheduler
+- **From:** Epic 09 sub-spec 1
+- **Why:** Sub-spec 1 implements `publisher.escrowTransferReminder(...)` + `NotificationDataBuilder.escrowTransferReminder(...)` + corresponding category and tests. No `@Scheduled` job calls it today — DESIGN.md §729 says the bot service sends this for bot-verified listings (Epic 06 territory). A general non-bot scheduler with an Escrow `reminderSentAt` column for once-per-escrow guarantee is its own scope.
+- **When:** Epic 09 sub-spec 2 or sub-spec 3 — alongside email/IM channels that benefit most from reminders. Touchpoint: Epic 06 bot service can call this method directly for its 24h reminder; the general scheduler is the deferred piece.
 
 ---
 

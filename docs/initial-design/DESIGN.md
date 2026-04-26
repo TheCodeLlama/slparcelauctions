@@ -1839,6 +1839,12 @@ Users configure per-category preferences for two optional channels:
 - Backend checks user preferences before dispatching each notification
 - Unsubscribe link in every email (one-click, per-category)
 
+### Notes (Epic 09 sub-spec 1)
+
+- **Channel-gating is group-level.** The `notify_email` / `notify_sl_im` JSONB on User stores per-group ON/OFF (Bidding, Auction result, Escrow, Listing status, Reviews, Realty group, Marketing). Notification *rows* carry fine-grained `category` enum values for icon/copy/deeplink rendering — each category maps to exactly one group. Sub-spec 1 ships in-app (website) only; the channel columns are not read until sub-spec 2.
+- **Coalesce primitive.** Rows can carry an optional `coalesce_key`; events with the same key on an unread row UPSERT into that row rather than inserting a fresh one (Postgres `ON CONFLICT (user_id, coalesce_key) WHERE read = false DO UPDATE`). OUTBID is the first consumer — repeated outbids on the same auction collapse into one row, keeping the feed clean. See FOOTGUNS §F.94 for the xmax/insert-vs-update detection pattern.
+- **User-destination security pattern.** Clients subscribe to `/user/queue/notifications` and `/user/queue/account` — never a path that embeds a literal user id. The backend publishes via `convertAndSendToUser(String.valueOf(userId), "/queue/...", payload)`. Spring's `UserDestinationResolver` resolves the principal from the STOMP session established on CONNECT. Including a literal user id in the subscription path is a security hole. See FOOTGUNS §F.92.
+
 ---
 
 ## 12. Revenue & Economics
