@@ -14,6 +14,7 @@ import {
   mockAlreadyVerifiedProblemDetail,
 } from "./fixtures";
 import type { CurrentUser, PublicUserProfile, UpdateProfileRequest } from "@/lib/user/api";
+import type { NotificationDto } from "@/lib/notifications/types";
 
 /**
  * Named handler factories for every auth endpoint, plus a `defaultHandlers`
@@ -259,6 +260,77 @@ export const verificationHandlers = {
       HttpResponse.json(mockAlreadyVerifiedProblemDetail, { status: 409 })
     ),
 };
+
+// In-memory store for notification handler tests.
+const _notifications = new Map<number, NotificationDto>();
+let _nextNotifId = 1;
+
+export const notificationHandlers = [
+  http.get("*/api/v1/notifications", () => {
+    const all = Array.from(_notifications.values())
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return HttpResponse.json({
+      content: all,
+      totalElements: all.length,
+      totalPages: 1,
+      number: 0,
+      size: 20,
+    });
+  }),
+  http.get("*/api/v1/notifications/unread-count", ({ request }) => {
+    const url = new URL(request.url);
+    const breakdown = url.searchParams.get("breakdown");
+    const count = Array.from(_notifications.values()).filter((n) => !n.read).length;
+    if (breakdown === "group") {
+      const byGroup: Record<string, number> = {};
+      for (const n of _notifications.values()) {
+        if (!n.read) byGroup[n.group] = (byGroup[n.group] ?? 0) + 1;
+      }
+      return HttpResponse.json({ count, byGroup });
+    }
+    return HttpResponse.json({ count });
+  }),
+  http.put("*/api/v1/notifications/:id/read", ({ params }) => {
+    const n = _notifications.get(Number(params.id));
+    if (!n) return new HttpResponse(null, { status: 404 });
+    n.read = true;
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.put("*/api/v1/notifications/read-all", ({ request }) => {
+    const url = new URL(request.url);
+    const group = url.searchParams.get("group");
+    let count = 0;
+    for (const n of _notifications.values()) {
+      if (!group || n.group === group.toLowerCase()) {
+        if (!n.read) { n.read = true; count++; }
+      }
+    }
+    return HttpResponse.json({ markedRead: count });
+  }),
+];
+
+export function seedNotification(partial: Partial<NotificationDto> = {}): NotificationDto {
+  const id = _nextNotifId++;
+  const n: NotificationDto = {
+    id,
+    category: "OUTBID",
+    group: "bidding",
+    title: "You were outbid",
+    body: "Someone placed a higher bid.",
+    data: {},
+    read: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...partial,
+  };
+  _notifications.set(id, n);
+  return n;
+}
+
+export function clearNotifications(): void {
+  _notifications.clear();
+  _nextNotifId = 1;
+}
 
 /**
  * Default handlers registered at server startup. Establishes the "no session"

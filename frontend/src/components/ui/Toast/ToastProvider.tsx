@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -43,6 +44,7 @@ export type ToastContextValue = {
   toasts: ToastItem[];
   push: (kind: ToastKind, payload: string | ToastPayload) => void;
   dismiss: (id: string) => void;
+  upsert: (id: string, kind: ToastKind, payload: string | ToastPayload) => void;
 };
 
 export const ToastContext = createContext<ToastContextValue | null>(null);
@@ -81,6 +83,9 @@ function roleFor(kind: ToastKind): "alert" | "status" {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [mounted, setMounted] = useState(false);
+  // Tracks auto-dismiss timers keyed by toast id so upsert can cancel and
+  // reset the timer when a notification with the same id arrives again.
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard for createPortal; same pattern as ThemeToggle.tsx
@@ -119,13 +124,48 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         });
       }, 0);
 
-      setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
+      timersRef.current.set(id, setTimeout(() => dismiss(id), AUTO_DISMISS_MS));
+    },
+    [dismiss],
+  );
+
+  /**
+   * Upsert a toast by a caller-supplied id. When a toast with the same id
+   * already exists it is replaced in place and its auto-dismiss timer is
+   * reset — collapsing rapid notification updates (e.g. OUTBID storm) into
+   * a single visible entry that extends its lifetime on each update.
+   */
+  const upsert = useCallback(
+    (id: string, kind: ToastKind, payload: string | ToastPayload) => {
+      const next: ToastItem = {
+        id,
+        kind,
+        message: typeof payload === "string" ? payload : payload.title,
+        description: typeof payload === "string" ? undefined : (payload as ToastPayload).description,
+        action: typeof payload === "string" ? undefined : (payload as ToastPayload).action,
+      };
+      setToasts((prev) => {
+        const existingIdx = prev.findIndex((t) => t.id === id);
+        if (existingIdx >= 0) {
+          // Replace in place so the toast keeps its queue position.
+          const updated = [...prev];
+          updated[existingIdx] = next;
+          return updated;
+        }
+        // Fresh id — apply MAX_VISIBLE cap.
+        const trimmed = prev.length >= MAX_VISIBLE ? prev.slice(prev.length - MAX_VISIBLE + 1) : prev;
+        return [...trimmed, next];
+      });
+      // Cancel any running timer and start a fresh one.
+      const existing = timersRef.current.get(id);
+      if (existing !== undefined) clearTimeout(existing);
+      timersRef.current.set(id, setTimeout(() => dismiss(id), AUTO_DISMISS_MS));
     },
     [dismiss],
   );
 
   return (
-    <ToastContext.Provider value={{ toasts, push, dismiss }}>
+    <ToastContext.Provider value={{ toasts, push, dismiss, upsert }}>
       {children}
       {mounted &&
         createPortal(

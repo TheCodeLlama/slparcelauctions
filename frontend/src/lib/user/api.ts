@@ -39,6 +39,12 @@ export type CurrentUser = {
    * the {@code SuspensionBanner} permanent variant.
    */
   bannedFromListing: boolean;
+  /**
+   * Unread notification count seeded on the /me response so the bell badge
+   * is available immediately on page load without a separate round-trip.
+   * Kept live by the WS notification stream thereafter.
+   */
+  unreadNotificationCount: number;
   createdAt: string;
   updatedAt: string;
 };
