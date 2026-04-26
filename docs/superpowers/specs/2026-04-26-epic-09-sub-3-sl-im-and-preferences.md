@@ -315,7 +315,7 @@ public interface SlImMessageRepository extends JpaRepository<SlImMessage, Long> 
 }
 ```
 
-`FOR UPDATE SKIP LOCKED` matters because if a future enhancement deploys a fallback dispatcher (e.g., a spare object), concurrent pollers each grab disjoint batches without serializing on a single row. Costs nothing now to future-proof.
+`FOR UPDATE SKIP LOCKED` is advisory only with the controller's current shape (no `@Transactional`, so the row lock releases the moment the query returns). It costs nothing to keep, and prevents serialization if one poller's transaction *does* span longer (e.g., a future change wraps the controller method). True multi-dispatcher concurrency would require a `PENDING → IN_PROGRESS → DELIVERED` status transition so a second poller skips rows the first poller is mid-delivering — explicitly out of scope here. The implementer should add a code comment on this line capturing the actual semantics so future contributors don't mistake it for working concurrent-poll dedup.
 
 ### 3.6 `SlImChannelGate`
 
@@ -711,6 +711,10 @@ public class SlImInternalController {
         if (limit > props.maxBatchLimit() || limit < 1) {
             throw new IllegalArgumentException("limit must be in [1, " + props.maxBatchLimit() + "]");
         }
+        // FOR UPDATE SKIP LOCKED in pollPending() is advisory: this method isn't
+        // @Transactional, so the row lock releases when the query returns — before
+        // the LSL script delivers. Real multi-dispatcher dedup would need a
+        // PENDING → IN_PROGRESS → DELIVERED status transition.
         List<SlImMessage> rows = repo.pollPending(limit);
         List<PendingItem> items = rows.stream()
             .map(m -> new PendingItem(m.getId(), m.getAvatarUuid(), m.getMessageText()))
