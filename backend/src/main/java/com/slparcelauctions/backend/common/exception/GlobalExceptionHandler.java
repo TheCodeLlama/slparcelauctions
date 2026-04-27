@@ -289,6 +289,18 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException e,
+                                               HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/bad-request"));
+        pd.setTitle("Bad request");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BAD_REQUEST");
+        return pd;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception e, HttpServletRequest req) {
         String correlationId = UUID.randomUUID().toString();

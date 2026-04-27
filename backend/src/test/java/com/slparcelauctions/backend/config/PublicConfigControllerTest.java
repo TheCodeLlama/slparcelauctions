@@ -12,6 +12,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 
 import static org.hamcrest.Matchers.isA;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -24,10 +25,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * render the platform cost badge without a JWT.
  */
 @WebMvcTest(PublicConfigController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class})
+@Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class})
 @TestPropertySource(properties = {
         "slpa.listing-fee.amount-lindens=150",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class PublicConfigControllerTest {
 

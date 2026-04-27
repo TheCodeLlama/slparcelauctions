@@ -42,7 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
     "jwt.access-token-lifetime=PT15M",
     "jwt.refresh-token-lifetime=P7D",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class AuthControllerTest {
 

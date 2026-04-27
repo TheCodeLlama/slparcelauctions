@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.sl.dto.PenaltyLookupResponse;
 import com.slparcelauctions.backend.sl.dto.PenaltyPaymentRequest;
@@ -43,14 +44,15 @@ import com.slparcelauctions.backend.user.UserNotFoundException;
  * plan Step 3.
  */
 @WebMvcTest(PenaltyTerminalController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class,
+@Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class,
         JwtAuthenticationEntryPoint.class, SlExceptionHandler.class})
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
         "jwt.access-token-lifetime=PT15M",
         "jwt.refresh-token-lifetime=P7D",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class PenaltyTerminalControllerSliceTest {
 

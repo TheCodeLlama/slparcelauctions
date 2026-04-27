@@ -38,7 +38,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Transactional
 class UserControllerAvatarSliceTest {

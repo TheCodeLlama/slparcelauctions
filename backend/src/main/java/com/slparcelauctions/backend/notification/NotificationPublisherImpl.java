@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.notification;
 
 import com.slparcelauctions.backend.notification.NotificationDao.UpsertResult;
 import com.slparcelauctions.backend.notification.dto.NotificationDto;
+import com.slparcelauctions.backend.notification.slim.SlImChannelDispatcher;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -37,16 +38,19 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private final NotificationDao notificationDao;
     private final NotificationWsBroadcasterPort wsBroadcaster;
     private final TransactionTemplate requiresNewTxTemplate;
+    private final SlImChannelDispatcher slImChannelDispatcher;
 
     public NotificationPublisherImpl(
             NotificationService notificationService,
             NotificationDao notificationDao,
             NotificationWsBroadcasterPort wsBroadcaster,
-            @Qualifier("requiresNewTxTemplate") TransactionTemplate requiresNewTxTemplate) {
+            @Qualifier("requiresNewTxTemplate") TransactionTemplate requiresNewTxTemplate,
+            SlImChannelDispatcher slImChannelDispatcher) {
         this.notificationService = notificationService;
         this.notificationDao = notificationDao;
         this.wsBroadcaster = wsBroadcaster;
         this.requiresNewTxTemplate = requiresNewTxTemplate;
+        this.slImChannelDispatcher = slImChannelDispatcher;
     }
 
     @Override
@@ -291,10 +295,15 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             public void afterCommit() {
                 for (Long bidderId : bidderUserIds) {
                     try {
-                        UpsertResult result = requiresNewTxTemplate.execute(status ->
-                            notificationDao.upsert(bidderId, NotificationCategory.LISTING_CANCELLED_BY_SELLER,
-                                                    title, body, data, null)
-                        );
+                        UpsertResult result = requiresNewTxTemplate.execute(status -> {
+                            UpsertResult r = notificationDao.upsert(bidderId,
+                                NotificationCategory.LISTING_CANCELLED_BY_SELLER,
+                                title, body, data, null);
+                            slImChannelDispatcher.maybeQueueForFanout(
+                                bidderId, NotificationCategory.LISTING_CANCELLED_BY_SELLER,
+                                title, body, data, null);
+                            return r;
+                        });
                         wsBroadcaster.broadcastUpsert(bidderId, result, dtoFor(bidderId, result, data, title, body));
                     } catch (Exception ex) {
                         log.warn("Fan-out notification failed for userId={} auctionId={} category=LISTING_CANCELLED_BY_SELLER: {}",

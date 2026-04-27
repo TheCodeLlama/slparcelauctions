@@ -59,7 +59,8 @@ import reactor.core.publisher.Mono;
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class ParcelLockingRaceIntegrationTest {
 

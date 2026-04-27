@@ -293,20 +293,13 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** `AuctionTitleDevTouchUp` is the dev-side workaround. `MaturityRatingDevTouchUp` is the same pattern for the maturity_rating canonicalization.
 
 ### Email channel for notifications
-- **From:** Epic 09 sub-spec 1
-- **Why:** Scoped to sub-spec 2. Sub-spec 1 ships in-app only.
-- **When:** Epic 09 sub-spec 2.
-- **Notes:** Per-category templates (HTML + plain text), signed-token unsubscribe, debounce/dedupe matching the coalesce pattern. Email-change flow (deferred from Epic 02 sub-spec 2b) lands at the same time — both depend on the same email plumbing.
-
-### SL IM channel for notifications
-- **From:** Epic 09 sub-spec 1
-- **Why:** Scoped to sub-spec 3. Backend queue + terminal polling endpoint; actual delivery awaits Epic 11 LSL terminal.
-- **When:** Epic 09 sub-spec 3.
-
-### Notification preferences UI
-- **From:** Epic 09 sub-spec 1
-- **Why:** Scoped to sub-spec 2 — lands with the email channel. The User entity already has the `notify_email` / `notify_sl_im` JSONB columns from Epic 02 sub-spec 2b; sub-spec 1 doesn't read them because the in-app channel is always-on. The toggle grid + global mute switches + quiet hours pickers belong with sub-spec 2.
-- **When:** Epic 09 sub-spec 2.
+- **Status:** Removed from roadmap. Re-add only on explicit user request.
+- **Reasoning:** SL natively forwards offline IMs to the user's registered email,
+  so the SL IM channel from Epic 09 sub-spec 3 covers the email use case at zero
+  additional infrastructure cost.
+- **If re-instated:** per-category templates (HTML + plain text), signed-token
+  unsubscribe, debounce/dedupe matching the coalesce pattern, email-change flow
+  (originally pending from Epic 02 sub-spec 2b).
 
 ### REVIEW_RESPONSE_WINDOW_CLOSING notification + scheduler
 - **From:** Epic 09 sub-spec 1
@@ -315,8 +308,43 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### ESCROW_TRANSFER_REMINDER scheduler
 - **From:** Epic 09 sub-spec 1
-- **Why:** Sub-spec 1 implements `publisher.escrowTransferReminder(...)` + `NotificationDataBuilder.escrowTransferReminder(...)` + corresponding category and tests. No `@Scheduled` job calls it today — DESIGN.md §729 says the bot service sends this for bot-verified listings (Epic 06 territory). A general non-bot scheduler with an Escrow `reminderSentAt` column for once-per-escrow guarantee is its own scope.
-- **When:** Epic 09 sub-spec 2 or sub-spec 3 — alongside email/IM channels that benefit most from reminders. Touchpoint: Epic 06 bot service can call this method directly for its 24h reminder; the general scheduler is the deferred piece.
+- **Why:** Sub-spec 1 implements `publisher.escrowTransferReminder(...)` +
+  `NotificationDataBuilder.escrowTransferReminder(...)` + corresponding category
+  and tests. No `@Scheduled` job calls it today.
+- **When:** Epic 10 (Admin & Moderation) — paired with REVIEW_RESPONSE_WINDOW_CLOSING
+  scheduler. Both share design DNA (interval-bound + once-per-entity + admin-visible).
+- **Implementation sketch:** new `Escrow.reminderSentAt` column for
+  once-per-escrow guarantee; new `EscrowReminderScheduler` (cron daily, query
+  escrows with FUNDED status approaching transfer deadline, fire
+  `publisher.escrowTransferReminder(...)`).
+
+### Quiet hours UI for SL IM
+- **From:** Epic 09 sub-spec 3
+- **Why:** Columns `slImQuietStart` and `slImQuietEnd` exist on User entity
+  from Epic 02 sub-spec 2b; no UI consumes them and the dispatcher gate
+  ignores them. May tie to a future timezone/account-settings sub-spec; no
+  committed home yet. If unused for >12 months, drop the columns in a
+  dedicated cleanup sub-spec.
+- **When:** No committed phase.
+
+### HTTP-in push from backend to dispatcher for urgency
+- **From:** Epic 09 sub-spec 3
+- **Why:** Current design polls every 60 seconds — fine for the events
+  shipping today (worst case 60 s latency for outbid/won). If outbid latency
+  becomes a UX concern, register the dispatcher's HTTP-in URL with the
+  backend on startup and have the backend `llHTTPRequest` to it on
+  high-priority categories to wake an early poll.
+- **When:** Post-launch enhancement; needs the channel to have real traffic
+  and a real complaint before the complexity earns its keep.
+
+### Sub-day SL IM dispatcher health monitoring
+- **From:** Epic 09 sub-spec 3
+- **Why:** The expiry job's INFO log catches a dark dispatcher within 48 h. If
+  sub-day signal becomes important, options include: a `last_polled_at`
+  timestamp on a singleton `dispatcher_health` row written on each successful
+  poll, with an alarm scheduler that pages on `now - last_polled_at > 5 min`.
+- **When:** No committed phase. Out of scope until operational data shows the
+  48 h canary is insufficient.
 
 ---
 

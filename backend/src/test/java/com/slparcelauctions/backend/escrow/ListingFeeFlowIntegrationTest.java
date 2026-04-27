@@ -87,7 +87,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // only the explicit drainPending() call we make executes.
         "slpa.escrow.listing-fee-refund-job.enabled=true",
         "slpa.escrow.listing-fee-refund-job.fixed-delay=PT24H",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ListingFeeFlowIntegrationTest {

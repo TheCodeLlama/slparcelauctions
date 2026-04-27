@@ -50,7 +50,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         "slpa.escrow.listing-fee-refund-job.enabled=false",
         "slpa.bot-task.timeout-check-interval=PT10M",
         "slpa.bot-task.in-progress-timeout=PT1M",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BotTaskTimeoutJobInProgressTest {

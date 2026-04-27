@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.notification;
 
 import com.slparcelauctions.backend.notification.NotificationDao.UpsertResult;
 import com.slparcelauctions.backend.notification.dto.NotificationDto;
+import com.slparcelauctions.backend.notification.slim.SlImChannelDispatcher;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -24,6 +25,7 @@ public class NotificationService {
     private final NotificationDao dao;
     private final NotificationRepository repo;
     private final NotificationWsBroadcasterPort wsBroadcaster;
+    private final SlImChannelDispatcher slImChannelDispatcher;
 
     /**
      * Publishes a notification within the caller's transaction.
@@ -43,6 +45,12 @@ public class NotificationService {
             @Override
             public void afterCommit() {
                 wsBroadcaster.broadcastUpsert(userId, result, dtoFromUpsert(event, result));
+            }
+        });
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                slImChannelDispatcher.maybeQueue(event);
             }
         });
         return result;

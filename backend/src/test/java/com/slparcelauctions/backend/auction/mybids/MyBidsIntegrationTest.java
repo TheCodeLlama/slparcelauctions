@@ -70,7 +70,8 @@ import reactor.core.publisher.Mono;
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "spring.jpa.properties.hibernate.generate_statistics=true",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Transactional
 class MyBidsIntegrationTest {

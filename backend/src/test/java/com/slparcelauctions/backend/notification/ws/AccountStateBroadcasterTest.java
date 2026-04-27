@@ -28,7 +28,8 @@ import com.slparcelauctions.backend.notification.ws.envelope.PenaltyClearedEnvel
         "slpa.escrow.timeout-job.enabled=false",
         "slpa.escrow.command-dispatcher-job.enabled=false",
         "slpa.review.scheduler.enabled=false",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class AccountStateBroadcasterTest {
 

@@ -20,6 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImTerminalAuthFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final BotSharedSecretAuthorizer botSharedSecretAuthorizer;
+    private final SlImTerminalAuthFilter slImTerminalAuthFilter;
 
     @Value("${cors.allowed-origin:http://localhost:3000}")
     private String allowedOrigin;
@@ -227,9 +229,26 @@ public class SecurityConfig {
                         // the request 404s (falling through Spring MVC rather than Spring Security).
                         // FOOTGUNS §B.5: this MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/dev/**").permitAll()
+                        // SL IM terminal polling endpoints (Epic 09 sub-spec 3 Task 4).
+                        // Authentication is a shared bearer token validated by
+                        // SlImTerminalAuthFilter (constant-time compare via
+                        // MessageDigest.isEqual). JWT is not used here — the in-world
+                        // dispatcher script cannot obtain a user JWT.
+                        // CSRF is already globally disabled (AbstractHttpConfigurer::disable
+                        // above) so no additional ignoringRequestMatchers is needed.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/internal/sl-im/**").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint))
+                // SlImTerminalAuthFilter runs before the JWT filter so it can short-circuit
+                // /api/v1/internal/sl-im/** with a 401 before JWT processing begins.
+                // JwtAuthenticationFilter has no registered Spring Security filter order, so
+                // we position both custom filters before UsernamePasswordAuthenticationFilter
+                // (a well-known sentinel with a registered order). SlImTerminalAuthFilter's
+                // shouldNotFilter() returns true for all non-internal paths, keeping the
+                // ordering harmless for the rest of the filter chain.
+                .addFilterBefore(slImTerminalAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

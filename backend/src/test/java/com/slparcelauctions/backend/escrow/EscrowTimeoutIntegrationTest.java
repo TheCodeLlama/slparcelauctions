@@ -89,7 +89,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // @Scheduled tick so only the explicit sweeps we drive execute.
         "slpa.escrow.timeout-job.enabled=true",
         "slpa.escrow.timeout-job.fixed-delay=PT24H",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Import({ClockOverrideConfig.class, EscrowTimeoutIntegrationTest.CapturingConfig.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

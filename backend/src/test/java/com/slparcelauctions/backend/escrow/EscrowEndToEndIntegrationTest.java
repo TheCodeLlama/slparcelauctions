@@ -83,7 +83,8 @@ import reactor.core.publisher.Mono;
         "slpa.escrow.ownership-monitor-job.fixed-delay=PT24H",
         "slpa.escrow.command-dispatcher-job.enabled=true",
         "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H",
-        "slpa.notifications.cleanup.enabled=false"
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Import(EscrowEndToEndIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

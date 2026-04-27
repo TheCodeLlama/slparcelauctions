@@ -73,6 +73,13 @@ npm run lint      # ESLint (v9)
 - The SL World API provides parcel metadata and ownership verification.
 - LSL scripts communicate with the backend via `llHTTPRequest` (outbound) and HTTP-in URLs (inbound).
 
+**In-world LSL code lives in `lsl-scripts/`.** Each script gets its own
+subdirectory with its own README covering deployment, configuration,
+operations, and limits. Updates to a script's behavior, deployment, or
+configuration must update that script's README in the same commit. The
+top-level `lsl-scripts/README.md` is an index — updates only on add / remove
+/ rename.
+
 ## Infrastructure Dependencies
 
 - **PostgreSQL** - relational data (users, auctions, escrow, reviews)
