@@ -142,4 +142,6 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
     @Modifying
     @Transactional
     int deleteAllByAuctionId(Long auctionId);
+
+    Page<Bid> findByBidderIdOrderByCreatedAtDesc(Long bidderId, Pageable pageable);
 }

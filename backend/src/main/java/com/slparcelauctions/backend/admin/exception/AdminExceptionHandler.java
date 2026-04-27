@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.slparcelauctions.backend.admin.ban.exception.BanAlreadyLiftedException;
 import com.slparcelauctions.backend.admin.ban.exception.BanNotFoundException;
 import com.slparcelauctions.backend.admin.ban.exception.BanTypeFieldMismatchException;
+import com.slparcelauctions.backend.admin.users.exception.SelfDemoteException;
+import com.slparcelauctions.backend.admin.users.exception.UserAlreadyAdminException;
+import com.slparcelauctions.backend.admin.users.exception.UserNotAdminException;
 
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.admin")
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -62,6 +65,24 @@ public class AdminExceptionHandler {
     public ResponseEntity<AdminApiError> handleBanTypeMismatch(BanTypeFieldMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(AdminApiError.of("BAN_TYPE_FIELD_MISMATCH", ex.getMessage()));
+    }
+
+    @ExceptionHandler(SelfDemoteException.class)
+    public ResponseEntity<AdminApiError> handleSelfDemote(SelfDemoteException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("SELF_DEMOTE_FORBIDDEN", ex.getMessage()));
+    }
+
+    @ExceptionHandler(UserAlreadyAdminException.class)
+    public ResponseEntity<AdminApiError> handleAlreadyAdmin(UserAlreadyAdminException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("ALREADY_ADMIN", ex.getMessage()));
+    }
+
+    @ExceptionHandler(UserNotAdminException.class)
+    public ResponseEntity<AdminApiError> handleNotAdmin(UserNotAdminException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("NOT_ADMIN", ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

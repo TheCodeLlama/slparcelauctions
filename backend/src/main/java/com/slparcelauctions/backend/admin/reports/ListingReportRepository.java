@@ -47,4 +47,11 @@ public interface ListingReportRepository extends JpaRepository<ListingReport, Lo
 
     @Query("SELECT count(r) FROM ListingReport r WHERE r.auction.id = :auctionId AND r.status = 'OPEN'")
     long countOpenByAuctionId(@Param("auctionId") Long auctionId);
+
+    @Query("""
+        SELECT r FROM ListingReport r
+        WHERE r.reporter.id = :userId OR r.auction.seller.id = :userId
+        ORDER BY r.updatedAt DESC
+        """)
+    Page<ListingReport> findByUserAsReporterOrSeller(@Param("userId") Long userId, Pageable pageable);
 }

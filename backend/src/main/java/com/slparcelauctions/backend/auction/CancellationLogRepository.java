@@ -53,4 +53,6 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
             + "ORDER BY c.cancelledAt DESC")
     List<CancellationLog> findLatestByAuctionId(
             @Param("auctionId") Long auctionId, Pageable pageable);
+
+    Page<CancellationLog> findBySellerIdOrderByCancelledAtDesc(Long sellerId, Pageable pageable);
 }
