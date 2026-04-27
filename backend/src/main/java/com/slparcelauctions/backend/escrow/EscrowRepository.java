@@ -112,4 +112,14 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
     List<Escrow> findCompletedEscrowsForUser(
             @Param("userId") Long userId,
             @Param("threshold") OffsetDateTime threshold);
+
+    long countByState(EscrowState state);
+
+    long countByStateNotIn(Collection<EscrowState> states);
+
+    @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state = :state")
+    long sumFinalBidAmountByState(@Param("state") EscrowState state);
+
+    @Query("SELECT COALESCE(SUM(e.commissionAmt), 0) FROM Escrow e WHERE e.state = :state")
+    long sumCommissionAmtByState(@Param("state") EscrowState state);
 }
