@@ -100,6 +100,9 @@ public class Auction {
     @Column(name = "last_ownership_check_at")
     private OffsetDateTime lastOwnershipCheckAt;
 
+    @Column(name = "suspended_at")
+    private OffsetDateTime suspendedAt;
+
     /**
      * Watch-window deadline for the post-cancellation ownership probe (Epic 08
      * sub-spec 2 §6). Set when an {@code ACTIVE}-with-bids auction is

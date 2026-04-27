@@ -56,6 +56,9 @@ public class SuspensionService {
     public void suspendForOwnershipChange(Auction auction, ParcelMetadata evidence) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         auction.setStatus(AuctionStatus.SUSPENDED);
+        if (auction.getSuspendedAt() == null) {
+            auction.setSuspendedAt(now);
+        }
         auction.setLastOwnershipCheckAt(now);
         auctionRepo.save(auction);
 
@@ -94,6 +97,9 @@ public class SuspensionService {
     public void suspendForDeletedParcel(Auction auction) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         auction.setStatus(AuctionStatus.SUSPENDED);
+        if (auction.getSuspendedAt() == null) {
+            auction.setSuspendedAt(now);
+        }
         auction.setLastOwnershipCheckAt(now);
         auctionRepo.save(auction);
 
@@ -193,6 +199,9 @@ public class SuspensionService {
             Map<String, Object> evidence) {
         OffsetDateTime now = OffsetDateTime.now(clock);
         auction.setStatus(AuctionStatus.SUSPENDED);
+        if (auction.getSuspendedAt() == null) {
+            auction.setSuspendedAt(now);
+        }
         auction.setLastOwnershipCheckAt(now);
         auctionRepo.save(auction);
 
