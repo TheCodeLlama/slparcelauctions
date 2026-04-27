@@ -1,0 +1,14 @@
+package com.slparcelauctions.backend.admin.audit;
+
+public enum AdminActionType {
+    DISMISS_REPORT,
+    WARN_SELLER_FROM_REPORT,
+    SUSPEND_LISTING_FROM_REPORT,
+    CANCEL_LISTING_FROM_REPORT,
+    CREATE_BAN,
+    LIFT_BAN,
+    PROMOTE_USER,
+    DEMOTE_USER,
+    RESET_FRIVOLOUS_COUNTER,
+    REINSTATE_LISTING
+}
