@@ -68,6 +68,7 @@ const winnerUser: AuthUser = {
   displayName: "Winner",
   slAvatarUuid: "99999999-9999-9999-9999-999999999999",
   verified: true,
+  role: "USER",
 };
 
 // Seller fixture with an id that matches the fixture sellerId (42).
@@ -77,6 +78,7 @@ const sellerUser: AuthUser = {
   displayName: "Seller",
   slAvatarUuid: "42424242-4242-4242-4242-424242424242",
   verified: true,
+  role: "USER",
 };
 
 describe("EscrowPageClient", () => {

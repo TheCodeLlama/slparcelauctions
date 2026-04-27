@@ -51,6 +51,7 @@ describe("Header", () => {
         displayName: "Heath Barcus",
         slAvatarUuid: null,
         verified: true,
+        role: "USER",
       },
     });
     renderWithProviders(<Header />);

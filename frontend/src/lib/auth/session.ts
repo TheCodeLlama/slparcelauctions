@@ -32,6 +32,7 @@ export type AuthUser = {
   displayName: string | null;
   slAvatarUuid: string | null;
   verified: boolean;
+  role: "USER" | "ADMIN";
 };
 
 /**

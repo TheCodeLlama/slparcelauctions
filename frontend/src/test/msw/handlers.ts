@@ -16,6 +16,12 @@ import {
 import type { CurrentUser, PublicUserProfile, UpdateProfileRequest } from "@/lib/user/api";
 import type { NotificationDto } from "@/lib/notifications/types";
 import type { PreferencesDto, EditableGroup } from "@/lib/notifications/preferencesTypes";
+import type {
+  AdminFraudFlagDetail,
+  AdminFraudFlagSummary,
+  AdminStatsResponse,
+} from "@/lib/admin/types";
+import type { Page } from "@/types/page";
 
 /**
  * Named handler factories for every auth endpoint, plus a `defaultHandlers`
@@ -396,6 +402,79 @@ export function seedPreferences(p: PreferencesDto): void {
 export function resetPreferences(): void {
   _currentPreferences = { ...DEFAULT_PREFERENCES, slIm: { ...DEFAULT_PREFERENCES.slIm } };
 }
+
+const defaultStats: AdminStatsResponse = {
+  queues: { openFraudFlags: 0, pendingPayments: 0, activeDisputes: 0 },
+  platform: {
+    activeListings: 0,
+    totalUsers: 0,
+    activeEscrows: 0,
+    completedSales: 0,
+    lindenGrossVolume: 0,
+    lindenCommissionEarned: 0,
+  },
+};
+
+export const adminHandlers = {
+  statsSuccess(stats: Partial<AdminStatsResponse> = {}) {
+    return http.get("*/api/v1/admin/stats", () =>
+      HttpResponse.json({ ...defaultStats, ...stats })
+    );
+  },
+
+  fraudFlagsListSuccess(rows: AdminFraudFlagSummary[]) {
+    return http.get("*/api/v1/admin/fraud-flags", () => {
+      const page: Page<AdminFraudFlagSummary> = {
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      };
+      return HttpResponse.json(page);
+    });
+  },
+
+  fraudFlagDetailSuccess(detail: AdminFraudFlagDetail) {
+    return http.get(`*/api/v1/admin/fraud-flags/${detail.id}`, () =>
+      HttpResponse.json(detail)
+    );
+  },
+
+  dismissSuccess(detail: AdminFraudFlagDetail) {
+    return http.post(`*/api/v1/admin/fraud-flags/${detail.id}/dismiss`, () =>
+      HttpResponse.json(detail)
+    );
+  },
+
+  reinstateSuccess(detail: AdminFraudFlagDetail) {
+    return http.post(`*/api/v1/admin/fraud-flags/${detail.id}/reinstate`, () =>
+      HttpResponse.json(detail)
+    );
+  },
+
+  dismiss409AlreadyResolved(flagId: number) {
+    return http.post(`*/api/v1/admin/fraud-flags/${flagId}/dismiss`, () =>
+      HttpResponse.json(
+        { code: "ALREADY_RESOLVED", message: "Already resolved", details: {} },
+        { status: 409 }
+      )
+    );
+  },
+
+  reinstate409NotSuspended(flagId: number, currentStatus: string) {
+    return http.post(`*/api/v1/admin/fraud-flags/${flagId}/reinstate`, () =>
+      HttpResponse.json(
+        {
+          code: "AUCTION_NOT_SUSPENDED",
+          message: "Not suspended",
+          details: { currentStatus },
+        },
+        { status: 409 }
+      )
+    );
+  },
+};
 
 /**
  * Default handlers registered at server startup. Establishes the "no session"
