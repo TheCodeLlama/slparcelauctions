@@ -1,0 +1,32 @@
+"use client";
+import type { AdminFraudFlagDetail } from "@/lib/admin/types";
+
+type Props = { detail: AdminFraudFlagDetail };
+
+function formatDuration(ms: number): string {
+  const totalMinutes = Math.floor(ms / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  return `${hours}h ${minutes}m`;
+}
+
+export function ReinstateBanner({ detail }: Props) {
+  if (detail.auction?.status !== "SUSPENDED") return null;
+
+  const startIso = detail.auction.suspendedAt ?? detail.detectedAt;
+  const elapsedMs = Date.now() - new Date(startIso).getTime();
+  const duration = formatDuration(Math.max(0, elapsedMs));
+
+  return (
+    <div
+      className="rounded-default bg-error-container/30 border border-error/30 px-4 py-3 text-body-sm text-on-error-container"
+      data-testid="reinstate-banner"
+    >
+      <span className="font-medium">Auction is SUSPENDED.</span> Reinstate will restore{" "}
+      <span className="font-medium">ACTIVE</span> status and extend{" "}
+      <span className="font-mono">endsAt</span> by the suspension duration (
+      <span className="font-medium">{duration}</span> so far).
+    </div>
+  );
+}
