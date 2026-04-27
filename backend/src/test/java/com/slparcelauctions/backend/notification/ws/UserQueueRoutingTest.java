@@ -35,6 +35,7 @@ import org.springframework.web.socket.sockjs.client.Transport;
 import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationDao;
@@ -313,7 +314,7 @@ class UserQueueRoutingTest {
 
     private String issueJwt(User user) {
         return jwtService.issueAccessToken(
-                new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion()));
+                new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion(), Role.USER));
     }
 
     private static void disconnectQuietly(StompSession session) {

@@ -29,6 +29,7 @@ import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
 import com.slparcelauctions.backend.user.dto.UserResponse;
+import com.slparcelauctions.backend.user.Role;
 
 @WebMvcTest(controllers = UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -55,7 +56,7 @@ class UserControllerTest {
                 1L, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
-                OffsetDateTime.now(), OffsetDateTime.now(), 0L);
+                OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
 
         CreateUserRequest request = new CreateUserRequest("alice@example.com", "password123", "Alice");
@@ -161,7 +162,7 @@ class UserControllerTest {
                 1L, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
-                OffsetDateTime.now(), OffsetDateTime.now(), 0L);
+                OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.getUserById(1L)).thenReturn(expected);
 
         mockMvc.perform(get("/api/v1/users/me"))

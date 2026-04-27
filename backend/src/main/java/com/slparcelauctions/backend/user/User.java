@@ -15,6 +15,8 @@ import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -70,6 +72,12 @@ public class User {
 
     @Column(name = "profile_pic_url", columnDefinition = "text")
     private String profilePicUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10,
+            columnDefinition = "varchar(10) not null default 'USER'")
+    @Builder.Default
+    private Role role = Role.USER;
 
     @Builder.Default
     @Column(nullable = false)

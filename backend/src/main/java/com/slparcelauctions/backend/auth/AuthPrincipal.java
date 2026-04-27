@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.auth;
 
+import com.slparcelauctions.backend.user.Role;
+
 /**
  * Lightweight authentication principal set into the Spring {@code SecurityContext} by
  * {@code JwtAuthenticationFilter} on a successful access-token parse. Consumed by controllers via
@@ -14,4 +16,4 @@ package com.slparcelauctions.backend.auth;
  * stale sessions within the 15-minute access-token window. See spec §2 (data model) and §6
  * (service-layer freshness check).
  */
-public record AuthPrincipal(Long userId, String email, Long tokenVersion) {}
+public record AuthPrincipal(Long userId, String email, Long tokenVersion, Role role) {}

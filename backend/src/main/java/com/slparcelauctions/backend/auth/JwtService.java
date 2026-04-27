@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auth;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.user.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -44,6 +45,7 @@ public class JwtService {
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
+            .claim("role", principal.role().name())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plus(jwtConfig.getAccessTokenLifetime())))
             .signWith(jwtSigningKey)
@@ -65,8 +67,10 @@ public class JwtService {
             Long userId = Long.parseLong(claims.getSubject());
             String email = (String) claims.get("email");
             Long tokenVersion = ((Number) claims.get("tv")).longValue();
+            String roleClaim = (String) claims.get("role");
+            Role role = roleClaim == null ? Role.USER : Role.valueOf(roleClaim);
 
-            return new AuthPrincipal(userId, email, tokenVersion);
+            return new AuthPrincipal(userId, email, tokenVersion, role);
         } catch (ExpiredJwtException e) {
             log.debug("Access token expired");
             throw new TokenExpiredException("Access token has expired.");

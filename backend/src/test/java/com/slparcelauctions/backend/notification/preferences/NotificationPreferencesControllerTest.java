@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import java.util.HashMap;
@@ -63,9 +64,9 @@ class NotificationPreferencesControllerTest {
             .passwordHash("hash").build());
 
         aliceJwt = jwt.issueAccessToken(new AuthPrincipal(
-            alice.getId(), alice.getEmail(), alice.getTokenVersion()));
+            alice.getId(), alice.getEmail(), alice.getTokenVersion(), Role.USER));
         bobJwt = jwt.issueAccessToken(new AuthPrincipal(
-            bob.getId(), bob.getEmail(), bob.getTokenVersion()));
+            bob.getId(), bob.getEmail(), bob.getTokenVersion(), Role.USER));
     }
 
     @Test
