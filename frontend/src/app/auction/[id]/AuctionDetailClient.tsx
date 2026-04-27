@@ -30,6 +30,7 @@ import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
 import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner";
 import { StickyBidBar } from "@/components/auction/StickyBidBar";
 import { BidSheet } from "@/components/auction/BidSheet";
+import { ReportListingButton } from "@/components/auction/ReportListingButton";
 
 /**
  * Client shell for the auction detail page.
@@ -380,7 +381,15 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             snapshotUrl={auction.parcel.snapshotUrl}
             regionName={auction.parcel.regionName}
           />
-          <ParcelInfoPanel auction={auction} />
+          <ParcelInfoPanel
+            auction={auction}
+            reportButton={
+              <ReportListingButton
+                auctionId={id}
+                sellerId={auction.sellerId}
+              />
+            }
+          />
           <VisitInSecondLifeBlock
             regionName={auction.parcel.regionName}
             positionX={auction.parcel.positionX}
