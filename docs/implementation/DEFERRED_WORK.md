@@ -48,8 +48,8 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 ### Account deletion UI
 - **From:** Epic 02 sub-spec 2a (Task 02-03 user profile backend)
 - **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a. Not a browse/discovery concern — does not belong in Epic 07.
-- **When:** Epic 10 (Admin & Moderation). The same epic introduces soft-delete / ban / content-removal primitives across users, listings, and reviews — user-initiated deletion shares cascade rules and audit-log infrastructure with admin-initiated takedowns, so shipping both together avoids building cascade logic twice.
-- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history) alongside Epic 10 Task 03 (ban system), not before.
+- **When:** Epic 10 sub-spec 4 (account deletion + audit log). Admin foundation (sub-spec 1) ships `User.role` enum and JWT gate — deletion plumbing does not depend on the role system but can share cascade-matrix design with the ban system.
+- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history) alongside the ban system (sub-spec 2), not before. `User.role` enum is now available (Epic 10 sub-spec 1) — the deletion endpoint can set `role = 'USER'` as a pre-step if needed, but the main cascade work is still outstanding.
 
 ### Notification preferences editor
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
@@ -93,17 +93,11 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   via `BotStartupValidator` and is no longer deferred. See FOOTGUNS §F.47.
 
 
-### Admin dashboard for fraud_flag resolution
-- **From:** Epic 03 sub-spec 2 (FraudFlag entity + SuspensionService)
-- **Why:** `FraudFlag` has `resolved` / `resolvedAt` / `resolvedBy` columns and a `jsonb evidence_json` payload ready for admin review, but no UI reads or writes them. Ownership-check suspensions accumulate silently until an admin exists to triage them.
-- **When:** Epic 10 (Admin & Moderation) — build a `/admin/fraud-flags` page that lists open flags, shows the evidence blob formatted, and lets an admin resolve or un-suspend (flip the auction back to ACTIVE and mark the flag resolved).
-- **Notes:** Un-suspend is a sensitive action — only a user with an admin role (tracked in a separate `User.role` or similar) should see the button. The admin role model itself is also Epic 10 scope.
-
 ### Non-dev admin endpoint for ownership-monitor trigger
 - **From:** Epic 03 sub-spec 2 (DevOwnershipMonitorController)
 - **Why:** `POST /api/v1/dev/ownership-monitor/run` is `@Profile("dev")` — the only way to force an ownership sweep in prod is to wait for the next scheduled tick (default 15 minutes). Admins triaging a suspected fraud report need a "re-check this listing now" button that runs a single-auction check and returns the result synchronously.
-- **When:** Epic 10 (Admin & Moderation) — add `POST /api/v1/admin/auctions/{id}/recheck-ownership` gated on the admin role, delegating to `OwnershipCheckTask` for a single auction with the result summarized in the response body.
-- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification (see the manual-test plan in the Task 10 PR). The admin endpoint is a separate surface with different auth and a different response shape.
+- **When:** Epic 10 sub-spec 3 — admin role + auth gate now exists (sub-spec 1). Remaining work: the `POST /api/v1/admin/auctions/{id}/recheck-ownership` endpoint itself, delegating to `OwnershipCheckTask`, plus a one-off trigger button in the fraud-flag slide-over or a dedicated parcel-detail admin panel.
+- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification. The admin endpoint is a separate surface with different auth and a different response shape. The admin role + Spring Security gate shipped in Epic 10 sub-spec 1 unblocks this endpoint.
 
 ### Destructive-variant copy polish
 - **From:** Epic 03 sub-spec 2 (Task 9 review follow-up + Task 10 Button variant)

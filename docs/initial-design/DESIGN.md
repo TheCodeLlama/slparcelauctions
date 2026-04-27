@@ -1657,6 +1657,44 @@ Users can report any ACTIVE listing they believe is suspicious, fraudulent, or i
 - Review TOS sections on scripted L$ transactions, third-party services
 - **TODO:** Legal review before launch
 
+### Notes (Epic 10 sub-spec 1 — Admin foundation + fraud-flag triage, 2026-04-26)
+
+- Admin authority is a `User.role` enum (`USER` | `ADMIN`) propagated via
+  JWT `role` claim. Demoting an admin requires bumping `tokenVersion`
+  alongside the role flip (FOOTGUNS §F.100).
+
+- The bootstrap config (`slpa.admin.bootstrap-emails`) seeds initial
+  admins on app startup. It is a forward-push promotion mechanism —
+  removing an email from the config does NOT demote a user, and a
+  deliberately-demoted bootstrap email gets re-promoted on next restart
+  (FOOTGUNS §F.99). The four bootstrap emails (heath@slparcels.com,
+  heath@slparcelauctions.com, heath@hadronsoftware.com,
+  heath.barcus@gmail.com) live in `application.yml`.
+
+- Fraud-flag resolution flow: an admin can `dismiss` (mark resolved with
+  notes, no state change) or `reinstate` (mark resolved + flip auction
+  SUSPENDED→ACTIVE + extend `endsAt` by suspension duration + clear
+  `suspendedAt` + re-engage bot monitor for BOT-tier auctions + publish
+  `LISTING_REINSTATED` notification). Sibling open flags on the same
+  auction are NOT auto-resolved — admin walks them via the slide-over
+  prev/next arrows.
+
+- Time math on reinstate uses `Auction.suspendedAt` (set on first
+  suspension by `SuspensionService`, idempotent across re-flagging),
+  with fallback to `flag.detectedAt` for historical rows that
+  pre-existed the column.
+
+- Admin dashboard surfaces 9 numbers: 3 queue counts (open fraud flags,
+  pending escrow payments, active disputes) + 6 platform stats (active
+  listings, total users, active escrows, completed sales, gross L$,
+  commission L$). Lifetime totals only; no caching this sub-spec
+  (FOOTGUNS §F.102).
+
+- Reason badges color-coded by source family: ownership monitor (red),
+  bot monitor (amber/tertiary), escrow monitor (purple/secondary),
+  post-cancel watcher (teal/primary). Token mapping in
+  `frontend/src/lib/admin/reasonStyle.ts`.
+
 ---
 
 ## 9. LSL Script Communication Protocol

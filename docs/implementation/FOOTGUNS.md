@@ -1681,3 +1681,42 @@ This means FAILED rows in `sl_im_message` only appear via:
 
 If support runs `SELECT status, count(*) FROM sl_im_message GROUP BY status`
 and sees zero FAILED rows, that's correct behavior. Not a missing pipeline.
+
+### F.99 — Admin bootstrap config WILL re-promote a deliberately-demoted bootstrap email
+
+The `slpa.admin.bootstrap-emails` list is a forward-promote-on-startup
+mechanism, not a configurable opt-out. The `WHERE u.role = 'USER'` guard
+catches deliberately-demoted bootstrap emails on next restart and
+re-promotes them. To permanently demote a bootstrap email, **remove it
+from the config list** AND bump `tokenVersion` (else outstanding tokens
+keep working until expiry). Documented as intentional in spec
+2026-04-26 §10.6.
+
+### F.100 — Demoting an admin requires both `role = USER` AND `tokenVersion + 1`
+
+`UPDATE users SET role = 'USER' WHERE id = ?` alone is insufficient.
+Existing access tokens carry `role: "ADMIN"` in their JWT claim and stay
+valid until expiry — a demoted admin keeps full access for up to one
+access-token lifetime. The `tv` bump invalidates all outstanding
+tokens. Either do both ops in one transaction (preferred) or bump tv as
+the LAST step so the role flip is observable across the cluster before
+tokens get invalidated.
+
+### F.101 — JWT-claim authority mapping is the only source of `ROLE_*` authorities
+
+`hasRole("ADMIN")` in SecurityConfig depends on JwtAuthenticationFilter
+emitting `ROLE_ADMIN` authority. The filter reads `principal.role()` and
+prefixes with `ROLE_`. If the filter's third constructor arg is changed
+back to empty `List.of()` for any reason, ALL admin matchers silently
+fail closed (every request 403s). Tests at `AdminAuthGateSliceTest`
+verify the round-trip — they are the canary.
+
+### F.102 — Stats endpoint is uncached and runs 10 queries per page load
+
+`GET /api/v1/admin/stats` runs three `count(*)` against fraud_flags +
+escrows, four `count(*)` against auctions/users/escrows + the
+`countByStateNotIn` set check, and two `sum(*)` against escrows. Single
+read-only transaction, no Redis cache. Acceptable today (admin traffic
+is low). If pre-launch volume makes the dashboard noticeably slow, the
+fix is a 30-second Redis cache, NOT N+1 fixes — there are no joins to
+optimize.
