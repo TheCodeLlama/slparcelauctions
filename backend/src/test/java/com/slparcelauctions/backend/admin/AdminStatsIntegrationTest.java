@@ -205,9 +205,10 @@ class AdminStatsIntegrationTest {
     void compute_returnsCorrectQueueAndPlatformCounts() {
         AdminStatsResponse stats = statsService.compute();
 
-        // Queue: 1 ESCROW_PENDING, 0 DISPUTED, 0 open fraud flags (none seeded)
+        // Queue: 1 ESCROW_PENDING, 0 DISPUTED, 0 open fraud flags, 0 open reports (none seeded)
         assertThat(stats.queues().pendingPayments()).isGreaterThanOrEqualTo(1L);
         assertThat(stats.queues().activeDisputes()).isGreaterThanOrEqualTo(0L);
+        assertThat(stats.queues().openReports()).isGreaterThanOrEqualTo(0L);
 
         // Platform: exactly 2 ACTIVE auctions seeded
         assertThat(stats.platform().activeListings()).isGreaterThanOrEqualTo(2L);

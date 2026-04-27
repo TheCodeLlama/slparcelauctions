@@ -60,7 +60,7 @@ class AdminStatsControllerSliceTest {
     @Test
     void stats_adminRole_returns200_withPayload() throws Exception {
         AdminStatsResponse fixture = new AdminStatsResponse(
-            new QueueStats(7L, 3L, 1L),
+            new QueueStats(7L, 5L, 3L, 1L),
             new PlatformStats(42L, 381L, 12L, 156L, 4_827_500L, 241_375L)
         );
         when(statsService.compute()).thenReturn(fixture);
@@ -71,6 +71,7 @@ class AdminStatsControllerSliceTest {
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.queues.openFraudFlags").value(7))
+           .andExpect(jsonPath("$.queues.openReports").value(5))
            .andExpect(jsonPath("$.queues.pendingPayments").value(3))
            .andExpect(jsonPath("$.queues.activeDisputes").value(1))
            .andExpect(jsonPath("$.platform.activeListings").value(42))

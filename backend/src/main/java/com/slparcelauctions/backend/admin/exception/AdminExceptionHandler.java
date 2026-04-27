@@ -35,6 +35,13 @@ public class AdminExceptionHandler {
                     ex.getCurrentStatus() == null ? "null" : ex.getCurrentStatus().name())));
     }
 
+    @ExceptionHandler(com.slparcelauctions.backend.admin.reports.exception.ReportNotFoundException.class)
+    public ResponseEntity<AdminApiError> handleReportNotFound(
+            com.slparcelauctions.backend.admin.reports.exception.ReportNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(AdminApiError.of("REPORT_NOT_FOUND", ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<AdminApiError> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()

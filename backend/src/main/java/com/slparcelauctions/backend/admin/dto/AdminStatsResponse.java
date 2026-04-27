@@ -6,6 +6,7 @@ public record AdminStatsResponse(
 ) {
     public record QueueStats(
         long openFraudFlags,
+        long openReports,
         long pendingPayments,
         long activeDisputes
     ) {}
