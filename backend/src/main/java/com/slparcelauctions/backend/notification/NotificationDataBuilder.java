@@ -141,6 +141,12 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> listingRemovedByAdmin(long auctionId, String parcelName, String reason) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("reason", reason);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

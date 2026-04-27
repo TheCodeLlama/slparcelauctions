@@ -42,6 +42,9 @@ public interface NotificationPublisher {
     void listingReinstated(long sellerUserId, long auctionId, String parcelName, OffsetDateTime newEndsAt);
     void listingReviewRequired(long sellerUserId, long auctionId, String parcelName, String reason);
 
+    // Listing status — admin-facing actions
+    void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason);
+
     // Reviews
     void reviewReceived(long revieweeUserId, long reviewId, long auctionId,
                         String parcelName, int rating);

@@ -145,7 +145,7 @@ class CancellationFanoutImIntegrationTest {
         assertThat(rows).hasSize(3);
         assertThat(rows.stream().map(SlImMessage::getUserId).toList())
             .containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId());
-        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLPA] Listing cancelled"));
+        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLPA] Auction cancelled"));
         assertThat(rows).allMatch(m -> m.getMessageText().contains("ownership lost"));
     }
 
