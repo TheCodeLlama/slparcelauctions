@@ -2,25 +2,26 @@ package com.slparcelauctions.backend.admin;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.slparcelauctions.backend.admin.dto.AdminFraudFlagDetailDto;
 import com.slparcelauctions.backend.admin.dto.AdminFraudFlagSummaryDto;
-import com.slparcelauctions.backend.admin.exception.FraudFlagNotFoundException;
+import com.slparcelauctions.backend.admin.dto.ResolveFraudFlagRequest;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
+import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -50,6 +51,22 @@ public class AdminFraudFlagController {
         return service.detail(id);
     }
 
+    @PostMapping("/{id}/dismiss")
+    public AdminFraudFlagDetailDto dismiss(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ResolveFraudFlagRequest body,
+            @AuthenticationPrincipal AuthPrincipal admin) {
+        return service.dismiss(id, admin.userId(), body.adminNotes());
+    }
+
+    @PostMapping("/{id}/reinstate")
+    public AdminFraudFlagDetailDto reinstate(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ResolveFraudFlagRequest body,
+            @AuthenticationPrincipal AuthPrincipal admin) {
+        return service.reinstate(id, admin.userId(), body.adminNotes());
+    }
+
     private List<FraudFlagReason> parseReasons(String raw) {
         if (raw == null || raw.isBlank()) return List.of();
         return Arrays.stream(raw.split(","))
@@ -57,11 +74,5 @@ public class AdminFraudFlagController {
             .filter(s -> !s.isEmpty())
             .map(FraudFlagReason::valueOf)
             .toList();
-    }
-
-    @ExceptionHandler(FraudFlagNotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Map<String, Object> handleNotFound(FraudFlagNotFoundException ex) {
-        return Map.of("code", "FLAG_NOT_FOUND", "message", ex.getMessage());
     }
 }

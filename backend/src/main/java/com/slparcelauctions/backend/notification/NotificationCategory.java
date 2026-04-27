@@ -19,6 +19,7 @@ public enum NotificationCategory {
     ESCROW_TRANSFER_REMINDER(NotificationGroup.ESCROW),
     LISTING_VERIFIED(NotificationGroup.LISTING_STATUS),
     LISTING_SUSPENDED(NotificationGroup.LISTING_STATUS),
+    LISTING_REINSTATED(NotificationGroup.LISTING_STATUS),
     LISTING_REVIEW_REQUIRED(NotificationGroup.LISTING_STATUS),
     LISTING_CANCELLED_BY_SELLER(NotificationGroup.LISTING_STATUS),
     REVIEW_RECEIVED(NotificationGroup.REVIEWS),
