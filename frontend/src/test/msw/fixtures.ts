@@ -12,6 +12,12 @@ export const mockUser: AuthUser = {
   displayName: null,
   slAvatarUuid: null,
   verified: false,
+  role: "USER",
+};
+
+export const mockAdminUser: AuthUser = {
+  ...mockUser,
+  role: "ADMIN",
 };
 
 /**

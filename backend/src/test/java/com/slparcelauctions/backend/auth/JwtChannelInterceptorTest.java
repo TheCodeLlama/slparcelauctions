@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auth;
 
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.user.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,7 @@ class JwtChannelInterceptorTest {
     @Test
     @DisplayName("CONNECT with valid token attaches StompAuthenticationToken principal")
     void preSend_connectFrame_validToken_attachesPrincipal() {
-        AuthPrincipal authPrincipal = new AuthPrincipal(42L, "test@example.com", 1L);
+        AuthPrincipal authPrincipal = new AuthPrincipal(42L, "test@example.com", 1L, Role.USER);
         when(jwtService.parseAccessToken("valid-jwt")).thenReturn(authPrincipal);
 
         Message<byte[]> msg = stompMessage(StompCommand.CONNECT, "Bearer valid-jwt");
@@ -165,7 +166,7 @@ class JwtChannelInterceptorTest {
     @DisplayName("SUBSCRIBE from an authenticated session is allowed regardless of destination")
     void preSend_subscribe_authedSession_allowed() {
         Principal principal = new StompAuthenticationToken(
-            new AuthPrincipal(42L, "u@e.com", 1L));
+            new AuthPrincipal(42L, "u@e.com", 1L, Role.USER));
         Message<byte[]> msg = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/ws-test", principal);
 
@@ -238,7 +239,7 @@ class JwtChannelInterceptorTest {
     @DisplayName("SEND from authenticated session passes through")
     void preSend_send_authed_passesThrough() {
         Principal principal = new StompAuthenticationToken(
-            new AuthPrincipal(42L, "u@e.com", 1L));
+            new AuthPrincipal(42L, "u@e.com", 1L, Role.USER));
         Message<byte[]> msg = stompMessage(
             StompCommand.SEND, null, "/app/bid", principal);
 

@@ -16,6 +16,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -298,6 +299,16 @@ public class GlobalExceptionHandler {
         pd.setTitle("Bad request");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "BAD_REQUEST");
+        return pd;
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResource(NoResourceFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Resource not found.");
+        pd.setType(URI.create("https://slpa.example/problems/not-found"));
+        pd.setTitle("Not found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_FOUND");
         return pd;
     }
 

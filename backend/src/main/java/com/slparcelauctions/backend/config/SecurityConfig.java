@@ -211,6 +211,9 @@ public class SecurityConfig {
                         // FOOTGUNS §B.5: must sit before /api/v1/**.
                         .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/respond").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/flag").authenticated()
+                        // Admin surface (Epic 10 sub-spec 1 Task 1).
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Bot worker queue + callback surface (Epic 06 Task 3).
                         // Authentication is a shared bearer token validated by
                         // BotSharedSecretAuthorizer (constant-time compare via

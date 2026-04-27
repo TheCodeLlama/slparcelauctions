@@ -18,6 +18,7 @@ const mockUserWithDisplayName: AuthUser = {
   displayName: "Alice Smith",
   slAvatarUuid: null,
   verified: true,
+  role: "USER",
 };
 
 const mockUserNullDisplayName: AuthUser = {
@@ -26,6 +27,7 @@ const mockUserNullDisplayName: AuthUser = {
   displayName: null,
   slAvatarUuid: null,
   verified: true,
+  role: "USER",
 };
 
 describe("UserMenuDropdown", () => {

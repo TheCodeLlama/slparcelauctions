@@ -182,4 +182,6 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     @EntityGraph(attributePaths = {"parcel", "seller"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids")
     List<Auction> findAllByIdWithParcelAndSeller(@Param("ids") Collection<Long> ids);
+
+    long countByStatus(AuctionStatus status);
 }

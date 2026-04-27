@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 
 public record UserResponse(
@@ -36,7 +37,8 @@ public record UserResponse(
         Boolean bannedFromListing,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
-        long unreadNotificationCount) {
+        long unreadNotificationCount,
+        Role role) {
 
     public static UserResponse from(User user) {
         return from(user, 0L);
@@ -65,6 +67,7 @@ public record UserResponse(
                 user.getBannedFromListing(),
                 user.getCreatedAt(),
                 user.getUpdatedAt(),
-                unreadNotificationCount);
+                unreadNotificationCount,
+                user.getRole());
     }
 }

@@ -9,6 +9,7 @@ import com.slparcelauctions.backend.auth.exception.AuthExceptionHandler;
 import com.slparcelauctions.backend.auth.exception.InvalidCredentialsException;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.dto.UserResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -158,6 +159,6 @@ class AuthControllerTest {
             1L, "new@example.com", "Newbie", null, null, null, null, null, null, null, null,
             null, null, null, null, null,
             0L, null, false,
-            OffsetDateTime.now(), OffsetDateTime.now(), 0L);
+            OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
     }
 }

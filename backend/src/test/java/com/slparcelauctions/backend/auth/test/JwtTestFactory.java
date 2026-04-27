@@ -63,6 +63,7 @@ public class JwtTestFactory {
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
+            .claim("role", principal.role().name())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plus(lifetime)))
             .signWith(key)
@@ -76,6 +77,7 @@ public class JwtTestFactory {
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
+            .claim("role", principal.role().name())
             .issuedAt(Date.from(now.minus(Duration.ofHours(1))))
             .expiration(Date.from(now.minus(Duration.ofMinutes(1))))
             .signWith(key)
@@ -89,6 +91,7 @@ public class JwtTestFactory {
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "refresh") // wrong — access token parser should reject
+            .claim("role", principal.role().name())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plus(DEFAULT_LIFETIME)))
             .signWith(key)

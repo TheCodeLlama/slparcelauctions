@@ -39,6 +39,7 @@ public interface NotificationPublisher {
     // Listing status — seller-facing
     void listingVerified(long sellerUserId, long auctionId, String parcelName);
     void listingSuspended(long sellerUserId, long auctionId, String parcelName, String reason);
+    void listingReinstated(long sellerUserId, long auctionId, String parcelName, OffsetDateTime newEndsAt);
     void listingReviewRequired(long sellerUserId, long auctionId, String parcelName, String reason);
 
     // Reviews

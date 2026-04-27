@@ -116,6 +116,12 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> listingReinstated(long auctionId, String parcelName, OffsetDateTime newEndsAt) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("newEndsAt", newEndsAt == null ? null : newEndsAt.toString());
+        return m;
+    }
+
     public static Map<String, Object> listingReviewRequired(long auctionId, String parcelName, String reason) {
         Map<String, Object> m = base(auctionId, parcelName);
         m.put("reason", reason);

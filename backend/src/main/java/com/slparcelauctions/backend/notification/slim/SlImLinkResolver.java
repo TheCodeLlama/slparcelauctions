@@ -34,7 +34,7 @@ public class SlImLinkResolver {
                  ESCROW_EXPIRED, ESCROW_DISPUTED, ESCROW_FROZEN,
                  ESCROW_PAYOUT_STALLED, ESCROW_TRANSFER_REMINDER ->
                 base + "/auction/" + data.get("auctionId") + "/escrow";
-            case LISTING_SUSPENDED, LISTING_REVIEW_REQUIRED ->
+            case LISTING_SUSPENDED, LISTING_REINSTATED, LISTING_REVIEW_REQUIRED ->
                 base + "/dashboard/listings";
             case SYSTEM_ANNOUNCEMENT ->
                 base + "/notifications";

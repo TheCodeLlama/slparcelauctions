@@ -29,6 +29,7 @@ const partyUser: AuthUser = {
   displayName: "Party",
   slAvatarUuid: null,
   verified: true,
+  role: "USER",
 };
 
 function makeReview(overrides: Partial<ReviewDto> = {}): ReviewDto {

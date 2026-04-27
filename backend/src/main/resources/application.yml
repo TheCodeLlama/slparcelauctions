@@ -192,5 +192,11 @@ slpa:
         retention-after-days: 30
         batch-size: 1000
         top-users-in-log: 10
+  admin:
+    bootstrap-emails:
+      - heath@slparcels.com
+      - heath@slparcelauctions.com
+      - heath@hadronsoftware.com
+      - heath.barcus@gmail.com
   web:
     base-url: ${SLPA_WEB_BASE_URL:http://localhost:3000}

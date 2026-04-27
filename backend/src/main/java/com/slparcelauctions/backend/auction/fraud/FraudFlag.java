@@ -78,6 +78,9 @@ public class FraudFlag {
     @JoinColumn(name = "resolved_by_user_id")
     private User resolvedBy;
 
+    @Column(name = "admin_notes", columnDefinition = "text")
+    private String adminNotes;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

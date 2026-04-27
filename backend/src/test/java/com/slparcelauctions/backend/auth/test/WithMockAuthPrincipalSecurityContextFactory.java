@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auth.test;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.user.Role;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -16,7 +17,8 @@ public class WithMockAuthPrincipalSecurityContextFactory
         AuthPrincipal principal = new AuthPrincipal(
             annotation.userId(),
             annotation.email(),
-            annotation.tokenVersion()
+            annotation.tokenVersion(),
+            Role.USER
         );
         Authentication auth = new UsernamePasswordAuthenticationToken(
             principal, null, List.of()

@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auth.test;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtKeyFactory;
+import com.slparcelauctions.backend.user.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
@@ -24,7 +25,7 @@ class JwtTestFactoryTest {
     @Test
     void forKey_producesFactoryThatIssuesValidAccessTokens() {
         JwtTestFactory factory = JwtTestFactory.forKey(DEV_SECRET);
-        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L);
+        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L, Role.USER);
 
         String token = factory.validAccessToken(principal);
 
@@ -42,7 +43,7 @@ class JwtTestFactoryTest {
     @Test
     void expiredAccessToken_producesTokenWithPastExpiry() {
         JwtTestFactory factory = JwtTestFactory.forKey(DEV_SECRET);
-        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L);
+        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L, Role.USER);
 
         String token = factory.expiredAccessToken(principal);
         SecretKey key = JwtKeyFactory.buildKey(DEV_SECRET);
@@ -55,7 +56,7 @@ class JwtTestFactoryTest {
     @Test
     void tokenWithWrongType_hasTypeClaimSetToRefresh() {
         JwtTestFactory factory = JwtTestFactory.forKey(DEV_SECRET);
-        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L);
+        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L, Role.USER);
 
         String token = factory.tokenWithWrongType(principal);
         SecretKey key = JwtKeyFactory.buildKey(DEV_SECRET);
