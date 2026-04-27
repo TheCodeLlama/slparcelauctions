@@ -60,4 +60,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.role = com.slparcelauctions.backend.user.Role.ADMIN " +
            "WHERE u.email IN :emails AND u.role = com.slparcelauctions.backend.user.Role.USER")
     int bulkPromoteByEmailIfUser(@Param("emails") List<String> emails);
+
+    /**
+     * Atomically increments {@code tokenVersion} for the given user, invalidating
+     * all live access tokens within their 15-minute window. Called on AVATAR/BOTH
+     * ban creation to force re-authentication of the banned user's active sessions.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE User u SET u.tokenVersion = u.tokenVersion + 1 WHERE u.id = :userId")
+    int bumpTokenVersion(@Param("userId") Long userId);
 }

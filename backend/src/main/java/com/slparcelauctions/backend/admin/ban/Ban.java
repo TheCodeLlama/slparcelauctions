@@ -125,6 +125,13 @@ public class Ban {
     @JoinColumn(name = "lifted_by_user_id")
     private User liftedByUser;
 
+    /**
+     * Admin-provided reason for lifting the ban early.
+     * Only meaningful when {@code liftedAt} is non-null.
+     */
+    @Column(name = "lifted_reason", columnDefinition = "text")
+    private String liftedReason;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
