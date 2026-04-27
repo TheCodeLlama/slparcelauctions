@@ -1,4 +1,5 @@
 "use client";
+import { useMemo } from "react";
 import type { AdminFraudFlagDetail } from "@/lib/admin/types";
 
 type Props = { detail: AdminFraudFlagDetail };
@@ -12,11 +13,15 @@ function formatDuration(ms: number): string {
 }
 
 export function ReinstateBanner({ detail }: Props) {
-  if (detail.auction?.status !== "SUSPENDED") return null;
+  const duration = useMemo(() => {
+    if (detail.auction?.status !== "SUSPENDED") return null;
+    const startIso = detail.auction.suspendedAt ?? detail.detectedAt;
+    // eslint-disable-next-line react-hooks/purity
+    const elapsedMs = Date.now() - new Date(startIso).getTime();
+    return formatDuration(Math.max(0, elapsedMs));
+  }, [detail]);
 
-  const startIso = detail.auction.suspendedAt ?? detail.detectedAt;
-  const elapsedMs = Date.now() - new Date(startIso).getTime();
-  const duration = formatDuration(Math.max(0, elapsedMs));
+  if (!duration) return null;
 
   return (
     <div

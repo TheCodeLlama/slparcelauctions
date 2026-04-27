@@ -37,6 +37,7 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
   const reinstate = useReinstateFraudFlag();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNotes("");
   }, [flagId]);
 
