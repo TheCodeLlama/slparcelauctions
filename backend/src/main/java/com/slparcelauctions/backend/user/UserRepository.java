@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.user;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,6 +21,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     Optional<User> findBySlAvatarUuid(UUID slAvatarUuid);
+
+    List<User> findAllBySlAvatarUuidIn(Set<UUID> uuids);
 
     boolean existsByEmail(String email);
 
