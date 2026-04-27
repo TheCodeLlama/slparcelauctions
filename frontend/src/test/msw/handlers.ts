@@ -17,9 +17,18 @@ import type { CurrentUser, PublicUserProfile, UpdateProfileRequest } from "@/lib
 import type { NotificationDto } from "@/lib/notifications/types";
 import type { PreferencesDto, EditableGroup } from "@/lib/notifications/preferencesTypes";
 import type {
+  AdminBanRow,
   AdminFraudFlagDetail,
   AdminFraudFlagSummary,
+  AdminReportDetail,
+  AdminReportListingRow,
   AdminStatsResponse,
+  AdminUserDetail,
+  AdminUserFraudFlagRow,
+  AdminUserModerationRow,
+  AdminUserSummary,
+  MyReportResponse,
+  UserIpProjection,
 } from "@/lib/admin/types";
 import type { Page } from "@/types/page";
 
@@ -404,7 +413,7 @@ export function resetPreferences(): void {
 }
 
 const defaultStats: AdminStatsResponse = {
-  queues: { openFraudFlags: 0, pendingPayments: 0, activeDisputes: 0 },
+  queues: { openFraudFlags: 0, openReports: 0, pendingPayments: 0, activeDisputes: 0 },
   platform: {
     activeListings: 0,
     totalUsers: 0,
@@ -472,6 +481,259 @@ export const adminHandlers = {
         },
         { status: 409 }
       )
+    );
+  },
+
+  reportsListSuccess(rows: AdminReportListingRow[]) {
+    return http.get("*/api/v1/admin/reports", () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  reportsByListingSuccess(auctionId: number, reports: AdminReportDetail[]) {
+    return http.get(`*/api/v1/admin/reports/listing/${auctionId}`, () =>
+      HttpResponse.json(reports)
+    );
+  },
+
+  reportDetailSuccess(report: AdminReportDetail) {
+    return http.get(`*/api/v1/admin/reports/${report.id}`, () =>
+      HttpResponse.json(report)
+    );
+  },
+
+  dismissReportSuccess(report: AdminReportDetail) {
+    return http.post(`*/api/v1/admin/reports/${report.id}/dismiss`, () =>
+      HttpResponse.json(report)
+    );
+  },
+
+  warnSellerSuccess(auctionId: number) {
+    return http.post(`*/api/v1/admin/reports/listing/${auctionId}/warn-seller`, () =>
+      new HttpResponse(null, { status: 200 })
+    );
+  },
+
+  suspendListingFromReportSuccess(auctionId: number) {
+    return http.post(`*/api/v1/admin/reports/listing/${auctionId}/suspend`, () =>
+      new HttpResponse(null, { status: 200 })
+    );
+  },
+
+  cancelListingFromReportSuccess(auctionId: number) {
+    return http.post(`*/api/v1/admin/reports/listing/${auctionId}/cancel`, () =>
+      new HttpResponse(null, { status: 200 })
+    );
+  },
+
+  bansListSuccess(rows: AdminBanRow[]) {
+    return http.get("*/api/v1/admin/bans", () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  createBanSuccess(ban: AdminBanRow) {
+    return http.post("*/api/v1/admin/bans", () => HttpResponse.json(ban));
+  },
+
+  liftBanSuccess(ban: AdminBanRow) {
+    return http.post(`*/api/v1/admin/bans/${ban.id}/lift`, () => HttpResponse.json(ban));
+  },
+
+  ban409AlreadyLifted(banId: number) {
+    return http.post(`*/api/v1/admin/bans/${banId}/lift`, () =>
+      HttpResponse.json(
+        { code: "BAN_ALREADY_LIFTED", message: "Ban already lifted", details: {} },
+        { status: 409 }
+      )
+    );
+  },
+
+  ban409TypeFieldMismatch(banId: number) {
+    return http.post(`*/api/v1/admin/bans/${banId}/lift`, () =>
+      HttpResponse.json(
+        { code: "BAN_TYPE_FIELD_MISMATCH", message: "Ban type field mismatch", details: {} },
+        { status: 409 }
+      )
+    );
+  },
+
+  usersSearchSuccess(rows: AdminUserSummary[]) {
+    return http.get("*/api/v1/admin/users", () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  userDetailSuccess(detail: AdminUserDetail) {
+    return http.get(`*/api/v1/admin/users/${detail.id}`, () => HttpResponse.json(detail));
+  },
+
+  userIpsSuccess(userId: number, ips: UserIpProjection[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/ips`, () => HttpResponse.json(ips));
+  },
+
+  userListingsSuccess(userId: number, rows: AdminUserModerationRow[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/listings`, () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  userBidsSuccess(userId: number, rows: AdminUserModerationRow[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/bids`, () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  userCancellationsSuccess(userId: number, rows: AdminUserModerationRow[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/cancellations`, () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  userReportsSuccess(userId: number, rows: AdminUserModerationRow[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/reports`, () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  userFraudFlagsSuccess(userId: number, rows: AdminUserFraudFlagRow[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/fraud-flags`, () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  userModerationSuccess(userId: number, rows: AdminUserModerationRow[]) {
+    return http.get(`*/api/v1/admin/users/${userId}/moderation`, () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  promoteUserSuccess(userId: number) {
+    return http.post(`*/api/v1/admin/users/${userId}/promote`, () =>
+      new HttpResponse(null, { status: 200 })
+    );
+  },
+
+  promoteUser409AlreadyAdmin(userId: number) {
+    return http.post(`*/api/v1/admin/users/${userId}/promote`, () =>
+      HttpResponse.json(
+        { code: "ALREADY_ADMIN", message: "User is already an admin", details: {} },
+        { status: 409 }
+      )
+    );
+  },
+
+  demoteUserSuccess(userId: number) {
+    return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
+      new HttpResponse(null, { status: 200 })
+    );
+  },
+
+  demoteUser409SelfForbidden(userId: number) {
+    return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
+      HttpResponse.json(
+        { code: "SELF_DEMOTE_FORBIDDEN", message: "Cannot demote yourself", details: {} },
+        { status: 409 }
+      )
+    );
+  },
+
+  demoteUser409NotAdmin(userId: number) {
+    return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
+      HttpResponse.json(
+        { code: "NOT_ADMIN", message: "User is not an admin", details: {} },
+        { status: 409 }
+      )
+    );
+  },
+
+  resetFrivolousCounterSuccess(userId: number) {
+    return http.post(`*/api/v1/admin/users/${userId}/reset-frivolous-counter`, () =>
+      new HttpResponse(null, { status: 200 })
+    );
+  },
+
+  auditListSuccess(rows: AdminUserModerationRow[]) {
+    return http.get("*/api/v1/admin/audit", () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 25,
+      })
+    );
+  },
+
+  submitReportSuccess(auctionId: number, response: MyReportResponse) {
+    return http.post(`*/api/v1/auctions/${auctionId}/report`, () =>
+      HttpResponse.json(response)
+    );
+  },
+
+  myReport204(auctionId: number) {
+    return http.get(`*/api/v1/auctions/${auctionId}/my-report`, () =>
+      new HttpResponse(null, { status: 204 })
+    );
+  },
+
+  myReportSuccess(auctionId: number, response: MyReportResponse) {
+    return http.get(`*/api/v1/auctions/${auctionId}/my-report`, () =>
+      HttpResponse.json(response)
     );
   },
 };

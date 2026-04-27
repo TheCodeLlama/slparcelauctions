@@ -49,7 +49,7 @@ describe("AdminShell", () => {
     server.use(
       authHandlers.refreshSuccess(mockAdminUser),
       adminHandlers.statsSuccess({
-        queues: { openFraudFlags: 5, pendingPayments: 0, activeDisputes: 0 },
+        queues: { openFraudFlags: 5, openReports: 0, pendingPayments: 0, activeDisputes: 0 },
         platform: {
           activeListings: 0,
           totalUsers: 0,
