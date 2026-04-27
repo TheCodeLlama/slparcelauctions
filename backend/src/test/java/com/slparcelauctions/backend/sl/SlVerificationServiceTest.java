@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.sl.dto.SlVerifyRequest;
 import com.slparcelauctions.backend.sl.dto.SlVerifyResponse;
 import com.slparcelauctions.backend.sl.exception.AvatarAlreadyLinkedException;
@@ -47,7 +48,7 @@ class SlVerificationServiceTest {
         userRepository = mock(UserRepository.class);
         headerValidator = new SlHeaderValidator(
                 new SlConfigProperties("Production", Set.of(TRUSTED)));
-        service = new SlVerificationService(codeService, userRepository, headerValidator, FIXED);
+        service = new SlVerificationService(codeService, userRepository, headerValidator, mock(BanCheckService.class), FIXED);
     }
 
     private SlVerifyRequest body() {

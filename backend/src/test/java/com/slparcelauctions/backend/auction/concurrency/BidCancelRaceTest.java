@@ -167,7 +167,7 @@ class BidCancelRaceTest {
                 go.await();
                 // CancellationService uses its own @Transactional; the test
                 // drives it directly so both threads contend on the row lock.
-                cancellationService.cancel(auctionId, "race-test");
+                cancellationService.cancel(auctionId, "race-test", null);
                 cancelSucceeded.set(true);
             } catch (Throwable t) {
                 cancelError.set(unwrap(t));

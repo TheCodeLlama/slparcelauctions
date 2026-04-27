@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auth;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auth.dto.AuthResult;
 import com.slparcelauctions.backend.auth.dto.LoginRequest;
 import com.slparcelauctions.backend.auth.dto.RegisterRequest;
@@ -52,6 +53,9 @@ class AuthServiceTest {
     PasswordEncoder passwordEncoder;
 
     @Mock
+    BanCheckService banCheckService;
+
+    @Mock
     HttpServletRequest httpRequest;
 
     AuthService authService;
@@ -59,7 +63,7 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(userService, userRepository, refreshTokenService,
-                jwtService, passwordEncoder);
+                jwtService, passwordEncoder, banCheckService);
         // lenient: these stubs are only consumed by tests that exercise HTTP paths
         lenient().when(httpRequest.getHeader("User-Agent")).thenReturn("TestAgent/1.0");
         lenient().when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");

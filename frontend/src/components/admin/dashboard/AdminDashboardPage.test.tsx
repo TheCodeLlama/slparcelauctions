@@ -15,10 +15,10 @@ function wrap() {
 }
 
 describe("AdminDashboardPage", () => {
-  it("renders all 9 numbers from the API response", async () => {
+  it("renders all 10 numbers from the API response", async () => {
     server.use(
       adminHandlers.statsSuccess({
-        queues: { openFraudFlags: 7, pendingPayments: 3, activeDisputes: 1 },
+        queues: { openFraudFlags: 7, openReports: 5, pendingPayments: 3, activeDisputes: 1 },
         platform: {
           activeListings: 42,
           totalUsers: 381,
@@ -33,6 +33,7 @@ describe("AdminDashboardPage", () => {
     wrap();
 
     await waitFor(() => expect(screen.queryByText("7")).not.toBeNull());
+    expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
@@ -41,5 +42,6 @@ describe("AdminDashboardPage", () => {
     expect(screen.getByText("156")).toBeInTheDocument();
     expect(screen.getByText("L$ 4,827,500")).toBeInTheDocument();
     expect(screen.getByText("L$ 241,375")).toBeInTheDocument();
+    expect(screen.getByText("Open reports")).toBeInTheDocument();
   });
 });

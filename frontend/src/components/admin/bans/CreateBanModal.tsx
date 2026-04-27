@@ -1,0 +1,283 @@
+"use client";
+import { useState, useEffect } from "react";
+import { useCreateBan } from "@/hooks/admin/useCreateBan";
+import { Button } from "@/components/ui/Button";
+import { UserSearchAutocomplete } from "./UserSearchAutocomplete";
+import type { BanType, BanReasonCategory, AdminUserSummary } from "@/lib/admin/types";
+
+const BAN_TYPES: BanType[] = ["IP", "AVATAR", "BOTH"];
+
+const REASON_CATEGORIES: Array<{ value: BanReasonCategory; label: string }> = [
+  { value: "SHILL_BIDDING", label: "Shill Bidding" },
+  { value: "FRAUDULENT_SELLER", label: "Fraudulent Seller" },
+  { value: "TOS_ABUSE", label: "ToS Abuse" },
+  { value: "SPAM", label: "Spam" },
+  { value: "OTHER", label: "Other" },
+];
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  initialSlAvatarUuid?: string;
+  initialIpAddress?: string;
+};
+
+export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAddress }: Props) {
+  const [banType, setBanType] = useState<BanType>("IP");
+  const [slAvatarUuid, setSlAvatarUuid] = useState(initialSlAvatarUuid ?? "");
+  const [ipAddress, setIpAddress] = useState(initialIpAddress ?? "");
+  const [expiresMode, setExpiresMode] = useState<"permanent" | "date">("permanent");
+  const [expiresDate, setExpiresDate] = useState("");
+  const [reasonCategory, setReasonCategory] = useState<BanReasonCategory>("OTHER");
+  const [reasonText, setReasonText] = useState("");
+
+  const createBan = useCreateBan();
+
+  const hasPreFill = Boolean(initialSlAvatarUuid) || Boolean(initialIpAddress);
+
+  useEffect(() => {
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- `open` is external source of truth; resetting form state on open is intentional
+    setSlAvatarUuid(initialSlAvatarUuid ?? "");
+    setIpAddress(initialIpAddress ?? "");
+    setBanType(initialSlAvatarUuid && initialIpAddress ? "BOTH" : initialSlAvatarUuid ? "AVATAR" : "IP");
+    setExpiresMode("permanent");
+    setExpiresDate("");
+    setReasonCategory("OTHER");
+    setReasonText("");
+  }, [open, initialSlAvatarUuid, initialIpAddress]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  function handleUserSelect(user: AdminUserSummary) {
+    if (user.slAvatarUuid) setSlAvatarUuid(user.slAvatarUuid);
+  }
+
+  const canSubmit =
+    reasonText.trim().length > 0 &&
+    (banType === "IP" || banType === "BOTH" ? ipAddress.trim().length > 0 : true) &&
+    (banType === "AVATAR" || banType === "BOTH" ? slAvatarUuid.trim().length > 0 : true) &&
+    (expiresMode === "date" ? expiresDate.length > 0 : true) &&
+    !createBan.isPending;
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    createBan.mutate(
+      {
+        banType,
+        ipAddress: banType === "AVATAR" ? null : ipAddress.trim() || null,
+        slAvatarUuid: banType === "IP" ? null : slAvatarUuid.trim() || null,
+        expiresAt:
+          expiresMode === "permanent" ? null : new Date(expiresDate).toISOString(),
+        reasonCategory,
+        reasonText: reasonText.trim(),
+      },
+      { onSuccess: onClose }
+    );
+  }
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-40 bg-inverse-surface/20"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create ban"
+        data-testid="create-ban-modal"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <div
+          className="w-full max-w-lg rounded-default bg-surface-container-low border border-outline-variant shadow-elevated p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-title-md font-semibold text-on-surface">Create ban</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {!hasPreFill && (
+              <div className="flex flex-col gap-1">
+                <label className="text-label-md font-medium text-on-surface">
+                  Search user (optional)
+                </label>
+                <UserSearchAutocomplete onSelect={handleUserSelect} />
+                <p className="text-[11px] text-on-surface-variant">
+                  Selecting a user fills the avatar UUID below.
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1">
+              <label className="text-label-md font-medium text-on-surface">Ban type</label>
+              <div className="flex items-center gap-2">
+                {BAN_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setBanType(t)}
+                    data-testid={`ban-type-btn-${t}`}
+                    className={`px-3 py-1.5 rounded-full text-label-sm transition-colors ${
+                      banType === t
+                        ? "bg-secondary-container text-on-secondary-container font-medium"
+                        : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(banType === "IP" || banType === "BOTH") && (
+              <div className="flex flex-col gap-1">
+                <label htmlFor="ip-address" className="text-label-md font-medium text-on-surface">
+                  IP address <span className="text-error">*</span>
+                </label>
+                <input
+                  id="ip-address"
+                  type="text"
+                  value={ipAddress}
+                  onChange={(e) => setIpAddress(e.target.value)}
+                  placeholder="192.168.0.1"
+                  data-testid="ip-address-input"
+                  className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary font-mono"
+                />
+              </div>
+            )}
+
+            {(banType === "AVATAR" || banType === "BOTH") && (
+              <div className="flex flex-col gap-1">
+                <label htmlFor="avatar-uuid" className="text-label-md font-medium text-on-surface">
+                  Avatar UUID <span className="text-error">*</span>
+                </label>
+                <input
+                  id="avatar-uuid"
+                  type="text"
+                  value={slAvatarUuid}
+                  onChange={(e) => setSlAvatarUuid(e.target.value)}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  data-testid="avatar-uuid-input"
+                  className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary font-mono"
+                />
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1">
+              <label className="text-label-md font-medium text-on-surface">Expiry</label>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-body-sm text-on-surface cursor-pointer">
+                  <input
+                    type="radio"
+                    name="expiry-mode"
+                    value="permanent"
+                    checked={expiresMode === "permanent"}
+                    onChange={() => setExpiresMode("permanent")}
+                    data-testid="expiry-permanent"
+                  />
+                  Permanent
+                </label>
+                <label className="flex items-center gap-1.5 text-body-sm text-on-surface cursor-pointer">
+                  <input
+                    type="radio"
+                    name="expiry-mode"
+                    value="date"
+                    checked={expiresMode === "date"}
+                    onChange={() => setExpiresMode("date")}
+                    data-testid="expiry-date-radio"
+                  />
+                  Until date
+                </label>
+              </div>
+              {expiresMode === "date" && (
+                <input
+                  type="datetime-local"
+                  value={expiresDate}
+                  onChange={(e) => setExpiresDate(e.target.value)}
+                  data-testid="expiry-date-input"
+                  className="mt-1 rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface ring-1 ring-outline-variant focus:outline-none focus:ring-primary"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="reason-category" className="text-label-md font-medium text-on-surface">
+                Reason category
+              </label>
+              <select
+                id="reason-category"
+                value={reasonCategory}
+                onChange={(e) => setReasonCategory(e.target.value as BanReasonCategory)}
+                data-testid="reason-category-select"
+                className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface ring-1 ring-outline-variant focus:outline-none focus:ring-primary"
+              >
+                {REASON_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="reason-text" className="text-label-md font-medium text-on-surface">
+                Reason details <span className="text-error">*</span>
+              </label>
+              <textarea
+                id="reason-text"
+                rows={3}
+                value={reasonText}
+                disabled={createBan.isPending}
+                onChange={(e) => setReasonText(e.target.value)}
+                placeholder="Describe the reason for this ban…"
+                data-testid="reason-text-textarea"
+                className="w-full resize-y rounded-default bg-surface-container px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary disabled:opacity-50"
+              />
+            </div>
+
+            <div className="rounded-default bg-tertiary-container/30 border border-tertiary-container px-4 py-3 text-body-sm text-on-surface-variant">
+              On create: token version bumps for any user with this avatar UUID — their session
+              invalidates on next refresh. Ban cache flushes immediately.
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" type="button" onClick={onClose} disabled={createBan.isPending}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={!canSubmit}
+                loading={createBan.isPending}
+                data-testid="create-ban-submit"
+              >
+                Create ban
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}

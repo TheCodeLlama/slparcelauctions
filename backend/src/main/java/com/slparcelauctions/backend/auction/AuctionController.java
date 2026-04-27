@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -62,9 +63,11 @@ public class AuctionController {
     @ResponseStatus(HttpStatus.CREATED)
     public SellerAuctionResponse create(
             @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody AuctionCreateRequest req) {
+            @Valid @RequestBody AuctionCreateRequest req,
+            HttpServletRequest httpRequest) {
         requireVerified(principal.userId());
-        Auction created = auctionService.create(principal.userId(), req);
+        String ip = httpRequest.getRemoteAddr();
+        Auction created = auctionService.create(principal.userId(), req, ip);
         return mapper.toSellerResponse(created, null);
     }
 
@@ -124,13 +127,15 @@ public class AuctionController {
     public SellerAuctionResponse cancel(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody AuctionCancelRequest req) {
+            @Valid @RequestBody AuctionCancelRequest req,
+            HttpServletRequest httpRequest) {
         requireVerified(principal.userId());
         // Non-locking load authorises the seller; the service re-fetches under
         // a pessimistic write lock for the state transition so cancellation
         // races with bid placement / auction end serialise on the row lock.
         auctionService.loadForSeller(id, principal.userId());
-        Auction cancelled = cancellationService.cancel(id, req.reason());
+        String ip = httpRequest.getRemoteAddr();
+        Auction cancelled = cancellationService.cancel(id, req.reason(), ip);
         return mapper.toSellerResponse(cancelled, null);
     }
 

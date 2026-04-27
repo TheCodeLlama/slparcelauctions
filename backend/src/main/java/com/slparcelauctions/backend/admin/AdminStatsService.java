@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.slparcelauctions.backend.admin.dto.AdminStatsResponse;
 import com.slparcelauctions.backend.admin.dto.AdminStatsResponse.PlatformStats;
 import com.slparcelauctions.backend.admin.dto.AdminStatsResponse.QueueStats;
+import com.slparcelauctions.backend.admin.reports.ListingReportRepository;
+import com.slparcelauctions.backend.admin.reports.ListingReportStatus;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
@@ -32,11 +34,13 @@ public class AdminStatsService {
     private final AuctionRepository auctionRepository;
     private final EscrowRepository escrowRepository;
     private final FraudFlagRepository fraudFlagRepository;
+    private final ListingReportRepository listingReportRepository;
 
     @Transactional(readOnly = true)
     public AdminStatsResponse compute() {
         QueueStats queues = new QueueStats(
             fraudFlagRepository.countByResolved(false),
+            listingReportRepository.countByStatus(ListingReportStatus.OPEN),
             escrowRepository.countByState(EscrowState.ESCROW_PENDING),
             escrowRepository.countByState(EscrowState.DISPUTED)
         );

@@ -1695,6 +1695,38 @@ Users can report any ACTIVE listing they believe is suspicious, fraudulent, or i
   post-cancel watcher (teal/primary). Token mapping in
   `frontend/src/lib/admin/reasonStyle.ts`.
 
+### Notes (Epic 10 sub-spec 2 — Reports + Bans + Admin enforcement + User mgmt, 2026-04-26)
+
+- Listing reports: users flag with subject + reason + details. Upsert by
+  (auction, reporter) — resubmit replaces and resets status to OPEN
+  (issue-still-happening escape valve). Reports are ALWAYS informational
+  — admin acts manually.
+- Admin queue is listing-grouped, sorted reportCount DESC. Listing-level
+  actions (warn/suspend/cancel) only touch OPEN reports — DISMISSED
+  reports preserve the admin's prior per-report decision (and the
+  reporter's frivolous counter increment).
+- Bans block at 6 paths: register, login, SL-verify, bid, listing
+  creation, listing cancellation. The cancel-path check prevents banned
+  sellers from circumventing via cancel-and-sell. Cached in Redis with
+  5-min TTL.
+- Multi-ban stacking: one user can have AVATAR + IP bans concurrently as
+  separate rows. Active = liftedAt IS NULL AND (expiresAt IS NULL OR > now).
+- Admin-cancel skips the seller penalty ladder. `CancellationLog.
+  cancelledByAdminId` excludes the row from `countPriorOffensesWithBids`.
+  Distinct seller notification (LISTING_REMOVED_BY_ADMIN) plus
+  cause-neutral bidder fan-out (LISTING_CANCELLED_BY_SELLER reused).
+- Admin reinstate is a shared primitive (`AdminAuctionService.reinstate`)
+  used by both fraud-flag-resolution (sub-spec 1) and the standalone
+  `/admin/auctions/{id}/reinstate` endpoint (called from the user-detail
+  Listings tab Reinstate button when status=SUSPENDED).
+- `admin_actions` audit table writes from sub-spec 2 forward. Sub-spec 1
+  fraud-flag actions continue to self-audit on FraudFlag.resolvedBy +
+  adminNotes — no backfill.
+- Frivolous reporter tracking: counter only this sub-spec
+  (`User.dismissedReportsCount`). Automatic privilege revocation deferred.
+- Self-demote returns 409 SELF_DEMOTE_FORBIDDEN. Promote doesn't need
+  the guard (you're already admin to reach the page).
+
 ---
 
 ## 9. LSL Script Communication Protocol

@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
@@ -45,13 +46,14 @@ public class AuctionService {
     private final ParcelRepository parcelRepo;
     private final UserRepository userRepo;
     private final ParcelTagRepository tagRepo;
+    private final BanCheckService banCheckService;
     private final Clock clock;
 
     @Value("${slpa.commission.default-rate:0.05}")
     private BigDecimal defaultCommissionRate;
 
     @Transactional
-    public Auction create(Long sellerId, AuctionCreateRequest req) {
+    public Auction create(Long sellerId, AuctionCreateRequest req, String ipAddress) {
         validateTitle(req.title());
         validatePricing(req.startingBid(), req.reservePrice(), req.buyNowPrice());
         validateDuration(req.durationHours());
@@ -59,6 +61,8 @@ public class AuctionService {
 
         User seller = userRepo.findById(sellerId)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + sellerId));
+
+        banCheckService.assertNotBanned(ipAddress, seller.getSlAvatarUuid());
 
         // Listing-creation suspension gate (Epic 08 sub-spec 2 §7.7). Order is
         // most-restrictive-first: a permanent ban shadows a timed suspension,

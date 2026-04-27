@@ -261,6 +261,28 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason) {
+        String title = "Listing removed: " + parcelName;
+        String body = "Your listing has been removed by SLPA staff. Reason: " + reason + ".";
+        notificationService.publish(new NotificationEvent(
+            sellerUserId, NotificationCategory.LISTING_REMOVED_BY_ADMIN, title, body,
+            NotificationDataBuilder.listingRemovedByAdmin(auctionId, parcelName, reason),
+            null
+        ));
+    }
+
+    @Override
+    public void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes) {
+        String title = "Warning on your listing: " + parcelName;
+        String body = "An admin has reviewed reports on this listing and issued a warning. Notes: " + notes;
+        notificationService.publish(new NotificationEvent(
+            sellerUserId, NotificationCategory.LISTING_WARNED, title, body,
+            NotificationDataBuilder.listingWarned(auctionId, parcelName, notes),
+            null
+        ));
+    }
+
+    @Override
     public void listingReinstated(long sellerUserId, long auctionId, String parcelName, OffsetDateTime newEndsAt) {
         String title = "Listing reinstated: " + parcelName;
         String body = "Your auction has been reinstated. All existing bids and proxy maxes are preserved. "
@@ -298,9 +320,10 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
+        // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.
         Map<String, Object> data = NotificationDataBuilder.listingCancelledBySeller(auctionId, parcelName, reason);
-        String title = "Listing cancelled: " + parcelName;
-        String body = "The seller cancelled this listing. Reason: " + reason + ".";
+        String title = "Auction cancelled: " + parcelName;
+        String body = "This auction has been cancelled. Your active proxy bid is no longer in effect. Reason: " + reason + ".";
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

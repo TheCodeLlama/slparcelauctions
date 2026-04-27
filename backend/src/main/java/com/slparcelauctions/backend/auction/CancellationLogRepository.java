@@ -21,7 +21,9 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
      * count.
      */
     @Query("SELECT count(c) FROM CancellationLog c "
-            + "WHERE c.seller.id = :sellerId AND c.hadBids = true")
+            + "WHERE c.seller.id = :sellerId "
+            + "AND c.hadBids = true "
+            + "AND c.cancelledByAdminId IS NULL")
     long countPriorOffensesWithBids(@Param("sellerId") Long sellerId);
 
     /**
@@ -51,4 +53,6 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
             + "ORDER BY c.cancelledAt DESC")
     List<CancellationLog> findLatestByAuctionId(
             @Param("auctionId") Long auctionId, Pageable pageable);
+
+    Page<CancellationLog> findBySellerIdOrderByCancelledAtDesc(Long sellerId, Pageable pageable);
 }

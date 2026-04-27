@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
@@ -66,10 +67,11 @@ public class CancellationService {
     private final AuctionBroadcastPublisher broadcastPublisher;
     private final NotificationPublisher notificationPublisher;
     private final CancellationPenaltyProperties penaltyProps;
+    private final BanCheckService banCheckService;
     private final Clock clock;
 
     @Transactional
-    public Auction cancel(Long auctionId, String reason) {
+    public Auction cancel(Long auctionId, String reason, String ipAddress) {
         Auction a = auctionRepo.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
         if (!CANCELLABLE.contains(a.getStatus())) {
@@ -93,6 +95,8 @@ public class CancellationService {
         // the cold path.
         User seller = userRepo.findByIdForUpdate(a.getSeller().getId())
                 .orElseThrow(); // FK guarantees existence
+
+        banCheckService.assertNotBanned(ipAddress, seller.getSlAvatarUuid());
 
         // Pre-INSERT count → ladder index → consequence snapshot. Indices are
         // clamped at 3 so the 4th-and-beyond offenses all snapshot
@@ -202,6 +206,75 @@ public class CancellationService {
                     });
         } else {
             // Slice tests / non-tx callers — fire immediately.
+            broadcastPublisher.publishCancelled(envelope);
+        }
+
+        return saved;
+    }
+
+    /**
+     * Admin-initiated cancellation. Skips the penalty ladder entirely —
+     * staff removal is not a seller offense. The {@link CancellationLog} row
+     * is written with {@code cancelledByAdminId} set so that
+     * {@code countPriorOffensesWithBids} (which filters {@code IS NULL}) does
+     * not count it against the seller's ladder.
+     *
+     * <p>The seller receives a distinct {@code LISTING_REMOVED_BY_ADMIN}
+     * notification. Bidders receive the existing
+     * {@code listingCancelledBySellerFanout} (whose body copy is cause-neutral
+     * as of sub-spec 2 Task 3). {@code seller.cancelledWithBids} is NOT
+     * incremented.
+     */
+    @Transactional
+    public Auction cancelByAdmin(Long auctionId, Long adminUserId, String notes) {
+        Auction a = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+        if (!CANCELLABLE.contains(a.getStatus())) {
+            throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "ADMIN_CANCEL");
+        }
+
+        boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
+        AuctionStatus from = a.getStatus();
+
+        // No penalty ladder. No seller-row lock — no seller-side state changes.
+        logRepo.save(CancellationLog.builder()
+                .auction(a)
+                .seller(a.getSeller())
+                .cancelledFromStatus(from.name())
+                .hadBids(hadBids)
+                .reason(notes)
+                .penaltyKind(CancellationOffenseKind.NONE)
+                .penaltyAmountL(null)
+                .cancelledByAdminId(adminUserId)
+                .build());
+
+        a.setStatus(AuctionStatus.CANCELLED);
+        Auction saved = auctionRepo.save(a);
+        monitorLifecycle.onAuctionClosed(saved);
+
+        notificationPublisher.listingRemovedByAdmin(
+                a.getSeller().getId(), a.getId(), a.getTitle(), notes);
+
+        if (hadBids) {
+            List<Long> bidderIds = bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId());
+            notificationPublisher.listingCancelledBySellerFanout(
+                    a.getId(), bidderIds, a.getTitle(), notes);
+        }
+
+        log.info("Auction {} admin-cancelled from {} by adminUserId={} (hadBids={})",
+                a.getId(), from, adminUserId, hadBids);
+
+        AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
+                saved, hadBids, OffsetDateTime.now(clock));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcastPublisher.publishCancelled(envelope);
+                        }
+                    });
+        } else {
             broadcastPublisher.publishCancelled(envelope);
         }
 

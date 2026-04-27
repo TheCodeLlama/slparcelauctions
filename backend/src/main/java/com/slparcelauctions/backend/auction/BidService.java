@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.auction.broadcast.BidSettlementEnvelope;
@@ -80,6 +81,7 @@ public class BidService {
     private final AuctionBroadcastPublisher publisher;
     private final EscrowService escrowService;
     private final NotificationPublisher notificationPublisher;
+    private final BanCheckService banCheckService;
 
     /**
      * Places a manual bid on an auction. See class javadoc for the
@@ -120,6 +122,7 @@ public class BidService {
         // remediable (go verify the SL avatar); SELLER_CANNOT_BID is not.
         User bidder = userRepo.findById(bidderId)
                 .orElseThrow(() -> new UserNotFoundException(bidderId));
+        banCheckService.assertNotBanned(ipAddress, bidder.getSlAvatarUuid());
         if (!Boolean.TRUE.equals(bidder.getVerified())) {
             throw new NotVerifiedException();
         }

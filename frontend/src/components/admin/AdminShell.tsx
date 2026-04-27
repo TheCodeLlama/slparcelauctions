@@ -22,6 +22,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const items: SidebarItem[] = [
     { label: "Dashboard", href: "/admin" },
     { label: "Fraud Flags", href: "/admin/fraud-flags", badge: stats?.queues.openFraudFlags },
+    { label: "Reports", href: "/admin/reports", badge: stats?.queues.openReports },
+    { label: "Bans", href: "/admin/bans" },
+    { label: "Users", href: "/admin/users" },
   ];
 
   return (

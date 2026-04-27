@@ -138,14 +138,14 @@ class CancellationFanoutImIntegrationTest {
             auctionRepo.save(fresh);
         });
 
-        cancellationService.cancel(auctionId, "ownership lost");
+        cancellationService.cancel(auctionId, "ownership lost", null);
 
         // 3 IM rows, one per active bidder, all LISTING_CANCELLED_BY_SELLER.
         var rows = slImRepo.findAll();
         assertThat(rows).hasSize(3);
         assertThat(rows.stream().map(SlImMessage::getUserId).toList())
             .containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId());
-        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLPA] Listing cancelled"));
+        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLPA] Auction cancelled"));
         assertThat(rows).allMatch(m -> m.getMessageText().contains("ownership lost"));
     }
 
@@ -177,7 +177,7 @@ class CancellationFanoutImIntegrationTest {
             auctionRepo.save(fresh);
         });
 
-        cancellationService.cancel(auctionId, "ownership lost");
+        cancellationService.cancel(auctionId, "ownership lost", null);
 
         var rows = slImRepo.findAll();
         assertThat(rows).hasSize(1);
@@ -189,7 +189,7 @@ class CancellationFanoutImIntegrationTest {
         User seller = saveUser(false);
         saveAuction(seller, 1000L);
 
-        cancellationService.cancel(auctionId, "no bidders");
+        cancellationService.cancel(auctionId, "no bidders", null);
 
         assertThat(slImRepo.findAll()).isEmpty();
     }

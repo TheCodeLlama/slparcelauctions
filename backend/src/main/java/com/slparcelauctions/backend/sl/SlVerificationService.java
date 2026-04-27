@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.sl.dto.SlVerifyRequest;
 import com.slparcelauctions.backend.sl.dto.SlVerifyResponse;
 import com.slparcelauctions.backend.sl.exception.AvatarAlreadyLinkedException;
@@ -49,12 +50,14 @@ public class SlVerificationService {
     private final VerificationCodeService verificationCodeService;
     private final UserRepository userRepository;
     private final SlHeaderValidator headerValidator;
+    private final BanCheckService banCheckService;
     private final Clock clock;
 
     @Transactional(noRollbackFor = CodeCollisionException.class)
     public SlVerifyResponse verify(
             String shardHeader, String ownerKeyHeader, SlVerifyRequest body) {
         headerValidator.validate(shardHeader, ownerKeyHeader);
+        banCheckService.assertNotBanned(null, body.avatarUuid());
 
         Optional<User> existingLinked = userRepository.findBySlAvatarUuid(body.avatarUuid());
         if (existingLinked.isPresent()) {

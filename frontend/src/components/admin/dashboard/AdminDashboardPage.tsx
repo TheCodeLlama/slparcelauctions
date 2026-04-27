@@ -26,13 +26,20 @@ export function AdminDashboardPage() {
       <div className="text-xs opacity-60 mt-0.5 mb-6">Platform overview · lifetime</div>
 
       <div className="text-[11px] uppercase tracking-wide opacity-60 mb-2">Needs attention</div>
-      <div className="grid grid-cols-3 gap-3 mb-7">
+      <div className="grid grid-cols-4 gap-3 mb-7">
         <QueueCard
           label="Open fraud flags"
           value={data.queues.openFraudFlags}
           tone="fraud"
           subtext="Click to triage"
           href="/admin/fraud-flags"
+        />
+        <QueueCard
+          label="Open reports"
+          value={data.queues.openReports}
+          tone="fraud"
+          subtext="Click to triage"
+          href="/admin/reports"
         />
         <QueueCard
           label="Pending payments"

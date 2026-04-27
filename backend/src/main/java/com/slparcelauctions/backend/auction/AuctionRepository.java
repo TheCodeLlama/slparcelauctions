@@ -184,4 +184,6 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     List<Auction> findAllByIdWithParcelAndSeller(@Param("ids") Collection<Long> ids);
 
     long countByStatus(AuctionStatus status);
+
+    Page<Auction> findBySellerIdOrderByCreatedAtDesc(Long sellerId, Pageable pageable);
 }

@@ -8,6 +8,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.slparcelauctions.backend.admin.users.dto.UserIpProjection;
+
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
@@ -35,4 +37,22 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
          + "(rt.revokedAt IS NOT NULL AND rt.revokedAt < :cutoff) OR "
          + "(rt.expiresAt < :cutoff)")
     int deleteOldRows(@Param("cutoff") OffsetDateTime cutoff);
+
+    /**
+     * Returns one row per distinct IP address seen in this user's refresh token
+     * history, with first/last seen timestamps and a session count. Used by the
+     * admin user-detail "Recent IPs" modal.
+     *
+     * <p>Rows with a null {@code ip_address} are excluded (recorded before the
+     * column was added, or from clients that don't send an IP).
+     */
+    @Query("""
+        SELECT new com.slparcelauctions.backend.admin.users.dto.UserIpProjection(
+            rt.ipAddress, MIN(rt.createdAt), MAX(rt.lastUsedAt), COUNT(rt.id))
+        FROM RefreshToken rt
+        WHERE rt.userId = :userId AND rt.ipAddress IS NOT NULL
+        GROUP BY rt.ipAddress
+        ORDER BY MIN(rt.createdAt) ASC
+        """)
+    List<UserIpProjection> findIpSummaryByUserId(@Param("userId") Long userId);
 }

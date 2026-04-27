@@ -72,6 +72,15 @@ public class CancellationLog {
     @Column(name = "penalty_amount_l")
     private Long penaltyAmountL;
 
+    /**
+     * Non-null when the cancellation was initiated by a staff admin rather than
+     * the seller. Admin-cancel rows are excluded from
+     * {@code countPriorOffensesWithBids} so they do not advance the seller's
+     * penalty ladder. Null for all seller-initiated cancellations.
+     */
+    @Column(name = "cancelled_by_admin_id")
+    private Long cancelledByAdminId;
+
     @CreationTimestamp
     @Column(name = "cancelled_at", nullable = false, updatable = false)
     private OffsetDateTime cancelledAt;

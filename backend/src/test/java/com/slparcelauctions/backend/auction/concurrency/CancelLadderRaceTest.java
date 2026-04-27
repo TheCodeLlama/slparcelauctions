@@ -136,7 +136,7 @@ class CancelLadderRaceTest {
             ready.countDown();
             try {
                 go.await();
-                cancellationService.cancel(auctionId1, "race-1");
+                cancellationService.cancel(auctionId1, "race-1", null);
             } catch (Throwable t) {
                 err1.set(t);
             }
@@ -145,7 +145,7 @@ class CancelLadderRaceTest {
             ready.countDown();
             try {
                 go.await();
-                cancellationService.cancel(auctionId2, "race-2");
+                cancellationService.cancel(auctionId2, "race-2", null);
             } catch (Throwable t) {
                 err2.set(t);
             }

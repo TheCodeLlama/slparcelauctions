@@ -172,7 +172,7 @@ class CancellationFanoutIntegrationTest {
                     .amount(1500L).bidType(BidType.MANUAL).build());
         });
 
-        cancellationService.cancel(auctionId, "changed mind");
+        cancellationService.cancel(auctionId, "changed mind", null);
 
         // Both bidders should have LISTING_CANCELLED_BY_SELLER
         assertThat(notifRepo.findAll().stream()
@@ -195,7 +195,7 @@ class CancellationFanoutIntegrationTest {
         User seller = newUser("nobid-cancel-seller"); sellerId = seller.getId();
         buildActiveAuction(seller, 0, null, 0L);
 
-        cancellationService.cancel(auctionId, "testing");
+        cancellationService.cancel(auctionId, "testing", null);
 
         // No bidders → no LISTING_CANCELLED_BY_SELLER notifications for anyone.
         // Check specifically: no notification for the seller and no other recipients

@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import { MapPin, Tag as TagIcon } from "@/components/ui/icons";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
@@ -35,6 +36,8 @@ import { VisitInSecondLifeButton } from "./VisitInSecondLifeButton";
 interface Props {
   auction: PublicAuctionResponse | SellerAuctionResponse;
   className?: string;
+  /** Optional action rendered in the title row (e.g. ReportListingButton). */
+  reportButton?: ReactNode;
 }
 
 const MATURITY_MAP: Record<
@@ -55,7 +58,7 @@ const MATURITY_MAP: Record<
   },
 };
 
-export function ParcelInfoPanel({ auction, className }: Props) {
+export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
   const { parcel } = auction;
   // Seller-authored listing title wins the headline slot. Falls back to
   // parcel.description (legacy pre-sub-spec-2 listings) and ultimately
@@ -108,12 +111,15 @@ export function ParcelInfoPanel({ auction, className }: Props) {
             </span>
           </p>
         </div>
-        <VisitInSecondLifeButton
-          regionName={parcel.regionName}
-          positionX={x}
-          positionY={y}
-          positionZ={z}
-        />
+        <div className="flex items-center gap-2 shrink-0">
+          {reportButton}
+          <VisitInSecondLifeButton
+            regionName={parcel.regionName}
+            positionX={x}
+            positionY={y}
+            positionZ={z}
+          />
+        </div>
       </div>
 
       <div

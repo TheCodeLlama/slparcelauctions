@@ -1,12 +1,12 @@
 package com.slparcelauctions.backend.admin;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -24,14 +24,11 @@ import com.slparcelauctions.backend.admin.exception.AuctionNotSuspendedException
 import com.slparcelauctions.backend.admin.exception.FraudFlagAlreadyResolvedException;
 import com.slparcelauctions.backend.admin.exception.FraudFlagNotFoundException;
 import com.slparcelauctions.backend.auction.Auction;
-import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.common.PagedResponse;
-import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -43,9 +40,7 @@ public class AdminFraudFlagService {
 
     private final FraudFlagRepository fraudFlagRepository;
     private final UserRepository userRepository;
-    private final AuctionRepository auctionRepository;
-    private final BotMonitorLifecycleService botMonitorLifecycleService;
-    private final NotificationPublisher notificationPublisher;
+    private final AdminAuctionService adminAuctionService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -164,23 +159,12 @@ public class AdminFraudFlagService {
             throw new AuctionNotSuspendedException(auction == null ? null : auction.getStatus());
         }
 
+        // Delegate auction-state change + notification to the shared primitive.
+        adminAuctionService.reinstate(auction.getId(), Optional.of(flag.getDetectedAt()));
+
+        // Resolve the flag separately. Fraud flags continue to self-audit
+        // via FraudFlag.resolvedBy + adminNotes (no admin_actions row).
         OffsetDateTime now = OffsetDateTime.now(clock);
-        OffsetDateTime suspendedFrom = auction.getSuspendedAt() != null
-            ? auction.getSuspendedAt()
-            : flag.getDetectedAt();
-        Duration suspensionDuration = Duration.between(suspendedFrom, now);
-        OffsetDateTime newEndsAt = auction.getEndsAt().plus(suspensionDuration);
-        if (newEndsAt.isBefore(now)) {
-            newEndsAt = now.plusHours(1);
-        }
-
-        auction.setStatus(AuctionStatus.ACTIVE);
-        auction.setSuspendedAt(null);
-        auction.setEndsAt(newEndsAt);
-        auctionRepository.save(auction);
-
-        botMonitorLifecycleService.onAuctionResumed(auction);
-
         User admin = userRepository.findById(adminUserId)
             .orElseThrow(() -> new IllegalStateException("Admin user not found: " + adminUserId));
         flag.setResolved(true);
@@ -188,10 +172,6 @@ public class AdminFraudFlagService {
         flag.setResolvedBy(admin);
         flag.setAdminNotes(adminNotes);
         fraudFlagRepository.save(flag);
-
-        notificationPublisher.listingReinstated(
-            auction.getSeller().getId(), auction.getId(),
-            auction.getTitle(), newEndsAt);
 
         return detail(flagId);
     }

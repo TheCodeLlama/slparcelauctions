@@ -225,4 +225,25 @@ public class SuspensionService {
         log.warn("Auction {} SUSPENDED by bot monitor: reason={}, evidence={}",
                 auction.getId(), reason, evidence);
     }
+
+    /**
+     * Admin-driven suspension. No FraudFlag created — admin reason is captured
+     * in the admin_actions audit row written by the caller. Sets suspendedAt
+     * if currently null, mirroring suspendForOwnershipChange.
+     */
+    @Transactional
+    public void suspendByAdmin(Auction auction, Long adminUserId, String notes) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        auction.setStatus(AuctionStatus.SUSPENDED);
+        if (auction.getSuspendedAt() == null) {
+            auction.setSuspendedAt(now);
+        }
+        auctionRepo.save(auction);
+
+        monitorLifecycle.onAuctionClosed(auction);
+
+        notificationPublisher.listingSuspended(
+            auction.getSeller().getId(), auction.getId(),
+            auction.getTitle(), "Suspended by SLPA staff");
+    }
 }

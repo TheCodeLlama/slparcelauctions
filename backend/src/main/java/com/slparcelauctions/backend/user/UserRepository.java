@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -60,4 +62,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.role = com.slparcelauctions.backend.user.Role.ADMIN " +
            "WHERE u.email IN :emails AND u.role = com.slparcelauctions.backend.user.Role.USER")
     int bulkPromoteByEmailIfUser(@Param("emails") List<String> emails);
+
+    /**
+     * Atomically increments {@code tokenVersion} for the given user, invalidating
+     * all live access tokens within their 15-minute window. Called on AVATAR/BOTH
+     * ban creation to force re-authentication of the banned user's active sessions.
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE User u SET u.tokenVersion = u.tokenVersion + 1 WHERE u.id = :userId")
+    int bumpTokenVersion(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT u FROM User u
+        WHERE (:uuid IS NOT NULL AND u.slAvatarUuid = :uuid)
+           OR (:uuid IS NULL AND :search IS NOT NULL AND
+               (LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(COALESCE(u.slDisplayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))))
+           OR (:search IS NULL AND :uuid IS NULL)
+        ORDER BY u.createdAt DESC
+        """)
+    Page<User> searchAdmin(@Param("search") String search, @Param("uuid") UUID uuidOrNull, Pageable pageable);
 }

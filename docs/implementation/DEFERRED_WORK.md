@@ -47,9 +47,9 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Account deletion UI
 - **From:** Epic 02 sub-spec 2a (Task 02-03 user profile backend)
-- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a. Not a browse/discovery concern — does not belong in Epic 07.
-- **When:** Epic 10 sub-spec 4 (account deletion + audit log). Admin foundation (sub-spec 1) ships `User.role` enum and JWT gate — deletion plumbing does not depend on the role system but can share cascade-matrix design with the ban system.
-- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history) alongside the ban system (sub-spec 2), not before. `User.role` enum is now available (Epic 10 sub-spec 1) — the deletion endpoint can set `role = 'USER'` as a pre-step if needed, but the main cascade work is still outstanding.
+- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a. Not a browse/discovery concern — does not belong in Epic 07. Admin foundation (sub-spec 1) ships `User.role` enum + JWT gate; ban system (sub-spec 2) ships the cascade primitives (active-auction check, bidder fan-out, ban-path guards). The cascade-matrix design for deletion can now be built on these foundations.
+- **When:** Epic 10 sub-spec 4 (account deletion + audit log viewer). Sub-spec 4 is the canonical home — all admin cascade infrastructure now exists to support the design.
+- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history, ban records) in sub-spec 4 — `User.role` enum (sub-spec 1) + ban primitives (sub-spec 2) are both available.
 
 ### Notification preferences editor
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
@@ -96,8 +96,8 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 ### Non-dev admin endpoint for ownership-monitor trigger
 - **From:** Epic 03 sub-spec 2 (DevOwnershipMonitorController)
 - **Why:** `POST /api/v1/dev/ownership-monitor/run` is `@Profile("dev")` — the only way to force an ownership sweep in prod is to wait for the next scheduled tick (default 15 minutes). Admins triaging a suspected fraud report need a "re-check this listing now" button that runs a single-auction check and returns the result synchronously.
-- **When:** Epic 10 sub-spec 3 — admin role + auth gate now exists (sub-spec 1). Remaining work: the `POST /api/v1/admin/auctions/{id}/recheck-ownership` endpoint itself, delegating to `OwnershipCheckTask`, plus a one-off trigger button in the fraud-flag slide-over or a dedicated parcel-detail admin panel.
-- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification. The admin endpoint is a separate surface with different auth and a different response shape. The admin role + Spring Security gate shipped in Epic 10 sub-spec 1 unblocks this endpoint.
+- **When:** Epic 10 sub-spec 3 — admin role + auth gate exists (sub-spec 1); ban/report/user-mgmt foundation exists (sub-spec 2). Remaining work is just the endpoint itself (`POST /api/v1/admin/auctions/{id}/recheck-ownership`, delegating to `OwnershipCheckTask`) plus a one-off trigger button in the fraud-flag slide-over or a dedicated parcel-detail admin panel.
+- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification. The admin endpoint is a separate surface with different auth and a different response shape.
 
 ### Destructive-variant copy polish
 - **From:** Epic 03 sub-spec 2 (Task 9 review follow-up + Task 10 Button variant)
@@ -339,6 +339,36 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   poll, with an alarm scheduler that pages on `now - last_polled_at > 5 min`.
 - **When:** No committed phase. Out of scope until operational data shows the
   48 h canary is insufficient.
+
+### `REPORT_THRESHOLD_REACHED` admin-targeted notification
+- **From:** Epic 10 sub-spec 2 brainstorm
+- **Why:** Sub-spec 2 ships the admin reports queue sorted by `reportCount DESC`, which surfaces high-report listings passively. If admins miss a listing that crosses 3+ open reports between queue refreshes, there's no proactive signal. A fan-out notification when a listing crosses the threshold would close that gap.
+- **When:** Indefinite — pull in once operational data shows admins are missing high-report listings. Gate on a configurable threshold property (e.g. `slpa.reports.alert-threshold=3`).
+- **Notes:** Implementation sketch: `AdminReportService.submitReport` increments `openReportCount`; if it crosses the threshold and no prior threshold notification exists for this listing, call `NotificationPublisher.reportThresholdReached(listing, adminIds)`. Needs a new `REPORT_THRESHOLD_REACHED` notification category.
+
+### Admin "Send notification to user" surface
+- **From:** Epic 10 sub-spec 2 (admin user-detail page design)
+- **Why:** Admins sometimes need to send a custom SL IM to a user outside of the automated notification categories (e.g., "your account was flagged for review"). No freeform message surface exists.
+- **When:** Indefinite — no committed phase. Add when a real operational need is demonstrated.
+- **Notes:** Implementation would be a new `POST /api/v1/admin/users/{id}/notify` endpoint + modal on the user-detail page. Requires rate limiting per target user to prevent admin harassment.
+
+### Frivolous-reporter automatic privilege revocation
+- **From:** Epic 10 sub-spec 2 brainstorm
+- **Why:** Sub-spec 2 ships `User.dismissedReportsCount` — the counter increments each time an admin dismisses one of a user's reports as frivolous. The counter is visible on the user-detail Moderation tab but no automatic threshold revocation is wired.
+- **When:** Indefinite — pull in once operational data shows a threshold is justified.
+- **Notes:** Counter is in place. Automatic revoke would be a flag (`User.reportingPrivilegeRevoked`) set when `dismissedReportsCount` crosses a configurable threshold, checked in `ListingReportService.submit`. Until then, admin can revoke manually via a future "ban from reporting" action.
+
+### Realtime ban broadcast / forced-logout WebSocket
+- **From:** Epic 10 sub-spec 2 design
+- **Why:** Sub-spec 2 ships ban enforcement on the next API call — a banned user is blocked on their next bid/list/etc. request after the Redis cache (5-min TTL) flushes. There's no forced-logout WebSocket push that immediately disconnects the user's session.
+- **When:** Indefinite — revisit if forced-logout latency becomes a user complaint (e.g., banned users continue to bid-spam within the 5-min cache window).
+- **Notes:** Implementation shape: `BanCacheInvalidator` publishes a `BAN_IMPOSED` event on create; a new `BanBroadcastService` sends a `tv-bump` to `/topic/user/{userId}/account-status`; the frontend's `AccountStatusWatcher` hook redirects on receipt. See FOOTGUNS §F.106 for the current TTL reasoning.
+
+### ProxyBid bidder fan-out from admin-cancel
+- **From:** Epic 10 sub-spec 2 brainstorm
+- **Why:** Sub-spec 2 ships admin-cancel with cause-neutral bidder fan-out via `listingCancelledBySellerFanout` for regular (manual) bidders. If proxy bidders exist, the current fan-out path also notifies them via the same `LISTING_CANCELLED_BY_SELLER` category reused for admin-cancel. If proxy-bid semantics are added in a future sub-spec, confirm the fan-out covers proxy-bidder edge cases (e.g., multiple proxy bids from the same user at different max amounts).
+- **When:** Indefinite — pull in when proxy bidding ships and operational data shows proxy-bidder notification gaps.
+- **Notes:** `NotificationPublisher.listingCancelledBySellerFanout` is the current fan-out method. Body strings are cause-neutral per FOOTGUNS §F.104.
 
 ---
 

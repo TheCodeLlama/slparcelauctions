@@ -24,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
@@ -52,6 +53,7 @@ class CancellationServiceLadderTest {
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock AuctionBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
+    @Mock BanCheckService banCheckService;
 
     CancellationService service;
 
@@ -70,7 +72,7 @@ class CancellationServiceLadderTest {
                 48);
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
-                broadcastPublisher, notificationPublisher, penaltyProps, fixed);
+                broadcastPublisher, notificationPublisher, penaltyProps, banCheckService, fixed);
         seller = User.builder().id(42L).email("s@example.com")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -83,7 +85,7 @@ class CancellationServiceLadderTest {
 
     private Auction cancel(Auction a, String reason) {
         lenient().when(auctionRepo.findByIdForUpdate(anyLong())).thenReturn(Optional.of(a));
-        return service.cancel(a.getId(), reason);
+        return service.cancel(a.getId(), reason, null);
     }
 
     private CancellationLog capturedLog() {

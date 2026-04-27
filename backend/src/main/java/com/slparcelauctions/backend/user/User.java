@@ -170,6 +170,25 @@ public class User {
             columnDefinition = "boolean not null default false")
     private Boolean bannedFromListing = false;
 
+    /**
+     * Count of listing reports submitted by this user that were dismissed by
+     * admins (Epic 10 sub-spec 2 §5). Used as a frivolous-reporter signal:
+     * high dismissed counts may be surfaced in the admin queue to flag repeat
+     * low-quality reporters. Incremented inside
+     * {@code AdminReportService.dismissReport} when a report transitions to
+     * {@code DISMISSED}. Never decremented.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "dismissed_reports_count", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    private Long dismissedReportsCount = 0L;
+
     @Builder.Default
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified = false;
