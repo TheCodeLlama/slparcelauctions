@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
@@ -66,10 +67,11 @@ public class CancellationService {
     private final AuctionBroadcastPublisher broadcastPublisher;
     private final NotificationPublisher notificationPublisher;
     private final CancellationPenaltyProperties penaltyProps;
+    private final BanCheckService banCheckService;
     private final Clock clock;
 
     @Transactional
-    public Auction cancel(Long auctionId, String reason) {
+    public Auction cancel(Long auctionId, String reason, String ipAddress) {
         Auction a = auctionRepo.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
         if (!CANCELLABLE.contains(a.getStatus())) {
@@ -93,6 +95,8 @@ public class CancellationService {
         // the cold path.
         User seller = userRepo.findByIdForUpdate(a.getSeller().getId())
                 .orElseThrow(); // FK guarantees existence
+
+        banCheckService.assertNotBanned(ipAddress, seller.getSlAvatarUuid());
 
         // Pre-INSERT count → ladder index → consequence snapshot. Indices are
         // clamped at 3 so the 4th-and-beyond offenses all snapshot

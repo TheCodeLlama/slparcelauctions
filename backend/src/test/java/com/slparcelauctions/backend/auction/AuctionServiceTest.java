@@ -26,6 +26,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
 import com.slparcelauctions.backend.auction.exception.SuspensionReason;
 
@@ -47,6 +48,7 @@ class AuctionServiceTest {
     @Mock ParcelRepository parcelRepo;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
+    @Mock BanCheckService banCheckService;
     @Spy Clock clock = Clock.fixed(Instant.parse("2026-04-24T10:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks AuctionService service;
@@ -79,7 +81,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 168, false, null, "Nice parcel", Set.of());
 
-        Auction a = service.create(42L, req);
+        Auction a = service.create(42L, req, null);
 
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.DRAFT);
         assertThat(a.getSeller().getId()).isEqualTo(42L);
@@ -96,7 +98,7 @@ class AuctionServiceTest {
     void create_persistsTitle() {
         AuctionCreateRequest req = minimalCreateRequest("Premium Waterfront — Must Sell!");
 
-        Auction created = service.create(42L, req);
+        Auction created = service.create(42L, req, null);
 
         assertThat(created.getTitle()).isEqualTo("Premium Waterfront — Must Sell!");
     }
@@ -107,7 +109,7 @@ class AuctionServiceTest {
         // callers that bypass MockMvc validation still hit a hard failure.
         AuctionCreateRequest req = minimalCreateRequest("   ");
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -118,7 +120,7 @@ class AuctionServiceTest {
         // the invariant holds for every entry point.
         AuctionCreateRequest req = minimalCreateRequest(null);
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -129,7 +131,7 @@ class AuctionServiceTest {
         String over120 = "x".repeat(121);
         AuctionCreateRequest req = minimalCreateRequest(over120);
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("at most 120 characters");
     }
@@ -207,7 +209,7 @@ class AuctionServiceTest {
 
         SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 SellerSuspendedException.class,
-                () -> service.create(42L, req));
+                () -> service.create(42L, req, null));
 
         assertThat(ex.getReason()).isEqualTo(SuspensionReason.PENALTY_OWED);
     }
@@ -219,7 +221,7 @@ class AuctionServiceTest {
 
         SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 SellerSuspendedException.class,
-                () -> service.create(42L, req));
+                () -> service.create(42L, req, null));
 
         assertThat(ex.getReason()).isEqualTo(SuspensionReason.TIMED_SUSPENSION);
     }
@@ -230,7 +232,7 @@ class AuctionServiceTest {
         seller.setListingSuspensionUntil(OffsetDateTime.now(clock).minusSeconds(1));
         AuctionCreateRequest req = minimalCreateRequest("Test listing");
 
-        Auction created = service.create(42L, req);
+        Auction created = service.create(42L, req, null);
 
         assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
     }
@@ -242,7 +244,7 @@ class AuctionServiceTest {
 
         SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 SellerSuspendedException.class,
-                () -> service.create(42L, req));
+                () -> service.create(42L, req, null));
 
         assertThat(ex.getReason()).isEqualTo(SuspensionReason.PERMANENT_BAN);
     }
@@ -257,7 +259,7 @@ class AuctionServiceTest {
 
         SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 SellerSuspendedException.class,
-                () -> service.create(42L, req));
+                () -> service.create(42L, req, null));
 
         assertThat(ex.getReason()).isEqualTo(SuspensionReason.PERMANENT_BAN);
     }
@@ -271,7 +273,7 @@ class AuctionServiceTest {
 
         SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
                 SellerSuspendedException.class,
-                () -> service.create(42L, req));
+                () -> service.create(42L, req, null));
 
         assertThat(ex.getReason()).isEqualTo(SuspensionReason.TIMED_SUSPENSION);
     }
@@ -291,7 +293,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 500L, null, null,
                 72, true, 10, "Test", Set.of());
 
-        Auction created = service.create(42L, req);
+        Auction created = service.create(42L, req, null);
 
         assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
         assertThat(created.getVerificationMethod()).isNull();
@@ -303,7 +305,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 168, true, 10, null, Set.of());
 
-        Auction a = service.create(42L, req);
+        Auction a = service.create(42L, req, null);
 
         assertThat(a.getSnipeProtect()).isTrue();
         assertThat(a.getSnipeWindowMin()).isEqualTo(10);
@@ -319,7 +321,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, 500L, null,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reservePrice must be >= startingBid");
     }
@@ -330,7 +332,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, 5000L, 4000L,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("buyNowPrice must be >= max");
     }
@@ -341,7 +343,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, 500L,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("buyNowPrice must be >= max");
     }
@@ -356,7 +358,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 100, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("durationHours");
     }
@@ -371,7 +373,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 168, true, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("snipeWindowMin");
     }
@@ -382,7 +384,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 168, false, 10, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("snipeWindowMin must be null");
     }
@@ -393,7 +395,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 168, true, 7, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("snipeWindowMin");
     }
@@ -413,7 +415,7 @@ class AuctionServiceTest {
                 100L, "Test listing", 1000L, null, null,
                 168, false, null, null, codes);
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown parcel tag codes")
                 .hasMessageContaining("unknown_tag");
@@ -426,7 +428,7 @@ class AuctionServiceTest {
                 999L, "Test listing", 1000L, null, null,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Parcel not found");
     }

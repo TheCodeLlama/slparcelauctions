@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.BidSettlementEnvelope;
 import com.slparcelauctions.backend.auction.dto.BidResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionAlreadyEndedException;
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.BidTooLowException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
@@ -73,7 +74,7 @@ class BidServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), mock(BanCheckService.class));
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();

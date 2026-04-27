@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
@@ -42,6 +43,7 @@ class CancellationServiceTest {
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock AuctionBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
+    @Mock BanCheckService banCheckService;
 
     CancellationService service;
 
@@ -58,7 +60,7 @@ class CancellationServiceTest {
                 48);
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
-                broadcastPublisher, notificationPublisher, penaltyProps, fixed);
+                broadcastPublisher, notificationPublisher, penaltyProps, banCheckService, fixed);
         seller = User.builder().id(42L).email("s@example.com")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -77,7 +79,7 @@ class CancellationServiceTest {
      */
     private Auction cancel(Auction a, String reason) {
         lenient().when(auctionRepo.findByIdForUpdate(anyLong())).thenReturn(Optional.of(a));
-        return service.cancel(a.getId(), reason);
+        return service.cancel(a.getId(), reason, null);
     }
 
     // -------------------------------------------------------------------------
@@ -225,7 +227,7 @@ class CancellationServiceTest {
     void cancel_missingAuction_throwsNotFound() {
         lenient().when(auctionRepo.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.cancel(999L, "gone"))
+        assertThatThrownBy(() -> service.cancel(999L, "gone", null))
                 .isInstanceOf(AuctionNotFoundException.class);
     }
 
