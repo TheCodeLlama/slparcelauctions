@@ -44,6 +44,7 @@ public interface NotificationPublisher {
 
     // Listing status — admin-facing actions
     void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason);
+    void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes);
 
     // Reviews
     void reviewReceived(long revieweeUserId, long reviewId, long auctionId,

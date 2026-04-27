@@ -272,6 +272,17 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes) {
+        String title = "Warning on your listing: " + parcelName;
+        String body = "An admin has reviewed reports on this listing and issued a warning. Notes: " + notes;
+        notificationService.publish(new NotificationEvent(
+            sellerUserId, NotificationCategory.LISTING_WARNED, title, body,
+            NotificationDataBuilder.listingWarned(auctionId, parcelName, notes),
+            null
+        ));
+    }
+
+    @Override
     public void listingReinstated(long sellerUserId, long auctionId, String parcelName, OffsetDateTime newEndsAt) {
         String title = "Listing reinstated: " + parcelName;
         String body = "Your auction has been reinstated. All existing bids and proxy maxes are preserved. "

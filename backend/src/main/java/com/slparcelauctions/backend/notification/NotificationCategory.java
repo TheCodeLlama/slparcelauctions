@@ -23,6 +23,7 @@ public enum NotificationCategory {
     LISTING_REVIEW_REQUIRED(NotificationGroup.LISTING_STATUS),
     LISTING_CANCELLED_BY_SELLER(NotificationGroup.LISTING_STATUS),
     LISTING_REMOVED_BY_ADMIN(NotificationGroup.LISTING_STATUS),
+    LISTING_WARNED(NotificationGroup.LISTING_STATUS),
     REVIEW_RECEIVED(NotificationGroup.REVIEWS),
     SYSTEM_ANNOUNCEMENT(NotificationGroup.SYSTEM);
 

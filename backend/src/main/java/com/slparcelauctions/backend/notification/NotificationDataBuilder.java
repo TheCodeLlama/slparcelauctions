@@ -147,6 +147,12 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> listingWarned(long auctionId, String parcelName, String notes) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("notes", notes);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);
