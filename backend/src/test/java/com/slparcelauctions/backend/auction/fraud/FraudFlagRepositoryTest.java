@@ -7,12 +7,18 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.sql.DataSource;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
@@ -27,29 +33,117 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 /**
- * Persistence-level verification that {@link FraudFlag} round-trips cleanly
- * against the real Postgres dev database — specifically that the
- * {@code jsonb evidence_json} column is written and re-read as a typed
- * {@code Map<String, Object>} via Hibernate's JSON JDBC type.
+ * Persistence-level verification of {@link FraudFlag} and
+ * {@link FraudFlagRepository}. The {@code @Transactional}-annotated legacy
+ * tests (pre-Task 4) roll back automatically. The new count-method tests use
+ * explicit {@code @BeforeEach}/{@code @AfterEach} with
+ * {@link TransactionTemplate} so they exercise the repository outside the
+ * test transaction and see committed rows.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
 @TestPropertySource(properties = {
-        "auth.cleanup.enabled=false",
-        "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+    "auth.cleanup.enabled=false",
+    "slpa.auction-end.enabled=false",
+    "slpa.ownership-monitor.enabled=false",
+    "slpa.escrow.ownership-monitor-job.enabled=false",
+    "slpa.escrow.timeout-job.enabled=false",
+    "slpa.escrow.command-dispatcher-job.enabled=false",
+    "slpa.review.scheduler.enabled=false",
+    "slpa.notifications.cleanup.enabled=false",
+    "slpa.notifications.sl-im.cleanup.enabled=false"
 })
-@Transactional
 class FraudFlagRepositoryTest {
 
     @Autowired FraudFlagRepository fraudFlagRepository;
     @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired UserRepository userRepository;
+    @Autowired PlatformTransactionManager txManager;
+    @Autowired DataSource dataSource;
 
     @PersistenceContext EntityManager em;
 
+    // -----------------------------------------------------------------------
+    // State for the count-method tests (BeforeEach / AfterEach)
+    // -----------------------------------------------------------------------
+
+    private Long seedAuctionId, seedParcelId, seedUserId;
+    private FraudFlag flagA, flagB;
+
+    @BeforeEach
+    void seedCountData() {
+        new TransactionTemplate(txManager).executeWithoutResult(s -> {
+            User user = userRepository.save(User.builder()
+                .email("seed-" + UUID.randomUUID() + "@x.com")
+                .passwordHash("x")
+                .slAvatarUuid(UUID.randomUUID())
+                .build());
+            seedUserId = user.getId();
+
+            Parcel parcel = parcelRepository.save(Parcel.builder()
+                .slParcelUuid(UUID.randomUUID())
+                .regionName("R")
+                .ownerUuid(user.getSlAvatarUuid())
+                .areaSqm(512)
+                .build());
+            seedParcelId = parcel.getId();
+
+            Auction auction = auctionRepository.save(Auction.builder()
+                .seller(user).parcel(parcel).title("Test")
+                .status(AuctionStatus.SUSPENDED)
+                .startingBid(1L)
+                .durationHours(24)
+                .endsAt(OffsetDateTime.now().plusHours(1))
+                .build());
+            seedAuctionId = auction.getId();
+
+            flagA = fraudFlagRepository.save(FraudFlag.builder()
+                .auction(auction).parcel(parcel)
+                .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
+                .detectedAt(OffsetDateTime.now())
+                .resolved(false)
+                .evidenceJson(Map.of())
+                .build());
+
+            flagB = fraudFlagRepository.save(FraudFlag.builder()
+                .auction(auction).parcel(parcel)
+                .reason(FraudFlagReason.PARCEL_DELETED_OR_MERGED)
+                .detectedAt(OffsetDateTime.now())
+                .resolved(false)
+                .evidenceJson(Map.of())
+                .build());
+        });
+    }
+
+    @AfterEach
+    void cleanupCountData() throws Exception {
+        new TransactionTemplate(txManager).executeWithoutResult(s -> {
+            if (seedAuctionId != null) {
+                fraudFlagRepository.deleteAll(fraudFlagRepository.findByAuctionId(seedAuctionId));
+                auctionRepository.findById(seedAuctionId).ifPresent(auctionRepository::delete);
+            }
+            if (seedParcelId != null) parcelRepository.findById(seedParcelId).ifPresent(parcelRepository::delete);
+        });
+        try (var conn = dataSource.getConnection()) {
+            conn.setAutoCommit(true);
+            try (var st = conn.createStatement()) {
+                if (seedUserId != null) {
+                    st.execute("DELETE FROM notification WHERE user_id = " + seedUserId);
+                    st.execute("DELETE FROM refresh_tokens WHERE user_id = " + seedUserId);
+                    st.execute("DELETE FROM users WHERE id = " + seedUserId);
+                }
+            }
+        }
+        seedUserId = seedAuctionId = seedParcelId = null;
+    }
+
+    // -----------------------------------------------------------------------
+    // Legacy tests (transactional — roll back automatically)
+    // -----------------------------------------------------------------------
+
     @Test
+    @Transactional
     void save_persistsWithJsonbEvidenceAndRoundTrips() {
         User seller = userRepository.save(User.builder()
                 .email("fraud-seller-" + UUID.randomUUID() + "@example.com")
@@ -117,6 +211,7 @@ class FraudFlagRepositoryTest {
     }
 
     @Test
+    @Transactional
     void findByAuctionId_returnsOnlyFlagsForThatAuction() {
         User seller = userRepository.save(User.builder()
                 .email("fraud-seller-" + UUID.randomUUID() + "@example.com")
@@ -162,6 +257,41 @@ class FraudFlagRepositoryTest {
                 .allSatisfy(f -> assertThat(f.getReason())
                         .isEqualTo(FraudFlagReason.PARCEL_DELETED_OR_MERGED));
     }
+
+    // -----------------------------------------------------------------------
+    // New Task 4 count-method tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    void countByResolved_falseCountsOpenFlags() {
+        long open = fraudFlagRepository.countByResolved(false);
+        assertThat(open).isGreaterThanOrEqualTo(2L);
+    }
+
+    @Test
+    void countByAuctionIdAndResolvedFalseAndIdNot_returnsSiblingOpenCount() {
+        long siblings = fraudFlagRepository.countByAuctionIdAndResolvedFalseAndIdNot(
+                seedAuctionId, flagA.getId());
+        assertThat(siblings).isEqualTo(1L);
+    }
+
+    @Test
+    void countByAuctionIdAndResolvedFalseAndIdNot_excludesResolved() {
+        new TransactionTemplate(txManager).executeWithoutResult(s -> {
+            flagB.setResolved(true);
+            flagB.setResolvedAt(OffsetDateTime.now());
+            flagB.setAdminNotes("dismissed");
+            fraudFlagRepository.save(flagB);
+        });
+
+        long siblings = fraudFlagRepository.countByAuctionIdAndResolvedFalseAndIdNot(
+                seedAuctionId, flagA.getId());
+        assertThat(siblings).isZero();
+    }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
 
     private Auction buildDraft(User seller, Parcel parcel) {
         return Auction.builder()
