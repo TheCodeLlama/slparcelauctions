@@ -1720,3 +1720,56 @@ read-only transaction, no Redis cache. Acceptable today (admin traffic
 is low). If pre-launch volume makes the dashboard noticeably slow, the
 fix is a 30-second Redis cache, NOT N+1 fixes — there are no joins to
 optimize.
+
+### F.103 — Admin-cancel must NOT bump the seller's penalty ladder
+
+`CancellationLog.cancelledByAdminId IS NULL` is the load-bearing predicate
+in `countPriorOffensesWithBids`. Without it, every admin-removed listing
+counts as a seller offense — a seller who's been wrongly reported but
+exonerated would still climb the ladder. Test
+`CancellationServiceCancelByAdminTest.priorOffensesQueryExcludesAdminCancel`
+is the canary.
+
+### F.104 — Cause-neutral fanout body string
+
+`NotificationPublisher.listingCancelledBySellerFanout` body strings
+("This auction has been cancelled. Your active proxy bid is no longer
+in effect.") are deliberately cause-neutral so admin-cancel can call the
+same method. If anyone reverts the body to seller-attributed copy ("The
+seller cancelled..."), bidders on admin-cancelled auctions get a
+misleading message. Existing seller-cancel tests assert against the
+new copy — they're the canary.
+
+### F.105 — Listing-level report actions touch ONLY OPEN reports
+
+`AdminReportService.warnSeller / suspend / cancel` filter to OPEN status
+when batching the report-state-change. DISMISSED reports stay DISMISSED
+because each represents a deliberate per-report decision (with the
+reporter's frivolous counter already incremented). Reclassifying them
+on a listing-level action would undo that decision.
+
+### F.106 — Ban cache TTL = 5 min; create/lift flushes immediately
+
+`BanCheckService` caches both positive AND negative results with 5-min
+TTL. `BanCacheInvalidator.invalidate(ip, uuid)` is called on ban-create
+and ban-lift to clear the keys immediately. The 5-min cap limits the
+worst-case stale window to 5 min — acceptable because admin actions are
+infrequent and a banned user being one bid late to be blocked is a
+non-event.
+
+### F.107 — Listing-creation IP capture didn't exist before
+
+`AuctionController.create` and `AuctionService.create` gained
+`HttpServletRequest` / `String ipAddress` parameters in sub-spec 2. Any
+test calling `auctionService.create(sellerId, req)` directly fails with
+a method-not-found compile error — pass `null` or `""` as the new third
+arg. The integration tests in this sub-spec already do this; older tests
+that haven't been touched in a while may need a sweep.
+
+### F.108 — Self-demote returns 409, NOT 403
+
+A current admin trying to demote themselves gets `409 SELF_DEMOTE_FORBIDDEN`
+from `AdminRoleService.demote`. The 409 is intentional — they have
+permission to call the endpoint (they're an admin), but the operation
+is forbidden by business rule. The frontend toast surfaces "You cannot
+demote yourself."
