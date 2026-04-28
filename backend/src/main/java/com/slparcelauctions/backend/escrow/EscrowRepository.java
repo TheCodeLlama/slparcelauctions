@@ -147,4 +147,24 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
      */
     @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state IN :states")
     long sumAmountByStateIn(@Param("states") java.util.Collection<EscrowState> states);
+
+    /**
+     * Returns the IDs of escrows where the given user is involved (as either
+     * seller or winner) and the escrow state is one of the supplied open
+     * states. Used by
+     * {@link com.slparcelauctions.backend.user.deletion.UserDeletionService}
+     * to enforce the OPEN_ESCROWS precondition before account deletion.
+     *
+     * <p>Winner is identified via {@code auction.winnerUserId} (raw Long on
+     * {@link com.slparcelauctions.backend.auction.Auction}); seller is
+     * identified via {@code auction.seller.id}.
+     */
+    @Query("""
+            SELECT e.id FROM Escrow e
+            WHERE e.state IN :states
+              AND (e.auction.seller.id = :userId OR e.auction.winnerUserId = :userId)
+            """)
+    List<Long> findIdsByUserInvolvedAndStateIn(
+            @Param("userId") Long userId,
+            @Param("states") Collection<EscrowState> states);
 }
