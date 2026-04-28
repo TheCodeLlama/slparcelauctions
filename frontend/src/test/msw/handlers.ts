@@ -30,6 +30,7 @@ import type {
   MyReportResponse,
   UserIpProjection,
 } from "@/lib/admin/types";
+import type { AdminAuditLogRow } from "@/lib/admin/auditLog";
 import type {
   AdminDisputeQueueRow,
   AdminDisputeDetail,
@@ -832,6 +833,39 @@ export const adminOwnershipRecheckHandlers = {
         checkedAt: new Date().toISOString(),
         auctionStatus: "SUSPENDED",
       })
+    ),
+};
+
+export const adminAuditLogHandlers = {
+  listEmpty: () =>
+    http.get("*/api/v1/admin/audit-log", () =>
+      HttpResponse.json({ content: [], number: 0, size: 50, totalElements: 0, totalPages: 0 })
+    ),
+  listWithItems: (rows: AdminAuditLogRow[]) =>
+    http.get("*/api/v1/admin/audit-log", () =>
+      HttpResponse.json({ content: rows, number: 0, size: 50, totalElements: rows.length, totalPages: 1 })
+    ),
+};
+
+export const adminUserDeletionHandlers = {
+  deleteSuccess: (userId: number) =>
+    http.delete(`*/api/v1/admin/users/${userId}`, () => new HttpResponse(null, { status: 204 })),
+  delete409Auctions: (userId: number, auctionIds: number[]) =>
+    http.delete(`*/api/v1/admin/users/${userId}`, () =>
+      HttpResponse.json({ code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds }, { status: 409 })
+    ),
+};
+
+export const userDeletionHandlers = {
+  deleteSelfSuccess: () =>
+    http.delete("*/api/v1/users/me", () => new HttpResponse(null, { status: 204 })),
+  deleteSelf403WrongPassword: () =>
+    http.delete("*/api/v1/users/me", () =>
+      HttpResponse.json({ code: "INVALID_PASSWORD", message: "wrong" }, { status: 403 })
+    ),
+  deleteSelf409Auctions: (auctionIds: number[]) =>
+    http.delete("*/api/v1/users/me", () =>
+      HttpResponse.json({ code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds }, { status: 409 })
     ),
 };
 

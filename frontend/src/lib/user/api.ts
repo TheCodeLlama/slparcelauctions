@@ -93,6 +93,8 @@ export const userApi = {
   },
   publicProfile: (id: number) =>
     api.get<PublicUserProfile>(`/api/v1/users/${id}`),
+  deleteSelf: (password: string): Promise<void> =>
+    api.delete("/api/v1/users/me", { body: { password } }),
 };
 
 export const verificationApi = {
