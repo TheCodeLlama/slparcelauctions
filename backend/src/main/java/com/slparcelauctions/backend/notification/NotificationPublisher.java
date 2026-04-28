@@ -55,6 +55,13 @@ public interface NotificationPublisher {
                                     String parcelName, long amountL,
                                     String reasonCategory);
 
+    // Dispute resolution
+    void disputeResolved(long recipientUserId, String role,
+                          long auctionId, long escrowId,
+                          String parcelName, long amountL,
+                          com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
+                          boolean alsoCancelListing);
+
     // Fan-out (afterCommit batch — see §3.9)
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);

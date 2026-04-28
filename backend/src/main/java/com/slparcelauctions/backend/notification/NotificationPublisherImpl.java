@@ -334,6 +334,54 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void disputeResolved(long recipientUserId, String role,
+                                 long auctionId, long escrowId,
+                                 String parcelName, long amountL,
+                                 com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
+                                 boolean alsoCancelListing) {
+        String title = "Dispute resolved: " + parcelName;
+        String body = bodyFor(role, action, alsoCancelListing, parcelName, amountL);
+        notificationService.publish(new NotificationEvent(
+            recipientUserId,
+            NotificationCategory.DISPUTE_RESOLVED,
+            title, body,
+            NotificationDataBuilder.disputeResolved(
+                    auctionId, escrowId, parcelName, amountL,
+                    action.name(), alsoCancelListing, role),
+            null));
+    }
+
+    private static String bodyFor(String role,
+                                   com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
+                                   boolean alsoCancelListing,
+                                   String parcelName, long amountL) {
+        return switch (action) {
+            case RECOGNIZE_PAYMENT -> "winner".equals(role)
+                    ? "Payment recognized for " + parcelName + ". Land transfer monitoring resumed."
+                    : "Dispute resolved for " + parcelName + ". Please transfer the parcel to the winner.";
+            case RESET_TO_FUNDED -> {
+                if (alsoCancelListing) {
+                    yield "winner".equals(role)
+                            ? "Your dispute for " + parcelName
+                                + " was upheld. The listing has been cancelled and your L$ "
+                                + amountL + " refund is being processed."
+                            : "Listing cancelled by admin via dispute resolution: " + parcelName;
+                }
+                yield "winner".equals(role)
+                        ? "Dispute dismissed for " + parcelName
+                            + ". Escrow remains funded — please complete payment at the terminal."
+                        : "Dispute resolved for " + parcelName + ". Escrow remains funded.";
+            }
+            case RESUME_TRANSFER -> "Escrow unfrozen for " + parcelName
+                    + ". Land transfer monitoring resumed.";
+            case MARK_EXPIRED -> "winner".equals(role)
+                    ? "Escrow expired for " + parcelName
+                        + ". Your L$ " + amountL + " refund is being processed."
+                    : "Escrow expired for " + parcelName + ".";
+        };
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.
