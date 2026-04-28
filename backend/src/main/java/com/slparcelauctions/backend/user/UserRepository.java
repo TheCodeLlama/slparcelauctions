@@ -73,6 +73,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.tokenVersion = u.tokenVersion + 1 WHERE u.id = :userId")
     int bumpTokenVersion(@Param("userId") Long userId);
 
+    /**
+     * Returns every user with the given role. Used by {@code ReconciliationService}
+     * to fan out {@code RECONCILIATION_MISMATCH} notifications to all admins.
+     */
+    List<User> findByRole(Role role);
+
     @Query("""
         SELECT u FROM User u
         WHERE (:uuid IS NOT NULL AND u.slAvatarUuid = :uuid)

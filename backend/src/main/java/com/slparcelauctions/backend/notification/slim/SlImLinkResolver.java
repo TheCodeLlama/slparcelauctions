@@ -39,6 +39,10 @@ public class SlImLinkResolver {
                 base + "/dashboard/listings";
             case SYSTEM_ANNOUNCEMENT ->
                 base + "/notifications";
+            case DISPUTE_FILED_AGAINST_SELLER, DISPUTE_RESOLVED ->
+                base + "/auction/" + data.get("auctionId") + "/escrow";
+            case RECONCILIATION_MISMATCH, WITHDRAWAL_COMPLETED, WITHDRAWAL_FAILED ->
+                base + "/admin/infrastructure";
         };
     }
 }

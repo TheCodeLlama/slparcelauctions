@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -113,6 +115,20 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
             @Param("userId") Long userId,
             @Param("threshold") OffsetDateTime threshold);
 
+    /**
+     * Admin dispute queue: all escrows in the given state ordered by disputedAt ascending
+     * (oldest open dispute first). Used by {@code AdminDisputeQueryService} when a
+     * specific status filter is supplied.
+     */
+    Page<Escrow> findByStateOrderByDisputedAtAsc(EscrowState state, Pageable pageable);
+
+    /**
+     * Admin dispute queue: all escrows in any of the given states ordered by disputedAt
+     * ascending. Used by {@code AdminDisputeQueryService} when no status filter is
+     * applied (defaults to DISPUTED + FROZEN).
+     */
+    Page<Escrow> findByStateInOrderByDisputedAtAsc(Collection<EscrowState> states, Pageable pageable);
+
     long countByState(EscrowState state);
 
     long countByStateNotIn(Collection<EscrowState> states);
@@ -122,4 +138,13 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
 
     @Query("SELECT COALESCE(SUM(e.commissionAmt), 0) FROM Escrow e WHERE e.state = :state")
     long sumCommissionAmtByState(@Param("state") EscrowState state);
+
+    /**
+     * Sums the {@code amount} column across all escrows whose state is in the
+     * given collection. Used by {@code ReconciliationService} to compute the
+     * total locked L$ (FUNDED + TRANSFER_PENDING + DISPUTED + FROZEN). Returns
+     * 0 when no rows match.
+     */
+    @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state IN :states")
+    long sumAmountByStateIn(@Param("states") java.util.Collection<EscrowState> states);
 }

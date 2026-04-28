@@ -20,6 +20,7 @@ import { EscrowPageEmpty } from "@/components/escrow/EscrowPageEmpty";
 import { EscrowStepper } from "@/components/escrow/EscrowStepper";
 import { EscrowStepCard } from "@/components/escrow/EscrowStepCard";
 import { ReviewPanel } from "@/components/reviews/ReviewPanel";
+import { SellerEvidencePanel } from "@/components/escrow/SellerEvidencePanel";
 import { ReconnectingBanner } from "@/components/auction/ReconnectingBanner";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
@@ -157,6 +158,9 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
           <EscrowPageHeader escrow={escrow} role={role} />
           <EscrowStepper escrow={escrow} />
           <EscrowStepCard escrow={escrow} role={role} />
+          {escrow.state === "DISPUTED" && role === "seller" && (
+            <SellerEvidencePanel auctionId={auctionId} />
+          )}
           {escrow.state === "COMPLETED" && (
             <ReviewPanel auctionId={auctionId} isParty />
           )}

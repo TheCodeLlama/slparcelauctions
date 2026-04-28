@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
@@ -14,6 +15,7 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.CancellationLog;
 import com.slparcelauctions.backend.auction.CancellationLogRepository;
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -48,6 +50,10 @@ import lombok.extern.slf4j.Slf4j;
  * the desired behavior: per-auction isolation, no scheduler-thread contention.
  * The non-ACTIVE guard handles the race where an auction was cancelled,
  * suspended, or ended between scheduler dispatch and async execution.
+ *
+ * <p>{@link #recheckSync(Long)} exposes the same core check logic
+ * synchronously for admin tooling (Epic 10 sub-spec 3 Task 16). Both paths
+ * share the private {@link #doCheck(Auction)} helper.
  */
 @Service
 @RequiredArgsConstructor
@@ -88,7 +94,57 @@ public class OwnershipCheckTask {
             return;
         }
 
+        try {
+            doCheck(auction);
+        } catch (RuntimeException e) {
+            // Some World API failures propagate as the underlying reactor
+            // error (e.g. wrapped in a Reactor-internal exception).
+            // SlWorldApiClient already maps known transports to
+            // ExternalApiTimeoutException, so anything else surfacing here is
+            // unexpected. Log with stack trace and let the next sweep retry.
+            log.error("Unexpected error checking auction {}: {}", auctionId, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Synchronous ownership recheck for admin tooling. Runs in a fresh
+     * transaction ({@link Propagation#REQUIRES_NEW}) so any auto-suspension
+     * side-effects commit before the HTTP response is rendered.
+     *
+     * @throws AuctionNotFoundException if no auction exists with the given id
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public OwnershipCheckResult recheckSync(Long auctionId) {
+        Auction auction = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+        return doCheck(auction);
+    }
+
+    /**
+     * Core ownership-check logic shared between {@link #checkOne(Long)} and
+     * {@link #recheckSync(Long)}. Fetches parcel metadata from the World API,
+     * compares the owner, and delegates to {@link SuspensionService} on
+     * mismatch. Returns an {@link OwnershipCheckResult} reflecting the
+     * outcome; callers may ignore the result (async path) or surface it
+     * (admin sync path).
+     *
+     * <p>The {@code checkOne} caller has already applied status guards
+     * (ACTIVE / CANCELLED+watch). {@code recheckSync} skips those guards
+     * intentionally — admin-initiated rechecks apply to any status.
+     */
+    private OwnershipCheckResult doCheck(Auction auction) {
         UUID parcelUuid = auction.getParcel().getSlParcelUuid();
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        UUID expected = auction.getSeller().getSlAvatarUuid();
+        UUID observed = null;
+        boolean ownerMatch = false;
+
+        AuctionStatus status = auction.getStatus();
+        boolean activePath = status == AuctionStatus.ACTIVE;
+        boolean cancelledWatchPath = status == AuctionStatus.CANCELLED
+                && auction.getPostCancelWatchUntil() != null
+                && OffsetDateTime.now(clock).isBefore(auction.getPostCancelWatchUntil());
+
         try {
             ParcelMetadata result = worldApi.fetchParcel(parcelUuid).block();
             if (result == null) {
@@ -96,38 +152,36 @@ public class OwnershipCheckTask {
                 // transient World API failure so the counter advances but the
                 // auction is not suspended.
                 handleTimeout(auction, "empty World API response");
-                return;
-            }
-            UUID expected = auction.getSeller().getSlAvatarUuid();
-            UUID actual = result.ownerUuid();
-            boolean ownerMatches = expected != null
-                    && expected.equals(actual)
-                    && "agent".equalsIgnoreCase(result.ownerType());
-            if (ownerMatches) {
-                auction.setLastOwnershipCheckAt(OffsetDateTime.now(clock));
-                auction.setConsecutiveWorldApiFailures(0);
-                auctionRepo.save(auction);
-                log.debug("Ownership check OK for auction {} (owner={})", auctionId, actual);
-                return;
-            }
-
-            if (cancelledWatchPath) {
-                // Post-cancel mismatch — raise the CANCEL_AND_SELL flag. Clear
-                // {@code postCancelWatchUntil} on the same row so subsequent
-                // ticks during the original window don't re-flag the same
-                // cancellation. The flag carries the rich evidence map per
-                // spec §6.3 so admin reviewers can score temporal proximity.
-                suspensionService.raiseCancelAndSellFlag(auction, actual,
-                        resolveCancelledAt(auction));
-                auction.setLastOwnershipCheckAt(OffsetDateTime.now(clock));
-                auction.setPostCancelWatchUntil(null);
-                auctionRepo.save(auction);
             } else {
-                // ACTIVE mismatch — existing flow. SuspensionService handles
-                // the status flip (ACTIVE → SUSPENDED), the fraud-flag write,
-                // and removes the auction from the watcher query naturally
-                // since the status is no longer ACTIVE.
-                suspensionService.suspendForOwnershipChange(auction, result);
+                observed = result.ownerUuid();
+                ownerMatch = expected != null
+                        && expected.equals(observed)
+                        && "agent".equalsIgnoreCase(result.ownerType());
+
+                if (ownerMatch) {
+                    auction.setLastOwnershipCheckAt(now);
+                    auction.setConsecutiveWorldApiFailures(0);
+                    auctionRepo.save(auction);
+                    log.debug("Ownership check OK for auction {} (owner={})", auction.getId(), observed);
+                } else if (cancelledWatchPath) {
+                    // Post-cancel mismatch — raise the CANCEL_AND_SELL flag. Clear
+                    // {@code postCancelWatchUntil} on the same row so subsequent
+                    // ticks during the original window don't re-flag the same
+                    // cancellation. The flag carries the rich evidence map per
+                    // spec §6.3 so admin reviewers can score temporal proximity.
+                    suspensionService.raiseCancelAndSellFlag(auction, observed,
+                            resolveCancelledAt(auction));
+                    auction.setLastOwnershipCheckAt(now);
+                    auction.setPostCancelWatchUntil(null);
+                    auctionRepo.save(auction);
+                } else if (activePath) {
+                    // ACTIVE mismatch — existing flow. SuspensionService handles
+                    // the status flip (ACTIVE → SUSPENDED), the fraud-flag write,
+                    // and removes the auction from the watcher query naturally
+                    // since the status is no longer ACTIVE.
+                    suspensionService.suspendForOwnershipChange(auction, result);
+                }
+                // For other statuses, record the outcome without side-effect.
             }
         } catch (ParcelNotFoundInSlException e) {
             // Both paths route a deleted parcel through the existing
@@ -139,18 +193,15 @@ public class OwnershipCheckTask {
                 suspensionService.suspendForDeletedParcel(auction);
             } else {
                 log.warn("Post-cancel watcher: parcel {} no longer exists in-world for auction {}",
-                        parcelUuid, auctionId);
+                        parcelUuid, auction.getId());
             }
         } catch (ExternalApiTimeoutException e) {
             handleTimeout(auction, e.getMessage());
-        } catch (RuntimeException e) {
-            // Some World API failures propagate as the underlying reactor
-            // error (e.g. wrapped in a Reactor-internal exception).
-            // SlWorldApiClient already maps known transports to
-            // ExternalApiTimeoutException, so anything else surfacing here is
-            // unexpected. Log with stack trace and let the next sweep retry.
-            log.error("Unexpected error checking auction {}: {}", auctionId, e.getMessage(), e);
         }
+
+        // SuspensionService mutates the auction entity in-memory (setStatus) before
+        // persisting, so auction.getStatus() reflects any suspension outcome here.
+        return new OwnershipCheckResult(ownerMatch, expected, observed, now, auction.getStatus());
     }
 
     /**

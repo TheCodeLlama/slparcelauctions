@@ -22,4 +22,11 @@ public interface ObjectStorageService {
 
     /** Returns true if the object exists at the given key. */
     boolean exists(String key);
+
+    /**
+     * Generate a presigned GET URL with the given TTL for read-only access.
+     * In production (S3) this returns a real AWS presigned URL; in the local-file
+     * dev profile it returns a plain service URL since no signing is needed.
+     */
+    String presignGet(String key, java.time.Duration ttl);
 }

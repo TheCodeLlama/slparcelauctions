@@ -1,4 +1,5 @@
 import type { AdminActionTargetType, FraudFlagListStatus, FraudFlagReason } from "./types";
+import type { AdminDisputeFilters } from "./disputes";
 
 export const adminQueryKeys = {
   all: ["admin"] as const,
@@ -37,4 +38,24 @@ export const adminQueryKeys = {
     size: number;
   }) => [...adminQueryKeys.all, "audit", filters] as const,
   myReport: (auctionId: number) => ["auction", auctionId, "my-report"] as const,
+
+  disputes: () => [...adminQueryKeys.all, "disputes"] as const,
+  disputesList: (filters: AdminDisputeFilters) =>
+    [...adminQueryKeys.disputes(), "list", filters] as const,
+  disputeDetail: (escrowId: number) =>
+    [...adminQueryKeys.disputes(), "detail", escrowId] as const,
+
+  botPool: () => [...adminQueryKeys.all, "bot-pool"] as const,
+
+  terminals: () => [...adminQueryKeys.all, "terminals"] as const,
+
+  reconciliation: () => [...adminQueryKeys.all, "reconciliation"] as const,
+  reconciliationRuns: (days: number) =>
+    [...adminQueryKeys.reconciliation(), "runs", days] as const,
+
+  withdrawals: () => [...adminQueryKeys.all, "withdrawals"] as const,
+  withdrawalsList: (page: number, size: number) =>
+    [...adminQueryKeys.withdrawals(), "list", page, size] as const,
+  withdrawalsAvailable: () =>
+    [...adminQueryKeys.withdrawals(), "available"] as const,
 };

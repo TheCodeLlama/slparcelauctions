@@ -77,4 +77,20 @@ public interface TerminalCommandRepository extends JpaRepository<TerminalCommand
                                com.slparcelauctions.backend.escrow.command.TerminalCommandStatus.FAILED)
             """)
     long countActivePayoutCommands(@Param("escrowId") Long escrowId);
+
+    /**
+     * Sums the {@code amount} column of commands whose action is in the
+     * given set and whose status is in the given set. Used by
+     * {@code AdminWithdrawalService} to compute the outbound-commands
+     * component of the solvency formula: PAYOUT + REFUND rows that are
+     * QUEUED or IN_FLIGHT represent L$ already committed to delivery and
+     * must be deducted from the observed balance before a withdrawal is
+     * allowed. Returns 0 when no rows match.
+     */
+    @org.springframework.data.jpa.repository.Query(
+        "select coalesce(sum(c.amount), 0) from TerminalCommand c " +
+        "where c.action in :actions and c.status in :statuses")
+    long sumAmountByActionInAndStatusIn(
+        @Param("actions") java.util.Collection<TerminalCommandAction> actions,
+        @Param("statuses") java.util.Collection<TerminalCommandStatus> statuses);
 }

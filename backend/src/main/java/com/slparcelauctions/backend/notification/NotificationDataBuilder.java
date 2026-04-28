@@ -153,6 +153,48 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> disputeFiledAgainstSeller(
+            long auctionId, long escrowId, String parcelName,
+            long amountL, String reasonCategory) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("escrowId", escrowId);
+        m.put("amountL", amountL);
+        m.put("reasonCategory", reasonCategory);
+        return m;
+    }
+
+    public static Map<String, Object> disputeResolved(
+            long auctionId, long escrowId, String parcelName,
+            long amountL, String action, boolean alsoCancelListing, String role) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("escrowId", escrowId);
+        m.put("amountL", amountL);
+        m.put("action", action);
+        m.put("alsoCancelListing", alsoCancelListing);
+        m.put("role", role);
+        return m;
+    }
+
+    public static Map<String, Object> reconciliationMismatch(long drift, String date) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("drift", drift);
+        m.put("date", date);
+        return m;
+    }
+
+    public static Map<String, Object> withdrawalCompleted(long amountL, String recipientUuid) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("amountL", amountL);
+        m.put("recipientUuid", recipientUuid);
+        return m;
+    }
+
+    public static Map<String, Object> withdrawalFailed(long amountL, String recipientUuid, String reason) {
+        Map<String, Object> m = withdrawalCompleted(amountL, recipientUuid);
+        m.put("reason", reason);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

@@ -1,11 +1,12 @@
 package com.slparcelauctions.backend.escrow;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -81,10 +83,12 @@ class EscrowControllerSliceTest {
                 List.of());
     }
 
-    private String disputeBody(String reasonCategory, String description) {
-        return String.format(
+    private MockMultipartFile disputePart(String reasonCategory, String description) {
+        String json = String.format(
                 "{\"reasonCategory\":\"%s\",\"description\":\"%s\"}",
                 reasonCategory, description);
+        return new MockMultipartFile("body", "body", MediaType.APPLICATION_JSON_VALUE,
+                json.getBytes());
     }
 
     // ----- GET /escrow -----
@@ -147,12 +151,12 @@ class EscrowControllerSliceTest {
     @Test
     @WithMockAuthPrincipal(userId = 100)
     void fileDispute_validBody_returns200() throws Exception {
-        when(escrowService.fileDispute(eq(AUCTION_ID), any(EscrowDisputeRequest.class), eq(SELLER_ID)))
+        when(escrowService.fileDispute(eq(AUCTION_ID), any(EscrowDisputeRequest.class),
+                eq(SELLER_ID), anyList()))
                 .thenReturn(stubResponse(EscrowState.DISPUTED));
 
-        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(disputeBody("SELLER_NOT_RESPONSIVE",
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+                        .file(disputePart("SELLER_NOT_RESPONSIVE",
                                 "Seller has not responded to any messages for 3 days.")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.state").value("DISPUTED"));
@@ -160,10 +164,11 @@ class EscrowControllerSliceTest {
 
     @Test
     @WithMockAuthPrincipal(userId = 100)
-    void fileDispute_emptyBody_returns400() throws Exception {
-        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+    void fileDispute_emptyBodyPart_returns400() throws Exception {
+        MockMultipartFile emptyBody = new MockMultipartFile("body", "body",
+                MediaType.APPLICATION_JSON_VALUE, "{}".getBytes());
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+                        .file(emptyBody))
                 .andExpect(status().isBadRequest());
         Mockito.verifyNoInteractions(escrowService);
     }
@@ -171,9 +176,8 @@ class EscrowControllerSliceTest {
     @Test
     @WithMockAuthPrincipal(userId = 100)
     void fileDispute_descriptionTooShort_returns400() throws Exception {
-        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(disputeBody("OTHER", "short")))
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+                        .file(disputePart("OTHER", "short")))
                 .andExpect(status().isBadRequest());
         Mockito.verifyNoInteractions(escrowService);
     }
@@ -181,12 +185,12 @@ class EscrowControllerSliceTest {
     @Test
     @WithMockAuthPrincipal(userId = 999)
     void fileDispute_randomUser_returns403() throws Exception {
-        when(escrowService.fileDispute(eq(AUCTION_ID), any(EscrowDisputeRequest.class), eq(999L)))
+        when(escrowService.fileDispute(eq(AUCTION_ID), any(EscrowDisputeRequest.class),
+                eq(999L), anyList()))
                 .thenThrow(new EscrowAccessDeniedException());
 
-        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(disputeBody("OTHER",
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+                        .file(disputePart("OTHER",
                                 "Ten characters minimum description here.")))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ESCROW_FORBIDDEN"));
@@ -195,13 +199,13 @@ class EscrowControllerSliceTest {
     @Test
     @WithMockAuthPrincipal(userId = 100)
     void fileDispute_fromTerminalState_returns409() throws Exception {
-        when(escrowService.fileDispute(eq(AUCTION_ID), any(EscrowDisputeRequest.class), eq(SELLER_ID)))
+        when(escrowService.fileDispute(eq(AUCTION_ID), any(EscrowDisputeRequest.class),
+                eq(SELLER_ID), anyList()))
                 .thenThrow(new IllegalEscrowTransitionException(
                         ESCROW_ID, EscrowState.COMPLETED, EscrowState.DISPUTED));
 
-        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(disputeBody("OTHER",
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+                        .file(disputePart("OTHER",
                                 "Ten characters minimum description here.")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ESCROW_INVALID_TRANSITION"))

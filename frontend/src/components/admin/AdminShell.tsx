@@ -23,8 +23,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Dashboard", href: "/admin" },
     { label: "Fraud Flags", href: "/admin/fraud-flags", badge: stats?.queues.openFraudFlags },
     { label: "Reports", href: "/admin/reports", badge: stats?.queues.openReports },
+    { label: "Disputes", href: "/admin/disputes", badge: stats?.queues.activeDisputes },
     { label: "Bans", href: "/admin/bans" },
     { label: "Users", href: "/admin/users" },
+    { label: "Infrastructure", href: "/admin/infrastructure" },
   ];
 
   return (

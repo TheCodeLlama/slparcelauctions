@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -9,16 +9,16 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   EscrowDisputeReasonCategory,
-  EscrowDisputeRequest,
   EscrowState,
   EscrowStatusResponse,
 } from "@/types/escrow";
 import { useAuth } from "@/lib/auth";
-import { fileDispute, getEscrowStatus } from "@/lib/api/escrow";
-import { isApiError } from "@/lib/api";
+import { getEscrowStatus } from "@/lib/api/escrow";
+import { api, isApiError } from "@/lib/api";
 import { escrowKey } from "@/app/auction/[id]/escrow/EscrowPageClient";
 import { EscrowPageLayout } from "@/components/escrow/EscrowPageLayout";
 import { EscrowPageSkeleton } from "@/components/escrow/EscrowPageSkeleton";
+import { DisputeEvidenceUploader } from "@/components/escrow/DisputeEvidenceUploader";
 import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -32,19 +32,33 @@ import { useToast } from "@/components/ui/Toast";
  * so client-side validation rejects the same strings server-side
  * validation would.
  */
-const disputeSchema = z.object({
-  reasonCategory: z.enum([
-    "SELLER_NOT_RESPONSIVE",
-    "WRONG_PARCEL_TRANSFERRED",
-    "PAYMENT_NOT_CREDITED",
-    "FRAUD_SUSPECTED",
-    "OTHER",
-  ]),
-  description: z
-    .string()
-    .min(10, "Please describe the issue (at least 10 characters)")
-    .max(2000, "Description is too long (max 2000 characters)"),
-});
+const disputeSchema = z
+  .object({
+    reasonCategory: z.enum([
+      "SELLER_NOT_RESPONSIVE",
+      "WRONG_PARCEL_TRANSFERRED",
+      "PAYMENT_NOT_CREDITED",
+      "FRAUD_SUSPECTED",
+      "OTHER",
+    ]),
+    description: z
+      .string()
+      .min(10, "Please describe the issue (at least 10 characters)")
+      .max(2000, "Description is too long (max 2000 characters)"),
+    slTransactionKey: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.reasonCategory === "PAYMENT_NOT_CREDITED" &&
+      !data.slTransactionKey?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["slTransactionKey"],
+        message: "SL transaction key is required for payment-not-credited disputes",
+      });
+    }
+  });
 
 type DisputeFormValues = z.infer<typeof disputeSchema>;
 
@@ -301,6 +315,8 @@ function DisputeFormBody({
   on409: () => void;
   onGenericError: (message: string) => void;
 }) {
+  const [files, setFiles] = useState<File[]>([]);
+
   const {
     register,
     handleSubmit,
@@ -308,14 +324,36 @@ function DisputeFormBody({
     formState: { errors, isSubmitting },
   } = useForm<DisputeFormValues>({
     resolver: zodResolver(disputeSchema),
-    defaultValues: { reasonCategory: "OTHER", description: "" },
+    defaultValues: { reasonCategory: "OTHER", description: "", slTransactionKey: "" },
   });
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const description = watch("description");
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const reasonCategory = watch("reasonCategory");
 
   const mutation = useMutation({
-    mutationFn: (body: EscrowDisputeRequest) => fileDispute(auctionId, body),
+    mutationFn: (values: DisputeFormValues) => {
+      const fd = new FormData();
+      fd.append(
+        "body",
+        new Blob(
+          [
+            JSON.stringify({
+              reasonCategory: values.reasonCategory,
+              description: values.description,
+              slTransactionKey: values.slTransactionKey?.trim() || null,
+            }),
+          ],
+          { type: "application/json" },
+        ),
+      );
+      files.forEach((f) => fd.append("files", f));
+      return api.post<EscrowStatusResponse>(
+        `/api/v1/auctions/${auctionId}/escrow/dispute`,
+        fd,
+      );
+    },
     onSuccess,
     onError: (err) => {
       // ApiError nests the domain code on `problem.code` (see
@@ -339,10 +377,7 @@ function DisputeFormBody({
   });
 
   const onSubmit = handleSubmit((values) => {
-    mutation.mutate({
-      reasonCategory: values.reasonCategory,
-      description: values.description,
-    });
+    mutation.mutate(values);
   });
 
   return (
@@ -376,6 +411,30 @@ function DisputeFormBody({
         )}
       </div>
 
+      {reasonCategory === "PAYMENT_NOT_CREDITED" && (
+        <div>
+          <label
+            htmlFor="slTransactionKey"
+            className="text-label-lg font-semibold text-on-surface"
+          >
+            SL transaction key{" "}
+            <span className="text-label-sm font-normal text-on-surface-variant">
+              (required for payment-not-credited)
+            </span>
+          </label>
+          <input
+            id="slTransactionKey"
+            type="text"
+            {...register("slTransactionKey")}
+            placeholder="00000000-0000-0000-0000-000000000000"
+            className="mt-2 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md font-mono"
+          />
+          {errors.slTransactionKey && (
+            <FormError message={errors.slTransactionKey.message ?? ""} />
+          )}
+        </div>
+      )}
+
       <div>
         <label
           htmlFor="description"
@@ -400,6 +459,8 @@ function DisputeFormBody({
           )}
         </div>
       </div>
+
+      <DisputeEvidenceUploader files={files} onChange={setFiles} />
 
       <div className="flex items-center justify-between">
         <Link

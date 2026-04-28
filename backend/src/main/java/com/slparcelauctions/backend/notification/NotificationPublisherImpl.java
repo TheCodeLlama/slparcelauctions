@@ -318,6 +318,103 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void disputeFiledAgainstSeller(long sellerUserId, long auctionId, long escrowId,
+                                           String parcelName, long amountL,
+                                           String reasonCategory) {
+        String title = "A winner disputed your sale: " + parcelName;
+        String body = "A winner disputed your sale of " + parcelName
+                + " (L$ " + amountL + "). Submit your evidence to help admins resolve.";
+        notificationService.publish(new NotificationEvent(
+            sellerUserId,
+            NotificationCategory.DISPUTE_FILED_AGAINST_SELLER,
+            title, body,
+            NotificationDataBuilder.disputeFiledAgainstSeller(
+                    auctionId, escrowId, parcelName, amountL, reasonCategory),
+            null));
+    }
+
+    @Override
+    public void disputeResolved(long recipientUserId, String role,
+                                 long auctionId, long escrowId,
+                                 String parcelName, long amountL,
+                                 com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
+                                 boolean alsoCancelListing) {
+        String title = "Dispute resolved: " + parcelName;
+        String body = bodyFor(role, action, alsoCancelListing, parcelName, amountL);
+        notificationService.publish(new NotificationEvent(
+            recipientUserId,
+            NotificationCategory.DISPUTE_RESOLVED,
+            title, body,
+            NotificationDataBuilder.disputeResolved(
+                    auctionId, escrowId, parcelName, amountL,
+                    action.name(), alsoCancelListing, role),
+            null));
+    }
+
+    private static String bodyFor(String role,
+                                   com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
+                                   boolean alsoCancelListing,
+                                   String parcelName, long amountL) {
+        return switch (action) {
+            case RECOGNIZE_PAYMENT -> "winner".equals(role)
+                    ? "Payment recognized for " + parcelName + ". Land transfer monitoring resumed."
+                    : "Dispute resolved for " + parcelName + ". Please transfer the parcel to the winner.";
+            case RESET_TO_FUNDED -> {
+                if (alsoCancelListing) {
+                    yield "winner".equals(role)
+                            ? "Your dispute for " + parcelName
+                                + " was upheld. The listing has been cancelled and your L$ "
+                                + amountL + " refund is being processed."
+                            : "Listing cancelled by admin via dispute resolution: " + parcelName;
+                }
+                yield "winner".equals(role)
+                        ? "Dispute dismissed for " + parcelName
+                            + ". Escrow remains funded — please complete payment at the terminal."
+                        : "Dispute resolved for " + parcelName + ". Escrow remains funded.";
+            }
+            case RESUME_TRANSFER -> "Escrow unfrozen for " + parcelName
+                    + ". Land transfer monitoring resumed.";
+            case MARK_EXPIRED -> "winner".equals(role)
+                    ? "Escrow expired for " + parcelName
+                        + ". Your L$ " + amountL + " refund is being processed."
+                    : "Escrow expired for " + parcelName + ".";
+        };
+    }
+
+    @Override
+    public void reconciliationMismatch(List<Long> adminUserIds, long drift, String date) {
+        String title = "Daily reconciliation mismatch";
+        String body = "Daily reconciliation detected L$ " + drift + " drift on " + date + ". Open dashboard.";
+        for (Long adminId : adminUserIds) {
+            notificationService.publish(new NotificationEvent(
+                adminId, NotificationCategory.RECONCILIATION_MISMATCH,
+                title, body,
+                NotificationDataBuilder.reconciliationMismatch(drift, date),
+                null));
+        }
+    }
+
+    @Override
+    public void withdrawalCompleted(long adminUserId, long amountL, String recipientUuid) {
+        notificationService.publish(new NotificationEvent(
+            adminUserId, NotificationCategory.WITHDRAWAL_COMPLETED,
+            "Withdrawal completed",
+            "Withdrawal of L$ " + amountL + " to " + recipientUuid + " completed.",
+            NotificationDataBuilder.withdrawalCompleted(amountL, recipientUuid),
+            null));
+    }
+
+    @Override
+    public void withdrawalFailed(long adminUserId, long amountL, String recipientUuid, String reason) {
+        notificationService.publish(new NotificationEvent(
+            adminUserId, NotificationCategory.WITHDRAWAL_FAILED,
+            "Withdrawal failed",
+            "Withdrawal of L$ " + amountL + " to " + recipientUuid + " failed: " + reason + ". Open dashboard.",
+            NotificationDataBuilder.withdrawalFailed(amountL, recipientUuid, reason),
+            null));
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.

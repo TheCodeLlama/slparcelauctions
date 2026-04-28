@@ -58,4 +58,10 @@ public class Terminal {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    @Column(name = "last_heartbeat_at")
+    private OffsetDateTime lastHeartbeatAt;
+
+    @Column(name = "last_reported_balance")
+    private Long lastReportedBalance;
 }

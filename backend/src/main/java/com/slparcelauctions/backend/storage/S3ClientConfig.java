@@ -14,6 +14,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Configuration
 @EnableConfigurationProperties(StorageConfigProperties.class)
@@ -44,6 +45,25 @@ public class S3ClientConfig {
 
         if (props.pathStyleAccess()) {
             builder.forcePathStyle(true);
+        }
+
+        return builder.build();
+    }
+
+    @Bean
+    public S3Presigner s3Presigner() {
+        S3Presigner.Builder builder = S3Presigner.builder()
+                .region(Region.of(props.region()));
+
+        if (props.hasStaticCredentials()) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(props.accessKeyId(), props.secretAccessKey())));
+        } else {
+            builder.credentialsProvider(DefaultCredentialsProvider.create());
+        }
+
+        if (props.hasEndpointOverride()) {
+            builder.endpointOverride(URI.create(props.endpointOverride()));
         }
 
         return builder.build();

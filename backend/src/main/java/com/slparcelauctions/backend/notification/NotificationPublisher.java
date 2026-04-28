@@ -50,7 +50,26 @@ public interface NotificationPublisher {
     void reviewReceived(long revieweeUserId, long reviewId, long auctionId,
                         String parcelName, int rating);
 
+    // Dispute
+    void disputeFiledAgainstSeller(long sellerUserId, long auctionId, long escrowId,
+                                    String parcelName, long amountL,
+                                    String reasonCategory);
+
+    // Dispute resolution
+    void disputeResolved(long recipientUserId, String role,
+                          long auctionId, long escrowId,
+                          String parcelName, long amountL,
+                          com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
+                          boolean alsoCancelListing);
+
     // Fan-out (afterCommit batch — see §3.9)
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);
+
+    // Admin infrastructure
+    void reconciliationMismatch(List<Long> adminUserIds, long drift, String date);
+
+    // Admin withdrawals
+    void withdrawalCompleted(long adminUserId, long amountL, String recipientUuid);
+    void withdrawalFailed(long adminUserId, long amountL, String recipientUuid, String reason);
 }

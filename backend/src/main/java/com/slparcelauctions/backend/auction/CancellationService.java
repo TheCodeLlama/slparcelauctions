@@ -280,4 +280,75 @@ public class CancellationService {
 
         return saved;
     }
+
+    /**
+     * Dispute-resolution-initiated cancellation. Used by
+     * {@code AdminDisputeService.resolve} when {@code alsoCancelListing} fires.
+     * Skips the CANCELLABLE precondition entirely — the auction may be in
+     * DISPUTED (post-escrow) state, which {@link #cancelByAdmin} rejects.
+     * The orchestrator is responsible for validating that the dispute is open
+     * before calling this method; no re-validation is performed here.
+     *
+     * <p>Like {@link #cancelByAdmin}, no penalty ladder is applied and
+     * {@code seller.cancelledWithBids} is NOT incremented. The
+     * {@link CancellationLog} row records {@code cancelledByAdminId} so that
+     * {@code countPriorOffensesWithBids} (which filters {@code IS NULL}) does
+     * not count it against the seller.
+     */
+    @Transactional
+    public Auction cancelByDisputeResolution(
+            Long auctionId, Long adminUserId, String notes) {
+        Auction a = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+
+        // No CANCELLABLE precondition check — this path is reached only via
+        // AdminDisputeService.resolve when alsoCancelListing fires, which
+        // already validates the dispute is open. Trust the orchestrator.
+
+        boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
+        AuctionStatus from = a.getStatus();
+
+        logRepo.save(CancellationLog.builder()
+                .auction(a)
+                .seller(a.getSeller())
+                .cancelledFromStatus(from.name())
+                .hadBids(hadBids)
+                .reason(notes)
+                .penaltyKind(CancellationOffenseKind.NONE)
+                .penaltyAmountL(null)
+                .cancelledByAdminId(adminUserId)
+                .build());
+
+        a.setStatus(AuctionStatus.CANCELLED);
+        Auction saved = auctionRepo.save(a);
+        monitorLifecycle.onAuctionClosed(saved);
+
+        notificationPublisher.listingRemovedByAdmin(
+                a.getSeller().getId(), a.getId(), a.getTitle(), notes);
+
+        if (hadBids) {
+            List<Long> bidderIds = bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId());
+            notificationPublisher.listingCancelledBySellerFanout(
+                    a.getId(), bidderIds, a.getTitle(), notes);
+        }
+
+        log.info("Auction {} cancelled via dispute-resolution from {} by adminUserId={} (hadBids={})",
+                a.getId(), from, adminUserId, hadBids);
+
+        AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
+                saved, hadBids, OffsetDateTime.now(clock));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcastPublisher.publishCancelled(envelope);
+                        }
+                    });
+        } else {
+            broadcastPublisher.publishCancelled(envelope);
+        }
+
+        return saved;
+    }
 }

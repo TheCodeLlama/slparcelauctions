@@ -93,4 +93,32 @@ public class AdminExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(AdminApiError.of("VALIDATION_FAILED", message));
     }
+
+    @ExceptionHandler(com.slparcelauctions.backend.admin.disputes.exception.DisputeNotFoundException.class)
+    public ResponseEntity<AdminApiError> handleDisputeNotFound(
+            com.slparcelauctions.backend.admin.disputes.exception.DisputeNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(AdminApiError.of("DISPUTE_NOT_FOUND", ex.getMessage()));
+    }
+
+    @ExceptionHandler(com.slparcelauctions.backend.admin.disputes.exception.DisputeActionInvalidForStateException.class)
+    public ResponseEntity<AdminApiError> handleDisputeActionInvalidForState(
+            com.slparcelauctions.backend.admin.disputes.exception.DisputeActionInvalidForStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("DISPUTE_ACTION_INVALID_FOR_STATE", ex.getMessage()));
+    }
+
+    @ExceptionHandler(com.slparcelauctions.backend.admin.disputes.exception.AlsoCancelInvalidForActionException.class)
+    public ResponseEntity<AdminApiError> handleAlsoCancelInvalid(
+            com.slparcelauctions.backend.admin.disputes.exception.AlsoCancelInvalidForActionException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(AdminApiError.of("ALSO_CANCEL_INVALID_FOR_ACTION", ex.getMessage()));
+    }
+
+    @ExceptionHandler(com.slparcelauctions.backend.admin.infrastructure.withdrawals.exception.InsufficientBalanceException.class)
+    public ResponseEntity<AdminApiError> handleInsufficientBalance(
+            com.slparcelauctions.backend.admin.infrastructure.withdrawals.exception.InsufficientBalanceException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("INSUFFICIENT_BALANCE", ex.getMessage()));
+    }
 }
