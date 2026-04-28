@@ -65,4 +65,7 @@ public interface NotificationPublisher {
     // Fan-out (afterCommit batch — see §3.9)
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);
+
+    // Admin infrastructure
+    void reconciliationMismatch(List<Long> adminUserIds, long drift, String date);
 }

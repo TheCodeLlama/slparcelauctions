@@ -138,4 +138,13 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
 
     @Query("SELECT COALESCE(SUM(e.commissionAmt), 0) FROM Escrow e WHERE e.state = :state")
     long sumCommissionAmtByState(@Param("state") EscrowState state);
+
+    /**
+     * Sums the {@code amount} column across all escrows whose state is in the
+     * given collection. Used by {@code ReconciliationService} to compute the
+     * total locked L$ (FUNDED + TRANSFER_PENDING + DISPUTED + FROZEN). Returns
+     * 0 when no rows match.
+     */
+    @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state IN :states")
+    long sumAmountByStateIn(@Param("states") java.util.Collection<EscrowState> states);
 }

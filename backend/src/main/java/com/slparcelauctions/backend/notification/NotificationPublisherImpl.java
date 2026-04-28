@@ -382,6 +382,19 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void reconciliationMismatch(List<Long> adminUserIds, long drift, String date) {
+        String title = "Daily reconciliation mismatch";
+        String body = "Daily reconciliation detected L$ " + drift + " drift on " + date + ". Open dashboard.";
+        for (Long adminId : adminUserIds) {
+            notificationService.publish(new NotificationEvent(
+                adminId, NotificationCategory.RECONCILIATION_MISMATCH,
+                title, body,
+                NotificationDataBuilder.reconciliationMismatch(drift, date),
+                null));
+        }
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.

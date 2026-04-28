@@ -175,6 +175,13 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> reconciliationMismatch(long drift, String date) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("drift", drift);
+        m.put("date", date);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);
