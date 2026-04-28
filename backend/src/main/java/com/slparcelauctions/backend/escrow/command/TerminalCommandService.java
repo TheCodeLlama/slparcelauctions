@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.admin.infrastructure.terminals.TerminalSecretService;
 import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
@@ -70,6 +71,7 @@ public class TerminalCommandService {
     private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
     private final Clock clock;
+    private final TerminalSecretService terminalSecretService;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -107,7 +109,7 @@ public class TerminalCommandService {
     private TerminalCommand queue(Long escrowId, Long refundId,
             TerminalCommandAction action, TerminalCommandPurpose purpose,
             String recipientUuid, long amount, String idempotencyKey) {
-        TerminalCommand saved = cmdRepo.save(TerminalCommand.builder()
+        TerminalCommand cmd = TerminalCommand.builder()
                 .escrowId(escrowId)
                 .listingFeeRefundId(refundId)
                 .action(action)
@@ -119,7 +121,13 @@ public class TerminalCommandService {
                 .nextAttemptAt(OffsetDateTime.now(clock))
                 .attemptCount(0)
                 .requiresManualReview(false)
-                .build());
+                .build();
+        Integer currentVersion = terminalSecretService.current()
+                .map(s -> s.getVersion()).orElse(null);
+        if (currentVersion != null) {
+            cmd.setSharedSecretVersion(String.valueOf(currentVersion));
+        }
+        TerminalCommand saved = cmdRepo.save(cmd);
         log.info("Queued terminal command {}: action={}, purpose={}, escrowId={}, refundId={}, idempotencyKey={}",
                 saved.getId(), action, purpose, escrowId, refundId, idempotencyKey);
         return saved;
