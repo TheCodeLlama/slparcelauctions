@@ -551,13 +551,12 @@ public class EscrowTransferReminderScheduler {
         // Equivalently, fundedAt ∈ [now − (windowHours−12h), now − (windowHours−36h)]
         // Note: this uses fundedAt directly because there's no transferDeadline
         // column on Escrow — the deadline is computed as fundedAt + windowHours.
+        // For windowHours=72: rangeStart = T−60h (earlier), rangeEnd = T−36h (later).
         OffsetDateTime rangeStart = now.minusHours(windowHours - 12);
         OffsetDateTime rangeEnd = now.minusHours(windowHours - 36);
 
-        // rangeStart > rangeEnd by construction: rangeStart = now - (windowHours - 12)
-        // is later than rangeEnd = now - (windowHours - 36). Swap for the BETWEEN clause:
         List<Escrow> rows = escrowRepo.findEscrowsApproachingTransferDeadline(
-            rangeEnd, rangeStart);  // BETWEEN takes lower, upper
+            rangeStart, rangeEnd);  // BETWEEN: rangeStart is the lower bound, rangeEnd the upper
 
         for (Escrow e : rows) {
             publisher.escrowTransferReminder(
