@@ -49,6 +49,8 @@ public interface NotificationPublisher {
     // Reviews
     void reviewReceived(long revieweeUserId, long reviewId, long auctionId,
                         String parcelName, int rating);
+    void reviewResponseWindowClosing(long revieweeUserId, long reviewId, long auctionId,
+                                      String parcelName, OffsetDateTime responseDeadline);
 
     // Dispute
     void disputeFiledAgainstSeller(long sellerUserId, long auctionId, long escrowId,

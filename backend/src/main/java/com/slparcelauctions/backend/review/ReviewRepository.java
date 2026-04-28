@@ -93,4 +93,32 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      */
     Page<Review> findByRevieweeIdAndReviewedRoleAndVisibleTrue(
             Long revieweeId, ReviewedRole reviewedRole, Pageable page);
+
+    /**
+     * Visible reviews whose computed {@code responseDeadline}
+     * ({@code revealedAt + 14 days}) falls inside {@code [rangeStart, rangeEnd]},
+     * where a response has not yet been submitted and the once-per-review
+     * reminder flag is clear. Used by
+     * {@link com.slparcelauctions.backend.admin.infrastructure.reminders.ReviewResponseWindowClosingScheduler}
+     * to fire a once-per-review response-window-closing reminder.
+     *
+     * <p>{@code rangeStart} and {@code rangeEnd} are the caller-supplied
+     * deadline bounds (e.g., {@code now+24h} and {@code now+48h}). JPQL
+     * adds 14 days to {@code revealedAt} to derive the deadline, so the
+     * query is equivalent to:
+     * {@code revealedAt BETWEEN rangeStart-14d AND rangeEnd-14d}.
+     */
+    @Query("""
+            SELECT r FROM Review r
+            WHERE r.visible = true
+              AND r.revealedAt IS NOT NULL
+              AND r.responseClosingReminderSentAt IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM ReviewResponse rr WHERE rr.review.id = r.id
+              )
+              AND r.revealedAt BETWEEN :revealedAtStart AND :revealedAtEnd
+            """)
+    List<Review> findReviewsApproachingResponseClose(
+            @Param("revealedAtStart") OffsetDateTime revealedAtStart,
+            @Param("revealedAtEnd") OffsetDateTime revealedAtEnd);
 }

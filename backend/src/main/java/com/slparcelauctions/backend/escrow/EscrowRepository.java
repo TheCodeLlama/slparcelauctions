@@ -133,6 +133,23 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
 
     long countByStateNotIn(Collection<EscrowState> states);
 
+    /**
+     * Returns FUNDED escrows whose {@code transferDeadline} falls in the
+     * supplied window and whose {@code reminderSentAt} is null — i.e., the
+     * reminder has not yet been sent. Used by
+     * {@link com.slparcelauctions.backend.admin.infrastructure.reminders.EscrowTransferReminderScheduler}
+     * to fire a once-per-escrow transfer reminder.
+     */
+    @Query("""
+            SELECT e FROM Escrow e
+            WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.FUNDED
+              AND e.transferDeadline BETWEEN :rangeStart AND :rangeEnd
+              AND e.reminderSentAt IS NULL
+            """)
+    List<Escrow> findEscrowsApproachingTransferDeadline(
+            @Param("rangeStart") OffsetDateTime rangeStart,
+            @Param("rangeEnd") OffsetDateTime rangeEnd);
+
     @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state = :state")
     long sumFinalBidAmountByState(@Param("state") EscrowState state);
 

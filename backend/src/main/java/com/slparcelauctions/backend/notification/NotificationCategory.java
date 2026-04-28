@@ -25,6 +25,7 @@ public enum NotificationCategory {
     LISTING_REMOVED_BY_ADMIN(NotificationGroup.LISTING_STATUS),
     LISTING_WARNED(NotificationGroup.LISTING_STATUS),
     REVIEW_RECEIVED(NotificationGroup.REVIEWS),
+    REVIEW_RESPONSE_WINDOW_CLOSING(NotificationGroup.REVIEWS),
     SYSTEM_ANNOUNCEMENT(NotificationGroup.SYSTEM),
     DISPUTE_FILED_AGAINST_SELLER(NotificationGroup.ESCROW),
     DISPUTE_RESOLVED(NotificationGroup.ESCROW),
