@@ -32,9 +32,13 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
+import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
+import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceAlreadySubmittedException;
+import com.slparcelauctions.backend.escrow.dispute.exception.NotSellerOfEscrowException;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
 import com.slparcelauctions.backend.escrow.dto.EscrowTimelineEntry;
+import com.slparcelauctions.backend.escrow.dto.SellerEvidenceRequest;
 import com.slparcelauctions.backend.escrow.exception.EscrowAccessDeniedException;
 import com.slparcelauctions.backend.escrow.exception.EscrowNotFoundException;
 import com.slparcelauctions.backend.escrow.exception.IllegalEscrowTransitionException;
@@ -258,6 +262,59 @@ public class EscrowService {
                 uploaded.size());
 
         return toStatusResponse(escrow);
+    }
+
+    /**
+     * Submits seller-side evidence for a disputed escrow. Submit-once
+     * invariant: a second call throws {@link EvidenceAlreadySubmittedException}.
+     * Only the auction's seller may call this; any other caller gets
+     * {@link NotSellerOfEscrowException}. The escrow must be in
+     * {@link EscrowState#DISPUTED}; otherwise {@link EscrowNotDisputedException}
+     * is thrown. Spec §4.4.
+     */
+    @Transactional
+    public EscrowStatusResponse submitSellerEvidence(
+            Long escrowId,
+            Long sellerUserId,
+            SellerEvidenceRequest body,
+            List<MultipartFile> evidenceFiles) {
+        Escrow escrow = escrowRepo.findById(escrowId)
+                .orElseThrow(() -> new EscrowNotFoundException(escrowId));
+
+        Long actualSellerId = escrow.getAuction().getSeller().getId();
+        if (!actualSellerId.equals(sellerUserId)) {
+            throw new NotSellerOfEscrowException(escrowId, sellerUserId);
+        }
+        if (escrow.getState() != EscrowState.DISPUTED) {
+            throw new EscrowNotDisputedException(escrowId, escrow.getState().name());
+        }
+        if (escrow.getSellerEvidenceSubmittedAt() != null) {
+            throw new EvidenceAlreadySubmittedException(escrowId);
+        }
+
+        List<EvidenceImage> uploaded = evidenceUploadService.uploadAll(
+                escrowId, "seller", evidenceFiles);
+        escrow.setSellerEvidenceImages(uploaded);
+        escrow.setSellerEvidenceText(body.text());
+        escrow.setSellerEvidenceSubmittedAt(OffsetDateTime.now(clock));
+        escrowRepo.save(escrow);
+
+        log.info("Seller evidence submitted for escrow {} by user {}: {} image(s)",
+                escrowId, sellerUserId, uploaded.size());
+
+        return toStatusResponse(escrow);
+    }
+
+    /**
+     * Looks up the escrow id for a given auction id. Used by
+     * {@link EscrowController} to bridge the auction-id path variable to
+     * escrow-id before delegating to {@link #submitSellerEvidence}.
+     */
+    @Transactional(readOnly = true)
+    public Long findEscrowIdByAuctionId(Long auctionId) {
+        return escrowRepo.findByAuctionId(auctionId)
+                .map(Escrow::getId)
+                .orElseThrow(() -> new EscrowNotFoundException(auctionId));
     }
 
     /**
