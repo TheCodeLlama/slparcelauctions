@@ -50,6 +50,11 @@ public interface NotificationPublisher {
     void reviewReceived(long revieweeUserId, long reviewId, long auctionId,
                         String parcelName, int rating);
 
+    // Dispute
+    void disputeFiledAgainstSeller(long sellerUserId, long auctionId, long escrowId,
+                                    String parcelName, long amountL,
+                                    String reasonCategory);
+
     // Fan-out (afterCommit batch — see §3.9)
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);

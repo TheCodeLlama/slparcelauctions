@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
@@ -21,6 +22,8 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
+import com.slparcelauctions.backend.escrow.dispute.DisputeEvidenceUploadService;
+import com.slparcelauctions.backend.escrow.dispute.EvidenceImage;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowExpiredEnvelope;
@@ -87,6 +90,7 @@ public class EscrowService {
     private final TerminalCommandService terminalCommandService;
     private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
+    private final DisputeEvidenceUploadService evidenceUploadService;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -179,7 +183,8 @@ public class EscrowService {
      */
     @Transactional
     public EscrowStatusResponse fileDispute(
-            Long auctionId, EscrowDisputeRequest req, Long currentUserId) {
+            Long auctionId, EscrowDisputeRequest req, Long currentUserId,
+            List<MultipartFile> evidenceFiles) {
         Escrow escrow = escrowRepo.findByAuctionId(auctionId)
                 .orElseThrow(() -> new EscrowNotFoundException(auctionId));
         assertSellerOrWinner(escrow, currentUserId);
@@ -187,11 +192,30 @@ public class EscrowService {
         escrow = escrowRepo.findByIdForUpdate(escrow.getId()).orElseThrow();
         enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.DISPUTED);
 
+        // PAYMENT_NOT_CREDITED requires slTransactionKey.
+        if (req.reasonCategory() == EscrowDisputeReasonCategory.PAYMENT_NOT_CREDITED
+                && (req.slTransactionKey() == null || req.slTransactionKey().isBlank())) {
+            throw new IllegalArgumentException(
+                    "slTransactionKey is required for PAYMENT_NOT_CREDITED disputes");
+        }
+
+        // Defensive guard — evidence must not have been written already.
+        if (!escrow.getWinnerEvidenceImages().isEmpty() || escrow.getSlTransactionKey() != null) {
+            throw new IllegalStateException(
+                    "Winner evidence already written for escrow " + escrow.getId());
+        }
+
+        // Upload evidence before any state mutation (storage failures abort cleanly).
+        List<EvidenceImage> uploaded = evidenceUploadService.uploadAll(
+                escrow.getId(), "winner", evidenceFiles);
+
         OffsetDateTime now = OffsetDateTime.now(clock);
         escrow.setState(EscrowState.DISPUTED);
         escrow.setDisputedAt(now);
         escrow.setDisputeReasonCategory(req.reasonCategory().name());
         escrow.setDisputeDescription(req.description());
+        escrow.setWinnerEvidenceImages(uploaded);
+        escrow.setSlTransactionKey(req.slTransactionKey());
         escrow = escrowRepo.save(escrow);
 
         monitorLifecycle.onEscrowTerminal(escrow);
@@ -207,7 +231,7 @@ public class EscrowService {
                     }
                 });
 
-        // Notify both parties of the dispute (both serve as record; plan §Step 6).
+        // Notify both parties of the dispute (winner side preserves existing record).
         String disputedParcelName = escrow.getAuction().getTitle();
         long disputedAuctionId = escrow.getAuction().getId();
         long disputedEscrowId = escrow.getId();
@@ -219,8 +243,19 @@ public class EscrowService {
                 escrow.getAuction().getSeller().getId(),
                 disputedAuctionId, disputedEscrowId, disputedParcelName, disputeReasonCategory);
 
-        log.info("Escrow {} DISPUTED by user {}: category={}, description_len={}",
-                escrow.getId(), currentUserId, req.reasonCategory(), req.description().length());
+        // Seller-specific dispute notification (DISPUTE_FILED_AGAINST_SELLER).
+        Auction disputedAuction = escrow.getAuction();
+        notificationPublisher.disputeFiledAgainstSeller(
+                disputedAuction.getSeller().getId(),
+                disputedAuctionId,
+                disputedEscrowId,
+                disputedParcelName,
+                escrow.getFinalBidAmount(),
+                disputeReasonCategory);
+
+        log.info("Escrow {} DISPUTED by user {}: category={}, description_len={}, evidence_count={}",
+                escrow.getId(), currentUserId, req.reasonCategory(), req.description().length(),
+                uploaded.size());
 
         return toStatusResponse(escrow);
     }

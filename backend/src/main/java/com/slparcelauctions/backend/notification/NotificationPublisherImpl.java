@@ -318,6 +318,22 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void disputeFiledAgainstSeller(long sellerUserId, long auctionId, long escrowId,
+                                           String parcelName, long amountL,
+                                           String reasonCategory) {
+        String title = "A winner disputed your sale: " + parcelName;
+        String body = "A winner disputed your sale of " + parcelName
+                + " (L$ " + amountL + "). Submit your evidence to help admins resolve.";
+        notificationService.publish(new NotificationEvent(
+            sellerUserId,
+            NotificationCategory.DISPUTE_FILED_AGAINST_SELLER,
+            title, body,
+            NotificationDataBuilder.disputeFiledAgainstSeller(
+                    auctionId, escrowId, parcelName, amountL, reasonCategory),
+            null));
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.

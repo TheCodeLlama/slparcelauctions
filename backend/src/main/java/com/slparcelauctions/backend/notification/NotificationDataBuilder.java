@@ -153,6 +153,16 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> disputeFiledAgainstSeller(
+            long auctionId, long escrowId, String parcelName,
+            long amountL, String reasonCategory) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("escrowId", escrowId);
+        m.put("amountL", amountL);
+        m.put("reasonCategory", reasonCategory);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

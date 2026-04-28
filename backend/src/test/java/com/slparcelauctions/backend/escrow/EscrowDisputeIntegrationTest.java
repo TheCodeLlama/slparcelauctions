@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -145,8 +146,10 @@ class EscrowDisputeIntegrationTest {
                 seededAuctionId,
                 new EscrowDisputeRequest(
                         EscrowDisputeReasonCategory.SELLER_NOT_RESPONSIVE,
-                        "Seller has gone silent for 72 hours, no parcel transfer."),
-                seededBidderId);
+                        "Seller has gone silent for 72 hours, no parcel transfer.",
+                        null),
+                seededBidderId,
+                List.of());
 
         assertThat(resp.state()).isEqualTo(EscrowState.DISPUTED);
         assertThat(resp.disputeReasonCategory()).isEqualTo("SELLER_NOT_RESPONSIVE");
@@ -181,8 +184,10 @@ class EscrowDisputeIntegrationTest {
                 seededAuctionId,
                 new EscrowDisputeRequest(
                         EscrowDisputeReasonCategory.WRONG_PARCEL_TRANSFERRED,
-                        "Seller transferred a different parcel than listed."),
-                seededSellerId);
+                        "Seller transferred a different parcel than listed.",
+                        null),
+                seededSellerId,
+                List.of());
 
         assertThat(resp.state()).isEqualTo(EscrowState.DISPUTED);
 
@@ -211,8 +216,10 @@ class EscrowDisputeIntegrationTest {
                         seededAuctionId,
                         new EscrowDisputeRequest(
                                 EscrowDisputeReasonCategory.OTHER,
-                                "Attempting to dispute after completion."),
-                        seededSellerId));
+                                "Attempting to dispute after completion.",
+                                null),
+                        seededSellerId,
+                        List.of()));
 
         Escrow persisted = escrowRepo.findById(seededEscrowId).orElseThrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.COMPLETED);

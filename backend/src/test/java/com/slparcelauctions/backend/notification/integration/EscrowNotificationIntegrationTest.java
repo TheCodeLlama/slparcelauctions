@@ -244,8 +244,10 @@ class EscrowNotificationIntegrationTest {
                 escrowService.fileDispute(auctionId,
                         new EscrowDisputeRequest(
                                 EscrowDisputeReasonCategory.SELLER_NOT_RESPONSIVE,
-                                "Seller did not transfer"),
-                        winnerId));
+                                "Seller did not transfer",
+                                null),
+                        winnerId,
+                        List.of()));
 
         assertThat(notifFor(sellerId, NotificationCategory.ESCROW_DISPUTED)).hasSize(1);
         assertThat(notifFor(winnerId, NotificationCategory.ESCROW_DISPUTED)).hasSize(1);
