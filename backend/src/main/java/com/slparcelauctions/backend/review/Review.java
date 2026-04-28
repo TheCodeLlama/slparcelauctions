@@ -124,4 +124,7 @@ public class Review {
     @Builder.Default
     @Column(name = "flag_count", nullable = false)
     private Integer flagCount = 0;
+
+    @Column(name = "response_closing_reminder_sent_at")
+    private OffsetDateTime responseClosingReminderSentAt;
 }

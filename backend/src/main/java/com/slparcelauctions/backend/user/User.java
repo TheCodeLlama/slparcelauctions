@@ -40,7 +40,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -130,6 +130,9 @@ public class User {
 
     @Column(name = "listing_suspension_until")
     private OffsetDateTime listingSuspensionUntil;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     /**
      * Outstanding penalty debt in L$ owed by this seller from cancelled-with-
