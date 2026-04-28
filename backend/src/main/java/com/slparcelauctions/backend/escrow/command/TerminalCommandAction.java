@@ -8,5 +8,6 @@ package com.slparcelauctions.backend.escrow.command;
  */
 public enum TerminalCommandAction {
     PAYOUT,
-    REFUND
+    REFUND,
+    WITHDRAW
 }

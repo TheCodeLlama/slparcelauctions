@@ -6,7 +6,8 @@ import java.util.Set;
 
 public enum NotificationGroup {
     BIDDING, AUCTION_RESULT, ESCROW, LISTING_STATUS,
-    REVIEWS, REALTY_GROUP, MARKETING, SYSTEM;
+    REVIEWS, REALTY_GROUP, MARKETING, SYSTEM,
+    ADMIN_OPS;
 
     public Set<NotificationCategory> categories() {
         return EnumSet.copyOf(
