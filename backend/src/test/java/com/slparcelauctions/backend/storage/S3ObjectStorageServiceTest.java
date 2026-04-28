@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.storage.exception.ObjectNotFoundException;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -31,15 +32,17 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 class S3ObjectStorageServiceTest {
 
     private S3Client s3;
+    private S3Presigner s3Presigner;
     private StorageConfigProperties props;
     private S3ObjectStorageService service;
 
     @BeforeEach
     void setup() {
         s3 = mock(S3Client.class);
+        s3Presigner = mock(S3Presigner.class);
         props = new StorageConfigProperties(
                 "test-bucket", "us-east-1", null, false, null, null);
-        service = new S3ObjectStorageService(s3, props);
+        service = new S3ObjectStorageService(s3, s3Presigner, props);
     }
 
     @Test
