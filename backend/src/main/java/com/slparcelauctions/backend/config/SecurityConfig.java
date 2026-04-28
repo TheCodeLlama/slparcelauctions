@@ -93,6 +93,9 @@ public class SecurityConfig {
                         // Tasks 5/7/9 do not have to re-touch SecurityConfig.
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/terminal/register").permitAll()
+                        // Terminal heartbeat (Epic 10 sub-spec 3 Task 12): same trust
+                        // model as /register — SlHeaderValidator inside the handler.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/terminal/heartbeat").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payment").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payout-result").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/listing-fee/payment").permitAll()
