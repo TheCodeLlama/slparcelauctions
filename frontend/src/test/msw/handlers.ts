@@ -861,11 +861,14 @@ export const userDeletionHandlers = {
     http.delete("*/api/v1/users/me", () => new HttpResponse(null, { status: 204 })),
   deleteSelf403WrongPassword: () =>
     http.delete("*/api/v1/users/me", () =>
-      HttpResponse.json({ code: "INVALID_PASSWORD", message: "wrong" }, { status: 403 })
+      HttpResponse.json({ status: 403, code: "INVALID_PASSWORD", message: "wrong" }, { status: 403 })
     ),
   deleteSelf409Auctions: (auctionIds: number[]) =>
     http.delete("*/api/v1/users/me", () =>
-      HttpResponse.json({ code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds }, { status: 409 })
+      HttpResponse.json(
+        { status: 409, code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds },
+        { status: 409 }
+      )
     ),
 };
 
