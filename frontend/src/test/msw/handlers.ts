@@ -852,7 +852,10 @@ export const adminUserDeletionHandlers = {
     http.delete(`*/api/v1/admin/users/${userId}`, () => new HttpResponse(null, { status: 204 })),
   delete409Auctions: (userId: number, auctionIds: number[]) =>
     http.delete(`*/api/v1/admin/users/${userId}`, () =>
-      HttpResponse.json({ code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds }, { status: 409 })
+      HttpResponse.json(
+        { status: 409, code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds },
+        { status: 409 }
+      )
     ),
 };
 
