@@ -104,19 +104,9 @@ export type BanReasonCategory =
   | "SPAM"
   | "OTHER";
 
-export type AdminActionType =
-  | "DISMISS_REPORT"
-  | "WARN_SELLER_FROM_REPORT"
-  | "SUSPEND_LISTING_FROM_REPORT"
-  | "CANCEL_LISTING_FROM_REPORT"
-  | "CREATE_BAN"
-  | "LIFT_BAN"
-  | "PROMOTE_USER"
-  | "DEMOTE_USER"
-  | "RESET_FRIVOLOUS_COUNTER"
-  | "REINSTATE_LISTING";
-
-export type AdminActionTargetType = "USER" | "LISTING" | "REPORT" | "FRAUD_FLAG" | "BAN";
+// AdminActionType and AdminActionTargetType are defined in auditLog.ts (expanded
+// set) and re-exported below via `export * from "./auditLog"`.
+// Keep this comment so the deletion is traceable.
 
 export type MyReportResponse = {
   id: number;
@@ -297,5 +287,6 @@ export type UserIpProjection = {
   sessionCount: number;
 };
 
+export * from "./auditLog";
 export * from "./disputes";
 export * from "./infrastructure";

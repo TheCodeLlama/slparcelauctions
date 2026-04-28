@@ -23,6 +23,7 @@ import type {
   ReportRequest,
   UserIpProjection,
 } from "./types";
+import type { AdminAuditLogFilters, AdminAuditLogRow } from "./auditLog";
 import type {
   AdminDisputeFilters,
   AdminDisputeQueueRow,
@@ -161,6 +162,9 @@ export const adminApi = {
     resetFrivolousCounter(id: number, notes: string): Promise<void> {
       return api.post(`/api/v1/admin/users/${id}/reset-frivolous-counter`, { notes });
     },
+    delete(userId: number, adminNote: string): Promise<void> {
+      return api.delete(`/api/v1/admin/users/${userId}`, { body: { adminNote } });
+    },
   },
 
   audit: {
@@ -176,6 +180,31 @@ export const adminApi = {
       if (params.targetId !== undefined) sp.set("targetId", String(params.targetId));
       if (params.adminUserId !== undefined) sp.set("adminUserId", String(params.adminUserId));
       return api.get(`/api/v1/admin/audit?${sp.toString()}`);
+    },
+  },
+
+  auditLog: {
+    list(filters: AdminAuditLogFilters): Promise<Page<AdminAuditLogRow>> {
+      const search = new URLSearchParams();
+      if (filters.actionType) search.set("actionType", filters.actionType);
+      if (filters.targetType) search.set("targetType", filters.targetType);
+      if (filters.adminUserId !== undefined) search.set("adminUserId", String(filters.adminUserId));
+      if (filters.from) search.set("from", filters.from);
+      if (filters.to) search.set("to", filters.to);
+      if (filters.q) search.set("q", filters.q);
+      search.set("page", String(filters.page ?? 0));
+      search.set("size", String(filters.size ?? 50));
+      return api.get(`/api/v1/admin/audit-log?${search.toString()}`);
+    },
+    exportUrl(filters: AdminAuditLogFilters): string {
+      const search = new URLSearchParams();
+      if (filters.actionType) search.set("actionType", filters.actionType);
+      if (filters.targetType) search.set("targetType", filters.targetType);
+      if (filters.adminUserId !== undefined) search.set("adminUserId", String(filters.adminUserId));
+      if (filters.from) search.set("from", filters.from);
+      if (filters.to) search.set("to", filters.to);
+      if (filters.q) search.set("q", filters.q);
+      return `/api/v1/admin/audit-log/export?${search.toString()}`;
     },
   },
 

@@ -97,6 +97,9 @@ public class Escrow {
     @Column(name = "last_checked_at")
     private OffsetDateTime lastCheckedAt;
 
+    @Column(name = "reminder_sent_at")
+    private OffsetDateTime reminderSentAt;
+
     @Builder.Default
     @Column(name = "consecutive_world_api_failures", nullable = false)
     private Integer consecutiveWorldApiFailures = 0;

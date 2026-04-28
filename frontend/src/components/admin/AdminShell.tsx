@@ -27,6 +27,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Bans", href: "/admin/bans" },
     { label: "Users", href: "/admin/users" },
     { label: "Infrastructure", href: "/admin/infrastructure" },
+    { label: "Audit log", href: "/admin/audit-log" },
   ];
 
   return (

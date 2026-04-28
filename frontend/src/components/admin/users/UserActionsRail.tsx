@@ -5,6 +5,7 @@ import { usePromoteUser } from "@/hooks/admin/usePromoteUser";
 import { useDemoteUser } from "@/hooks/admin/useDemoteUser";
 import { useResetFrivolousCounter } from "@/hooks/admin/useResetFrivolousCounter";
 import { ConfirmActionModal } from "./ConfirmActionModal";
+import { DeleteUserModal } from "./DeleteUserModal";
 import { RecentIpsModal } from "./RecentIpsModal";
 import { CreateBanModal } from "@/components/admin/bans/CreateBanModal";
 import { LiftBanModal } from "@/components/admin/bans/LiftBanModal";
@@ -23,6 +24,7 @@ export function UserActionsRail({ user, onRefresh }: Props) {
   const [showIps, setShowIps] = useState(false);
   const [showCreateBan, setShowCreateBan] = useState(false);
   const [showLiftBan, setShowLiftBan] = useState(false);
+  const [showDeleteUser, setShowDeleteUser] = useState(false);
 
   const promote = usePromoteUser(user.id);
   const demote = useDemoteUser(user.id);
@@ -176,6 +178,20 @@ export function UserActionsRail({ user, onRefresh }: Props) {
         </Button>
       </div>
 
+      {/* Danger zone */}
+      <div className="rounded-default bg-surface-container border border-error/30 p-4 flex flex-col gap-2">
+        <div className="text-label-sm font-medium text-error mb-1">Danger zone</div>
+        <Button
+          variant="destructive"
+          size="sm"
+          fullWidth
+          onClick={() => setShowDeleteUser(true)}
+          data-testid="delete-user-btn"
+        >
+          Delete user
+        </Button>
+      </div>
+
       {/* Quick links */}
       <div className="rounded-default bg-surface-container border border-outline-variant p-4 flex flex-col gap-2">
         <div className="text-label-sm font-medium text-on-surface-variant mb-1">Quick links</div>
@@ -235,6 +251,14 @@ export function UserActionsRail({ user, onRefresh }: Props) {
         <LiftBanModal
           ban={activeBanAsRow}
           onClose={() => { setShowLiftBan(false); onRefresh(); }}
+        />
+      )}
+
+      {showDeleteUser && (
+        <DeleteUserModal
+          userId={user.id}
+          userEmail={user.email}
+          onClose={() => setShowDeleteUser(false)}
         />
       )}
     </aside>

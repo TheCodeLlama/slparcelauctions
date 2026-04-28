@@ -133,6 +133,23 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
 
     long countByStateNotIn(Collection<EscrowState> states);
 
+    /**
+     * Returns FUNDED escrows whose {@code transferDeadline} falls in the
+     * supplied window and whose {@code reminderSentAt} is null — i.e., the
+     * reminder has not yet been sent. Used by
+     * {@link com.slparcelauctions.backend.admin.infrastructure.reminders.EscrowTransferReminderScheduler}
+     * to fire a once-per-escrow transfer reminder.
+     */
+    @Query("""
+            SELECT e FROM Escrow e
+            WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.FUNDED
+              AND e.transferDeadline BETWEEN :rangeStart AND :rangeEnd
+              AND e.reminderSentAt IS NULL
+            """)
+    List<Escrow> findEscrowsApproachingTransferDeadline(
+            @Param("rangeStart") OffsetDateTime rangeStart,
+            @Param("rangeEnd") OffsetDateTime rangeEnd);
+
     @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state = :state")
     long sumFinalBidAmountByState(@Param("state") EscrowState state);
 
@@ -147,4 +164,24 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
      */
     @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state IN :states")
     long sumAmountByStateIn(@Param("states") java.util.Collection<EscrowState> states);
+
+    /**
+     * Returns the IDs of escrows where the given user is involved (as either
+     * seller or winner) and the escrow state is one of the supplied open
+     * states. Used by
+     * {@link com.slparcelauctions.backend.user.deletion.UserDeletionService}
+     * to enforce the OPEN_ESCROWS precondition before account deletion.
+     *
+     * <p>Winner is identified via {@code auction.winnerUserId} (raw Long on
+     * {@link com.slparcelauctions.backend.auction.Auction}); seller is
+     * identified via {@code auction.seller.id}.
+     */
+    @Query("""
+            SELECT e.id FROM Escrow e
+            WHERE e.state IN :states
+              AND (e.auction.seller.id = :userId OR e.auction.winnerUserId = :userId)
+            """)
+    List<Long> findIdsByUserInvolvedAndStateIn(
+            @Param("userId") Long userId,
+            @Param("states") Collection<EscrowState> states);
 }

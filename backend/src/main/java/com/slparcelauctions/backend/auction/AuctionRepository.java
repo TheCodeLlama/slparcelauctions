@@ -16,6 +16,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.slparcelauctions.backend.user.User;
+
 public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpecificationExecutor<Auction> {
 
     /**
@@ -186,4 +188,24 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     long countByStatus(AuctionStatus status);
 
     Page<Auction> findBySellerIdOrderByCreatedAtDesc(Long sellerId, Pageable pageable);
+
+    /**
+     * Returns the IDs of auctions whose seller is the given user and whose
+     * status is one of the supplied blocking statuses. Used by
+     * {@link com.slparcelauctions.backend.user.deletion.UserDeletionService}
+     * to enforce the ACTIVE_AUCTIONS precondition before account deletion.
+     */
+    @Query("SELECT a.id FROM Auction a WHERE a.seller = :seller AND a.status IN :statuses")
+    List<Long> findIdsBySellerAndStatusIn(
+            @Param("seller") User seller,
+            @Param("statuses") Collection<AuctionStatus> statuses);
+
+    /**
+     * Returns the IDs of ACTIVE auctions where the given user is the current
+     * high bidder (i.e. {@code currentBidderId} matches). Used by
+     * {@link com.slparcelauctions.backend.user.deletion.UserDeletionService}
+     * to enforce the ACTIVE_HIGH_BIDS precondition before account deletion.
+     */
+    @Query("SELECT a.id FROM Auction a WHERE a.currentBidderId = :userId AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE")
+    List<Long> findIdsByCurrentBidderIdAndActive(@Param("userId") Long userId);
 }

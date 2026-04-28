@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.user.User;
+
 public interface ProxyBidRepository extends JpaRepository<ProxyBid, Long> {
 
     /**
@@ -67,4 +69,12 @@ public interface ProxyBidRepository extends JpaRepository<ProxyBid, Long> {
     @Modifying
     @Transactional
     int deleteAllByAuctionId(Long auctionId);
+
+    /**
+     * Returns the IDs of ACTIVE proxy bids owned by the given user. Used by
+     * {@link com.slparcelauctions.backend.user.deletion.UserDeletionService}
+     * to enforce the ACTIVE_PROXY_BIDS precondition before account deletion.
+     */
+    @Query("SELECT p.id FROM ProxyBid p WHERE p.bidder = :user AND p.status = com.slparcelauctions.backend.auction.ProxyBidStatus.ACTIVE")
+    List<Long> findActiveIdsByBidder(@Param("user") User user);
 }

@@ -318,6 +318,20 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void reviewResponseWindowClosing(long revieweeUserId, long reviewId, long auctionId,
+                                             String parcelName, OffsetDateTime responseDeadline) {
+        String title = "Response window closing: " + parcelName;
+        String body = "The window to respond to a review for " + parcelName
+                + " closes soon. Respond before " + responseDeadline + ".";
+        notificationService.publish(new NotificationEvent(
+            revieweeUserId, NotificationCategory.REVIEW_RESPONSE_WINDOW_CLOSING,
+            title, body,
+            NotificationDataBuilder.reviewResponseWindowClosing(
+                    reviewId, auctionId, parcelName, responseDeadline),
+            null));
+    }
+
+    @Override
     public void disputeFiledAgainstSeller(long sellerUserId, long auctionId, long escrowId,
                                            String parcelName, long amountL,
                                            String reasonCategory) {

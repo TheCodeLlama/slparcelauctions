@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.user.deletion.UserDeletionService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
 import com.slparcelauctions.backend.user.dto.UserResponse;
@@ -46,6 +47,9 @@ class UserControllerTest {
 
     @MockitoBean
     private AvatarService avatarService;
+
+    @MockitoBean
+    private UserDeletionService userDeletionService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -172,8 +176,11 @@ class UserControllerTest {
     }
 
     @Test
-    void deleteCurrentUser_returns501() throws Exception {
-        mockMvc.perform(delete("/api/v1/users/me"))
-                .andExpect(status().isNotImplemented());
+    @WithMockAuthPrincipal(userId = 1L)
+    void deleteCurrentUser_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/users/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"password\":\"correct-password\"}"))
+                .andExpect(status().isNoContent());
     }
 }

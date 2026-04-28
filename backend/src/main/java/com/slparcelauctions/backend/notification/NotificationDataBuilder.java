@@ -135,6 +135,14 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> reviewResponseWindowClosing(
+            long reviewId, long auctionId, String parcelName, OffsetDateTime responseDeadline) {
+        Map<String, Object> m = base(auctionId, parcelName);
+        m.put("reviewId", reviewId);
+        m.put("responseDeadline", responseDeadline.toString());
+        return m;
+    }
+
     public static Map<String, Object> listingCancelledBySeller(long auctionId, String parcelName, String reason) {
         Map<String, Object> m = base(auctionId, parcelName);
         m.put("reason", reason);

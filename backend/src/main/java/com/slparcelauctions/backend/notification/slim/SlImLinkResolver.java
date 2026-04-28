@@ -27,7 +27,7 @@ public class SlImLinkResolver {
                  AUCTION_ENDED_BOUGHT_NOW, AUCTION_ENDED_SOLD,
                  LISTING_VERIFIED, LISTING_CANCELLED_BY_SELLER,
                  LISTING_REMOVED_BY_ADMIN, LISTING_WARNED,
-                 REVIEW_RECEIVED ->
+                 REVIEW_RECEIVED, REVIEW_RESPONSE_WINDOW_CLOSING ->
                 base + "/auction/" + data.get("auctionId");
             case AUCTION_WON ->
                 base + "/auction/" + data.get("auctionId") + "/escrow";
