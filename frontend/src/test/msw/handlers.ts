@@ -30,6 +30,18 @@ import type {
   MyReportResponse,
   UserIpProjection,
 } from "@/lib/admin/types";
+import type {
+  AdminDisputeQueueRow,
+  AdminDisputeDetail,
+  AdminDisputeResolveResponse,
+} from "@/lib/admin/disputes";
+import type {
+  BotPoolHealthRow,
+  AdminTerminalRow,
+  TerminalRotationResponse,
+  ReconciliationRunRow,
+  WithdrawalRow,
+} from "@/lib/admin/infrastructure";
 import type { Page } from "@/types/page";
 
 /**
@@ -736,6 +748,91 @@ export const adminHandlers = {
       HttpResponse.json(response)
     );
   },
+};
+
+export const adminDisputesHandlers = {
+  listEmpty: () =>
+    http.get("*/api/v1/admin/disputes", () =>
+      HttpResponse.json({ content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 })
+    ),
+  listWithItems: (rows: AdminDisputeQueueRow[]) =>
+    http.get("*/api/v1/admin/disputes", () =>
+      HttpResponse.json({ content: rows, number: 0, size: 20, totalElements: rows.length, totalPages: 1 })
+    ),
+  detail: (escrowId: number, body: AdminDisputeDetail) =>
+    http.get(`*/api/v1/admin/disputes/${escrowId}`, () => HttpResponse.json(body)),
+  resolveSuccess: (escrowId: number, response: AdminDisputeResolveResponse) =>
+    http.post(`*/api/v1/admin/disputes/${escrowId}/resolve`, () => HttpResponse.json(response)),
+  resolve409: (escrowId: number) =>
+    http.post(`*/api/v1/admin/disputes/${escrowId}/resolve`, () =>
+      HttpResponse.json({ code: "DISPUTE_ACTION_INVALID_FOR_STATE" }, { status: 409 })),
+};
+
+export const adminBotPoolHandlers = {
+  healthEmpty: () =>
+    http.get("*/api/v1/admin/bot-pool/health", () => HttpResponse.json([])),
+  healthWithRows: (rows: BotPoolHealthRow[]) =>
+    http.get("*/api/v1/admin/bot-pool/health", () => HttpResponse.json(rows)),
+};
+
+export const adminTerminalsHandlers = {
+  listEmpty: () =>
+    http.get("*/api/v1/admin/terminals", () => HttpResponse.json([])),
+  listWithItems: (rows: AdminTerminalRow[]) =>
+    http.get("*/api/v1/admin/terminals", () => HttpResponse.json(rows)),
+  rotateSuccess: (response: TerminalRotationResponse) =>
+    http.post("*/api/v1/admin/terminals/rotate-secret", () => HttpResponse.json(response)),
+};
+
+export const adminReconciliationHandlers = {
+  runsEmpty: () =>
+    http.get("*/api/v1/admin/reconciliation/runs", () => HttpResponse.json([])),
+  runsWithItems: (rows: ReconciliationRunRow[]) =>
+    http.get("*/api/v1/admin/reconciliation/runs", () => HttpResponse.json(rows)),
+};
+
+export const adminWithdrawalsHandlers = {
+  listEmpty: () =>
+    http.get("*/api/v1/admin/withdrawals", () =>
+      HttpResponse.json({ content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 })
+    ),
+  listWithItems: (rows: WithdrawalRow[]) =>
+    http.get("*/api/v1/admin/withdrawals", () =>
+      HttpResponse.json({ content: rows, number: 0, size: 20, totalElements: rows.length, totalPages: 1 })
+    ),
+  available: (amount: number) =>
+    http.get("*/api/v1/admin/withdrawals/available", () =>
+      HttpResponse.json({ available: amount })
+    ),
+  createSuccess: (response: WithdrawalRow) =>
+    http.post("*/api/v1/admin/withdrawals", () => HttpResponse.json(response)),
+  createInsufficient: () =>
+    http.post("*/api/v1/admin/withdrawals", () =>
+      HttpResponse.json({ code: "INSUFFICIENT_BALANCE" }, { status: 409 })
+    ),
+};
+
+export const adminOwnershipRecheckHandlers = {
+  matchSuccess: (auctionId: number, observedOwner: string, expectedOwner: string) =>
+    http.post(`*/api/v1/admin/auctions/${auctionId}/recheck-ownership`, () =>
+      HttpResponse.json({
+        ownerMatch: true,
+        observedOwner,
+        expectedOwner,
+        checkedAt: new Date().toISOString(),
+        auctionStatus: "ACTIVE",
+      })
+    ),
+  mismatchSuspended: (auctionId: number, observedOwner: string, expectedOwner: string) =>
+    http.post(`*/api/v1/admin/auctions/${auctionId}/recheck-ownership`, () =>
+      HttpResponse.json({
+        ownerMatch: false,
+        observedOwner,
+        expectedOwner,
+        checkedAt: new Date().toISOString(),
+        auctionStatus: "SUSPENDED",
+      })
+    ),
 };
 
 /**

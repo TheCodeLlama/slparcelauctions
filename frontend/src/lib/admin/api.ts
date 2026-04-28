@@ -23,6 +23,22 @@ import type {
   ReportRequest,
   UserIpProjection,
 } from "./types";
+import type {
+  AdminDisputeFilters,
+  AdminDisputeQueueRow,
+  AdminDisputeDetail,
+  AdminDisputeResolveRequest,
+  AdminDisputeResolveResponse,
+} from "./disputes";
+import type {
+  BotPoolHealthRow,
+  AdminTerminalRow,
+  TerminalRotationResponse,
+  ReconciliationRunRow,
+  WithdrawalRow,
+  WithdrawalRequest,
+  AdminOwnershipRecheckResponse,
+} from "./infrastructure";
 import type { Page } from "@/types/page";
 
 export const adminApi = {
@@ -171,6 +187,62 @@ export const adminApi = {
       suspensionDurationSeconds: number;
     }> {
       return api.post(`/api/v1/admin/auctions/${id}/reinstate`, { notes });
+    },
+  },
+
+  disputes: {
+    list(filters: AdminDisputeFilters): Promise<Page<AdminDisputeQueueRow>> {
+      const search = new URLSearchParams();
+      if (filters.status) search.set("status", filters.status);
+      if (filters.reasonCategory) search.set("reasonCategory", filters.reasonCategory);
+      search.set("page", String(filters.page ?? 0));
+      search.set("size", String(filters.size ?? 20));
+      return api.get(`/api/v1/admin/disputes?${search.toString()}`);
+    },
+    detail(escrowId: number): Promise<AdminDisputeDetail> {
+      return api.get(`/api/v1/admin/disputes/${escrowId}`);
+    },
+    resolve(escrowId: number, body: AdminDisputeResolveRequest): Promise<AdminDisputeResolveResponse> {
+      return api.post(`/api/v1/admin/disputes/${escrowId}/resolve`, body);
+    },
+  },
+
+  botPool: {
+    health(): Promise<BotPoolHealthRow[]> {
+      return api.get("/api/v1/admin/bot-pool/health");
+    },
+  },
+
+  terminals: {
+    list(): Promise<AdminTerminalRow[]> {
+      return api.get("/api/v1/admin/terminals");
+    },
+    rotateSecret(): Promise<TerminalRotationResponse> {
+      return api.post("/api/v1/admin/terminals/rotate-secret", {});
+    },
+  },
+
+  reconciliation: {
+    runs(days: number = 7): Promise<ReconciliationRunRow[]> {
+      return api.get(`/api/v1/admin/reconciliation/runs?days=${days}`);
+    },
+  },
+
+  withdrawals: {
+    list(page: number = 0, size: number = 20): Promise<Page<WithdrawalRow>> {
+      return api.get(`/api/v1/admin/withdrawals?page=${page}&size=${size}`);
+    },
+    create(body: WithdrawalRequest): Promise<WithdrawalRow> {
+      return api.post("/api/v1/admin/withdrawals", body);
+    },
+    available(): Promise<{ available: number }> {
+      return api.get("/api/v1/admin/withdrawals/available");
+    },
+  },
+
+  ownershipRecheck: {
+    recheck(auctionId: number): Promise<AdminOwnershipRecheckResponse> {
+      return api.post(`/api/v1/admin/auctions/${auctionId}/recheck-ownership`, {});
     },
   },
 };
