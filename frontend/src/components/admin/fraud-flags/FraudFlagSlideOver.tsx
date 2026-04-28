@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useAdminFraudFlag } from "@/hooks/admin/useAdminFraudFlag";
 import { useDismissFraudFlag } from "@/hooks/admin/useDismissFraudFlag";
 import { useReinstateFraudFlag } from "@/hooks/admin/useReinstateFraudFlag";
+import { useOwnershipRecheck } from "@/lib/admin/ownershipHooks";
+import { useToast } from "@/components/ui/Toast/useToast";
 import { Button } from "@/components/ui/Button";
 import { ReasonBadge } from "./ReasonBadge";
 import { ReinstateBanner } from "./ReinstateBanner";
@@ -35,6 +37,8 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
   const { data: detail, isLoading } = useAdminFraudFlag(flagId);
   const dismiss = useDismissFraudFlag();
   const reinstate = useReinstateFraudFlag();
+  const recheck = useOwnershipRecheck();
+  const toast = useToast();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -50,6 +54,22 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
   }, [onClose]);
 
   if (!flagId) return null;
+
+  const handleRecheck = () => {
+    if (!detail?.auction) return;
+    recheck.mutate(detail.auction.id, {
+      onSuccess: (result) => {
+        if (result.ownerMatch) {
+          toast.success("Owner match — no change.");
+        } else if (result.auctionStatus === "SUSPENDED") {
+          toast.error("Owner mismatch detected. Auction suspended.");
+        } else {
+          toast.warning("Owner mismatch detected.");
+        }
+      },
+      onError: (e) => toast.error(`Re-check failed: ${(e as Error).message}`),
+    });
+  };
 
   const isPending = dismiss.isPending || reinstate.isPending;
   const notesEmpty = notes.trim().length === 0;
@@ -177,7 +197,7 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
               ) : (
                 <div className="flex flex-col gap-3">
                   <NotesField value={notes} onChange={setNotes} disabled={isPending} />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -204,6 +224,20 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
                       Reinstate auction
                     </Button>
                   </div>
+                  {detail.auction && (
+                    <div className="border-t border-outline-variant pt-3">
+                      <Button
+                        variant="tertiary"
+                        size="sm"
+                        onClick={handleRecheck}
+                        disabled={recheck.isPending}
+                        loading={recheck.isPending}
+                        data-testid="recheck-ownership-btn"
+                      >
+                        {recheck.isPending ? "Checking…" : "↻ Re-check ownership now"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
