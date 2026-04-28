@@ -188,9 +188,10 @@ The `shared_secret_version` column was reserved but unused. This sub-spec popula
 
 ### 4.3 New enums / values
 
-- `EscrowState.EXPIRED` (new terminal state) — reached by FROZEN → EXPIRED, DISPUTED+cancel→EXPIRED, and existing escrow timeout. Semantics: "no transfer happened, winner refunded, escrow closed."
+- `EscrowState.EXPIRED` **(existing — Epic 05 sub-spec 1)** — already used by the existing escrow timeout path. This sub-spec reaches it via two additional admin-driven paths (FROZEN → EXPIRED and DISPUTED + cancel → EXPIRED). Semantics unchanged: "no transfer happened, winner refunded, escrow closed." **Do not add a new enum value — reuse the existing one.**
 - `TerminalCommandAction.WITHDRAW` — new action queued by admin withdrawals.
 - `NotificationCategory.DISPUTE_FILED_AGAINST_SELLER` — group: ESCROW.
+- `NotificationCategory.DISPUTE_RESOLVED` — group: ESCROW. New category fired by `AdminDisputeService.resolve` to involved parties; body text is role-aware and action-aware (see §5.5).
 - `NotificationCategory.RECONCILIATION_MISMATCH` — group: new `ADMIN_OPS`.
 - `NotificationCategory.WITHDRAWAL_COMPLETED` — group: ADMIN_OPS.
 - `NotificationCategory.WITHDRAWAL_FAILED` — group: ADMIN_OPS.
@@ -225,7 +226,7 @@ The `shared_secret_version` column was reserved but unused. This sub-spec popula
   - For paths reaching EXPIRED: queues REFUND TerminalCommand with `{ recipientUuid: winnerSlUuid, amount: escrowAmount }`
   - For RESET_TO_FUNDED + alsoCancelListing: calls `AdminAuctionService.cancelByAdmin(auctionId, adminUser, "DISPUTE_RESOLUTION")` after the dispute resolution
   - Writes 1 or 2 audit rows (DISPUTE_RESOLVED always; LISTING_CANCELLED_VIA_DISPUTE when checkbox fires)
-  - Fans out resolution notification to involved parties (existing dispute fan-out — extended)
+  - Fans out `DISPUTE_RESOLVED` notification (new category) per the role × action matrix in §5.5. The cancel-side path additionally fires the existing `LISTING_REMOVED_BY_ADMIN` (to seller) and `LISTING_CANCELLED_BY_SELLER` (cause-neutral, to all bidders incl. winner) via `cancelByAdmin`. Two messages to the winner on the cancel path is intentional — they answer different questions (cancel context + dispute context).
 
 #### `EscrowDisputeService` (existing — extended)
 - Extend `openDispute(...)` to accept image uploads + `slTransactionKey`
@@ -280,7 +281,22 @@ The `shared_secret_version` column was reserved but unused. This sub-spec popula
 - Hooks: `useSubmitSellerEvidence(escrowId)`
 
 ### 5.5 Notifications fired from this domain
-- `DISPUTE_FILED_AGAINST_SELLER` — fires from `EscrowDisputeService.openDispute` after winner-side fan-out. Recipient: seller. Body: `"A winner disputed your sale of {parcel} (L$ {amount}). Submit your evidence at {url}."`. Default ON for SL IM + email.
+
+**On dispute open (`EscrowDisputeService.openDispute`):**
+- `DISPUTE_FILED_AGAINST_SELLER` — recipient: seller. Body: `"A winner disputed your sale of {parcel} (L$ {amount}). Submit your evidence at {url}."`. Default ON for SL IM + email.
+- Winner is not notified (they pressed the button — they know).
+
+**On dispute resolve (`AdminDisputeService.resolve`):** new category `DISPUTE_RESOLVED`. Group: ESCROW. Default ON for SL IM + email. Body is generated server-side based on `(action, alsoCancelListing, role)` per the table below. The publisher fires one row per recipient (winner + seller, separately).
+
+| Action | Winner body | Seller body |
+|---|---|---|
+| `RECOGNIZE_PAYMENT` (DISPUTED → TRANSFER_PENDING) | `"Payment recognized for {parcel}. Land transfer monitoring resumed."` | `"Dispute resolved for {parcel}. Please transfer the parcel to {winnerName}."` |
+| `RESET_TO_FUNDED` (no checkbox; DISPUTED → FUNDED) | `"Dispute dismissed for {parcel}. Escrow remains funded — please complete payment at the terminal."` | `"Dispute resolved for {parcel}. Escrow remains funded."` |
+| `RESET_TO_FUNDED` + alsoCancelListing (DISPUTED → EXPIRED + cancel) | `"Your dispute for {parcel} was upheld. The listing has been cancelled and your L$ {amount} refund is being processed."` | **No `DISPUTE_RESOLVED` to seller.** The cancel side-effect fires `LISTING_REMOVED_BY_ADMIN` (existing, sub-spec 2) which already covers the seller-facing message. The dispute context is captured in `admin_actions` audit, not the seller-facing copy. |
+| `RESUME_TRANSFER` (FROZEN → TRANSFER_PENDING) | `"Escrow unfrozen for {parcel}. Land transfer monitoring resumed."` | `"Escrow unfrozen for {parcel}. Land transfer monitoring resumed."` |
+| `MARK_EXPIRED` (FROZEN → EXPIRED) | `"Escrow expired for {parcel}. Your L$ {amount} refund is being processed."` | `"Escrow expired for {parcel}."` |
+
+**Cancel side-effect notifications (when alsoCancelListing fires):** unchanged — `cancelByAdmin` fires `LISTING_REMOVED_BY_ADMIN` to seller and cause-neutral `LISTING_CANCELLED_BY_SELLER` fan-out to all bidders (including the winner). The winner therefore receives **two messages** on this path: `DISPUTE_RESOLVED` (dispute outcome + refund context) plus `LISTING_CANCELLED_BY_SELLER` (cause-neutral cancel notice). Two messages is intentional and not redundant — they answer different questions.
 
 ### 5.6 Audit log entries
 - `DISPUTE_RESOLVED` — actor: admin, target: dispute. Detail: `{ disputeId, action, alsoCancelListing, refundQueued, adminNote }`.
@@ -418,14 +434,15 @@ The existing `POST /api/v1/sl/terminal/register` is extended: response includes 
 
 ## 7. Notifications summary
 
-### 7.1 Categories shipping in this sub-spec (4)
+### 7.1 Categories shipping in this sub-spec (5)
 
-| Category | Group | Default channels | Recipient |
-|---|---|---|---|
-| `DISPUTE_FILED_AGAINST_SELLER` | ESCROW | SL IM ✓, email ✓ | seller |
-| `RECONCILIATION_MISMATCH` | ADMIN_OPS | SL IM ✓, email ✗ | all admins |
-| `WITHDRAWAL_COMPLETED` | ADMIN_OPS | SL IM ✓, email ✗ | requesting admin |
-| `WITHDRAWAL_FAILED` | ADMIN_OPS | SL IM ✓, email ✓ | requesting admin |
+| Category | Group | Default channels | Recipient | Body source |
+|---|---|---|---|---|
+| `DISPUTE_FILED_AGAINST_SELLER` | ESCROW | SL IM ✓, email ✓ | seller | static |
+| `DISPUTE_RESOLVED` | ESCROW | SL IM ✓, email ✓ | winner + seller (separate rows) | role × action matrix in §5.5 |
+| `RECONCILIATION_MISMATCH` | ADMIN_OPS | SL IM ✓, email ✗ | all admins | static |
+| `WITHDRAWAL_COMPLETED` | ADMIN_OPS | SL IM ✓, email ✗ | requesting admin | static |
+| `WITHDRAWAL_FAILED` | ADMIN_OPS | SL IM ✓, email ✓ | requesting admin | static |
 
 ### 7.2 Categories deferred (1)
 - `BOT_POOL_DEGRADED` — sub-spec 3 ships the bot pool dashboard for glanceable status; the threshold logic ("degraded" = 1 dead? 50% dead?) deserves operational data first. **Do not add this category enum value yet** — JPA `ddl-auto: update` would migrate a phantom category with no publisher, which is harder to reason about than just adding the value when its publisher ships. New deferred-ledger entry on close-out.
