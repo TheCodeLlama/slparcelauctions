@@ -52,6 +52,7 @@ export function AdminDashboardPage() {
           value={data.queues.activeDisputes}
           tone="warning"
           subtext="Escrow disputed"
+          href="/admin/disputes"
         />
       </div>
 
