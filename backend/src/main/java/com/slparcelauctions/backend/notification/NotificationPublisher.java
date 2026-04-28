@@ -68,4 +68,8 @@ public interface NotificationPublisher {
 
     // Admin infrastructure
     void reconciliationMismatch(List<Long> adminUserIds, long drift, String date);
+
+    // Admin withdrawals
+    void withdrawalCompleted(long adminUserId, long amountL, String recipientUuid);
+    void withdrawalFailed(long adminUserId, long amountL, String recipientUuid, String reason);
 }

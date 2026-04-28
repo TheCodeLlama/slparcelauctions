@@ -114,4 +114,11 @@ public class AdminExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(AdminApiError.of("ALSO_CANCEL_INVALID_FOR_ACTION", ex.getMessage()));
     }
+
+    @ExceptionHandler(com.slparcelauctions.backend.admin.infrastructure.withdrawals.exception.InsufficientBalanceException.class)
+    public ResponseEntity<AdminApiError> handleInsufficientBalance(
+            com.slparcelauctions.backend.admin.infrastructure.withdrawals.exception.InsufficientBalanceException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("INSUFFICIENT_BALANCE", ex.getMessage()));
+    }
 }

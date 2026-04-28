@@ -395,6 +395,26 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void withdrawalCompleted(long adminUserId, long amountL, String recipientUuid) {
+        notificationService.publish(new NotificationEvent(
+            adminUserId, NotificationCategory.WITHDRAWAL_COMPLETED,
+            "Withdrawal completed",
+            "Withdrawal of L$ " + amountL + " to " + recipientUuid + " completed.",
+            NotificationDataBuilder.withdrawalCompleted(amountL, recipientUuid),
+            null));
+    }
+
+    @Override
+    public void withdrawalFailed(long adminUserId, long amountL, String recipientUuid, String reason) {
+        notificationService.publish(new NotificationEvent(
+            adminUserId, NotificationCategory.WITHDRAWAL_FAILED,
+            "Withdrawal failed",
+            "Withdrawal of L$ " + amountL + " to " + recipientUuid + " failed: " + reason + ". Open dashboard.",
+            NotificationDataBuilder.withdrawalFailed(amountL, recipientUuid, reason),
+            null));
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.

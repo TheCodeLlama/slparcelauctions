@@ -72,6 +72,7 @@ public class TerminalCommandService {
     private final NotificationPublisher notificationPublisher;
     private final Clock clock;
     private final TerminalSecretService terminalSecretService;
+    private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -99,6 +100,27 @@ public class TerminalCommandService {
                 TerminalCommandAction.REFUND, TerminalCommandPurpose.LISTING_FEE_REFUND,
                 recipientUuid, refund.getAmount(),
                 idempotencyKey("LFR", refund.getId(), TerminalCommandAction.REFUND, 1));
+    }
+
+    /**
+     * Queues an admin WITHDRAW command. Called from
+     * {@code AdminWithdrawalService.requestWithdrawal} which already holds
+     * a transaction, so {@link Propagation#MANDATORY} enforces that the
+     * command row is atomically committed with the parent Withdrawal row.
+     * Uses primitive parameters to avoid a cross-package circular
+     * dependency with the admin withdrawals package.
+     *
+     * @param withdrawalId the synthetic PK of the parent Withdrawal row
+     * @param recipientUuid the SL avatar UUID of the withdrawal recipient
+     * @param amount the L$ amount to withdraw
+     * @return the saved {@link TerminalCommand} row
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public TerminalCommand queueWithdraw(Long withdrawalId, String recipientUuid, long amount) {
+        return queue(null, null,
+                TerminalCommandAction.WITHDRAW, TerminalCommandPurpose.ADMIN_WITHDRAWAL,
+                recipientUuid, amount,
+                "withdraw:" + withdrawalId);
     }
 
     private String idempotencyKey(String prefix, Long id,
@@ -166,11 +188,15 @@ public class TerminalCommandService {
             // replay capture the failed attempt even if the next retry
             // eventually succeeds. The row is keyed to the originating
             // escrow / auction so the UI timeline surfaces it.
+            // ADMIN_WITHDRAWAL commands have no escrow row and are tracked
+            // in the Withdrawal entity instead — skip ledger write for them.
             Escrow escrow = cmd.getEscrowId() == null
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
-            ledgerRepo.save(buildFailedLedgerRow(
-                    cmd, escrow, req.errorMessage(), req.slTransactionKey()));
+            if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+                ledgerRepo.save(buildFailedLedgerRow(
+                        cmd, escrow, req.errorMessage(), req.slTransactionKey()));
+            }
 
             cmd.setLastError(req.errorMessage());
             if (cmd.getAttemptCount() < EscrowRetryPolicy.MAX_ATTEMPTS) {
@@ -188,6 +214,9 @@ public class TerminalCommandService {
                 if (escrow != null) {
                     publishStallAfterCommit(cmd, escrow, now);
                 }
+                if (cmd.getPurpose() == TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+                    withdrawalCallbackHandler.onFailure(cmd.getId(), req.errorMessage());
+                }
                 log.error("Terminal command {} STALLED after {} attempts: err={}",
                         cmd.getId(), cmd.getAttemptCount(), req.errorMessage());
             }
@@ -203,6 +232,8 @@ public class TerminalCommandService {
             handleEscrowRefundSuccess(cmd, slTxn, now);
         } else if (cmd.getPurpose() == TerminalCommandPurpose.LISTING_FEE_REFUND) {
             handleListingFeeRefundSuccess(cmd, slTxn, now);
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+            withdrawalCallbackHandler.onSuccess(cmd.getId());
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()
