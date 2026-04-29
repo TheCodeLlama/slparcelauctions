@@ -25,11 +25,18 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.70"
+      version = "~> 6.0"
     }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
+    }
+    # fck-nat module pulls in cloudinit for the user-data rendering on the
+    # NAT instance. Declared explicitly here so `terraform providers lock`
+    # picks it up.
+    cloudinit = {
+      source  = "hashicorp/cloudinit"
+      version = "~> 2.3"
     }
   }
 
@@ -99,3 +106,16 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
+
+################################################################################
+# Module wiring
+################################################################################
+
+module "networking" {
+  source = "./networking"
+
+  environment        = var.environment
+  vpc_cidr           = var.vpc_cidr
+  availability_zones = var.availability_zones
+  nat_type           = var.nat_type
+}

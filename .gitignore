@@ -215,9 +215,10 @@ docker-compose.override.yml
 # never live there (they go to Parameter Store via `aws ssm put-parameter`).
 infra/terraform.tfvars
 infra/.terraform/
-infra/.terraform.lock.hcl
 infra/*.tfplan
 infra/*.tfstate
 infra/*.tfstate.*
 infra/crash.log
 infra/crash.*.log
+# .terraform.lock.hcl IS committed — Terraform's recommendation. Pins provider
+# versions so every machine + CI run resolves the same provider versions.
