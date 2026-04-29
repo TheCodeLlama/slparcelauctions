@@ -202,3 +202,10 @@ bot/**/obj/
 *.user
 *.suo
 .vs/
+
+# Docker Compose local override — auto-merged by `docker compose` when
+# present. Stay developer-local so per-machine setups (host-running backend
+# with containerised bot, port remappings, etc.) do not ship to the shared
+# compose file.
+compose.override.yml
+docker-compose.override.yml

@@ -6,13 +6,13 @@ The full design lives in [`docs/initial-design/DESIGN.md`](docs/initial-design/D
 
 ## Stack
 
-| Layer    | Tech                                              |
-|----------|---------------------------------------------------|
-| Frontend | Next.js 16, React 19, TypeScript 5, Tailwind 4    |
-| Backend  | Spring Boot 4, Java 26, Maven, JPA (Hibernate DDL) |
+| Layer    | Tech                                                          |
+|----------|---------------------------------------------------------------|
+| Frontend | Next.js 16, React 19, TypeScript 5, Tailwind 4                |
+| Backend  | Spring Boot 4, Java 26, Maven, JPA (Hibernate DDL)            |
 | Bot      | .NET 8, LibreMetaverse (see [`bot/README.md`](bot/README.md)) |
-| Storage  | PostgreSQL 17, Redis 7, MinIO (S3-compatible)     |
-| In-world | LSL scripts (Phase 6+)                            |
+| Storage  | PostgreSQL 17, Redis 7, MinIO (S3-compatible)                 |
+| In-world | LSL scripts (Phase 6+)                                        |
 
 ## Quick start (Docker Compose)
 
@@ -27,16 +27,16 @@ docker compose up --build
 
 Once everything is healthy:
 
-| Service           | URL                              |
-|-------------------|----------------------------------|
-| Frontend          | http://localhost:3000            |
-| Backend API       | http://localhost:8080            |
-| Backend health    | http://localhost:8080/api/v1/health |
-| Bot worker health | http://localhost:8081/health (once `bot-1` is running) |
-| MinIO S3 API      | http://localhost:9000            |
+| Service           | URL                                                        |
+|-------------------|------------------------------------------------------------|
+| Frontend          | http://localhost:3000                                      |
+| Backend API       | http://localhost:8080                                      |
+| Backend health    | http://localhost:8080/api/v1/health                        |
+| Bot worker health | http://localhost:8081/health (`bot-1`) — `bot-2` defaults to `:8082`. Override via `BOT1_HEALTH_PORT` / `BOT2_HEALTH_PORT` in `.env`. |
+| MinIO S3 API      | http://localhost:9000                                      |
 | MinIO console     | http://localhost:9001 (`slpa-dev-key` / `slpa-dev-secret`) |
-| PostgreSQL        | `localhost:5432` (user `slpa`)   |
-| Redis             | `localhost:6379`                 |
+| PostgreSQL        | `localhost:5432` (user `slpa`)                             |
+| Redis             | `localhost:6379`                                           |
 
 To stop the stack: `docker compose down`. To reset the database too: `docker compose down -v` (drops the named volumes).
 
@@ -88,6 +88,24 @@ cd frontend
 npm install
 npm run dev
 ```
+
+### Hybrid: host backend + containerised bot
+
+A common dev mode is running the backend in your IDE (debugger attached) while the bot runs in Docker (real .NET 8 + LibreMetaverse, networking already wired). Two snags: `bot-1` declares `depends_on: backend` (so plain `docker compose up bot-1` collides with the IDE-run backend on host port 8080), and the bot's `Backend__BaseUrl` is hardcoded to the in-network `http://backend:8080`. Both fix with a local `compose.override.yml` (gitignored) plus `--no-deps`:
+
+```yaml
+# compose.override.yml — local-dev only, do not commit
+services:
+  bot-1:
+    environment:
+      Backend__BaseUrl: http://host.docker.internal:8080
+```
+
+```bash
+docker compose up -d --no-deps bot-1
+```
+
+Full walkthrough (incl. Linux `extra_hosts` note, `bot/.dockerignore` rationale, and the bot bring-up smoke flow) lives in [`FULL_TESTING_PROCEDURES.md`](FULL_TESTING_PROCEDURES.md) §3.4–§3.5.
 
 The backend requires `JWT_SECRET` in production (environment variable, ≥ 256 bits base64-encoded) and uses a committed dev default in `application-dev.yml`. The `auth/` slice provides `/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, and `/api/v1/auth/logout-all`. Access tokens are 15-minute HS256 JWTs returned in the response body; refresh tokens are DB-backed, rotated on every refresh, with reuse-detection cascade, held in an HttpOnly `Path=/api/v1/auth` cookie. See [`docs/superpowers/specs/2026-04-11-task-01-07-jwt-auth-backend-design.md`](docs/superpowers/specs/2026-04-11-task-01-07-jwt-auth-backend-design.md) for the full design.
 

@@ -140,6 +140,12 @@ services:
     environment:
       Backend__BaseUrl: http://backend:8080
       RateLimit__TeleportsPerMinute: "6"
+    # Each bot exposes its health endpoint on container port 8081. Map each
+    # to a distinct host port so multiple bots can run side-by-side without
+    # colliding. Dockerfile EXPOSE alone is just metadata — without these
+    # ports: lines the host cannot curl localhost:8081/health.
+    ports:
+      - "${BOT1_HEALTH_PORT:-8081}:8081"
     depends_on:
       backend:
         condition: service_healthy
@@ -156,6 +162,8 @@ services:
     environment:
       Backend__BaseUrl: http://backend:8080
       RateLimit__TeleportsPerMinute: "6"
+    ports:
+      - "${BOT2_HEALTH_PORT:-8082}:8081"
     depends_on:
       backend:
         condition: service_healthy

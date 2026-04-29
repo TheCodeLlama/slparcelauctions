@@ -1,0 +1,23 @@
+# .NET build output — local builds (e.g. on Windows) bake `obj/project.assets.json`
+# with host-only NuGet paths. If these dirs leak into the container they
+# override the in-container `dotnet restore` and `dotnet publish` fails with
+# NETSDK1064: Package <X> was not found.
+**/bin/
+**/obj/
+
+# Bot worker secrets — Compose mounts these via `env_file:` at runtime, the
+# image never needs them. Keeps SL credentials out of layer history.
+.env
+.env.*
+!.env.example
+
+# Editor / VCS noise
+.vs/
+.vscode/
+.idea/
+*.user
+.DS_Store
+
+# Docs and meta — not needed inside the image
+README.md
+.gitignore
