@@ -71,3 +71,21 @@ output "cert_arn_slpa_app" {
 output "cert_arn_slparcels_com" {
   value = module.dns.cert_arn_slparcels_com
 }
+
+# ----- Compute outputs ------------------------------------------------------ #
+
+output "ecs_cluster_name" {
+  value = module.compute.ecs_cluster_name
+}
+
+output "ecr_backend_repo_url" {
+  value = module.compute.ecr_backend_repo_url
+}
+
+output "ecr_bot_repo_url" {
+  value = module.compute.ecr_bot_repo_url
+}
+
+output "alb_dns_name" {
+  value = module.compute.alb_dns_name
+}

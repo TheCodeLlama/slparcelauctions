@@ -147,3 +147,34 @@ module "dns" {
   domain_slparcels = var.domain_slparcels
   domain_slpa_app  = var.domain_slpa_app
 }
+
+module "compute" {
+  source = "./compute"
+
+  environment        = var.environment
+  vpc_id             = module.networking.vpc_id
+  public_subnet_ids  = module.networking.public_subnet_ids
+  private_subnet_ids = module.networking.private_subnet_ids
+
+  alb_security_group_id     = module.networking.alb_security_group_id
+  backend_security_group_id = module.networking.backend_security_group_id
+
+  rds_writer_endpoint      = module.data.rds_writer_endpoint
+  rds_database_name        = module.data.rds_database_name
+  rds_password_ssm_arn     = module.data.rds_password_ssm_arn
+  rds_username_ssm_arn     = module.data.rds_username_ssm_arn
+  redis_primary_endpoint   = module.data.redis_primary_endpoint
+  redis_auth_token_ssm_arn = module.data.redis_auth_token_ssm_arn
+  storage_bucket_name      = module.data.storage_bucket_name
+  storage_bucket_arn       = module.data.storage_bucket_arn
+
+  cert_arn_slpa_app = module.dns.cert_arn_slpa_app
+  zone_id_slpa_app  = module.dns.zone_id_slpa_app
+  domain_slpa_app   = var.domain_slpa_app
+
+  backend_desired_count = var.backend_desired_count
+  backend_cpu           = var.backend_cpu
+  backend_memory        = var.backend_memory
+  backend_image_tag     = var.backend_image_tag
+  log_retention_days    = var.log_retention_days
+}

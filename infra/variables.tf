@@ -98,9 +98,15 @@ variable "redis_node_type" {
 # ----- Compute — backend (spec §4.2) --------------------------------------- #
 
 variable "backend_desired_count" {
-  description = "Number of backend Fargate tasks running concurrently. Launch-lite default = 1. Upgrade lever to 2+ for scheduler-redundancy + AZ spread."
+  description = "Number of backend Fargate tasks running concurrently. Default 0 in this PR — bump to 1+ AFTER bootstrapping user-action secrets in Parameter Store (spec §7.3) AND pushing first backend image to ECR. Launch-lite production target = 1; upgrade lever to 2+ for scheduler-redundancy + AZ spread."
   type        = number
-  default     = 1
+  default     = 0
+}
+
+variable "backend_image_tag" {
+  description = "ECR image tag for the backend ECS task. Default 'initial' — first deploy pushes the image manually with this tag, then bump backend_desired_count to start tasks. CI/CD later rotates this to git SHA on every merge to main."
+  type        = string
+  default     = "initial"
 }
 
 variable "backend_cpu" {
