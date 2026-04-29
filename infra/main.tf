@@ -158,6 +158,7 @@ module "compute" {
 
   alb_security_group_id     = module.networking.alb_security_group_id
   backend_security_group_id = module.networking.backend_security_group_id
+  bots_security_group_id    = module.networking.bots_security_group_id
 
   rds_writer_endpoint      = module.data.rds_writer_endpoint
   rds_database_name        = module.data.rds_database_name
@@ -176,5 +177,10 @@ module "compute" {
   backend_cpu           = var.backend_cpu
   backend_memory        = var.backend_memory
   backend_image_tag     = var.backend_image_tag
-  log_retention_days    = var.log_retention_days
+
+  bot_active_count = var.bot_active_count
+  bot_cpu          = var.bot_cpu
+  bot_memory       = var.bot_memory
+
+  log_retention_days = var.log_retention_days
 }

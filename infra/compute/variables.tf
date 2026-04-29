@@ -91,6 +91,30 @@ variable "backend_image_tag" {
   default     = "initial"
 }
 
+# ----- Bot pool inputs ----------------------------------------------------- #
+
+variable "bots_security_group_id" {
+  type = string
+}
+
+variable "bot_active_count" {
+  type = number
+}
+
+variable "bot_cpu" {
+  type = number
+}
+
+variable "bot_memory" {
+  type = number
+}
+
+variable "bot_image_tag" {
+  description = "Image tag for the bot ECS task definitions. Defaults to 'initial'; CI/CD bumps to git SHA on each deploy."
+  type        = string
+  default     = "initial"
+}
+
 variable "log_retention_days" {
   type = number
 }

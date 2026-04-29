@@ -92,10 +92,10 @@ resource "aws_ecs_task_definition" "backend" {
       }
 
       healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/health || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
+        command  = ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/health || exit 1"]
+        interval = 30
+        timeout  = 5
+        retries  = 3
         # Spring Boot 4 + Java 26 + the SLPA bean graph takes ~150-180s to
         # finish context init on a 0.25 vCPU Fargate task. startPeriod=180
         # gives the JVM headroom to bind 8080 before failed checks count
