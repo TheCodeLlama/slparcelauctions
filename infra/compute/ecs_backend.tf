@@ -96,7 +96,13 @@ resource "aws_ecs_task_definition" "backend" {
         interval    = 30
         timeout     = 5
         retries     = 3
-        startPeriod = 60
+        # Spring Boot 4 + Java 26 + the SLPA bean graph takes ~150-180s to
+        # finish context init on a 0.25 vCPU Fargate task. startPeriod=180
+        # gives the JVM headroom to bind 8080 before failed checks count
+        # toward the unhealthy threshold. With 0.5 vCPU the real boot is
+        # ~60-90s but the same 180 ceiling is fine — startPeriod is a
+        # MAXIMUM grace window, not a fixed delay.
+        startPeriod = 180
       }
     }
   ])
@@ -133,14 +139,14 @@ resource "aws_ecs_service" "backend" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
-  # Once GHA wires CodeDeploy blue/green deployments (Step 17 of the deploy
-  # flow), the deployment_controller flips from ECS rolling to CODE_DEPLOY
-  # and Terraform stops being the source of truth for the running task
-  # definition revision. ignore_changes here lets that happen without
-  # Terraform fighting the deployment tool.
-  lifecycle {
-    ignore_changes = [task_definition, desired_count]
-  }
+  # NOTE: ignore_changes on task_definition + desired_count is intentionally
+  # NOT set today. Terraform owns both fields. When GHA wires CodeDeploy
+  # blue/green deploys (Step 17 of the deploy flow), this resource flips
+  # deployment_controller to CODE_DEPLOY and adds the ignore_changes — at
+  # that point Terraform cedes ownership of the running task def revision
+  # to the deployment tool. Until then, Terraform-driven task def updates
+  # work the way you'd expect: bump CPU/memory/env in code -> plan -> apply
+  # rolls a new revision and ECS deploys it.
 
   depends_on = [aws_lb_listener.https]
 
