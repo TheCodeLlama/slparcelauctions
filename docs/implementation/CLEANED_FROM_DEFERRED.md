@@ -8,7 +8,7 @@ The remaining entries in `DEFERRED_WORK.md` are still genuinely deferred (Phase 
 
 ---
 
-## Removed entries (12)
+## Removed entries (13)
 
 ### 1. LSL script for in-world verification terminal
 - **Originating epic/task:** Epic 02 sub-spec 1 (Task 02-02)
@@ -129,6 +129,18 @@ The remaining entries in `DEFERRED_WORK.md` are still genuinely deferred (Phase 
   - `backend/src/main/java/com/slparcelauctions/backend/admin/infrastructure/reminders/EscrowTransferReminderScheduler.java:1-71` — `@Scheduled(cron = "0 0 9 * * *", zone = "UTC")` daily 09:00 UTC, queries escrows with `transferDeadline ∈ [now+12h, now+36h]` via `EscrowRepository.findEscrowsApproachingTransferDeadline`, fires `publisher.escrowTransferReminder(...)` per row, stamps `Escrow.reminderSentAt`
   - `backend/src/main/java/com/slparcelauctions/backend/escrow/Escrow.java:99-101` — `reminderSentAt` column for the once-per-escrow guarantee
 - **Notes:** Implementation matches the "implementation sketch" from the deferral exactly (column + scheduler + publisher call + once-per-entity guard).
+
+---
+
+### 35. Auction.title NOT NULL backfill on first production deploy
+- **Originating epic/task:** Epic 07 sub-spec 1 (Task 2)
+- **Implementation:**
+  - Resolved by Flyway baseline migration `backend/src/main/resources/db/migration/V1__initial_schema.sql`, which captures the `title VARCHAR(120) NOT NULL` column definition. First prod deploy applies V1 against an empty DB; no manual `ALTER TABLE` required.
+  - `application.yml` switched from `ddl-auto: update` to `ddl-auto: validate`, with `spring.flyway.enabled: true` + `baseline-on-migrate: true`.
+  - `application-dev.yml` switched to `validate` to keep dev/prod schema management aligned.
+  - `AuctionTitleDevTouchUp.java` deleted — the V1 baseline already includes the column definition, so the dev-side workaround is dead code.
+  - `MaturityRatingDevTouchUp.java` deleted for the same reason (the maturity_rating canonicalization is captured in V1's `auctions_maturity_rating_check` constraint).
+- **Notes:** Pre-deploy snapshot via `aws rds create-db-snapshot` still required per AWS deployment design §4.5 (CI step), but the schema migration itself is now version-controlled. Future schema changes go through `V<N>__<description>.sql` migrations under `backend/src/main/resources/db/migration/` per `CONVENTIONS.md`.
 
 ---
 

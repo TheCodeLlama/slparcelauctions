@@ -212,12 +212,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Product decision — trigger is an activity threshold, not a technical readiness gate.
 - **Notes:** Touchpoint: `app/page.tsx`. Component to add: `StatsBar` in `components/marketing/`. `/stats/public` response shape already documented in sub-spec 1 §5.3.
 
-### Auction.title NOT NULL backfill on first production deploy (Epic 07)
-- **From:** Epic 07 sub-spec 1 (Task 2)
-- **Why:** Hibernate `ddl-auto: update` emits `ADD COLUMN title VARCHAR(120) NOT NULL` which Postgres refuses without a DEFAULT. Dev profile is covered by `AuctionTitleDevTouchUp`; production is unaffected today (no auctions yet) but the first deployment to a populated DB needs either (a) manual `ALTER TABLE auctions ADD COLUMN title VARCHAR(120); UPDATE auctions SET title = 'Untitled'; ALTER TABLE auctions ALTER COLUMN title SET NOT NULL;` ahead of the deploy, or (b) Flyway-managed migration once Flyway returns.
-- **When:** Pre-launch ops checklist; remove after first prod deployment lands cleanly.
-- **Notes:** `AuctionTitleDevTouchUp` is the dev-side workaround. `MaturityRatingDevTouchUp` is the same pattern for the maturity_rating canonicalization.
-
 ### Email channel for notifications
 - **Status:** Removed from roadmap. Re-add only on explicit user request.
 - **Reasoning:** SL natively forwards offline IMs to the user's registered email,
