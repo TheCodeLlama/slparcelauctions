@@ -21,5 +21,19 @@ output "aws_account_id" {
 
 output "aws_region" {
   description = "Primary region for the stack."
-  value       = data.aws_region.current.name
+  value       = data.aws_region.current.region
+}
+
+# ----- Networking outputs (re-exported from the module) --------------------- #
+
+output "vpc_id" {
+  value = module.networking.vpc_id
+}
+
+output "public_subnet_ids" {
+  value = module.networking.public_subnet_ids
+}
+
+output "private_subnet_ids" {
+  value = module.networking.private_subnet_ids
 }
