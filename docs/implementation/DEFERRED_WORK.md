@@ -27,41 +27,17 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ## Current Deferred Items
 
-### LSL script for in-world verification terminal
-- **From:** Epic 02 sub-spec 1 (Task 02-02)
-- **Why:** Phase 11 is the dedicated LSL scripting phase. Sub-spec 1 shipped the backend `POST /api/v1/sl/verify` endpoint; the script that calls it is a separate work track.
-- **When:** Phase 11
-- **Notes:** Endpoint is testable via Postman `Dev/Simulate SL verify` helper today. The dev-profile `POST /api/v1/dev/sl/simulate-verify` stands in for the real LSL call during development.
-
 ### WebSocket push for verification completion
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard verify flow)
 - **Why:** Considered during brainstorm. Deferred because the backend publisher needs to know when a real SL verification call succeeds — that signal source only exists once Phase 11 LSL work is real. Polling (5s, visibility-aware) is the right tool until then.
 - **When:** Phase 11
 - **Notes:** Replace the `useCurrentUser({ refetchInterval: 5000 })` polling with a STOMP subscription on `/topic/user/{userId}/verification`.
 
-### Partial-star rendering for ReputationStars
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Phase 1 ships a simpler numeric "4.7 ★" display. Partial-star SVG rendering is polish that only matters when review counts are non-trivial.
-- **When:** Epic 06 (Ratings & Reputation) when real review data exists
-- **Notes:** Current `ReputationStars.tsx` at `frontend/src/components/user/ReputationStars.tsx`.
-
 ### Email change flow
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile edit)
-- **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b.
-- **When:** Epic 07 (user settings expansion)
-- **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`.
-
-### Account deletion UI
-- **From:** Epic 02 sub-spec 2a (Task 02-03 user profile backend)
-- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a.
-- **When:** Future Epic 02 GDPR sub-spec, or Epic 07
-- **Notes:** Dashboard has no delete button. Backend endpoint returns 501.
-
-### Notification preferences editor
-- **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
-- **Why:** `CurrentUser.notifyEmail` and `notifySlIm` are returned by `/me` but no UI exposes them for editing. Editor design blocked on the notifications system coming online.
-- **When:** Epic 07 (settings expansion) or Epic 09 (notifications)
-- **Notes:** Shape of the JSON objects is defined — just needs a form.
+- **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b. Not a browse/discovery concern — does not belong in Epic 07.
+- **When:** Epic 09 Task 02 (email notifications) — the re-verification flow reuses the same transactional-email plumbing Task 02 stands up (templates, SMTP client, signed-token links). Ship the email-change flow as a follow-on within Epic 09 once that plumbing exists.
+- **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`. Adding a new email column + verification token table can wait for the same migration pass that lands email-notification persistence.
 
 ### Realty group badge on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
@@ -75,23 +51,11 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite
 - **Notes:** Not in the Phase 1 design document.
 
-### Profile page SEO metadata (OpenGraph)
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Nice-to-have polish. Next.js 16 `generateMetadata` could emit OpenGraph tags for social sharing.
-- **When:** Epic 07 or later
-- **Notes:** Touchpoint is `frontend/src/app/users/[id]/page.tsx`.
-
 ### Drag-drop animation polish on ProfilePictureUploader
 - **From:** Epic 02 sub-spec 2b (Task 02-04 profile picture upload)
 - **Why:** Current drop zone uses a static border highlight. Polished version would animate border-color transition and a scale effect on drop.
 - **When:** Indefinite (cosmetic)
 - **Notes:** `frontend/src/components/user/ProfilePictureUploader.tsx`.
-
-### Recent reviews section on public profile
-- **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
-- **Why:** Review data requires the reviews model from Epic 06. Public profile ships with empty-state placeholder.
-- **When:** Epic 06 (Ratings & Reputation)
-- **Notes:** `PublicProfileView` renders `<EmptyState icon={MessageSquare}>` for this section.
 
 ### PARCEL code generation rate tracking (fraud signal)
 - **From:** Epic 03 sub-spec 1 (Method B rezzable callback flow)
@@ -110,23 +74,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   The bot half of this item (primary-escrow-uuid) landed in Epic 06 Task 3
   via `BotStartupValidator` and is no longer deferred. See FOOTGUNS §F.47.
 
-### Notifications for suspension events
-- **From:** Epic 03 sub-spec 2 (ownership monitor SUSPENDED transition)
-- **Why:** When `SuspensionService.suspend()` flips an auction to SUSPENDED and writes a `FraudFlag` row, the seller learns about it only via the My Listings tab (`ListingSummaryRow`'s inline red callout). No email / SL IM / in-app notification is fired. This is fine for Phase 1 (the dashboard is the only communication surface) but a production launch deserves a real "your listing was suspended — contact support" email with the fraud reason summarized.
-- **When:** Epic 09 (Notifications) — hook `SuspensionService.suspend()` into the notification publisher once the email + SL IM channels exist.
-- **Notes:** The notification template should NOT include the full FraudFlag `evidence_json` payload (that's admin-only — leaking it could help an attacker calibrate their next attempt). Stick to a human-readable reason string from `FraudFlagReason`.
-
-### Admin dashboard for fraud_flag resolution
-- **From:** Epic 03 sub-spec 2 (FraudFlag entity + SuspensionService)
-- **Why:** `FraudFlag` has `resolved` / `resolvedAt` / `resolvedBy` columns and a `jsonb evidence_json` payload ready for admin review, but no UI reads or writes them. Ownership-check suspensions accumulate silently until an admin exists to triage them.
-- **When:** Epic 10 (Admin & Moderation) — build a `/admin/fraud-flags` page that lists open flags, shows the evidence blob formatted, and lets an admin resolve or un-suspend (flip the auction back to ACTIVE and mark the flag resolved).
-- **Notes:** Un-suspend is a sensitive action — only a user with an admin role (tracked in a separate `User.role` or similar) should see the button. The admin role model itself is also Epic 10 scope.
-
-### Non-dev admin endpoint for ownership-monitor trigger
-- **From:** Epic 03 sub-spec 2 (DevOwnershipMonitorController)
-- **Why:** `POST /api/v1/dev/ownership-monitor/run` is `@Profile("dev")` — the only way to force an ownership sweep in prod is to wait for the next scheduled tick (default 15 minutes). Admins triaging a suspected fraud report need a "re-check this listing now" button that runs a single-auction check and returns the result synchronously.
-- **When:** Epic 10 (Admin & Moderation) — add `POST /api/v1/admin/auctions/{id}/recheck-ownership` gated on the admin role, delegating to `OwnershipCheckTask` for a single auction with the result summarized in the response body.
-- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification (see the manual-test plan in the Task 10 PR). The admin endpoint is a separate surface with different auth and a different response shape.
 
 ### Destructive-variant copy polish
 - **From:** Epic 03 sub-spec 2 (Task 9 review follow-up + Task 10 Button variant)
@@ -134,53 +81,18 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — upgrade when a second destructive use case arrives and the current shape pinches.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
-### N+1 on My Bids auction loading
-- **From:** Epic 04 sub-spec 1 (Task 8)
-- **Why:** `MyBidsService.findAuctionPage` loads auctions one-by-one via `AuctionRepository.findById` to trip the `@EntityGraph` on parcel + tags. `Auction.seller` is not in the EntityGraph and lazy-loads per-row, producing ~2 extra queries per auction on a page of 20 (up to ~43 queries total per page). At Phase 1 volumes this is acceptable (bounded by page size = 20) but is worth fixing before scale.
-- **When:** Near-term cleanup after sub-spec 2 frontend lands — likely the frontend will reveal whether seller display name is needed for every card.
-- **Notes:** Fix options: (a) add `seller` to the existing `@EntityGraph` on `findById` (affects all callers); (b) add a dedicated `findAllByIdWithParcelAndSeller(Collection<Long>)` query that `MyBidsService` uses instead of the per-id loop.
 
-### My Bids non-ACTIVE sort key deviation
-- **From:** Epic 04 sub-spec 1 (Task 8)
-- **Why:** Spec §10 specifies conditional `ORDER BY` using `CASE WHEN a.status = 'ACTIVE' THEN a.ends_at END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.ended_at END DESC`. The actual query uses unconditional `a.endsAt DESC, a.endedAt DESC`, which means non-ACTIVE auctions are ordered by `endsAt` first. At Phase 1 volumes the drift is small (snipe-extended auctions diverge by at most 2-60 minutes) but is a documented spec deviation.
-- **When:** Fix when sub-spec 2 frontend surfaces sort-order concerns, or during an Epic 04 cleanup pass.
-- **Notes:** Replace `a.endsAt DESC, a.endedAt DESC` with `CASE WHEN a.status = 'ACTIVE' THEN a.endsAt END DESC, CASE WHEN a.status != 'ACTIVE' THEN a.endedAt END DESC` (Postgres tolerates NULLs in CASE-based ORDER BY).
+### Region autocomplete for DistanceSearchBlock
+- **From:** Epic 07 sub-spec 2 (Task 2b)
+- **Why:** Phase 1 ships a free-form region text input with server-side validation on submit (REGION_NOT_FOUND surfaces inline under the input). Client-side autocomplete needs a new lightweight `/sl/regions/search?q=` endpoint, debounced input, keyboard nav, and a popover primitive — scope for its own design pass.
+- **When:** Phase 2 polish.
+- **Notes:** Touchpoint: `DistanceSearchBlock.tsx`.
 
-### Migrate Epic 02/03 write paths onto NotVerifiedException
-- **From:** Epic 04 sub-spec 1 (Task 2 — bid placement)
-- **Why:** `NotVerifiedException` was introduced to give the bid path a clean `NOT_VERIFIED` (403) error code. Pre-existing verification checks in `AuctionController.requireVerified`, parcel controllers, and other write paths still throw raw `AccessDeniedException` with inline message strings, producing `ACCESS_DENIED` instead of `NOT_VERIFIED`. Frontend UX distinguishing the two codes will only see `NOT_VERIFIED` from the bid path until the migration lands.
-- **When:** Near-term — trivially, a one-line swap at each existing call site. Deferred from Task 2 to keep the scope tight; pick up as a standalone cleanup task or roll into the Epic 04 sub-spec 2 frontend work when the UX for verification prompts is wired.
-- **Notes:** Search for `AccessDeniedException` call sites that include the string "verification required" (or equivalent) — those are the migration targets. `NotVerifiedException` already exists at `backend/src/main/java/com/slparcelauctions/backend/auction/exception/NotVerifiedException.java` and has an existing handler in `AuctionExceptionHandler.java`.
-
-### DESIGN.md §554 stale wording cleanup
-- **From:** Epic 04 sub-spec 1 (spec §15 follow-up)
-- **Why:** DESIGN.md §554 says "Bid history (anonymized or public - configurable)" — leftover wording from an earlier iteration of the spec. §1589-1591 explicitly resolves bidder identity visibility as public (display name + avatar, no anonymization toggle) and Epic 04 sub-spec 1 ships the public-identity behavior. Anyone grepping DESIGN.md for "anonymized" will hit a contradiction.
-- **When:** Next doc sweep / any epic that reopens DESIGN.md for structural edits.
-- **Notes:** One-sentence replacement — "Bid history (public — displayName + avatar only, no IP or full name)" lines up with the implemented behavior.
-
-### Outbid / won / reserve-not-met / auction-ended notifications
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** Epic 04 sub-spec 1 publishes the data sources — `Bid` rows carry `OUTBID` / `WON` / `LOST` derivable state, `Auction.endOutcome` carries `SOLD` / `RESERVE_NOT_MET` / `NO_BIDS` / `BOUGHT_NOW`, and the WS settlement + auction-ended envelopes broadcast the transitions. No email / SL IM fan-out exists yet. Bidders learn they've been outbid only by reloading the auction page or watching the live WS update; sellers learn the auction ended only by reloading My Listings.
-- **When:** Epic 09 (Notifications) — hook a `BidSettlementEnvelope` / `AuctionEndedEnvelope` listener into the notification publisher once email + SL IM channels exist.
-- **Notes:** The data sources are stable — `BidType`, `Auction.endOutcome`, `Auction.winnerUserId`, and the existing WS envelopes carry everything Epic 09 needs. No schema changes required on the Epic 04 side.
-
-### User-targeted WebSocket queues (`/user/{id}/queue/*`)
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** Phase 1 broadcasts use only the public `/topic/auction/{id}` destination. Personal events (e.g., "you were outbid on auction X" toast) are derived on the frontend by comparing the public envelope's `currentBidderId` against the logged-in user. Per-user STOMP queues (`/user/{id}/queue/outbid`, `/user/{id}/queue/won`) would let the backend push targeted events without a public broadcast and would integrate with Epic 09's notification fan-out.
-- **When:** Epic 09 (Notifications) — when email + SL IM + in-app push unify on a single publisher, add the user-queue destination at the same time for consistency.
-- **Notes:** The `JwtChannelInterceptor` already understands principal-gated destinations — adding `/user/**` to the gate is a small change. The frontend's `useStompSubscription` hook would grow a `/user/queue/*` variant.
-
-### Cancellation WS broadcast on active-auction cancel
-- **From:** Epic 04 sub-spec 1 (spec §15)
-- **Why:** When a seller cancels an ACTIVE auction with bids (rare — requires explicit confirmation through the sub-spec 2 cancel modal), no `/topic/auction/{id}` envelope is currently published. Bidders watching the auction detail page in real-time see no update until they reload. This is a consistency gap with the bid/end broadcasts that both publish on `afterCommit`.
-- **When:** Re-evaluate during Epic 04 sub-spec 2 when the frontend auction detail page lands and the UX for "auction cancelled while you were bidding" is in hand. May turn out that a banner on the next REST read is sufficient UX; may turn out a WS envelope is needed to interrupt mid-bid.
-- **Notes:** Currently visible via `GET /api/v1/auctions/{id}` returning `status=CANCELLED` and via the seller's My Listings on next page load. The data surface exists — only the broadcast is missing. `CancellationService.cancel` would register a `TransactionSynchronization.afterCommit` that publishes an `AuctionCancelledEnvelope` (new DTO).
-
-### Per-user public listings page `/users/{id}/listings`
-- **From:** Epic 04 sub-spec 2 (Task 9 `ActiveListingsSection` on public profile)
-- **Why:** The "View all" link from `ActiveListingsSection` on `/users/{id}` points at `/users/{id}/listings`, which does not exist yet. The active-listings section itself ships with a page-size-limited preview (top N listings returned by `GET /api/v1/users/{userId}/auctions?status=ACTIVE`). A dedicated paginated, filterable, sort-aware "all listings by this seller" page belongs to the Browse surface in Epic 07.
-- **When:** Epic 07 (Browse & Search).
-- **Notes:** Consider conditionally rendering the "View all" link as disabled / hidden until the route ships, so the anchor doesn't dead-end on a 404. Touchpoint: `frontend/src/components/user/ActiveListingsSection.tsx`. The endpoint `GET /api/v1/users/{userId}/auctions?status=ACTIVE` already exists (SUSPENDED always excluded server-side) and is the data source the Epic 07 page will consume.
+### Infinite-scroll on browse grid
+- **From:** Epic 07 sub-spec 2 (Task 2b)
+- **Why:** Phase 1 ships numbered pagination — shareable URLs, SSR-friendly, back-button sane. Infinite scroll introduces scroll-position restore, focus management, SR announcements that deserve their own scoped design pass.
+- **When:** Indefinite — trigger is user feedback demanding it. Consolidates with the existing BidHistory infinite-scroll deferral.
+- **Notes:** Touchpoint: `BrowseShell.tsx` + `useAuctionSearch`. React Query already supports `useInfiniteQuery`.
 
 ### Bid history infinite scroll
 - **From:** Epic 04 sub-spec 2 (Task 6 `BidHistory`)
@@ -194,12 +106,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 09 (Notifications) or Epic 10 (Admin & Moderation) — whichever ships the first observability surface. The data plane is a new `POST /api/v1/telemetry/ws-events` (authenticated, rate-limited) or equivalent, with the client batching events on `beforeunload`.
 - **Notes:** Current reconnect state lives in `frontend/src/lib/ws/client.ts` (`useConnectionState` hook). Adding telemetry is a small addition at the state-transition boundaries — the footwork is the backend storage + aggregation side.
 
-### Saved / watchlist "Curator Tray"
-- **From:** Epic 04 sub-spec 2 (spec §19 — design system reference to Curator Tray)
-- **Why:** The "Digital Curator" design system docs reference a "Curator Tray" — a pull-out drawer where logged-in users can stash saved / watched listings for later comparison. The auction detail page in sub-spec 2 ships without a "save" / "watchlist" button because the backing model (saved_auctions table, REST endpoints, hydration into the tray) is Browse-surface territory.
-- **When:** Epic 07 (Browse & Search) — the tray is cross-surface (any card anywhere in the app can flip its saved state) so it ships alongside the Browse data model.
-- **Notes:** Design reference: `docs/stitch_generated-design/DESIGN.md` section on Curator Tray. The auction detail page's `AuctionHeroGallery` and bid panel both have space reserved next to the title for a future heart/bookmark toggle — add the button when the model lands, do not shoehorn it in earlier.
-
 ### `BidSheet` swipe-to-dismiss
 - **From:** Epic 04 sub-spec 2 (spec §13 — mobile pattern)
 - **Why:** Intentionally out of scope. Spec §13 excludes swipe-to-dismiss to keep the dependency surface thin (no gesture library) and the A11y story tight. The drag handle on the sheet is `aria-hidden` and purely decorative.
@@ -211,24 +117,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Each new `@Scheduled` job added to the backend requires every existing `@SpringBootTest` to add a `slpa.<job>.enabled=false` line to its `@TestPropertySource` to prevent races with test seeding. Epic 05 sub-spec 1 alone added 3+ such jobs (ownership monitor, timeout, dispatcher) and each expansion touches 8-12 tests. Shared `@TestPropertySource` on an abstract base class, or an `@IntegrationTestDefaults` meta-annotation, would let future epics add schedulers without N-test sweeps.
 - **When:** Indefinite (infrastructure polish) — trigger is when another epic adds a scheduler that requires a new wave of per-test property disables.
 - **Notes:** Touchpoint: any `@SpringBootTest` in `backend/src/test/java` with a `slpa.*.enabled=false` entry on its `@TestPropertySource`. Alternative shapes: (a) `@ActiveProfiles("integration-test")` + an `application-integration-test.yml` that disables every scheduler by default; (b) `@Import(SchedulersDisabledConfig.class)` bean-override; (c) a new `@IntegrationTest` meta-annotation that composes `@SpringBootTest` + the common property set.
-
-### Richer outbid toast shape (warning variant + structured action button)
-- **From:** Epic 04 sub-spec 2 (Task 7 — `OutbidToastProvider`)
-- **Why:** Spec §15 prescribes `toast.warning({ title, description, action: { label: "Place a new bid", onClick: scrollToBidPanel } })`. The current `useToast()` primitive only exposes `success` / `error` variants with a plain string payload, so Task 7 shipped `toast.error("You've been outbid — current bid is L$X.")` plus an automatic `scrollIntoView` side-effect on the bid panel. Functional for Phase 1; loses the distinct warning tone and the explicit "Place a new bid" action button the spec specifies.
-- **When:** Epic 09 (Notifications) is the natural pull-in point — notification fan-out will want structured toast actions ("View listing" / "Dismiss") and a warning tone, so widening the Toast primitive becomes load-bearing there. A design-system sweep is an acceptable earlier trigger if one happens first.
-- **Notes:** Expansion path: widen `ToastKind` to `success | error | warning | info`, widen `ToastMessage` to accept `{ title, description, action?: { label, onClick } }`, update `ToastProvider` + `Toast` components accordingly. `OutbidToastProvider.maybeFire` then swaps its current single-string `toast.error` call for `toast.warning({ title: "You've been outbid", description: \`Current bid is L$${x}.\`, action: { label: "Place a new bid", onClick: scrollToBidPanel } })` and drops the imperative scroll-on-fire side-effect in favor of the action button. Component lives at `frontend/src/components/auction/OutbidToastProvider.tsx`; toast primitive at `frontend/src/components/ui/toast/` (approximate — confirm at pull-in time).
-
-### Shared-secret version rotation provenance on TerminalCommand
-- **From:** Epic 05 sub-spec 1 (Task 7)
-- **Why:** The `terminal_commands.shared_secret_version` column is reserved but no code populates or reads it. Used to stamp which secret version was in force at dispatch so admin tooling can reason about rotated-secret audit trails.
-- **When:** Epic 10 (Admin & Moderation) — wire alongside the admin secret-rotation endpoint already deferred.
-- **Notes:** Column is nullable today; no data loss. Touchpoint: `TerminalCommandService.queue(...)` + a future rotation endpoint that stamps the new version on in-flight commands.
-
-### FAILED ledger row on transport-failure stall
-- **From:** Epic 05 sub-spec 1 (Task 7 code review, M6)
-- **Why:** Terminal-reported failures write a FAILED `EscrowTransaction` row per attempt (audit trail). Transport-level failures (HTTP 5xx, connection refused, timeout) only set `last_error` on the command + bump `attemptCount`; the dispute timeline lacks visibility into transport failures that exhaust the retry budget. On the stall path (attempt 4), consider writing a FAILED ledger row so the dispute timeline records the stall uniformly.
-- **When:** Opportunistic — pull in during the next Epic 05 maintenance task, or alongside Epic 10 admin tooling when the dispute-timeline UI surfaces this asymmetry.
-- **Notes:** Touchpoint: `TerminalCommandDispatcherTask.dispatchOne` + `TerminalCommandService.applyCallback` (need to factor the FAILED ledger row build into a shared helper).
 
 ### HMAC-SHA256 terminal auth
 - **From:** Epic 05 sub-spec 1
@@ -242,39 +130,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — trigger is operational, not feature-driven.
 - **Notes:** `Terminal.region_name` column reserved. Router pluggable behind a `TerminalSelector` interface.
 
-### Notifications for escrow lifecycle events
-- **From:** Epic 05 sub-spec 1
-- **Why:** State transitions (FUNDED, TRANSFER_CONFIRMED, COMPLETED, EXPIRED, DISPUTED, FROZEN) and the 24h seller-transfer reminder log at INFO but fire no email / SL IM. Consistent with Epic 04's deferral.
-- **When:** Epic 09 (Notifications) — hook a subscriber on the escrow broadcast envelope stream.
-
-### Admin tooling for DISPUTED / FROZEN resolution + secret rotation
-- **From:** Epic 05 sub-spec 1
-- **Why:** No resume path from terminal states (DISPUTED, FROZEN) in sub-spec 1. Admin also has no in-app way to rotate `slpa.escrow.terminal-shared-secret` — rotation requires config edit + redeploy.
-- **When:** Epic 10 (Admin & Moderation).
-- **Notes:** Admin endpoints `POST /api/v1/admin/escrow/{id}/resolve-dispute`, `POST /api/v1/admin/escrow/{id}/unfreeze`, `POST /api/v1/admin/terminal/rotate-secret`. State machine gains `DISPUTED → FUNDED | TRANSFER_PENDING` and `FROZEN → TRANSFER_PENDING | EXPIRED` at admin's discretion.
-
-### Daily escrow balance reconciliation
-- **From:** Epic 05 sub-spec 1
-- **Why:** DESIGN.md §5.2 suggests "sum of pending escrow amounts should match the expected SL account balance." Sub-spec 1 writes every L$ movement to the `EscrowTransaction` ledger, so the data is there — just no job reconciles it against SL grid queries.
-- **When:** Epic 10 (Admin & Moderation).
-- **Notes:** Daily job that sums `EscrowTransaction` rows by type, queries SLPAEscrow account balance via World API, alerts on mismatch.
-
-### Retrofit existing Epic 03/04 code to Clock injection
-- **From:** Epic 05 sub-spec 1
-- **Why:** Sub-spec 1 code injects `Clock` and calls `OffsetDateTime.now(clock)` throughout. Existing Epic 03/04 services that use raw `OffsetDateTime.now()` are unaffected but can't be cleanly tested with a frozen clock. Out of scope for this sub-spec; retrofit when touched.
-- **When:** Opportunistic — pull in during the next maintenance pass that touches the affected services.
-
-### Dispute evidence attachments
-- **From:** Epic 05 sub-spec 2
-- **Why:** Sub-spec 2 ships a minimal dispute form (reasonCategory + 10-2000-char description). A real dispute workflow benefits from file uploads (screenshots), SL transaction references, an optional linked in-world chat log, and a timeline of prior attempts. The dispute route was deliberately scoped as a full page so these additions can land without re-architecting.
-- **When:** Epic 10 (Admin & Moderation) — at the same time the admin dispute-resolution tooling lands so both sides mature together.
-- **Notes:** Additions likely include file uploads (reuse Epic 02 avatar-upload's S3 path), optional `slTransactionKey` field for `PAYMENT_NOT_CREDITED` claims, evidence timeline. DTO expansion on `EscrowDisputeRequest` + new evidence entity on the backend.
-
-### `PAYMENT_NOT_CREDITED` dispute reconciliation
-- **From:** Epic 05 sub-spec 2 (design review)
-- **Why:** The reason category claims "I paid but escrow didn't advance," which is the class of claim that indicates a happy-path failure (L$ may have already left the winner's wallet). Automatic refund on this dispute category risks double-paying the winner if the original payment callback later lands via idempotent retry.
-- **When:** Epic 10 (Admin & Moderation) — alongside admin dispute-resolution tooling. The admin workflow must pull the SLPA terminal ledger balance, the winner's claimed `slTransactionKey` (see evidence-attachments opener above), and reconcile against the backend's `EscrowTransaction` ledger before any refund.
-- **Notes:** Until Epic 10, `PAYMENT_NOT_CREDITED` disputes transition to `DISPUTED` and sit awaiting manual review like every other category.
 
 ### Terminal locator on PAY ESCROW state
 - **From:** Epic 05 sub-spec 2 (`PendingStateCard` winner view)
@@ -287,29 +142,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Dashboard rows pick up `escrowState` changes via `refetchOnWindowFocus` + navigation — not via envelope-driven invalidation. Lags live state by up to ~30s on a stale tab. Acceptable for Phase 1.
 - **When:** Indefinite — only pull in if user feedback shows the lag feels wrong.
 - **Notes:** Implementation is ~30 LoC (named emitter + two subscriber hooks).
-
-### Admin pool health dashboard
-- **From:** Epic 06 (spec §1.2)
-- **Why:** Each bot container exposes `GET /health` with its
-  `SessionState`, but no admin page aggregates them. Ops must curl each
-  container directly (`docker compose exec bot-1 wget -O- http://localhost:8081/health`).
-- **When:** Epic 10 (Admin & Moderation) — fold into the broader admin
-  dashboard surface.
-- **Notes:** Aggregation endpoint shape: `GET /api/v1/admin/bot-pool/health`
-  returns `[{ botUuid, username, state, lastClaimAt, region }]`. Requires
-  a heartbeat mechanism — workers POST their state every ~60 s to a new
-  `POST /api/v1/bot/heartbeat` endpoint (same bearer auth), backend
-  persists in Redis with a TTL.
-
-### Notifications for bot-detected fraud
-- **From:** Epic 06 (spec §1.2)
-- **Why:** Bot-triggered `SuspensionService.suspendForBotObservation` writes
-  a FraudFlag row visible only in my-listings; no email / SL IM fires.
-  Consistent with Epic 04 / 05 deferrals.
-- **When:** Epic 09 (Notifications).
-- **Notes:** Hook the notification publisher into all three suspend call
-  sites + `EscrowService.freezeForFraud` and `markReviewRequired`. Do
-  NOT include the raw observation payload in the notification — admin-only.
 
 ### Per-worker auth tokens (`bot_workers` table)
 - **From:** Epic 06 brainstorm
@@ -373,6 +205,79 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** Tests are already structured per-outcome in
   `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
   tests without rewriting assertions.
+
+### Public StatsBar on homepage (activity-threshold gated)
+- **From:** Epic 07 sub-spec 2 (Task 3)
+- **Why:** Backend `GET /api/v1/stats/public` is live from sub-spec 1 but the homepage deliberately does not render a stats bar. Launching with low numbers ("2 active bidders") reads as a liability, not social proof. Re-enable once activity is strong enough that the numbers flatter the product.
+- **When:** Product decision — trigger is an activity threshold, not a technical readiness gate.
+- **Notes:** Touchpoint: `app/page.tsx`. Component to add: `StatsBar` in `components/marketing/`. `/stats/public` response shape already documented in sub-spec 1 §5.3.
+
+### Email channel for notifications
+- **Status:** Removed from roadmap. Re-add only on explicit user request.
+- **Reasoning:** SL natively forwards offline IMs to the user's registered email,
+  so the SL IM channel from Epic 09 sub-spec 3 covers the email use case at zero
+  additional infrastructure cost.
+- **If re-instated:** per-category templates (HTML + plain text), signed-token
+  unsubscribe, debounce/dedupe matching the coalesce pattern, email-change flow
+  (originally pending from Epic 02 sub-spec 2b).
+
+### Quiet hours UI for SL IM
+- **From:** Epic 09 sub-spec 3
+- **Why:** Columns `slImQuietStart` and `slImQuietEnd` exist on User entity
+  from Epic 02 sub-spec 2b; no UI consumes them and the dispatcher gate
+  ignores them. May tie to a future timezone/account-settings sub-spec; no
+  committed home yet. If unused for >12 months, drop the columns in a
+  dedicated cleanup sub-spec.
+- **When:** No committed phase.
+
+### HTTP-in push from backend to dispatcher for urgency
+- **From:** Epic 09 sub-spec 3
+- **Why:** Current design polls every 60 seconds — fine for the events
+  shipping today (worst case 60 s latency for outbid/won). If outbid latency
+  becomes a UX concern, register the dispatcher's HTTP-in URL with the
+  backend on startup and have the backend `llHTTPRequest` to it on
+  high-priority categories to wake an early poll.
+- **When:** Post-launch enhancement; needs the channel to have real traffic
+  and a real complaint before the complexity earns its keep.
+
+### Sub-day SL IM dispatcher health monitoring
+- **From:** Epic 09 sub-spec 3
+- **Why:** The expiry job's INFO log catches a dark dispatcher within 48 h. If
+  sub-day signal becomes important, options include: a `last_polled_at`
+  timestamp on a singleton `dispatcher_health` row written on each successful
+  poll, with an alarm scheduler that pages on `now - last_polled_at > 5 min`.
+- **When:** No committed phase. Out of scope until operational data shows the
+  48 h canary is insufficient.
+
+### `REPORT_THRESHOLD_REACHED` admin-targeted notification
+- **From:** Epic 10 sub-spec 2 brainstorm
+- **Why:** Sub-spec 2 ships the admin reports queue sorted by `reportCount DESC`, which surfaces high-report listings passively. If admins miss a listing that crosses 3+ open reports between queue refreshes, there's no proactive signal. A fan-out notification when a listing crosses the threshold would close that gap.
+- **When:** Indefinite — pull in once operational data shows admins are missing high-report listings. Gate on a configurable threshold property (e.g. `slpa.reports.alert-threshold=3`).
+- **Notes:** Implementation sketch: `AdminReportService.submitReport` increments `openReportCount`; if it crosses the threshold and no prior threshold notification exists for this listing, call `NotificationPublisher.reportThresholdReached(listing, adminIds)`. Needs a new `REPORT_THRESHOLD_REACHED` notification category.
+
+### Admin "Send notification to user" surface
+- **From:** Epic 10 sub-spec 2 (admin user-detail page design)
+- **Why:** Admins sometimes need to send a custom SL IM to a user outside of the automated notification categories (e.g., "your account was flagged for review"). No freeform message surface exists.
+- **When:** Indefinite — no committed phase. Add when a real operational need is demonstrated.
+- **Notes:** Implementation would be a new `POST /api/v1/admin/users/{id}/notify` endpoint + modal on the user-detail page. Requires rate limiting per target user to prevent admin harassment.
+
+### Frivolous-reporter automatic privilege revocation
+- **From:** Epic 10 sub-spec 2 brainstorm
+- **Why:** Sub-spec 2 ships `User.dismissedReportsCount` — the counter increments each time an admin dismisses one of a user's reports as frivolous. The counter is visible on the user-detail Moderation tab but no automatic threshold revocation is wired.
+- **When:** Indefinite — pull in once operational data shows a threshold is justified.
+- **Notes:** Counter is in place. Automatic revoke would be a flag (`User.reportingPrivilegeRevoked`) set when `dismissedReportsCount` crosses a configurable threshold, checked in `ListingReportService.submit`. Until then, admin can revoke manually via a future "ban from reporting" action.
+
+### Realtime ban broadcast / forced-logout WebSocket
+- **From:** Epic 10 sub-spec 2 design
+- **Why:** Sub-spec 2 ships ban enforcement on the next API call — a banned user is blocked on their next bid/list/etc. request after the Redis cache (5-min TTL) flushes. There's no forced-logout WebSocket push that immediately disconnects the user's session.
+- **When:** Indefinite — revisit if forced-logout latency becomes a user complaint (e.g., banned users continue to bid-spam within the 5-min cache window).
+- **Notes:** Implementation shape: `BanCacheInvalidator` publishes a `BAN_IMPOSED` event on create; a new `BanBroadcastService` sends a `tv-bump` to `/topic/user/{userId}/account-status`; the frontend's `AccountStatusWatcher` hook redirects on receipt. See FOOTGUNS §F.106 for the current TTL reasoning.
+
+### ProxyBid bidder fan-out from admin-cancel
+- **From:** Epic 10 sub-spec 2 brainstorm
+- **Why:** Sub-spec 2 ships admin-cancel with cause-neutral bidder fan-out via `listingCancelledBySellerFanout` for regular (manual) bidders. If proxy bidders exist, the current fan-out path also notifies them via the same `LISTING_CANCELLED_BY_SELLER` category reused for admin-cancel. If proxy-bid semantics are added in a future sub-spec, confirm the fan-out covers proxy-bidder edge cases (e.g., multiple proxy bids from the same user at different max amounts).
+- **When:** Indefinite — pull in when proxy bidding ships and operational data shows proxy-bidder notification gaps.
+- **Notes:** `NotificationPublisher.listingCancelledBySellerFanout` is the current fan-out method. Body strings are cause-neutral per FOOTGUNS §F.104.
 
 ---
 

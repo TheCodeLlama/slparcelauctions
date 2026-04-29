@@ -73,7 +73,9 @@ import javax.sql.DataSource;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidCancelRaceTest {
@@ -116,9 +118,11 @@ class BidCancelRaceTest {
                         stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
                     }
                     if (bidderId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
                     }
                     if (sellerId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                         stmt.execute("DELETE FROM users WHERE id = " + sellerId);
                     }
                 }
@@ -163,7 +167,7 @@ class BidCancelRaceTest {
                 go.await();
                 // CancellationService uses its own @Transactional; the test
                 // drives it directly so both threads contend on the row lock.
-                cancellationService.cancel(auctionId, "race-test");
+                cancellationService.cancel(auctionId, "race-test", null);
                 cancelSucceeded.set(true);
             } catch (Throwable t) {
                 cancelError.set(unwrap(t));
@@ -281,12 +285,13 @@ class BidCancelRaceTest {
                 .regionName("BidCancelRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

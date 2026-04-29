@@ -62,3 +62,15 @@ export {
 
 // Epic 05 sub-spec 2 additions (escrow page chrome)
 export { FileX } from "lucide-react";
+
+// Epic 07 sub-spec 2 additions (browse/search UI — heart overlay on ListingCard)
+export { Heart } from "lucide-react";
+
+// Epic 08 sub-spec 1 additions (reviews & reputation — flag/respond)
+export { Flag, CornerDownRight } from "lucide-react";
+
+// Epic 09 sub-spec 1 additions (in-app notifications)
+export { Bolt, Wallet, Trophy, AlertOctagon, Pause, Clock } from "lucide-react";
+
+// Epic 09 sub-spec 1 feed page (mobile filter drawer toggle)
+export { ListFilter as FilterIcon } from "lucide-react";

@@ -62,7 +62,7 @@ class BotTaskControllerMonitorSliceTest {
                 .id(9L)
                 .taskType(BotTaskType.MONITOR_AUCTION)
                 .status(BotTaskStatus.PENDING)
-                .auction(Auction.builder().id(42L).build())
+                .auction(Auction.builder().title("Test listing").id(42L).build())
                 .parcelUuid(UUID.randomUUID())
                 .sentinelPrice(999_999_999L)
                 .createdAt(OffsetDateTime.now())

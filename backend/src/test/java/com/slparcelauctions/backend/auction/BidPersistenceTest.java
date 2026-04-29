@@ -29,7 +29,11 @@ import jakarta.persistence.PersistenceContext;
  */
 @SpringBootTest
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
+})
 @Transactional
 class BidPersistenceTest {
 
@@ -121,7 +125,7 @@ class BidPersistenceTest {
                 .regionName("BidTestRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build();
@@ -129,6 +133,7 @@ class BidPersistenceTest {
 
     private static Auction newAuction(User seller, Parcel parcel) {
         return Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

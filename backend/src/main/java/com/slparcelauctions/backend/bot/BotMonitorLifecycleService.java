@@ -75,6 +75,17 @@ public class BotMonitorLifecycleService {
     }
 
     /**
+     * Re-engage MONITOR_AUCTION on a previously-suspended BOT-tier auction
+     * after admin reinstate. Mirrors {@link #onAuctionActivatedBot} since the
+     * spawn shape is identical; kept as a separate entry point so the call
+     * site reads correctly. No-op for non-BOT tiers.
+     */
+    @Transactional
+    public void onAuctionResumed(Auction auction) {
+        onAuctionActivatedBot(auction);
+    }
+
+    /**
      * Cancels live MONITOR_AUCTION rows on ended / suspended / cancelled
      * auctions. Safe to call unconditionally — no-op when no rows match.
      */

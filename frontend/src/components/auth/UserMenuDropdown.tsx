@@ -35,6 +35,9 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
       label: "Profile",
       onSelect: () => router.push("/profile"),
     },
+    ...(user.role === "ADMIN"
+      ? [{ label: "Admin", onSelect: () => router.push("/admin") }]
+      : []),
     {
       label: "Sign Out",
       onSelect: () => logout.mutate(),

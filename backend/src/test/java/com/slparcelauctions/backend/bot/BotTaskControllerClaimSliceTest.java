@@ -44,7 +44,7 @@ class BotTaskControllerClaimSliceTest {
     @Test
     void claim_withPendingTask_returns200WithTaskPayload() throws Exception {
         UUID botUuid = UUID.randomUUID();
-        Auction auction = Auction.builder().id(42L).build();
+        Auction auction = Auction.builder().title("Test listing").id(42L).build();
         BotTask task = BotTask.builder()
                 .id(7L)
                 .taskType(BotTaskType.VERIFY)

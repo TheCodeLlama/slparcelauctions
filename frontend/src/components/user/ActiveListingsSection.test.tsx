@@ -10,6 +10,7 @@ function listing(id: number, overrides: Partial<PublicAuctionResponse> = {}): Pu
   return {
     id,
     sellerId: 100,
+    title: "Featured Parcel Listing",
     parcel: {
       id,
       slParcelUuid: `00000000-0000-0000-0000-00000000000${id}`,
@@ -18,6 +19,9 @@ function listing(id: number, overrides: Partial<PublicAuctionResponse> = {}): Pu
       regionName: "Heterocera",
       gridX: 0,
       gridY: 0,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
       continentName: null,
       areaSqm: 1024,
       description: `Parcel ${id}`,

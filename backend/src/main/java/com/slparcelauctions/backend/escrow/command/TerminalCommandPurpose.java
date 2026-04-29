@@ -10,5 +10,6 @@ package com.slparcelauctions.backend.escrow.command;
  */
 public enum TerminalCommandPurpose {
     AUCTION_ESCROW,
-    LISTING_FEE_REFUND
+    LISTING_FEE_REFUND,
+    ADMIN_WITHDRAWAL
 }

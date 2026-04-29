@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -77,7 +78,7 @@ class ProxyBidServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher);
+        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();
@@ -85,6 +86,7 @@ class ProxyBidServiceTest {
                 .displayName("Bidder").verified(true).build();
 
         activeAuction = Auction.builder()
+                .title("Test listing")
                 .id(500L)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

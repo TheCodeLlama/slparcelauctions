@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -87,4 +89,99 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
                         com.slparcelauctions.backend.escrow.command.TerminalCommandStatus.FAILED))
             """)
     List<Long> findExpiredTransferPendingIds(@Param("now") OffsetDateTime now);
+
+    /**
+     * Every COMPLETED escrow where {@code userId} is either seller or
+     * winner AND the escrow completed strictly after the supplied
+     * threshold — i.e., the 14-day review window is still open. Backs
+     * the pending-reviews dashboard endpoint (Epic 08 sub-spec 1 §4.2).
+     * The caller filters out escrows the user already reviewed inside
+     * the service so an already-reviewed escrow does not round-trip
+     * through this method once the reviewer submits.
+     *
+     * <p>Ordered by {@code completedAt} ascending so the most-urgent
+     * rows (oldest {@code completedAt} = soonest {@code windowClosesAt}
+     * since the 14-day offset is constant) surface first in the
+     * dashboard list.
+     */
+    @Query("""
+            SELECT e FROM Escrow e
+            WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.COMPLETED
+              AND e.completedAt > :threshold
+              AND (e.auction.seller.id = :userId OR e.auction.winnerUserId = :userId)
+            ORDER BY e.completedAt ASC
+            """)
+    List<Escrow> findCompletedEscrowsForUser(
+            @Param("userId") Long userId,
+            @Param("threshold") OffsetDateTime threshold);
+
+    /**
+     * Admin dispute queue: all escrows in the given state ordered by disputedAt ascending
+     * (oldest open dispute first). Used by {@code AdminDisputeQueryService} when a
+     * specific status filter is supplied.
+     */
+    Page<Escrow> findByStateOrderByDisputedAtAsc(EscrowState state, Pageable pageable);
+
+    /**
+     * Admin dispute queue: all escrows in any of the given states ordered by disputedAt
+     * ascending. Used by {@code AdminDisputeQueryService} when no status filter is
+     * applied (defaults to DISPUTED + FROZEN).
+     */
+    Page<Escrow> findByStateInOrderByDisputedAtAsc(Collection<EscrowState> states, Pageable pageable);
+
+    long countByState(EscrowState state);
+
+    long countByStateNotIn(Collection<EscrowState> states);
+
+    /**
+     * Returns FUNDED escrows whose {@code transferDeadline} falls in the
+     * supplied window and whose {@code reminderSentAt} is null — i.e., the
+     * reminder has not yet been sent. Used by
+     * {@link com.slparcelauctions.backend.admin.infrastructure.reminders.EscrowTransferReminderScheduler}
+     * to fire a once-per-escrow transfer reminder.
+     */
+    @Query("""
+            SELECT e FROM Escrow e
+            WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.FUNDED
+              AND e.transferDeadline BETWEEN :rangeStart AND :rangeEnd
+              AND e.reminderSentAt IS NULL
+            """)
+    List<Escrow> findEscrowsApproachingTransferDeadline(
+            @Param("rangeStart") OffsetDateTime rangeStart,
+            @Param("rangeEnd") OffsetDateTime rangeEnd);
+
+    @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state = :state")
+    long sumFinalBidAmountByState(@Param("state") EscrowState state);
+
+    @Query("SELECT COALESCE(SUM(e.commissionAmt), 0) FROM Escrow e WHERE e.state = :state")
+    long sumCommissionAmtByState(@Param("state") EscrowState state);
+
+    /**
+     * Sums the {@code amount} column across all escrows whose state is in the
+     * given collection. Used by {@code ReconciliationService} to compute the
+     * total locked L$ (FUNDED + TRANSFER_PENDING + DISPUTED + FROZEN). Returns
+     * 0 when no rows match.
+     */
+    @Query("SELECT COALESCE(SUM(e.finalBidAmount), 0) FROM Escrow e WHERE e.state IN :states")
+    long sumAmountByStateIn(@Param("states") java.util.Collection<EscrowState> states);
+
+    /**
+     * Returns the IDs of escrows where the given user is involved (as either
+     * seller or winner) and the escrow state is one of the supplied open
+     * states. Used by
+     * {@link com.slparcelauctions.backend.user.deletion.UserDeletionService}
+     * to enforce the OPEN_ESCROWS precondition before account deletion.
+     *
+     * <p>Winner is identified via {@code auction.winnerUserId} (raw Long on
+     * {@link com.slparcelauctions.backend.auction.Auction}); seller is
+     * identified via {@code auction.seller.id}.
+     */
+    @Query("""
+            SELECT e.id FROM Escrow e
+            WHERE e.state IN :states
+              AND (e.auction.seller.id = :userId OR e.auction.winnerUserId = :userId)
+            """)
+    List<Long> findIdsByUserInvolvedAndStateIn(
+            @Param("userId") Long userId,
+            @Param("states") Collection<EscrowState> states);
 }

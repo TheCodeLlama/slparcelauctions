@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auth;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auth.dto.AuthResult;
 import com.slparcelauctions.backend.auth.dto.LoginRequest;
 import com.slparcelauctions.backend.auth.dto.RegisterRequest;
@@ -39,6 +40,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final BanCheckService banCheckService;
 
     // -------------------------------------------------------------------------
     // Register
@@ -57,6 +59,8 @@ public class AuthService {
      * @throws EmailAlreadyExistsException if the email is already in use
      */
     public AuthResult register(RegisterRequest request, HttpServletRequest httpReq) {
+        String ip = httpReq.getRemoteAddr();
+        banCheckService.assertNotBanned(ip, null);
         UserResponse created;
         try {
             created = userService.createUser(
@@ -90,6 +94,8 @@ public class AuthService {
      * @throws InvalidCredentialsException if the email is unknown or the password does not match
      */
     public AuthResult login(LoginRequest request, HttpServletRequest httpReq) {
+        String ip = httpReq.getRemoteAddr();
+        banCheckService.assertNotBanned(ip, null);
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(InvalidCredentialsException::new);
 
@@ -132,7 +138,7 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalStateException(
                         "User disappeared during token refresh: id=" + rotation.userId()));
 
-        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion(), user.getRole());
         String newAccessToken = jwtService.issueAccessToken(principal);
 
         return new AuthResult(newAccessToken, rotation.rawToken(), UserResponse.from(user));
@@ -179,7 +185,7 @@ public class AuthService {
         String userAgent = httpReq.getHeader("User-Agent");
         String ipAddress = httpReq.getRemoteAddr();
 
-        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion(), user.getRole());
         String accessToken = jwtService.issueAccessToken(principal);
 
         RefreshTokenService.IssuedRefreshToken issued =

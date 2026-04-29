@@ -223,9 +223,10 @@ class MyBidsServiceTest {
         org.mockito.Mockito.lenient().when(
                 bidRepo.findMyBidAuctionIdsUnfiltered(eq(USER_ID), any(Pageable.class)))
                 .thenReturn(idsPage);
-        for (Auction a : auctions) {
-            when(auctionRepo.findById(a.getId())).thenReturn(java.util.Optional.of(a));
-        }
+        // Bulk-load via parcel+seller graph replaces the previous per-id
+        // findById loop. Service zips back against original ids list to
+        // preserve page order, so the order returned here is irrelevant.
+        when(auctionRepo.findAllByIdWithParcelAndSeller(any())).thenReturn(auctions);
         when(bidRepo.findMyBidAggregatesForAuctions(eq(USER_ID), any()))
                 .thenReturn(aggregates);
     }

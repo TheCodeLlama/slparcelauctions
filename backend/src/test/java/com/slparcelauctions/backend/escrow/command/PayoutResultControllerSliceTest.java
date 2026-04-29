@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
@@ -40,13 +41,15 @@ import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
  * responses for failure branches. Six scenarios per plan.
  */
 @WebMvcTest(PayoutResultController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class,
+@Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class,
         JwtAuthenticationEntryPoint.class, EscrowExceptionHandler.class})
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
         "jwt.access-token-lifetime=PT15M",
-        "jwt.refresh-token-lifetime=P7D"
+        "jwt.refresh-token-lifetime=P7D",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class PayoutResultControllerSliceTest {
 

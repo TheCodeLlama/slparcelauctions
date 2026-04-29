@@ -7,13 +7,18 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.NotMainlandException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
@@ -23,6 +28,7 @@ import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 /**
@@ -58,6 +64,43 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException e,
+                                             HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Invalid value '" + e.getValue() + "' for parameter '" + e.getName() + "'.");
+        pd.setType(URI.create("https://slpa.example/problems/type-mismatch"));
+        pd.setTitle("Type mismatch");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "TYPE_MISMATCH");
+        return pd;
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ProblemDetail handleMethodValidation(HandlerMethodValidationException e,
+                                                HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request parameter validation failed.");
+        pd.setType(URI.create("https://slpa.example/problems/validation"));
+        pd.setTitle("Validation failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "VALIDATION_FAILED");
+        return pd;
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException e,
+                                                    HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request parameter validation failed.");
+        pd.setType(URI.create("https://slpa.example/problems/validation"));
+        pd.setTitle("Validation failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "VALIDATION_FAILED");
+        return pd;
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleNotReadable(HttpMessageNotReadableException e,
                                            HttpServletRequest req) {
@@ -82,6 +125,26 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    /**
+     * Mirrors the auction-package handler so {@link NotVerifiedException}
+     * thrown from non-auction controllers (e.g. {@code ParcelController})
+     * surfaces the same {@code NOT_VERIFIED} code instead of falling through
+     * to the {@code Exception.class} 500 catch-all. The auction-package
+     * handler retains the local mapping for in-package controllers; this
+     * global mapping is the safety net for everything else.
+     */
+    @ExceptionHandler(NotVerifiedException.class)
+    public ProblemDetail handleNotVerified(NotVerifiedException e,
+                                           HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/not-verified"));
+        pd.setTitle("Not Verified");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_VERIFIED");
+        return pd;
+    }
+
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ProblemDetail handleUserAlreadyExists(UserAlreadyExistsException e,
                                                   HttpServletRequest req) {
@@ -91,6 +154,18 @@ public class GlobalExceptionHandler {
         pd.setTitle("Conflict");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "CONFLICT");
+        return pd;
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    public ProblemDetail handleNoSuchElement(NoSuchElementException e,
+                                             HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/not-found"));
+        pd.setTitle("Not found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_FOUND");
         return pd;
     }
 
@@ -212,6 +287,28 @@ public class GlobalExceptionHandler {
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "SL_API_TIMEOUT");
         pd.setProperty("api", e.getApi());
+        return pd;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException e,
+                                               HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/bad-request"));
+        pd.setTitle("Bad request");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "BAD_REQUEST");
+        return pd;
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ProblemDetail handleNoResource(NoResourceFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Resource not found.");
+        pd.setType(URI.create("https://slpa.example/problems/not-found"));
+        pd.setTitle("Not found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_FOUND");
         return pd;
     }
 

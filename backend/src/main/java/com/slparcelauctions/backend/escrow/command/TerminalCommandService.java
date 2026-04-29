@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.admin.infrastructure.terminals.TerminalSecretService;
 import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
@@ -25,6 +26,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCompletedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowRefundCompletedEnvelope;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
 import com.slparcelauctions.backend.user.User;
@@ -67,7 +69,10 @@ public class TerminalCommandService {
     private final UserRepository userRepo;
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final NotificationPublisher notificationPublisher;
     private final Clock clock;
+    private final TerminalSecretService terminalSecretService;
+    private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -97,6 +102,27 @@ public class TerminalCommandService {
                 idempotencyKey("LFR", refund.getId(), TerminalCommandAction.REFUND, 1));
     }
 
+    /**
+     * Queues an admin WITHDRAW command. Called from
+     * {@code AdminWithdrawalService.requestWithdrawal} which already holds
+     * a transaction, so {@link Propagation#MANDATORY} enforces that the
+     * command row is atomically committed with the parent Withdrawal row.
+     * Uses primitive parameters to avoid a cross-package circular
+     * dependency with the admin withdrawals package.
+     *
+     * @param withdrawalId the synthetic PK of the parent Withdrawal row
+     * @param recipientUuid the SL avatar UUID of the withdrawal recipient
+     * @param amount the L$ amount to withdraw
+     * @return the saved {@link TerminalCommand} row
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public TerminalCommand queueWithdraw(Long withdrawalId, String recipientUuid, long amount) {
+        return queue(null, null,
+                TerminalCommandAction.WITHDRAW, TerminalCommandPurpose.ADMIN_WITHDRAWAL,
+                recipientUuid, amount,
+                "withdraw:" + withdrawalId);
+    }
+
     private String idempotencyKey(String prefix, Long id,
             TerminalCommandAction action, int seq) {
         return prefix + "-" + id + "-" + action.name() + "-" + seq;
@@ -105,7 +131,7 @@ public class TerminalCommandService {
     private TerminalCommand queue(Long escrowId, Long refundId,
             TerminalCommandAction action, TerminalCommandPurpose purpose,
             String recipientUuid, long amount, String idempotencyKey) {
-        TerminalCommand saved = cmdRepo.save(TerminalCommand.builder()
+        TerminalCommand cmd = TerminalCommand.builder()
                 .escrowId(escrowId)
                 .listingFeeRefundId(refundId)
                 .action(action)
@@ -117,7 +143,13 @@ public class TerminalCommandService {
                 .nextAttemptAt(OffsetDateTime.now(clock))
                 .attemptCount(0)
                 .requiresManualReview(false)
-                .build());
+                .build();
+        Integer currentVersion = terminalSecretService.current()
+                .map(s -> s.getVersion()).orElse(null);
+        if (currentVersion != null) {
+            cmd.setSharedSecretVersion(String.valueOf(currentVersion));
+        }
+        TerminalCommand saved = cmdRepo.save(cmd);
         log.info("Queued terminal command {}: action={}, purpose={}, escrowId={}, refundId={}, idempotencyKey={}",
                 saved.getId(), action, purpose, escrowId, refundId, idempotencyKey);
         return saved;
@@ -156,19 +188,15 @@ public class TerminalCommandService {
             // replay capture the failed attempt even if the next retry
             // eventually succeeds. The row is keyed to the originating
             // escrow / auction so the UI timeline surfaces it.
+            // ADMIN_WITHDRAWAL commands have no escrow row and are tracked
+            // in the Withdrawal entity instead — skip ledger write for them.
             Escrow escrow = cmd.getEscrowId() == null
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
-            ledgerRepo.save(EscrowTransaction.builder()
-                    .escrow(escrow)
-                    .auction(escrow == null ? null : escrow.getAuction())
-                    .type(ledgerTypeFor(cmd))
-                    .status(EscrowTransactionStatus.FAILED)
-                    .amount(cmd.getAmount())
-                    .terminalId(cmd.getTerminalId())
-                    .slTransactionId(req.slTransactionKey())
-                    .errorMessage(req.errorMessage())
-                    .build());
+            if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+                ledgerRepo.save(buildFailedLedgerRow(
+                        cmd, escrow, req.errorMessage(), req.slTransactionKey()));
+            }
 
             cmd.setLastError(req.errorMessage());
             if (cmd.getAttemptCount() < EscrowRetryPolicy.MAX_ATTEMPTS) {
@@ -186,6 +214,9 @@ public class TerminalCommandService {
                 if (escrow != null) {
                     publishStallAfterCommit(cmd, escrow, now);
                 }
+                if (cmd.getPurpose() == TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+                    withdrawalCallbackHandler.onFailure(cmd.getId(), req.errorMessage());
+                }
                 log.error("Terminal command {} STALLED after {} attempts: err={}",
                         cmd.getId(), cmd.getAttemptCount(), req.errorMessage());
             }
@@ -201,6 +232,8 @@ public class TerminalCommandService {
             handleEscrowRefundSuccess(cmd, slTxn, now);
         } else if (cmd.getPurpose() == TerminalCommandPurpose.LISTING_FEE_REFUND) {
             handleListingFeeRefundSuccess(cmd, slTxn, now);
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+            withdrawalCallbackHandler.onSuccess(cmd.getId());
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()
@@ -218,6 +251,18 @@ public class TerminalCommandService {
 
         // Cancel any live MONITOR_ESCROW rows. No-op for non-BOT escrows.
         monitorLifecycle.onEscrowTerminal(escrow);
+
+        // Epic 08 sub-spec 1 §3.4 / §6.1: track completed sales for the
+        // seller. The counter has been declared on User since Epic 02 but
+        // was never written; sub-spec 1 starts writing it so the
+        // completion-rate mapper + reputation aggregates have a real number
+        // to work with. Incremented inside the same transaction that flipped
+        // the escrow to COMPLETED so the counter cannot drift on a crash
+        // between steps.
+        User seller = escrow.getAuction().getSeller();
+        int prior = seller.getCompletedSales() == null ? 0 : seller.getCompletedSales();
+        seller.setCompletedSales(prior + 1);
+        userRepo.save(seller);
 
         // PAYOUT and COMMISSION land as separate ledger rows so audit and
         // accounting can bucket them independently. Spec §7.2.
@@ -249,6 +294,14 @@ public class TerminalCommandService {
         final Escrow finalEscrow = escrow;
         final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
+
+        // Notify seller that payout was received (ESCROW_PAYOUT → seller only).
+        notificationPublisher.escrowPayout(
+                finalEscrow.getAuction().getSeller().getId(),
+                finalEscrow.getAuction().getId(),
+                finalEscrow.getId(),
+                finalEscrow.getAuction().getTitle(),
+                cmd.getAmount());
     }
 
     private void handleEscrowRefundSuccess(TerminalCommand cmd, String slTxn, OffsetDateTime now) {
@@ -295,7 +348,34 @@ public class TerminalCommandService {
         // admin flow; the auction room has no reason to observe them.
     }
 
-    private EscrowTransactionType ledgerTypeFor(TerminalCommand cmd) {
+    /**
+     * Builds a FAILED {@link EscrowTransaction} ledger row for the given
+     * command + (optional) escrow + error context. Public + static so the
+     * dispatcher's transport-failure stall path can reuse the same row shape
+     * without duplicating the {@code .builder()} chain. Callers persist the
+     * returned entity via their own {@code EscrowTransactionRepository}.
+     *
+     * <p>Both branches that emit a FAILED row — terminal-reported failures
+     * (in this service) and transport-failure stalls (in the dispatcher) —
+     * route through this helper so the dispute timeline surfaces them
+     * uniformly.
+     */
+    public static EscrowTransaction buildFailedLedgerRow(
+            TerminalCommand cmd, Escrow escrow, String errorMessage,
+            String slTransactionId) {
+        return EscrowTransaction.builder()
+                .escrow(escrow)
+                .auction(escrow == null ? null : escrow.getAuction())
+                .type(ledgerTypeFor(cmd))
+                .status(EscrowTransactionStatus.FAILED)
+                .amount(cmd.getAmount())
+                .terminalId(cmd.getTerminalId())
+                .slTransactionId(slTransactionId)
+                .errorMessage(errorMessage)
+                .build();
+    }
+
+    private static EscrowTransactionType ledgerTypeFor(TerminalCommand cmd) {
         if (cmd.getPurpose() == TerminalCommandPurpose.LISTING_FEE_REFUND) {
             return EscrowTransactionType.LISTING_FEE_REFUND;
         }
@@ -309,6 +389,16 @@ public class TerminalCommandService {
         final EscrowPayoutStalledEnvelope env =
                 EscrowPayoutStalledEnvelope.of(cmd, escrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishPayoutStalled(env));
+
+        // Notify seller of the stalled payout — only for PAYOUT actions.
+        // REFUND stalls go to admin review; no seller-facing notification.
+        if (cmd.getAction() == TerminalCommandAction.PAYOUT) {
+            notificationPublisher.escrowPayoutStalled(
+                    escrow.getAuction().getSeller().getId(),
+                    escrow.getAuction().getId(),
+                    escrow.getId(),
+                    escrow.getAuction().getTitle());
+        }
     }
 
     private void registerAfterCommit(Runnable r) {

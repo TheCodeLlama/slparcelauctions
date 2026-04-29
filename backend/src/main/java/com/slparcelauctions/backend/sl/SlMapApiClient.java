@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.sl.dto.RegionResolution;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.RegionNotFoundException;
 
@@ -49,6 +50,39 @@ public class SlMapApiClient {
         this.capUuid = capUuid;
         this.retryAttempts = retryAttempts;
         this.retryBackoffMs = retryBackoffMs;
+    }
+
+    /**
+     * Synchronous tri-state lookup used by
+     * {@link CachedRegionResolver}. Wraps {@link #resolveRegion} and
+     * collapses its outcomes into a {@link RegionResolution} so the
+     * caller never has to inspect raw {@code WebClient} exceptions:
+     *
+     * <ul>
+     *   <li>upstream returned coords -> {@link RegionResolution.Found}</li>
+     *   <li>parse-empty / 404 -> {@link RegionResolution.NotFound}</li>
+     *   <li>5xx / timeout / network -> {@link RegionResolution.UpstreamError}</li>
+     * </ul>
+     *
+     * <p>The blocking {@code .block()} is intentional: the search path is
+     * already inside a Spring MVC servlet thread, and the resolver caches
+     * positive hits for 7 days, so the call is cheap in steady state.
+     */
+    public RegionResolution resolve(String regionName) {
+        try {
+            GridCoordinates coords = resolveRegion(regionName).block();
+            if (coords == null) {
+                return new RegionResolution.NotFound();
+            }
+            return new RegionResolution.Found(coords.gridX(), coords.gridY());
+        } catch (RegionNotFoundException e) {
+            return new RegionResolution.NotFound();
+        } catch (WebClientResponseException.NotFound e) {
+            return new RegionResolution.NotFound();
+        } catch (Exception e) {
+            log.warn("Map API upstream error resolving '{}': {}", regionName, e.toString());
+            return new RegionResolution.UpstreamError(e.toString());
+        }
     }
 
     public Mono<GridCoordinates> resolveRegion(String regionName) {

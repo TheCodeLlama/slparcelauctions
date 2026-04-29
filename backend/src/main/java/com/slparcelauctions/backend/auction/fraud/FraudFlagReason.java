@@ -63,5 +63,12 @@ public enum FraudFlagReason {
      * (default 3). Seller has revoked bot access — treated as fraud on
      * active auctions; the escrow flow uses markReviewRequired instead.
      */
-    BOT_ACCESS_REVOKED
+    BOT_ACCESS_REVOKED,
+    /**
+     * Raised by the post-cancel ownership watcher (Epic 08 sub-spec 2 §6) when
+     * a CANCELLED auction's parcel ownership flips to a non-seller avatar
+     * within {@code slpa.cancellation.post-cancel-watch-hours} of cancellation
+     * (default 48h). Strong signal of an off-platform deal.
+     */
+    CANCEL_AND_SELL
 }

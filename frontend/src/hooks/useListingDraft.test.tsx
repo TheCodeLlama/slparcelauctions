@@ -17,6 +17,9 @@ const sampleParcel: ParcelDto = {
   regionName: "Heterocera",
   gridX: 1000,
   gridY: 1000,
+  positionX: 128,
+  positionY: 128,
+  positionZ: 0,
   continentName: "Heterocera",
   areaSqm: 1024,
   description: "Beachfront retreat",
@@ -35,6 +38,7 @@ function sellerResponse(
   return {
     id: 7,
     sellerId: 42,
+    title: "Featured Parcel Listing",
     parcel: sampleParcel,
     status: "DRAFT",
     verificationMethod: null,

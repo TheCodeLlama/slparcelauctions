@@ -1,17 +1,22 @@
 package com.slparcelauctions.backend.escrow;
 
+import java.util.List;
+
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
+import com.slparcelauctions.backend.escrow.dto.SellerEvidenceRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,11 +43,27 @@ public class EscrowController {
         return ResponseEntity.ok(escrowService.getStatus(auctionId, principal.userId()));
     }
 
-    @PostMapping("/dispute")
+    @PostMapping(path = "/dispute", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<EscrowStatusResponse> fileDispute(
             @PathVariable Long auctionId,
-            @Valid @RequestBody EscrowDisputeRequest body,
+            @RequestPart("body") @Valid EscrowDisputeRequest body,
+            @RequestPart(name = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal AuthPrincipal principal) {
-        return ResponseEntity.ok(escrowService.fileDispute(auctionId, body, principal.userId()));
+        return ResponseEntity.ok(escrowService.fileDispute(
+                auctionId, body, principal.userId(),
+                files != null ? files : List.of()));
+    }
+
+    @PostMapping(path = "/dispute/seller-evidence",
+                 consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<EscrowStatusResponse> submitSellerEvidence(
+            @PathVariable Long auctionId,
+            @RequestPart("body") @Valid SellerEvidenceRequest body,
+            @RequestPart(name = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        Long escrowId = escrowService.findEscrowIdByAuctionId(auctionId);
+        return ResponseEntity.ok(escrowService.submitSellerEvidence(
+                escrowId, principal.userId(), body,
+                files != null ? files : List.of()));
     }
 }

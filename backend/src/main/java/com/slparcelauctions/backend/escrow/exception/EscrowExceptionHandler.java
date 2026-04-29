@@ -10,6 +10,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
+import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
+import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceAlreadySubmittedException;
+import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceImageContentTypeException;
+import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceImageTooLargeException;
+import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceTooManyImagesException;
+import com.slparcelauctions.backend.escrow.dispute.exception.NotSellerOfEscrowException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -76,6 +82,64 @@ public class EscrowExceptionHandler {
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "TERMINAL_COMMAND_NOT_FOUND");
         pd.setProperty("idempotencyKey", e.getIdempotencyKey());
+        return pd;
+    }
+
+    @ExceptionHandler(NotSellerOfEscrowException.class)
+    public ProblemDetail handleNotSeller(NotSellerOfEscrowException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Not Seller of Escrow");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "NOT_SELLER");
+        return pd;
+    }
+
+    @ExceptionHandler(EscrowNotDisputedException.class)
+    public ProblemDetail handleNotDisputed(EscrowNotDisputedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Escrow Not Disputed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "ESCROW_NOT_DISPUTED");
+        return pd;
+    }
+
+    @ExceptionHandler(EvidenceAlreadySubmittedException.class)
+    public ProblemDetail handleAlreadySubmitted(
+            EvidenceAlreadySubmittedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Evidence Already Submitted");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "EVIDENCE_ALREADY_SUBMITTED");
+        return pd;
+    }
+
+    @ExceptionHandler(EvidenceTooManyImagesException.class)
+    public ProblemDetail handleTooManyImages(
+            EvidenceTooManyImagesException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Too Many Evidence Images");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "EVIDENCE_TOO_MANY_IMAGES");
+        return pd;
+    }
+
+    @ExceptionHandler(EvidenceImageTooLargeException.class)
+    public ProblemDetail handleImageTooLarge(
+            EvidenceImageTooLargeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Evidence Image Too Large");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "EVIDENCE_IMAGE_TOO_LARGE");
+        return pd;
+    }
+
+    @ExceptionHandler(EvidenceImageContentTypeException.class)
+    public ProblemDetail handleBadContentType(
+            EvidenceImageContentTypeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Evidence Image Content Type Not Allowed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "EVIDENCE_IMAGE_CONTENT_TYPE");
         return pd;
     }
 

@@ -7,7 +7,10 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -19,8 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
+import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
+import com.slparcelauctions.backend.auction.exception.SuspensionReason;
 
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
@@ -40,6 +48,8 @@ class AuctionServiceTest {
     @Mock ParcelRepository parcelRepo;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
+    @Mock BanCheckService banCheckService;
+    @Spy Clock clock = Clock.fixed(Instant.parse("2026-04-24T10:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks AuctionService service;
 
@@ -68,10 +78,10 @@ class AuctionServiceTest {
     @Test
     void create_validRequest_savesInDraft() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 168, false, null, "Nice parcel", Set.of());
 
-        Auction a = service.create(42L, req);
+        Auction a = service.create(42L, req, null);
 
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.DRAFT);
         assertThat(a.getSeller().getId()).isEqualTo(42L);
@@ -80,16 +90,210 @@ class AuctionServiceTest {
         assertThat(a.getCommissionRate()).isEqualByComparingTo(new BigDecimal("0.05"));
     }
 
+    // -------------------------------------------------------------------------
+    // create(): title field (Epic 07 sub-spec 1)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void create_persistsTitle() {
+        AuctionCreateRequest req = minimalCreateRequest("Premium Waterfront — Must Sell!");
+
+        Auction created = service.create(42L, req, null);
+
+        assertThat(created.getTitle()).isEqualTo("Premium Waterfront — Must Sell!");
+    }
+
+    @Test
+    void create_blankTitle_throwsValidation() {
+        // Service-side guard mirrors the @NotBlank on AuctionCreateRequest so
+        // callers that bypass MockMvc validation still hit a hard failure.
+        AuctionCreateRequest req = minimalCreateRequest("   ");
+
+        assertThatThrownBy(() -> service.create(42L, req, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_nullTitle_throwsValidation() {
+        // The @NotBlank on AuctionCreateRequest is enforced at the controller
+        // boundary; this asserts the service-direct guard rejects null too so
+        // the invariant holds for every entry point.
+        AuctionCreateRequest req = minimalCreateRequest(null);
+
+        assertThatThrownBy(() -> service.create(42L, req, null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void create_titleTooLong_throwsValidation() {
+        // Mirrors the @Size(max = 120) on AuctionCreateRequest.title — direct
+        // service callers must not be able to write past the column length.
+        String over120 = "x".repeat(121);
+        AuctionCreateRequest req = minimalCreateRequest(over120);
+
+        assertThatThrownBy(() -> service.create(42L, req, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 120 characters");
+    }
+
+    @Test
+    void update_titleTooLong_throwsValidation() {
+        // Symmetric with create's length guard so partial updates can't write
+        // past the column length even when the controller-side @Size is bypassed.
+        Auction existing = buildAuction(AuctionStatus.DRAFT);
+        when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
+
+        String over120 = "x".repeat(121);
+        AuctionUpdateRequest req = new AuctionUpdateRequest(
+                over120, null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.update(1L, 42L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("at most 120 characters");
+    }
+
+    @Test
+    void update_blankTitle_throwsValidation() {
+        // Per the partial-update contract, null = "don't touch" but an explicit
+        // blank must still be rejected so the @NotBlank invariant on create
+        // isn't laundered through the update path.
+        Auction existing = buildAuction(AuctionStatus.DRAFT);
+        when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
+
+        AuctionUpdateRequest req = new AuctionUpdateRequest(
+                "   ", null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.update(1L, 42L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("title must not be blank");
+    }
+
+    @Test
+    void update_nullTitle_leavesExistingUnchanged() {
+        Auction existing = buildAuction(AuctionStatus.DRAFT);
+        existing.setTitle("Original");
+        when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
+
+        AuctionUpdateRequest req = new AuctionUpdateRequest(
+                null, 2000L, null, null, null, null, null, null, null);
+        Auction updated = service.update(1L, 42L, req);
+
+        assertThat(updated.getTitle()).isEqualTo("Original");
+    }
+
+    @Test
+    void update_validTitle_overwrites() {
+        Auction existing = buildAuction(AuctionStatus.DRAFT);
+        existing.setTitle("Original");
+        when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
+
+        AuctionUpdateRequest req = new AuctionUpdateRequest(
+                "Renamed listing", null, null, null, null, null, null, null, null);
+        Auction updated = service.update(1L, 42L, req);
+
+        assertThat(updated.getTitle()).isEqualTo("Renamed listing");
+    }
+
+    // -------------------------------------------------------------------------
+    // create(): suspension gate — Epic 08 sub-spec 2 §7.7
+    //
+    // Order is most-restrictive-first: ban → timed → penalty. The first
+    // matching condition surfaces as the SellerSuspendedException's reason
+    // and rides the 403 ProblemDetail's "code" property.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void create_throwsPenaltyOwed_whenPenaltyBalancePositive() {
+        seller.setPenaltyBalanceOwed(500L);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req, null));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.PENALTY_OWED);
+    }
+
+    @Test
+    void create_throwsTimedSuspension_whenSuspensionUntilFuture() {
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req, null));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.TIMED_SUSPENSION);
+    }
+
+    @Test
+    void create_succeeds_whenSuspensionUntilInPast() {
+        // Boundary: an expired suspension does not gate the create.
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).minusSeconds(1));
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        Auction created = service.create(42L, req, null);
+
+        assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
+    }
+
+    @Test
+    void create_throwsPermanentBan_whenBannedFromListingTrue() {
+        seller.setBannedFromListing(true);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req, null));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.PERMANENT_BAN);
+    }
+
+    @Test
+    void create_throwsBan_evenWhenAlsoSuspendedAndOwesPenalty() {
+        // Order: ban → timed → penalty. The most-restrictive match wins.
+        seller.setBannedFromListing(true);
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
+        seller.setPenaltyBalanceOwed(500L);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req, null));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.PERMANENT_BAN);
+    }
+
+    @Test
+    void create_throwsTimed_whenAlsoOwesPenalty() {
+        // Timed beats penalty when both are set (and ban isn't).
+        seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
+        seller.setPenaltyBalanceOwed(500L);
+        AuctionCreateRequest req = minimalCreateRequest("Test listing");
+
+        SellerSuspendedException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                SellerSuspendedException.class,
+                () -> service.create(42L, req, null));
+
+        assertThat(ex.getReason()).isEqualTo(SuspensionReason.TIMED_SUSPENSION);
+    }
+
+    private AuctionCreateRequest minimalCreateRequest(String title) {
+        return new AuctionCreateRequest(
+                100L, title, 1000L, null, null,
+                168, false, null, null, Set.of());
+    }
+
     @Test
     void create_persistsAuctionWithNullVerificationMethod() {
         // Sub-spec 2 §7.1 — verificationMethod is no longer chosen at create time.
         // It is set on the verify trigger instead; a freshly-created DRAFT auction
         // must have a null verificationMethod.
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 500L, null, null,
+                100L, "Test listing", 500L, null, null,
                 72, true, 10, "Test", Set.of());
 
-        Auction created = service.create(42L, req);
+        Auction created = service.create(42L, req, null);
 
         assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
         assertThat(created.getVerificationMethod()).isNull();
@@ -98,10 +302,10 @@ class AuctionServiceTest {
     @Test
     void create_withSnipeProtect_setsSnipeWindow() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 168, true, 10, null, Set.of());
 
-        Auction a = service.create(42L, req);
+        Auction a = service.create(42L, req, null);
 
         assertThat(a.getSnipeProtect()).isTrue();
         assertThat(a.getSnipeWindowMin()).isEqualTo(10);
@@ -114,10 +318,10 @@ class AuctionServiceTest {
     @Test
     void create_reservePriceLessThanStarting_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, 500L, null,
+                100L, "Test listing", 1000L, 500L, null,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reservePrice must be >= startingBid");
     }
@@ -125,10 +329,10 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, 5000L, 4000L,
+                100L, "Test listing", 1000L, 5000L, 4000L,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("buyNowPrice must be >= max");
     }
@@ -136,10 +340,10 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanStartingWithNoReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, 500L,
+                100L, "Test listing", 1000L, null, 500L,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("buyNowPrice must be >= max");
     }
@@ -151,10 +355,10 @@ class AuctionServiceTest {
     @Test
     void create_durationNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 100, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("durationHours");
     }
@@ -166,10 +370,10 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectTrueWithNullWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 168, true, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("snipeWindowMin");
     }
@@ -177,10 +381,10 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectFalseWithWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 168, false, 10, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("snipeWindowMin must be null");
     }
@@ -188,10 +392,10 @@ class AuctionServiceTest {
     @Test
     void create_snipeWindowNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 168, true, 7, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("snipeWindowMin");
     }
@@ -208,10 +412,10 @@ class AuctionServiceTest {
                         .category("feature").active(true).sortOrder(1).build()));
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, 1000L, null, null,
+                100L, "Test listing", 1000L, null, null,
                 168, false, null, null, codes);
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown parcel tag codes")
                 .hasMessageContaining("unknown_tag");
@@ -221,10 +425,10 @@ class AuctionServiceTest {
     void create_parcelNotFound_throws() {
         when(parcelRepo.findById(999L)).thenReturn(Optional.empty());
         AuctionCreateRequest req = new AuctionCreateRequest(
-                999L, 1000L, null, null,
+                999L, "Test listing", 1000L, null, null,
                 168, false, null, null, Set.of());
 
-        assertThatThrownBy(() -> service.create(42L, req))
+        assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Parcel not found");
     }
@@ -239,7 +443,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                2000L, null, null, null, null, null, "updated desc", null);
+                null, 2000L, null, null, null, null, null, "updated desc", null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -252,7 +456,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                2000L, null, null, null, null, null, null, null);
+                null, 2000L, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -264,7 +468,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                2000L, null, null, null, null, null, null, null);
+                null, 2000L, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -276,7 +480,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                2000L, null, null, null, null, null, null, null);
+                null, 2000L, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -290,7 +494,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, null, null, false, null, null, null);
+                null, null, null, null, null, false, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getSnipeProtect()).isFalse();
@@ -329,6 +533,7 @@ class AuctionServiceTest {
 
     private Auction buildAuction(AuctionStatus status) {
         return Auction.builder()
+                .title("Test listing")
                 .id(1L).seller(seller).parcel(parcel).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)

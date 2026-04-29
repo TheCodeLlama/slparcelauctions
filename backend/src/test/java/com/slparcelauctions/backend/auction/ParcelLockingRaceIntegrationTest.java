@@ -57,7 +57,11 @@ import reactor.core.publisher.Mono;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
+})
 class ParcelLockingRaceIntegrationTest {
 
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
@@ -115,6 +119,7 @@ class ParcelLockingRaceIntegrationTest {
                         + "(SELECT id FROM auctions WHERE seller_id = " + sellerId + ")");
                 stmt.execute("DELETE FROM auctions WHERE seller_id = " + sellerId);
                 stmt.execute("DELETE FROM parcels WHERE id = " + parcel.getId());
+                stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM verification_codes WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM users WHERE id = " + sellerId);
@@ -182,7 +187,7 @@ class ParcelLockingRaceIntegrationTest {
         // this task; the lock-release semantics we care about are owned by the service.
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(ts -> {
-            cancellationService.cancel(a1Id, "switching");
+            cancellationService.cancel(a1Id, "switching", null);
         });
 
         // After the failed verify above, @Transactional rolled back the VERIFICATION_PENDING
@@ -260,7 +265,7 @@ class ParcelLockingRaceIntegrationTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, ownerUuid, ownerType,
                 "Locking Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
     }
 
@@ -269,6 +274,7 @@ class ParcelLockingRaceIntegrationTest {
         return tx.execute(ts -> {
             User seller = userRepository.findById(sellerId).orElseThrow();
             Auction a = Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.DRAFT_PAID)
@@ -331,7 +337,7 @@ class ParcelLockingRaceIntegrationTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, sellerAvatar, "agent",
                 "Locking Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 

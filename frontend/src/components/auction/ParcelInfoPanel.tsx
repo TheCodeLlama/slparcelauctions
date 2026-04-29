@@ -1,6 +1,8 @@
+import { type ReactNode } from "react";
 import { MapPin, Tag as TagIcon } from "@/components/ui/icons";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
+import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import type {
   PublicAuctionResponse,
   SellerAuctionResponse,
@@ -34,6 +36,8 @@ import { VisitInSecondLifeButton } from "./VisitInSecondLifeButton";
 interface Props {
   auction: PublicAuctionResponse | SellerAuctionResponse;
   className?: string;
+  /** Optional action rendered in the title row (e.g. ReportListingButton). */
+  reportButton?: ReactNode;
 }
 
 const MATURITY_MAP: Record<
@@ -54,9 +58,19 @@ const MATURITY_MAP: Record<
   },
 };
 
-export function ParcelInfoPanel({ auction, className }: Props) {
+export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
   const { parcel } = auction;
-  const title = parcel.description?.trim() || parcel.regionName;
+  // Seller-authored listing title wins the headline slot. Falls back to
+  // parcel.description (legacy pre-sub-spec-2 listings) and ultimately
+  // the region name when neither is set. Shared resolver keeps the same
+  // fallback chain as ListingPreviewCard + ListingSummaryRow so the
+  // three views stay consistent. No extra fallback needed —
+  // regionName is always present server-side.
+  const title = resolveListingHeadline({
+    title: auction.title,
+    parcelDescription: parcel.description,
+    regionName: parcel.regionName,
+  });
   const maturity = MATURITY_MAP[parcel.maturityRating];
   const showSnipe =
     auction.snipeProtect && auction.snipeWindowMin != null;
@@ -97,12 +111,15 @@ export function ParcelInfoPanel({ auction, className }: Props) {
             </span>
           </p>
         </div>
-        <VisitInSecondLifeButton
-          regionName={parcel.regionName}
-          positionX={x}
-          positionY={y}
-          positionZ={z}
-        />
+        <div className="flex items-center gap-2 shrink-0">
+          {reportButton}
+          <VisitInSecondLifeButton
+            regionName={parcel.regionName}
+            positionX={x}
+            positionY={y}
+            positionZ={z}
+          />
+        </div>
       </div>
 
       <div

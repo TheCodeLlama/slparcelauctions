@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ import com.slparcelauctions.backend.auction.exception.GroupLandRequiresSaleToBot
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
@@ -79,7 +81,7 @@ class AuctionVerificationServiceMethodATest {
                 new OwnershipCheckTimestampInitializer(props, fixed);
         service = new AuctionVerificationService(
                 auctionService, auctionRepo, worldApi, verificationCodeService,
-                botTaskService, botTaskRepo, ownershipInit, fixed, ESCROW_UUID, SENTINEL_PRICE);
+                botTaskService, botTaskRepo, ownershipInit, mock(NotificationPublisher.class), fixed, ESCROW_UUID, SENTINEL_PRICE);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
@@ -338,6 +340,7 @@ class AuctionVerificationServiceMethodATest {
 
     private Auction build(AuctionStatus status) {
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
@@ -356,7 +359,7 @@ class AuctionVerificationServiceMethodATest {
         return new ParcelMetadata(
                 PARCEL_UUID, owner, ownerType,
                 "Test Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
     }
 }

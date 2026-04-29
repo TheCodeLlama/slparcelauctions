@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction.monitoring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.CancellationLogRepository;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
@@ -53,6 +55,7 @@ class OwnershipCheckTaskTest {
     @Mock AuctionRepository auctionRepo;
     @Mock SlWorldApiClient worldApi;
     @Mock SuspensionService suspensionService;
+    @Mock CancellationLogRepository cancellationLogRepo;
 
     OwnershipCheckTask task;
     Clock fixed;
@@ -60,7 +63,8 @@ class OwnershipCheckTaskTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        task = new OwnershipCheckTask(auctionRepo, worldApi, suspensionService, fixed);
+        task = new OwnershipCheckTask(auctionRepo, worldApi, suspensionService,
+                cancellationLogRepo, fixed);
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
     }
@@ -154,6 +158,98 @@ class OwnershipCheckTaskTest {
         verify(auctionRepo, never()).save(any(Auction.class));
     }
 
+    // -------------------------------------------------------------------------
+    // Post-cancel watcher path — Epic 08 sub-spec 2 §6
+    // -------------------------------------------------------------------------
+
+    @Test
+    void cancelledWatchOpen_mismatch_raisesCancelAndSellFlag_clearsWatchUntil() {
+        Auction a = buildActive();
+        a.setStatus(AuctionStatus.CANCELLED);
+        OffsetDateTime watchUntil = OffsetDateTime.now(fixed).plusHours(24);
+        a.setPostCancelWatchUntil(watchUntil);
+        OffsetDateTime cancelledAt = OffsetDateTime.now(fixed).minusHours(4);
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(worldApi.fetchParcel(PARCEL_UUID))
+                .thenReturn(Mono.just(meta(OTHER_AVATAR, "agent")));
+        com.slparcelauctions.backend.auction.CancellationLog log =
+                com.slparcelauctions.backend.auction.CancellationLog.builder()
+                        .id(7L).auction(a).seller(a.getSeller())
+                        .cancelledFromStatus("ACTIVE").hadBids(true)
+                        .cancelledAt(cancelledAt)
+                        .build();
+        when(cancellationLogRepo.findLatestByAuctionId(eq(AUCTION_ID), any()))
+                .thenReturn(java.util.List.of(log));
+
+        task.checkOne(AUCTION_ID);
+
+        verify(suspensionService).raiseCancelAndSellFlag(a, OTHER_AVATAR, cancelledAt);
+        // Watch window cleared so subsequent ticks don't re-flag.
+        assertThat(a.getPostCancelWatchUntil()).isNull();
+        // Status stays CANCELLED — the ACTIVE-only suspension flow does not run.
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.CANCELLED);
+        // Last check timestamp stamped so cadence gate is satisfied for any
+        // remaining (pointless, post-clear) ticks.
+        assertThat(a.getLastOwnershipCheckAt()).isEqualTo(OffsetDateTime.now(fixed));
+        verify(auctionRepo).save(a);
+        // Should NOT route through the ACTIVE-suspension path.
+        verify(suspensionService, never()).suspendForOwnershipChange(any(Auction.class), any());
+    }
+
+    @Test
+    void cancelledWatchOpen_ownerMatches_doesNotRaiseFlag() {
+        // Seller re-buys their own parcel within 48h — alt-account round-trip
+        // edge case from spec §6.4. Owner still resolves to seller's avatar
+        // UUID, so no flag raised.
+        Auction a = buildActive();
+        a.setStatus(AuctionStatus.CANCELLED);
+        a.setPostCancelWatchUntil(OffsetDateTime.now(fixed).plusHours(24));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(worldApi.fetchParcel(PARCEL_UUID))
+                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+
+        task.checkOne(AUCTION_ID);
+
+        verify(suspensionService, never()).raiseCancelAndSellFlag(any(), any(), any());
+        // Watch window stays open — no flag, no clear.
+        assertThat(a.getPostCancelWatchUntil()).isNotNull();
+        // But the cadence timestamp advanced.
+        assertThat(a.getLastOwnershipCheckAt()).isEqualTo(OffsetDateTime.now(fixed));
+        verify(auctionRepo).save(a);
+    }
+
+    @Test
+    void cancelledWatchExpired_shortCircuits_noWorldApiCall() {
+        // Belt-and-braces guard: even if the scheduler dispatched an id
+        // whose watch window has since closed (race between query and
+        // async execution), the task itself short-circuits.
+        Auction a = buildActive();
+        a.setStatus(AuctionStatus.CANCELLED);
+        a.setPostCancelWatchUntil(OffsetDateTime.now(fixed).minusMinutes(1));
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+
+        task.checkOne(AUCTION_ID);
+
+        verifyNoInteractions(worldApi);
+        verifyNoInteractions(suspensionService);
+    }
+
+    @Test
+    void cancelledNoWatchUntil_shortCircuits_noWorldApiCall() {
+        // CANCELLED auctions without an open watch window don't get probed
+        // (e.g. pre-active or active-without-bids cancellations whose
+        // postCancelWatchUntil was never set).
+        Auction a = buildActive();
+        a.setStatus(AuctionStatus.CANCELLED);
+        a.setPostCancelWatchUntil(null);
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+
+        task.checkOne(AUCTION_ID);
+
+        verifyNoInteractions(worldApi);
+        verifyNoInteractions(suspensionService);
+    }
+
     @Test
     void missingAuction_shortCircuits_noWorldApiCall() {
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.empty());
@@ -191,6 +287,7 @@ class OwnershipCheckTaskTest {
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
                 .regionName("Coniston").continentName("Sansara").verified(true).build();
         return Auction.builder()
+                .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -208,7 +305,7 @@ class OwnershipCheckTaskTest {
         return new ParcelMetadata(
                 PARCEL_UUID, owner, ownerType,
                 "Test Parcel", "Coniston",
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
     }
 }

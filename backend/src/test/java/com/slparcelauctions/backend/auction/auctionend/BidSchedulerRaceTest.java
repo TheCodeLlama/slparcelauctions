@@ -70,7 +70,9 @@ import com.slparcelauctions.backend.user.UserRepository;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidSchedulerRaceTest {
@@ -81,6 +83,7 @@ class BidSchedulerRaceTest {
     @Autowired BidRepository bidRepository;
     @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
+    @Autowired com.slparcelauctions.backend.notification.NotificationRepository notificationRepository;
     @Autowired PlatformTransactionManager txManager;
 
     // The real publisher is a STOMP broker that isn't wired in the unit test
@@ -107,9 +110,11 @@ class BidSchedulerRaceTest {
                 parcelRepository.findById(parcelId).ifPresent(parcelRepository::delete);
             }
             if (bidderId != null) {
+                notificationRepository.deleteAllByUserId(bidderId);
                 userRepository.findById(bidderId).ifPresent(userRepository::delete);
             }
             if (sellerId != null) {
+                notificationRepository.deleteAllByUserId(sellerId);
                 userRepository.findById(sellerId).ifPresent(userRepository::delete);
             }
         });
@@ -257,7 +262,7 @@ class BidSchedulerRaceTest {
                 .regionName("RaceEndRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
@@ -266,6 +271,7 @@ class BidSchedulerRaceTest {
         // threads race past their 1.2s barrier, the clock has crossed it.
         OffsetDateTime endsAt = now.plusSeconds(1);
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

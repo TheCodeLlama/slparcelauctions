@@ -77,7 +77,9 @@ class AvatarImageProcessorTest {
         Map<Integer, byte[]> out = processor.process(input);
 
         assertThat(out).containsOnlyKeys(64, 128, 256);
-        // Proves webp-imageio-sejda is on the classpath and SPI-registered.
+        // Proves Scrimage's WebP decode path is wired up — the validator
+        // detects WebP via magic bytes and decodes via the Scrimage subprocess,
+        // and Thumbnailator handles the resize+PNG output downstream.
         assertThat(decode(out.get(256)).getWidth()).isEqualTo(256);
     }
 

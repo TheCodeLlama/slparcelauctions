@@ -3,26 +3,63 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isApiError } from "@/lib/api";
 import { listParcelTagGroups } from "@/lib/api/parcelTags";
 import { useListingDraft } from "@/hooks/useListingDraft";
+import { cn } from "@/lib/cn";
 import type { ParcelTagDto } from "@/types/parcelTag";
 import type {
   AuctionPhotoDto,
   SellerAuctionResponse,
 } from "@/types/auction";
+import type { SuspensionReasonCode } from "@/types/cancellation";
 import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
 import { ListingPreviewCard, type ListingPreviewAuction } from "./ListingPreviewCard";
 import { ListingWizardLayout } from "./ListingWizardLayout";
 import { ParcelLookupField } from "./ParcelLookupField";
 import { PARCEL_TAGS_KEY, TagSelector } from "./TagSelector";
 import { PhotoUploader } from "./PhotoUploader";
+import { SuspensionErrorModal } from "./SuspensionErrorModal";
+
+const SUSPENSION_CODES: ReadonlySet<SuspensionReasonCode> = new Set([
+  "PENALTY_OWED",
+  "TIMED_SUSPENSION",
+  "PERMANENT_BAN",
+]);
+
+/**
+ * Narrows a 403 ProblemDetail's {@code code} field to a known
+ * {@link SuspensionReasonCode}. The backend's
+ * {@code SellerSuspendedException} stamps one of three codes; any other
+ * 403 (e.g. a plain auth failure) returns {@code null} so the wizard
+ * falls back to its generic error path.
+ */
+function asSuspensionCode(value: unknown): SuspensionReasonCode | null {
+  if (typeof value !== "string") return null;
+  return SUSPENSION_CODES.has(value as SuspensionReasonCode)
+    ? (value as SuspensionReasonCode)
+    : null;
+}
 
 const WIZARD_STEPS = ["Configure", "Review & Submit"];
 const MAX_DESC = 5000;
+const MAX_TITLE = 120;
+const TITLE_WARN_AT = 100;
+
+/**
+ * Submit-path Zod schema for the Listing Title field. Trims surrounding
+ * whitespace before length-checking, so a title of spaces is rejected with
+ * "Title is required" rather than silently hitting the 120-char cap.
+ */
+const titleSchema = z
+  .string()
+  .trim()
+  .min(1, "Title is required")
+  .max(MAX_TITLE, `Title must be ${MAX_TITLE} characters or less`);
 
 export interface ListingWizardFormProps {
   mode: "create" | "edit";
@@ -56,6 +93,16 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  /**
+   * Backend-driven suspension gate (Epic 08 sub-spec 2 §8.4). Set to a
+   * {@link SuspensionReasonCode} when the wizard's save call returns a
+   * 403 carrying the structured {@code code} field — drives the
+   * focused {@link SuspensionErrorModal} instead of the inline
+   * {@link FormError}. Cleared by the modal's dismiss handler.
+   */
+  const [suspensionCode, setSuspensionCode] =
+    useState<SuspensionReasonCode | null>(null);
 
   const isEdit = mode === "edit";
 
@@ -115,6 +162,16 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
 
   async function runSave(): Promise<SellerAuctionResponse | null> {
     setError(null);
+    // Title validation mirrors the backend's 1..120 char constraint
+    // (sub-spec 1 Task 2 DTO). Surface the Zod message inline so the
+    // seller sees what's wrong without a round-trip.
+    const titleParse = titleSchema.safeParse(draft.state.title ?? "");
+    if (!titleParse.success) {
+      const first = titleParse.error.issues[0]?.message ?? "Invalid title.";
+      setTitleError(first);
+      return null;
+    }
+    setTitleError(null);
     const previousAuctionId = draft.state.auctionId;
     try {
       const saved = await draft.save();
@@ -134,6 +191,21 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       }
       return saved;
     } catch (e: unknown) {
+      // Listing-suspension gate (Epic 08 sub-spec 2 §8.4). Backend
+      // emits 403 with a structured {@code code} field on
+      // {@code SellerSuspendedException} — branch on the code rather
+      // than the status alone so other 403s (e.g. auth scoping) still
+      // surface the generic inline error. Suppress the inline copy
+      // when we route to the focused modal so the seller doesn't see
+      // both at once.
+      if (isApiError(e) && e.status === 403) {
+        const code = asSuspensionCode(e.problem.code);
+        if (code) {
+          setSuspensionCode(code);
+          setError(null);
+          return null;
+        }
+      }
       setError(
         isApiError(e)
           ? e.problem.detail ?? e.problem.title ?? "Save failed."
@@ -190,8 +262,20 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       ? "Update your listing details before paying the listing fee or relisting."
       : "Set up your parcel auction. You can save a draft and return to it any time.";
 
+  // Mounted alongside both step branches so the focused suspension modal
+  // (sub-spec 2 §8.4) appears regardless of whether the seller hit the
+  // 403 from the Configure-step "Save" or the Review-step "Submit".
+  const suspensionModal = (
+    <SuspensionErrorModal
+      code={suspensionCode}
+      onClose={() => setSuspensionCode(null)}
+    />
+  );
+
   if (step === "configure") {
     return (
+      <>
+      {suspensionModal}
       <ListingWizardLayout
         steps={WIZARD_STEPS}
         currentIndex={0}
@@ -219,6 +303,25 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       >
         <div className="flex flex-col gap-6">
           <FormError message={error ?? undefined} />
+          <section className="flex flex-col gap-2">
+            <label
+              htmlFor="listing-title"
+              className="text-label-md font-semibold tracking-wider uppercase text-on-surface-variant"
+            >
+              Listing Title
+            </label>
+            <p className="text-body-sm text-on-surface-variant">
+              A short, punchy headline for your listing (max 120 characters).
+            </p>
+            <TitleField
+              value={draft.state.title ?? ""}
+              onChange={(next) => {
+                draft.setTitle(next);
+                if (titleError) setTitleError(null);
+              }}
+              error={titleError}
+            />
+          </section>
           <section className="flex flex-col gap-2">
             <h2 className="text-title-md text-on-surface">Parcel</h2>
             <ParcelLookupField
@@ -268,12 +371,14 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
           )}
         </div>
       </ListingWizardLayout>
+      </>
     );
   }
 
   // Review step — render a read-only preview.
   const previewAuction = parcel
     ? buildPreviewAuction({
+        title: (draft.state.title ?? "").trim(),
         parcel,
         startingBid: draft.state.startingBid,
         reservePrice: draft.state.reservePrice,
@@ -288,37 +393,91 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     : null;
 
   return (
-    <ListingWizardLayout
-      steps={WIZARD_STEPS}
-      currentIndex={1}
-      title="Review & Submit"
-      description="Double-check your listing before continuing to activate."
-      footer={
-        <>
-          <Button
-            variant="secondary"
-            onClick={() => setStep("configure")}
-            disabled={submitting}
-          >
-            Back to edit
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            loading={submitting}
-            disabled={submitting || !parcel}
-          >
-            Submit
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <FormError message={error ?? undefined} />
-        {previewAuction && (
-          <ListingPreviewCard auction={previewAuction} isPreview />
+    <>
+      {suspensionModal}
+      <ListingWizardLayout
+        steps={WIZARD_STEPS}
+        currentIndex={1}
+        title="Review & Submit"
+        description="Double-check your listing before continuing to activate."
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setStep("configure")}
+              disabled={submitting}
+            >
+              Back to edit
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              loading={submitting}
+              disabled={submitting || !parcel}
+            >
+              Submit
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <FormError message={error ?? undefined} />
+          {previewAuction && (
+            <ListingPreviewCard auction={previewAuction} isPreview />
+          )}
+        </div>
+      </ListingWizardLayout>
+    </>
+  );
+}
+
+/**
+ * Title input with a live character counter. The counter renders muted by
+ * default and switches to {@code text-error} once the seller crosses
+ * {@link TITLE_WARN_AT} so they can see the cap approaching before they
+ * hit it. Submit-path validation (1..120 chars after trim) lives on the
+ * parent's {@link titleSchema}; this component only renders the raw
+ * counter + optional inline error. Kept inline because the wizard is the
+ * only consumer.
+ */
+function TitleField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  error: string | null;
+}) {
+  const length = value.length;
+  const warn = length >= TITLE_WARN_AT;
+  // The visible <label htmlFor="listing-title"> lives on the parent
+  // section (alongside the helper <p>); wiring through htmlFor means
+  // getByLabelText still resolves to this input and screen readers pick
+  // up a single accessible name.
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        id="listing-title"
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Give your listing a clear, compelling headline."
+        aria-invalid={error != null}
+        aria-describedby="listing-title-counter"
+        className="w-full rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary"
+      />
+      <span
+        id="listing-title-counter"
+        className={cn(
+          "self-end text-body-sm",
+          warn ? "text-error" : "text-on-surface-variant",
         )}
-      </div>
-    </ListingWizardLayout>
+        data-testid="title-counter"
+      >
+        {length} / {MAX_TITLE}
+      </span>
+      <FormError message={error ?? undefined} />
+    </div>
   );
 }
 
@@ -369,6 +528,7 @@ function DescriptionField({
  * like — critical in edit mode where the auction already has photos.
  */
 function buildPreviewAuction({
+  title,
   parcel,
   startingBid,
   reservePrice,
@@ -380,6 +540,7 @@ function buildPreviewAuction({
   stagedPhotos,
   uploadedPhotos,
 }: {
+  title: string;
   parcel: ListingPreviewAuction["parcel"];
   startingBid: number;
   reservePrice: number | null;
@@ -407,6 +568,7 @@ function buildPreviewAuction({
   });
 
   return {
+    title,
     parcel,
     startingBid,
     reservePrice,

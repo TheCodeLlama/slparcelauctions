@@ -24,6 +24,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.Auction;
@@ -62,7 +67,12 @@ import reactor.core.publisher.Mono;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "spring.jpa.properties.hibernate.generate_statistics=true",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
+})
 @Transactional
 class MyBidsIntegrationTest {
 
@@ -73,6 +83,7 @@ class MyBidsIntegrationTest {
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
     @Autowired UserRepository userRepository;
+    @PersistenceContext EntityManager entityManager;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -274,6 +285,7 @@ class MyBidsIntegrationTest {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcelForAuction)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
@@ -293,6 +305,114 @@ class MyBidsIntegrationTest {
         a.setEndsAt(endsAt);
         a.setOriginalEndsAt(endsAt);
         return auctionRepository.save(a);
+    }
+
+    // -------------------------------------------------------------------------
+    // Non-ACTIVE rows sort by endedAt (not endsAt). Spec §10 conditional
+    // ORDER BY — earlier deviation surfaced as DEFERRED_WORK ledger entry.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_endedRowsSortByEndedAt_notEndsAt() throws Exception {
+        // Seed two ENDED auctions whose endsAt order differs from endedAt order.
+        // auctionEarlyEndsAt: endsAt=now-10h, endedAt=now-1h (extended/snipe-protected)
+        // auctionLateEndsAt:  endsAt=now-2h,  endedAt=now-5h (closed earlier, no extension)
+        // If sorted by endsAt DESC: late (-2h) before early (-10h) -> WRONG
+        // If sorted by endedAt DESC: early (-1h) before late (-5h) -> CORRECT
+        Parcel pEarly = seedParcel(200);
+        Parcel pLate = seedParcel(201);
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Auction earlyEndsAtAuction = seedEndedAuctionWithTimes(
+                pEarly, now.minusHours(10), now.minusHours(1));
+        Auction lateEndsAtAuction = seedEndedAuctionWithTimes(
+                pLate, now.minusHours(2), now.minusHours(5));
+        saveBid(earlyEndsAtAuction, bidderId, 1500L);
+        saveBid(lateEndsAtAuction, bidderId, 1500L);
+
+        MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
+                        .param("status", "all")
+                        .header("Authorization", "Bearer " + bidderAccessToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("content");
+
+        // Walk content in returned order, capturing positions of our two seeded rows.
+        int earlyIdx = -1;
+        int lateIdx = -1;
+        for (int i = 0; i < content.size(); i++) {
+            long id = content.get(i).get("auction").get("id").asLong();
+            if (id == earlyEndsAtAuction.getId()) earlyIdx = i;
+            if (id == lateEndsAtAuction.getId()) lateIdx = i;
+        }
+        org.assertj.core.api.Assertions.assertThat(earlyIdx)
+                .as("auction with endedAt=now-1h must appear before auction with endedAt=now-5h")
+                .isGreaterThanOrEqualTo(0)
+                .isLessThan(lateIdx);
+    }
+
+    private Auction seedEndedAuctionWithTimes(
+            Parcel parcelForAuction, OffsetDateTime endsAt, OffsetDateTime endedAt) {
+        User seller = userRepository.findById(sellerId).orElseThrow();
+        OffsetDateTime startsAt = endsAt.minusDays(7);
+        Auction a = Auction.builder()
+                .title("Test listing")
+                .parcel(parcelForAuction)
+                .seller(seller)
+                .status(AuctionStatus.ENDED)
+                .endOutcome(AuctionEndOutcome.SOLD)
+                .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
+                .startingBid(1000L)
+                .durationHours(168)
+                .snipeProtect(false)
+                .listingFeePaid(true)
+                .currentBid(1500L)
+                .bidCount(1)
+                .consecutiveWorldApiFailures(0)
+                .commissionRate(new BigDecimal("0.05"))
+                .agentFeeRate(BigDecimal.ZERO)
+                .build();
+        a.setStartsAt(startsAt);
+        a.setEndsAt(endsAt);
+        a.setOriginalEndsAt(endsAt);
+        a.setEndedAt(endedAt);
+        return auctionRepository.save(a);
+    }
+
+    // -------------------------------------------------------------------------
+    // Hydration query-count guard: bulk-load auctions with parcel + seller in
+    // one query rather than per-id findById (which lazy-loaded seller per row).
+    // -------------------------------------------------------------------------
+
+    @Test
+    void getMyBids_hydratesAuctionsWithoutNPlusOne() throws Exception {
+        SessionFactory sessionFactory = entityManager.getEntityManagerFactory()
+                .unwrap(SessionFactory.class);
+        Statistics stats = sessionFactory.getStatistics();
+        stats.setStatisticsEnabled(true);
+        stats.clear();
+
+        mockMvc.perform(get("/api/v1/users/me/bids")
+                        .param("status", "all")
+                        .header("Authorization", "Bearer " + bidderAccessToken))
+                .andExpect(status().isOk());
+
+        // Seven auctions are seeded in @BeforeEach. The previous per-id
+        // findById loop with a lazy seller would entity-load Auction 7 times
+        // (one per id) and User 7 additional times (lazy seller fetch per
+        // row). The bulk-load path entity-loads Auction 7 times too (once
+        // per row in the result set), but seller is in the EntityGraph so
+        // User loads come from the same SELECT — they do not show up as
+        // additional load events. The strict guard here is on the entity
+        // *fetch* (= lazy initialization) count, which the old path drove
+        // up via lazy seller hydration and the new path leaves at zero.
+        long entityFetchCount = stats.getEntityFetchCount();
+        org.assertj.core.api.Assertions.assertThat(entityFetchCount)
+                .as("My Bids must not lazy-fetch seller per row (regression to N+1)")
+                .isLessThan(7L);
     }
 
     // -------------------------------------------------------------------------
@@ -398,6 +518,7 @@ class MyBidsIntegrationTest {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
+                .title("Test listing")
                 .parcel(parcelForAuction)
                 .seller(seller)
                 .status(status)
@@ -485,7 +606,7 @@ class MyBidsIntegrationTest {
                 "MyBids Parcel " + index, "MyBidsRegion" + index,
                 2048, "Seed description " + index,
                 "http://example.com/mybids-snap-" + index + ".jpg",
-                "MATURE",
+                "MODERATE",
                 128.0 + index, 64.0 + index, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 

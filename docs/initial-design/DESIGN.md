@@ -551,7 +551,7 @@ Each listing receives a verification tier badge visible to buyers. Tier is deter
 - All parcel metadata + seller description
 - Live current bid + bid count
 - Countdown timer
-- Bid history (anonymized or public - configurable)
+- Bid history (public — display name and avatar only, no IP or full name)
 - **Parcel layout map** - generated grid image showing parcel boundaries within the region (see Section 5.5)
 - **"Visit in Second Life" button** - links to SLURL (opens SL viewer and teleports user to parcel)
     - Web link format: `https://maps.secondlife.com/secondlife/Region%20Name/x/y/z`
@@ -1657,6 +1657,76 @@ Users can report any ACTIVE listing they believe is suspicious, fraudulent, or i
 - Review TOS sections on scripted L$ transactions, third-party services
 - **TODO:** Legal review before launch
 
+### Notes (Epic 10 sub-spec 1 — Admin foundation + fraud-flag triage, 2026-04-26)
+
+- Admin authority is a `User.role` enum (`USER` | `ADMIN`) propagated via
+  JWT `role` claim. Demoting an admin requires bumping `tokenVersion`
+  alongside the role flip (FOOTGUNS §F.100).
+
+- The bootstrap config (`slpa.admin.bootstrap-emails`) seeds initial
+  admins on app startup. It is a forward-push promotion mechanism —
+  removing an email from the config does NOT demote a user, and a
+  deliberately-demoted bootstrap email gets re-promoted on next restart
+  (FOOTGUNS §F.99). The four bootstrap emails (heath@slparcels.com,
+  heath@slparcelauctions.com, heath@hadronsoftware.com,
+  heath.barcus@gmail.com) live in `application.yml`.
+
+- Fraud-flag resolution flow: an admin can `dismiss` (mark resolved with
+  notes, no state change) or `reinstate` (mark resolved + flip auction
+  SUSPENDED→ACTIVE + extend `endsAt` by suspension duration + clear
+  `suspendedAt` + re-engage bot monitor for BOT-tier auctions + publish
+  `LISTING_REINSTATED` notification). Sibling open flags on the same
+  auction are NOT auto-resolved — admin walks them via the slide-over
+  prev/next arrows.
+
+- Time math on reinstate uses `Auction.suspendedAt` (set on first
+  suspension by `SuspensionService`, idempotent across re-flagging),
+  with fallback to `flag.detectedAt` for historical rows that
+  pre-existed the column.
+
+- Admin dashboard surfaces 9 numbers: 3 queue counts (open fraud flags,
+  pending escrow payments, active disputes) + 6 platform stats (active
+  listings, total users, active escrows, completed sales, gross L$,
+  commission L$). Lifetime totals only; no caching this sub-spec
+  (FOOTGUNS §F.102).
+
+- Reason badges color-coded by source family: ownership monitor (red),
+  bot monitor (amber/tertiary), escrow monitor (purple/secondary),
+  post-cancel watcher (teal/primary). Token mapping in
+  `frontend/src/lib/admin/reasonStyle.ts`.
+
+### Notes (Epic 10 sub-spec 2 — Reports + Bans + Admin enforcement + User mgmt, 2026-04-26)
+
+- Listing reports: users flag with subject + reason + details. Upsert by
+  (auction, reporter) — resubmit replaces and resets status to OPEN
+  (issue-still-happening escape valve). Reports are ALWAYS informational
+  — admin acts manually.
+- Admin queue is listing-grouped, sorted reportCount DESC. Listing-level
+  actions (warn/suspend/cancel) only touch OPEN reports — DISMISSED
+  reports preserve the admin's prior per-report decision (and the
+  reporter's frivolous counter increment).
+- Bans block at 6 paths: register, login, SL-verify, bid, listing
+  creation, listing cancellation. The cancel-path check prevents banned
+  sellers from circumventing via cancel-and-sell. Cached in Redis with
+  5-min TTL.
+- Multi-ban stacking: one user can have AVATAR + IP bans concurrently as
+  separate rows. Active = liftedAt IS NULL AND (expiresAt IS NULL OR > now).
+- Admin-cancel skips the seller penalty ladder. `CancellationLog.
+  cancelledByAdminId` excludes the row from `countPriorOffensesWithBids`.
+  Distinct seller notification (LISTING_REMOVED_BY_ADMIN) plus
+  cause-neutral bidder fan-out (LISTING_CANCELLED_BY_SELLER reused).
+- Admin reinstate is a shared primitive (`AdminAuctionService.reinstate`)
+  used by both fraud-flag-resolution (sub-spec 1) and the standalone
+  `/admin/auctions/{id}/reinstate` endpoint (called from the user-detail
+  Listings tab Reinstate button when status=SUSPENDED).
+- `admin_actions` audit table writes from sub-spec 2 forward. Sub-spec 1
+  fraud-flag actions continue to self-audit on FraudFlag.resolvedBy +
+  adminNotes — no backfill.
+- Frivolous reporter tracking: counter only this sub-spec
+  (`User.dismissedReportsCount`). Automatic privilege revocation deferred.
+- Self-demote returns 409 SELF_DEMOTE_FORBIDDEN. Promote doesn't need
+  the guard (you're already admin to reach the page).
+
 ---
 
 ## 9. LSL Script Communication Protocol
@@ -1838,6 +1908,31 @@ Users configure per-category preferences for two optional channels:
 - SL IMs sent via `llInstantMessage(avatar_uuid, message)` from terminal scripts
 - Backend checks user preferences before dispatching each notification
 - Unsubscribe link in every email (one-click, per-category)
+
+### Notes (Epic 09 sub-spec 1)
+
+- **Channel-gating is group-level.** The `notify_email` / `notify_sl_im` JSONB on User stores per-group ON/OFF (Bidding, Auction result, Escrow, Listing status, Reviews, Realty group, Marketing). Notification *rows* carry fine-grained `category` enum values for icon/copy/deeplink rendering — each category maps to exactly one group. Sub-spec 1 ships in-app (website) only; the channel columns are not read until sub-spec 2.
+- **Coalesce primitive.** Rows can carry an optional `coalesce_key`; events with the same key on an unread row UPSERT into that row rather than inserting a fresh one (Postgres `ON CONFLICT (user_id, coalesce_key) WHERE read = false DO UPDATE`). OUTBID is the first consumer — repeated outbids on the same auction collapse into one row, keeping the feed clean. See FOOTGUNS §F.94 for the xmax/insert-vs-update detection pattern.
+- **User-destination security pattern.** Clients subscribe to `/user/queue/notifications` and `/user/queue/account` — never a path that embeds a literal user id. The backend publishes via `convertAndSendToUser(String.valueOf(userId), "/queue/...", payload)`. Spring's `UserDestinationResolver` resolves the principal from the STOMP session established on CONNECT. Including a literal user id in the subscription path is a security hole. See FOOTGUNS §F.92.
+
+**Notes (Epic 09 sub-spec 3):**
+- The SL IM channel reuses the in-app coalesce key namespace; rows in
+  `sl_im_message` collapse during pendency (`WHERE status = 'PENDING'`),
+  with the same partial-unique-index pattern.
+- `SYSTEM` group bypasses preferences and master-mute, but never bypasses the
+  no-avatar floor.
+- `llInstantMessage` truncates at 1024 BYTES (UTF-8), not characters. The
+  backend's `SlImMessageBuilder` enforces this with body ellipsis, never
+  trimming the prefix or deeplink.
+- The polling/confirmation contract (`/api/v1/internal/sl-im/*`) uses a
+  shared secret distinct from the existing escrow-terminal secret. State
+  machines for `/delivered` and `/failed` are symmetric: PENDING →
+  terminal-status, idempotent on the matching status, 409 on the other
+  terminal statuses (FAILED/EXPIRED).
+- The system relies on SL's native offline-IM-to-email forwarding to cover
+  the email use case. Users with active SL email forwarding receive SLPA
+  notifications by email; users with disabled forwarding receive only
+  in-world IMs when online. The email channel is intentionally not built.
 
 ---
 

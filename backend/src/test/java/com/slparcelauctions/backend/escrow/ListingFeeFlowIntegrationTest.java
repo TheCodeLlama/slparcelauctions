@@ -86,7 +86,9 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // Keep the refund processor bean autowirable + slow its tick so
         // only the explicit drainPending() call we make executes.
         "slpa.escrow.listing-fee-refund-job.enabled=true",
-        "slpa.escrow.listing-fee-refund-job.fixed-delay=PT24H"
+        "slpa.escrow.listing-fee-refund-job.fixed-delay=PT24H",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ListingFeeFlowIntegrationTest {
@@ -334,12 +336,13 @@ class ListingFeeFlowIntegrationTest {
                     .regionName("ListingFeeRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.DRAFT)

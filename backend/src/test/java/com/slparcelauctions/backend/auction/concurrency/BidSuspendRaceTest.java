@@ -82,7 +82,9 @@ import reactor.core.publisher.Mono;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidSuspendRaceTest {
@@ -130,9 +132,11 @@ class BidSuspendRaceTest {
                         stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
                     }
                     if (bidderId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
                     }
                     if (sellerId != null) {
+                        stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                         stmt.execute("DELETE FROM users WHERE id = " + sellerId);
                     }
                 }
@@ -156,7 +160,7 @@ class BidSuspendRaceTest {
                 .thenReturn(Mono.just(new ParcelMetadata(
                         parcelUuid, attacker, "agent",
                         "Hijacked", "SuspendRaceRegion",
-                        1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                        1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                         128.0, 64.0, 22.0)));
 
         TransactionTemplate txTemplate = new TransactionTemplate(txManager);
@@ -295,12 +299,13 @@ class BidSuspendRaceTest {
                 .regionName("SuspendRaceRegion")
                 .continentName("Sansara")
                 .areaSqm(1024)
-                .maturityRating("MATURE")
+                .maturityRating("MODERATE")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepository.save(Auction.builder()
+                .title("Test listing")
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)

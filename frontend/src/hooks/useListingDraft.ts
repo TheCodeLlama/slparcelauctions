@@ -49,6 +49,14 @@ import type { ParcelDto } from "@/types/parcel";
 export interface DraftState {
   auctionId: number | null;
   status: AuctionStatus | null;
+  /**
+   * Seller-authored display title. `null` represents "seller hasn't typed
+   * anything yet" — the wizard UI distinguishes empty strings (seller
+   * cleared the field) from untouched, so keep the nullable slot rather
+   * than collapsing to `""`. Submit-path validation enforces 1..120 chars
+   * before {@link save} fires.
+   */
+  title: string | null;
   parcel: ParcelDto | null;
   startingBid: number;
   reservePrice: number | null;
@@ -67,6 +75,7 @@ export interface DraftState {
 const EMPTY: DraftState = {
   auctionId: null,
   status: null,
+  title: null,
   parcel: null,
   startingBid: 100,
   reservePrice: null,
@@ -96,6 +105,7 @@ function hydrateFromServer(a: SellerAuctionResponse): DraftState {
   return {
     auctionId: a.id,
     status: a.status,
+    title: a.title,
     parcel: a.parcel,
     startingBid: a.startingBid,
     reservePrice: a.reservePrice,
@@ -121,6 +131,13 @@ export interface UseListingDraftOptions {
 export interface UseListingDraftResult {
   state: DraftState;
   setParcel: (p: ParcelDto) => void;
+  /**
+   * Sets the listing title from the wizard's title input. Writes the raw
+   * value through — trim and length-validation happen at submit time via
+   * the wizard's Zod schema so a live char-counter can reflect what the
+   * seller is typing (including trailing whitespace).
+   */
+  setTitle: (value: string) => void;
   update: <K extends keyof DraftState>(key: K, value: DraftState[K]) => void;
   addStagedPhotos: (next: StagedPhoto[]) => void;
   removeUploadedPhoto: (id: number) => void;
@@ -284,6 +301,13 @@ export function useListingDraft(
     [update],
   );
 
+  const setTitle = useCallback(
+    (value: string) => {
+      update("title", value);
+    },
+    [update],
+  );
+
   const addStagedPhotos = useCallback(
     (next: StagedPhoto[]) => {
       setState((s) => ({ ...s, stagedPhotos: next, dirty: true }));
@@ -313,8 +337,15 @@ export function useListingDraft(
     if (!s.parcel) {
       throw new Error("Cannot save without a parcel selected.");
     }
+    // Title is required by the backend (sub-spec 1 Task 2). The wizard's
+    // submit-path Zod validation blocks save() when the field is empty, so
+    // reaching here with a null/blank title means either a non-wizard
+    // caller or a bug. Send the trimmed value; surface the backend's
+    // validation error verbatim if the server rejects it.
+    const trimmedTitle = (s.title ?? "").trim();
     const createBody: AuctionCreateRequest = {
       parcelId: s.parcel.id,
+      title: trimmedTitle,
       startingBid: s.startingBid,
       reservePrice: s.reservePrice,
       buyNowPrice: s.buyNowPrice,
@@ -408,6 +439,7 @@ export function useListingDraft(
     () => ({
       state,
       setParcel,
+      setTitle,
       update,
       addStagedPhotos,
       removeUploadedPhoto,
@@ -417,6 +449,7 @@ export function useListingDraft(
     [
       state,
       setParcel,
+      setTitle,
       update,
       addStagedPhotos,
       removeUploadedPhoto,

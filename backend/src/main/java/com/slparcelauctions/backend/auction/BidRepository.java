@@ -49,11 +49,12 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
               AND a.status IN :statuses
             GROUP BY b.auction.id,
                      CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END,
+                     a.status,
                      a.endsAt,
                      a.endedAt
             ORDER BY CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END ASC,
-                     a.endsAt DESC,
-                     a.endedAt DESC,
+                     CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endsAt END DESC,
+                     CASE WHEN a.status <> com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endedAt END DESC,
                      b.auction.id ASC
             """,
             countQuery = """
@@ -81,11 +82,12 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
             WHERE b.bidder.id = :userId
             GROUP BY b.auction.id,
                      CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END,
+                     a.status,
                      a.endsAt,
                      a.endedAt
             ORDER BY CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN 0 ELSE 1 END ASC,
-                     a.endsAt DESC,
-                     a.endedAt DESC,
+                     CASE WHEN a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endsAt END DESC,
+                     CASE WHEN a.status <> com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE THEN a.endedAt END DESC,
                      b.auction.id ASC
             """,
             countQuery = """
@@ -125,6 +127,14 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
             @Param("auctionIds") Collection<Long> auctionIds);
 
     /**
+     * Returns the distinct user IDs of all bidders who placed at least one bid
+     * on the given auction. Used by the auction-end settlement path to enumerate
+     * losing bidders who need an AUCTION_LOST notification.
+     */
+    @Query("SELECT DISTINCT b.bidder.id FROM Bid b WHERE b.auction.id = :auctionId")
+    List<Long> findDistinctBidderUserIdsByAuctionId(@Param("auctionId") Long auctionId);
+
+    /**
      * Bulk-deletes every bid for the given auction. Test-only helper used by
      * integration-test cleanup to avoid raw JDBC {@code DELETE} statements
      * that would silently stop covering new FK-child tables as Epic 05 lands.
@@ -132,4 +142,6 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
     @Modifying
     @Transactional
     int deleteAllByAuctionId(Long auctionId);
+
+    Page<Bid> findByBidderIdOrderByCreatedAtDesc(Long bidderId, Pageable pageable);
 }

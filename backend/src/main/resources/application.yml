@@ -11,12 +11,28 @@ server:
 spring:
   application:
     name: slpa-backend
+  # The community bucket4j-spring-boot-starter (com.giffing.*) targets Spring
+  # Boot 3 and references org.springframework.boot.autoconfigure.cache.
+  # CacheAutoConfiguration, which moved to org.springframework.boot.cache.
+  # autoconfigure.* in Spring Boot 4. We pull the starter for its programmatic
+  # API only — the rate-limit bucket on /auctions/search is wired manually via
+  # Lettuce in a later Epic 07 task. Excluding the auto-configs prevents the
+  # broken @ConditionalOnClass chain from breaking application context startup.
+  autoconfigure:
+    exclude:
+      - com.giffing.bucket4j.spring.boot.starter.Bucket4jStartupCheckConfiguration
+      - com.giffing.bucket4j.spring.boot.starter.config.cache.Bucket4jCacheConfiguration
+      - com.giffing.bucket4j.spring.boot.starter.config.aspect.Bucket4jAopConfig
+      - com.giffing.bucket4j.spring.boot.starter.config.filter.reactive.gateway.Bucket4JAutoConfigurationSpringCloudGatewayFilter
+      - com.giffing.bucket4j.spring.boot.starter.config.filter.servlet.Bucket4JAutoConfigurationServletFilter
+      - com.giffing.bucket4j.spring.boot.starter.config.filter.reactive.webflux.Bucket4JAutoConfigurationWebfluxFilter
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true   # safety net for any existing dev DB someone forgets to wipe; first prod deploy starts empty
   servlet:
     multipart:
       max-file-size: 2MB
@@ -109,6 +125,19 @@ slpa:
     amount-lindens: 100
   commission:
     default-rate: 0.05
+  cancellation:
+    # Epic 08 sub-spec 2 §2 — cancellation-penalty ladder. Applied only when
+    # an ACTIVE auction with at least one bid is cancelled. Walking the ladder
+    # is keyed off the seller's count of prior cancelled-with-bids log rows.
+    penalty:
+      second-offense-l: 1000
+      third-offense-l: 2500
+      third-offense-suspension-days: 30
+    # Sub-spec 2 §6 — post-cancel ownership watcher window. The ownership
+    # monitor scans cancelled auctions whose watch deadline is still in the
+    # future and raises CANCEL_AND_SELL if the parcel ownership flips to a
+    # non-seller avatar within the window.
+    post-cancel-watch-hours: 48
   photos:
     max-per-listing: 10
     max-bytes: 2097152
@@ -144,3 +173,31 @@ slpa:
     listing-fee-refund-job:
       enabled: true
       fixed-delay: PT1M
+  notifications:
+    cleanup:
+      enabled: true
+      cron: "0 30 3 * * *"        # 3:30 AM UTC daily
+      retention-days: 90
+      batch-size: 1000
+    sl-im:
+      dispatcher:
+        # Shared secret for the SL IM terminal polling endpoints.
+        # No default — non-dev profiles MUST override via SL_IM_DISPATCHER_SECRET.
+        # Dev profile supplies a placeholder in application-dev.yml.
+        shared-secret: ${SL_IM_DISPATCHER_SECRET:dev-only-secret-do-not-use-in-prod}
+        max-batch-limit: 50
+      cleanup:
+        enabled: true
+        cron: "0 30 3 * * *"        # 03:30 daily, zone = America/Los_Angeles
+        expiry-after-hours: 48
+        retention-after-days: 30
+        batch-size: 1000
+        top-users-in-log: 10
+  admin:
+    bootstrap-emails:
+      - heath@slparcels.com
+      - heath@slparcelauctions.com
+      - heath@hadronsoftware.com
+      - heath.barcus@gmail.com
+  web:
+    base-url: ${SLPA_WEB_BASE_URL:http://localhost:3000}

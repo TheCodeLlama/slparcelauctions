@@ -104,6 +104,42 @@ class SecurityConfigTest {
                 });
     }
 
+    // ── Review read endpoints (Epic 08 sub-spec 1 Task 2) ────────────────────
+
+    @Test
+    void auctionReviewsGet_isPublic() throws Exception {
+        // Anonymous GET — may return 404 because the auction doesn't
+        // exist in this dev-profile DB, but MUST NOT 401.
+        mockMvc.perform(get("/api/v1/auctions/999/reviews"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    if (status == 401) {
+                        throw new AssertionError(
+                                "Expected security to permitAll for GET /auctions/{id}/reviews, "
+                                + "got HTTP 401");
+                    }
+                });
+    }
+
+    @Test
+    void userReviewsGet_isPublic() throws Exception {
+        mockMvc.perform(get("/api/v1/users/10/reviews?role=SELLER"))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    if (status == 401) {
+                        throw new AssertionError(
+                                "Expected security to permitAll for GET /users/{id}/reviews, "
+                                + "got HTTP 401");
+                    }
+                });
+    }
+
+    @Test
+    void pendingReviewsGet_requiresAuth() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me/pending-reviews"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ── CORS ──────────────────────────────────────────────────────────────────
 
     @Test

@@ -49,7 +49,11 @@ import reactor.core.publisher.Mono;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
+})
 @Transactional
 class SlParcelVerifyControllerIntegrationTest {
 
@@ -202,6 +206,7 @@ class SlParcelVerifyControllerIntegrationTest {
         String body = String.format("""
             {
               "parcelId":%d,
+              "title":"Test listing",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
@@ -278,7 +283,7 @@ class SlParcelVerifyControllerIntegrationTest {
         when(worldApi.fetchParcel(parcel)).thenReturn(Mono.just(new ParcelMetadata(
                 parcel, owner, "agent",
                 "Seed Parcel", "Coniston",
-                1024, "Seed description", "http://example.com/snap.jpg", "MATURE",
+                1024, "Seed description", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
 

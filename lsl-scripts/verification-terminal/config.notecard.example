@@ -1,0 +1,8 @@
+# config notecard for SLPA Verification Terminal
+# Place this file (renamed to "config", no extension) in the prim's contents.
+# After editing, the script auto-resets via CHANGED_INVENTORY.
+
+VERIFY_URL=https://api.slparcelauctions.com/api/v1/sl/verify
+
+# Optional: set to "false" in prod to silence per-touch chat.
+DEBUG_OWNER_SAY=true

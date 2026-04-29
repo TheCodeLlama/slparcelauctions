@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -38,7 +39,11 @@ class RefreshTokenServiceTest {
     void setUp() {
         JwtConfig config = new JwtConfig();
         config.setRefreshTokenLifetime(Duration.ofDays(7));
-        service = new RefreshTokenService(repository, userService, config);
+        // Real-time clock so the existing assertions ("expires in ~7d", "now is
+        // before expiry") still hold without rewriting them. Tests that need
+        // deterministic timestamps can construct the service with
+        // Clock.fixed(...) directly.
+        service = new RefreshTokenService(repository, userService, config, Clock.systemUTC());
     }
 
     // -------------------------------------------------------------------------

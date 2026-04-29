@@ -1,0 +1,39 @@
+################################################################################
+# SLPA — Terraform variable overrides (example)
+#
+# Copy to terraform.tfvars (gitignored) and fill in non-default values for your
+# deployment. Most variables have sane launch-lite defaults in variables.tf;
+# only the ones below typically need per-deployment overrides.
+#
+# Sensitive secrets (RDS password, JWT key, bot credentials, etc.) are NOT in
+# this file — they're set out-of-band via `aws ssm put-parameter`. See PREP.md
+# §7.3 / spec §7.3.
+################################################################################
+
+# Required: operator email for AWS Budgets + SNS alarm subscriptions.
+alarm_email = "your-email@example.com"
+
+# Defaults are launch-lite ($125-195/mo). Uncomment + override individual
+# levers as traffic / load justifies. See spec §5 for the full upgrade-lever
+# table.
+
+# --- Production-tier examples (uncomment when ready) -----------------------
+
+# rds_multi_az          = true
+# rds_instance_class    = "db.t4g.small"
+# rds_allocated_storage = 50
+
+# redis_num_cache_clusters = 2
+# redis_node_type          = "cache.t4g.small"
+
+# backend_desired_count = 2
+# backend_cpu           = 512
+# backend_memory        = 1024
+
+# bot_active_count = 5
+
+# nat_type                  = "gateway"
+# enable_interface_endpoints = true
+
+# log_retention_days = 30
+# enable_waf         = true

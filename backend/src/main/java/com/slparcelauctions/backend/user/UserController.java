@@ -5,7 +5,6 @@ import java.net.URI;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,11 +15,14 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.storage.StoredObject;
+import com.slparcelauctions.backend.user.deletion.UserDeletionRequest;
+import com.slparcelauctions.backend.user.deletion.UserDeletionService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UpdateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
@@ -36,6 +38,7 @@ public class UserController {
 
     private final UserService userService;
     private final AvatarService avatarService;
+    private final UserDeletionService userDeletionService;
 
     @PostMapping
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -82,17 +85,10 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<ProblemDetail> deleteCurrentUser() {
-        // Account deletion has GDPR / soft-delete / cascading-data implications
-        // that belong in a dedicated sub-spec. Deferred to a future Epic 02 or
-        // Epic 07 task. Keep stub until then.
-        return notYetImplemented();
-    }
-
-    private ResponseEntity<ProblemDetail> notYetImplemented() {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.NOT_IMPLEMENTED,
-                "Endpoint not yet implemented");
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(problem);
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCurrentUser(
+            @Valid @RequestBody UserDeletionRequest body,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        userDeletionService.deleteSelf(principal.userId(), body.password());
     }
 }

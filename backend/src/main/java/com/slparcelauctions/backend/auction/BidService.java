@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.auction.broadcast.BidSettlementEnvelope;
@@ -23,6 +24,7 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
 import com.slparcelauctions.backend.escrow.EscrowService;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -78,6 +80,8 @@ public class BidService {
     private final Clock clock;
     private final AuctionBroadcastPublisher publisher;
     private final EscrowService escrowService;
+    private final NotificationPublisher notificationPublisher;
+    private final BanCheckService banCheckService;
 
     /**
      * Places a manual bid on an auction. See class javadoc for the
@@ -118,6 +122,7 @@ public class BidService {
         // remediable (go verify the SL avatar); SELLER_CANNOT_BID is not.
         User bidder = userRepo.findById(bidderId)
                 .orElseThrow(() -> new UserNotFoundException(bidderId));
+        banCheckService.assertNotBanned(ipAddress, bidder.getSlAvatarUuid());
         if (!Boolean.TRUE.equals(bidder.getVerified())) {
             throw new NotVerifiedException();
         }
@@ -143,6 +148,11 @@ public class BidService {
         // ACTIVE proxy is ignored (a bidder cannot counter their own proxy).
         // Strict >: a manual bid at exactly the proxy's cap counters; only
         // amount > P_max exhausts the proxy (Q3 flip; proxy wins ties).
+
+        // Capture the previous high-bidder BEFORE the bid rows are emitted so
+        // we can tell who was displaced once the new top is decided.
+        final Long previousHighBidderId = auction.getCurrentBidderId();
+
         List<Bid> emitted = new ArrayList<>(2);
         Optional<ProxyBid> competingProxyOpt = proxyBidRepo
                 .findFirstByAuctionIdAndStatusAndBidderIdNot(
@@ -193,6 +203,25 @@ public class BidService {
         auction.setBidCount(nextBidCount);
         auctionRepo.save(auction);
 
+        // Notify the displaced bidder (if any). previousHighBidderId is non-null
+        // when someone was already winning; the new top must be a different user
+        // (OUTBID only fires on displacement, not on a self-raise via proxy).
+        if (previousHighBidderId != null
+                && !previousHighBidderId.equals(topBidder.getId())) {
+            // isProxyOutbid=false here: BidService is the manual-bid path.
+            // The competing-proxy counter branch (PROXY_AUTO emitted) means the
+            // proxy OWNER remained the winner; the manual bidder was countered,
+            // NOT the proxy owner — the proxy owner is not displaced.
+            notificationPublisher.outbid(
+                    previousHighBidderId,
+                    auctionId,
+                    auction.getTitle(),
+                    top.getAmount(),
+                    false,
+                    auction.getEndsAt()
+            );
+        }
+
         // Inline buy-it-now closes stamp the ESCROW_PENDING row in the same
         // transaction as the status flip so close + escrow are atomic; a
         // rollback reverts both. The single `now` read at step 3 is threaded
@@ -208,6 +237,16 @@ public class BidService {
         final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
         if (ended) {
             escrowService.createForEndedAuction(auction, now);
+        }
+
+        // Inline buy-it-now close: fire AUCTION_WON and AUCTION_ENDED_BOUGHT_NOW
+        // notifications inside this transaction before the afterCommit broadcast.
+        if (ended && auction.getEndOutcome() == AuctionEndOutcome.BOUGHT_NOW) {
+            long finalBid = auction.getFinalBidAmount();
+            String parcelName = auction.getTitle();
+            notificationPublisher.auctionWon(topBidder.getId(), auctionId, parcelName, finalBid);
+            notificationPublisher.auctionEndedBoughtNow(auction.getSeller().getId(),
+                    auctionId, parcelName, finalBid);
         }
 
         // Step 9 — publish the envelope on afterCommit so subscribers never

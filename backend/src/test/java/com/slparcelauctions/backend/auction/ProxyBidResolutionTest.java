@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,11 +59,12 @@ class ProxyBidResolutionTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher);
+        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
 
         userA = User.builder().id(100L).displayName("Alice").verified(true).build();
         userB = User.builder().id(200L).displayName("Bob").verified(true).build();
         auction = Auction.builder()
+                .title("Test listing")
                 .id(500L)
                 .seller(User.builder().id(1L).verified(true).build())
                 .status(AuctionStatus.ACTIVE)

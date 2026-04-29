@@ -79,7 +79,9 @@ import com.slparcelauctions.backend.user.UserRepository;
         // ExternalApiTimeoutException in well under a second.
         "slpa.world-api.retry-attempts=2",
         "slpa.world-api.retry-backoff-ms=25",
-        "slpa.world-api.timeout-ms=2000"
+        "slpa.world-api.timeout-ms=2000",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class OwnershipMonitorIntegrationTest {
 
@@ -130,6 +132,7 @@ class OwnershipMonitorIntegrationTest {
                     stmt.execute("DELETE FROM parcels WHERE id = " + seededParcelId);
                 }
                 if (seededUserId != null) {
+                    stmt.execute("DELETE FROM notification WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM verification_codes WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM users WHERE id = " + seededUserId);
@@ -247,7 +250,7 @@ class OwnershipMonitorIntegrationTest {
                 <meta name="ownerid" content="%s">
                 <meta name="ownertype" content="%s">
                 <meta name="area" content="1024">
-                <meta name="maturityrating" content="MATURE">
+                <meta name="maturityrating" content="Mature">
                 </head><body></body></html>
                 """.formatted(title, parcelUuid, ownerUuid, ownerType);
         wireMock.stubFor(get(urlPathMatching("/place/.*"))
@@ -280,7 +283,7 @@ class OwnershipMonitorIntegrationTest {
                     .regionName("Coniston")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
@@ -288,6 +291,7 @@ class OwnershipMonitorIntegrationTest {
 
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)

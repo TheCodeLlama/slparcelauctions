@@ -40,6 +40,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
@@ -68,7 +69,9 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Import(EscrowCreateOnBuyNowIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -93,6 +96,7 @@ class EscrowCreateOnBuyNowIntegrationTest {
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
+    @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -128,6 +132,7 @@ class EscrowCreateOnBuyNowIntegrationTest {
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL)
                         .forEach(verificationCodeRepo::delete);
+                notificationRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });
@@ -230,12 +235,13 @@ class EscrowCreateOnBuyNowIntegrationTest {
                     .regionName("EscrowBuyNowRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)

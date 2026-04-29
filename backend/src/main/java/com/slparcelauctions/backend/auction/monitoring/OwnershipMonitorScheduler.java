@@ -49,9 +49,15 @@ public class OwnershipMonitorScheduler {
 
     @Scheduled(fixedDelayString = "${slpa.ownership-monitor.scheduler-frequency:PT30S}")
     public void dispatchDueChecks() {
-        OffsetDateTime cutoff = OffsetDateTime.now(clock)
-                .minusMinutes(props.getCheckIntervalMinutes());
-        List<Long> dueIds = auctionRepo.findDueForOwnershipCheck(cutoff);
+        // {@code now} is passed alongside {@code cutoff} so the post-cancel
+        // watch-window predicate ({@code postCancelWatchUntil > :now}) and the
+        // cadence gate ({@code lastOwnershipCheckAt < :cutoff}) are evaluated
+        // against the same wall-clock instant — the two values are derived
+        // from one {@link Clock#instant()} read so a slow scheduler tick can
+        // not see different "now"s on the two predicates.
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        OffsetDateTime cutoff = now.minusMinutes(props.getCheckIntervalMinutes());
+        List<Long> dueIds = auctionRepo.findDueForOwnershipCheck(cutoff, now);
         if (dueIds.isEmpty()) {
             return;
         }

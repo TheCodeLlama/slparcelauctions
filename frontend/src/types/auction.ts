@@ -58,9 +58,40 @@ export interface AuctionPhotoDto {
   uploadedAt: string;
 }
 
+/**
+ * Enriched seller block returned on the auction detail endpoint.
+ * Mirrors {@code PublicAuctionResponse.SellerSummary} server-side (Epic 07
+ * sub-spec 1 Task 2 extended the DTO). {@code averageRating} and
+ * {@code completionRate} are {@code null} for sellers without enough data
+ * points; consumers render "New Seller" / "Too new to calculate" copy in
+ * that case. {@code avatarUrl} points at
+ * {@code /api/v1/users/{id}/avatar/256} which already serves cached +
+ * placeholder avatars, so the UI never needs to fall back to initials for
+ * a valid server response.
+ */
+export interface AuctionSellerSummaryDto {
+  id: number;
+  displayName: string;
+  avatarUrl: string | null;
+  averageRating: number | string | null;
+  reviewCount: number | null;
+  completedSales: number;
+  completionRate: number | string | null;
+  memberSince: string | null;
+}
+
 export interface SellerAuctionResponse {
   id: number;
   sellerId: number;
+  /**
+   * Seller-authored display title for the listing. Required by the backend
+   * (Epic 07 sub-spec 1 Task 2 added {@code title NOT NULL} to the auction
+   * row and the {@code AuctionCreateRequest} DTO). Treated as the primary
+   * headline on browse cards, summary rows, and the auction detail page;
+   * {@code parcel.description} + {@code parcel.regionName} remain as
+   * secondary / fallback text.
+   */
+  title: string;
   parcel: ParcelDto;
   status: AuctionStatus;
   verificationMethod: VerificationMethod | null;
@@ -86,6 +117,12 @@ export interface SellerAuctionResponse {
   sellerDesc: string | null;
   tags: ParcelTagDto[];
   photos: AuctionPhotoDto[];
+  /**
+   * Enriched seller block. Present on every {@code GET /api/v1/auctions/{id}}
+   * response after Epic 07 sub-spec 1 Task 2; kept optional on the TS type
+   * to tolerate legacy fixtures that predate the enrichment.
+   */
+  seller?: AuctionSellerSummaryDto | null;
   listingFeePaid: boolean;
   listingFeeAmt: number | null;
   listingFeeTxn: string | null;
@@ -109,6 +146,12 @@ export type AuctionSnipeWindowMin = 5 | 10 | 15 | 30 | 60;
 
 export interface AuctionCreateRequest {
   parcelId: number;
+  /**
+   * Seller-authored display title. Required by the backend (sub-spec 1
+   * Task 2); validated 1–120 chars. The wizard trims whitespace before
+   * sending.
+   */
+  title: string;
   startingBid: number;
   reservePrice?: number | null;
   buyNowPrice?: number | null;
@@ -149,6 +192,12 @@ export type PublicAuctionStatus = "ACTIVE" | "ENDED";
 export interface PublicAuctionResponse {
   id: number;
   sellerId: number;
+  /**
+   * Seller-authored display title. See {@link SellerAuctionResponse#title} —
+   * the public DTO mirrors the same field so browse cards and the public
+   * auction detail page can render the headline without a second fetch.
+   */
+  title: string;
   parcel: ParcelDto;
   status: PublicAuctionStatus;
   verificationTier: VerificationTier | null;
@@ -171,6 +220,13 @@ export interface PublicAuctionResponse {
   sellerDesc: string | null;
   tags: ParcelTagDto[];
   photos: AuctionPhotoDto[];
+  /**
+   * Enriched seller block added by Epic 07 sub-spec 1 Task 2. Optional for
+   * forward/back compatibility — older server builds or fixtures without
+   * this field keep {@code sellerId} as the sole seller signal and the
+   * detail-page card falls back accordingly.
+   */
+  seller?: AuctionSellerSummaryDto | null;
   // Sub-spec 2: escrow enrichment. Populated once the auction reaches ENDED
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
@@ -269,13 +325,63 @@ export interface AuctionEndedEnvelope {
 export type AuctionEnvelope = BidSettlementEnvelope | AuctionEndedEnvelope;
 
 /**
+ * WebSocket envelope broadcast on {@code /topic/auction/{auctionId}} when a
+ * review flips from {@code visible=false} to {@code visible=true} — either
+ * via the simultaneous-reveal branch in {@code ReviewService.submit} or the
+ * hourly {@code BlindReviewRevealTask} scheduler sweep (Epic 08 sub-spec 1
+ * §7).
+ *
+ * <p>Subscribers should invalidate their {@code useAuctionReviews(auctionId)}
+ * query and refetch through the authenticated GET — the payload deliberately
+ * omits the rating/text fields so public subscribers can't read review
+ * content via the topic. No {@code serverTime} field: the backend
+ * {@code ReviewRevealedEnvelope} record carries only the discriminators
+ * needed to drive the client-side invalidation.
+ */
+export interface ReviewRevealedEnvelope {
+  type: "REVIEW_REVEALED";
+  auctionId: number;
+  reviewId: number;
+  reviewerId: number;
+  revieweeId: number;
+  reviewedRole: "SELLER" | "BUYER";
+  revealedAt: string;
+}
+
+/**
+ * Broadcast on {@code /topic/auction/{auctionId}} when an auction transitions
+ * to {@code CANCELLED} (Epic 08 sub-spec 2 §8.5). Subscribers in the auction
+ * detail page invalidate their auction query so the page transitions to the
+ * "auction cancelled" UI on the next refetch — bidders mid-bid see their bid
+ * form replaced by the cancellation banner. Like {@link ReviewRevealedEnvelope}
+ * this envelope does not carry a {@code serverTime} field; subscribers that
+ * read it should short-circuit on the type discriminator first.
+ */
+export interface AuctionCancelledEnvelope {
+  type: "AUCTION_CANCELLED";
+  auctionId: number;
+  cancelledAt: string;
+  hadBids: boolean;
+}
+
+/**
  * Every envelope type that can arrive on `/topic/auction/{id}`.
  * {@code AuctionDetailClient} and {@code EscrowPageClient} both subscribe
  * with this union; handlers discriminate on {@code type}. Re-exports the
  * nine escrow variants from `./escrow` via the imported EscrowEnvelope so
- * subscribers only need a single discriminator switch.
+ * subscribers only need a single discriminator switch. The review envelope
+ * lives on the same topic (Epic 08 sub-spec 1 §7) — subscribers that don't
+ * care about reviews should short-circuit on {@code type === "REVIEW_REVEALED"}
+ * before reading any envelope-specific field, since review envelopes do not
+ * carry {@code serverTime}. The cancellation envelope (sub-spec 2 §8.5) is
+ * the same shape pattern — early-return on {@code type === "AUCTION_CANCELLED"}
+ * before reading {@code serverTime}.
  */
-export type AuctionTopicEnvelope = AuctionEnvelope | EscrowEnvelope;
+export type AuctionTopicEnvelope =
+  | AuctionEnvelope
+  | EscrowEnvelope
+  | ReviewRevealedEnvelope
+  | AuctionCancelledEnvelope;
 
 /**
  * POST /api/v1/auctions/{id}/bids response body. Returns the just-committed

@@ -15,6 +15,8 @@ import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,7 +40,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -71,6 +73,12 @@ public class User {
     @Column(name = "profile_pic_url", columnDefinition = "text")
     private String profilePicUrl;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10,
+            columnDefinition = "varchar(10) not null default 'USER'")
+    @Builder.Default
+    private Role role = Role.USER;
+
     @Builder.Default
     @Column(nullable = false)
     private Boolean verified = false;
@@ -100,8 +108,89 @@ public class User {
     @Column(name = "cancelled_with_bids", nullable = false)
     private Integer cancelledWithBids = 0;
 
+    /**
+     * Count of escrows whose 72h transfer deadline elapsed with no parcel
+     * handover — the seller-fault denominator in the three-counter
+     * completion-rate formula. Incremented inside
+     * {@code EscrowService.expireTransfer} in the same transaction that
+     * flips the escrow to {@code EXPIRED}. Not touched by
+     * {@code expirePayment} (buyer-fault). Added in Epic 08 sub-spec 1
+     * §3.4; see {@link SellerCompletionRateMapper#compute(int, int, int)}.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "escrow_expired_unfulfilled", nullable = false,
+            columnDefinition = "integer not null default 0")
+    private Integer escrowExpiredUnfulfilled = 0;
+
     @Column(name = "listing_suspension_until")
     private OffsetDateTime listingSuspensionUntil;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    /**
+     * Outstanding penalty debt in L$ owed by this seller from cancelled-with-
+     * bids offenses on the cancellation ladder (Epic 08 sub-spec 2 §2). Pay-at-
+     * terminal model: while this is &gt; 0 the seller is suspended from creating
+     * new listings; payment at any SLPA terminal pays it down to zero, at which
+     * point the suspension lifts. Incremented atomically inside
+     * {@code CancellationService.cancel} when the ladder selects
+     * {@code PENALTY} or {@code PENALTY_AND_30D}; decremented by
+     * {@code PenaltyTerminalService} on payment receipt.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "penalty_balance_owed", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    private Long penaltyBalanceOwed = 0L;
+
+    /**
+     * Permanent listing ban flag. Set to {@code true} on the seller's 4th+
+     * cancelled-with-bids offense by {@code CancellationService.cancel} when
+     * the ladder selects {@code PERMANENT_BAN}. Once set, listing creation is
+     * permanently denied — there is no automatic clear path; admins must
+     * intervene. See spec §2 (ladder) and §7.7 (gate semantics).
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "banned_from_listing", nullable = false,
+            columnDefinition = "boolean not null default false")
+    private Boolean bannedFromListing = false;
+
+    /**
+     * Count of listing reports submitted by this user that were dismissed by
+     * admins (Epic 10 sub-spec 2 §5). Used as a frivolous-reporter signal:
+     * high dismissed counts may be surfaced in the admin queue to flag repeat
+     * low-quality reporters. Incremented inside
+     * {@code AdminReportService.dismissReport} when a report transitions to
+     * {@code DISMISSED}. Never decremented.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. The
+     * {@code @Builder.Default} handles the Java-side default for newly-
+     * constructed entities.
+     */
+    @Builder.Default
+    @Column(name = "dismissed_reports_count", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    private Long dismissedReportsCount = 0L;
 
     @Builder.Default
     @Column(name = "email_verified", nullable = false)

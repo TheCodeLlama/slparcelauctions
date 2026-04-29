@@ -194,6 +194,7 @@ sketch
 .worktrees/
 
 .claude/.superpowers/
+.superpowers/
 
 # .NET / C# (bot service)
 bot/**/bin/
@@ -201,3 +202,23 @@ bot/**/obj/
 *.user
 *.suo
 .vs/
+
+# Docker Compose local override — auto-merged by `docker compose` when
+# present. Stay developer-local so per-machine setups (host-running backend
+# with containerised bot, port remappings, etc.) do not ship to the shared
+# compose file.
+compose.override.yml
+docker-compose.override.yml
+
+# Terraform — per-deployment overrides + local provider/state cache.
+# terraform.tfvars contains the operator email at minimum; sensitive values
+# never live there (they go to Parameter Store via `aws ssm put-parameter`).
+infra/terraform.tfvars
+infra/.terraform/
+infra/*.tfplan
+infra/*.tfstate
+infra/*.tfstate.*
+infra/crash.log
+infra/crash.*.log
+# .terraform.lock.hcl IS committed — Terraform's recommendation. Pins provider
+# versions so every machine + CI run resolves the same provider versions.

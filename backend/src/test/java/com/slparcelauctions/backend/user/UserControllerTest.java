@@ -26,9 +26,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.user.deletion.UserDeletionService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserProfileResponse;
 import com.slparcelauctions.backend.user.dto.UserResponse;
+import com.slparcelauctions.backend.user.Role;
 
 @WebMvcTest(controllers = UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -47,13 +49,18 @@ class UserControllerTest {
     private AvatarService avatarService;
 
     @MockitoBean
+    private UserDeletionService userDeletionService;
+
+    @MockitoBean
     private JwtService jwtService;
 
     @Test
     void createUser_returns201() throws Exception {
         UserResponse response = new UserResponse(
                 1L, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
-                false, null, false, Map.of(), Map.of(), OffsetDateTime.now(), OffsetDateTime.now());
+                false, null, false, Map.of(), Map.of(),
+                0L, null, false,
+                OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
 
         CreateUserRequest request = new CreateUserRequest("alice@example.com", "password123", "Alice");
@@ -134,7 +141,7 @@ class UserControllerTest {
     void getUserProfile_returns200() throws Exception {
         UserProfileResponse profile = new UserProfileResponse(
                 42L, "Bob", "hello", null, null, null, null,
-                false, null, null, 0, 0, 0, OffsetDateTime.now());
+                false, null, null, 0, 0, 0, null, true, OffsetDateTime.now());
         when(userService.getPublicProfile(42L)).thenReturn(profile);
 
         mockMvc.perform(get("/api/v1/users/42"))
@@ -157,7 +164,9 @@ class UserControllerTest {
     void getMe_returnsUserDto_whenAuthenticated() throws Exception {
         UserResponse expected = new UserResponse(
                 1L, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
-                false, null, false, Map.of(), Map.of(), OffsetDateTime.now(), OffsetDateTime.now());
+                false, null, false, Map.of(), Map.of(),
+                0L, null, false,
+                OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.getUserById(1L)).thenReturn(expected);
 
         mockMvc.perform(get("/api/v1/users/me"))
@@ -167,8 +176,11 @@ class UserControllerTest {
     }
 
     @Test
-    void deleteCurrentUser_returns501() throws Exception {
-        mockMvc.perform(delete("/api/v1/users/me"))
-                .andExpect(status().isNotImplemented());
+    @WithMockAuthPrincipal(userId = 1L)
+    void deleteCurrentUser_returns204() throws Exception {
+        mockMvc.perform(delete("/api/v1/users/me")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"password\":\"correct-password\"}"))
+                .andExpect(status().isNoContent());
     }
 }

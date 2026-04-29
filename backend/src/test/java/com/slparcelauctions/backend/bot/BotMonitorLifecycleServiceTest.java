@@ -51,7 +51,9 @@ import com.slparcelauctions.backend.user.UserRepository;
         "slpa.escrow.timeout-job.enabled=false",
         "slpa.escrow.command-dispatcher-job.enabled=false",
         "slpa.escrow.listing-fee-refund-job.enabled=false",
-        "slpa.bot-task.timeout-check-interval=PT10M"
+        "slpa.bot-task.timeout-check-interval=PT10M",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BotMonitorLifecycleServiceTest {
@@ -221,7 +223,7 @@ class BotMonitorLifecycleServiceTest {
                     .regionName("BotLifecycleRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .positionX(128.0)
                     .positionY(64.0)
                     .positionZ(22.0)
@@ -232,6 +234,7 @@ class BotMonitorLifecycleServiceTest {
 
             OffsetDateTime now = OffsetDateTime.now();
             Auction.AuctionBuilder b = Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(status)

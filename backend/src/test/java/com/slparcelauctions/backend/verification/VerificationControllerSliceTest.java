@@ -17,6 +17,7 @@ import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
 
 /**
@@ -31,12 +32,14 @@ import com.slparcelauctions.backend.config.SecurityConfig;
  * The slice test here just confirms 401 wiring.
  */
 @WebMvcTest(VerificationController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class})
+@Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class, JwtAuthenticationEntryPoint.class})
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
         "jwt.access-token-lifetime=PT15M",
-        "jwt.refresh-token-lifetime=P7D"
+        "jwt.refresh-token-lifetime=P7D",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class VerificationControllerSliceTest {
 

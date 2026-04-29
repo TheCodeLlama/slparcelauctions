@@ -4,6 +4,8 @@ import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
+import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,6 +76,19 @@ public class StompAuctionBroadcastPublisher implements AuctionBroadcastPublisher
             messagingTemplate.convertAndSend(destination, envelope);
         } catch (MessagingException e) {
             log.warn("Failed to publish AUCTION_ENDED for auction {}: {}",
+                    envelope.auctionId(), e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void publishCancelled(AuctionCancelledEnvelope envelope) {
+        String destination = "/topic/auction/" + envelope.auctionId();
+        log.info("Publishing AUCTION_CANCELLED to {}: hadBids={}, cancelledAt={}",
+                destination, envelope.hadBids(), envelope.cancelledAt());
+        try {
+            messagingTemplate.convertAndSend(destination, envelope);
+        } catch (MessagingException e) {
+            log.warn("Failed to publish AUCTION_CANCELLED for auction {}: {}",
                     envelope.auctionId(), e.getMessage(), e);
         }
     }

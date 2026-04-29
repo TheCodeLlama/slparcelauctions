@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -39,6 +40,7 @@ import com.slparcelauctions.backend.escrow.exception.IllegalEscrowTransitionExce
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
@@ -61,7 +63,9 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         "auth.cleanup.enabled=false",
         "slpa.auction-end.enabled=false",
         "slpa.ownership-monitor.enabled=false",
-        "slpa.escrow.ownership-monitor-job.enabled=false"
+        "slpa.escrow.ownership-monitor-job.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Import(EscrowDisputeIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -86,6 +90,7 @@ class EscrowDisputeIntegrationTest {
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
+    @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -122,6 +127,7 @@ class EscrowDisputeIntegrationTest {
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL)
                         .forEach(verificationCodeRepo::delete);
+                notificationRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });
@@ -140,8 +146,10 @@ class EscrowDisputeIntegrationTest {
                 seededAuctionId,
                 new EscrowDisputeRequest(
                         EscrowDisputeReasonCategory.SELLER_NOT_RESPONSIVE,
-                        "Seller has gone silent for 72 hours, no parcel transfer."),
-                seededBidderId);
+                        "Seller has gone silent for 72 hours, no parcel transfer.",
+                        null),
+                seededBidderId,
+                List.of());
 
         assertThat(resp.state()).isEqualTo(EscrowState.DISPUTED);
         assertThat(resp.disputeReasonCategory()).isEqualTo("SELLER_NOT_RESPONSIVE");
@@ -176,8 +184,10 @@ class EscrowDisputeIntegrationTest {
                 seededAuctionId,
                 new EscrowDisputeRequest(
                         EscrowDisputeReasonCategory.WRONG_PARCEL_TRANSFERRED,
-                        "Seller transferred a different parcel than listed."),
-                seededSellerId);
+                        "Seller transferred a different parcel than listed.",
+                        null),
+                seededSellerId,
+                List.of());
 
         assertThat(resp.state()).isEqualTo(EscrowState.DISPUTED);
 
@@ -206,8 +216,10 @@ class EscrowDisputeIntegrationTest {
                         seededAuctionId,
                         new EscrowDisputeRequest(
                                 EscrowDisputeReasonCategory.OTHER,
-                                "Attempting to dispute after completion."),
-                        seededSellerId));
+                                "Attempting to dispute after completion.",
+                                null),
+                        seededSellerId,
+                        List.of()));
 
         Escrow persisted = escrowRepo.findById(seededEscrowId).orElseThrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.COMPLETED);
@@ -245,13 +257,14 @@ class EscrowDisputeIntegrationTest {
                     .regionName("EscrowDisputeRegion")
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)

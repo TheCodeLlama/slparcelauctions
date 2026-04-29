@@ -53,7 +53,9 @@ import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
         "spring.datasource.username=slpa",
         "spring.datasource.password=slpa",
         "spring.data.redis.host=localhost",
-        "spring.jpa.hibernate.ddl-auto=update"
+        "spring.jpa.hibernate.ddl-auto=update",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 class DevSlSimulateBeanProfileTest {
 

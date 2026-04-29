@@ -44,14 +44,18 @@ import reactor.core.publisher.Mono;
  * <p>User states covered:
  * <ul>
  *   <li>Unauthenticated -> 401 from {@code JwtAuthenticationEntryPoint}.</li>
- *   <li>Authenticated, unverified -> 403 via {@code AccessDeniedException}.</li>
+ *   <li>Authenticated, unverified -> 403 via {@code NotVerifiedException}.</li>
  *   <li>Authenticated, verified -> success paths and domain error paths.</li>
  * </ul>
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@TestPropertySource(properties = "auth.cleanup.enabled=false")
+@TestPropertySource(properties = {
+        "auth.cleanup.enabled=false",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
+})
 @Transactional
 class ParcelControllerIntegrationTest {
 
@@ -97,7 +101,11 @@ class ParcelControllerIntegrationTest {
                 .andExpect(jsonPath("$.regionName").value("Coniston"))
                 .andExpect(jsonPath("$.continentName").value("Sansara"))
                 .andExpect(jsonPath("$.verified").value(true))
-                .andExpect(jsonPath("$.slurl").value(org.hamcrest.Matchers.containsString("Coniston")));
+                .andExpect(jsonPath("$.slurl").value(org.hamcrest.Matchers.containsString("Coniston")))
+                // Detail-page VisitInSecondLifeBlock reads these off the DTO.
+                .andExpect(jsonPath("$.positionX").value(128.0))
+                .andExpect(jsonPath("$.positionY").value(64.0))
+                .andExpect(jsonPath("$.positionZ").value(22.0));
 
         assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }
@@ -188,7 +196,7 @@ class ParcelControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new ParcelLookupRequest(parcelUuid))))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+                .andExpect(jsonPath("$.code").value("NOT_VERIFIED"));
     }
 
     // -------------------------------------------------------------------------
@@ -245,7 +253,7 @@ class ParcelControllerIntegrationTest {
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, ownerUuid, "agent",
                 "Test Parcel", regionName,
-                1024, "Test description", "http://example.com/snap.jpg", "MATURE",
+                1024, "Test description", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(gridX, gridY)));
     }

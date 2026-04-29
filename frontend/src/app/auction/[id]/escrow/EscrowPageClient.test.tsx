@@ -68,6 +68,7 @@ const winnerUser: AuthUser = {
   displayName: "Winner",
   slAvatarUuid: "99999999-9999-9999-9999-999999999999",
   verified: true,
+  role: "USER",
 };
 
 // Seller fixture with an id that matches the fixture sellerId (42).
@@ -77,6 +78,7 @@ const sellerUser: AuthUser = {
   displayName: "Seller",
   slAvatarUuid: "42424242-4242-4242-4242-424242424242",
   verified: true,
+  role: "USER",
 };
 
 describe("EscrowPageClient", () => {
@@ -110,6 +112,62 @@ describe("EscrowPageClient", () => {
     // Header renders the role label — confirms sellerId-vs-user.id
     // resolution picked `winner`.
     expect(screen.getByText(/escrow · winner/i)).toBeInTheDocument();
+  });
+
+  it("invalidates the reviews query on REVIEW_REVEALED envelope", async () => {
+    server.use(
+      http.get("*/api/v1/auctions/7/escrow", () =>
+        HttpResponse.json(
+          fakeEscrow({
+            auctionId: 7,
+            state: "COMPLETED",
+            completedAt: "2026-04-18T12:00:00Z",
+          }),
+        ),
+      ),
+    );
+    let reviewsFetchCount = 0;
+    server.use(
+      http.get("*/api/v1/auctions/7/reviews", () => {
+        reviewsFetchCount += 1;
+        return HttpResponse.json({
+          reviews: [],
+          myPendingReview: null,
+          canReview: true,
+          windowClosesAt: "2026-05-10T00:00:00Z",
+        });
+      }),
+    );
+
+    renderWithProviders(
+      <EscrowPageClient auctionId={7} sellerId={42} />,
+      { auth: "authenticated", authUser: winnerUser },
+    );
+
+    // ReviewPanel renders once escrow lands in COMPLETED; the panel's
+    // useAuctionReviews hook fires the first GET.
+    await waitFor(() => expect(reviewsFetchCount).toBeGreaterThan(0));
+    const initial = reviewsFetchCount;
+
+    const handler = subscribeMock.mock.calls[0]?.[1] as (
+      env: unknown,
+    ) => void;
+    expect(handler).toBeDefined();
+    act(() => {
+      handler({
+        type: "REVIEW_REVEALED",
+        auctionId: 7,
+        reviewId: 1,
+        reviewerId: 999,
+        revieweeId: 42,
+        reviewedRole: "SELLER",
+        revealedAt: "2026-04-20T10:00:00Z",
+      });
+    });
+
+    // The handler branch invalidates ["reviews","auction","7"], which
+    // refetches the panel's envelope — assert on the second GET.
+    await waitFor(() => expect(reviewsFetchCount).toBeGreaterThan(initial));
   });
 
   it("invalidates cache on ESCROW_FUNDED envelope and refetches", async () => {

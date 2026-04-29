@@ -1,10 +1,15 @@
 package com.slparcelauctions.backend.escrow;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.escrow.dispute.EvidenceImage;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -92,6 +97,9 @@ public class Escrow {
     @Column(name = "last_checked_at")
     private OffsetDateTime lastCheckedAt;
 
+    @Column(name = "reminder_sent_at")
+    private OffsetDateTime reminderSentAt;
+
     @Builder.Default
     @Column(name = "consecutive_world_api_failures", nullable = false)
     private Integer consecutiveWorldApiFailures = 0;
@@ -101,6 +109,25 @@ public class Escrow {
 
     @Column(name = "dispute_description", columnDefinition = "text")
     private String disputeDescription;
+
+    @Column(name = "sl_transaction_key", length = 64)
+    private String slTransactionKey;
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "winner_evidence_images", columnDefinition = "jsonb")
+    private List<EvidenceImage> winnerEvidenceImages = new ArrayList<>();
+
+    @Builder.Default
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "seller_evidence_images", columnDefinition = "jsonb")
+    private List<EvidenceImage> sellerEvidenceImages = new ArrayList<>();
+
+    @Column(name = "seller_evidence_text", length = 2000)
+    private String sellerEvidenceText;
+
+    @Column(name = "seller_evidence_submitted_at")
+    private OffsetDateTime sellerEvidenceSubmittedAt;
 
     @Column(name = "freeze_reason", length = 40)
     private String freezeReason;

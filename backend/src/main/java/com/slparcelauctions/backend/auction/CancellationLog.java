@@ -8,6 +8,8 @@ import com.slparcelauctions.backend.user.User;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -51,6 +53,33 @@ public class CancellationLog {
 
     @Column(length = 500)
     private String reason;
+
+    /**
+     * Snapshot of the ladder consequence selected at the moment of this
+     * cancellation. Immutable historical fact — never recomputed. Nullable
+     * because pre-sub-spec-2 rows have no kind. See spec §4.3.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "penalty_kind", length = 30)
+    private CancellationOffenseKind penaltyKind;
+
+    /**
+     * Snapshot of the L$ debt added by this cancellation. Populated when
+     * {@code penaltyKind} is {@code PENALTY} or {@code PENALTY_AND_30D};
+     * {@code null} for {@code NONE}, {@code WARNING}, and
+     * {@code PERMANENT_BAN}. Pre-sub-spec-2 rows are also {@code null}.
+     */
+    @Column(name = "penalty_amount_l")
+    private Long penaltyAmountL;
+
+    /**
+     * Non-null when the cancellation was initiated by a staff admin rather than
+     * the seller. Admin-cancel rows are excluded from
+     * {@code countPriorOffensesWithBids} so they do not advance the seller's
+     * penalty ladder. Null for all seller-initiated cancellations.
+     */
+    @Column(name = "cancelled_by_admin_id")
+    private Long cancelledByAdminId;
 
     @CreationTimestamp
     @Column(name = "cancelled_at", nullable = false, updatable = false)

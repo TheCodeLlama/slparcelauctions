@@ -22,6 +22,7 @@ function baseAuction(
   return {
     id: 42,
     sellerId: 1,
+    title: "Featured Parcel Listing",
     parcel: {
       id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
@@ -30,6 +31,9 @@ function baseAuction(
       regionName: "Heterocera",
       gridX: 0,
       gridY: 0,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
       continentName: null,
       areaSqm: 1024,
       description: "Beachfront parcel",
@@ -81,7 +85,10 @@ describe("ListingSummaryRow", () => {
       <ListingSummaryRow auction={baseAuction()} />,
       { auth: "authenticated" },
     );
-    expect(screen.getByText("Beachfront parcel")).toBeInTheDocument();
+    // Parcel name is demoted to the secondary line once a title is set.
+    expect(screen.getByTestId("listing-summary-secondary")).toHaveTextContent(
+      /Beachfront parcel/,
+    );
     expect(
       screen.getByText(/Heterocera · 1024 m/),
     ).toBeInTheDocument();
@@ -89,6 +96,28 @@ describe("ListingSummaryRow", () => {
     expect(
       screen.getByText((t) => t.trim() === "Active"),
     ).toBeInTheDocument();
+  });
+
+  it("shows auction title as primary label, parcel name as secondary", () => {
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={baseAuction({
+          title: "Premium Waterfront",
+          parcel: {
+            ...baseAuction().parcel,
+            description: "Bayside Cottage",
+            regionName: "Tula",
+          },
+        })}
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByTestId("listing-summary-primary")).toHaveTextContent(
+      "Premium Waterfront",
+    );
+    expect(screen.getByTestId("listing-summary-secondary")).toHaveTextContent(
+      "Tula",
+    );
   });
 
   it("shows the em-dash bid fallback and 0 bids when there is no bid on ACTIVE", () => {

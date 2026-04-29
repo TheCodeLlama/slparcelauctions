@@ -12,8 +12,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Public parcel-tag reference. Returns all active tags grouped by category
- * and ordered by per-category {@code sort_order}. Available to any
- * authenticated user (see {@code SecurityConfig}).
+ * and ordered by per-category {@code sort_order}. Anonymous — browse uses
+ * the catalogue to render tag filters before sign-in (see {@code SecurityConfig}).
  */
 @RestController
 @RequestMapping("/api/v1/parcel-tags")

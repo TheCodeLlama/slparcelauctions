@@ -56,6 +56,7 @@ import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
@@ -81,7 +82,9 @@ import reactor.core.publisher.Mono;
         "slpa.escrow.ownership-monitor-job.enabled=true",
         "slpa.escrow.ownership-monitor-job.fixed-delay=PT24H",
         "slpa.escrow.command-dispatcher-job.enabled=true",
-        "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H"
+        "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Import(EscrowEndToEndIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -119,6 +122,7 @@ class EscrowEndToEndIntegrationTest {
     @Autowired UserRepository userRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
+    @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -164,6 +168,7 @@ class EscrowEndToEndIntegrationTest {
                         VerificationCodeType.PLAYER).forEach(verificationCodeRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL).forEach(verificationCodeRepo::delete);
+                notificationRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
             terminalRepo.findById(TERMINAL_ID).ifPresent(terminalRepo::delete);
@@ -258,6 +263,14 @@ class EscrowEndToEndIntegrationTest {
         assertThat(env.auctionId()).isEqualTo(seededAuctionId);
         assertThat(env.escrowId()).isEqualTo(seededEscrowId);
         assertThat(env.state()).isEqualTo(EscrowState.COMPLETED);
+
+        // Epic 08 sub-spec 1 §3.4 / §6.1: the seller's completedSales
+        // counter must bump in the same transaction that flipped the escrow
+        // to COMPLETED. Prior to sub-spec 1 this counter was declared but
+        // never written; the reputation & completion-rate pipeline hangs
+        // off this increment landing inside the payout-success handler.
+        User seller = userRepo.findById(seededSellerId).orElseThrow();
+        assertThat(seller.getCompletedSales()).isEqualTo(1);
     }
 
     // -------------------------------------------------------------------------
@@ -274,7 +287,7 @@ class EscrowEndToEndIntegrationTest {
         return new ParcelMetadata(
                 seededParcelUuid, owner, ownerType,
                 "Test Parcel", REGION_NAME,
-                1024, "desc", "http://example.com/snap.jpg", "MATURE",
+                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
     }
 
@@ -306,13 +319,14 @@ class EscrowEndToEndIntegrationTest {
                     .regionName(REGION_NAME)
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)

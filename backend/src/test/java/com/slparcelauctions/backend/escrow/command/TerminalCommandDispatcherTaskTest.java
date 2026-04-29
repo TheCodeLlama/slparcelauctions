@@ -34,6 +34,10 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
+import com.slparcelauctions.backend.escrow.EscrowTransaction;
+import com.slparcelauctions.backend.escrow.EscrowTransactionRepository;
+import com.slparcelauctions.backend.escrow.EscrowTransactionStatus;
+import com.slparcelauctions.backend.escrow.EscrowTransactionType;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.scheduler.TerminalCommandDispatcherTask;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
@@ -62,6 +66,7 @@ class TerminalCommandDispatcherTaskTest {
     @Mock TerminalCommandRepository cmdRepo;
     @Mock TerminalRepository terminalRepo;
     @Mock EscrowRepository escrowRepo;
+    @Mock EscrowTransactionRepository ledgerRepo;
     @Mock TerminalHttpClient terminalHttp;
     @Mock EscrowBroadcastPublisher broadcastPublisher;
     @Mock EscrowConfigProperties props;
@@ -73,7 +78,7 @@ class TerminalCommandDispatcherTaskTest {
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-21T14:00:00Z"), ZoneOffset.UTC);
         task = new TerminalCommandDispatcherTask(
-                cmdRepo, terminalRepo, escrowRepo, terminalHttp,
+                cmdRepo, terminalRepo, escrowRepo, ledgerRepo, terminalHttp,
                 broadcastPublisher, props, fixed);
         lenient().when(props.terminalLiveWindow()).thenReturn(LIVE_WINDOW);
         lenient().when(props.commandInFlightTimeout()).thenReturn(IN_FLIGHT_TIMEOUT);
@@ -173,6 +178,59 @@ class TerminalCommandDispatcherTaskTest {
         // called only if the transaction commits. We can at least assert the
         // escrow lookup happened (so the envelope factory has its inputs).
         verify(escrowRepo).findById(ESCROW_ID);
+    }
+
+    @Test
+    void httpFailureAtCap_writesFailedLedgerRow() {
+        // Spec follow-up: transport-failure stalls now write a FAILED
+        // EscrowTransaction row mirroring the terminal-reported-failure path
+        // in TerminalCommandService.applyCallback. The dispute timeline can
+        // surface both shapes uniformly.
+        TerminalCommand cmd = buildQueued();
+        cmd.setStatus(TerminalCommandStatus.FAILED);
+        cmd.setAttemptCount(3);
+        cmd.setRequiresManualReview(false);
+
+        Terminal terminal = buildTerminal();
+        Escrow escrow = buildEscrow();
+        when(cmdRepo.findByIdForUpdate(CMD_ID)).thenReturn(Optional.of(cmd));
+        when(terminalRepo.findAnyLive(any())).thenReturn(Optional.of(terminal));
+        when(cmdRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(terminalHttp.post(anyString(), any()))
+                .thenReturn(TerminalHttpClient.TerminalHttpResult.fail("connection refused"));
+        when(escrowRepo.findById(ESCROW_ID)).thenReturn(Optional.of(escrow));
+
+        task.dispatchOne(CMD_ID);
+
+        ArgumentCaptor<EscrowTransaction> ledgerCaptor =
+                ArgumentCaptor.forClass(EscrowTransaction.class);
+        verify(ledgerRepo).save(ledgerCaptor.capture());
+        EscrowTransaction row = ledgerCaptor.getValue();
+        assertThat(row.getStatus()).isEqualTo(EscrowTransactionStatus.FAILED);
+        assertThat(row.getType()).isEqualTo(EscrowTransactionType.AUCTION_ESCROW_PAYOUT);
+        assertThat(row.getAmount()).isEqualTo(cmd.getAmount());
+        assertThat(row.getEscrow()).isEqualTo(escrow);
+        assertThat(row.getAuction()).isEqualTo(escrow.getAuction());
+        assertThat(row.getErrorMessage()).isEqualTo("connection refused");
+        assertThat(row.getTerminalId()).isEqualTo(TERMINAL_ID);
+    }
+
+    @Test
+    void httpFailureBelowCap_doesNotWriteFailedLedgerRow() {
+        // Below-cap retries leave the row in FAILED with backoff but do NOT
+        // write a per-attempt ledger row — that would balloon the ledger for
+        // every transient hiccup. Only the cap-exhaust transition writes one.
+        TerminalCommand cmd = buildQueued();
+        Terminal terminal = buildTerminal();
+        when(cmdRepo.findByIdForUpdate(CMD_ID)).thenReturn(Optional.of(cmd));
+        when(terminalRepo.findAnyLive(any())).thenReturn(Optional.of(terminal));
+        when(cmdRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(terminalHttp.post(anyString(), any()))
+                .thenReturn(TerminalHttpClient.TerminalHttpResult.fail("connect timeout"));
+
+        task.dispatchOne(CMD_ID);
+
+        verifyNoInteractions(ledgerRepo);
     }
 
     @Test
@@ -280,6 +338,7 @@ class TerminalCommandDispatcherTaskTest {
                 .ownerUuid(seller.getSlAvatarUuid()).ownerType("agent")
                 .regionName("Reg").continentName("Sansara").verified(true).build();
         Auction auction = Auction.builder()
+                .title("Test listing")
                 .id(1001L).seller(seller).parcel(parcel)
                 .status(AuctionStatus.ENDED)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)

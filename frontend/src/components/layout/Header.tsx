@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Bell, MenuIcon } from "@/components/ui/icons";
+import { MenuIcon } from "@/components/ui/icons";
 import {
   Button,
   IconButton,
@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { MobileMenu } from "./MobileMenu";
 import { NavLink } from "./NavLink";
 import { UserMenuDropdown } from "@/components/auth/UserMenuDropdown";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -46,13 +47,15 @@ export function Header() {
             <NavLink variant="header" href="/browse">Browse</NavLink>
             <NavLink variant="header" href="/dashboard">Dashboard</NavLink>
             <NavLink variant="header" href="/auction/new">Create Listing</NavLink>
+            {status === "authenticated" && user.role === "ADMIN" && (
+              <NavLink variant="header" href="/admin">Admin</NavLink>
+            )}
           </nav>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <IconButton aria-label="Notifications" variant="tertiary">
-              <Bell />
-            </IconButton>
+            <div id="curator-tray-slot" />
+            <NotificationBell />
 
             {status === "loading" ? null : status === "authenticated" ? (
               <UserMenuDropdown user={user} />

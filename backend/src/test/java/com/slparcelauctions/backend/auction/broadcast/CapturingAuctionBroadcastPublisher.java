@@ -3,6 +3,8 @@ package com.slparcelauctions.backend.auction.broadcast;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
+
 /**
  * Test-support implementation of {@link AuctionBroadcastPublisher} that
  * stores every published envelope in thread-safe lists. Swap this into a
@@ -41,6 +43,7 @@ public class CapturingAuctionBroadcastPublisher implements AuctionBroadcastPubli
 
     public final List<BidSettlementEnvelope> settlements = new CopyOnWriteArrayList<>();
     public final List<AuctionEndedEnvelope> ended = new CopyOnWriteArrayList<>();
+    public final List<AuctionCancelledEnvelope> cancelled = new CopyOnWriteArrayList<>();
 
     @Override
     public void publishSettlement(BidSettlementEnvelope envelope) {
@@ -52,9 +55,15 @@ public class CapturingAuctionBroadcastPublisher implements AuctionBroadcastPubli
         ended.add(envelope);
     }
 
-    /** Clears both capture lists; useful in {@code @BeforeEach} hooks. */
+    @Override
+    public void publishCancelled(AuctionCancelledEnvelope envelope) {
+        cancelled.add(envelope);
+    }
+
+    /** Clears all capture lists; useful in {@code @BeforeEach} hooks. */
     public void reset() {
         settlements.clear();
         ended.clear();
+        cancelled.clear();
     }
 }

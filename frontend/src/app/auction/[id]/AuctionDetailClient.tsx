@@ -16,19 +16,21 @@ import { useBidHistory, bidHistoryKey } from "@/hooks/useBidHistory";
 import { useMyProxy, myProxyKey } from "@/hooks/useMyProxy";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import { AuctionHero } from "@/components/auction/AuctionHero";
+import { BreadcrumbNav } from "@/components/auction/BreadcrumbNav";
 import { ParcelInfoPanel } from "@/components/auction/ParcelInfoPanel";
+import { ParcelLayoutMapPlaceholder } from "@/components/auction/ParcelLayoutMapPlaceholder";
 import {
   SellerProfileCard,
   type SellerProfileCardSeller,
 } from "@/components/auction/SellerProfileCard";
+import { VisitInSecondLifeBlock } from "@/components/auction/VisitInSecondLifeBlock";
 import { BidPanel } from "@/components/auction/BidPanel";
 import { BidHistoryList } from "@/components/auction/BidHistoryList";
 import { AuctionEndedRow } from "@/components/auction/AuctionEndedRow";
 import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner";
-import { OutbidToastProvider } from "@/components/auction/OutbidToastProvider";
 import { StickyBidBar } from "@/components/auction/StickyBidBar";
 import { BidSheet } from "@/components/auction/BidSheet";
-import { useToast } from "@/components/ui/Toast";
+import { ReportListingButton } from "@/components/auction/ReportListingButton";
 
 /**
  * Client shell for the auction detail page.
@@ -62,12 +64,10 @@ interface Props {
  * at consumer sites via discriminators like {@code status}.
  *
  * {@code currentBidderId} is persisted from every {@link BidSettlementEnvelope}
- * so {@link OutbidToastProvider.maybeFire} has a reliable pre-settlement
- * snapshot and {@code currentUserIsWinning} can be derived without a
- * separate query. Neither DTO carries this field today — the initial
- * server fetch leaves it {@code undefined}, which is indistinguishable
- * from "no one has bid yet" for the outbid-guard (and that's the correct
- * semantics: the first envelope can never displace the caller).
+ * so {@code currentUserIsWinning} can be derived without a separate query.
+ * Neither DTO carries this field today — the initial server fetch leaves it
+ * {@code undefined}, which is indistinguishable from "no one has bid yet"
+ * (first envelope can never displace the caller).
  */
 type AuctionCacheEntry = (
   | PublicAuctionResponse
@@ -79,7 +79,6 @@ type AuctionCacheEntry = (
 
 export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   const queryClient = useQueryClient();
-  const toast = useToast();
   const session = useAuth();
   const currentUserId =
     session.status === "authenticated" ? session.user.id : null;
@@ -93,16 +92,19 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
     enabled: currentUserId != null && !isSellerViewer,
   });
 
-  // Task 4: seller profile fetch. The public auction DTO only exposes
-  // {@code sellerId} — Task 9 adds server-side enrichment so the seller
-  // ships inline with the auction payload. Until then we fetch the public
-  // profile here and hand it to {@link SellerProfileCard}. The card copes
-  // with a pending / errored profile by rendering a minimal shape (id +
-  // display-name fallback) so the page layout never waits on this call.
+  // Seller enrichment. Epic 07 sub-spec 1 Task 2 added an inline
+  // {@code seller} block to {@code PublicAuctionResponse} — prefer that
+  // when present, falling back to the {@code /api/v1/users/{id}} fetch so
+  // legacy server builds / fixtures that predate the DTO widening still
+  // render a complete card. The client query is only enabled when the
+  // inline block is absent, so the normal request path is a single SSR
+  // fetch.
+  const sellerEnriched = initialAuction.seller ?? null;
   const sellerQuery = useQuery<PublicUserProfile>({
     queryKey: ["publicProfile", initialAuction.sellerId],
     queryFn: () => userApi.publicProfile(initialAuction.sellerId),
     staleTime: 60_000,
+    enabled: sellerEnriched == null,
   });
 
   const auction = auctionQuery.data ?? initialAuction;
@@ -149,6 +151,36 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
 
   const handleEnvelope = useCallback(
     (env: AuctionTopicEnvelope) => {
+      // REVIEW_REVEALED envelopes piggy-back on the same topic (Epic 08
+      // sub-spec 1 §7.2) but carry none of the auction-level fields the
+      // detail page reads (no {@code serverTime}, no bid state). Handle
+      // them first so the {@code env.serverTime} read below never fires
+      // against a REVIEW_REVEALED payload. The invalidation refreshes the
+      // seller-card rating once the escrow-page ReviewPanel reveals a
+      // review — the {@code useAuctionReviews} query key mirrors the one
+      // used by {@code EscrowPageClient}.
+      if (env.type === "REVIEW_REVEALED") {
+        queryClient.invalidateQueries({
+          queryKey: ["reviews", "auction", String(id)],
+        });
+        return;
+      }
+
+      // AUCTION_CANCELLED envelopes (Epic 08 sub-spec 2 §8.5) flip the
+      // auction into the CANCELLED status. Like REVIEW_REVEALED, they do
+      // not carry {@code serverTime} — handle them before the offset
+      // refresh below. The invalidation refetches the public auction DTO
+      // so the next render observes {@code status === "CANCELLED"} and
+      // the bid form is replaced by the cancellation banner. {@code
+      // myProxyKey} is also invalidated so any active proxy bid surfaces
+      // its cancelled state.
+      if (env.type === "AUCTION_CANCELLED") {
+        queryClient.invalidateQueries({ queryKey: auctionKey(id) });
+        queryClient.invalidateQueries({ queryKey: bidHistoryKey(id, 0) });
+        queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
+        return;
+      }
+
       // Refine the server-time offset on every envelope so the countdown
       // stays accurate even if the user's clock drifts mid-session.
       serverTimeOffsetRef.current =
@@ -164,15 +196,6 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         queryClient.invalidateQueries({ queryKey: auctionKey(id) });
         return;
       }
-
-      // Snapshot BEFORE the cache mutation so the outbid-toast hook point
-      // (wired in Task 7 via OutbidToastProvider) has the pre-settlement
-      // state available — otherwise the was-winning guard always sees the
-      // post-settlement values. Assignment preserves the snapshot for the
-      // BID_SETTLEMENT branch below.
-      const prevAuction = queryClient.getQueryData<AuctionCacheEntry>(
-        auctionKey(id),
-      );
 
       queryClient.setQueryData<AuctionCacheEntry>(
         auctionKey(id),
@@ -192,16 +215,26 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           // `finalBidAmount`, `winnerUserId` live only on the
           // SellerAuctionResponse shape; the cache is typed wide enough to
           // admit them on the public shape too. Task 6's AuctionEndedPanel
-          // reads them back.
-          return {
-            ...prev,
-            status: "ENDED",
-            endsAt: env.endsAt,
-            endOutcome: env.endOutcome,
-            finalBidAmount: env.finalBid,
-            winnerUserId: env.winnerUserId,
-            bidderCount: env.bidCount,
-          };
+          // reads them back. The explicit {@code type === "AUCTION_ENDED"}
+          // narrows the union down past the non-type-guard
+          // {@code startsWith("ESCROW_")} early-return above so TypeScript
+          // can see we only read AUCTION_ENDED fields here.
+          if (env.type === "AUCTION_ENDED") {
+            return {
+              ...prev,
+              status: "ENDED",
+              endsAt: env.endsAt,
+              endOutcome: env.endOutcome,
+              finalBidAmount: env.finalBid,
+              winnerUserId: env.winnerUserId,
+              bidderCount: env.bidCount,
+            };
+          }
+          // Any other envelope type (ESCROW_*, REVIEW_REVEALED,
+          // AUCTION_CANCELLED) is already handled by the early-returns
+          // above and never reaches this callback — leave the cache
+          // untouched as a defensive fallback.
+          return prev;
         },
       );
 
@@ -249,19 +282,13 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           }));
         }
 
-        // Outbid-toast signal. Guards documented inside
-        // {@link OutbidToastProvider.maybeFire}: was-winning + now-
-        // losing, with anonymous / first-envelope / still-winning cases
-        // short-circuiting. The cache snapshot taken before the merge
-        // above is the authoritative pre-settlement state.
-        OutbidToastProvider.maybeFire(prevAuction, env, currentUserId, toast);
       }
 
       if (env.type === "AUCTION_ENDED") {
         queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
       }
     },
-    [queryClient, id, currentUserId, toast],
+    [queryClient, id],
   );
 
   useStompSubscription<AuctionTopicEnvelope>(
@@ -294,26 +321,40 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   // fetch).
   void bidHistoryQuery;
 
-  // Map the public-profile query into the shape SellerProfileCard expects.
-  // When the fetch is pending / errored we still render the card with just
-  // the auction.sellerId so the layout slot is stable — the card treats
-  // missing enrichment fields as "no data yet" (no ratings, zero sales →
-  // "New Seller" badge, which is an acceptable default for the few hundred
-  // ms before the profile lands).
-  const sellerCardData: SellerProfileCardSeller = sellerQuery.data
+  // Map whichever source is available into the card's expected shape.
+  // The inline {@code seller} block (sub-spec 1) wins when present; the
+  // profile-fetch fallback only runs when it isn't, and the
+  // {@code PublicUserProfile} fields are projected into the enriched
+  // shape (completionRate / memberSince aren't in the public-profile
+  // response, so they stay null → the card renders the "Too new to
+  // calculate" and New Seller copy gracefully).
+  const sellerCardData: SellerProfileCardSeller = sellerEnriched
     ? {
-        id: sellerQuery.data.id,
-        displayName: sellerQuery.data.displayName ?? "Seller",
-        slAvatarName: sellerQuery.data.slAvatarName,
-        profilePicUrl: sellerQuery.data.profilePicUrl,
-        avgSellerRating: sellerQuery.data.avgSellerRating,
-        totalSellerReviews: sellerQuery.data.totalSellerReviews,
-        completedSales: sellerQuery.data.completedSales,
+        id: sellerEnriched.id,
+        displayName: sellerEnriched.displayName,
+        avatarUrl: sellerEnriched.avatarUrl,
+        averageRating: sellerEnriched.averageRating,
+        reviewCount: sellerEnriched.reviewCount,
+        completedSales: sellerEnriched.completedSales,
+        completionRate: sellerEnriched.completionRate,
+        memberSince: sellerEnriched.memberSince,
       }
-    : {
-        id: auction.sellerId,
-        displayName: "Seller",
-      };
+    : sellerQuery.data
+      ? {
+          id: sellerQuery.data.id,
+          displayName: sellerQuery.data.displayName ?? "Seller",
+          avatarUrl: sellerQuery.data.profilePicUrl,
+          averageRating: sellerQuery.data.avgSellerRating,
+          reviewCount: sellerQuery.data.totalSellerReviews,
+          completedSales: sellerQuery.data.completedSales,
+          completionRate: null,
+          memberSince: sellerQuery.data.createdAt,
+        }
+      : {
+          id: auction.sellerId,
+          displayName: "Seller",
+          completedSales: 0,
+        };
 
   // Hoisted viewer projection + winning-state derivation so the desktop
   // sidebar BidPanel, the mobile sheet BidPanel, and the StickyBidBar
@@ -329,17 +370,36 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
 
   return (
     <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-24 pb-24 lg:pb-12">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
+      <BreadcrumbNav
+        region={auction.parcel.regionName}
+        title={auction.title}
+      />
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
         <div className="lg:col-span-8 space-y-8 lg:space-y-12">
           <AuctionHero
             photos={auction.photos}
             snapshotUrl={auction.parcel.snapshotUrl}
             regionName={auction.parcel.regionName}
           />
-          <ParcelInfoPanel auction={auction} />
+          <ParcelInfoPanel
+            auction={auction}
+            reportButton={
+              <ReportListingButton
+                auctionId={id}
+                sellerId={auction.sellerId}
+              />
+            }
+          />
+          <VisitInSecondLifeBlock
+            regionName={auction.parcel.regionName}
+            positionX={auction.parcel.positionX}
+            positionY={auction.parcel.positionY}
+            positionZ={auction.parcel.positionZ}
+          />
           {auction.status === "ENDED" ? (
             <AuctionEndedRow auction={auction} />
           ) : null}
+          <ParcelLayoutMapPlaceholder />
           <BidHistoryList auctionId={id} />
           <SellerProfileCard seller={sellerCardData} />
         </div>

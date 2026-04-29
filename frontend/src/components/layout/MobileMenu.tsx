@@ -4,6 +4,7 @@ import { Dialog, DialogPanel } from "@headlessui/react";
 import Link from "next/link";
 import { X } from "@/components/ui/icons";
 import { Button, IconButton } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
 import { NavLink } from "./NavLink";
 
 type MobileMenuProps = {
@@ -12,6 +13,8 @@ type MobileMenuProps = {
 };
 
 export function MobileMenu({ open, onClose }: MobileMenuProps) {
+  const { status, user } = useAuth();
+
   return (
     <Dialog open={open} onClose={onClose} className="md:hidden relative z-50">
       <div
@@ -40,6 +43,11 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
             <NavLink variant="mobile" href="/auction/new" onClick={onClose}>
               Create Listing
             </NavLink>
+            {status === "authenticated" && user.role === "ADMIN" && (
+              <NavLink variant="mobile" href="/admin" onClick={onClose}>
+                Admin
+              </NavLink>
+            )}
           </nav>
 
           <div className="mt-auto flex flex-col gap-3">

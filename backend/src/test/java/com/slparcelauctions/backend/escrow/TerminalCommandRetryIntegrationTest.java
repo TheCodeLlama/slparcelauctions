@@ -75,7 +75,9 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         // Keep the dispatcher bean eligible for autowiring but disable the
         // @Scheduled tick so only the explicit sweeps we drive execute.
         "slpa.escrow.command-dispatcher-job.enabled=true",
-        "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H"
+        "slpa.escrow.command-dispatcher-job.fixed-delay=PT24H",
+        "slpa.notifications.cleanup.enabled=false",
+        "slpa.notifications.sl-im.cleanup.enabled=false"
 })
 @Import(TerminalCommandRetryIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -247,13 +249,14 @@ class TerminalCommandRetryIntegrationTest {
                     .regionName(REGION_NAME)
                     .continentName("Sansara")
                     .areaSqm(1024)
-                    .maturityRating("MATURE")
+                    .maturityRating("MODERATE")
                     .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
+                    .title("Test listing")
                     .parcel(parcel)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)

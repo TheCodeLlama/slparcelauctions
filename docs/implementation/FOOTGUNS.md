@@ -1515,3 +1515,261 @@ patterns work; Dockerfile is more robust.
 
 **Touchpoint:** `bot/Dockerfile`. Any future .NET-in-container service
 must set this env var explicitly.
+
+### F.90 — Hibernate collection-fetch + pagination = in-memory pagination (HHH90003004)
+
+Fetching a `@OneToMany` / `@ManyToMany` collection via `@EntityGraph` on
+a paginated query triggers HHH90003004 — Hibernate can't paginate in
+SQL, fetches all matching rows into memory, and paginates in Java. At a
+few hundred active rows this is invisible; at a few thousand it's a
+full-table scan into heap on every cache miss.
+
+**Rule:** on paginated queries, only join-fetch `@ManyToOne`
+associations. For collections, batch-load with a second query keyed by
+the page's IDs (`WHERE parent_id IN (:pageIds)`).
+
+**Single-row fetches** (like `GET /auctions/{id}`) are fine — no
+pagination means the trap doesn't apply. Join-fetch collections there.
+
+**Reference:** Epic 07 sub-spec 1 §6.3; mapper in
+`AuctionSearchResultMapper.java`.
+
+### F.91 — EXPLAIN ANALYZE in CI against Testcontainers / small fixtures
+
+Postgres' planner chooses between seq scan and index scan based on
+table statistics. A Testcontainers fixture with a few hundred rows
+often fits in a single page, so the planner legitimately picks
+`Seq Scan` — even though the index is present. Asserting on plan
+shape in CI flakes.
+
+**Rule:** CI tests assert on **index existence** via `pg_indexes`
+(see `PgIndexExistenceTest`). Actual `EXPLAIN ANALYZE` plan-shape
+verification happens manually against a staging-sized dataset ahead
+of releases or during query tuning, not as a CI gate.
+
+**Reference:** Epic 07 sub-spec 1 §13.
+
+### F.92 — Spring user-destination paths: client subscribes to `/user/queue/X`, never `/user/{id}/queue/X`
+
+The shorthand `/user/{id}/queue/*` shows up in design docs and ledger entries
+but is **never** the literal subscription path. Spring's `UserDestinationResolver`
+resolves the principal from the STOMP session (set by `JwtChannelInterceptor` on
+CONNECT via `accessor.setUser(StompAuthenticationToken)`) and translates the
+client's `/user/queue/X` subscription into a session-specific destination. The
+backend publishes via `convertAndSendToUser(String.valueOf(userId), "/queue/X", ...)`.
+
+A subscription path that includes a literal user id (e.g.,
+`/user/123/queue/notifications`) is a security hole — any authenticated user
+could subscribe to any other user's queue by guessing IDs. The `WebSocketConfig`
+broker registration must include `/queue` as a destination prefix
+(`enableSimpleBroker("/topic", "/queue")`), or `convertAndSendToUser` silently
+drops the message because there's no broker for the destination.
+
+### F.93 — Notification publish lifecycle differs by recipient cardinality
+
+Single-recipient publishers (`outbid`, `escrowFunded`, etc.) run **in-tx** with
+the originating event — atomic with the event, exceptions roll back the parent.
+Acceptable: single recipient = small surface, real failures *should* roll back.
+
+Fan-out publishers (only `listingCancelledBySellerFanout` today) run as
+**afterCommit batch** with per-recipient try-catch + `TransactionTemplate`
+configured `PROPAGATION_REQUIRES_NEW`. The cancellation is the business event;
+notification delivery is the side effect — a side effect must never block the
+primary action. afterCommit (rather than REQUIRES_NEW *inside* the parent tx)
+also prevents orphan notifications when the parent rolls back unrelatedly.
+
+Mixing these lifecycles produces either:
+- "one bad bidder kills the cancellation" (fan-out in-tx)
+- "orphan notifications when parent rolls back" (per-recipient REQUIRES_NEW
+  inside parent tx)
+
+If you add a new fan-out method, name it with a `Fanout` suffix and accept
+`List<Long>` recipients — match `listingCancelledBySellerFanout`'s shape.
+
+### F.94 — Coalesce uses Postgres ON CONFLICT, not find-then-insert-with-retry
+
+The naive race-handling pattern (catch `DataIntegrityViolationException` →
+retry as UPDATE) marks the parent transaction rollback-only on the exception,
+killing the originating business event (e.g., a bid settlement). The native
+`ON CONFLICT (user_id, coalesce_key) WHERE read = false DO UPDATE` upsert
+avoids the exception path entirely.
+
+Index design: partial unique on `(user_id, coalesce_key) WHERE read = false`,
+created via `NotificationCoalesceIndexInitializer` because Hibernate's
+`ddl-auto: update` cannot emit partial indexes. Null `coalesce_key` values
+never conflict (NULL ≠ NULL semantics in Postgres unique constraints), so the
+same UPSERT query handles both coalescing and non-coalescing categories — no
+service-layer branching.
+
+The `xmax = 0` vs `xmax = current_txid` trick in the `RETURNING` clause tells
+the DAO whether the operation was insert or update without a second roundtrip.
+This drives the `isUpdate` flag on the `NOTIFICATION_UPSERTED` WS envelope,
+which the frontend uses to decide whether to prepend (insert) or replace-by-id
+(update) in the dropdown cache.
+
+### F.95 — `llInstantMessage` truncates at 1024 BYTES, not characters
+
+The natural Java `String.length()` measures UTF-16 code units; SL's
+`llInstantMessage` truncates the IM at 1024 **bytes** in UTF-8 encoding.
+Multi-byte UTF-8 characters (CJK, emoji, accented Latin) push the byte count
+above the char count. SL silently truncates from the end of the string — no
+error, no warning, no return value — and the deeplink in SLPA's IM template
+lives at the end of the assembled message. A 1023-character string with
+multi-byte content can occupy 1500+ bytes; the deeplink gets cleanly cut off.
+
+`SlImMessageBuilder` measures `text.getBytes(StandardCharsets.UTF_8).length`
+and ellipsizes the body, never the prefix or deeplink. Three mandatory test
+cases (multi-byte parcel name, emoji parcel name, long-body forcing
+truncation) verify the deeplink survives. Adding a new component to the
+assembled message (e.g., a timestamp) requires updating the byte-budget
+accounting in `SlImMessageBuilder` — the budget assumes exactly
+`PREFIX + title + SEPARATOR + body + SEPARATOR + deeplink`.
+
+### F.96 — Single-recipient publish path is afterCommit-then-REQUIRES_NEW; fan-out path is in-the-REQUIRES_NEW
+
+The two notification dispatch sites have different reliability postures and
+different transaction structures.
+
+**Single-recipient path** (`NotificationService.publish`): in-app row commits
+first as part of the parent transaction, then `afterCommit` runs
+`slImChannelDispatcher.maybeQueue` which opens its own REQUIRES_NEW. If the
+IM-queue write fails, the in-app row already committed, the parent business
+event already committed, and the only loss is the IM. **In-app guaranteed,
+IM best-effort.**
+
+**Fan-out path** (`NotificationPublisherImpl.listingCancelledBySellerFanout`):
+per-recipient REQUIRES_NEW lambda contains the in-app DAO upsert AND the IM
+queue write as siblings. If the IM-queue write fails, that recipient's
+in-app row also rolls back; the per-recipient try-catch isolates this from
+sibling recipients. **In-app + IM atomic per recipient; sibling recipients
+independent.**
+
+Mixing these mental models produces either:
+- "One bad bidder kills the cancellation" — if you put fan-out atomic with the parent transaction.
+- "In-app row exists but IM never queued because the dispatcher hook failed silently" — if you inline the dispatcher into the single-recipient path's parent transaction.
+
+Future contributors adding a new fan-out method must follow the existing
+pattern: per-recipient REQUIRES_NEW lambda containing all per-recipient writes
+as siblings, with a per-recipient try-catch wrapping the lambda. Name with a
+`Fanout` suffix (sub-spec 1's convention).
+
+### F.97 — Adding a new terminal status to `sl_im_message` requires updating the cleanup predicate
+
+`SlImCleanupJob` stage 2 deletes rows via `WHERE status IN ('DELIVERED',
+'EXPIRED', 'FAILED') AND updated_at < retention_cutoff`. The IN-list
+enumerates terminal statuses. Adding a new one (e.g., a future
+`RETRY_SCHEDULED` for a deferred retry primitive) without updating the IN-list
+means those rows accumulate forever — defeating the very `SELECT status,
+count(*) FROM sl_im_message GROUP BY status` query the rolling 30-day window
+was supposed to keep meaningful. Add the new status to the predicate in the
+same commit that introduces the status.
+
+### F.98 — LSL `llInstantMessage` is fire-and-forget; `/failed` has no LSL caller
+
+The `sl-im-dispatcher` script unconditionally calls
+`POST /api/v1/internal/sl-im/{id}/delivered` after every `llInstantMessage`
+because LSL provides no delivery signal — `llInstantMessage` returns `void`,
+raises no event on failure, and produces no observable side effect when the
+recipient UUID is invalid or offline-unreachable.
+
+This means FAILED rows in `sl_im_message` only appear via:
+1. Manual operator intervention — direct SQL UPDATE in production (rare;
+   usually for support clearing a stuck row).
+2. A future revision of `dispatcher.lsl` that pre-validates avatar UUIDs
+   (e.g., `llRequestAgentData` against `DATA_ONLINE` before sending, or a
+   `NULL_KEY` guard).
+
+If support runs `SELECT status, count(*) FROM sl_im_message GROUP BY status`
+and sees zero FAILED rows, that's correct behavior. Not a missing pipeline.
+
+### F.99 — Admin bootstrap config WILL re-promote a deliberately-demoted bootstrap email
+
+The `slpa.admin.bootstrap-emails` list is a forward-promote-on-startup
+mechanism, not a configurable opt-out. The `WHERE u.role = 'USER'` guard
+catches deliberately-demoted bootstrap emails on next restart and
+re-promotes them. To permanently demote a bootstrap email, **remove it
+from the config list** AND bump `tokenVersion` (else outstanding tokens
+keep working until expiry). Documented as intentional in spec
+2026-04-26 §10.6.
+
+### F.100 — Demoting an admin requires both `role = USER` AND `tokenVersion + 1`
+
+`UPDATE users SET role = 'USER' WHERE id = ?` alone is insufficient.
+Existing access tokens carry `role: "ADMIN"` in their JWT claim and stay
+valid until expiry — a demoted admin keeps full access for up to one
+access-token lifetime. The `tv` bump invalidates all outstanding
+tokens. Either do both ops in one transaction (preferred) or bump tv as
+the LAST step so the role flip is observable across the cluster before
+tokens get invalidated.
+
+### F.101 — JWT-claim authority mapping is the only source of `ROLE_*` authorities
+
+`hasRole("ADMIN")` in SecurityConfig depends on JwtAuthenticationFilter
+emitting `ROLE_ADMIN` authority. The filter reads `principal.role()` and
+prefixes with `ROLE_`. If the filter's third constructor arg is changed
+back to empty `List.of()` for any reason, ALL admin matchers silently
+fail closed (every request 403s). Tests at `AdminAuthGateSliceTest`
+verify the round-trip — they are the canary.
+
+### F.102 — Stats endpoint is uncached and runs 10 queries per page load
+
+`GET /api/v1/admin/stats` runs three `count(*)` against fraud_flags +
+escrows, four `count(*)` against auctions/users/escrows + the
+`countByStateNotIn` set check, and two `sum(*)` against escrows. Single
+read-only transaction, no Redis cache. Acceptable today (admin traffic
+is low). If pre-launch volume makes the dashboard noticeably slow, the
+fix is a 30-second Redis cache, NOT N+1 fixes — there are no joins to
+optimize.
+
+### F.103 — Admin-cancel must NOT bump the seller's penalty ladder
+
+`CancellationLog.cancelledByAdminId IS NULL` is the load-bearing predicate
+in `countPriorOffensesWithBids`. Without it, every admin-removed listing
+counts as a seller offense — a seller who's been wrongly reported but
+exonerated would still climb the ladder. Test
+`CancellationServiceCancelByAdminTest.priorOffensesQueryExcludesAdminCancel`
+is the canary.
+
+### F.104 — Cause-neutral fanout body string
+
+`NotificationPublisher.listingCancelledBySellerFanout` body strings
+("This auction has been cancelled. Your active proxy bid is no longer
+in effect.") are deliberately cause-neutral so admin-cancel can call the
+same method. If anyone reverts the body to seller-attributed copy ("The
+seller cancelled..."), bidders on admin-cancelled auctions get a
+misleading message. Existing seller-cancel tests assert against the
+new copy — they're the canary.
+
+### F.105 — Listing-level report actions touch ONLY OPEN reports
+
+`AdminReportService.warnSeller / suspend / cancel` filter to OPEN status
+when batching the report-state-change. DISMISSED reports stay DISMISSED
+because each represents a deliberate per-report decision (with the
+reporter's frivolous counter already incremented). Reclassifying them
+on a listing-level action would undo that decision.
+
+### F.106 — Ban cache TTL = 5 min; create/lift flushes immediately
+
+`BanCheckService` caches both positive AND negative results with 5-min
+TTL. `BanCacheInvalidator.invalidate(ip, uuid)` is called on ban-create
+and ban-lift to clear the keys immediately. The 5-min cap limits the
+worst-case stale window to 5 min — acceptable because admin actions are
+infrequent and a banned user being one bid late to be blocked is a
+non-event.
+
+### F.107 — Listing-creation IP capture didn't exist before
+
+`AuctionController.create` and `AuctionService.create` gained
+`HttpServletRequest` / `String ipAddress` parameters in sub-spec 2. Any
+test calling `auctionService.create(sellerId, req)` directly fails with
+a method-not-found compile error — pass `null` or `""` as the new third
+arg. The integration tests in this sub-spec already do this; older tests
+that haven't been touched in a while may need a sweep.
+
+### F.108 — Self-demote returns 409, NOT 403
+
+A current admin trying to demote themselves gets `409 SELF_DEMOTE_FORBIDDEN`
+from `AdminRoleService.demote`. The 409 is intentional — they have
+permission to call the endpoint (they're an admin), but the operation
+is forbidden by business rule. The frontend toast surfaces "You cannot
+demote yourself."

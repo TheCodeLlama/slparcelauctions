@@ -7,7 +7,6 @@ import java.util.Map;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +26,7 @@ import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.escrow.Escrow;
@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -62,9 +63,11 @@ public class AuctionController {
     @ResponseStatus(HttpStatus.CREATED)
     public SellerAuctionResponse create(
             @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody AuctionCreateRequest req) {
+            @Valid @RequestBody AuctionCreateRequest req,
+            HttpServletRequest httpRequest) {
         requireVerified(principal.userId());
-        Auction created = auctionService.create(principal.userId(), req);
+        String ip = httpRequest.getRemoteAddr();
+        Auction created = auctionService.create(principal.userId(), req, ip);
         return mapper.toSellerResponse(created, null);
     }
 
@@ -72,7 +75,11 @@ public class AuctionController {
     public Object get(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal) {
-        Auction a = auctionService.load(id);
+        // loadForDetail eagerly hydrates parcel + seller + photos + tags so
+        // the public/seller mappers downstream can render the seller card +
+        // photo carousel off a single LEFT JOIN. Single-row fetch — no
+        // HHH90003004 risk from the multiple to-many entity-graph branches.
+        Auction a = auctionService.loadForDetail(id);
         Long userId = principal == null ? null : principal.userId();
         boolean isSeller = userId != null && a.getSeller().getId().equals(userId);
         if (!isSeller) {
@@ -120,13 +127,15 @@ public class AuctionController {
     public SellerAuctionResponse cancel(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody AuctionCancelRequest req) {
+            @Valid @RequestBody AuctionCancelRequest req,
+            HttpServletRequest httpRequest) {
         requireVerified(principal.userId());
         // Non-locking load authorises the seller; the service re-fetches under
         // a pessimistic write lock for the state transition so cancellation
         // races with bid placement / auction end serialise on the row lock.
         auctionService.loadForSeller(id, principal.userId());
-        Auction cancelled = cancellationService.cancel(id, req.reason());
+        String ip = httpRequest.getRemoteAddr();
+        Auction cancelled = cancellationService.cancel(id, req.reason(), ip);
         return mapper.toSellerResponse(cancelled, null);
     }
 
@@ -220,7 +229,7 @@ public class AuctionController {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         if (!Boolean.TRUE.equals(user.getVerified())) {
-            throw new AccessDeniedException(
+            throw new NotVerifiedException(
                     "SL avatar verification required to manage auctions.");
         }
     }

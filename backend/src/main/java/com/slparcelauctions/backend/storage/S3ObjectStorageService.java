@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.storage;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -22,6 +23,8 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +32,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 public class S3ObjectStorageService implements ObjectStorageService {
 
     private final S3Client s3;
+    private final S3Presigner s3Presigner;
     private final StorageConfigProperties props;
 
     @Override
@@ -118,5 +122,17 @@ public class S3ObjectStorageService implements ObjectStorageService {
         } catch (NoSuchKeyException e) {
             return false;
         }
+    }
+
+    @Override
+    public String presignGet(String key, Duration ttl) {
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .getObjectRequest(GetObjectRequest.builder()
+                        .bucket(props.bucket())
+                        .key(key)
+                        .build())
+                .build();
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 }

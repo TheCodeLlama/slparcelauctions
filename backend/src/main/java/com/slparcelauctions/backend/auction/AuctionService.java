@@ -1,6 +1,8 @@
 package com.slparcelauctions.backend.auction;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,10 +17,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
+import com.slparcelauctions.backend.auction.exception.SuspensionReason;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
@@ -41,18 +46,35 @@ public class AuctionService {
     private final ParcelRepository parcelRepo;
     private final UserRepository userRepo;
     private final ParcelTagRepository tagRepo;
+    private final BanCheckService banCheckService;
+    private final Clock clock;
 
     @Value("${slpa.commission.default-rate:0.05}")
     private BigDecimal defaultCommissionRate;
 
     @Transactional
-    public Auction create(Long sellerId, AuctionCreateRequest req) {
+    public Auction create(Long sellerId, AuctionCreateRequest req, String ipAddress) {
+        validateTitle(req.title());
         validatePricing(req.startingBid(), req.reservePrice(), req.buyNowPrice());
         validateDuration(req.durationHours());
         validateSnipe(req.snipeProtect(), req.snipeWindowMin());
 
         User seller = userRepo.findById(sellerId)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + sellerId));
+
+        banCheckService.assertNotBanned(ipAddress, seller.getSlAvatarUuid());
+
+        // Listing-creation suspension gate (Epic 08 sub-spec 2 §7.7). Order is
+        // most-restrictive-first: a permanent ban shadows a timed suspension,
+        // which shadows an outstanding penalty balance. The first match
+        // surfaces as the {@code code} on the 403 ProblemDetail so the
+        // frontend can branch on the discriminator without parsing the
+        // human-readable detail.
+        SuspensionReason suspended = checkCanCreateListing(seller);
+        if (suspended != null) {
+            throw new SellerSuspendedException(suspended);
+        }
+
         Parcel parcel = parcelRepo.findById(req.parcelId())
                 .orElseThrow(() -> new IllegalArgumentException("Parcel not found: " + req.parcelId()));
 
@@ -66,6 +88,7 @@ public class AuctionService {
                 .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
+                .title(req.title())
                 .startingBid(req.startingBid())
                 .reservePrice(req.reservePrice())
                 .buyNowPrice(req.buyNowPrice())
@@ -97,6 +120,20 @@ public class AuctionService {
         // on PUT /auctions/{id}/verify so the group-land gate in
         // AuctionVerificationService.triggerVerification() is the single
         // enforcement point (sub-spec 2 §7.1/§7.2).
+        if (req.title() != null) {
+            // null = "don't touch", but an explicit blank must be rejected so
+            // partial updates can't sneak past the @NotBlank rule on create.
+            // Length check is duplicated here (and on AuctionUpdateRequest) so
+            // direct service callers can't bypass the controller-boundary @Size
+            // — keeps create/update validation symmetric.
+            if (req.title().isBlank()) {
+                throw new IllegalArgumentException("title must not be blank");
+            }
+            if (req.title().length() > 120) {
+                throw new IllegalArgumentException("title must be at most 120 characters");
+            }
+            a.setTitle(req.title());
+        }
         if (req.startingBid() != null) {
             a.setStartingBid(req.startingBid());
         }
@@ -139,6 +176,19 @@ public class AuctionService {
     @Transactional(readOnly = true)
     public Auction load(Long auctionId) {
         return auctionRepo.findById(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+    }
+
+    /**
+     * Listing-detail load path used by {@code GET /api/v1/auctions/{id}}.
+     * Differs from {@link #load(Long)} by hydrating {@code seller} and
+     * {@code photos} (in addition to the standard {@code parcel} +
+     * {@code tags}) so the public detail mapper can render the seller card
+     * and photo carousel without fanning out to extra lazy fetches.
+     */
+    @Transactional(readOnly = true)
+    public Auction loadForDetail(Long auctionId) {
+        return auctionRepo.findByIdForDetail(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
     }
 
@@ -186,6 +236,26 @@ public class AuctionService {
         return new PageImpl<>(ordered, pageable, idsPage.getTotalElements());
     }
 
+    /**
+     * Returns the most-restrictive {@link SuspensionReason} that bars the
+     * caller from creating a new listing, or {@code null} if no condition
+     * applies. Order matters: ban → timed → penalty. See Epic 08 sub-spec 2
+     * §7.7.
+     */
+    private SuspensionReason checkCanCreateListing(User u) {
+        if (Boolean.TRUE.equals(u.getBannedFromListing())) {
+            return SuspensionReason.PERMANENT_BAN;
+        }
+        if (u.getListingSuspensionUntil() != null
+                && OffsetDateTime.now(clock).isBefore(u.getListingSuspensionUntil())) {
+            return SuspensionReason.TIMED_SUSPENSION;
+        }
+        if (u.getPenaltyBalanceOwed() != null && u.getPenaltyBalanceOwed() > 0L) {
+            return SuspensionReason.PENALTY_OWED;
+        }
+        return null;
+    }
+
     private Set<ParcelTag> resolveTags(Set<String> codes) {
         if (codes == null || codes.isEmpty()) return new HashSet<>();
         List<ParcelTag> found = tagRepo.findByCodeIn(codes);
@@ -196,6 +266,19 @@ public class AuctionService {
             throw new IllegalArgumentException("Unknown parcel tag codes: " + missing);
         }
         return new HashSet<>(found);
+    }
+
+    private void validateTitle(String title) {
+        // JSR-380 @NotBlank/@Size on AuctionCreateRequest.title runs at the
+        // controller boundary; this duplicate guard catches direct service
+        // callers (tests, future internal flows) so the invariant holds
+        // regardless of entry point.
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
+        if (title.length() > 120) {
+            throw new IllegalArgumentException("title must be at most 120 characters");
+        }
     }
 
     private void validatePricing(Long starting, Long reserve, Long buyNow) {

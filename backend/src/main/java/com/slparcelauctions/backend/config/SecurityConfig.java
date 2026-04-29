@@ -20,6 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
+import com.slparcelauctions.backend.notification.slim.internal.SlImTerminalAuthFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,6 +32,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final BotSharedSecretAuthorizer botSharedSecretAuthorizer;
+    private final SlImTerminalAuthFilter slImTerminalAuthFilter;
 
     @Value("${cors.allowed-origin:http://localhost:3000}")
     private String allowedOrigin;
@@ -91,9 +93,23 @@ public class SecurityConfig {
                         // Tasks 5/7/9 do not have to re-touch SecurityConfig.
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/terminal/register").permitAll()
+                        // Terminal heartbeat (Epic 10 sub-spec 3 Task 12): same trust
+                        // model as /register — SlHeaderValidator inside the handler.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/terminal/heartbeat").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payment").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/escrow/payout-result").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/listing-fee/payment").permitAll()
+                        // Cancellation-penalty terminal endpoints (Epic 08 sub-spec 2
+                        // Tasks 3 §7.5 / §7.6). Same trust model as the escrow
+                        // terminal endpoints above: permitAll at the HTTP layer,
+                        // SlHeaderValidator inside PenaltyTerminalController is the
+                        // actual security boundary (X-SecondLife-Shard +
+                        // X-SecondLife-Owner-Key). LSL scripts cannot present a
+                        // JWT, so this is the only viable trust gate for terminal
+                        // traffic. FOOTGUNS §B.5: MUST sit before the /api/v1/**
+                        // catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/penalty-lookup").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/penalty-payment").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
@@ -105,10 +121,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/v1/users/me").authenticated()
                         // --- End Epic 02 sub-spec 2a additions ---
                         // --- New in Epic 03 sub-spec 1 Task 9 ---
-                        // Public parcel tag reference — any authenticated caller.
-                        // Catch-all /api/v1/** .authenticated() below covers this,
-                        // but it's listed here for grep-ability.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").authenticated()
+                        // Public parcel tag reference. Anon browse uses this to
+                        // render tag filters on /browse, so it must sit before
+                        // the /api/v1/** authenticated catch-all.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").permitAll()
                         // Public listing-photo byte proxy. Must come before the
                         // /api/v1/** catch-all and before the seller-only upload
                         // endpoint. FOOTGUNS §B.5: matcher order is first-match-wins.
@@ -121,6 +138,29 @@ public class SecurityConfig {
                         // public per DESIGN.md §1589-1591. Must sit before the
                         // /api/v1/** catch-all. FOOTGUNS §B.5.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/bids").permitAll()
+                        // Public browse + search (Epic 07 sub-spec 1 §5.1).
+                        // Anonymous callers can list active auctions; the
+                        // service-side filters never surface non-ACTIVE rows
+                        // and the response is wrapped in a 30s public
+                        // Cache-Control by AuctionSearchController.
+                        // FOOTGUNS §B.5: this MUST sit before the
+                        // /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/search").permitAll()
+                        // Public featured rows (Epic 07 sub-spec 1 §5.2).
+                        // Three sibling paths under /featured/ — the single-
+                        // segment "*" matches /ending-soon, /just-listed, and
+                        // /most-active without admitting deeper paths. Same
+                        // 60s public Cache-Control posture as the controller.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins,
+                        // so this rule MUST sit before /api/v1/**.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/featured/*").permitAll()
+                        // Public bundled stats (Epic 07 sub-spec 1 §5.4).
+                        // Anonymous homepage callers need the four-count
+                        // snapshot; the response is wrapped in a 60s public
+                        // Cache-Control matching the underlying Redis TTL.
+                        // FOOTGUNS §B.5: this MUST sit before the
+                        // /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/stats/public").permitAll()
                         // Public user-scoped active listings (Epic 04 sub-spec 2 §14).
                         // Anonymous access is allowed; SUSPENDED and pre-ACTIVE
                         // statuses are filtered server-side in the repository query
@@ -130,6 +170,53 @@ public class SecurityConfig {
                         // /api/v1/users/** authenticated rules.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/auctions").permitAll()
                         // --- End Epic 03 sub-spec 1 Task 9 additions ---
+                        // Review submit endpoint (Epic 08 sub-spec 1 Task 1).
+                        // JWT-required so ReviewController can read the
+                        // caller's userId off the AuthPrincipal. Explicit
+                        // so Task 2's GET /reviews paths (public) can be
+                        // added in-place without disturbing the POST rule.
+                        // FOOTGUNS §B.5: this MUST sit before the
+                        // /api/v1/** catch-all (first-match-wins).
+                        // Cancellation preview + history (Epic 08 sub-spec 2
+                        // Task 2). Both are seller-private — JWT required so
+                        // CancellationStatusController can read the caller's
+                        // userId off the AuthPrincipal. The /me/* paths sit
+                        // BEFORE the /api/v1/users/{id}-style wildcards above
+                        // because matcher order is first-match-wins
+                        // (FOOTGUNS §B.5) and well above the /api/v1/**
+                        // catch-all so the contract is explicit at this
+                        // surface.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/cancellation-status").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/cancellation-history").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/reviews").authenticated()
+                        // Review read endpoints (Epic 08 sub-spec 1 Task 2).
+                        // GET /auctions/{id}/reviews and
+                        // GET /users/{id}/reviews are public — the service
+                        // enriches the auction-scoped response when a
+                        // principal is present but non-party or anon
+                        // callers see only visible reviews.
+                        // GET /users/me/pending-reviews is authenticated
+                        // so only the owner sees their pending queue.
+                        // The /me/ rule MUST come before the /{id}
+                        // wildcard (first-match-wins, FOOTGUNS §B.5).
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/reviews").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/pending-reviews").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*/reviews").permitAll()
+                        // Review secondary actions (Epic 08 sub-spec 1
+                        // Task 3). Both require a JWT so the controller
+                        // can read the caller's userId off the
+                        // AuthPrincipal for the reviewee / reviewer
+                        // identity check in the service layer. Explicit
+                        // rules (rather than relying on the /api/v1/**
+                        // catch-all) keep the auth contract for this slice
+                        // readable alongside the other review matchers
+                        // and simplifies adjusting these paths later.
+                        // FOOTGUNS §B.5: must sit before /api/v1/**.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/respond").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/flag").authenticated()
+                        // Admin surface (Epic 10 sub-spec 1 Task 1).
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Bot worker queue + callback surface (Epic 06 Task 3).
                         // Authentication is a shared bearer token validated by
                         // BotSharedSecretAuthorizer (constant-time compare via
@@ -148,9 +235,26 @@ public class SecurityConfig {
                         // the request 404s (falling through Spring MVC rather than Spring Security).
                         // FOOTGUNS §B.5: this MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/dev/**").permitAll()
+                        // SL IM terminal polling endpoints (Epic 09 sub-spec 3 Task 4).
+                        // Authentication is a shared bearer token validated by
+                        // SlImTerminalAuthFilter (constant-time compare via
+                        // MessageDigest.isEqual). JWT is not used here — the in-world
+                        // dispatcher script cannot obtain a user JWT.
+                        // CSRF is already globally disabled (AbstractHttpConfigurer::disable
+                        // above) so no additional ignoringRequestMatchers is needed.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers("/api/v1/internal/sl-im/**").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(eh -> eh.authenticationEntryPoint(authenticationEntryPoint))
+                // SlImTerminalAuthFilter runs before the JWT filter so it can short-circuit
+                // /api/v1/internal/sl-im/** with a 401 before JWT processing begins.
+                // JwtAuthenticationFilter has no registered Spring Security filter order, so
+                // we position both custom filters before UsernamePasswordAuthenticationFilter
+                // (a well-known sentinel with a registered order). SlImTerminalAuthFilter's
+                // shouldNotFilter() returns true for all non-internal paths, keeping the
+                // ordering harmless for the rest of the filter chain.
+                .addFilterBefore(slImTerminalAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

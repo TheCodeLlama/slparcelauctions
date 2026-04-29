@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction.auctionend;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -12,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -27,10 +29,12 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.escrow.EscrowService;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -54,19 +58,28 @@ class AuctionEndTaskTest {
 
     @Mock AuctionRepository auctionRepo;
     @Mock ProxyBidRepository proxyBidRepo;
+    @Mock BidRepository bidRepo;
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
     @Mock EscrowService escrowService;
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
+    @Mock NotificationPublisher notificationPublisher;
 
     Clock fixed;
     AuctionEndTask task;
+    /** Shared seller used across all auction builders so getSeller() never returns null. */
+    User defaultSeller;
 
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-20T12:00:00Z"), ZoneOffset.UTC);
-        task = new AuctionEndTask(auctionRepo, proxyBidRepo, userRepo, publisher, escrowService,
-                monitorLifecycle, fixed);
+        task = new AuctionEndTask(auctionRepo, proxyBidRepo, bidRepo, userRepo, publisher,
+                escrowService, monitorLifecycle, notificationPublisher, fixed);
+        // Default stub for the new bidder-query method so SOLD-path tests don't blow up.
+        lenient().when(bidRepo.findDistinctBidderUserIdsByAuctionId(anyLong()))
+                .thenReturn(List.of());
+        // Default seller so notification publisher calls (auction.getSeller().getId()) never NPE.
+        defaultSeller = User.builder().id(1L).displayName("Default Seller").build();
         // Manually init synchronization so registerSynchronization inside
         // closeOne does not blow up (the @Transactional proxy normally
         // handles this but the unit test invokes closeOne directly).
@@ -88,6 +101,8 @@ class AuctionEndTaskTest {
     void sold_whenBidAboveReserve_setsWinnerAndFinalBid_publishesEnvelopeWithDisplayName() {
         User winner = User.builder().id(7L).displayName("Top Bidder").build();
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(100L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -140,6 +155,8 @@ class AuctionEndTaskTest {
     @Test
     void reserveNotMet_whenBidBelowReserve_leavesWinnerAndFinalBidNull() {
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(101L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -180,6 +197,8 @@ class AuctionEndTaskTest {
     @Test
     void noBids_whenBidCountZero_elidesReserveCheck() {
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(102L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -217,6 +236,8 @@ class AuctionEndTaskTest {
         // RESERVE_NOT_MET) — the null-guard short-circuits the comparison.
         User winner = User.builder().id(9L).displayName("Any Bidder").build();
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(103L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -244,6 +265,8 @@ class AuctionEndTaskTest {
         for (AuctionStatus status : new AuctionStatus[]{
                 AuctionStatus.ENDED, AuctionStatus.CANCELLED, AuctionStatus.SUSPENDED}) {
             Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                    .title("Test listing")
                     .id(200L)
                     .status(status)
                     .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -270,6 +293,8 @@ class AuctionEndTaskTest {
         // Scheduler saw endsAt=PAST, but a bid extended the auction between
         // the query and the lock acquisition. The re-check must let it run.
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(201L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).plusMinutes(5))
@@ -305,6 +330,8 @@ class AuctionEndTaskTest {
         // idempotence is part of the contract. Mockito default return of 0
         // confirms the path does not branch on prior presence.
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(300L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))
@@ -325,6 +352,8 @@ class AuctionEndTaskTest {
         // been deleted. The envelope must still publish with a null display
         // name rather than throwing.
         Auction auction = Auction.builder()
+                .seller(defaultSeller)
+                .title("Test listing")
                 .id(104L)
                 .status(AuctionStatus.ACTIVE)
                 .endsAt(OffsetDateTime.now(fixed).minusSeconds(1))

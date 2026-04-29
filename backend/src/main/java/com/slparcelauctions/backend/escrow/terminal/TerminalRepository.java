@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface TerminalRepository extends JpaRepository<Terminal, String> {
 
+    List<Terminal> findByActiveTrue();
+
     @Query("""
             SELECT t FROM Terminal t
             WHERE t.active = true AND t.lastSeenAt >= :cutoff

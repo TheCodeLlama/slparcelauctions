@@ -52,19 +52,22 @@ class OwnershipMonitorSchedulerTest {
     }
 
     @Test
-    void dispatchDueChecks_queriesWithCutoff_andDispatchesEachId() {
-        when(auctionRepo.findDueForOwnershipCheck(any()))
+    void dispatchDueChecks_queriesWithCutoffAndNow_andDispatchesEachId() {
+        when(auctionRepo.findDueForOwnershipCheck(any(), any()))
                 .thenReturn(List.of(1L, 2L, 3L));
 
         scheduler.dispatchDueChecks();
 
         ArgumentCaptor<OffsetDateTime> cutoffCap = ArgumentCaptor.forClass(OffsetDateTime.class);
-        verify(auctionRepo).findDueForOwnershipCheck(cutoffCap.capture());
+        ArgumentCaptor<OffsetDateTime> nowCap = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(auctionRepo).findDueForOwnershipCheck(cutoffCap.capture(), nowCap.capture());
         OffsetDateTime cutoff = cutoffCap.getValue();
+        OffsetDateTime now = nowCap.getValue();
         // With a fixed clock at 2026-04-17T12:00:00Z and checkIntervalMinutes=30,
-        // the cutoff must be exactly 30 minutes earlier.
-        assertThat(Duration.between(cutoff, OffsetDateTime.now(fixed)).toMinutes())
-                .isEqualTo(30L);
+        // the cutoff must be exactly 30 minutes earlier than now, and now must
+        // equal the clock instant.
+        assertThat(now).isEqualTo(OffsetDateTime.now(fixed));
+        assertThat(Duration.between(cutoff, now).toMinutes()).isEqualTo(30L);
 
         InOrder inOrder = inOrder(checkTask);
         inOrder.verify(checkTask).checkOne(1L);
@@ -74,7 +77,7 @@ class OwnershipMonitorSchedulerTest {
 
     @Test
     void dispatchDueChecks_emptyList_doesNotDispatch() {
-        when(auctionRepo.findDueForOwnershipCheck(any())).thenReturn(List.of());
+        when(auctionRepo.findDueForOwnershipCheck(any(), any())).thenReturn(List.of());
 
         scheduler.dispatchDueChecks();
 

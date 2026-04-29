@@ -1,12 +1,33 @@
-import { Star } from "@/components/ui/icons";
+import { RatingSummary } from "@/components/reviews/RatingSummary";
 
-type ReputationStarsProps = {
-  rating: number | null;
+/**
+ * Backwards-compat wrapper around the new {@link RatingSummary} primitive
+ * (Epic 08 sub-spec 1 §8.3). Existing callsites — public profile,
+ * listing-card seller strip — pass their existing props here and the
+ * partial-star renderer takes care of the rest.
+ *
+ * A {@code label} is the only feature this wrapper adds on top of
+ * {@code RatingSummary}: the section-header strip above the stars is a
+ * profile-view convention that isn't worth polluting the primitive with.
+ */
+export interface ReputationStarsProps {
+  /**
+   * Numeric rating. BigDecimal serializes as a string on the wire in some
+   * legacy endpoints — the component normalizes before forwarding so
+   * callers can pass either shape.
+   */
+  rating: number | string | null;
   reviewCount: number;
   label?: string;
-};
+}
 
-export function ReputationStars({ rating, reviewCount, label }: ReputationStarsProps) {
+export function ReputationStars({
+  rating,
+  reviewCount,
+  label,
+}: ReputationStarsProps) {
+  const normalized =
+    typeof rating === "string" ? Number.parseFloat(rating) : rating;
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -14,17 +35,7 @@ export function ReputationStars({ rating, reviewCount, label }: ReputationStarsP
           {label}
         </span>
       )}
-      {rating === null ? (
-        <p className="text-body-md text-on-surface-variant">No ratings yet</p>
-      ) : (
-        <div className="flex items-center gap-2">
-          <Star className="size-5 fill-primary text-primary" strokeWidth={1.5} />
-          <span className="text-title-md font-bold">{rating.toFixed(1)}</span>
-          <span className="text-body-sm text-on-surface-variant">
-            ({reviewCount} review{reviewCount === 1 ? "" : "s"})
-          </span>
-        </div>
-      )}
+      <RatingSummary rating={normalized} reviewCount={reviewCount} size="md" />
     </div>
   );
 }

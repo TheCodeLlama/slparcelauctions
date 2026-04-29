@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.exception.GroupLandRequiresSaleToBotException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
@@ -75,6 +76,8 @@ public class AuctionVerificationService {
     private final UUID primaryEscrowUuid;
     private final long sentinelPriceLindens;
 
+    private final NotificationPublisher notificationPublisher;
+
     public AuctionVerificationService(
             AuctionService auctionService,
             AuctionRepository auctionRepo,
@@ -83,6 +86,7 @@ public class AuctionVerificationService {
             BotTaskService botTaskService,
             BotTaskRepository botTaskRepo,
             OwnershipCheckTimestampInitializer ownershipInitializer,
+            NotificationPublisher notificationPublisher,
             Clock clock,
             @Value("${slpa.bot-task.primary-escrow-uuid}") UUID primaryEscrowUuid,
             @Value("${slpa.bot-task.sentinel-price-lindens:999999999}") long sentinelPriceLindens) {
@@ -93,6 +97,7 @@ public class AuctionVerificationService {
         this.botTaskService = botTaskService;
         this.botTaskRepo = botTaskRepo;
         this.ownershipInitializer = ownershipInitializer;
+        this.notificationPublisher = notificationPublisher;
         this.clock = clock;
         this.primaryEscrowUuid = primaryEscrowUuid;
         this.sentinelPriceLindens = sentinelPriceLindens;
@@ -239,6 +244,8 @@ public class AuctionVerificationService {
             // this try/catch, rather than deferring to transaction-commit time where it
             // would escape as an unhandled error.
             Auction saved = auctionRepo.saveAndFlush(a);
+            notificationPublisher.listingVerified(
+                    saved.getSeller().getId(), saved.getId(), saved.getTitle());
             log.info("Method A verification succeeded: auction {} -> ACTIVE, ends {}",
                     saved.getId(), ends);
             return saved;

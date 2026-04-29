@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction.dto;
 import java.util.Set;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -20,6 +21,9 @@ import jakarta.validation.constraints.Size;
  */
 public record AuctionCreateRequest(
         @NotNull Long parcelId,
+        @NotBlank(message = "title must not be blank")
+        @Size(max = 120, message = "title must be at most 120 characters")
+        String title,
         @NotNull @Min(1) Long startingBid,
         Long reservePrice,
         Long buyNowPrice,

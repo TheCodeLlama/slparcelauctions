@@ -1,13 +1,34 @@
 "use client";
 
 import { useContext } from "react";
-import { ToastContext } from "./ToastProvider";
+import { ToastContext, type ToastKind, type ToastPayload } from "./ToastProvider";
 
+/**
+ * Fluent toast hook. Each variant accepts either a plain string (which
+ * becomes the title) or a structured {@link ToastPayload} with optional
+ * description + action button.
+ *
+ * `upsert(id, kind, payload)` replaces an existing toast in place and resets
+ * its auto-dismiss timer — useful for collapsing rapid updates on a single
+ * notification (e.g. the OUTBID storm) into one visible entry.
+ *
+ * Example:
+ * <pre>
+ *   toast.warning({
+ *     title: "Sign in to save parcels",
+ *     action: { label: "Sign in", onClick: () =&gt; router.push("/login") },
+ *   });
+ * </pre>
+ */
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used inside a ToastProvider");
   return {
-    success: (message: string) => ctx.push("success", message),
-    error: (message: string) => ctx.push("error", message),
+    success: (payload: string | ToastPayload) => ctx.push("success", payload),
+    error: (payload: string | ToastPayload) => ctx.push("error", payload),
+    warning: (payload: string | ToastPayload) => ctx.push("warning", payload),
+    info: (payload: string | ToastPayload) => ctx.push("info", payload),
+    upsert: (id: string, kind: ToastKind, payload: string | ToastPayload) =>
+      ctx.upsert(id, kind, payload),
   };
 }

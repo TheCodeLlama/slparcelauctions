@@ -8,15 +8,19 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.List;
+
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.EscrowService;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -52,10 +56,12 @@ public class AuctionEndTask {
 
     private final AuctionRepository auctionRepo;
     private final ProxyBidRepository proxyBidRepo;
+    private final BidRepository bidRepo;
     private final UserRepository userRepo;
     private final AuctionBroadcastPublisher publisher;
     private final EscrowService escrowService;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
     /**
@@ -133,6 +139,38 @@ public class AuctionEndTask {
         User winner = outcome == AuctionEndOutcome.SOLD
                 ? userRepo.findById(auction.getCurrentBidderId()).orElse(null)
                 : null;
+
+        // In-app notifications per outcome. All calls are inside the existing
+        // @Transactional boundary so they satisfy NotificationService's MANDATORY
+        // propagation. Loser enumeration uses a fresh query so no stale proxy
+        // state can ghost the list.
+        String parcelName = auction.getTitle();
+        switch (outcome) {
+            case SOLD -> {
+                Long winnerId = auction.getWinnerUserId();
+                long finalBid = auction.getFinalBidAmount();
+                notificationPublisher.auctionWon(winnerId, auctionId, parcelName, finalBid);
+                notificationPublisher.auctionEndedSold(auction.getSeller().getId(),
+                        auctionId, parcelName, finalBid);
+                // Notify each losing bidder. Inline loop — typical auction has
+                // single-digit losers; no requiresNewTx needed.
+                List<Long> allBidders = bidRepo.findDistinctBidderUserIdsByAuctionId(auctionId);
+                for (Long loserId : allBidders) {
+                    if (!loserId.equals(winnerId)) {
+                        notificationPublisher.auctionLost(loserId, auctionId, parcelName, finalBid);
+                    }
+                }
+            }
+            case RESERVE_NOT_MET -> {
+                long highestBid = auction.getCurrentBid() == null ? 0L : auction.getCurrentBid();
+                notificationPublisher.auctionEndedReserveNotMet(
+                        auction.getSeller().getId(), auctionId, parcelName, highestBid);
+            }
+            case NO_BIDS -> notificationPublisher.auctionEndedNoBids(
+                    auction.getSeller().getId(), auctionId, parcelName);
+            default -> { /* future outcomes handled when added */ }
+        }
+
         // Pass the exact endedAt instant as serverTime so the envelope's
         // client-facing timestamp matches the persisted ended_at column.
         // Using the Clock-based overload here would stamp a fresh

@@ -51,7 +51,7 @@ class ParcelLookupServiceTest {
         when(repo.findBySlParcelUuid(parcelUuid)).thenReturn(Optional.empty());
         when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
                 parcelUuid, ownerUuid, "agent", "Sunset Bay", "Coniston",
-                1024, "Waterfront", "http://example.com/snap.jpg", "MATURE",
+                1024, "Waterfront", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0)));
         // Grid coords inside the Sansara continent box (254208..265984, 250368..259328)
         when(mapApi.resolveRegion("Coniston")).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
@@ -68,6 +68,12 @@ class ParcelLookupServiceTest {
         assertThat(result.continentName()).isEqualTo("Sansara");
         assertThat(result.slurl()).contains("Coniston").contains("128").contains("64");
         assertThat(result.verified()).isTrue();
+        // positionX/Y/Z must flow through so the frontend's
+        // VisitInSecondLifeBlock lands users on the actual parcel instead
+        // of defaulting to region-centre 128/128/0.
+        assertThat(result.positionX()).isEqualTo(128.0);
+        assertThat(result.positionY()).isEqualTo(64.0);
+        assertThat(result.positionZ()).isEqualTo(22.0);
     }
 
     @Test
