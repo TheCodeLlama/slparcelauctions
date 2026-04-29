@@ -51,3 +51,15 @@ output "redis_primary_endpoint" {
 output "storage_bucket_name" {
   value = module.data.storage_bucket_name
 }
+
+# ----- DNS outputs (the nameservers are what you paste into Namecheap) ------ #
+
+output "nameservers_slparcels_com" {
+  description = "Paste these 4 NS records into Namecheap for slparcels.com (Domain List → Manage → Domain → Nameservers → Custom DNS)."
+  value       = module.dns.nameservers_slparcels_com
+}
+
+output "nameservers_slpa_app" {
+  description = "Paste these 4 NS records into Namecheap for slpa.app (same path)."
+  value       = module.dns.nameservers_slpa_app
+}
