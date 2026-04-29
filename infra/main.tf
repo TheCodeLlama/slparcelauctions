@@ -148,6 +148,30 @@ module "dns" {
   domain_slpa_app  = var.domain_slpa_app
 }
 
+# module "frontend" — removed 2026-04-29.
+#
+# Amplify Hosting for the Next.js frontend is managed via the Amplify Console
+# rather than Terraform because the WEB_COMPUTE platform's IAM role wiring
+# repeatedly defeated `aws_amplify_app` in our hands (9 build attempts, none
+# succeeded — Amplify's build environment kept rejecting any custom service
+# role with the misleading "Unable to assume specified IAM Role" error).
+#
+# What lives in the console (slpa-frontend app):
+#   - GitHub source via CodeStar Connection (049dbcb6-...)
+#   - main branch with auto-build on push
+#   - WEB_COMPUTE platform (Next.js SSR)
+#   - Custom domain slparcels.com + www
+#   - Build spec: frontend/amplify.yml (committed in repo)
+#   - env: NEXT_PUBLIC_API_URL = https://slpa.app
+#
+# What stays in Terraform:
+#   - Route 53 zone for slparcels.com (in dns module — required for the
+#     CodeStar Connection-based custom domain validation that Amplify drives)
+#   - GitHub PAT in tfvars (kept; used by GHA deploy role too)
+#
+# Reproducing on a fresh AWS account: see the Amplify Console steps in the
+# AWS deployment design doc + the post-PR-49 README addendum.
+
 module "compute" {
   source = "./compute"
 

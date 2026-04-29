@@ -89,3 +89,6 @@ output "ecr_bot_repo_url" {
 output "alb_dns_name" {
   value = module.compute.alb_dns_name
 }
+
+# Amplify outputs removed — frontend is managed via Amplify Console rather
+# than Terraform (see comment in main.tf for context).
