@@ -8,6 +8,17 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      # ElastiCache auth token (sourced from /slpa/prod/redis/auth-token in
+      # Parameter Store; injected via ECS task definition `secrets[]` block).
+      # Empty default lets local non-AWS prod-profile testing run without auth.
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      # ElastiCache encryption-in-transit. The cluster will reject plaintext
+      # connections once `transit_encryption_enabled = true` is set on the
+      # replication group (default in the AWS deployment design §4.6).
+      # Without this flag Spring's Lettuce client opens unencrypted sockets
+      # and the connection is dropped at the TLS handshake.
+      ssl:
+        enabled: true
   flyway:
     baseline-on-migrate: true
 
@@ -17,9 +28,24 @@ cors:
 jwt:
   secret: ${JWT_SECRET}    # required, fail-fast on startup if missing
 
+logging:
+  level:
+    # Prod posture: WARN root + INFO for our own packages keeps CloudWatch
+    # ingestion under ~30 GB/mo at moderate traffic (see AWS_CALCULATION.md
+    # CloudWatch logs section). Crank back up for incident debugging via
+    # env override (LOGGING_LEVEL_<PACKAGE>) — no redeploy required.
+    root: WARN
+    com.slparcelauctions: INFO
+    org.hibernate.SQL: WARN
+    org.flywaydb: INFO
+
 slpa:
   sl:
     trusted-owner-keys: []  # deploy pipeline injects the real UUIDs via env
   storage:
     bucket: ${SLPA_STORAGE_BUCKET}
     region: ${AWS_REGION:us-east-1}
+  web:
+    # Public web origin. Must match the Amplify-served `slparcels.com`. Used
+    # to construct outbound links in SL IM notifications, email subjects, etc.
+    base-url: ${SLPA_WEB_BASE_URL:https://slparcels.com}
