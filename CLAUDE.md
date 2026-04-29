@@ -82,7 +82,7 @@ Requires real SL credentials in `.env.bot-N`. No mock mode. See `bot/README.md`.
 ## Backend Stack Details
 
 - **ORM**: Spring Data JPA / Hibernate with Lombok for boilerplate
-- **Database migrations**: Flyway (SQL-based, not Java)
+- **Database migrations**: Flyway (SQL-based, not Java) — files in `backend/src/main/resources/db/migration/V<N>__description.sql`. Hibernate runs in `ddl-auto: validate` in every profile; entity changes require a paired migration in the same commit.
 - **Auth**: Spring Security + JWT
 - **Real-time**: Spring WebSocket with STOMP protocol
 - **Cache/Sessions**: Redis (via spring-boot-starter-data-redis + spring-session)
