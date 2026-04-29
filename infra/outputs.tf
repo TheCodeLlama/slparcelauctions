@@ -63,3 +63,11 @@ output "nameservers_slpa_app" {
   description = "Paste these 4 NS records into Namecheap for slpa.app (same path)."
   value       = module.dns.nameservers_slpa_app
 }
+
+output "cert_arn_slpa_app" {
+  value = module.dns.cert_arn_slpa_app
+}
+
+output "cert_arn_slparcels_com" {
+  value = module.dns.cert_arn_slparcels_com
+}
