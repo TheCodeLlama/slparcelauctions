@@ -37,3 +37,17 @@ output "public_subnet_ids" {
 output "private_subnet_ids" {
   value = module.networking.private_subnet_ids
 }
+
+# ----- Data tier outputs (re-exported from the module) ---------------------- #
+
+output "rds_writer_endpoint" {
+  value = module.data.rds_writer_endpoint
+}
+
+output "redis_primary_endpoint" {
+  value = module.data.redis_primary_endpoint
+}
+
+output "storage_bucket_name" {
+  value = module.data.storage_bucket_name
+}

@@ -119,3 +119,23 @@ module "networking" {
   availability_zones = var.availability_zones
   nat_type           = var.nat_type
 }
+
+module "data" {
+  source = "./data"
+
+  environment        = var.environment
+  vpc_id             = module.networking.vpc_id
+  private_subnet_ids = module.networking.private_subnet_ids
+
+  rds_security_group_id   = module.networking.rds_security_group_id
+  redis_security_group_id = module.networking.redis_security_group_id
+
+  rds_multi_az                  = var.rds_multi_az
+  rds_instance_class            = var.rds_instance_class
+  rds_allocated_storage         = var.rds_allocated_storage
+  rds_database_insights_enabled = var.rds_database_insights_enabled
+  rds_pi_retention_days         = var.rds_pi_retention_days
+
+  redis_num_cache_clusters = var.redis_num_cache_clusters
+  redis_node_type          = var.redis_node_type
+}
