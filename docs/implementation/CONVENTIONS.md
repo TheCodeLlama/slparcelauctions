@@ -6,25 +6,21 @@ This document defines conventions that apply to **all** tasks in this directory.
 
 ## Database & Schema
 
-### No more migrations (for now)
+### Schema changes via Flyway migrations
 
-**Do not write new Flyway migrations.** Schema evolution in development happens through JPA entity changes with `spring.jpa.hibernate.ddl-auto: update`. When you add or modify an entity, Hibernate updates the schema automatically.
+**Database schema changes go through Flyway migrations**, not JPA `ddl-auto`. Add a new file at `backend/src/main/resources/db/migration/V<N>__<short_description>.sql` where `<N>` is the next sequential integer. Spring Boot runs Flyway at startup before the app accepts requests; failed migrations halt boot.
 
-The existing `V1__core_tables.sql` and `V2__supporting_tables.sql` are the baseline schema and will remain in place. Future tasks should:
+The current baseline is `V1__initial_schema.sql` (captured via `pg_dump --schema-only` from the dev DB on 2026-04-29). Every schema evolution after that ships as a numbered migration:
 
-- Add/modify entities freely - Hibernate handles the DDL
-- **Not** create new `V3__*.sql`, `V4__*.sql`, etc. files
-- **Not** ask to "add a migration for X" - just add the entity/field and let JPA handle it
+- Add or alter a table → write `V<N>__add_xyz_table.sql` (or `alter_xyz_*`)
+- Add a partial unique index, GIN index, CHECK constraint Hibernate can't represent → either add to a migration *or* use the existing runtime initializer pattern (`*IndexInitializer` / `*CheckConstraintInitializer`) for backfilling on existing DBs
+- Modify an entity → write the migration in the **same commit** as the entity change. Drift between entity and migration causes Hibernate `validate` to fail at boot.
 
-**When migrations DO come back:**
-1. Things JPA/Hibernate cannot handle natively: custom Postgres types, triggers, stored procedures, complex partial indexes, check constraints that depend on external state
-2. Post-production deployments where we need controlled, reversible schema changes
+### JPA configuration
 
-Until then, migrations are off the table. Entities are the source of truth.
+`application.yml` and `application-dev.yml` both use `spring.jpa.hibernate.ddl-auto: validate`. `application-prod.yml` inherits `validate` and adds `spring.flyway.baseline-on-migrate: true`. Hibernate no longer modifies the schema in any profile — it only validates that the schema matches the entity model on startup.
 
-### JPA configuration implication
-
-`application-dev.yml` should use `spring.jpa.hibernate.ddl-auto: update` (not `validate`) so entity changes auto-apply to dev Postgres. `application-prod.yml` will use `validate` + migrations when we get to production.
+Runtime initializer classes (e.g. `ParcelLockingIndexInitializer`, `ProxyBidPartialUniqueIndexInitializer`, the `*CheckConstraintInitializer` family) handle schema features Hibernate cannot represent: partial unique indexes, JSONB GIN indexes, CHECK constraints for enum-backed columns. They run idempotently after Hibernate validation; they are *not* a substitute for migrations on net-new schema changes.
 
 ---
 
@@ -194,7 +190,7 @@ If you find yourself repeating JSX, stop and make a component. If you find yours
 
 ## Things not to do
 
-- ❌ Don't write new Flyway migrations
+- ❌ Don't rely on `ddl-auto: update` to evolve the schema (Hibernate runs in `validate` mode in every profile — schema changes go through Flyway migrations under `backend/src/main/resources/db/migration/`)
 - ❌ Don't create layer-only tasks ("just entities" or "just controllers")
 - ❌ Don't skip Lombok on backend classes that would benefit
 - ❌ Don't defer tests to "a later task"

@@ -457,6 +457,7 @@ docker compose logs -f frontend
 | `dark:` Tailwind variant in a frontend PR | `npm run verify` fails locally and in CI | Move colour to a token utility (`bg-primary`, `text-on-surface`, etc.); never reintroduce `dark:`       |
 | `bot-1` image build fails with `NETSDK1064: Package <X>, version 8.0.0 was not found` | Build aborts at `dotnet publish --no-restore`, exit 1 | A local `dotnet build` / IDE session left `bot/src/Slpa.Bot/{bin,obj}` on disk; `COPY . .` baked Windows-side NuGet paths into the container. `bot/.dockerignore` excludes those — confirm it's present, then `docker compose build --no-cache bot-1`. |
 | `docker compose up bot-1` fails with port 8080 already bound | `Error response from daemon: ports are not available: ... bind: ... 8080` | You have a host-running backend (IDE) and `depends_on: backend` is dragging the docker backend in. Use `docker compose up -d --no-deps bot-1` and a `compose.override.yml` pointing the bot at `host.docker.internal:8080` — see §3.5. |
+| Backend won't boot after pulling Flyway-baseline branch | Hibernate `validate` reports "missing column" or "Schema-validation failure" | First time on the Flyway-managed branch, drop the dev DB volume so Flyway runs `V1__initial_schema.sql` on a fresh schema: `docker compose down -v && docker compose up -d`. The pre-Flyway dev DB doesn't have the `flyway_schema_history` table; `baseline-on-migrate: true` handles re-pulls but a clean wipe is the cleanest first run. |
 
 ---
 

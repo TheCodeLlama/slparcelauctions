@@ -29,9 +29,10 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
   flyway:
-    enabled: false
+    enabled: true
+    baseline-on-migrate: true   # safety net for any existing dev DB someone forgets to wipe; first prod deploy starts empty
   servlet:
     multipart:
       max-file-size: 2MB
