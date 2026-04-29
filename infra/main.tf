@@ -139,3 +139,11 @@ module "data" {
   redis_num_cache_clusters = var.redis_num_cache_clusters
   redis_node_type          = var.redis_node_type
 }
+
+module "dns" {
+  source = "./dns"
+
+  environment      = var.environment
+  domain_slparcels = var.domain_slparcels
+  domain_slpa_app  = var.domain_slpa_app
+}
