@@ -226,3 +226,20 @@ variable "github_branch_for_deploy" {
   type        = string
   default     = "main"
 }
+
+variable "github_repo_url" {
+  description = "Full HTTPS URL of the GitHub repo. Amplify clones from this."
+  type        = string
+  default     = "https://github.com/TheCodeLlama/slparcelauctions"
+}
+
+variable "codestar_connection_arn" {
+  description = "AWS CodeStar Connection ARN for the AWS Connector for GitHub app. Created in the AWS console once per account; required for Amplify to clone a private GitHub repo."
+  type        = string
+}
+
+variable "github_pat" {
+  description = "GitHub fine-grained PAT used by the Amplify CreateApp API. Required despite the CodeStar Connection being set up — aws_amplify_app's CreateApp call requires accessToken/oauthToken even when the account has an active connection. Scope: Contents+Metadata Read on TheCodeLlama/slparcelauctions only. Stored in tfvars (gitignored) and never echoed by Terraform thanks to sensitive = true."
+  type        = string
+  sensitive   = true
+}
