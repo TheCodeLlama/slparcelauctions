@@ -3,6 +3,12 @@ name: slpa
 services:
   postgres:
     image: postgres:17-alpine
+    # Bump max_connections from default 100 → 300 to handle the cumulative
+    # demand of the IDE-running backend (~10 conns) plus `mvnw test` running
+    # ~40 @SpringBootTest contexts in sequence (each with its own Hikari pool).
+    # Default 100 caused FlywaySqlUnableToConnectToDbException during test
+    # suite warmup. Dev-only image, no production impact.
+    command: postgres -c max_connections=300
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-slpa}
       POSTGRES_USER: ${POSTGRES_USER:-slpa}
