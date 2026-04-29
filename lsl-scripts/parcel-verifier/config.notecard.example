@@ -1,0 +1,9 @@
+# config notecard for SLPA Parcel Verifier (rezzable)
+# Place this file (renamed to "config", no extension) in the prim's contents
+# BEFORE you rez it on a parcel — once rezzed it self-destructs after one
+# verification attempt.
+
+PARCEL_VERIFY_URL=https://api.slparcelauctions.com/api/v1/sl/parcel/verify
+
+# Optional: set to "false" to silence chat.
+DEBUG_OWNER_SAY=true
