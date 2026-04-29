@@ -209,3 +209,15 @@ bot/**/obj/
 # compose file.
 compose.override.yml
 docker-compose.override.yml
+
+# Terraform — per-deployment overrides + local provider/state cache.
+# terraform.tfvars contains the operator email at minimum; sensitive values
+# never live there (they go to Parameter Store via `aws ssm put-parameter`).
+infra/terraform.tfvars
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/*.tfplan
+infra/*.tfstate
+infra/*.tfstate.*
+infra/crash.log
+infra/crash.*.log
