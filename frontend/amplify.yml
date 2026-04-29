@@ -5,7 +5,11 @@ applications:
       phases:
         preBuild:
           commands:
-            - npm ci
+            # `npm install` (not `npm ci`) so a slightly-out-of-sync lock file
+            # doesn't hard-fail the build. `rm -rf node_modules .npm` busts
+            # any stale cache from a previous failed build.
+            - rm -rf node_modules .npm
+            - npm install
         build:
           commands:
             - npm run build
@@ -13,7 +17,7 @@ applications:
         baseDirectory: .next
         files:
           - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-          - .next/cache/**/*
+      # Cache intentionally omitted at first launch - regenerating
+      # node_modules every build is slower (~30s overhead) but avoids
+      # the stale-cache lockfile-mismatch failure mode we hit on first
+      # deploy. Re-add `cache.paths` once builds are stable.
