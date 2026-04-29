@@ -27,12 +27,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ## Current Deferred Items
 
-### LSL script for in-world verification terminal
-- **From:** Epic 02 sub-spec 1 (Task 02-02)
-- **Why:** Phase 11 is the dedicated LSL scripting phase. Sub-spec 1 shipped the backend `POST /api/v1/sl/verify` endpoint; the script that calls it is a separate work track.
-- **When:** Phase 11
-- **Notes:** Endpoint is testable via Postman `Dev/Simulate SL verify` helper today. The dev-profile `POST /api/v1/dev/sl/simulate-verify` stands in for the real LSL call during development.
-
 ### WebSocket push for verification completion
 - **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard verify flow)
 - **Why:** Considered during brainstorm. Deferred because the backend publisher needs to know when a real SL verification call succeeds — that signal source only exists once Phase 11 LSL work is real. Polling (5s, visibility-aware) is the right tool until then.
@@ -44,18 +38,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Requires a re-verification flow (new email → confirmation link → swap). Out of scope for the profile edit shipped in 2b. Not a browse/discovery concern — does not belong in Epic 07.
 - **When:** Epic 09 Task 02 (email notifications) — the re-verification flow reuses the same transactional-email plumbing Task 02 stands up (templates, SMTP client, signed-token links). Ship the email-change flow as a follow-on within Epic 09 once that plumbing exists.
 - **Notes:** `ProfileEditForm` currently only covers `displayName` and `bio`. Adding a new email column + verification token table can wait for the same migration pass that lands email-notification persistence.
-
-### Account deletion UI
-- **From:** Epic 02 sub-spec 2a (Task 02-03 user profile backend)
-- **Why:** Backend `DELETE /me` returns 501 Not Implemented. Needs a GDPR-compliant deletion flow (cascade rules, data retention, soft-delete vs hard-delete decisions) that was out of scope for 2a. Not a browse/discovery concern — does not belong in Epic 07. Admin foundation (sub-spec 1) ships `User.role` enum + JWT gate; ban system (sub-spec 2) ships the cascade primitives (active-auction check, bidder fan-out, ban-path guards). The cascade-matrix design for deletion can now be built on these foundations.
-- **When:** Epic 10 sub-spec 4 (account deletion + audit log viewer). Sub-spec 4 is the canonical home — all admin cascade infrastructure now exists to support the design.
-- **Notes:** Dashboard has no delete button. Backend endpoint returns 501. Design the cascade matrix (active auctions, open escrows, review history, ban records) in sub-spec 4 — `User.role` enum (sub-spec 1) + ban primitives (sub-spec 2) are both available.
-
-### Notification preferences editor
-- **From:** Epic 02 sub-spec 2b (Task 02-04 dashboard)
-- **Why:** `CurrentUser.notifyEmail` and `notifySlIm` are returned by `/me` but no UI exposes them for editing. Editor design blocked on the notifications system coming online.
-- **When:** Epic 09 Task 04 (notification preferences UI) — that task already exists and is the canonical home.
-- **Notes:** Shape of the JSON objects is defined — just needs a form. Touchpoint: `frontend/src/components/user/ProfileEditForm.tsx`. No Epic 07 ambiguity.
 
 ### Realty group badge on public profile
 - **From:** Epic 02 sub-spec 2b (Task 02-05 public profile)
@@ -92,12 +74,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   The bot half of this item (primary-escrow-uuid) landed in Epic 06 Task 3
   via `BotStartupValidator` and is no longer deferred. See FOOTGUNS §F.47.
 
-
-### Non-dev admin endpoint for ownership-monitor trigger
-- **From:** Epic 03 sub-spec 2 (DevOwnershipMonitorController)
-- **Why:** `POST /api/v1/dev/ownership-monitor/run` is `@Profile("dev")` — the only way to force an ownership sweep in prod is to wait for the next scheduled tick (default 15 minutes). Admins triaging a suspected fraud report need a "re-check this listing now" button that runs a single-auction check and returns the result synchronously.
-- **When:** Epic 10 sub-spec 3 — admin role + auth gate exists (sub-spec 1); ban/report/user-mgmt foundation exists (sub-spec 2). Remaining work is just the endpoint itself (`POST /api/v1/admin/auctions/{id}/recheck-ownership`, delegating to `OwnershipCheckTask`) plus a one-off trigger button in the fraud-flag slide-over or a dedicated parcel-detail admin panel.
-- **Notes:** Keep the dev endpoint unchanged — it's useful for test suites and local verification. The admin endpoint is a separate surface with different auth and a different response shape.
 
 ### Destructive-variant copy polish
 - **From:** Epic 03 sub-spec 2 (Task 9 review follow-up + Task 10 Button variant)
@@ -142,12 +118,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite (infrastructure polish) — trigger is when another epic adds a scheduler that requires a new wave of per-test property disables.
 - **Notes:** Touchpoint: any `@SpringBootTest` in `backend/src/test/java` with a `slpa.*.enabled=false` entry on its `@TestPropertySource`. Alternative shapes: (a) `@ActiveProfiles("integration-test")` + an `application-integration-test.yml` that disables every scheduler by default; (b) `@Import(SchedulersDisabledConfig.class)` bean-override; (c) a new `@IntegrationTest` meta-annotation that composes `@SpringBootTest` + the common property set.
 
-### Shared-secret version rotation provenance on TerminalCommand
-- **From:** Epic 05 sub-spec 1 (Task 7)
-- **Why:** The `terminal_commands.shared_secret_version` column is reserved but no code populates or reads it. Used to stamp which secret version was in force at dispatch so admin tooling can reason about rotated-secret audit trails.
-- **When:** Epic 10 (Admin & Moderation) — wire alongside the admin secret-rotation endpoint already deferred.
-- **Notes:** Column is nullable today; no data loss. Touchpoint: `TerminalCommandService.queue(...)` + a future rotation endpoint that stamps the new version on in-flight commands.
-
 ### HMAC-SHA256 terminal auth
 - **From:** Epic 05 sub-spec 1
 - **Why:** Sub-spec 1 ships static shared secret + rotation via config + redeploy. HMAC-SHA256 adds per-request replay protection but requires SHA256 implementation in LSL (~50-100 line library). Premature to ship until a working LSL terminal exists to dogfood against.
@@ -161,30 +131,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** `Terminal.region_name` column reserved. Router pluggable behind a `TerminalSelector` interface.
 
 
-### Admin tooling for DISPUTED / FROZEN resolution + secret rotation
-- **From:** Epic 05 sub-spec 1
-- **Why:** No resume path from terminal states (DISPUTED, FROZEN) in sub-spec 1. Admin also has no in-app way to rotate `slpa.escrow.terminal-shared-secret` — rotation requires config edit + redeploy.
-- **When:** Epic 10 (Admin & Moderation).
-- **Notes:** Admin endpoints `POST /api/v1/admin/escrow/{id}/resolve-dispute`, `POST /api/v1/admin/escrow/{id}/unfreeze`, `POST /api/v1/admin/terminal/rotate-secret`. State machine gains `DISPUTED → FUNDED | TRANSFER_PENDING` and `FROZEN → TRANSFER_PENDING | EXPIRED` at admin's discretion.
-
-### Daily escrow balance reconciliation
-- **From:** Epic 05 sub-spec 1
-- **Why:** DESIGN.md §5.2 suggests "sum of pending escrow amounts should match the expected SL account balance." Sub-spec 1 writes every L$ movement to the `EscrowTransaction` ledger, so the data is there — just no job reconciles it against SL grid queries.
-- **When:** Epic 10 (Admin & Moderation).
-- **Notes:** Daily job that sums `EscrowTransaction` rows by type, queries SLPAEscrow account balance via World API, alerts on mismatch.
-
-### Dispute evidence attachments
-- **From:** Epic 05 sub-spec 2
-- **Why:** Sub-spec 2 ships a minimal dispute form (reasonCategory + 10-2000-char description). A real dispute workflow benefits from file uploads (screenshots), SL transaction references, an optional linked in-world chat log, and a timeline of prior attempts. The dispute route was deliberately scoped as a full page so these additions can land without re-architecting.
-- **When:** Epic 10 (Admin & Moderation) — at the same time the admin dispute-resolution tooling lands so both sides mature together.
-- **Notes:** Additions likely include file uploads (reuse Epic 02 avatar-upload's S3 path), optional `slTransactionKey` field for `PAYMENT_NOT_CREDITED` claims, evidence timeline. DTO expansion on `EscrowDisputeRequest` + new evidence entity on the backend.
-
-### `PAYMENT_NOT_CREDITED` dispute reconciliation
-- **From:** Epic 05 sub-spec 2 (design review)
-- **Why:** The reason category claims "I paid but escrow didn't advance," which is the class of claim that indicates a happy-path failure (L$ may have already left the winner's wallet). Automatic refund on this dispute category risks double-paying the winner if the original payment callback later lands via idempotent retry.
-- **When:** Epic 10 (Admin & Moderation) — alongside admin dispute-resolution tooling. The admin workflow must pull the SLPA terminal ledger balance, the winner's claimed `slTransactionKey` (see evidence-attachments opener above), and reconcile against the backend's `EscrowTransaction` ledger before any refund.
-- **Notes:** Until Epic 10, `PAYMENT_NOT_CREDITED` disputes transition to `DISPUTED` and sit awaiting manual review like every other category.
-
 ### Terminal locator on PAY ESCROW state
 - **From:** Epic 05 sub-spec 2 (`PendingStateCard` winner view)
 - **Why:** The winner's `ESCROW_PENDING` card includes a "Find a terminal" button rendered disabled because no in-world terminal locator exists yet. A real implementation maps registered `Terminal` rows (sub-spec 1 §7.5) to their SL region names + SLURL links.
@@ -196,20 +142,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Why:** Dashboard rows pick up `escrowState` changes via `refetchOnWindowFocus` + navigation — not via envelope-driven invalidation. Lags live state by up to ~30s on a stale tab. Acceptable for Phase 1.
 - **When:** Indefinite — only pull in if user feedback shows the lag feels wrong.
 - **Notes:** Implementation is ~30 LoC (named emitter + two subscriber hooks).
-
-### Admin pool health dashboard
-- **From:** Epic 06 (spec §1.2)
-- **Why:** Each bot container exposes `GET /health` with its
-  `SessionState`, but no admin page aggregates them. Ops must curl each
-  container directly (`docker compose exec bot-1 wget -O- http://localhost:8081/health`).
-- **When:** Epic 10 (Admin & Moderation) — fold into the broader admin
-  dashboard surface.
-- **Notes:** Aggregation endpoint shape: `GET /api/v1/admin/bot-pool/health`
-  returns `[{ botUuid, username, state, lastClaimAt, region }]`. Requires
-  a heartbeat mechanism — workers POST their state every ~60 s to a new
-  `POST /api/v1/bot/heartbeat` endpoint (same bearer auth), backend
-  persists in Redis with a TTL.
-
 
 ### Per-worker auth tokens (`bot_workers` table)
 - **From:** Epic 06 brainstorm
@@ -294,23 +226,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **If re-instated:** per-category templates (HTML + plain text), signed-token
   unsubscribe, debounce/dedupe matching the coalesce pattern, email-change flow
   (originally pending from Epic 02 sub-spec 2b).
-
-### REVIEW_RESPONSE_WINDOW_CLOSING notification + scheduler
-- **From:** Epic 09 sub-spec 1
-- **Why:** No event source today; needs a scheduler that fires N hours before the response window closes. Sub-spec 1 wires every existing event source but doesn't add new schedulers.
-- **When:** Epic 10 (Admin & Moderation) — alongside the response-window scheduler for review responses, since both share the timing primitive.
-
-### ESCROW_TRANSFER_REMINDER scheduler
-- **From:** Epic 09 sub-spec 1
-- **Why:** Sub-spec 1 implements `publisher.escrowTransferReminder(...)` +
-  `NotificationDataBuilder.escrowTransferReminder(...)` + corresponding category
-  and tests. No `@Scheduled` job calls it today.
-- **When:** Epic 10 (Admin & Moderation) — paired with REVIEW_RESPONSE_WINDOW_CLOSING
-  scheduler. Both share design DNA (interval-bound + once-per-entity + admin-visible).
-- **Implementation sketch:** new `Escrow.reminderSentAt` column for
-  once-per-escrow guarantee; new `EscrowReminderScheduler` (cron daily, query
-  escrows with FUNDED status approaching transfer deadline, fire
-  `publisher.escrowTransferReminder(...)`).
 
 ### Quiet hours UI for SL IM
 - **From:** Epic 09 sub-spec 3
