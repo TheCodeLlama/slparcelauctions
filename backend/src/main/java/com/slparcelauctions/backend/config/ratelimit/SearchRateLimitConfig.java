@@ -44,9 +44,35 @@ public class SearchRateLimitConfig {
     @Value("${spring.data.redis.port:6379}")
     private int redisPort;
 
+    @Value("${spring.data.redis.ssl.enabled:false}")
+    private boolean redisSslEnabled;
+
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
     @Bean(destroyMethod = "shutdown")
     public RedisClient rateLimitRedisClient() {
-        return RedisClient.create(RedisURI.create(redisHost, redisPort));
+        // Build the URI explicitly rather than using RedisURI.create(host, port)
+        // because that overload skips TLS + auth. ElastiCache requires both
+        // (transit_encryption_enabled = true + auth_token on the replication
+        // group); without them the connection fails at handshake with
+        // "Unable to connect to <host>/<unresolved>:6379" — the <unresolved>
+        // is Lettuce's signal that the TCP connect attempt was rejected before
+        // DNS resolution finished.
+        //
+        // Local dev (docker-compose Redis without TLS or auth) leaves both
+        // properties at their defaults and ends up with a plain TCP URI —
+        // unchanged from the pre-prod-deploy behaviour.
+        RedisURI.Builder builder = RedisURI.builder()
+                .withHost(redisHost)
+                .withPort(redisPort);
+        if (redisSslEnabled) {
+            builder.withSsl(true);
+        }
+        if (!redisPassword.isEmpty()) {
+            builder.withPassword(redisPassword.toCharArray());
+        }
+        return RedisClient.create(builder.build());
     }
 
     @Bean(destroyMethod = "close")
