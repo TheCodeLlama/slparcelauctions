@@ -139,6 +139,13 @@ resource "aws_ecs_service" "backend" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
 
+  # ALB target-group health check polls every 30s with 3 retries before
+  # marking unhealthy (~90s). Spring Boot 4 + Java 26 takes ~60-90s to boot
+  # on 0.5 vCPU. Without a grace period, ECS kills the new task before it
+  # finishes warming up. 300s gives Spring room to start, JIT to settle,
+  # and the ALB to see two consecutive 200s before counting it healthy.
+  health_check_grace_period_seconds = 300
+
   # NOTE: ignore_changes on task_definition + desired_count is intentionally
   # NOT set today. Terraform owns both fields. When GHA wires CodeDeploy
   # blue/green deploys (Step 17 of the deploy flow), this resource flips
