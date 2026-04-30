@@ -3,12 +3,12 @@
 # After editing, the script auto-resets via CHANGED_INVENTORY and re-registers.
 
 # Backend endpoint URLs — all six required.
-REGISTER_URL=https://api.slparcelauctions.com/api/v1/sl/terminal/register
-ESCROW_PAYMENT_URL=https://api.slparcelauctions.com/api/v1/sl/escrow/payment
-LISTING_FEE_URL=https://api.slparcelauctions.com/api/v1/sl/listing-fee/payment
-PENALTY_LOOKUP_URL=https://api.slparcelauctions.com/api/v1/sl/penalty-lookup
-PENALTY_PAYMENT_URL=https://api.slparcelauctions.com/api/v1/sl/penalty-payment
-PAYOUT_RESULT_URL=https://api.slparcelauctions.com/api/v1/sl/escrow/payout-result
+REGISTER_URL=https://slpa.app/api/v1/sl/terminal/register
+ESCROW_PAYMENT_URL=https://slpa.app/api/v1/sl/escrow/payment
+LISTING_FEE_URL=https://slpa.app/api/v1/sl/listing-fee/payment
+PENALTY_LOOKUP_URL=https://slpa.app/api/v1/sl/penalty-lookup
+PENALTY_PAYMENT_URL=https://slpa.app/api/v1/sl/penalty-payment
+PAYOUT_RESULT_URL=https://slpa.app/api/v1/sl/escrow/payout-result
 
 # Shared secret for terminal authentication. REQUIRED.
 # Obtain from the backend's slpa.escrow.terminal-shared-secret config.
