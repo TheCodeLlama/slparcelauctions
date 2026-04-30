@@ -5,4 +5,4 @@
 POLL_URL=https://slpa.app/api/v1/internal/sl-im/pending
 CONFIRM_URL_BASE=https://slpa.app/api/v1/internal/sl-im/
 SHARED_SECRET=<obtain from server config: slpa.notifications.sl-im.dispatcher.shared-secret>
-DEBUG_OWNER_SAY=true
+DEBUG_MODE=true

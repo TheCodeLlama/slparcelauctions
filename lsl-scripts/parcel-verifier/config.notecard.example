@@ -6,4 +6,4 @@
 PARCEL_VERIFY_URL=https://slpa.app/api/v1/sl/parcel/verify
 
 # Optional: set to "false" to silence chat.
-DEBUG_OWNER_SAY=true
+DEBUG_MODE=true

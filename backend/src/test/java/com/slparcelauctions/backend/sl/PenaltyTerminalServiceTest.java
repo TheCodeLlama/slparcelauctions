@@ -89,20 +89,29 @@ class PenaltyTerminalServiceTest {
     }
 
     @Test
-    void lookup_throwsUserNotFound_whenAvatarUnknown() {
+    void lookup_returnsZeroBalanceWithNullIdentifiers_whenAvatarUnknown() {
+        // Privacy: unknown-avatar response is byte-identical to the
+        // known-user-with-zero-balance response so an attacker probing
+        // the user table cannot distinguish the two from the wire.
         when(userRepo.findBySlAvatarUuid(AVATAR)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.lookup(AVATAR))
-                .isInstanceOf(UserNotFoundException.class);
+        PenaltyLookupResponse resp = service.lookup(AVATAR);
+
+        assertThat(resp.userId()).isNull();
+        assertThat(resp.displayName()).isNull();
+        assertThat(resp.penaltyBalanceOwed()).isEqualTo(0L);
     }
 
     @Test
-    void lookup_throwsUserNotFound_whenBalanceIsZero() {
+    void lookup_returnsZeroBalanceWithNullIdentifiers_whenUserOwesNothing() {
         User u = userWithBalance(7L, "Alice", 0L);
         when(userRepo.findBySlAvatarUuid(AVATAR)).thenReturn(Optional.of(u));
 
-        assertThatThrownBy(() -> service.lookup(AVATAR))
-                .isInstanceOf(UserNotFoundException.class);
+        PenaltyLookupResponse resp = service.lookup(AVATAR);
+
+        assertThat(resp.userId()).isNull();
+        assertThat(resp.displayName()).isNull();
+        assertThat(resp.penaltyBalanceOwed()).isEqualTo(0L);
     }
 
     @Test
@@ -110,8 +119,11 @@ class PenaltyTerminalServiceTest {
         User u = userWithBalance(7L, "Alice", null);
         when(userRepo.findBySlAvatarUuid(AVATAR)).thenReturn(Optional.of(u));
 
-        assertThatThrownBy(() -> service.lookup(AVATAR))
-                .isInstanceOf(UserNotFoundException.class);
+        PenaltyLookupResponse resp = service.lookup(AVATAR);
+
+        assertThat(resp.userId()).isNull();
+        assertThat(resp.displayName()).isNull();
+        assertThat(resp.penaltyBalanceOwed()).isEqualTo(0L);
     }
 
     // -----------------------------------------------------------------

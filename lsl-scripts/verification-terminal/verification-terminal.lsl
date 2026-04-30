@@ -15,7 +15,7 @@
 
 // === Configuration loaded from notecard ===
 string  VERIFY_URL    = "";
-integer DEBUG_OWNER_SAY = TRUE;
+integer DEBUG_MODE = TRUE;
 
 // === Notecard reading state ===
 key     notecardLineRequest = NULL_KEY;
@@ -72,8 +72,8 @@ parseConfigLine(string line) {
     string val = llStringTrim(llGetSubString(line, eq + 1, -1), STRING_TRIM);
 
     if (cfgKey == "VERIFY_URL")     VERIFY_URL = val;
-    else if (cfgKey == "DEBUG_OWNER_SAY")
-        DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
+    else if (cfgKey == "DEBUG_MODE")
+        DEBUG_MODE = (val == "true" || val == "TRUE" || val == "1");
 }
 
 setBusyChrome() {
@@ -145,7 +145,7 @@ default {
     state_entry() {
         // Initialize all globals to sentinel values.
         VERIFY_URL       = "";
-        DEBUG_OWNER_SAY  = TRUE;
+        DEBUG_MODE  = TRUE;
         lockHolder       = NULL_KEY;
         lockHolderName   = "";
         lockExpiresAt    = 0;
@@ -192,7 +192,7 @@ default {
                     llOwnerSay("SLPA Verification Terminal: incomplete config — VERIFY_URL required");
                     return;
                 }
-                if (DEBUG_OWNER_SAY)
+                if (DEBUG_MODE)
                     llOwnerSay("SLPA Verification Terminal: ready (verify=" + VERIFY_URL + ")");
                 return;
             }
@@ -242,7 +242,7 @@ default {
 
         setBusyChrome();
 
-        if (DEBUG_OWNER_SAY)
+        if (DEBUG_MODE)
             llOwnerSay("SLPA Verification Terminal: touch from " + toucherName);
 
         listenHandle = llListen(menuChan, "", lockHolder, "");
@@ -292,12 +292,12 @@ default {
             if (verified == "true") {
                 llRegionSayTo(lockHolder, 0,
                     "✓ Linked SLPA #" + userId + " to " + slAvatarName + ".");
-                if (DEBUG_OWNER_SAY)
+                if (DEBUG_MODE)
                     llOwnerSay("SLPA Verification Terminal: verify ok: userId=" + userId);
             } else {
                 llRegionSayTo(lockHolder, 0,
                     "✗ Verification failed. Code may be expired — generate a new one on slparcels.com.");
-                if (DEBUG_OWNER_SAY)
+                if (DEBUG_MODE)
                     llOwnerSay("SLPA Verification Terminal: verify denied: not verified");
             }
         } else if (status >= 400 && status < 500) {
@@ -306,13 +306,13 @@ default {
             if (title == JSON_INVALID || title == "") title = "Error";
             if (detail == JSON_INVALID || detail == "") detail = "status " + (string)status;
             llRegionSayTo(lockHolder, 0, "✗ " + title + ": " + detail);
-            if (DEBUG_OWNER_SAY)
+            if (DEBUG_MODE)
                 llOwnerSay("SLPA Verification Terminal: verify denied: " + title);
         } else {
             // 5xx or 0 (HTTP timeout / network failure)
             llRegionSayTo(lockHolder, 0,
                 "✗ Backend unreachable. Try again in a moment.");
-            if (DEBUG_OWNER_SAY)
+            if (DEBUG_MODE)
                 llOwnerSay("SLPA Verification Terminal: http error: status=" + (string)status);
         }
 
