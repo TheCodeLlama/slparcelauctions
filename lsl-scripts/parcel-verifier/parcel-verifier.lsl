@@ -60,11 +60,11 @@ parseConfigLine(string line) {
     integer eq = llSubStringIndex(line, "=");
     if (eq < 1) return;
 
-    string key = llStringTrim(llGetSubString(line, 0, eq - 1), STRING_TRIM);
+    string cfgKey = llStringTrim(llGetSubString(line, 0, eq - 1), STRING_TRIM);
     string val = llStringTrim(llGetSubString(line, eq + 1, -1), STRING_TRIM);
 
-    if (key == "PARCEL_VERIFY_URL") PARCEL_VERIFY_URL = val;
-    else if (key == "DEBUG_OWNER_SAY")
+    if (cfgKey == "PARCEL_VERIFY_URL") PARCEL_VERIFY_URL = val;
+    else if (cfgKey == "DEBUG_OWNER_SAY")
         DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
 }
 
@@ -223,7 +223,7 @@ default {
         llSetTimerEvent(0);
 
         if (status == 204) {
-            dieWithMessage("✓ Parcel verified — your listing is live on slparcelauctions.com.");
+            dieWithMessage("✓ Parcel verified — your listing is live on slparcels.com.");
         } else if (status >= 400 && status < 500) {
             string title  = llJsonGetValue(body, ["title"]);
             string detail = llJsonGetValue(body, ["detail"]);

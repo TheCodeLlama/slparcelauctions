@@ -48,7 +48,7 @@ To set up the Marketplace listing:
 The script speaks via `llOwnerSay` (visible only to the rezzer). Expected
 chat after rez:
 
-- `✓ Parcel verified — your listing is live on slparcelauctions.com.` (success)
+- `✓ Parcel verified — your listing is live on slparcels.com.` (success)
 - `✗ This parcel isn't yours. Please rez on land you own.` (owner mismatch)
 - `✗ Code must be 6 digits.` (bad input)
 - `✗ <title>: <detail>` (backend rejection — code expired, parcel mismatch, etc.)

@@ -68,11 +68,11 @@ parseConfigLine(string line) {
     integer eq = llSubStringIndex(line, "=");
     if (eq < 1) return;
 
-    string key = llStringTrim(llGetSubString(line, 0, eq - 1), STRING_TRIM);
+    string cfgKey = llStringTrim(llGetSubString(line, 0, eq - 1), STRING_TRIM);
     string val = llStringTrim(llGetSubString(line, eq + 1, -1), STRING_TRIM);
 
-    if (key == "VERIFY_URL")     VERIFY_URL = val;
-    else if (key == "DEBUG_OWNER_SAY")
+    if (cfgKey == "VERIFY_URL")     VERIFY_URL = val;
+    else if (cfgKey == "DEBUG_OWNER_SAY")
         DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
 }
 
@@ -296,7 +296,7 @@ default {
                     llOwnerSay("SLPA Verification Terminal: verify ok: userId=" + userId);
             } else {
                 llRegionSayTo(lockHolder, 0,
-                    "✗ Verification failed. Code may be expired — generate a new one on slparcelauctions.com.");
+                    "✗ Verification failed. Code may be expired — generate a new one on slparcels.com.");
                 if (DEBUG_OWNER_SAY)
                     llOwnerSay("SLPA Verification Terminal: verify denied: not verified");
             }

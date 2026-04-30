@@ -3,7 +3,7 @@
 # BEFORE you rez it on a parcel — once rezzed it self-destructs after one
 # verification attempt.
 
-PARCEL_VERIFY_URL=https://api.slparcelauctions.com/api/v1/sl/parcel/verify
+PARCEL_VERIFY_URL=https://slpa.app/api/v1/sl/parcel/verify
 
 # Optional: set to "false" to silence chat.
 DEBUG_OWNER_SAY=true
