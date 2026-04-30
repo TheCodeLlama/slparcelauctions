@@ -155,3 +155,23 @@ In steady state, with `DEBUG_MODE=true`:
   header-trust-only on the backend — no shared secret in body. The script
   still has its shared secret loaded for the other endpoints; it just
   doesn't include it in penalty bodies.
+
+## SL grid Content-Type filter (footgun)
+
+`llHTTPRequest` filters response Content-Type against `HTTP_ACCEPT`.
+The grid passes `application/json` through, but it does NOT recognise
+the `+json` structured-syntax suffix — so a backend response with
+`Content-Type: application/problem+json` (Spring's RFC 9457 default for
+ProblemDetail) gets silently replaced by the SL HTTP layer with a
+synthetic `415` and body `Unsupported or unknown Content-Type.`. The
+script never sees the real status or body.
+
+Backend mitigations live on `/api/v1/sl/**`:
+
+1. `SlProblemDetailContentTypeAdvice` rewrites all 4xx/5xx responses on
+   SL paths to `Content-Type: application/json`.
+2. `/penalty-lookup` always returns 200 (the no-debt case used to be a
+   404 + ProblemDetail, which would be eaten by the grid filter).
+
+If you add a new SL-facing endpoint that returns 4xx/5xx, the advice
+covers it automatically by path prefix — no per-endpoint work needed.

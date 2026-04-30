@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -45,7 +46,8 @@ import com.slparcelauctions.backend.user.UserNotFoundException;
  */
 @WebMvcTest(PenaltyTerminalController.class)
 @Import({SlImInternalConfig.class, SecurityConfig.class, JwtAuthenticationFilter.class,
-        JwtAuthenticationEntryPoint.class, SlExceptionHandler.class})
+        JwtAuthenticationEntryPoint.class, SlExceptionHandler.class,
+        SlProblemDetailContentTypeAdvice.class})
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "jwt.secret=dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==",
@@ -109,35 +111,41 @@ class PenaltyTerminalControllerSliceTest {
     }
 
     @Test
-    void lookup_returns404_whenAvatarUnknown() throws Exception {
+    void lookup_returns200WithZeroBalanceAndNullIdentifiers_whenAvatarUnknown() throws Exception {
+        // Endpoint always returns 200 — see PenaltyTerminalService.lookup
+        // for the SL-grid Content-Type filter rationale. Privacy: the
+        // unknown-avatar body is byte-identical to the known-user-with-
+        // zero-balance body so the wire cannot distinguish them.
         doNothing().when(headerValidator).validate(SHARD, OWNER_KEY);
         when(service.lookup(any(UUID.class)))
-                .thenThrow(new UserNotFoundException(
-                        "No SLPA user found for avatar " + AVATAR_UUID));
+                .thenReturn(new PenaltyLookupResponse(null, null, 0L));
 
         mockMvc.perform(post("/api/v1/sl/penalty-lookup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-SecondLife-Shard", SHARD)
                         .header("X-SecondLife-Owner-Key", OWNER_KEY)
                         .content(lookupBody(AVATAR_UUID, TERMINAL_ID)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.displayName").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.penaltyBalanceOwed").value(0));
     }
 
     @Test
-    void lookup_returns404_whenBalanceIsZero() throws Exception {
+    void lookup_returns200WithZeroBalance_whenUserOwesNothing() throws Exception {
         doNothing().when(headerValidator).validate(SHARD, OWNER_KEY);
         when(service.lookup(any(UUID.class)))
-                .thenThrow(new UserNotFoundException(
-                        "No outstanding penalty balance for avatar " + AVATAR_UUID));
+                .thenReturn(new PenaltyLookupResponse(null, null, 0L));
 
         mockMvc.perform(post("/api/v1/sl/penalty-lookup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("X-SecondLife-Shard", SHARD)
                         .header("X-SecondLife-Owner-Key", OWNER_KEY)
                         .content(lookupBody(AVATAR_UUID, TERMINAL_ID)))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.displayName").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.penaltyBalanceOwed").value(0));
     }
 
     @Test
@@ -205,7 +213,11 @@ class PenaltyTerminalControllerSliceTest {
     }
 
     @Test
-    void payment_overpayment_returns422() throws Exception {
+    void payment_overpayment_returns422_asApplicationJson() throws Exception {
+        // The Content-Type assertion guards SlProblemDetailContentTypeAdvice
+        // for /api/v1/sl/** — without it, this 422 would ship as
+        // application/problem+json and the SL grid would replace it with
+        // a synthetic 415 (see advice Javadoc for the full chain).
         doNothing().when(headerValidator).validate(SHARD, OWNER_KEY);
         when(service.pay(any(PenaltyPaymentRequest.class)))
                 .thenThrow(new PenaltyOverpaymentException(1000L, 500L));
@@ -216,6 +228,7 @@ class PenaltyTerminalControllerSliceTest {
                         .header("X-SecondLife-Owner-Key", OWNER_KEY)
                         .content(paymentBody(AVATAR_UUID, SL_TXN, 1000L, TERMINAL_ID)))
                 .andExpect(status().isUnprocessableEntity())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value("SL_PENALTY_OVERPAYMENT"))
                 .andExpect(jsonPath("$.requested").value(1000))
                 .andExpect(jsonPath("$.available").value(500));

@@ -69,19 +69,28 @@ public class PenaltyTerminalService {
 
     @Transactional(readOnly = true)
     public PenaltyLookupResponse lookup(UUID slAvatarUuid) {
-        User u = userRepo.findBySlAvatarUuid(slAvatarUuid)
-                .orElseThrow(() -> new UserNotFoundException(
-                        "No SLPA user found for avatar " + slAvatarUuid));
-
+        // Always 200. The original spec returned 404 for both "unknown
+        // avatar" and "zero balance" so the terminal could render a
+        // single "no debt" branch without inspecting the body, but the
+        // SL HTTP outbound layer rewrites any 4xx/5xx whose response
+        // Content-Type is not in HTTP_ACCEPT (default: text/plain) into
+        // a synthetic 415 with body "Unsupported or unknown Content-Type."
+        // Spring's ProblemDetail serialises as application/problem+json,
+        // which the grid rejects — so the terminal never saw the real
+        // 404 and surfaced "Lookup failed - try again" for users with
+        // no penalty. Returning 200 sidesteps the grid filter entirely.
+        //
+        // Privacy is preserved by returning the same payload shape
+        // (userId=null, displayName=null, penaltyBalanceOwed=0) for
+        // both unknown avatars AND known users with zero balance, so an
+        // attacker probing the user table cannot distinguish the two.
+        User u = userRepo.findBySlAvatarUuid(slAvatarUuid).orElse(null);
+        if (u == null) {
+            return new PenaltyLookupResponse(null, null, 0L);
+        }
         long balance = currentBalance(u);
         if (balance == 0L) {
-            // Spec §7.5: zero-balance lookups are 404 so the terminal can
-            // render a single "no debt" branch without inspecting the
-            // numeric body. Distinguishing "unknown avatar" from "user
-            // exists but owes nothing" would only be useful to an
-            // attacker probing the user table.
-            throw new UserNotFoundException(
-                    "No outstanding penalty balance for avatar " + slAvatarUuid);
+            return new PenaltyLookupResponse(null, null, 0L);
         }
         return new PenaltyLookupResponse(u.getId(), u.getDisplayName(), balance);
     }

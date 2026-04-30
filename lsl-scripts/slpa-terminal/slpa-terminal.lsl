@@ -614,10 +614,15 @@ default {
         // --- Penalty-lookup response ---
         if (req == lookupReqId) {
             lookupReqId = NULL_KEY;
-            if (status == 404) {
-                llRegionSayTo(lockHolder, 0, "No penalty on file for your account.");
-                releaseLock();
-            } else if (status == 200) {
+            if (status == 200) {
+                // Backend always returns 200 for /penalty-lookup. Branch on
+                // penaltyBalanceOwed: 0 means "no debt" (unknown avatar AND
+                // known-but-zero are byte-identical for privacy); positive
+                // means show the pay prompt. The endpoint used to 404 the
+                // no-debt cases, but the SL HTTP outbound layer rewrites
+                // 4xx responses whose Content-Type is not in HTTP_ACCEPT
+                // into a synthetic 415, so the script never saw the real
+                // 404. See PenaltyTerminalService.lookup javadoc.
                 integer owed = (integer)llJsonGetValue(body, ["penaltyBalanceOwed"]);
                 if (owed <= 0) {
                     llRegionSayTo(lockHolder, 0, "No penalty on file for your account.");
