@@ -15,7 +15,7 @@
 
 // === Configuration loaded from notecard ===
 string  PARCEL_VERIFY_URL = "";
-integer DEBUG_OWNER_SAY   = TRUE;
+integer DEBUG_MODE   = TRUE;
 
 // === Notecard reading state ===
 key     notecardLineRequest = NULL_KEY;
@@ -64,8 +64,8 @@ parseConfigLine(string line) {
     string val = llStringTrim(llGetSubString(line, eq + 1, -1), STRING_TRIM);
 
     if (cfgKey == "PARCEL_VERIFY_URL") PARCEL_VERIFY_URL = val;
-    else if (cfgKey == "DEBUG_OWNER_SAY")
-        DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
+    else if (cfgKey == "DEBUG_MODE")
+        DEBUG_MODE = (val == "true" || val == "TRUE" || val == "1");
 }
 
 integer isSixDigitCode(string s) {
@@ -97,7 +97,7 @@ default {
     state_entry() {
         // Initialize all globals to sentinel values.
         PARCEL_VERIFY_URL = "";
-        DEBUG_OWNER_SAY   = TRUE;
+        DEBUG_MODE   = TRUE;
         parcelUuid        = NULL_KEY;
         ownerUuid         = NULL_KEY;
         groupUuid         = NULL_KEY;

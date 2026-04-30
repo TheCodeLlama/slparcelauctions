@@ -38,7 +38,7 @@ User-facing kiosk distributed via Marketplace + SLPA HQ + allied venues.
 | Key | Description |
 | --- | --- |
 | `VERIFY_URL` | Full URL of the backend's `/api/v1/sl/verify` endpoint. |
-| `DEBUG_OWNER_SAY` | `true`/`false`, default `true`. Recommended `true` in prod. |
+| `DEBUG_MODE` | `true`/`false`, default `true`. Recommended `true` in prod. |
 
 Editing the notecard auto-resets the script via `CHANGED_INVENTORY`.
 

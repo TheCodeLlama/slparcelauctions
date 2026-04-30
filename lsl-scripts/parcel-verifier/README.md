@@ -41,7 +41,7 @@ To set up the Marketplace listing:
 | Key | Description |
 | --- | --- |
 | `PARCEL_VERIFY_URL` | Full URL of `/api/v1/sl/parcel/verify`. |
-| `DEBUG_OWNER_SAY` | `true`/`false`, default `true`. |
+| `DEBUG_MODE` | `true`/`false`, default `true`. |
 
 ## Operations
 

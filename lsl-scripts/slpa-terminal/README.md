@@ -60,7 +60,7 @@ terminal for any command.
 | `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
 | `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. Use a stable name if you want admin tooling to identify this terminal across restarts. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
-| `DEBUG_OWNER_SAY` | Optional. `true`/`false`, default `true`. |
+| `DEBUG_MODE` | Optional. `true`/`false`, default `true`. When `true`, also surfaces a `DEBUG <flow>: status=N title=… detail=… code=…` line to the toucher on HTTP 4xx/5xx, so an operator at the terminal can diagnose backend errors without grepping CloudWatch. |
 
 ### Rotating the shared secret
 
@@ -96,7 +96,7 @@ re-register.
 
 ## Operations
 
-In steady state, with `DEBUG_OWNER_SAY=true`:
+In steady state, with `DEBUG_MODE=true`:
 
 - `SLPA Terminal: registered (terminal_id=..., url=...)` — startup confirmation.
 - `SLPA Terminal: touch from <name>` — user touched the terminal.
