@@ -154,9 +154,24 @@ debugSayUser(key who, string label, integer status, string body) {
     string detail = llJsonGetValue(body, ["detail"]);
     string code   = llJsonGetValue(body, ["code"]);
     string msg = "DEBUG " + label + ": status=" + (string)status;
-    if (title  != JSON_INVALID && title  != "") msg += " title=" + title;
-    if (detail != JSON_INVALID && detail != "") msg += " detail=" + detail;
-    if (code   != JSON_INVALID && code   != "") msg += " code=" + code;
+    integer haveAny = FALSE;
+    if (title  != JSON_INVALID && title  != "") { msg += " title=" + title;   haveAny = TRUE; }
+    if (detail != JSON_INVALID && detail != "") { msg += " detail=" + detail; haveAny = TRUE; }
+    if (code   != JSON_INVALID && code   != "") { msg += " code=" + code;     haveAny = TRUE; }
+    // If the response wasn't a Spring ProblemDetail (no title/detail/code),
+    // surface the raw body excerpt so we can see HTML error pages, plain
+    // text, or empty bodies returned by intermediate proxies / framework
+    // defaults.
+    if (!haveAny) {
+        integer blen = llStringLength(body);
+        if (blen == 0) {
+            msg += " body=<empty>";
+        } else {
+            integer cap = blen;
+            if (cap > 200) cap = 200;
+            msg += " body[" + (string)blen + "]=" + llGetSubString(body, 0, cap - 1);
+        }
+    }
     if (who != NULL_KEY) llRegionSayTo(who, 0, msg);
     llOwnerSay("SLPA Terminal: " + msg);
 }
@@ -763,9 +778,15 @@ default {
 
             } else if (message == "Pay Penalty") {
                 // Fire penalty lookup; lock stays held during inflight.
-                string lbody = llList2Json(JSON_OBJECT,
-                    ["slAvatarUuid", (string)lockHolder,
-                     "terminalId",  TERMINAL_ID]);
+                // Manual JSON construction (matches postRegister + firePayment in
+                // this script) instead of llList2Json — the grid's auto-typing in
+                // llList2Json has historically produced bodies that the SL HTTP
+                // layer flags as a non-JSON content shape, surfacing as 415 from
+                // the backend even though HTTP_MIMETYPE is set to application/json.
+                string lbody = "{"
+                    + "\"slAvatarUuid\":\"" + (string)lockHolder + "\","
+                    + "\"terminalId\":\""   + escapeJson(TERMINAL_ID) + "\""
+                    + "}";
                 lookupReqId = llHTTPRequest(PENALTY_LOOKUP_URL,
                     [HTTP_METHOD, "POST",
                      HTTP_MIMETYPE, "application/json",
