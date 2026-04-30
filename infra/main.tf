@@ -208,3 +208,39 @@ module "compute" {
 
   log_retention_days = var.log_retention_days
 }
+
+module "cicd" {
+  source = "./cicd"
+
+  environment              = var.environment
+  github_repo              = var.github_repo
+  github_branch_for_deploy = var.github_branch_for_deploy
+
+  ecr_backend_repo_arn = module.compute.ecr_backend_repo_arn
+  ecr_bot_repo_arn     = module.compute.ecr_bot_repo_arn
+  ecs_cluster_arn      = module.compute.ecs_cluster_arn
+
+  backend_task_role_arn           = module.compute.backend_task_role_arn
+  backend_task_execution_role_arn = module.compute.backend_task_execution_role_arn
+  bot_task_role_arn               = module.compute.bot_task_role_arn
+  bot_task_execution_role_arn     = module.compute.bot_task_execution_role_arn
+}
+
+module "observability" {
+  source = "./observability"
+
+  environment = var.environment
+  alarm_email = var.alarm_email
+
+  ecs_cluster_name                = module.compute.ecs_cluster_name
+  backend_service_name            = module.compute.backend_service_name
+  bot_service_names               = module.compute.bot_service_names
+  alb_arn_suffix                  = module.compute.alb_arn_suffix
+  backend_target_group_arn_suffix = module.compute.backend_target_group_arn_suffix
+  rds_instance_id                 = module.data.rds_instance_id
+  rds_max_connections             = module.data.rds_max_connections
+  redis_replication_group_id      = module.data.redis_replication_group_id
+
+  budget_soft_threshold_usd = var.budget_soft_threshold_usd
+  budget_hard_threshold_usd = var.budget_hard_threshold_usd
+}
