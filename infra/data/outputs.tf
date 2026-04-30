@@ -3,6 +3,16 @@ output "rds_writer_endpoint" {
   value       = aws_db_instance.main.endpoint
 }
 
+output "rds_instance_id" {
+  description = "RDS instance identifier (DBInstanceIdentifier). CloudWatch metric dimension key."
+  value       = aws_db_instance.main.id
+}
+
+output "rds_max_connections" {
+  description = "Approximate max_connections setting on the RDS instance (Postgres default formula yields ~83 for db.t4g.micro). Used to set the connections-high alarm threshold dynamically."
+  value       = 83
+}
+
 output "rds_database_name" {
   description = "Postgres database name. Currently 'slpa'."
   value       = aws_db_instance.main.db_name
@@ -21,6 +31,11 @@ output "rds_username_ssm_arn" {
 output "redis_primary_endpoint" {
   description = "ElastiCache Redis primary endpoint. Used by the backend ECS task definition to construct SPRING_DATA_REDIS_HOST."
   value       = aws_elasticache_replication_group.main.primary_endpoint_address
+}
+
+output "redis_replication_group_id" {
+  description = "ElastiCache replication group ID. CloudWatch metric dimension key."
+  value       = aws_elasticache_replication_group.main.id
 }
 
 output "redis_auth_token_ssm_arn" {

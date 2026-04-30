@@ -1,0 +1,95 @@
+# Builds the backend Docker image, pushes to ECR with the commit SHA as the
+# tag, registers a new ECS task-definition revision pointing at the new image,
+# and rolls the slpa-prod-backend service over to it. Replaces the manual
+# docker push + aws ecs update-service dance.
+#
+# Triggers on push to main when backend/** or this workflow itself changes.
+# Manual `workflow_dispatch` is also enabled for one-off redeploys (e.g. when
+# only the task-def changed via terraform apply and you want to roll the
+# running tasks without a new image build).
+#
+# IAM role assumed via OIDC. Trust policy is locked to repo + branch.
+# See infra/cicd/iam.tf.
+
+name: deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: slpa/backend
+  ECS_CLUSTER: slpa-prod
+  ECS_SERVICE: slpa-prod-backend
+  CONTAINER_NAME: backend
+  # Update this if you rotate or recreate the role. Read it from
+  # `terraform output gha_deploy_role_arn`.
+  AWS_ROLE_ARN: arn:aws:iam::486208158127:role/slpa-prod-gha-deploy
+
+jobs:
+  deploy:
+    name: Build, push, and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        working-directory: backend
+        run: |
+          IMAGE=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          docker build \
+            --tag "$IMAGE:${{ github.sha }}" \
+            --tag "$IMAGE:latest" \
+            .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push image
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Render new task definition
+        id: render
+        run: |
+          # Pull the live task def and strip read-only fields AWS rejects on
+          # re-register. Then point the container at the new image SHA.
+          aws ecs describe-task-definition \
+            --task-definition "${{ env.ECS_SERVICE }}" \
+            --query 'taskDefinition' > task-def-raw.json
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            task-def-raw.json > task-def-clean.json
+          jq --arg img "${IMAGE}:${{ github.sha }}" \
+            '.containerDefinitions[0].image = $img' \
+            task-def-clean.json > task-def-rendered.json
+          echo "task-definition=task-def-rendered.json" >> $GITHUB_OUTPUT
+
+      - name: Deploy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          # ALB target health check + ECS grace period (300s) means a fresh
+          # task takes ~3-5 min to become healthy. The deploy action's
+          # default 10-min wait covers that comfortably.

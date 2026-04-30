@@ -1,0 +1,114 @@
+# Builds the bot Docker image, pushes to ECR, then fans out a task-def
+# revision + service update across every active slpa-prod-bot-* service.
+# All bots share the same image; only their per-bot task-def env vars and
+# Parameter Store paths differ (per-bot creds).
+#
+# Triggers on push to main when bot/** or this workflow itself changes, plus
+# manual dispatch.
+#
+# Note: bot ECS services use deployment_minimum_healthy_percent = 0 so the old
+# task drains fully before the new one starts (named SL credentials can't
+# double-login). Brief downtime per deploy is expected and acceptable.
+
+name: deploy bots
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bot/**'
+      - '.github/workflows/deploy-bot.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: slpa/bot
+  ECS_CLUSTER: slpa-prod
+  AWS_ROLE_ARN: arn:aws:iam::486208158127:role/slpa-prod-gha-deploy
+
+jobs:
+  deploy:
+    name: Build, push, and roll bot pool
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        working-directory: bot
+        run: |
+          IMAGE=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          docker build \
+            --tag "$IMAGE:${{ github.sha }}" \
+            --tag "$IMAGE:latest" \
+            .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push image
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Discover active bot services
+        id: discover
+        run: |
+          # ListServices on the cluster is paginated; --output text + tr handle that.
+          services=$(aws ecs list-services --cluster "${{ env.ECS_CLUSTER }}" \
+            --query 'serviceArns' --output text \
+            | tr '\t' '\n' \
+            | grep -E '/slpa-prod-bot-[0-9]+$' \
+            | xargs -n1 basename \
+            | sort)
+          if [ -z "$services" ]; then
+            echo "::error::No active bot services found in cluster ${{ env.ECS_CLUSTER }}"
+            exit 1
+          fi
+          echo "Discovered bot services:"
+          echo "$services"
+          # Save as space-separated for the next step.
+          echo "services=$(echo $services | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Register new task definitions and update services
+        run: |
+          for svc in ${{ steps.discover.outputs.services }}; do
+            echo "::group::Updating $svc"
+            aws ecs describe-task-definition \
+              --task-definition "$svc" \
+              --query 'taskDefinition' > "td-raw-$svc.json"
+            jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+              "td-raw-$svc.json" > "td-clean-$svc.json"
+            jq --arg img "${IMAGE}:${{ github.sha }}" \
+              '.containerDefinitions[0].image = $img' \
+              "td-clean-$svc.json" > "td-rendered-$svc.json"
+            new_arn=$(aws ecs register-task-definition \
+              --cli-input-json "file://td-rendered-$svc.json" \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+            echo "Registered: $new_arn"
+            aws ecs update-service \
+              --cluster "${{ env.ECS_CLUSTER }}" \
+              --service "$svc" \
+              --task-definition "$new_arn" > /dev/null
+            echo "Update kicked off for $svc"
+            echo "::endgroup::"
+          done
+
+      - name: Wait for all bot services to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services ${{ steps.discover.outputs.services }}
