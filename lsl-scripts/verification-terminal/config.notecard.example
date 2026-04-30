@@ -5,4 +5,4 @@
 VERIFY_URL=https://slpa.app/api/v1/sl/verify
 
 # Optional: set to "false" in prod to silence per-touch chat.
-DEBUG_OWNER_SAY=true
+DEBUG_MODE=true

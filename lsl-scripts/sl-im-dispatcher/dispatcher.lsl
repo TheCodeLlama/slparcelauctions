@@ -12,7 +12,7 @@
 string POLL_URL = "";
 string CONFIRM_URL_BASE = "";
 string SHARED_SECRET = "";
-integer DEBUG_OWNER_SAY = TRUE;
+integer DEBUG_MODE = TRUE;
 
 // === Cadences ===
 float POLL_INTERVAL = 60.0;
@@ -50,7 +50,7 @@ parseConfigLine(string line) {
     if (cfgKey == "POLL_URL") POLL_URL = val;
     else if (cfgKey == "CONFIRM_URL_BASE") CONFIRM_URL_BASE = val;
     else if (cfgKey == "SHARED_SECRET") SHARED_SECRET = val;
-    else if (cfgKey == "DEBUG_OWNER_SAY") DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
+    else if (cfgKey == "DEBUG_MODE") DEBUG_MODE = (val == "true" || val == "TRUE" || val == "1");
 }
 
 deliverNextInBatch() {
@@ -121,7 +121,7 @@ default {
                 llOwnerSay("SL IM dispatcher: incomplete config — POLL_URL / CONFIRM_URL_BASE / SHARED_SECRET required");
                 return;
             }
-            if (DEBUG_OWNER_SAY) llOwnerSay("SL IM dispatcher: ready (poll=" + POLL_URL + ")");
+            if (DEBUG_MODE) llOwnerSay("SL IM dispatcher: ready (poll=" + POLL_URL + ")");
             llSetTimerEvent(POLL_INTERVAL);
             return;
         }
@@ -148,18 +148,18 @@ default {
         if (requestId == pollRequestId) {
             pollRequestId = NULL_KEY;
             if (status != 200) {
-                if (DEBUG_OWNER_SAY) llOwnerSay("SL IM poll failed: " + (string)status);
+                if (DEBUG_MODE) llOwnerSay("SL IM poll failed: " + (string)status);
                 return;
             }
             integer count = parseAndStoreBatch(body);
             if (count > 0) {
-                if (DEBUG_OWNER_SAY) llOwnerSay("SL IM batch=" + (string)count);
+                if (DEBUG_MODE) llOwnerSay("SL IM batch=" + (string)count);
                 deliveringBatch = TRUE;
                 batchIndex = 0;
                 llSetTimerEvent(IM_INTERVAL);
                 deliverNextInBatch();  // immediately fire the first IM
             } else {
-                if (DEBUG_OWNER_SAY) llOwnerSay("SL IM poll: 0 messages");
+                if (DEBUG_MODE) llOwnerSay("SL IM poll: 0 messages");
             }
             return;
         }

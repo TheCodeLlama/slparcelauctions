@@ -40,7 +40,7 @@ with `#` are comments. Whitespace is trimmed. Required keys:
 | `POLL_URL` | Full URL of the backend's pending-messages endpoint. |
 | `CONFIRM_URL_BASE` | URL prefix for delivery-confirmation posts. The script appends `{id}/delivered` to this base. |
 | `SHARED_SECRET` | The bearer-token secret. Obtain from the server's `slpa.notifications.sl-im.dispatcher.shared-secret` configuration property. |
-| `DEBUG_OWNER_SAY` | `true` to enable per-poll owner chat (default); `false` to silence. Recommended `true` in prod for observability. |
+| `DEBUG_MODE` | `true` to enable per-poll owner chat (default); `false` to silence. Recommended `true` in prod for observability. |
 
 ### Rotating the shared secret
 
@@ -54,7 +54,7 @@ In-flight pending rows are unaffected; the next poll uses the new secret.
 
 ## Operations
 
-In steady state, with `DEBUG_OWNER_SAY=true`, you'll see one of these every
+In steady state, with `DEBUG_MODE=true`, you'll see one of these every
 60 seconds:
 
 - `SL IM poll: 0 messages` — nothing pending; healthy.

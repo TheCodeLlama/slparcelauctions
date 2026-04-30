@@ -27,7 +27,7 @@ string  PAYOUT_RESULT_URL   = "";
 string  SHARED_SECRET       = "";
 string  TERMINAL_ID         = "";
 string  REGION_NAME         = "";
-integer DEBUG_OWNER_SAY     = TRUE;
+integer DEBUG_MODE          = TRUE;
 
 // === Notecard reading state ===
 key     notecardLineRequest = NULL_KEY;
@@ -131,14 +131,49 @@ parseConfigLine(string line) {
     else if (k == "SHARED_SECRET")       SHARED_SECRET       = v;
     else if (k == "TERMINAL_ID")         TERMINAL_ID         = v;
     else if (k == "REGION_NAME")         REGION_NAME         = v;
-    else if (k == "DEBUG_OWNER_SAY")
-        DEBUG_OWNER_SAY = (v == "true" || v == "TRUE" || v == "1");
+    else if (k == "DEBUG_MODE")
+        DEBUG_MODE = (v == "true" || v == "TRUE" || v == "1");
 }
 
 string escapeJson(string s) {
     s = llReplaceSubString(s, "\\", "\\\\", 0);
     s = llReplaceSubString(s, "\"", "\\\"", 0);
     return s;
+}
+
+// debugSayUser: when DEBUG_MODE is on, surface the parsed ProblemDetail
+// fields (status, title, detail, code) from a backend error response to
+// both the toucher (`who`, may be NULL_KEY for HTTP-in commands) and
+// owner-chat. The user-visible production message stays generic; this
+// adds a labelled diagnostic line so an operator standing at the
+// terminal can see exactly why a 4xx/5xx came back without grepping
+// CloudWatch.
+debugSayUser(key who, string label, integer status, string body) {
+    if (!DEBUG_MODE) return;
+    string title  = llJsonGetValue(body, ["title"]);
+    string detail = llJsonGetValue(body, ["detail"]);
+    string code   = llJsonGetValue(body, ["code"]);
+    string msg = "DEBUG " + label + ": status=" + (string)status;
+    integer haveAny = FALSE;
+    if (title  != JSON_INVALID && title  != "") { msg += " title=" + title;   haveAny = TRUE; }
+    if (detail != JSON_INVALID && detail != "") { msg += " detail=" + detail; haveAny = TRUE; }
+    if (code   != JSON_INVALID && code   != "") { msg += " code=" + code;     haveAny = TRUE; }
+    // If the response wasn't a Spring ProblemDetail (no title/detail/code),
+    // surface the raw body excerpt so we can see HTML error pages, plain
+    // text, or empty bodies returned by intermediate proxies / framework
+    // defaults.
+    if (!haveAny) {
+        integer blen = llStringLength(body);
+        if (blen == 0) {
+            msg += " body=<empty>";
+        } else {
+            integer cap = blen;
+            if (cap > 200) cap = 200;
+            msg += " body[" + (string)blen + "]=" + llGetSubString(body, 0, cap - 1);
+        }
+    }
+    if (who != NULL_KEY) llRegionSayTo(who, 0, msg);
+    llOwnerSay("SLPA Terminal: " + msg);
 }
 
 setBusyChrome() {
@@ -344,7 +379,7 @@ default {
         SHARED_SECRET       = "";
         TERMINAL_ID         = "";
         REGION_NAME         = "";
-        DEBUG_OWNER_SAY     = TRUE;
+        DEBUG_MODE          = TRUE;
 
         notecardLineRequest = NULL_KEY;
         notecardLineNum     = 0;
@@ -489,7 +524,7 @@ default {
             key txKey = llTransferLindenDollars((key)recipientUuid, amount);
             addInflightCommand(txKey, idempotencyKey, (key)recipientUuid, amount);
 
-            if (DEBUG_OWNER_SAY) {
+            if (DEBUG_MODE) {
                 llOwnerSay("SLPA Terminal: HTTP-in command action=" + action
                     + " recipient=" + recipientUuid
                     + " amount=" + (string)amount
@@ -501,7 +536,7 @@ default {
     transaction_result(key id, integer success, string data) {
         list found = removeInflightByTxKey(id);
         if (llGetListLength(found) == 0) {
-            if (DEBUG_OWNER_SAY)
+            if (DEBUG_MODE)
                 llOwnerSay("SLPA Terminal: transaction_result for unknown txKey=" + (string)id);
             return;
         }
@@ -545,7 +580,7 @@ default {
              HTTP_BODY_MAXLENGTH, 16384],
             pbody);
 
-        if (DEBUG_OWNER_SAY) {
+        if (DEBUG_MODE) {
             llOwnerSay("SLPA Terminal: payout-result posted: success=" + successStr
                 + " recipient=" + recip + " amount=" + (string)amt);
         }
@@ -559,7 +594,7 @@ default {
             if (status == 200) {
                 registered    = TRUE;
                 registerAttempt = 0;
-                if (DEBUG_OWNER_SAY)
+                if (DEBUG_MODE)
                     llOwnerSay("SLPA Terminal: registered (terminal_id=" + TERMINAL_ID
                         + ", url=" + httpInUrl + ")");
             } else {
@@ -568,7 +603,7 @@ default {
                     llOwnerSay("CRITICAL: SLPA Terminal: registration failed after 5 attempts. Status="
                         + (string)status);
                 } else {
-                    if (DEBUG_OWNER_SAY)
+                    if (DEBUG_MODE)
                         llOwnerSay("SLPA Terminal: register retry " + (string)registerAttempt + "/5: status=" + (string)status);
                     scheduleRegisterRetry();
                 }
@@ -579,10 +614,15 @@ default {
         // --- Penalty-lookup response ---
         if (req == lookupReqId) {
             lookupReqId = NULL_KEY;
-            if (status == 404) {
-                llRegionSayTo(lockHolder, 0, "No penalty on file for your account.");
-                releaseLock();
-            } else if (status == 200) {
+            if (status == 200) {
+                // Backend always returns 200 for /penalty-lookup. Branch on
+                // penaltyBalanceOwed: 0 means "no debt" (unknown avatar AND
+                // known-but-zero are byte-identical for privacy); positive
+                // means show the pay prompt. The endpoint used to 404 the
+                // no-debt cases, but the SL HTTP outbound layer rewrites
+                // 4xx responses whose Content-Type is not in HTTP_ACCEPT
+                // into a synthetic 415, so the script never saw the real
+                // 404. See PenaltyTerminalService.lookup javadoc.
                 integer owed = (integer)llJsonGetValue(body, ["penaltyBalanceOwed"]);
                 if (owed <= 0) {
                     llRegionSayTo(lockHolder, 0, "No penalty on file for your account.");
@@ -600,8 +640,12 @@ default {
                     extendLock(60);
                 }
             } else {
-                // 5xx, 0 or unexpected
+                // 5xx, 0 (network), or unexpected status (e.g. 400 validation,
+                // 403 SL_INVALID_HEADERS). The user message stays generic;
+                // DEBUG_MODE adds the parsed ProblemDetail so an operator at
+                // the terminal can diagnose without grepping CloudWatch.
                 llRegionSayTo(lockHolder, 0, "Lookup failed — try again.");
+                debugSayUser(lockHolder, "penalty lookup", status, body);
                 releaseLock();
             }
             return;
@@ -657,6 +701,7 @@ default {
                     + ": " + title + " — " + detail);
                 llRegionSayTo(paymentPayer, 0,
                     "Payment error (" + (string)status + "): " + title + ". Contact SLPA support.");
+                debugSayUser(paymentPayer, "payment", status, body);
                 // Clear payment state — 4xx is non-retriable.
                 paymentPayer      = NULL_KEY;
                 paymentAmount     = 0;
@@ -671,9 +716,12 @@ default {
             } else {
                 // 5xx or 0 — schedule retry.
                 paymentRetryCount++;
-                if (DEBUG_OWNER_SAY)
+                if (DEBUG_MODE)
                     llOwnerSay("SLPA Terminal: payment retry " + (string)paymentRetryCount
                         + "/5: status=" + (string)status);
+                debugSayUser(paymentPayer,
+                    "payment retry " + (string)paymentRetryCount + "/5",
+                    status, body);
                 schedulePaymentRetry();
             }
             return;
@@ -683,7 +731,7 @@ default {
         if (req == payoutResultReqId) {
             payoutResultReqId = NULL_KEY;
             if (status == 200) {
-                if (DEBUG_OWNER_SAY)
+                if (DEBUG_MODE)
                     llOwnerSay("SLPA Terminal: payout-result acknowledged by backend.");
             } else {
                 llOwnerSay("CRITICAL: /payout-result POST failed status=" + (string)status
@@ -735,9 +783,15 @@ default {
 
             } else if (message == "Pay Penalty") {
                 // Fire penalty lookup; lock stays held during inflight.
-                string lbody = llList2Json(JSON_OBJECT,
-                    ["slAvatarUuid", (string)lockHolder,
-                     "terminalId",  TERMINAL_ID]);
+                // Manual JSON construction (matches postRegister + firePayment in
+                // this script) instead of llList2Json — the grid's auto-typing in
+                // llList2Json has historically produced bodies that the SL HTTP
+                // layer flags as a non-JSON content shape, surfacing as 415 from
+                // the backend even though HTTP_MIMETYPE is set to application/json.
+                string lbody = "{"
+                    + "\"slAvatarUuid\":\"" + (string)lockHolder + "\","
+                    + "\"terminalId\":\""   + escapeJson(TERMINAL_ID) + "\""
+                    + "}";
                 lookupReqId = llHTTPRequest(PENALTY_LOOKUP_URL,
                     [HTTP_METHOD, "POST",
                      HTTP_MIMETYPE, "application/json",
@@ -799,7 +853,7 @@ default {
                 + " — touchState=" + (string)touchState + ". Forwarding to backend.");
         }
 
-        if (payer != lockHolder && DEBUG_OWNER_SAY) {
+        if (payer != lockHolder && DEBUG_MODE) {
             llOwnerSay("SLPA Terminal: payment from " + (string)payer
                 + " is not the menu user " + (string)lockHolder);
         }
@@ -837,13 +891,13 @@ default {
 
         } else if (timerPhase == TIMER_PAYMENT_RETRY) {
             timerPhase = TIMER_NONE;
-            if (DEBUG_OWNER_SAY)
+            if (DEBUG_MODE)
                 llOwnerSay("SLPA Terminal: payment retry " + (string)paymentRetryCount + "/5");
             firePayment();
 
         } else if (timerPhase == TIMER_REGISTER_RETRY) {
             timerPhase = TIMER_NONE;
-            if (DEBUG_OWNER_SAY)
+            if (DEBUG_MODE)
                 llOwnerSay("SLPA Terminal: register retry " + (string)registerAttempt + "/5");
             postRegister();
         }

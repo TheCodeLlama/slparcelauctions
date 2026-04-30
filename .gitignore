@@ -215,6 +215,7 @@ docker-compose.override.yml
 # never live there (they go to Parameter Store via `aws ssm put-parameter`).
 infra/terraform.tfvars
 infra/.terraform/
+infra/tfplan
 infra/*.tfplan
 infra/*.tfstate
 infra/*.tfstate.*

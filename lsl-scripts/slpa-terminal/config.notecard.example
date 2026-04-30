@@ -20,5 +20,6 @@ TERMINAL_ID=
 # Optional: defaults to llGetRegionName() if empty.
 REGION_NAME=
 
-# Optional: false to silence per-event chat. Recommended true in prod.
-DEBUG_OWNER_SAY=true
+# Optional: false to silence per-event chat AND user-facing diagnostic
+# lines on HTTP errors. Recommended true in prod for observability.
+DEBUG_MODE=true
