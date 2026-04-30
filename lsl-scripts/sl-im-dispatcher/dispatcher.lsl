@@ -44,13 +44,13 @@ parseConfigLine(string line) {
     integer eq = llSubStringIndex(line, "=");
     if (eq < 1) return;
 
-    string key = llStringTrim(llGetSubString(line, 0, eq - 1), STRING_TRIM);
+    string cfgKey = llStringTrim(llGetSubString(line, 0, eq - 1), STRING_TRIM);
     string val = llStringTrim(llGetSubString(line, eq + 1, -1), STRING_TRIM);
 
-    if (key == "POLL_URL") POLL_URL = val;
-    else if (key == "CONFIRM_URL_BASE") CONFIRM_URL_BASE = val;
-    else if (key == "SHARED_SECRET") SHARED_SECRET = val;
-    else if (key == "DEBUG_OWNER_SAY") DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
+    if (cfgKey == "POLL_URL") POLL_URL = val;
+    else if (cfgKey == "CONFIRM_URL_BASE") CONFIRM_URL_BASE = val;
+    else if (cfgKey == "SHARED_SECRET") SHARED_SECRET = val;
+    else if (cfgKey == "DEBUG_OWNER_SAY") DEBUG_OWNER_SAY = (val == "true" || val == "TRUE" || val == "1");
 }
 
 deliverNextInBatch() {
