@@ -279,6 +279,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — pull in when proxy bidding ships and operational data shows proxy-bidder notification gaps.
 - **Notes:** `NotificationPublisher.listingCancelledBySellerFanout` is the current fan-out method. Body strings are cause-neutral per FOOTGUNS §F.104.
 
+### NAT instance CPU CloudWatch alarm
+- **From:** AWS deployment design §4.12 (12 spec'd alarms; 11 shipped in `infra/observability/alarms.tf`)
+- **Why:** The fck-nat module's output schema for the underlying EC2 instance ID was not verified at the time observability was wired. Adding the alarm without the right `module.fck_nat[0].<output>` reference would have either failed `terraform plan` or pointed at a wrong resource. Lower priority than the 11 alarms shipped (NAT egress failure first manifests as backend external-call timeouts, which the 5xx-rate alarm catches).
+- **When:** Next infra touch — verify `module.fck_nat[0]` outputs (likely `instance_id` per the RaJiska/fck-nat module contract), add `aws_cloudwatch_metric_alarm.nat_instance_cpu` keyed on namespace=`AWS/EC2`, dimension `InstanceId`. Conditional on `var.nat_type == "instance"` to no-op when NAT Gateway is in use.
+- **Notes:** Spec table row `slpa-nat-instance-cpu` > 80% over 5 min, alert-only.
+
 ---
 
 ## Removal Criteria

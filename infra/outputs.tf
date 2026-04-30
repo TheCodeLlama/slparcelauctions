@@ -92,3 +92,22 @@ output "alb_dns_name" {
 
 # Amplify outputs removed — frontend is managed via Amplify Console rather
 # than Terraform (see comment in main.tf for context).
+
+# ----- CI/CD outputs -------------------------------------------------------- #
+
+output "gha_deploy_role_arn" {
+  description = "Paste this into .github/workflows/*.yml as the role-to-assume input. Already wired in deploy-backend.yml + deploy-bot.yml."
+  value       = module.cicd.gha_deploy_role_arn
+}
+
+# ----- Observability outputs ------------------------------------------------ #
+
+output "alerts_topic_arn" {
+  description = "SNS topic for all alarm notifications. Confirm the email subscription in your inbox."
+  value       = module.observability.alerts_topic_arn
+}
+
+output "dashboard_name" {
+  description = "CloudWatch dashboard name. Open via https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=<this>."
+  value       = module.observability.dashboard_name
+}

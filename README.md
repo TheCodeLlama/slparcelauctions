@@ -243,22 +243,54 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 
 ## Production deployment
 
-Production deployment is **not covered in Phase 1**. This stack is wired for local development only. Before any non-local deployment:
+Production runs on AWS in `us-east-1`. Architecture and decisions are documented in [`docs/superpowers/specs/2026-04-29-aws-deployment-design.md`](docs/superpowers/specs/2026-04-29-aws-deployment-design.md). All infrastructure is Terraform-managed under `infra/` (the lone exception is the Amplify app, deliberately console-managed — `infra/main.tf` documents the reason and reproduction steps).
 
-- Rotate every value in `.env.example` tagged `# DEV ONLY` — `POSTGRES_PASSWORD`, `CORS_ALLOWED_ORIGIN`, `NEXT_PUBLIC_API_URL`, plus any future `*_SECRET` / `*_TOKEN` introduced by later tasks (JWT signing key in Task 01-07, etc.).
-- Set `SPRING_PROFILES_ACTIVE=prod` and review `application-prod.yml` before shipping. Global `ddl-auto: update` is the dev/source-of-truth mode while the schema stabilizes in Phase 1; the prod profile must override this (and the eventual production migration strategy will replace the disabled Flyway).
-- Add a reverse proxy / TLS terminator (nginx, Caddy, cloud load balancer) in front of the backend; the dev stack ships HTTP only.
-- Lock down the CORS allow-list to the real frontend origin instead of `localhost:3000`.
-- Replace `Dockerfile.dev` with a multi-stage production Dockerfile that builds a layered Spring Boot fat-jar and runs on a JRE base image, not a JDK.
-- Decide on a database backup / point-in-time-recovery strategy — the named `postgres-data` volume is fine for local dev, not for production.
+### Live endpoints
 
-Track these as part of the pre-launch checklist; do not ship without each one signed off.
+- Frontend: `https://slparcels.com` (Amplify Hosting, Next.js SSR on WEB_COMPUTE)
+- Backend API: `https://slpa.app` (ALB → ECS Fargate)
+- Bots: 5-named-worker pool, currently 2 active (ECS Fargate, no public exposure)
+
+### Auto-deploy (GitHub Actions)
+
+Push to `main` triggers the relevant deploy workflow via OIDC-assumed role (no long-lived AWS keys in repo secrets):
+
+- `backend/**` changed → `.github/workflows/deploy-backend.yml` builds + pushes to ECR + registers a new task-def revision + rolls `slpa-prod-backend` (waits for service stability).
+- `bot/**` changed → `.github/workflows/deploy-bot.yml` does the same and fans out across every active `slpa-prod-bot-*` service.
+- `frontend/**` changed → Amplify auto-builds from `main`.
+- `infra/**` changed → operator runs `terraform plan` / `apply` locally. CI for Terraform is deferred.
+
+Manual one-off deploys via `Actions → deploy backend → Run workflow` (uses the same OIDC role).
+
+### Observability
+
+- **CloudWatch alarms** (11 spec'd, 1 deferred): backend 5xx rate, p95 latency, unhealthy hosts, ECS task failures, RDS CPU / free storage / connections, Redis CPU / memory pressure, per-bot running task count. All publish to the `slpa-prod-alerts` SNS topic; operator email subscription must be confirmed via the AWS-sent email link before alerts arrive.
+- **CloudWatch dashboard** at `slpa-prod-overview` — backend traffic + latency, RDS, Redis, ECS task counts.
+- **AWS Budgets**: soft $200/mo (actual), hard $400/mo (actual + 80% forecast).
+- **Logs**: 7-day retention on every ECS log group; `awslogs-stream-prefix=ecs` for IDE jump-to-stream.
+
+### Cost guardrails
+
+Running cost at launch-lite defaults: ~$78/mo. Upgrade levers in `infra/variables.tf` (Multi-AZ RDS, replicated Redis, larger task sizes, NAT Gateway HA) — each one is a `.tfvars` flip + `terraform apply`.
+
+### Teardown
+
+```bash
+# 1. Empty data buckets so destroy can drop them
+aws s3 rm s3://<storage-bucket-name> --recursive --profile slpa-prod
+# 2. Empty ECR repos
+aws ecr batch-delete-image --repository-name slpa/backend --image-ids "$(aws ecr list-images --repository-name slpa/backend --query 'imageIds[*]' --output json)" --profile slpa-prod
+aws ecr batch-delete-image --repository-name slpa/bot --image-ids "$(aws ecr list-images --repository-name slpa/bot --query 'imageIds[*]' --output json)" --profile slpa-prod
+# 3. Destroy everything Terraform owns
+cd infra && terraform destroy
+# 4. Delete the Amplify app from the console (not Terraform-managed)
+```
 
 ## Conventions
 
 Read [`docs/implementation/CONVENTIONS.md`](docs/implementation/CONVENTIONS.md) before contributing. Highlights:
 
 - Lombok is required for entities, services, and controllers — no hand-written getters/setters/loggers.
-- New schema changes go through JPA entities (`ddl-auto: update` in dev), not new Flyway migrations.
+- Schema changes go through Flyway migrations in `backend/src/main/resources/db/migration/V<N>__description.sql`. Hibernate runs in `ddl-auto: validate` in every profile; a missing migration for an entity change fails fast on boot.
 - Each task ships as one vertical slice (entity → repo → service → controller → tests).
 - Feature-based packages (`user/`, `parcel/`, `auction/`, …), not layer-based.
