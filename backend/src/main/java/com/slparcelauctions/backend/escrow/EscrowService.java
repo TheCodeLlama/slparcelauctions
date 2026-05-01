@@ -411,7 +411,22 @@ public class EscrowService {
      * a pessimistic lock on the escrow row.
      */
     void queueRefundIfFunded(Escrow escrow) {
-        if (escrow.getFundedAt() != null) {
+        if (escrow.getFundedAt() == null) return;
+        if (walletEnforcementEnabled) {
+            // Wallet model: refund is a wallet credit, not a TerminalCommand REFUND.
+            User winner = userRepo.findByIdForUpdate(escrow.getAuction().getWinnerUserId()).orElseThrow();
+            walletService.creditEscrowRefund(winner, escrow.getFinalBidAmount(), escrow.getId());
+            ledgerRepo.save(EscrowTransaction.builder()
+                    .escrow(escrow)
+                    .auction(escrow.getAuction())
+                    .type(EscrowTransactionType.AUCTION_ESCROW_REFUND)
+                    .status(EscrowTransactionStatus.COMPLETED)
+                    .amount(escrow.getFinalBidAmount())
+                    .completedAt(OffsetDateTime.now(clock))
+                    .build());
+            log.info("Escrow {} refund credited to wallet (winnerId={}, amount=L${})",
+                    escrow.getId(), winner.getId(), escrow.getFinalBidAmount());
+        } else {
             terminalCommandService.queueRefund(escrow);
         }
     }
