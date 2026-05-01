@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
@@ -111,8 +111,14 @@ export function WalletPanel() {
   const [showDeposit, setShowDeposit] = useState(false);
 
   // Read filter + page out of the URL so the panel survives refresh and
-  // shares deep-linkable views.
-  const filter = readFilterFromParams(searchParams);
+  // shares deep-linkable views. Memoized so the {@code filter} reference
+  // is stable across renders that don't change its inputs — keeps React
+  // Query's structural-equality cache key from shifting and prevents
+  // child memo busting in {@link LedgerFilterBar}.
+  const filter = useMemo(
+    () => readFilterFromParams(searchParams),
+    [searchParams],
+  );
   const page = Math.max(0, parseInt(searchParams.get("page") ?? "0", 10) || 0);
   const size = Math.min(
     100,
