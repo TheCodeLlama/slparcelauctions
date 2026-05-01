@@ -51,6 +51,9 @@ public class PayoutResultController {
             @Valid @RequestBody PayoutResultRequest body) {
         headerValidator.validate(shard, ownerKey);
         terminalService.assertSharedSecret(body.sharedSecret());
+        // Authenticated traffic from this terminal keeps it "live" in the
+        // dispatcher's view — see TerminalService#markSeen.
+        terminalService.markSeen(body.terminalId());
         terminalCommandService.applyCallback(body);
         return SlCallbackResponse.ok();
     }
