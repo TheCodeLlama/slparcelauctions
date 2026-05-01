@@ -2,14 +2,18 @@ package com.slparcelauctions.backend.wallet.me;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
@@ -59,6 +64,8 @@ public class MeWalletController {
     private final UserRepository userRepository;
     private final UserLedgerRepository ledgerRepository;
     private final AuctionRepository auctionRepository;
+    private final LedgerStreamingService ledgerStreamingService;
+    private final LedgerExportRateLimiter exportRateLimiter;
     private final Clock clock;
 
     @Value("${slpa.listing-fee.amount-lindens:100}")
@@ -116,6 +123,34 @@ public class MeWalletController {
         Page<UserLedgerEntry> result = ledgerRepository.findAll(
                 LedgerSpecifications.forUser(principal.userId(), params.toFilter()), p);
         return PagedResponse.from(result.map(MeWalletController::toDto));
+    }
+
+    /* ============================================================ */
+    /* GET /me/wallet/ledger/export.csv                              */
+    /* ============================================================ */
+
+    @GetMapping(value = "/wallet/ledger/export.csv", produces = "text/csv")
+    public ResponseEntity<StreamingResponseBody> exportLedger(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @ModelAttribute LedgerFilterParams params) {
+        if (!exportRateLimiter.tryAcquire(principal.userId())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+        LedgerFilter filter = params.toFilter();
+        String filename = "slpa-wallet-ledger-" + principal.userId() + "-"
+                + OffsetDateTime.now(clock).format(DateTimeFormatter.BASIC_ISO_DATE) + ".csv";
+        StreamingResponseBody body = out -> {
+            try (Stream<UserLedgerEntry> rows =
+                    ledgerStreamingService.streamFiltered(principal.userId(), filter)) {
+                LedgerCsvWriter.write(rows, out);
+            }
+        };
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv; charset=utf-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(body);
     }
 
     /* ============================================================ */
