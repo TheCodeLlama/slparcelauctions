@@ -1,13 +1,11 @@
-# config notecard for SLPA Terminal (unified payments)
+# config notecard for SLPA Terminal (wallet model)
 # Place this file (renamed to "config", no extension) in the prim's contents.
 # After editing, the script auto-resets via CHANGED_INVENTORY and re-registers.
 
-# Backend endpoint URLs — all six required.
+# Backend endpoint URLs — all four required.
 REGISTER_URL=https://slpa.app/api/v1/sl/terminal/register
-ESCROW_PAYMENT_URL=https://slpa.app/api/v1/sl/escrow/payment
-LISTING_FEE_URL=https://slpa.app/api/v1/sl/listing-fee/payment
-PENALTY_LOOKUP_URL=https://slpa.app/api/v1/sl/penalty-lookup
-PENALTY_PAYMENT_URL=https://slpa.app/api/v1/sl/penalty-payment
+DEPOSIT_URL=https://slpa.app/api/v1/sl/wallet/deposit
+WITHDRAW_REQUEST_URL=https://slpa.app/api/v1/sl/wallet/withdraw-request
 PAYOUT_RESULT_URL=https://slpa.app/api/v1/sl/escrow/payout-result
 
 # Shared secret for terminal authentication. REQUIRED.
