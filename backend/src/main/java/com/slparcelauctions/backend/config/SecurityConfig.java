@@ -110,6 +110,13 @@ public class SecurityConfig {
                         // catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/penalty-lookup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/penalty-payment").permitAll()
+                        // Wallet model SL-headers-gated endpoints. Same trust posture
+                        // as the older per-obligation payment endpoints above —
+                        // permitAll at the HTTP layer; SlHeaderValidator +
+                        // TerminalService.assertSharedSecret inside the handler are
+                        // the actual security boundary.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/wallet/deposit").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/wallet/withdraw-request").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
