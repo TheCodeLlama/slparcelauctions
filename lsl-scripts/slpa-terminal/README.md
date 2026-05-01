@@ -1,25 +1,36 @@
-# SLPA Terminal (unified payments)
+# SLPA Terminal (wallet model)
 
-In-world unified payment kiosk for SLPA. Handles three payment types via a
-4-option touch menu and accepts backend-initiated payouts/refunds/withdrawals
-via HTTP-in.
+In-world wallet kiosk for SLPA. Two touch-menu options (Deposit-instructions,
+Withdraw) plus a lockless `money()` deposit handler. Also accepts
+backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
 
 ## Architecture summary
 
 - **Trust:** SL-injected `X-SecondLife-Shard` + `X-SecondLife-Owner-Key` headers
-  on outbound, **plus** a `sharedSecret` field in body for register / payment /
-  payout-result requests. Inbound HTTP-in: shared-secret check on every
-  command.
-- **Touch flow:** IDLE → (touch) lock + menu → (selection) AUCTION_ID prompt
-  (Escrow/Listing-Fee) or LOOKUP (Penalty) or GIVE (Verifier) → (after
-  selection) AWAITING_PAYMENT with appropriate `llSetPayPrice` → (money())
-  POST to selected endpoint → release lock; retries run in background.
+  on outbound, plus a `sharedSecret` field in body for register / deposit /
+  withdraw-request / payout-result requests. Inbound HTTP-in: shared-secret
+  check on every command.
+- **Deposit flow (lockless):** Right-click → Pay → enter L$ amount → `money()`
+  fires → POST to `/sl/wallet/deposit` → OK / REFUND / ERROR. On REFUND, the
+  script `llTransferLindenDollars` to bounce; on ERROR, owner-say only (could
+  be an attacker probing). Background retry: 10s / 30s / 90s / 5m / 15m.
+  Multiple users can pay simultaneously — `money()` is naturally reentrant.
+- **Touch flow:** touch → `llDialog` `[Deposit, Withdraw]` (no lock acquired).
+  Deposit selection → `llRegionSayTo` instructions, no state. Withdraw
+  selection → acquire per-flow slot → text-box for amount → confirm dialog →
+  POST to `/sl/wallet/withdraw-request`. On `OK`, the backend queues a
+  `WALLET_WITHDRAWAL` `TerminalCommand` that fires asynchronously; on
+  `REFUND_BLOCKED`, no L$ to bounce — `llRegionSayTo` the reason.
+- **Per-flow withdraw slots:** single `llListen` opened at startup, never
+  closed. Up to 4 concurrent withdraw sessions, one per avatar (per-avatar
+  dedup). Strided list `[avatarKey, amountOrMinusOne, expiresAt, ...]`.
+  Slot dispatched by `id` in the listen handler. 60s session TTL; sweeper
+  runs every 10s.
 - **HTTP-in flow:** parallel to touch; backend POSTs `TerminalCommandBody`
-  with action PAYOUT/REFUND/WITHDRAW; script validates shared secret, fires
+  with action PAYOUT/WITHDRAW; script validates shared secret, fires
   `llTransferLindenDollars`, reports `transaction_result` to `/payout-result`.
-- **Lock:** single-user, 60s TTL. Released eagerly: as soon as the first
-  payment POST fires, the lock releases so a second user can touch while
-  retries run. "Get Parcel Verifier" releases immediately after `llGiveInventory`.
+  REFUND action is defensive — refunds are wallet credits in the new model
+  and shouldn't arrive; if one does, log CRITICAL and fail.
 - **Region restart:** `changed(CHANGED_REGION_START)` triggers `llRequestURL()`
   + re-register. Backend's `terminals.http_in_url` is updated.
 
@@ -31,36 +42,35 @@ Never publish on Marketplace.
 1. Rez a generic prim at SLPA HQ or an auction venue. Land must permit
    outbound HTTP and `llRequestURL`.
 2. Drop `slpa-terminal.lsl` into the prim.
-3. Drop a `SLPA Parcel Verifier` object copy into the prim's contents (so
-   the "Get Parcel Verifier" menu option works).
-4. Drop a copy of `config.notecard.example` renamed to **`config`** (no
-   extension). Edit all six URLs and `SHARED_SECRET`.
-5. Set the prim's owner to the SLPA service avatar (so
+3. Drop a copy of `config.notecard.example` renamed to **`config`** (no
+   extension). Edit all four URLs and `SHARED_SECRET`.
+4. Set the prim's owner to the SLPA service avatar (so
    `X-SecondLife-Owner-Key` matches `slpa.sl.trusted-owner-keys`).
-6. Reset the script. The script will request `PERMISSION_DEBIT` from the
+5. Reset the script. The script will request `PERMISSION_DEBIT` from the
    owner — accept the dialog. Confirm:
    - `SLPA Terminal: registered (terminal_id=..., url=...)` startup ping.
-   - Floating text "SLPA Terminal\nTouch for options" appears.
-7. Smoke-test each menu option once with small amounts.
+   - Floating text "SLPA Terminal\nRight-click → Pay to deposit\nTouch for menu" appears.
+6. Smoke-test:
+   - Right-click the prim → Pay → L$10. Confirm `deposit ok L$10 from <name>`.
+   - Touch → Withdraw → enter L$5 → Yes. Confirm withdrawal arrives in your
+     SL avatar within ~30s.
 
-≥1 active SLPA Terminal must be live for the auction-completion path
-(PAYOUT). Multi-instance is fine; backend dispatcher picks any active
-terminal for any command.
+The new SLPA Parcel Verifier Giver prim (separate; see
+`lsl-scripts/slpa-verifier-giver/`) handles parcel-verifier give-out — it is
+**not** built into this terminal anymore.
 
 ## Configuration
 
 | Key | Description |
 | --- | --- |
 | `REGISTER_URL` | Full URL of `/api/v1/sl/terminal/register`. Required. |
-| `ESCROW_PAYMENT_URL` | Full URL of `/api/v1/sl/escrow/payment`. Required. |
-| `LISTING_FEE_URL` | Full URL of `/api/v1/sl/listing-fee/payment`. Required. |
-| `PENALTY_LOOKUP_URL` | Full URL of `/api/v1/sl/penalty-lookup`. Required. |
-| `PENALTY_PAYMENT_URL` | Full URL of `/api/v1/sl/penalty-payment`. Required. |
+| `DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/deposit`. Required. |
+| `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required. |
 | `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required. |
 | `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
-| `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. Use a stable name if you want admin tooling to identify this terminal across restarts. |
+| `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
-| `DEBUG_MODE` | Optional. `true`/`false`, default `true`. When `true`, also surfaces a `DEBUG <flow>: status=N title=… detail=… code=…` line to the toucher on HTTP 4xx/5xx, so an operator at the terminal can diagnose backend errors without grepping CloudWatch. |
+| `DEBUG_MODE` | Optional. `true`/`false`, default `true`. Per-event owner-say. |
 
 ### Rotating the shared secret
 
@@ -69,44 +79,26 @@ terminal for any command.
 3. On every deployed SLPA Terminal: edit the `config` notecard with the new
    `SHARED_SECRET` value. `CHANGED_INVENTORY` auto-resets the script and
    re-registers with the new secret.
-4. In-flight `terminal_commands` rows dispatched on the old secret will be
-   rejected (terminal returns 403); the dispatcher's existing retry budget
-   (4 attempts with 1m/5m/15m backoff) covers the brief rotation window.
-
-## Updating
-
-**Two-place rule for the parcel verifier.** The "Get Parcel Verifier" menu
-option `llGiveInventory`s a copy of the parcel verifier from the prim's
-contents. When you update `parcel-verifier.lsl`:
-
-1. **Marketplace listing**: republish a new revision with the updated `.lsl`.
-2. **Every deployed SLPA Terminal's inventory**: drag-drop the new
-   `SLPA Parcel Verifier` object into the prim's contents, replacing the old
-   copy. `CHANGED_INVENTORY` auto-resets the SLPA Terminal script
-   (which re-registers — the inventory swap doesn't break anything else).
-
-Forgetting place 2 leaves users with a stale verifier from the give-on-touch
-menu while Marketplace customers get the new version. Track this in the ops
-runbook.
-
-Updating the SLPA Terminal script itself: drag-drop the new `slpa-terminal.lsl`
-into the prim's contents → `CHANGED_INVENTORY` auto-resets → re-register.
-Updating just the notecard: edit values → `CHANGED_INVENTORY` auto-resets →
-re-register.
 
 ## Operations
 
-In steady state, with `DEBUG_MODE=true`:
+In steady state with `DEBUG_MODE=true`:
 
 - `SLPA Terminal: registered (terminal_id=..., url=...)` — startup confirmation.
-- `SLPA Terminal: touch from <name>` — user touched the terminal.
-- `SLPA Terminal: menu choice <option> by <name>` — menu selection.
-- `SLPA Terminal: payment ok <kind> L$<amount> from <payer>` — successful payment POST.
-- `SLPA Terminal: payment retry N/5: <status>` — transient failure, retrying.
-- `SLPA Terminal: PAYOUT to <recipient> L$<amount> ok` — successful debit.
-- `CRITICAL: payment from <payer> L$<amount> key <tx> not acknowledged after 5 retries` — payment recovery failed; manual reconciliation required.
-- `CRITICAL: PERMISSION_DEBIT denied — script halted. Owner must re-grant.` — permissions issue.
-- `CRITICAL: registration failed after 5 attempts.` — backend unreachable; investigate.
+- `SLPA Terminal: deposit ok L$<amount> from <payer>` — successful deposit POST.
+- `SLPA Terminal: deposit refunded (UNKNOWN_PAYER) L$<amount> to <payer>` —
+  bounced an unknown-payer deposit.
+- `SLPA Terminal: deposit retry N/5: status=...` — transient, retrying.
+- `SLPA Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
+- `SLPA Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
+  dispatched a wallet-withdrawal fulfillment to this terminal.
+- `SLPA Terminal: payout-result acknowledged.` — backend received our async result.
+- `CRITICAL: SLPA Terminal: deposit ... not acknowledged after 5 retries` —
+  deposit recovery failed; manual reconciliation required.
+- `CRITICAL: unexpected REFUND HTTP-in command` — the backend dispatched a
+  REFUND action; refunds should be wallet credits in the new model. Investigate.
+- `CRITICAL: PERMISSION_DEBIT denied — script halted. Owner must re-grant.` —
+  permissions issue.
 
 ## Troubleshooting
 
@@ -117,28 +109,30 @@ In steady state, with `DEBUG_MODE=true`:
 | `PERMISSION_DEBIT denied` | Owner declined the permission dialog. Reset the script and accept. |
 | `URL_REQUEST_DENIED` | Land doesn't allow scripts to request URLs. Move the prim to a region with permissive land settings. |
 | Periodic `register retry N/5` | Backend unreachable or rejecting registration. Check `slpa.sl.trusted-owner-keys` includes this terminal's owner. |
-| `payment retry N/5` repeatedly | Backend transient or network issue. Self-recovers in most cases. |
-| `CRITICAL: payment from ... not acknowledged` | Backend POST never succeeded after 5 retries. Manual reconciliation required — operator must check `escrow_transactions` ledger and refund or recognize manually. |
-| `Get Parcel Verifier` does nothing | The SLPA Parcel Verifier object is missing from the terminal's inventory. Drag-drop it back in. |
+| `deposit retry N/5` repeatedly | Backend transient or network issue. Self-recovers in most cases. |
+| `CRITICAL: deposit not acknowledged` | Backend POST never succeeded after 5 retries. Manual reconciliation required. |
+| Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLPA's traffic level.) |
 | Backend command dispatcher logs 403 | Shared secret mismatch. Update notecard, reset. |
-| Terminal stuck `<In Use>` | Lock TTL didn't fire. Reset the script. |
+| `CRITICAL: unexpected REFUND HTTP-in command` | Stale code path or migration issue — refunds should be wallet credits. Investigate. |
 
 ## Limits
 
-- LSL listen cap is 65; the script opens at most 2 listens per touch session
-  (menu + auction-id-input or code-entry) and removes them on every exit path.
+- LSL listen cap is 65; the script opens **exactly one** listen at startup
+  for the entire terminal lifetime. Per-flow withdraw state is stored in the
+  `withdrawSessions` strided list, not per-flow listens. Listen leak class
+  of bug eliminated by construction.
 - HTTP-in URLs change on region restart; re-registration is automatic via
   `changed(CHANGED_REGION_START)`.
 - `llTransferLindenDollars` rate limit: 30 payments per 30 seconds per owner per
   region. Phase 1 traffic is well under this; alert if approached.
-- 60s touch lock means low-volume kiosks rarely hit contention. For high-volume
-  venues, deploy multiple SLPA Terminals — backend's dispatcher picks any
-  active one for commands.
+- 4 concurrent withdraw sessions max per terminal. For high-volume venues,
+  deploy multiple SLPA Terminals — backend's dispatcher picks any active
+  one for commands.
 - Inflight HTTP-in commands cap at 16 concurrent. New commands beyond that
   return 503; backend retry budget handles.
 - Bounded payment retry: 10s / 30s / 90s / 5m / 15m, total ~22 minutes of
   trying. After exhaustion the script logs CRITICAL and stops; daily
-  reconciliation job (deferred — see `DEFERRED_WORK.md`) catches missed POSTs.
+  reconciliation job catches missed POSTs.
 
 ## Security
 
@@ -147,14 +141,12 @@ In steady state, with `DEBUG_MODE=true`:
 - The shared secret in the notecard is visible to anyone with edit-rights on
   the prim — keep ownership and modify permissions SLPA-team-only.
 - A leaked shared secret means an attacker can call `/payout-result` with
-  forged "success" outcomes (debiting the escrow ledger without actually
+  forged "success" outcomes (debiting the wallet ledger without actually
   paying anyone) — rotate immediately if compromise is suspected.
 - HMAC-SHA256 per-request auth is on the deferred list (`DEFERRED_WORK.md`)
   for Phase 2 hardening once the LSL terminal is dogfooded.
-- Penalty endpoints (`/penalty-lookup`, `/penalty-payment`) are
-  header-trust-only on the backend — no shared secret in body. The script
-  still has its shared secret loaded for the other endpoints; it just
-  doesn't include it in penalty bodies.
+- Withdraw recipient UUID is **always** `user.slAvatarUuid` server-side,
+  never client-supplied. The wallet model's central anti-fraud invariant.
 
 ## SL grid Content-Type filter (footgun)
 
@@ -166,12 +158,8 @@ ProblemDetail) gets silently replaced by the SL HTTP layer with a
 synthetic `415` and body `Unsupported or unknown Content-Type.`. The
 script never sees the real status or body.
 
-Backend mitigations live on `/api/v1/sl/**`:
-
-1. `SlProblemDetailContentTypeAdvice` rewrites all 4xx/5xx responses on
-   SL paths to `Content-Type: application/json`.
-2. `/penalty-lookup` always returns 200 (the no-debt case used to be a
-   404 + ProblemDetail, which would be eaten by the grid filter).
+Backend mitigation: `SlProblemDetailContentTypeAdvice` rewrites all 4xx/5xx
+responses on `/api/v1/sl/**` paths to `Content-Type: application/json`.
 
 If you add a new SL-facing endpoint that returns 4xx/5xx, the advice
 covers it automatically by path prefix — no per-endpoint work needed.
