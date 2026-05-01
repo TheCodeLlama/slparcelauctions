@@ -23,8 +23,13 @@ public class TerminalHeartbeatService {
         Terminal t = terminalRepo.findById(req.terminalKey())
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Unknown terminal: " + req.terminalKey()));
-        t.setLastHeartbeatAt(OffsetDateTime.now(clock));
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        t.setLastHeartbeatAt(now);
         t.setLastReportedBalance(req.accountBalance());
+        // Heartbeats also keep the terminal "live" for the dispatcher.
+        // Without this, the dispatcher's lastSeenAt-based live window would
+        // expire even on a healthy heartbeating terminal.
+        t.setLastSeenAt(now);
         terminalRepo.save(t);
         log.info("Terminal heartbeat: {}, balance=L${}",
                 t.getTerminalId(), req.accountBalance());
