@@ -5,6 +5,11 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.slparcelauctions.backend.auction.Auction;
@@ -25,6 +31,7 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.UserLedgerEntry;
+import com.slparcelauctions.backend.wallet.UserLedgerEntryType;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
@@ -88,6 +95,33 @@ public class MeWalletController {
                 e.getDescription(),
                 e.getCreatedAt()
         );
+    }
+
+    /* ============================================================ */
+    /* GET /me/wallet/ledger                                         */
+    /* ============================================================ */
+
+    @GetMapping("/wallet/ledger")
+    @Transactional(readOnly = true)
+    public LedgerPageResponse ledger(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(name = "entryType", required = false) List<UserLedgerEntryType> entryTypes,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
+            @RequestParam(required = false) Long amountMin,
+            @RequestParam(required = false) Long amountMax) {
+        int pageSize = Math.min(Math.max(size, 1), 100);
+        LedgerFilter filter = new LedgerFilter(entryTypes, from, to, amountMin, amountMax);
+        Pageable p = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<UserLedgerEntry> result = ledgerRepository.findAll(
+                LedgerSpecifications.forUser(principal.userId(), filter), p);
+        List<WalletViewResponse.LedgerEntryDto> dtos =
+                result.getContent().stream().map(MeWalletController::toDto).toList();
+        return new LedgerPageResponse(
+                result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages(), dtos);
     }
 
     /* ============================================================ */
