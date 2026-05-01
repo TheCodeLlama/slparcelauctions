@@ -21,6 +21,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -237,6 +238,67 @@ public class User {
     @Builder.Default
     private Long tokenVersion = 0L;
 
+    /**
+     * Total wallet balance in L$. Includes both available and reserved L$.
+     * The wallet model parks resident-paid L$ here on deposit; bids
+     * hard-reserve from this balance via {@code reservedLindens}; auction
+     * close debits this balance and releases the reservation. See spec
+     * docs/superpowers/specs/2026-04-30-wallet-model-design.md §3.1.
+     *
+     * <p>Available balance ({@link #availableLindens()}) is computed as
+     * {@code balanceLindens - reservedLindens}.
+     */
+    @Builder.Default
+    @Column(name = "balance_lindens", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    private Long balanceLindens = 0L;
+
+    /**
+     * Sum of active bid reservations for this user (denormalized from
+     * {@code bid_reservations WHERE released_at IS NULL}). DB-enforced
+     * {@code reserved_lindens >= 0} and {@code balance_lindens >=
+     * reserved_lindens}. Reconciliation job verifies the denorm against the
+     * live sum daily.
+     */
+    @Builder.Default
+    @Column(name = "reserved_lindens", nullable = false,
+            columnDefinition = "bigint not null default 0")
+    private Long reservedLindens = 0L;
+
+    /**
+     * Stamped by {@code WalletDormancyJob} phase 1 when a user becomes
+     * inactive (no refresh-token rotation in 30d) with a positive balance.
+     * Cleared on any successful login or refresh-token rotation.
+     */
+    @Column(name = "wallet_dormancy_started_at")
+    private OffsetDateTime walletDormancyStartedAt;
+
+    /**
+     * Current dormancy notification phase: 1-4 during the 4-week
+     * notification window, 99 = COMPLETED (auto-return executed).
+     * NULL = not in dormancy state.
+     */
+    @Column(name = "wallet_dormancy_phase")
+    private Integer walletDormancyPhase;
+
+    /**
+     * Stamped on first wallet-terms-of-use click-through (via
+     * {@code POST /me/wallet/accept-terms}). The wallet endpoints don't
+     * gate on this flag — terms acceptance is a UX gate enforced by the
+     * frontend's deposit-instructions modal.
+     */
+    @Column(name = "wallet_terms_accepted_at")
+    private OffsetDateTime walletTermsAcceptedAt;
+
+    /**
+     * Version string of the wallet ToU the user accepted (e.g., "1.0").
+     * Material changes bump the application's
+     * {@code slpa.wallet.terms-version} config, prompting re-acceptance
+     * on next visit when this value diverges.
+     */
+    @Column(name = "wallet_terms_version", length = 16)
+    private String walletTermsVersion;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -244,6 +306,16 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    /**
+     * Available wallet balance — what the user can withdraw, allocate, or
+     * commit to a new bid/listing-fee/penalty. Computed as
+     * {@code balanceLindens - reservedLindens}.
+     */
+    @Transient
+    public long availableLindens() {
+        return balanceLindens - reservedLindens;
+    }
 
     private static Map<String, Object> defaultNotifyEmail() {
         Map<String, Object> m = new LinkedHashMap<>();

@@ -11,5 +11,14 @@ package com.slparcelauctions.backend.escrow.command;
 public enum TerminalCommandPurpose {
     AUCTION_ESCROW,
     LISTING_FEE_REFUND,
-    ADMIN_WITHDRAWAL
+    ADMIN_WITHDRAWAL,
+    /**
+     * User-initiated wallet withdrawal (site- or terminal-initiated).
+     * Recipient UUID is locked to the user's verified SL avatar — never
+     * client-supplied. Callback flow is handled by
+     * {@code WalletWithdrawalCallbackHandler}: success appends a
+     * {@code WITHDRAW_COMPLETED} ledger row; failure after retry exhaustion
+     * appends a {@code WITHDRAW_REVERSED} row crediting balance back.
+     */
+    WALLET_WITHDRAWAL
 }
