@@ -279,6 +279,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Indefinite — pull in when proxy bidding ships and operational data shows proxy-bidder notification gaps.
 - **Notes:** `NotificationPublisher.listingCancelledBySellerFanout` is the current fan-out method. Body strings are cause-neutral per FOOTGUNS §F.104.
 
+### Wallet ledger cursor pagination
+- **From:** Wallet top-level Phase 2 review (sub-spec `2026-05-01-wallet-toplevel-and-header-indicator-design.md` §6.1)
+- **Why:** `GET /me/wallet/ledger` currently uses offset pagination via `Page<UserLedgerEntry>`, which forces a `count(*)` against `user_ledger` on every request. For long-lived users with many thousands of rows the `totalElements` cost dominates the request time. Reviewer M1 minor item — deferred because the JSON contract is locked to `PagedResponse<T>` (which exposes `totalElements`/`totalPages`) and the frontend pager UI in Phase 7 is built around numbered pages, not opaque cursors.
+- **When:** Indefinite — revisit only if production traces show `count(*)` on `user_ledger` becoming a hot spot. Likely solution is a `seek`-style cursor (last `(createdAt, id)` tuple) plus a `hasMore` flag, with the frontend swapped to "load more" instead of numbered pages.
+- **Notes:** Affects `MeWalletController#ledger` and `LedgerSpecifications`. The CSV export endpoint (Phase 3) already streams without pagination so it's unaffected.
+
 ### NAT instance CPU CloudWatch alarm
 - **From:** AWS deployment design §4.12 (12 spec'd alarms; 11 shipped in `infra/observability/alarms.tf`)
 - **Why:** The fck-nat module's output schema for the underlying EC2 instance ID was not verified at the time observability was wired. Adding the alarm without the right `module.fck_nat[0].<output>` reference would have either failed `terraform plan` or pointed at a wrong resource. Lower priority than the 11 alarms shipped (NAT egress failure first manifests as backend external-call timeouts, which the 5xx-rate alarm catches).
