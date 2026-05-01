@@ -58,6 +58,8 @@ import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 })
 class MeWalletLedgerControllerSliceTest {
 
+    private static final OffsetDateTime BASE_TIME = OffsetDateTime.parse("2026-04-15T10:00:00Z");
+
     @Autowired MockMvc mockMvc;
     @Autowired JwtService jwtService;
     @Autowired UserRepository userRepository;
@@ -112,22 +114,21 @@ class MeWalletLedgerControllerSliceTest {
 
     @Test
     void noFilters_returnsFirstPage_sortedDescByCreatedAt() throws Exception {
-        OffsetDateTime base = OffsetDateTime.parse("2026-04-15T10:00:00Z");
-        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 100L, base);
-        seedEntry(UserLedgerEntryType.DEPOSIT, 200L, 300L, base.plusMinutes(5));
-        seedEntry(UserLedgerEntryType.DEPOSIT, 300L, 600L, base.plusMinutes(10));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 100L, BASE_TIME);
+        seedEntry(UserLedgerEntryType.DEPOSIT, 200L, 300L, BASE_TIME.plusMinutes(5));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 300L, 600L, BASE_TIME.plusMinutes(10));
 
         MvcResult result = mockMvc.perform(get("/api/v1/me/wallet/ledger")
                         .header("Authorization", authHeader()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.number").value(0))
                 .andExpect(jsonPath("$.size").value(25))
                 .andExpect(jsonPath("$.totalElements").value(3))
                 .andExpect(jsonPath("$.totalPages").value(1))
                 .andReturn();
 
         JsonNode entries = objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("entries");
+                .get("content");
         assertThat(entries.size()).isEqualTo(3);
         // DESC by createdAt: 300 (newest) -> 200 -> 100 (oldest).
         assertThat(entries.get(0).get("amount").asLong()).isEqualTo(300L);
@@ -137,11 +138,10 @@ class MeWalletLedgerControllerSliceTest {
 
     @Test
     void entryTypeFilter_returnsOnlyMatchingTypes() throws Exception {
-        OffsetDateTime base = OffsetDateTime.parse("2026-04-15T10:00:00Z");
-        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 100L, base);
-        seedEntry(UserLedgerEntryType.WITHDRAW_QUEUED, 50L, 50L, base.plusMinutes(1));
-        seedEntry(UserLedgerEntryType.BID_RESERVED, 20L, 50L, base.plusMinutes(2));
-        seedEntry(UserLedgerEntryType.LISTING_FEE_DEBIT, 10L, 40L, base.plusMinutes(3));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 100L, BASE_TIME);
+        seedEntry(UserLedgerEntryType.WITHDRAW_QUEUED, 50L, 50L, BASE_TIME.plusMinutes(1));
+        seedEntry(UserLedgerEntryType.BID_RESERVED, 20L, 50L, BASE_TIME.plusMinutes(2));
+        seedEntry(UserLedgerEntryType.LISTING_FEE_DEBIT, 10L, 40L, BASE_TIME.plusMinutes(3));
 
         MvcResult result = mockMvc.perform(get("/api/v1/me/wallet/ledger")
                         .param("entryType", "DEPOSIT", "WITHDRAW_QUEUED")
@@ -151,7 +151,7 @@ class MeWalletLedgerControllerSliceTest {
                 .andReturn();
 
         JsonNode entries = objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("entries");
+                .get("content");
         for (JsonNode e : entries) {
             assertThat(e.get("entryType").asText())
                     .isIn("DEPOSIT", "WITHDRAW_QUEUED");
@@ -180,19 +180,18 @@ class MeWalletLedgerControllerSliceTest {
                 .andReturn();
 
         JsonNode entries = objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("entries");
+                .get("content");
         assertThat(entries.size()).isEqualTo(1);
         assertThat(entries.get(0).get("amount").asLong()).isEqualTo(200L);
     }
 
     @Test
     void amountRangeFilter_returnsOnlyInRange() throws Exception {
-        OffsetDateTime base = OffsetDateTime.parse("2026-04-15T10:00:00Z");
-        seedEntry(UserLedgerEntryType.DEPOSIT, 50L, 50L, base);
-        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 150L, base.plusMinutes(1));
-        seedEntry(UserLedgerEntryType.DEPOSIT, 250L, 400L, base.plusMinutes(2));
-        seedEntry(UserLedgerEntryType.DEPOSIT, 500L, 900L, base.plusMinutes(3));
-        seedEntry(UserLedgerEntryType.DEPOSIT, 1000L, 1900L, base.plusMinutes(4));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 50L, 50L, BASE_TIME);
+        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 150L, BASE_TIME.plusMinutes(1));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 250L, 400L, BASE_TIME.plusMinutes(2));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 500L, 900L, BASE_TIME.plusMinutes(3));
+        seedEntry(UserLedgerEntryType.DEPOSIT, 1000L, 1900L, BASE_TIME.plusMinutes(4));
 
         MvcResult result = mockMvc.perform(get("/api/v1/me/wallet/ledger")
                         .param("amountMin", "100")
@@ -203,7 +202,7 @@ class MeWalletLedgerControllerSliceTest {
                 .andReturn();
 
         JsonNode entries = objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("entries");
+                .get("content");
         for (JsonNode e : entries) {
             long a = e.get("amount").asLong();
             assertThat(a).isBetween(100L, 500L);
@@ -212,12 +211,11 @@ class MeWalletLedgerControllerSliceTest {
 
     @Test
     void pageAndSize_returnsCorrectSlice() throws Exception {
-        OffsetDateTime base = OffsetDateTime.parse("2026-04-15T10:00:00Z");
         // Seed 25 entries, each one minute apart, increasing amount so we
         // can identify which slice came back.
         for (int i = 0; i < 25; i++) {
             seedEntry(UserLedgerEntryType.DEPOSIT, (long) (i + 1), (long) (i + 1),
-                    base.plusMinutes(i));
+                    BASE_TIME.plusMinutes(i));
         }
 
         MvcResult result = mockMvc.perform(get("/api/v1/me/wallet/ledger")
@@ -225,19 +223,51 @@ class MeWalletLedgerControllerSliceTest {
                         .param("size", "10")
                         .header("Authorization", authHeader()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.number").value(1))
                 .andExpect(jsonPath("$.size").value(10))
                 .andExpect(jsonPath("$.totalElements").value(25))
                 .andExpect(jsonPath("$.totalPages").value(3))
                 .andReturn();
 
         JsonNode entries = objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("entries");
+                .get("content");
         assertThat(entries.size()).isEqualTo(10);
         // DESC by createdAt: page 0 = entries 25..16 (amounts 25..16),
         // page 1 = entries 15..6 (amounts 15..6), page 2 = entries 5..1.
         assertThat(entries.get(0).get("amount").asLong()).isEqualTo(15L);
         assertThat(entries.get(9).get("amount").asLong()).isEqualTo(6L);
+    }
+
+    @Test
+    void combinedFilters_applyAllPredicates() throws Exception {
+        // Mix of rows that pass / fail each predicate axis. The filter should
+        // AND them all together, leaving exactly the two well-formed DEPOSITs.
+        seedEntry(UserLedgerEntryType.DEPOSIT, 100L, 100L, BASE_TIME);
+        seedEntry(UserLedgerEntryType.DEPOSIT, 500L, 600L, BASE_TIME.plusHours(1));
+        // Wrong entry type — must be excluded.
+        seedEntry(UserLedgerEntryType.WITHDRAW_QUEUED, 300L, 300L, BASE_TIME.plusHours(2));
+        // Below amountMin — must be excluded.
+        seedEntry(UserLedgerEntryType.DEPOSIT, 50L, 650L, BASE_TIME.plusHours(3));
+        // Outside the date range (after `to`) — must be excluded.
+        seedEntry(UserLedgerEntryType.DEPOSIT, 200L, 850L, BASE_TIME.plusDays(2));
+
+        MvcResult result = mockMvc.perform(get("/api/v1/me/wallet/ledger")
+                        .param("entryType", "DEPOSIT")
+                        .param("amountMin", "100")
+                        .param("amountMax", "500")
+                        .param("from", BASE_TIME.toString())
+                        .param("to", BASE_TIME.plusHours(12).toString())
+                        .header("Authorization", authHeader()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andReturn();
+
+        JsonNode entries = objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("content");
+        assertThat(entries.size()).isEqualTo(2);
+        // DESC by createdAt: 500 (BASE_TIME+1h) -> 100 (BASE_TIME).
+        assertThat(entries.get(0).get("amount").asLong()).isEqualTo(500L);
+        assertThat(entries.get(1).get("amount").asLong()).isEqualTo(100L);
     }
 
     @Test
