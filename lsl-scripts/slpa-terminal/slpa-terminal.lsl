@@ -731,9 +731,11 @@ default {
                 } else if (s == "REFUND_BLOCKED") {
                     string reason = llJsonGetValue(body, ["reason"]);
                     string message = llJsonGetValue(body, ["message"]);
-                    llRegionSayTo(withdrawPayer, 0,
-                        "Withdrawal declined: " + reason
-                        + (message != JSON_INVALID && message != "" ? " (" + message + ")" : ""));
+                    string msg = "Withdrawal declined: " + reason;
+                    if (message != JSON_INVALID && message != "") {
+                        msg += " (" + message + ")";
+                    }
+                    llRegionSayTo(withdrawPayer, 0, msg);
                 } else if (s == "ERROR") {
                     string reason = llJsonGetValue(body, ["reason"]);
                     llOwnerSay("SLPA Terminal: withdraw-request ERROR ("
