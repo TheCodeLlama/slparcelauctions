@@ -32,12 +32,19 @@ A script's README must cover:
 - [`parcel-verifier/`](parcel-verifier/) — Single-use rezzable. Sellers rez it
   on the parcel they want to list; the script reads parcel metadata, prompts
   for the 6-digit PARCEL code, POSTs to the backend, then `llDie()`s.
-  Distributed via Marketplace + given out by the SLPA Terminal.
-- [`slpa-terminal/`](slpa-terminal/) — Unified in-world payment terminal.
-  Touch menu offers Escrow Payment, Listing Fee, Pay Penalty, and Get Parcel
-  Verifier. Also receives HTTP-in commands from the backend for PAYOUT /
-  REFUND / WITHDRAW execution. SLPA-team-deployed; holds shared secret +
-  PERMISSION_DEBIT.
+  Distributed via Marketplace + given out by the SLPA Parcel Verifier Giver.
+- [`slpa-verifier-giver/`](slpa-verifier-giver/) — Touch-to-receive prim that
+  hands out a copy of the SLPA Parcel Verifier inventory item. Free, no L$,
+  no shared secret. Per-avatar 60s rate-limit. Deployed at SLPA HQ + auction
+  venues + Marketplace.
+- [`slpa-terminal/`](slpa-terminal/) — Wallet-model payment terminal. Right-
+  click → Pay credits the user's wallet via `/sl/wallet/deposit` (lockless,
+  fully concurrent). Touch menu offers Deposit-instructions and Withdraw.
+  Withdraw uses per-flow slots dispatched by avatar key on a single shared
+  listen — no terminal-wide lock. Also receives HTTP-in commands from the
+  backend for PAYOUT / WITHDRAW execution (REFUND defensive — refunds are
+  wallet credits, never dispatched). SLPA-team-deployed; holds shared
+  secret + PERMISSION_DEBIT.
 - [`sl-im-dispatcher/`](sl-im-dispatcher/) — Polls SLPA backend for pending
   SL IM notifications and delivers them via `llInstantMessage`. SLPA-team-deployed
   (one instance per environment); not user-deployed.
