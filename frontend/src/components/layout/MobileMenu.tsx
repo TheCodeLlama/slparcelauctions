@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X } from "@/components/ui/icons";
 import { Button, IconButton } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { useWallet } from "@/lib/wallet/use-wallet";
 import { NavLink } from "./NavLink";
 
 type MobileMenuProps = {
@@ -14,6 +15,8 @@ type MobileMenuProps = {
 
 export function MobileMenu({ open, onClose }: MobileMenuProps) {
   const { status, user } = useAuth();
+  const verified = status === "authenticated" && user.verified;
+  const { data: wallet } = useWallet(verified);
 
   return (
     <Dialog open={open} onClose={onClose} className="md:hidden relative z-50">
@@ -40,6 +43,11 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
             <NavLink variant="mobile" href="/dashboard" onClick={onClose}>
               Dashboard
             </NavLink>
+            {verified && (
+              <NavLink variant="mobile" href="/wallet" onClick={onClose}>
+                Wallet{wallet ? ` · L$ ${wallet.available.toLocaleString()}` : ""}
+              </NavLink>
+            )}
             <NavLink variant="mobile" href="/auction/new" onClick={onClose}>
               Create Listing
             </NavLink>

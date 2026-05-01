@@ -17,4 +17,6 @@ export { Stepper } from "./Stepper";
 export type { StepperProps } from "./Stepper";
 export { DropZone } from "./DropZone";
 export type { DropZoneProps } from "./DropZone";
+export { Modal } from "./Modal";
+export type { ModalProps } from "./Modal";
 export * from "./icons";

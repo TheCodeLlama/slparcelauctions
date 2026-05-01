@@ -74,3 +74,13 @@ export { Bolt, Wallet, Trophy, AlertOctagon, Pause, Clock } from "lucide-react";
 
 // Epic 09 sub-spec 1 feed page (mobile filter drawer toggle)
 export { ListFilter as FilterIcon } from "lucide-react";
+
+// Wallet ledger row icons (Phase 6 wallet beautify)
+export {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Undo2,
+  Lock,
+  Unlock,
+  Pencil,
+} from "lucide-react";
