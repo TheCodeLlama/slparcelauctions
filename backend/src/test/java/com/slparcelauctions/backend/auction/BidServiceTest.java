@@ -74,7 +74,7 @@ class BidServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), mock(BanCheckService.class));
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), mock(BanCheckService.class), mock(com.slparcelauctions.backend.wallet.WalletService.class), mock(com.slparcelauctions.backend.wallet.BidReservationRepository.class));
 
         seller = User.builder().id(10L).email("seller@example.com")
                 .displayName("Seller").verified(true).build();

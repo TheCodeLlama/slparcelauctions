@@ -49,6 +49,10 @@ import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
 import com.slparcelauctions.backend.escrow.terminal.TerminalService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.WalletService;
+import com.slparcelauctions.backend.wallet.exception.BidReservationAmountMismatchException;
+
+import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -95,6 +99,10 @@ public class EscrowService {
     private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
     private final DisputeEvidenceUploadService evidenceUploadService;
+    private final WalletService walletService;
+
+    @Value("${slpa.wallet.enforcement-enabled:false}")
+    private boolean walletEnforcementEnabled;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -157,6 +165,67 @@ public class EscrowService {
         // Seed MONITOR_ESCROW for BOT-tier auctions so the bot watches the
         // seller→winner ownership transition. No-op for non-BOT tiers.
         monitorLifecycle.onEscrowCreatedBot(saved);
+
+        // Wallet enforcement: auto-fund the escrow immediately by consuming
+        // the winner's bid reservation and debiting their wallet balance.
+        // Transitions ESCROW_PENDING → FUNDED → TRANSFER_PENDING in this
+        // same transaction so external observers only see TRANSFER_PENDING.
+        if (walletEnforcementEnabled && auction.getWinnerUserId() != null) {
+            User winner = userRepo.findByIdForUpdate(auction.getWinnerUserId()).orElseThrow();
+            try {
+                walletService.autoFundEscrow(auction.getId(), winner, finalBid, saved.getId());
+            } catch (BidReservationAmountMismatchException e) {
+                log.error("BID-RESERVATION-AMOUNT-MISMATCH for auction {}: reservation=L${} != finalBid=L${} — freezing escrow",
+                        auction.getId(), e.getReservationAmount(), e.getFinalBidAmount());
+                saved.setState(EscrowState.FROZEN);
+                saved.setFrozenAt(endedAt);
+                return escrowRepo.save(saved);
+            } catch (IllegalStateException e) {
+                log.error("Auto-fund failed for auction {}: {}", auction.getId(), e.getMessage());
+                saved.setState(EscrowState.FROZEN);
+                saved.setFrozenAt(endedAt);
+                return escrowRepo.save(saved);
+            }
+            // Transition ESCROW_PENDING → FUNDED → TRANSFER_PENDING
+            saved.setState(EscrowState.FUNDED);
+            saved.setFundedAt(endedAt);
+            saved.setState(EscrowState.TRANSFER_PENDING);
+            saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
+            saved = escrowRepo.save(saved);
+
+            // Append escrow_transactions ledger row
+            ledgerRepo.save(EscrowTransaction.builder()
+                    .escrow(saved)
+                    .auction(auction)
+                    .type(EscrowTransactionType.AUCTION_ESCROW_PAYMENT)
+                    .status(EscrowTransactionStatus.COMPLETED)
+                    .amount(finalBid)
+                    .payer(winner)
+                    .completedAt(endedAt)
+                    .build());
+
+            // Notify seller of funded state
+            notificationPublisher.escrowFunded(
+                    auction.getSeller().getId(),
+                    auction.getId(),
+                    saved.getId(),
+                    auction.getTitle(),
+                    saved.getTransferDeadline());
+
+            final Escrow finalEscrow = saved;
+            final EscrowFundedEnvelope fundedEnvelope = EscrowFundedEnvelope.of(finalEscrow, endedAt);
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcastPublisher.publishFunded(fundedEnvelope);
+                        }
+                    });
+
+            log.info("Escrow {} auto-funded from wallet (auction {}, amount L${})",
+                    saved.getId(), auction.getId(), finalBid);
+        }
+
         return saved;
     }
 
@@ -342,7 +411,22 @@ public class EscrowService {
      * a pessimistic lock on the escrow row.
      */
     void queueRefundIfFunded(Escrow escrow) {
-        if (escrow.getFundedAt() != null) {
+        if (escrow.getFundedAt() == null) return;
+        if (walletEnforcementEnabled) {
+            // Wallet model: refund is a wallet credit, not a TerminalCommand REFUND.
+            User winner = userRepo.findByIdForUpdate(escrow.getAuction().getWinnerUserId()).orElseThrow();
+            walletService.creditEscrowRefund(winner, escrow.getFinalBidAmount(), escrow.getId());
+            ledgerRepo.save(EscrowTransaction.builder()
+                    .escrow(escrow)
+                    .auction(escrow.getAuction())
+                    .type(EscrowTransactionType.AUCTION_ESCROW_REFUND)
+                    .status(EscrowTransactionStatus.COMPLETED)
+                    .amount(escrow.getFinalBidAmount())
+                    .completedAt(OffsetDateTime.now(clock))
+                    .build());
+            log.info("Escrow {} refund credited to wallet (winnerId={}, amount=L${})",
+                    escrow.getId(), winner.getId(), escrow.getFinalBidAmount());
+        } else {
             terminalCommandService.queueRefund(escrow);
         }
     }

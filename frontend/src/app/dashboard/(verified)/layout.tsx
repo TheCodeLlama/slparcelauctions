@@ -10,6 +10,7 @@ const TABS: TabItem[] = [
   { id: "overview", label: "Overview", href: "/dashboard/overview" },
   { id: "bids", label: "My Bids", href: "/dashboard/bids" },
   { id: "listings", label: "My Listings", href: "/dashboard/listings" },
+  { id: "wallet", label: "Wallet", href: "/dashboard/wallet" },
 ];
 
 export default function VerifiedDashboardLayout({ children }: { children: React.ReactNode }) {
