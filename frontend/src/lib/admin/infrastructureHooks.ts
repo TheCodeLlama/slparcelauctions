@@ -28,6 +28,16 @@ export function useRotateSecret() {
   });
 }
 
+export function useDeactivateTerminal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (terminalId: string) => adminApi.terminals.deactivate(terminalId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: adminQueryKeys.terminals() });
+    },
+  });
+}
+
 export function useReconciliationRuns(days: number = 7) {
   return useQuery({
     queryKey: adminQueryKeys.reconciliationRuns(days),

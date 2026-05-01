@@ -249,6 +249,9 @@ export const adminApi = {
     rotateSecret(): Promise<TerminalRotationResponse> {
       return api.post("/api/v1/admin/terminals/rotate-secret", {});
     },
+    deactivate(terminalId: string): Promise<void> {
+      return api.delete(`/api/v1/admin/terminals/${encodeURIComponent(terminalId)}`);
+    },
   },
 
   reconciliation: {
