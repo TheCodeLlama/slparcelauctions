@@ -36,7 +36,7 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.wallet.UserLedgerEntry;
+import com.slparcelauctions.backend.wallet.LedgerRow;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
@@ -79,7 +79,15 @@ public class MeWalletController {
     @Transactional(readOnly = true)
     public WalletViewResponse view(@AuthenticationPrincipal AuthPrincipal principal) {
         User user = userRepository.findById(principal.userId()).orElseThrow();
-        List<UserLedgerEntry> recent = ledgerRepository.findTop50ByUserIdOrderByCreatedAtDesc(principal.userId());
+        // Recent activity uses the collapsed view: WITHDRAW_COMPLETED /
+        // WITHDRAW_REVERSED rows are filtered out, and the surviving
+        // WITHDRAW_QUEUED rows carry a {@link WithdrawalStatus} computed
+        // in the same query so the UI can render a single Withdrawal row
+        // that flips state in place.
+        Pageable recentPage = PageRequest.of(0, 50,
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<LedgerRow> recent = ledgerRepository.findCollapsedForUser(
+                principal.userId(), null, recentPage);
         long queuedForWithdrawal = ledgerRepository.sumPendingWithdrawals(principal.userId());
         return new WalletViewResponse(
                 user.getBalanceLindens(),
@@ -90,11 +98,12 @@ public class MeWalletController {
                 user.getWalletTermsAcceptedAt() != null,
                 user.getWalletTermsVersion(),
                 user.getWalletTermsAcceptedAt(),
-                recent.stream().map(MeWalletController::toDto).toList()
+                recent.getContent().stream().map(MeWalletController::toDto).toList()
         );
     }
 
-    private static WalletViewResponse.LedgerEntryDto toDto(UserLedgerEntry e) {
+    private static WalletViewResponse.LedgerEntryDto toDto(LedgerRow row) {
+        var e = row.entry();
         return new WalletViewResponse.LedgerEntryDto(
                 e.getId(),
                 e.getEntryType().name(),
@@ -104,7 +113,8 @@ public class MeWalletController {
                 e.getRefType(),
                 e.getRefId(),
                 e.getDescription(),
-                e.getCreatedAt()
+                e.getCreatedAt(),
+                row.withdrawalStatus()
         );
     }
 
@@ -122,8 +132,8 @@ public class MeWalletController {
         int pageSize = Math.min(Math.max(size, 1), MAX_LEDGER_PAGE_SIZE);
         int clampedPage = Math.max(page, 0);
         Pageable p = PageRequest.of(clampedPage, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<UserLedgerEntry> result = ledgerRepository.findAll(
-                LedgerSpecifications.forUser(principal.userId(), params.toFilter()), p);
+        Page<LedgerRow> result = ledgerRepository.findCollapsedForUser(
+                principal.userId(), params.toFilter(), p);
         return PagedResponse.from(result.map(MeWalletController::toDto));
     }
 
@@ -142,7 +152,7 @@ public class MeWalletController {
         String filename = "slpa-wallet-ledger-" + principal.userId() + "-"
                 + OffsetDateTime.now(clock).format(DateTimeFormatter.BASIC_ISO_DATE) + ".csv";
         StreamingResponseBody body = out -> {
-            try (Stream<UserLedgerEntry> rows =
+            try (Stream<LedgerRow> rows =
                     ledgerStreamingService.streamFiltered(principal.userId(), filter)) {
                 LedgerCsvWriter.write(rows, out);
             }

@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.slparcelauctions.backend.wallet.me.LedgerCollapsedRepository;
+
 /**
  * Repository for {@link UserLedgerEntry} append-only rows.
  *
@@ -22,7 +24,8 @@ import org.springframework.data.repository.query.Param;
  */
 public interface UserLedgerRepository
         extends JpaRepository<UserLedgerEntry, Long>,
-                JpaSpecificationExecutor<UserLedgerEntry> {
+                JpaSpecificationExecutor<UserLedgerEntry>,
+                LedgerCollapsedRepository {
 
     /**
      * Idempotency lookup for the SL-headers wallet endpoints
