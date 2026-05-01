@@ -10,6 +10,13 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 /**
  * Repository for {@link UserLedgerEntry} append-only rows.
+ *
+ * <p><strong>Specification queries on this repository MUST go through
+ * {@link com.slparcelauctions.backend.wallet.me.LedgerSpecifications#forUser}
+ * so the {@code userId} scope is never accidentally omitted.</strong>
+ * Direct calls to {@code findAll(Specification)} without that wrapper
+ * can leak ledger entries across users — never write one in a new
+ * call site.
  */
 public interface UserLedgerRepository
         extends JpaRepository<UserLedgerEntry, Long>,

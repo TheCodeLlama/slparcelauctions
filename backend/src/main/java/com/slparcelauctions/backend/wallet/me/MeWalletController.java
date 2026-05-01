@@ -9,12 +9,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,10 +28,10 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.UserLedgerEntry;
-import com.slparcelauctions.backend.wallet.UserLedgerEntryType;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
@@ -52,6 +52,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class MeWalletController {
+
+    private static final int MAX_LEDGER_PAGE_SIZE = 100;
 
     private final WalletService walletService;
     private final UserRepository userRepository;
@@ -103,25 +105,17 @@ public class MeWalletController {
 
     @GetMapping("/wallet/ledger")
     @Transactional(readOnly = true)
-    public LedgerPageResponse ledger(
+    public PagedResponse<WalletViewResponse.LedgerEntryDto> ledger(
             @AuthenticationPrincipal AuthPrincipal principal,
+            @ModelAttribute LedgerFilterParams params,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "25") int size,
-            @RequestParam(name = "entryType", required = false) List<UserLedgerEntryType> entryTypes,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
-            @RequestParam(required = false) Long amountMin,
-            @RequestParam(required = false) Long amountMax) {
-        int pageSize = Math.min(Math.max(size, 1), 100);
-        LedgerFilter filter = new LedgerFilter(entryTypes, from, to, amountMin, amountMax);
-        Pageable p = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+            @RequestParam(defaultValue = "25") int size) {
+        int pageSize = Math.min(Math.max(size, 1), MAX_LEDGER_PAGE_SIZE);
+        int clampedPage = Math.max(page, 0);
+        Pageable p = PageRequest.of(clampedPage, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<UserLedgerEntry> result = ledgerRepository.findAll(
-                LedgerSpecifications.forUser(principal.userId(), filter), p);
-        List<WalletViewResponse.LedgerEntryDto> dtos =
-                result.getContent().stream().map(MeWalletController::toDto).toList();
-        return new LedgerPageResponse(
-                result.getNumber(), result.getSize(),
-                result.getTotalElements(), result.getTotalPages(), dtos);
+                LedgerSpecifications.forUser(principal.userId(), params.toFilter()), p);
+        return PagedResponse.from(result.map(MeWalletController::toDto));
     }
 
     /* ============================================================ */

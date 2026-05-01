@@ -19,26 +19,26 @@ public final class LedgerSpecifications {
 
     private LedgerSpecifications() {}
 
-    public static Specification<UserLedgerEntry> forUser(Long userId, LedgerFilter f) {
+    public static Specification<UserLedgerEntry> forUser(Long userId, LedgerFilter filter) {
         return (root, q, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            ps.add(cb.equal(root.get("userId"), userId));
-            if (f.entryTypes() != null && !f.entryTypes().isEmpty()) {
-                ps.add(root.get("entryType").in(f.entryTypes()));
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("userId"), userId));
+            if (filter.entryTypes() != null && !filter.entryTypes().isEmpty()) {
+                predicates.add(root.get("entryType").in(filter.entryTypes()));
             }
-            if (f.from() != null) {
-                ps.add(cb.greaterThanOrEqualTo(root.get("createdAt"), f.from()));
+            if (filter.from() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.from()));
             }
-            if (f.to() != null) {
-                ps.add(cb.lessThan(root.get("createdAt"), f.to()));
+            if (filter.to() != null) {
+                predicates.add(cb.lessThan(root.get("createdAt"), filter.to()));
             }
-            if (f.amountMin() != null) {
-                ps.add(cb.greaterThanOrEqualTo(root.get("amount"), f.amountMin()));
+            if (filter.amountMin() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("amount"), filter.amountMin()));
             }
-            if (f.amountMax() != null) {
-                ps.add(cb.lessThanOrEqualTo(root.get("amount"), f.amountMax()));
+            if (filter.amountMax() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("amount"), filter.amountMax()));
             }
-            return cb.and(ps.toArray(new Predicate[0]));
+            return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 }

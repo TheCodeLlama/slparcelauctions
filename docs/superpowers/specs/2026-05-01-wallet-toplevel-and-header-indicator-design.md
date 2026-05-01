@@ -361,17 +361,19 @@ Full pageable. Query params:
 | `amountMin` | long | Lower bound on `amount` (inclusive). |
 | `amountMax` | long | Upper bound on `amount` (inclusive). |
 
-Response:
+Response uses the project-wide `PagedResponse<T>` envelope (see `backend/src/main/java/com/slparcelauctions/backend/common/PagedResponse.java`):
 
 ```json
 {
-  "page": 0,
-  "size": 25,
+  "content": [ { /* LedgerEntry */ }, ... ],
   "totalElements": 1234,
   "totalPages": 50,
-  "entries": [ { /* LedgerEntry */ }, ... ]
+  "number": 0,
+  "size": 25
 }
 ```
+
+`number` is the 0-indexed current page; `content` is the array of rows. Field names match every other paginated endpoint in the codebase and the frontend's `types/page.ts`.
 
 Sorted `created_at DESC` always. No upper limit on total ledger size.
 
