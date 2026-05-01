@@ -8,14 +8,15 @@ import type { LedgerFilter, UserLedgerEntryType } from "@/types/wallet";
 
 /**
  * Subset of {@link UserLedgerEntryType} surfaced as quick-filter chips.
- * The full set is twelve entries — listing every one would crowd the bar
- * and most are infrequent (e.g. {@code WITHDRAW_REVERSED}, {@code
- * ADJUSTMENT}). The remaining types remain server-side queryable but the
- * UI only exposes these nine common ones, matching spec §6.2.
+ *
+ * The "Withdrawal" chip filters by {@code WITHDRAW_QUEUED} only — the
+ * collapsed-view backend hides {@code WITHDRAW_COMPLETED} and
+ * {@code WITHDRAW_REVERSED} rows entirely; one chip covers the full
+ * withdrawal lifecycle.
  */
 const CHIP_TYPES: { type: UserLedgerEntryType; label: string }[] = [
   { type: "DEPOSIT", label: "Deposit" },
-  { type: "WITHDRAW_QUEUED", label: "Withdraw" },
+  { type: "WITHDRAW_QUEUED", label: "Withdrawal" },
   { type: "BID_RESERVED", label: "Bid reserved" },
   { type: "BID_RELEASED", label: "Bid released" },
   { type: "ESCROW_DEBIT", label: "Escrow funded" },

@@ -36,8 +36,9 @@ function genIdempotencyKey(): string {
 const LEDGER_ENTRY_TYPES: UserLedgerEntryType[] = [
   "DEPOSIT",
   "WITHDRAW_QUEUED",
-  "WITHDRAW_COMPLETED",
-  "WITHDRAW_REVERSED",
+  // WITHDRAW_COMPLETED / WITHDRAW_REVERSED removed: the collapsed-view
+  // backend hides those rows; surfacing them as filter chips would be
+  // dead state.
   "BID_RESERVED",
   "BID_RELEASED",
   "ESCROW_DEBIT",

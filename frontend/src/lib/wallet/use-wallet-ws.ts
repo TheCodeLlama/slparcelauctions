@@ -60,6 +60,7 @@ export function useWalletWsSubscription(enabled: boolean): void {
   useStompSubscription<WalletBalanceChangedEnvelope>(
     enabled ? "/user/queue/wallet" : "",
     (env) => {
+      // Optimistic patch — keeps the balance snappy.
       qc.setQueryData<WalletView>(walletQueryKey, (prev) => {
         if (!prev) return prev;
         return {
@@ -71,7 +72,14 @@ export function useWalletWsSubscription(enabled: boolean): void {
           queuedForWithdrawal: env.queuedForWithdrawal,
         };
       });
-      qc.invalidateQueries({ queryKey: ["me", "wallet", "ledger"] });
+      // Invalidate the ENTIRE wallet subtree — both the wallet view (so
+      // recentLedger refreshes) and every paginated ledger query
+      // (`["me", "wallet", "ledger", filter, page, size]`). The narrower
+      // `["me", "wallet", "ledger"]` predicate was failing to refetch the
+      // active ledger observer in production, leaving the activity table
+      // stale even though balance updated. The wider prefix is a strict
+      // superset and matches by definition.
+      qc.invalidateQueries({ queryKey: ["me", "wallet"] });
     },
   );
 }
