@@ -15,18 +15,35 @@ import {
 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatRelativeTime } from "@/lib/time/relativeTime";
-import type { LedgerEntry } from "@/types/wallet";
+import type { LedgerEntry, WithdrawalStatus } from "@/types/wallet";
 
 function formatLindens(amount: number): string {
   return `L$${amount.toLocaleString()}`;
 }
 
-function entryTypeLabel(t: LedgerEntry["entryType"]): string {
-  switch (t) {
+/**
+ * Label for a ledger row. WITHDRAW_QUEUED is special-cased so the user
+ * sees a single "Withdrawal" row that flips state in place: the
+ * (Pending) suffix appears while the dispatcher / in-world transfer is
+ * still in flight; once a paired completion / reversal lands the
+ * collapsed-view backend stamps the status and this label drops the
+ * suffix (or shows "Reversed" for the rare reversal case).
+ */
+function entryTypeLabel(e: LedgerEntry): string {
+  switch (e.entryType) {
     case "DEPOSIT": return "Deposit";
-    case "WITHDRAW_QUEUED": return "Withdraw queued";
-    case "WITHDRAW_COMPLETED": return "Withdraw completed";
-    case "WITHDRAW_REVERSED": return "Withdraw reversed";
+    case "WITHDRAW_QUEUED": {
+      switch (e.withdrawalStatus) {
+        case "COMPLETED": return "Withdrawal";
+        case "REVERSED": return "Withdrawal (Reversed)";
+        case "PENDING":
+        default: return "Withdrawal (Pending)";
+      }
+    }
+    // Defensive — the backend filters these out of /me/wallet/ledger,
+    // but historical responses or admin views might still contain them.
+    case "WITHDRAW_COMPLETED": return "Withdrawal";
+    case "WITHDRAW_REVERSED": return "Withdrawal (Reversed)";
     case "BID_RESERVED": return "Bid reserved";
     case "BID_RELEASED": return "Bid released";
     case "ESCROW_DEBIT": return "Escrow funded";
@@ -43,23 +60,35 @@ type EntryVisual = {
   tone: string;
 };
 
+const WITHDRAW_PENDING_VISUAL: EntryVisual = { Icon: Clock, tone: "text-warning" };
+const WITHDRAW_COMPLETED_VISUAL: EntryVisual = { Icon: ArrowUpFromLine, tone: "text-success" };
+const WITHDRAW_REVERSED_VISUAL: EntryVisual = { Icon: Undo2, tone: "text-error" };
+
+function withdrawalVisual(status: WithdrawalStatus | null): EntryVisual {
+  switch (status) {
+    case "COMPLETED": return WITHDRAW_COMPLETED_VISUAL;
+    case "REVERSED":  return WITHDRAW_REVERSED_VISUAL;
+    case "PENDING":
+    default:          return WITHDRAW_PENDING_VISUAL;
+  }
+}
+
 /**
- * Maps ledger entry types to a lucide icon + a Material-3 colour token
- * pair. Inflows (deposit / refund) use {@code text-success}; outflows that
- * are user-initiated and final use the neutral {@code text-on-surface};
- * "in-progress" or warning-tinted entries (queued withdraw, reserved bid,
- * penalty) use {@code text-warning}.
+ * Maps ledger entries to a lucide icon + a Material-3 colour token. The
+ * single "Withdrawal" row is colour-coded by `withdrawalStatus`:
+ * yellow Clock while pending, green ArrowUpFromLine when completed,
+ * red Undo2 if reversed.
  */
-function entryVisual(t: LedgerEntry["entryType"]): EntryVisual {
-  switch (t) {
+function entryVisual(e: LedgerEntry): EntryVisual {
+  switch (e.entryType) {
     case "DEPOSIT":
       return { Icon: ArrowDownToLine, tone: "text-success" };
     case "WITHDRAW_QUEUED":
-      return { Icon: Clock, tone: "text-on-surface-variant" };
+      return withdrawalVisual(e.withdrawalStatus);
     case "WITHDRAW_COMPLETED":
-      return { Icon: ArrowUpFromLine, tone: "text-on-surface" };
+      return WITHDRAW_COMPLETED_VISUAL;
     case "WITHDRAW_REVERSED":
-      return { Icon: Undo2, tone: "text-warning" };
+      return WITHDRAW_REVERSED_VISUAL;
     case "BID_RESERVED":
       return { Icon: Lock, tone: "text-warning" };
     case "BID_RELEASED":
@@ -143,7 +172,7 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
   return (
     <ul className="text-sm">
       {entries.map((e) => {
-        const { Icon, tone } = entryVisual(e.entryType);
+        const { Icon, tone } = entryVisual(e);
         return (
           <li
             key={e.id}
@@ -160,7 +189,7 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
               />
               <div className="min-w-0">
                 <div className="font-medium text-on-surface truncate">
-                  {entryTypeLabel(e.entryType)}
+                  {entryTypeLabel(e)}
                 </div>
                 <div
                   className="text-xs text-on-surface-variant"

@@ -4,6 +4,13 @@
  * Append-only ledger entry types. Mirror of the backend
  * `UserLedgerEntryType`. Direction (debit vs credit) is implicit in the
  * type — the entry's `amount` is always positive.
+ *
+ * `WITHDRAW_COMPLETED` and `WITHDRAW_REVERSED` exist on the backend for
+ * audit but are filtered out of `/api/v1/me/wallet/ledger` responses —
+ * the user-facing collapsed view returns one row per logical withdrawal
+ * (the originating `WITHDRAW_QUEUED`) decorated with `withdrawalStatus`.
+ * Keep them in the union so historical clients / tests don't break, but
+ * production responses won't carry them.
  */
 export type UserLedgerEntryType =
   | "DEPOSIT"
@@ -19,6 +26,12 @@ export type UserLedgerEntryType =
   | "PENALTY_DEBIT"
   | "ADJUSTMENT";
 
+/**
+ * Status of a `WITHDRAW_QUEUED` row in the collapsed ledger view. Non-null
+ * only on `WITHDRAW_QUEUED` entries; null for every other entry type.
+ */
+export type WithdrawalStatus = "PENDING" | "COMPLETED" | "REVERSED";
+
 export interface LedgerEntry {
   id: number;
   entryType: UserLedgerEntryType;
@@ -29,6 +42,7 @@ export interface LedgerEntry {
   refId: number | null;
   description: string | null;
   createdAt: string;
+  withdrawalStatus: WithdrawalStatus | null;
 }
 
 /**
