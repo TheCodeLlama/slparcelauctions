@@ -390,7 +390,14 @@ addInflightCommand(key txKey, string idempotencyKey, key recipient, integer amou
             + ") hit — refusing command. Backend retry will cover.");
         return;
     }
-    inflightCmdTxKeys          = inflightCmdTxKeys          + [txKey];
+    // Cast to string at insertion: llListFindList in removeInflightByTxKey
+    // searches with a string cast, and LSL's list type-comparison is strict
+    // — a key-typed element does NOT match a string-typed search element
+    // even with identical UUIDs, so a missing cast here silently drops every
+    // transaction_result lookup, never POSTs /payout-result, and the
+    // dispatcher's IN_FLIGHT timeout requeues the command into a permanent
+    // retry loop.
+    inflightCmdTxKeys          = inflightCmdTxKeys          + [(string)txKey];
     inflightCmdIdempotencyKeys = inflightCmdIdempotencyKeys + [idempotencyKey];
     inflightCmdRecipients      = inflightCmdRecipients      + [(string)recipient];
     inflightCmdAmounts         = inflightCmdAmounts         + [amount];

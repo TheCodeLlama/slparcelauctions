@@ -184,8 +184,29 @@ public class TerminalCommandDispatcherTask {
         TerminalCommand cmd = cmdRepo.findByIdForUpdate(commandId).orElse(null);
         if (cmd == null || cmd.getStatus() != TerminalCommandStatus.IN_FLIGHT) return;
         OffsetDateTime now = OffsetDateTime.now(clock);
-        cmd.setStatus(TerminalCommandStatus.FAILED);
         cmd.setLastError("IN_FLIGHT timeout without callback");
+
+        // The IN_FLIGHT-timeout path used to requeue unconditionally — only
+        // the transport-failure path checked the attempt cap. That left an
+        // unACK'd command (terminal returned 200 but never POSTed payout-result,
+        // e.g. an LSL bug silently dropped transaction_result) able to loop
+        // forever via this method, never stalling and never refunding the user.
+        // Mirror the transport-stall behavior: at the cap, stall + refund
+        // wallet withdrawals + log; below the cap, requeue for immediate retry.
+        if (cmd.getAttemptCount() >= EscrowRetryPolicy.MAX_ATTEMPTS) {
+            cmd.setStatus(TerminalCommandStatus.FAILED);
+            cmd.setRequiresManualReview(true);
+            cmdRepo.save(cmd);
+            if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+                walletWithdrawalCallbackHandler.onStall(cmd,
+                        "IN_FLIGHT timeout without callback");
+            }
+            log.error("Terminal command {} STALLED after {} attempts (in-flight timeout)",
+                    cmd.getId(), cmd.getAttemptCount());
+            return;
+        }
+
+        cmd.setStatus(TerminalCommandStatus.FAILED);
         cmd.setNextAttemptAt(now);
         cmdRepo.save(cmd);
         log.warn("Command {} IN_FLIGHT timeout (dispatchedAt={}); requeued for immediate retry",
