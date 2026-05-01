@@ -289,7 +289,12 @@ default {
             string userId      = llJsonGetValue(body, ["userId"]);
             string slAvatarName = llJsonGetValue(body, ["slAvatarName"]);
 
-            if (verified == "true") {
+            // llJsonGetValue returns the LSL JSON_TRUE constant ("~true")
+            // for a JSON boolean true, NOT the literal string "true". Comparing
+            // against the literal silently fails into the "verification failed"
+            // branch even on a successful verify response. Always compare
+            // boolean JSON values against JSON_TRUE / JSON_FALSE.
+            if (verified == JSON_TRUE) {
                 llRegionSayTo(lockHolder, 0,
                     "✓ Linked SLPA #" + userId + " to " + slAvatarName + ".");
                 if (DEBUG_MODE)
