@@ -12,6 +12,7 @@ public record WalletViewResponse(
         long reserved,
         long available,
         long penaltyOwed,
+        long queuedForWithdrawal,
         boolean termsAccepted,
         String termsVersion,
         OffsetDateTime termsAcceptedAt,

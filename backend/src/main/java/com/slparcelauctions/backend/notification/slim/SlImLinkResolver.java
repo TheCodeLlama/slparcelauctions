@@ -43,6 +43,8 @@ public class SlImLinkResolver {
                 base + "/auction/" + data.get("auctionId") + "/escrow";
             case RECONCILIATION_MISMATCH, WITHDRAWAL_COMPLETED, WITHDRAWAL_FAILED ->
                 base + "/admin/infrastructure";
+            case WALLET_WITHDRAWAL_COMPLETED, WALLET_WITHDRAWAL_REVERSED ->
+                base + "/wallet";
         };
     }
 }

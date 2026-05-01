@@ -14,18 +14,20 @@ public record WalletBalanceChangedEnvelope(
         long reserved,
         long available,
         long penaltyOwed,
+        long queuedForWithdrawal,
         String reason,
         Long ledgerEntryId,
         OffsetDateTime occurredAt
 ) {
     public static WalletBalanceChangedEnvelope of(User u, String reason,
-            Long ledgerEntryId, OffsetDateTime occurredAt) {
+            Long ledgerEntryId, long queuedForWithdrawal, OffsetDateTime occurredAt) {
         long owed = u.getPenaltyBalanceOwed() == null ? 0L : u.getPenaltyBalanceOwed();
         return new WalletBalanceChangedEnvelope(
                 u.getBalanceLindens(),
                 u.getReservedLindens(),
                 u.availableLindens(),
                 owed,
+                queuedForWithdrawal,
                 reason,
                 ledgerEntryId,
                 occurredAt);
