@@ -30,6 +30,7 @@ string  REGISTER_URL          = "";
 string  DEPOSIT_URL           = "";
 string  WITHDRAW_REQUEST_URL  = "";
 string  PAYOUT_RESULT_URL     = "";
+string  HEARTBEAT_URL         = "";
 string  SHARED_SECRET         = "";
 string  TERMINAL_ID           = "";
 string  REGION_NAME           = "";
@@ -88,6 +89,20 @@ integer MAX_INFLIGHT_CMDS         = 16;
 // === Payout-result tracking ===
 key     payoutResultReqId = NULL_KEY;
 
+// === Heartbeat ===
+// The terminal periodically POSTs to /sl/terminal/heartbeat so the backend
+// dispatcher's `lastSeenAt` window stays fresh. Without this, an idle but
+// healthy terminal eventually drops out of dispatch rotation between
+// rezzes / inventory changes (the only other paths that re-register).
+//
+// HEARTBEAT_URL is optional in the notecard for backward compatibility:
+// pre-heartbeat deployments will simply skip heartbeats and rely on the
+// authenticated-call refresh of lastSeenAt added in the backend at the
+// same time as this LSL change. New deployments should set it.
+key     heartbeatReqId             = NULL_KEY;
+integer nextHeartbeatAt            = 0;
+integer HEARTBEAT_INTERVAL_SECONDS = 300;
+
 // === Timer phase ===
 integer TIMER_NONE              = 0;
 integer TIMER_SESSION_SWEEP     = 1;
@@ -119,6 +134,7 @@ parseConfigLine(string line) {
     else if (k == "DEPOSIT_URL")           DEPOSIT_URL           = v;
     else if (k == "WITHDRAW_REQUEST_URL")  WITHDRAW_REQUEST_URL  = v;
     else if (k == "PAYOUT_RESULT_URL")     PAYOUT_RESULT_URL     = v;
+    else if (k == "HEARTBEAT_URL")         HEARTBEAT_URL         = v;
     else if (k == "SHARED_SECRET")         SHARED_SECRET         = v;
     else if (k == "TERMINAL_ID")           TERMINAL_ID           = v;
     else if (k == "REGION_NAME")           REGION_NAME           = v;
@@ -190,6 +206,22 @@ scheduleRegisterRetry() {
     registerNextRetryAt = llGetUnixTime() + delay;
     timerPhase = TIMER_REGISTER_RETRY;
     llSetTimerEvent((float)delay);
+}
+
+postHeartbeat() {
+    // Reconciliation isn't wired yet — `accountBalance` is sent as 0
+    // until the backend reconciliation job lands and we add proper
+    // tracking via money() / transaction_result. The dispatcher only
+    // uses the heartbeat for `lastSeenAt`, so 0 is harmless today.
+    string body = "{"
+        + "\"terminalKey\":\"" + escapeJson(TERMINAL_ID) + "\","
+        + "\"accountBalance\":0"
+        + "}";
+    heartbeatReqId = llHTTPRequest(HEARTBEAT_URL,
+        [HTTP_METHOD, "POST",
+         HTTP_MIMETYPE, "application/json",
+         HTTP_BODY_MAXLENGTH, 16384],
+        body);
 }
 
 // ---------------- Deposit (money() handler) ----------------
@@ -385,6 +417,7 @@ default {
         DEPOSIT_URL           = "";
         WITHDRAW_REQUEST_URL  = "";
         PAYOUT_RESULT_URL     = "";
+        HEARTBEAT_URL         = "";
         SHARED_SECRET         = "";
         TERMINAL_ID           = "";
         REGION_NAME           = "";
@@ -415,6 +448,11 @@ default {
         inflightCmdRecipients      = [];
         inflightCmdAmounts         = [];
         payoutResultReqId   = NULL_KEY;
+        heartbeatReqId      = NULL_KEY;
+        // First heartbeat fires HEARTBEAT_INTERVAL_SECONDS after rez —
+        // by then registration has either succeeded or is retrying, so
+        // the heartbeat refreshes lastSeenAt on a known-good terminal.
+        nextHeartbeatAt     = llGetUnixTime() + HEARTBEAT_INTERVAL_SECONDS;
         timerPhase          = TIMER_NONE;
 
         // Mainland-only grid guard
@@ -787,6 +825,22 @@ default {
             }
             return;
         }
+
+        // ----- Heartbeat ack -----
+        if (req == heartbeatReqId) {
+            heartbeatReqId = NULL_KEY;
+            if (status >= 200 && status < 300) {
+                if (DEBUG_MODE)
+                    llOwnerSay("SLPA Terminal: heartbeat ok.");
+            } else {
+                // Heartbeats are best-effort: log and move on. Next interval
+                // will retry naturally.
+                if (DEBUG_MODE)
+                    llOwnerSay("SLPA Terminal: heartbeat failed status="
+                        + (string)status + " (will retry on next interval)");
+            }
+            return;
+        }
     }
 
     timer() {
@@ -802,6 +856,15 @@ default {
         }
         if (timerPhase == TIMER_WITHDRAW_RETRY && now >= withdrawNextRetryAt) {
             fireWithdrawRequest();
+        }
+
+        // Heartbeat tick (independent of timerPhase — runs on its own
+        // schedule, gated only on URL configured + no inflight request).
+        if (HEARTBEAT_URL != "" && TERMINAL_ID != ""
+                && heartbeatReqId == NULL_KEY
+                && now >= nextHeartbeatAt) {
+            postHeartbeat();
+            nextHeartbeatAt = now + HEARTBEAT_INTERVAL_SECONDS;
         }
 
         sweepExpiredSlots();

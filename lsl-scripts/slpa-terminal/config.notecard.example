@@ -2,11 +2,15 @@
 # Place this file (renamed to "config", no extension) in the prim's contents.
 # After editing, the script auto-resets via CHANGED_INVENTORY and re-registers.
 
-# Backend endpoint URLs — all four required.
+# Backend endpoint URLs — REGISTER/DEPOSIT/WITHDRAW_REQUEST/PAYOUT_RESULT
+# are required. HEARTBEAT_URL is optional but strongly recommended; without
+# it the terminal can drop out of dispatch rotation between rezzes /
+# inventory changes if it sits idle longer than the backend's live window.
 REGISTER_URL=https://slpa.app/api/v1/sl/terminal/register
 DEPOSIT_URL=https://slpa.app/api/v1/sl/wallet/deposit
 WITHDRAW_REQUEST_URL=https://slpa.app/api/v1/sl/wallet/withdraw-request
 PAYOUT_RESULT_URL=https://slpa.app/api/v1/sl/escrow/payout-result
+HEARTBEAT_URL=https://slpa.app/api/v1/sl/terminal/heartbeat
 
 # Shared secret for terminal authentication. REQUIRED.
 # Obtain from the backend's slpa.escrow.terminal-shared-secret config.

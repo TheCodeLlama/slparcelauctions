@@ -63,6 +63,27 @@ public class TerminalService {
      * Null / blank guards are kept as a fast fail path since they short-circuit
      * on configuration errors, not on attacker-controlled input.
      */
+    /**
+     * Refreshes {@code lastSeenAt} on the given terminal to {@code now}, so
+     * the dispatcher's {@code findAnyLive} window (active=true AND
+     * lastSeenAt within the live window) keeps the terminal in rotation.
+     *
+     * <p>Call this from any successful authenticated SL terminal callback —
+     * deposit, withdraw-request, payout-result, heartbeat — so the terminal
+     * stays live in the dispatcher's view as long as it is actively serving
+     * traffic, even if it hasn't re-registered recently.
+     *
+     * <p>No-op if the terminal id doesn't resolve (defensive — the caller
+     * has already validated existence by this point in production paths).
+     */
+    @Transactional
+    public void markSeen(String terminalId) {
+        terminalRepo.findById(terminalId).ifPresent(t -> {
+            t.setLastSeenAt(OffsetDateTime.now(clock));
+            terminalRepo.save(t);
+        });
+    }
+
     public void assertSharedSecret(String provided) {
         String expected = props.terminalSharedSecret();
         if (expected == null || expected.isBlank() || provided == null) {

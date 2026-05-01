@@ -33,6 +33,14 @@ backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
   and shouldn't arrive; if one does, log CRITICAL and fail.
 - **Region restart:** `changed(CHANGED_REGION_START)` triggers `llRequestURL()`
   + re-register. Backend's `terminals.http_in_url` is updated.
+- **Heartbeat (every 5 min):** the script periodically POSTs to
+  `/sl/terminal/heartbeat` so the backend dispatcher's `lastSeenAt` window
+  stays fresh. Without it, an idle but healthy terminal can drop out of
+  dispatch rotation between rezzes / inventory changes. The backend ALSO
+  refreshes `lastSeenAt` on every authenticated terminal call (deposit /
+  withdraw-request / payout-result), so heartbeats only matter when the
+  terminal is genuinely idle. Backward-compatible: if `HEARTBEAT_URL` is
+  empty in the notecard, heartbeats are skipped silently.
 
 ## Deployment
 
@@ -67,6 +75,7 @@ The new SLPA Parcel Verifier Giver prim (separate; see
 | `DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/deposit`. Required. |
 | `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required. |
 | `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required. |
+| `HEARTBEAT_URL` | Full URL of `/api/v1/sl/terminal/heartbeat`. Optional but recommended — see Architecture summary. |
 | `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
 | `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
@@ -93,6 +102,9 @@ In steady state with `DEBUG_MODE=true`:
 - `SLPA Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
   dispatched a wallet-withdrawal fulfillment to this terminal.
 - `SLPA Terminal: payout-result acknowledged.` — backend received our async result.
+- `SLPA Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
+- `SLPA Terminal: heartbeat failed status=...` — heartbeat POST failed; will
+  retry on the next interval. Not critical unless it persists.
 - `CRITICAL: SLPA Terminal: deposit ... not acknowledged after 5 retries` —
   deposit recovery failed; manual reconciliation required.
 - `CRITICAL: unexpected REFUND HTTP-in command` — the backend dispatched a

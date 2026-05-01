@@ -58,6 +58,12 @@ public class SlWalletController {
             return SlWalletResponse.error(SlWalletResponseReason.UNKNOWN_TERMINAL,
                     "terminalId not registered");
         }
+        // Authenticated traffic from this terminal keeps it "live" in the
+        // dispatcher's view — without this, lastSeenAt would only refresh on
+        // /sl/terminal/register, and an idle-but-healthy terminal would
+        // silently drop out of dispatch rotation after the live window
+        // expires.
+        terminalService.markSeen(req.terminalId());
 
         UUID payerUuid;
         try {
@@ -90,6 +96,12 @@ public class SlWalletController {
             return SlWalletResponse.error(SlWalletResponseReason.UNKNOWN_TERMINAL,
                     "terminalId not registered");
         }
+        // Authenticated traffic from this terminal keeps it "live" in the
+        // dispatcher's view — without this, lastSeenAt would only refresh on
+        // /sl/terminal/register, and an idle-but-healthy terminal would
+        // silently drop out of dispatch rotation after the live window
+        // expires.
+        terminalService.markSeen(req.terminalId());
 
         UUID payerUuid;
         try {
