@@ -86,22 +86,11 @@ resource "aws_vpc_security_group_egress_rule" "backend_to_redis" {
   description                  = "Backend to Redis"
 }
 
-resource "aws_vpc_security_group_egress_rule" "backend_to_internet_https" {
+resource "aws_vpc_security_group_egress_rule" "backend_to_internet_all" {
   security_group_id = aws_security_group.backend.id
   cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 443
-  to_port           = 443
-  ip_protocol       = "tcp"
-  description       = "Backend to SL World API + AWS APIs (Parameter Store, S3) via NAT"
-}
-
-resource "aws_vpc_security_group_egress_rule" "backend_to_internet_http" {
-  security_group_id = aws_security_group.backend.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 80
-  to_port           = 80
-  ip_protocol       = "tcp"
-  description       = "Backend egress on port 80 for SL World API HTTP redirect handling during retries"
+  ip_protocol       = "-1"
+  description       = "Backend to internet via NAT. Covers SL World API (443), HTTP redirects (80), AWS APIs (443), and dispatcher POSTs to in-world LSL HTTP-in URLs on simulator-assigned high ports (e.g. 12046)."
 }
 
 # ----- Bots: no inbound; egress to backend (ALB-fronted) + internet --------- #
