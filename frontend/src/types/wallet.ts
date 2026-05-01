@@ -31,6 +31,25 @@ export interface LedgerEntry {
   createdAt: string;
 }
 
+/**
+ * Ledger filter envelope. Mirrors the query params accepted by
+ * {@code GET /api/v1/me/wallet/ledger} (and the CSV export sibling).
+ *
+ * `from` / `to` are ISO-8601 instants — lower-bound inclusive, upper-bound
+ * exclusive on the backend, so a UI that wants "today" should set
+ * `to = start-of-tomorrow UTC`.
+ *
+ * `amountMin` / `amountMax` are bounds on the always-positive `amount`
+ * column; direction is implicit in the entry type, not the sign.
+ */
+export interface LedgerFilter {
+  entryTypes?: UserLedgerEntryType[];
+  from?: string;
+  to?: string;
+  amountMin?: number;
+  amountMax?: number;
+}
+
 export interface WalletView {
   balance: number;
   reserved: number;
