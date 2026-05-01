@@ -90,28 +90,39 @@ export function LedgerFilterBar({
 }: LedgerFilterBarProps) {
   // Local state for amount inputs so we can debounce — the persisted
   // filter only updates 300 ms after the user stops typing.
-  const [minStr, setMinStr] = useState<string>(
-    filter.amountMin !== undefined ? String(filter.amountMin) : "",
-  );
-  const [maxStr, setMaxStr] = useState<string>(
-    filter.amountMax !== undefined ? String(filter.amountMax) : "",
-  );
-  // Re-sync the local inputs if the parent filter changes externally
-  // (e.g. Reset, navigation, or restored from URL).
-  useEffect(() => {
-    setMinStr(filter.amountMin !== undefined ? String(filter.amountMin) : "");
-  }, [filter.amountMin]);
-  useEffect(() => {
-    setMaxStr(filter.amountMax !== undefined ? String(filter.amountMax) : "");
-  }, [filter.amountMax]);
+  //
+  // The displayed input string is reset to track the parent filter
+  // whenever the filter's amount changes externally (Reset, navigation,
+  // restored from URL). We do this by comparing the parent value against
+  // a "last seen" snapshot during render — React's idiomatic alternative
+  // to setState-in-effect, see
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const minProp =
+    filter.amountMin !== undefined ? String(filter.amountMin) : "";
+  const maxProp =
+    filter.amountMax !== undefined ? String(filter.amountMax) : "";
+  const [minStr, setMinStr] = useState<string>(minProp);
+  const [maxStr, setMaxStr] = useState<string>(maxProp);
+  const [lastMinProp, setLastMinProp] = useState<string>(minProp);
+  const [lastMaxProp, setLastMaxProp] = useState<string>(maxProp);
+  if (minProp !== lastMinProp) {
+    setLastMinProp(minProp);
+    setMinStr(minProp);
+  }
+  if (maxProp !== lastMaxProp) {
+    setLastMaxProp(maxProp);
+    setMaxStr(maxProp);
+  }
 
   const minTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const minTimerSnap = minTimer;
+    const maxTimerSnap = maxTimer;
     return () => {
-      if (minTimer.current) clearTimeout(minTimer.current);
-      if (maxTimer.current) clearTimeout(maxTimer.current);
+      if (minTimerSnap.current) clearTimeout(minTimerSnap.current);
+      if (maxTimerSnap.current) clearTimeout(maxTimerSnap.current);
     };
   }, []);
 

@@ -1,19 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Modal } from "@/components/ui/Modal";
+import { Pagination } from "@/components/ui/Pagination";
 import { AlertTriangle } from "@/components/ui/icons";
 import {
   withdraw,
   payPenalty,
   acceptTerms,
+  getLedger,
+  ledgerExportUrl,
 } from "@/lib/api/wallet";
 import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
 import { LedgerTable } from "@/components/wallet/LedgerTable";
+import { LedgerFilterBar } from "@/components/wallet/LedgerFilterBar";
+import type {
+  LedgerFilter,
+  UserLedgerEntryType,
+} from "@/types/wallet";
 
 function formatLindens(amount: number): string {
   return `L$${amount.toLocaleString()}`;
@@ -23,21 +32,156 @@ function genIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+const LEDGER_ENTRY_TYPES: UserLedgerEntryType[] = [
+  "DEPOSIT",
+  "WITHDRAW_QUEUED",
+  "WITHDRAW_COMPLETED",
+  "WITHDRAW_REVERSED",
+  "BID_RESERVED",
+  "BID_RELEASED",
+  "ESCROW_DEBIT",
+  "ESCROW_REFUND",
+  "LISTING_FEE_DEBIT",
+  "LISTING_FEE_REFUND",
+  "PENALTY_DEBIT",
+  "ADJUSTMENT",
+];
+
+function isLedgerEntryType(s: string): s is UserLedgerEntryType {
+  return (LEDGER_ENTRY_TYPES as string[]).includes(s);
+}
+
+/**
+ * Decode the wallet ledger filter from the URL search params. Inverse of
+ * {@link filterToUrlParams}. Unknown / malformed values are silently
+ * dropped so a hand-edited URL never crashes the page.
+ */
+function readFilterFromParams(params: URLSearchParams): LedgerFilter {
+  const filter: LedgerFilter = {};
+  const types = params.getAll("entryType").filter(isLedgerEntryType);
+  if (types.length > 0) filter.entryTypes = types;
+  const from = params.get("from");
+  if (from) filter.from = from;
+  const to = params.get("to");
+  if (to) filter.to = to;
+  const min = params.get("amountMin");
+  if (min !== null) {
+    const n = parseInt(min, 10);
+    if (Number.isFinite(n) && n >= 0) filter.amountMin = n;
+  }
+  const max = params.get("amountMax");
+  if (max !== null) {
+    const n = parseInt(max, 10);
+    if (Number.isFinite(n) && n >= 0) filter.amountMax = n;
+  }
+  return filter;
+}
+
+/**
+ * Encode a {@link LedgerFilter} into URL search params. Order is stable
+ * (entryType chips emit in their array order; scalars in a fixed order)
+ * so React Query's structural-equality cache key behaves predictably as
+ * the user toggles chips.
+ */
+function filterToUrlParams(filter: LedgerFilter): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filter.entryTypes?.length) {
+    filter.entryTypes.forEach((t) => params.append("entryType", t));
+  }
+  if (filter.from) params.set("from", filter.from);
+  if (filter.to) params.set("to", filter.to);
+  if (filter.amountMin !== undefined) {
+    params.set("amountMin", String(filter.amountMin));
+  }
+  if (filter.amountMax !== undefined) {
+    params.set("amountMax", String(filter.amountMax));
+  }
+  return params;
+}
+
 export function WalletPanel() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: wallet, isPending, error } = useWallet();
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showPenalty, setShowPenalty] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
 
+  // Read filter + page out of the URL so the panel survives refresh and
+  // shares deep-linkable views.
+  const filter = readFilterFromParams(searchParams);
+  const page = Math.max(0, parseInt(searchParams.get("page") ?? "0", 10) || 0);
+  const size = Math.min(
+    100,
+    Math.max(1, parseInt(searchParams.get("size") ?? "25", 10) || 25),
+  );
+
+  const { data: ledgerPage, isFetching: ledgerFetching } = useQuery({
+    queryKey: ["me", "wallet", "ledger", filter, page, size] as const,
+    queryFn: () => getLedger(filter, page, size),
+    enabled: !!wallet,
+  });
+
+  const handleFilterChange = (next: LedgerFilter) => {
+    const params = filterToUrlParams(next);
+    if (size !== 25) params.set("size", String(size));
+    // Always reset to page 0 when the filter changes — the previous page
+    // index has no meaning over the new filtered set.
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextPage <= 0) params.delete("page");
+    else params.set("page", String(nextPage));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
+  const handleExport = () => {
+    const url = ledgerExportUrl(filter);
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noopener";
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  /**
+   * Auto-open the Pay Penalty dialog when the page is reached via the
+   * `?penalty=open` deep link (e.g. the header pill's penalty CTA), and
+   * strip the param so a refresh doesn't re-open the dialog. Spec §4.5.
+   *
+   * setState-in-effect is intentional here: the trigger is a one-shot URL
+   * deep link, not derivable state.
+   */
+  useEffect(() => {
+    if (searchParams.get("penalty") !== "open") return;
+    if (wallet && wallet.penaltyOwed > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowPenalty(true);
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("penalty");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router, wallet]);
+
   /**
    * Invalidate the shared wallet cache so this component, the
    * {@link HeaderWalletIndicator}, and the {@link MobileMenu} all refetch
    * after a successful dialog action (withdraw / pay-penalty / accept-terms).
+   * Also invalidates the ledger query so a brand-new entry appears immediately.
    */
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: walletQueryKey });
+    await queryClient.invalidateQueries({ queryKey: ["me", "wallet", "ledger"] });
   };
 
   if (isPending) return <LoadingSpinner label="Loading wallet..." />;
@@ -127,11 +271,29 @@ export function WalletPanel() {
         </div>
       )}
 
+      <LedgerFilterBar
+        filter={filter}
+        onChange={handleFilterChange}
+        onExport={handleExport}
+      />
+
       <div className="bg-surface-container-lowest rounded-default shadow-soft p-6">
         <h3 className="text-lg font-semibold text-on-surface mb-3">
-          Recent Activity
+          Activity
         </h3>
-        <LedgerTable entries={wallet.recentLedger} />
+        <LedgerTable
+          entries={ledgerPage?.content ?? []}
+          isLoading={ledgerFetching && !ledgerPage}
+        />
+        {ledgerPage && ledgerPage.totalPages > 1 && (
+          <div className="mt-4">
+            <Pagination
+              page={ledgerPage.number}
+              totalPages={ledgerPage.totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        )}
       </div>
 
       <Modal
