@@ -53,6 +53,21 @@
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
+  /* ===== Warning (penalty owed, reserved bids, withdraw reversed) ===== */
+  --color-warning: #b54708;
+  --color-on-warning: #ffffff;
+  --color-warning-container: #fde7b7;
+  --color-on-warning-container: #4a2400;
+
+  /* ===== Success (deposits, refunds, credits) ===== */
+  --color-success: #146c2e;
+  --color-on-success: #ffffff;
+  --color-success-container: #c5f0c2;
+  --color-on-success-container: #002107;
+
+  /* ===== Scrim (modal/dialog backdrops) ===== */
+  --color-scrim: #000000;
+
   /* ===== Outline (used at low opacity, the no-line rule applies) ===== */
   --color-outline: #807666;
   --color-outline-variant: #d2c5b2;
@@ -183,6 +198,16 @@
   --color-on-error: #690005;
   --color-error-container: #93000a;
   --color-on-error-container: #ffdad6;
+
+  --color-warning: #ffb868;
+  --color-on-warning: #492900;
+  --color-warning-container: #683c00;
+  --color-on-warning-container: #fde7b7;
+
+  --color-success: #8edb8e;
+  --color-on-success: #00390d;
+  --color-success-container: #1f5128;
+  --color-on-success-container: #c5f0c2;
 
   --color-outline: #9b8f7e;
   --color-outline-variant: #4e4638;
