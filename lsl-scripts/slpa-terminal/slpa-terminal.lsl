@@ -156,7 +156,7 @@ debugSayUser(key who, string label, integer status, string body) {
 }
 
 setIdleChrome() {
-    llSetText("SLPA Terminal\nRight-click \xe2\x86\x92 Pay to deposit\nTouch for menu",
+    llSetText("SLPA Terminal\nRight-click → Pay to deposit\nTouch for menu",
         <1.0, 1.0, 1.0>, 1.0);
     llSetObjectName("SLPA Terminal");
     llSetPayPrice(PAY_DEFAULT, [100, 500, 1000, 5000]);
