@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import {
-  getWallet,
   withdraw,
   payPenalty,
   acceptTerms,
 } from "@/lib/api/wallet";
-import type { LedgerEntry, WalletView } from "@/types/wallet";
+import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
+import type { LedgerEntry } from "@/types/wallet";
 
 function formatLindens(amount: number): string {
   return `L$${amount.toLocaleString()}`;
@@ -38,32 +39,24 @@ function genIdempotencyKey(): string {
 }
 
 export function WalletPanel() {
-  const [wallet, setWallet] = useState<WalletView | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { data: wallet, isPending, error } = useWallet();
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showPenalty, setShowPenalty] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
 
+  /**
+   * Invalidate the shared wallet cache so this component, the
+   * {@link HeaderWalletIndicator}, and the {@link MobileMenu} all refetch
+   * after a successful dialog action (withdraw / pay-penalty / accept-terms).
+   */
   const refresh = async () => {
-    try {
-      const w = await getWallet();
-      setWallet(w);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load wallet");
-    } finally {
-      setLoading(false);
-    }
+    await queryClient.invalidateQueries({ queryKey: walletQueryKey });
   };
 
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  if (loading) return <LoadingSpinner label="Loading wallet..." />;
-  if (error) return <Card><p>Error: {error}</p></Card>;
+  if (isPending) return <LoadingSpinner label="Loading wallet..." />;
+  if (error) return <Card><p>Error: {error instanceof Error ? error.message : "Failed to load wallet"}</p></Card>;
   if (!wallet) return null;
 
   return (
