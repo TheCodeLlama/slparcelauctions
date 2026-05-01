@@ -1,16 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { Modal } from "@/components/ui/Modal";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Clock,
+  Lock,
+  Pencil,
+  Tag,
+  Undo2,
+  Unlock,
+  Wallet,
+} from "@/components/ui/icons";
+import { cn } from "@/lib/cn";
 import {
   withdraw,
   payPenalty,
   acceptTerms,
 } from "@/lib/api/wallet";
 import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
+import { formatRelativeTime } from "@/lib/time/relativeTime";
 import type { LedgerEntry } from "@/types/wallet";
 
 function formatLindens(amount: number): string {
@@ -32,6 +47,69 @@ function entryTypeLabel(t: LedgerEntry["entryType"]): string {
     case "PENALTY_DEBIT": return "Penalty paid";
     case "ADJUSTMENT": return "Adjustment";
   }
+}
+
+type EntryVisual = {
+  Icon: ComponentType<{ className?: string }>;
+  tone: string;
+};
+
+/**
+ * Maps ledger entry types to a lucide icon + a Material-3 colour token
+ * pair. Inflows (deposit / refund) use {@code text-success}; outflows that
+ * are user-initiated and final use the neutral {@code text-on-surface};
+ * "in-progress" or warning-tinted entries (queued withdraw, reserved bid,
+ * penalty) use {@code text-warning}.
+ */
+function entryVisual(t: LedgerEntry["entryType"]): EntryVisual {
+  switch (t) {
+    case "DEPOSIT":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
+    case "WITHDRAW_QUEUED":
+      return { Icon: Clock, tone: "text-on-surface-variant" };
+    case "WITHDRAW_COMPLETED":
+      return { Icon: ArrowUpFromLine, tone: "text-on-surface" };
+    case "WITHDRAW_REVERSED":
+      return { Icon: Undo2, tone: "text-warning" };
+    case "BID_RESERVED":
+      return { Icon: Lock, tone: "text-warning" };
+    case "BID_RELEASED":
+      return { Icon: Unlock, tone: "text-on-surface-variant" };
+    case "ESCROW_DEBIT":
+      return { Icon: ArrowUpFromLine, tone: "text-on-surface" };
+    case "ESCROW_REFUND":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
+    case "LISTING_FEE_DEBIT":
+      return { Icon: Tag, tone: "text-on-surface" };
+    case "LISTING_FEE_REFUND":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
+    case "PENALTY_DEBIT":
+      return { Icon: AlertTriangle, tone: "text-warning" };
+    case "ADJUSTMENT":
+      return { Icon: Pencil, tone: "text-on-surface-variant" };
+  }
+}
+
+/**
+ * Recent-ledger row date label. Within the last 24 hours we render
+ * a relative string ({@code "3m ago"}); older entries fall back to a
+ * compact absolute date-time. Title attribute always holds the
+ * absolute-locale string so a hover surfaces the precise instant.
+ */
+function formatLedgerDate(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return iso;
+  const hoursAgo = (Date.now() - d.getTime()) / (1000 * 60 * 60);
+  if (hoursAgo < 24) {
+    return formatRelativeTime(d);
+  }
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function genIdempotencyKey(): string {
@@ -56,142 +134,226 @@ export function WalletPanel() {
   };
 
   if (isPending) return <LoadingSpinner label="Loading wallet..." />;
-  if (error) return <Card><p>Error: {error instanceof Error ? error.message : "Failed to load wallet"}</p></Card>;
+  if (error) {
+    return (
+      <div className="bg-surface-container-lowest rounded-default shadow-soft p-6">
+        <p className="text-on-surface">
+          Error: {error instanceof Error ? error.message : "Failed to load wallet"}
+        </p>
+      </div>
+    );
+  }
   if (!wallet) return null;
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <div className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold">Your SLPA Wallet</h2>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-sm text-neutral-500">Balance</div>
-              <div className="text-2xl font-semibold">{formatLindens(wallet.balance)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-neutral-500">Reserved (active bids)</div>
-              <div className="text-2xl font-semibold">{formatLindens(wallet.reserved)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-neutral-500">Available</div>
-              <div className="text-2xl font-semibold">{formatLindens(wallet.available)}</div>
-            </div>
+      {/* Hero balance card — Available is dominant; Balance + Reserved are
+          secondary breakdown rows. Replaces the earlier 3-equal-cell grid. */}
+      <div className="bg-surface-container rounded-2xl p-6">
+        <div className="text-xs uppercase tracking-wide text-on-surface-variant mb-1">
+          Available
+        </div>
+        <div className="text-4xl font-semibold tabular-nums text-on-surface">
+          {formatLindens(wallet.available)}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <div>
+            <span className="text-on-surface-variant">Balance </span>
+            <span className="tabular-nums text-on-surface">
+              {formatLindens(wallet.balance)}
+            </span>
           </div>
+          <div>
+            <span className="text-on-surface-variant">Reserved (active bids) </span>
+            <span className="tabular-nums text-on-surface">
+              {formatLindens(wallet.reserved)}
+            </span>
+          </div>
+        </div>
 
-          {wallet.penaltyOwed > 0 && (
-            <div className="rounded border border-amber-400 bg-amber-50 p-3">
-              <div className="font-medium">Outstanding penalty: {formatLindens(wallet.penaltyOwed)}</div>
-              <div className="text-sm text-neutral-700">
-                Clear this to publish new listings or place new bids.
-                {wallet.available < wallet.penaltyOwed && (
-                  <> Deposit {formatLindens(wallet.penaltyOwed - wallet.available)} more or wait for active bids to resolve.</>
-                )}
-              </div>
-              <div className="mt-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowPenalty(true)}
-                  disabled={wallet.available <= 0}
-                >
-                  Pay Penalty
-                </Button>
-              </div>
-            </div>
-          )}
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button
+            variant="primary"
+            onClick={() => {
+              if (!wallet.termsAccepted) setShowTerms(true);
+              else setShowDeposit(true);
+            }}
+          >
+            How to Deposit
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowWithdraw(true)}
+            disabled={wallet.available <= 0}
+          >
+            Withdraw
+          </Button>
+        </div>
+      </div>
 
-          <div className="flex gap-3">
+      {wallet.penaltyOwed > 0 && (
+        <div className="rounded-2xl border border-warning bg-warning-container/40 p-4 flex gap-3">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="font-medium text-on-warning-container">
+              Outstanding penalty: {formatLindens(wallet.penaltyOwed)}
+            </h3>
+            <p className="text-sm text-on-surface-variant mt-1">
+              Clear this to publish new listings or place new bids.
+            </p>
+            {wallet.available < wallet.penaltyOwed && (
+              <p className="text-sm text-on-surface-variant mt-1">
+                Deposit {formatLindens(wallet.penaltyOwed - wallet.available)} more
+                or wait for active bids to resolve.
+              </p>
+            )}
             <Button
               variant="primary"
-              onClick={() => {
-                if (!wallet.termsAccepted) setShowTerms(true);
-                else setShowDeposit(true);
-              }}
-            >
-              How to Deposit
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowWithdraw(true)}
+              size="sm"
+              className="mt-3"
+              onClick={() => setShowPenalty(true)}
               disabled={wallet.available <= 0}
             >
-              Withdraw
+              Pay Penalty
             </Button>
           </div>
         </div>
-      </Card>
+      )}
 
-      <Card>
-        <h3 className="text-lg font-semibold mb-3">Recent Activity</h3>
+      <div className="bg-surface-container-lowest rounded-default shadow-soft p-6">
+        <h3 className="text-lg font-semibold text-on-surface mb-3">
+          Recent Activity
+        </h3>
         {wallet.recentLedger.length === 0 ? (
-          <p className="text-sm text-neutral-500">No wallet activity yet.</p>
+          <div className="flex flex-col items-center text-center py-8 gap-3">
+            <Wallet className="h-12 w-12 text-on-surface-variant/40" />
+            <h3 className="font-medium text-on-surface">No activity yet</h3>
+            <p className="text-sm text-on-surface-variant max-w-sm">
+              Visit any SLPA Terminal in-world to make your first deposit.
+              Locations: SLPA HQ and partner auction venues.
+            </p>
+          </div>
         ) : (
-          <ul className="space-y-1 text-sm">
-            {wallet.recentLedger.map(e => (
-              <li key={e.id} className="flex justify-between border-b border-neutral-200 py-2">
-                <div>
-                  <div className="font-medium">{entryTypeLabel(e.entryType)}</div>
-                  <div className="text-xs text-neutral-500">{new Date(e.createdAt).toLocaleString()}</div>
-                </div>
-                <div className="text-right">
-                  <div>{formatLindens(e.amount)}</div>
-                  <div className="text-xs text-neutral-500">
-                    Bal {formatLindens(e.balanceAfter)} / Res {formatLindens(e.reservedAfter)}
+          <ul className="text-sm">
+            {wallet.recentLedger.map((e) => {
+              const { Icon, tone } = entryVisual(e.entryType);
+              return (
+                <li
+                  key={e.id}
+                  className={cn(
+                    "flex justify-between items-start gap-3 px-2 py-2 rounded-md",
+                    "border-b border-outline-variant last:border-b-0",
+                    "hover:bg-surface-container-low",
+                  )}
+                >
+                  <div className="flex items-start min-w-0">
+                    <Icon
+                      className={cn("h-4 w-4 mr-2 mt-0.5 shrink-0", tone)}
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-on-surface truncate">
+                        {entryTypeLabel(e.entryType)}
+                      </div>
+                      <div
+                        className="text-xs text-on-surface-variant"
+                        title={new Date(e.createdAt).toLocaleString()}
+                      >
+                        {formatLedgerDate(e.createdAt)}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                  <div className="text-right shrink-0">
+                    <div className={cn("tabular-nums", tone)}>
+                      {formatLindens(e.amount)}
+                    </div>
+                    <div className="text-xs text-on-surface-variant tabular-nums">
+                      Bal {formatLindens(e.balanceAfter)} / Res {formatLindens(e.reservedAfter)}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
-      </Card>
+      </div>
 
-      {showTerms && (
-        <SimpleDialog title="SLPA Wallet Terms of Use" onClose={() => setShowTerms(false)}>
-          <div className="text-sm space-y-2">
-            <p>By using the SLPA wallet, you acknowledge:</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Non-interest-bearing.</strong> L$ held in your wallet do not earn interest, dividends, or any return.</li>
-              <li><strong>L$ status.</strong> L$ are a Linden Lab limited-license token, not currency. SLPA holds L$ on your behalf as a transactional convenience.</li>
-              <li><strong>No L$↔USD conversion.</strong> SLPA does not exchange L$ for USD or any other currency.</li>
-              <li><strong>Recoverable on shutdown.</strong> If SLPA ceases operations, all positive wallet balances will be returned to your verified SL avatar.</li>
-              <li><strong>Freezable for fraud.</strong> SLPA may freeze a wallet balance pending fraud investigation, max 30 days absent legal process.</li>
-              <li><strong>Dormancy.</strong> Wallets inactive for 30 days are flagged; after 4 weekly notifications, balance auto-returns to your SL avatar.</li>
-              <li><strong>Banned-Resident handling.</strong> If your SL account loses good standing, your wallet balance returns to your last-verified SL avatar.</li>
-            </ul>
-            <div className="pt-3 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setShowTerms(false)}>Cancel</Button>
-              <Button
-                variant="primary"
-                onClick={async () => {
-                  await acceptTerms({ termsVersion: "1.0" });
-                  await refresh();
-                  setShowTerms(false);
-                  setShowDeposit(true);
-                }}
-              >I Accept</Button>
-            </div>
-          </div>
-        </SimpleDialog>
-      )}
+      <Modal
+        open={showTerms}
+        title="SLPA Wallet Terms of Use"
+        onClose={() => setShowTerms(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowTerms(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                await acceptTerms({ termsVersion: "1.0" });
+                await refresh();
+                setShowTerms(false);
+                setShowDeposit(true);
+              }}
+            >
+              I Accept
+            </Button>
+          </>
+        }
+      >
+        <p>By using the SLPA wallet, you acknowledge:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>
+            <strong>Non-interest-bearing.</strong> L$ held in your wallet do not
+            earn interest, dividends, or any return.
+          </li>
+          <li>
+            <strong>L$ status.</strong> L$ are a Linden Lab limited-license token,
+            not currency. SLPA holds L$ on your behalf as a transactional convenience.
+          </li>
+          <li>
+            <strong>No L$&harr;USD conversion.</strong> SLPA does not exchange L$
+            for USD or any other currency.
+          </li>
+          <li>
+            <strong>Recoverable on shutdown.</strong> If SLPA ceases operations,
+            all positive wallet balances will be returned to your verified SL avatar.
+          </li>
+          <li>
+            <strong>Freezable for fraud.</strong> SLPA may freeze a wallet balance
+            pending fraud investigation, max 30 days absent legal process.
+          </li>
+          <li>
+            <strong>Dormancy.</strong> Wallets inactive for 30 days are flagged;
+            after 4 weekly notifications, balance auto-returns to your SL avatar.
+          </li>
+          <li>
+            <strong>Banned-Resident handling.</strong> If your SL account loses
+            good standing, your wallet balance returns to your last-verified SL avatar.
+          </li>
+        </ul>
+      </Modal>
 
-      {showDeposit && (
-        <SimpleDialog title="How to Deposit" onClose={() => setShowDeposit(false)}>
-          <div className="text-sm space-y-2">
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Visit any SLPA Terminal in-world (SLPA HQ or an auction venue).</li>
-              <li>Right-click the terminal → Pay → enter the L$ amount.</li>
-              <li>Funds will be credited to this wallet within seconds.</li>
-            </ol>
-            <p className="text-xs text-neutral-600">
-              Multiple users can deposit simultaneously. There&apos;s no menu choice — every payment to the terminal is a deposit to your SLPA wallet.
-            </p>
-            <div className="pt-3 flex justify-end">
-              <Button variant="primary" onClick={() => setShowDeposit(false)}>Got it</Button>
-            </div>
-          </div>
-        </SimpleDialog>
-      )}
+      <Modal
+        open={showDeposit}
+        title="How to Deposit"
+        onClose={() => setShowDeposit(false)}
+        footer={
+          <Button variant="primary" onClick={() => setShowDeposit(false)}>
+            Got it
+          </Button>
+        }
+      >
+        <ol className="list-decimal pl-5 space-y-2">
+          <li>Visit any SLPA Terminal in-world (SLPA HQ or an auction venue).</li>
+          <li>Right-click the terminal &rarr; Pay &rarr; enter the L$ amount.</li>
+          <li>Funds will be credited to this wallet within seconds.</li>
+        </ol>
+        <p className="text-xs text-on-surface-variant">
+          Multiple users can deposit simultaneously. There&apos;s no menu choice
+          &mdash; every payment to the terminal is a deposit to your SLPA wallet.
+        </p>
+      </Modal>
 
       {showWithdraw && (
         <WithdrawDialog
@@ -215,25 +377,6 @@ export function WalletPanel() {
           }}
         />
       )}
-    </div>
-  );
-}
-
-function SimpleDialog({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-3">{title}</h3>
-        {children}
-      </div>
     </div>
   );
 }
@@ -273,28 +416,38 @@ function WithdrawDialog({
   };
 
   return (
-    <SimpleDialog title="Withdraw L$" onClose={onClose}>
-      <div className="space-y-3 text-sm">
-        <p>Available: <strong>{formatLindens(available)}</strong></p>
-        <p className="text-xs text-neutral-600">
-          Funds will be sent to your verified SL avatar via the in-world SLPA terminal pool.
-        </p>
-        <input
-          type="text"
-          value={amount}
-          onChange={e => setAmount(e.target.value)}
-          placeholder="Amount in L$"
-          className="border border-neutral-300 rounded px-3 py-2 w-full"
-        />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
+    <Modal
+      open
+      title="Withdraw L$"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
           <Button variant="primary" onClick={submit} disabled={submitting}>
             {submitting ? "Submitting..." : "Withdraw"}
           </Button>
-        </div>
-      </div>
-    </SimpleDialog>
+        </>
+      }
+    >
+      <p>
+        Available: <strong>{formatLindens(available)}</strong>
+      </p>
+      <p className="text-xs text-on-surface-variant">
+        Funds will be sent to your verified SL avatar via the in-world SLPA
+        terminal pool.
+      </p>
+      <Input
+        type="text"
+        inputMode="numeric"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Amount in L$"
+        aria-label="Withdrawal amount in L$"
+        error={error ?? undefined}
+      />
+    </Modal>
   );
 }
 
@@ -309,7 +462,9 @@ function PayPenaltyDialog({
   onClose: () => void;
   onSuccess: () => Promise<void>;
 }) {
-  const [amount, setAmount] = useState<string>(String(Math.min(available, owed)));
+  const [amount, setAmount] = useState<string>(
+    String(Math.min(available, owed)),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -339,26 +494,39 @@ function PayPenaltyDialog({
   };
 
   return (
-    <SimpleDialog title="Pay Penalty" onClose={onClose}>
-      <div className="space-y-3 text-sm">
-        <p>Outstanding penalty: <strong>{formatLindens(owed)}</strong></p>
-        <p>Available balance: <strong>{formatLindens(available)}</strong></p>
-        <p className="text-xs text-neutral-600">Partial payments allowed up to the owed amount.</p>
-        <input
-          type="text"
-          value={amount}
-          onChange={e => setAmount(e.target.value)}
-          placeholder="Amount in L$"
-          className="border border-neutral-300 rounded px-3 py-2 w-full"
-        />
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
+    <Modal
+      open
+      title="Pay Penalty"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
           <Button variant="primary" onClick={submit} disabled={submitting}>
             {submitting ? "Submitting..." : "Pay"}
           </Button>
-        </div>
-      </div>
-    </SimpleDialog>
+        </>
+      }
+    >
+      <p>
+        Outstanding penalty: <strong>{formatLindens(owed)}</strong>
+      </p>
+      <p>
+        Available balance: <strong>{formatLindens(available)}</strong>
+      </p>
+      <p className="text-xs text-on-surface-variant">
+        Partial payments allowed up to the owed amount.
+      </p>
+      <Input
+        type="text"
+        inputMode="numeric"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Amount in L$"
+        aria-label="Penalty payment amount in L$"
+        error={error ?? undefined}
+      />
+    </Modal>
   );
 }
