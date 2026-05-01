@@ -12,7 +12,7 @@ ALTER TABLE users
     ADD COLUMN balance_lindens BIGINT NOT NULL DEFAULT 0,
     ADD COLUMN reserved_lindens BIGINT NOT NULL DEFAULT 0,
     ADD COLUMN wallet_dormancy_started_at TIMESTAMPTZ NULL,
-    ADD COLUMN wallet_dormancy_phase SMALLINT NULL,
+    ADD COLUMN wallet_dormancy_phase INTEGER NULL,
     ADD COLUMN wallet_terms_accepted_at TIMESTAMPTZ NULL,
     ADD COLUMN wallet_terms_version VARCHAR(16) NULL;
 
