@@ -55,6 +55,7 @@ export interface WalletView {
   reserved: number;
   available: number;
   penaltyOwed: number;
+  queuedForWithdrawal: number;
   termsAccepted: boolean;
   termsVersion: string | null;
   termsAcceptedAt: string | null;

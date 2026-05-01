@@ -9,6 +9,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,11 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 public class WalletBroadcastPublisher {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final UserLedgerRepository ledgerRepository;
     private final Clock clock;
 
     public void publish(User user, String reason, Long ledgerEntryId) {
+        long queuedForWithdrawal = ledgerRepository.sumPendingWithdrawals(user.getId());
         WalletBalanceChangedEnvelope envelope = WalletBalanceChangedEnvelope.of(
-                user, reason, ledgerEntryId, OffsetDateTime.now(clock));
+                user, reason, ledgerEntryId, queuedForWithdrawal, OffsetDateTime.now(clock));
         Long userId = user.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(

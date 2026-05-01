@@ -70,6 +70,7 @@ class TerminalCommandDispatcherTaskTest {
     @Mock TerminalHttpClient terminalHttp;
     @Mock EscrowBroadcastPublisher broadcastPublisher;
     @Mock EscrowConfigProperties props;
+    @Mock com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
 
     TerminalCommandDispatcherTask task;
     Clock fixed;
@@ -79,7 +80,7 @@ class TerminalCommandDispatcherTaskTest {
         fixed = Clock.fixed(Instant.parse("2026-04-21T14:00:00Z"), ZoneOffset.UTC);
         task = new TerminalCommandDispatcherTask(
                 cmdRepo, terminalRepo, escrowRepo, ledgerRepo, terminalHttp,
-                broadcastPublisher, props, fixed);
+                broadcastPublisher, props, walletWithdrawalCallbackHandler, fixed);
         lenient().when(props.terminalLiveWindow()).thenReturn(LIVE_WINDOW);
         lenient().when(props.commandInFlightTimeout()).thenReturn(IN_FLIGHT_TIMEOUT);
         lenient().when(props.terminalSharedSecret()).thenReturn(SHARED_SECRET);

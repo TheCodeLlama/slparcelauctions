@@ -80,11 +80,13 @@ public class MeWalletController {
     public WalletViewResponse view(@AuthenticationPrincipal AuthPrincipal principal) {
         User user = userRepository.findById(principal.userId()).orElseThrow();
         List<UserLedgerEntry> recent = ledgerRepository.findTop50ByUserIdOrderByCreatedAtDesc(principal.userId());
+        long queuedForWithdrawal = ledgerRepository.sumPendingWithdrawals(principal.userId());
         return new WalletViewResponse(
                 user.getBalanceLindens(),
                 user.getReservedLindens(),
                 user.availableLindens(),
                 user.getPenaltyBalanceOwed() == null ? 0L : user.getPenaltyBalanceOwed(),
+                queuedForWithdrawal,
                 user.getWalletTermsAcceptedAt() != null,
                 user.getWalletTermsVersion(),
                 user.getWalletTermsAcceptedAt(),

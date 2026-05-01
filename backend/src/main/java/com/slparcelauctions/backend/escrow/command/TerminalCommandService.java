@@ -73,6 +73,7 @@ public class TerminalCommandService {
     private final Clock clock;
     private final TerminalSecretService terminalSecretService;
     private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
+    private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -184,16 +185,17 @@ public class TerminalCommandService {
             log.info("Terminal command {} COMPLETED via callback (purpose={}, action={}, slTxn={})",
                     cmd.getId(), cmd.getPurpose(), cmd.getAction(), req.slTransactionKey());
         } else {
-            // Write a FAILED ledger row so the dispute timeline + forensic
-            // replay capture the failed attempt even if the next retry
-            // eventually succeeds. The row is keyed to the originating
-            // escrow / auction so the UI timeline surfaces it.
-            // ADMIN_WITHDRAWAL commands have no escrow row and are tracked
-            // in the Withdrawal entity instead — skip ledger write for them.
+            // Write a FAILED escrow_transactions row so the dispute timeline
+            // + forensic replay capture the failed attempt even if the next
+            // retry eventually succeeds. The row is keyed to the originating
+            // escrow / auction so the UI timeline surfaces it. Skip for the
+            // non-escrow command shapes — ADMIN_WITHDRAWAL is tracked in
+            // the Withdrawal entity, WALLET_WITHDRAWAL in user_ledger.
             Escrow escrow = cmd.getEscrowId() == null
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
-            if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
+            if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL
+                    && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL) {
                 ledgerRepo.save(buildFailedLedgerRow(
                         cmd, escrow, req.errorMessage(), req.slTransactionKey()));
             }
@@ -216,6 +218,8 @@ public class TerminalCommandService {
                 }
                 if (cmd.getPurpose() == TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
                     withdrawalCallbackHandler.onFailure(cmd.getId(), req.errorMessage());
+                } else if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+                    walletWithdrawalCallbackHandler.onStall(cmd, req.errorMessage());
                 }
                 log.error("Terminal command {} STALLED after {} attempts: err={}",
                         cmd.getId(), cmd.getAttemptCount(), req.errorMessage());
@@ -234,6 +238,8 @@ public class TerminalCommandService {
             handleListingFeeRefundSuccess(cmd, slTxn, now);
         } else if (cmd.getPurpose() == TerminalCommandPurpose.ADMIN_WITHDRAWAL) {
             withdrawalCallbackHandler.onSuccess(cmd.getId());
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+            walletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()
