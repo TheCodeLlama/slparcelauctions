@@ -46,6 +46,7 @@ export function HeaderWalletIndicator() {
   const balance = wallet?.balance ?? 0;
   const reserved = wallet?.reserved ?? 0;
   const penaltyOwed = wallet?.penaltyOwed ?? 0;
+  const queuedForWithdrawal = wallet?.queuedForWithdrawal ?? 0;
 
   return (
     <Link
@@ -85,6 +86,14 @@ export function HeaderWalletIndicator() {
             <dt className="text-on-surface-variant">Reserved</dt>
             <dd className="tabular-nums text-on-surface">{formatLindens(reserved)}</dd>
           </div>
+          {queuedForWithdrawal > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-on-surface-variant">Queued for Withdrawal</dt>
+              <dd className="tabular-nums text-on-surface">
+                {formatLindens(queuedForWithdrawal)}
+              </dd>
+            </div>
+          )}
           <div className="flex justify-between font-medium">
             <dt className="text-on-surface">Available</dt>
             <dd className="tabular-nums text-on-surface">{formatLindens(available)}</dd>

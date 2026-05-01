@@ -19,6 +19,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowPayoutStalledEnvelope
 import com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy;
 import com.slparcelauctions.backend.escrow.command.TerminalCommand;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandBody;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandPurpose;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandStatus;
@@ -26,6 +27,7 @@ import com.slparcelauctions.backend.escrow.command.TerminalHttpClient;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
+import com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +59,7 @@ public class TerminalCommandDispatcherTask {
     private final TerminalHttpClient terminalHttp;
     private final EscrowBroadcastPublisher broadcastPublisher;
     private final EscrowConfigProperties props;
+    private final WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final Clock clock;
 
     /**
@@ -136,9 +139,22 @@ public class TerminalCommandDispatcherTask {
             Escrow escrow = cmd.getEscrowId() == null
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
-            ledgerRepo.save(TerminalCommandService.buildFailedLedgerRow(
-                    cmd, escrow, result.errorMessage(), null));
+            // Skip the escrow_transactions FAILED row for non-escrow command
+            // shapes — ADMIN_WITHDRAWAL is tracked on the Withdrawal entity,
+            // WALLET_WITHDRAWAL in user_ledger.
+            if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL
+                    && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+                ledgerRepo.save(TerminalCommandService.buildFailedLedgerRow(
+                        cmd, escrow, result.errorMessage(), null));
+            }
             publishStall(cmd, escrow, now);
+            // For wallet withdrawals: refund the user's balance (append
+            // WITHDRAW_REVERSED), and IM them about the failure. Without
+            // this hook a transport stall would leave the user's balance
+            // permanently debited with no L$ delivered.
+            if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+                walletWithdrawalCallbackHandler.onStall(cmd, result.errorMessage());
+            }
             log.error("Terminal command {} STALLED after {} attempts (transport): err={}",
                     cmd.getId(), cmd.getAttemptCount(), result.errorMessage());
         } else {

@@ -230,6 +230,14 @@ export function WalletPanel() {
               {formatLindens(wallet.reserved)}
             </span>
           </div>
+          {wallet.queuedForWithdrawal > 0 && (
+            <div>
+              <span className="text-on-surface-variant">Queued for Withdrawal </span>
+              <span className="tabular-nums text-on-surface">
+                {formatLindens(wallet.queuedForWithdrawal)}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">

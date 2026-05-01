@@ -429,6 +429,26 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void walletWithdrawalCompleted(long userId, long amountL, Long ledgerEntryId) {
+        String title = String.format("Withdrawal completed: L$%,d", amountL);
+        String body = "L$ " + amountL + " has been transferred to your SL avatar from your SLPA wallet.";
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_WITHDRAWAL_COMPLETED, title, body,
+            NotificationDataBuilder.walletWithdrawalCompleted(amountL, ledgerEntryId),
+            null));
+    }
+
+    @Override
+    public void walletWithdrawalReversed(long userId, long amountL, Long ledgerEntryId, String reason) {
+        String title = String.format("Withdrawal reversed: L$%,d", amountL);
+        String body = "Your L$ " + amountL + " withdrawal could not be completed and was credited back to your SLPA wallet. Reason: " + reason;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_WITHDRAWAL_REVERSED, title, body,
+            NotificationDataBuilder.walletWithdrawalReversed(amountL, ledgerEntryId, reason),
+            null));
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.

@@ -203,6 +203,19 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> walletWithdrawalCompleted(long amountL, Long ledgerEntryId) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("amountL", amountL);
+        m.put("ledgerEntryId", ledgerEntryId);
+        return m;
+    }
+
+    public static Map<String, Object> walletWithdrawalReversed(long amountL, Long ledgerEntryId, String reason) {
+        Map<String, Object> m = walletWithdrawalCompleted(amountL, ledgerEntryId);
+        m.put("reason", reason);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

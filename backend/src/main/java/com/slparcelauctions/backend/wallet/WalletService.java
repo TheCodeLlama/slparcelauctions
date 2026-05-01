@@ -577,6 +577,32 @@ public class WalletService {
     }
 
     /* ========================================================== */
+    /* Queries                                                     */
+    /* ========================================================== */
+
+    /**
+     * Sum of withdrawal amounts currently debited but not yet
+     * completed or reversed. Used to populate the "Queued for
+     * Withdrawal" indicator in the wallet view.
+     */
+    @Transactional(readOnly = true)
+    public long pendingWithdrawalAmount(Long userId) {
+        return ledgerRepository.sumPendingWithdrawals(userId);
+    }
+
+    /**
+     * Look up the user the given ledger entry belongs to. Used by
+     * {@code WalletWithdrawalCallbackHandler} to address the SL IM
+     * notification on success / reversal.
+     */
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
+    public Long findUserIdForLedgerEntry(Long ledgerEntryId) {
+        return ledgerRepository.findById(ledgerEntryId)
+                .map(UserLedgerEntry::getUserId)
+                .orElse(null);
+    }
+
+    /* ========================================================== */
     /* Helpers                                                     */
     /* ========================================================== */
 

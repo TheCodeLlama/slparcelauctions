@@ -74,4 +74,8 @@ public interface NotificationPublisher {
     // Admin withdrawals
     void withdrawalCompleted(long adminUserId, long amountL, String recipientUuid);
     void withdrawalFailed(long adminUserId, long amountL, String recipientUuid, String reason);
+
+    // User wallet withdrawals (terminal-fulfilled)
+    void walletWithdrawalCompleted(long userId, long amountL, Long ledgerEntryId);
+    void walletWithdrawalReversed(long userId, long amountL, Long ledgerEntryId, String reason);
 }

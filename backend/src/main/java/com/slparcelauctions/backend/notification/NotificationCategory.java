@@ -31,7 +31,9 @@ public enum NotificationCategory {
     DISPUTE_RESOLVED(NotificationGroup.ESCROW),
     RECONCILIATION_MISMATCH(NotificationGroup.ADMIN_OPS),
     WITHDRAWAL_COMPLETED(NotificationGroup.ADMIN_OPS),
-    WITHDRAWAL_FAILED(NotificationGroup.ADMIN_OPS);
+    WITHDRAWAL_FAILED(NotificationGroup.ADMIN_OPS),
+    WALLET_WITHDRAWAL_COMPLETED(NotificationGroup.SYSTEM),
+    WALLET_WITHDRAWAL_REVERSED(NotificationGroup.SYSTEM);
 
     private final NotificationGroup group;
 

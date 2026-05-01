@@ -24,6 +24,7 @@ export interface WalletBalanceChangedEnvelope {
   reserved: number;
   available: number;
   penaltyOwed: number;
+  queuedForWithdrawal: number;
   reason: string;
   ledgerEntryId: number | null;
   occurredAt: string;
@@ -67,6 +68,7 @@ export function useWalletWsSubscription(enabled: boolean): void {
           reserved: env.reserved,
           available: env.available,
           penaltyOwed: env.penaltyOwed,
+          queuedForWithdrawal: env.queuedForWithdrawal,
         };
       });
       qc.invalidateQueries({ queryKey: ["me", "wallet", "ledger"] });
