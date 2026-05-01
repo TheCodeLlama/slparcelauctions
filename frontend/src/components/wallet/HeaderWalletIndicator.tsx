@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, ArrowRight, Wallet } from "@/components/ui/icons";
 import { useCurrentUser } from "@/lib/user";
 import { useWallet } from "@/lib/wallet/use-wallet";
+import { useWalletWsSubscription } from "@/lib/wallet/use-wallet-ws";
 import { cn } from "@/lib/cn";
 
 function formatLindens(amount: number): string {
@@ -34,6 +35,10 @@ export function HeaderWalletIndicator() {
   const { data: user } = useCurrentUser();
   const verified = user?.verified === true;
   const { data: wallet } = useWallet(verified);
+  // Live updates via /user/queue/wallet — empty destination short-circuits
+  // the subscription for guests / unverified users so the STOMP client doesn't
+  // hold a frame open for them.
+  useWalletWsSubscription(verified);
 
   if (!verified) return null;
 

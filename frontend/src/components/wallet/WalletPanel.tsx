@@ -17,6 +17,7 @@ import {
   ledgerExportUrl,
 } from "@/lib/api/wallet";
 import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
+import { useWalletWsSubscription } from "@/lib/wallet/use-wallet-ws";
 import { LedgerTable } from "@/components/wallet/LedgerTable";
 import { LedgerFilterBar } from "@/components/wallet/LedgerFilterBar";
 import type {
@@ -105,6 +106,9 @@ export function WalletPanel() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: wallet, isPending, error } = useWallet();
+  // Live updates via /user/queue/wallet. The /wallet route is verified-gated
+  // by the page-level guard so we can hard-enable here.
+  useWalletWsSubscription(true);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showPenalty, setShowPenalty] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
