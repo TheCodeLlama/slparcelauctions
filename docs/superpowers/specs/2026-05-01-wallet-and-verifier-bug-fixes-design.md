@@ -109,15 +109,17 @@ public void markStaleAndRequeue(Long commandId) {
 
 A new unit test asserts that calling `markStaleAndRequeue` on a command with `attemptCount = MAX_ATTEMPTS` stalls instead of requeueing.
 
-### Fix 4: Cleanup of existing stuck commands
+### Fix 4: Cleanup of existing stuck commands — wipe DB instead
 
-The pre-fix loop produced commands at attempt 25+ that need to terminate cleanly. These will keep dispatching after the LSL fix and would double-pay the user.
+The pre-fix loop produced commands at attempt 25+ that would re-dispatch after the LSL fix and double-pay the user. Rather than write cleanup SQL, run the same Fargate `postgres:16-alpine` truncate-everything wipe used earlier this session. The L$ that already left the prim during the buggy retry storm stays where it landed — no ledger to reconcile against because the ledger is gone. Pre-launch posture, no real customers; this is the simplest path.
 
-Approach: one-off SQL via the same Fargate `postgres:16-alpine` pattern used for the database wipe — UPDATE `terminal_commands` to set `status='FAILED', requires_manual_review=true` for any `WALLET_WITHDRAWAL` command currently in QUEUED, IN_FLIGHT, or FAILED-with-attempt-count-greater-than-cap state, and then `INSERT` the corresponding `WITHDRAW_REVERSED` ledger rows + credit the user balance back.
+Order of operations:
 
-Risk: the user already received the L$ for some of these from the spurious double-dispatches. The "right" cleanup is operator-judgment — we'll inspect the count of stuck commands, ask the user whether to refund or not (since they already got paid), and then choose. The simplest path is "stall + don't refund" — the user keeps the L$ that already came out of the prim and we manually note the wallet's `WITHDRAW_QUEUED` rows as "user already paid; the next deposit they do will replenish". A full ledger-correct path is also viable.
-
-Decision deferred to implementation step — both options are easy.
+1. Land code fixes 1-3.
+2. Deploy backend (GHA).
+3. Wipe DB (`TRUNCATE ... RESTART IDENTITY CASCADE` via one-off Fargate task).
+4. Operator resets in-world SLPA Terminal + Verification Terminal so they pick up the new LSL.
+5. Operator re-registers their account + re-verifies + smoke-tests.
 
 ## Test plan
 
