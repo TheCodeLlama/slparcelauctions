@@ -585,6 +585,17 @@ default {
     }
 
     money(key payer, integer amount) {
+        // Defensive: if config is missing or DEPOSIT_URL is empty, refund
+        // immediately and shout. Without this guard, llHTTPRequest("", ...)
+        // would silently fail and the L$ would be stranded in the prim.
+        if (DEPOSIT_URL == "" || SHARED_SECRET == "" || TERMINAL_ID == "") {
+            llOwnerSay("CRITICAL: deposit received but config incomplete — "
+                + "refunding L$" + (string)amount + " to " + (string)payer
+                + ". Check the 'config' notecard for DEPOSIT_URL, "
+                + "SHARED_SECRET, TERMINAL_ID.");
+            llTransferLindenDollars(payer, amount);
+            return;
+        }
         // Lockless: every money() event is a deposit.
         paymentPayer      = payer;
         paymentAmount     = amount;
@@ -643,6 +654,14 @@ default {
         }
         // Awaiting confirm
         if (msg == "Yes") {
+            if (WITHDRAW_REQUEST_URL == "" || SHARED_SECRET == "" || TERMINAL_ID == "") {
+                llRegionSayTo(id, 0,
+                    "Withdraw unavailable: terminal config incomplete. Contact ops.");
+                llOwnerSay("CRITICAL: withdraw attempt but WITHDRAW_REQUEST_URL "
+                    + "or SHARED_SECRET or TERMINAL_ID is empty. Check 'config' notecard.");
+                releaseSlot(id);
+                return;
+            }
             withdrawPayer      = id;
             withdrawAmount     = amt;
             withdrawTxKey      = (string)llGenerateKey();
