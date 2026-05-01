@@ -12,6 +12,11 @@ import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
 import com.slparcelauctions.backend.escrow.command.TerminalCommand;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.WalletService;
+
+import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +50,12 @@ public class ListingFeeRefundProcessorTask {
 
     private final ListingFeeRefundRepository listingFeeRefundRepo;
     private final TerminalCommandService terminalCommandService;
+    private final WalletService walletService;
+    private final UserRepository userRepo;
     private final Clock clock;
+
+    @Value("${slpa.wallet.enforcement-enabled:false}")
+    private boolean walletEnforcementEnabled;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void queueOne(Long refundId) {
@@ -65,12 +75,24 @@ public class ListingFeeRefundProcessorTask {
                     refundId, refund.getTerminalCommandId());
             return;
         }
-        TerminalCommand cmd = terminalCommandService.queueListingFeeRefund(refund);
-        refund.setTerminalCommandId(cmd.getId());
-        refund.setLastQueuedAt(OffsetDateTime.now(clock));
-        listingFeeRefundRepo.save(refund);
-        log.info("Queued ListingFeeRefund {} as TerminalCommand {} (L${} to seller {})",
-                refund.getId(), cmd.getId(), refund.getAmount(),
-                refund.getAuction().getSeller().getId());
+        if (walletEnforcementEnabled) {
+            // Wallet model: refund is a wallet credit, not a TerminalCommand REFUND.
+            User seller = userRepo.findByIdForUpdate(
+                    refund.getAuction().getSeller().getId()).orElseThrow();
+            walletService.creditListingFeeRefund(seller, refund.getAmount(), refund.getId());
+            refund.setStatus(RefundStatus.PROCESSED);
+            refund.setProcessedAt(OffsetDateTime.now(clock));
+            listingFeeRefundRepo.save(refund);
+            log.info("ListingFeeRefund {} credited to wallet (sellerId={}, amount=L${})",
+                    refund.getId(), seller.getId(), refund.getAmount());
+        } else {
+            TerminalCommand cmd = terminalCommandService.queueListingFeeRefund(refund);
+            refund.setTerminalCommandId(cmd.getId());
+            refund.setLastQueuedAt(OffsetDateTime.now(clock));
+            listingFeeRefundRepo.save(refund);
+            log.info("Queued ListingFeeRefund {} as TerminalCommand {} (L${} to seller {})",
+                    refund.getId(), cmd.getId(), refund.getAmount(),
+                    refund.getAuction().getSeller().getId());
+        }
     }
 }

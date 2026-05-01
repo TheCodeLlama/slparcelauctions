@@ -90,4 +90,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
         ORDER BY u.createdAt DESC
         """)
     Page<User> searchAdmin(@Param("search") String search, @Param("uuid") UUID uuidOrNull, Pageable pageable);
+
+    /**
+     * Sum of all wallet balances. Used by ReconciliationService to compute the
+     * expected SLPA service avatar balance against the wallet pool.
+     */
+    @Query("SELECT COALESCE(SUM(u.balanceLindens), 0) FROM User u")
+    long sumWalletBalances();
+
+    /**
+     * Sum of all reserved-lindens denorms. Used by ReconciliationService for
+     * the denorm-drift precheck against {@code SUM(bid_reservations.amount
+     * WHERE released_at IS NULL)}.
+     */
+    @Query("SELECT COALESCE(SUM(u.reservedLindens), 0) FROM User u")
+    long sumReservedDenorms();
 }

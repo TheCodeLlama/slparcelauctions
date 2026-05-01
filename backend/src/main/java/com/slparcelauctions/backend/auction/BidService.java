@@ -28,6 +28,13 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservation;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
+import com.slparcelauctions.backend.wallet.WalletService;
+import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
+import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
+
+import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +89,18 @@ public class BidService {
     private final EscrowService escrowService;
     private final NotificationPublisher notificationPublisher;
     private final BanCheckService banCheckService;
+    private final WalletService walletService;
+    private final BidReservationRepository reservationRepo;
+
+    /**
+     * Wallet enforcement flag. Default false so existing test fixtures (which
+     * don't deposit before bidding) continue to pass. When set true on a
+     * deployed environment, every bid validates penalty == 0 and
+     * available >= amount, and a hard reservation is swapped from the prior
+     * high bidder to the new bidder.
+     */
+    @Value("${slpa.wallet.enforcement-enabled:false}")
+    private boolean walletEnforcementEnabled;
 
     /**
      * Places a manual bid on an auction. See class javadoc for the
@@ -128,6 +147,24 @@ public class BidService {
         }
         if (bidder.getId().equals(auction.getSeller().getId())) {
             throw new SellerCannotBidException();
+        }
+
+        // Wallet preconditions (gated by feature flag).
+        if (walletEnforcementEnabled) {
+            long owed = bidder.getPenaltyBalanceOwed() == null ? 0L : bidder.getPenaltyBalanceOwed();
+            if (owed > 0) {
+                throw new PenaltyOutstandingException(owed);
+            }
+            // Re-fetch with lock for the wallet check + reservation swap.
+            // Note: bidder fetched above is unlocked; lock now to read the
+            // committed balance + reservedLindens consistently.
+            User lockedBidder = userRepo.findByIdForUpdate(bidderId).orElseThrow();
+            if (lockedBidder.availableLindens() < amount) {
+                throw new InsufficientAvailableBalanceException(
+                        lockedBidder.availableLindens(), amount);
+            }
+            // Replace bidder reference with locked instance for downstream use.
+            bidder = lockedBidder;
         }
 
         // Step 5 — minimum-bid gate. First bid must clear startingBid;
@@ -202,6 +239,24 @@ public class BidService {
         int nextBidCount = (auction.getBidCount() == null ? 0 : auction.getBidCount()) + emitted.size();
         auction.setBidCount(nextBidCount);
         auctionRepo.save(auction);
+
+        // Hard reservation swap (gated by feature flag). Releases the prior
+        // active reservation on this auction (if any) and reserves the new
+        // top bidder's amount. Lock ordering: auction (held) → users in
+        // ascending id order.
+        if (walletEnforcementEnabled) {
+            BidReservation prior = reservationRepo.findActiveForAuction(auctionId).orElse(null);
+            User newReserver;
+            if (top.getBidder().getId().equals(bidderId)) {
+                newReserver = bidder;  // already locked above
+            } else {
+                // Top is a PROXY_AUTO bid by a different user (the proxy owner);
+                // lock that user's row. If prior is the same user, they're
+                // already-resolved.
+                newReserver = userRepo.findByIdForUpdate(top.getBidder().getId()).orElseThrow();
+            }
+            walletService.swapReservation(auctionId, newReserver, top.getAmount(), prior, top.getId());
+        }
 
         // Notify the displaced bidder (if any). previousHighBidderId is non-null
         // when someone was already winning; the new top must be a different user
