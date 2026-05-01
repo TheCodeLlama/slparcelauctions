@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.escrow.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -264,6 +265,53 @@ class TerminalCommandDispatcherTaskTest {
 
         // No save should happen for a non-IN_FLIGHT row.
         verify(cmdRepo, never()).save(any());
+    }
+
+    @Test
+    void markStaleAndRequeue_atAttemptCap_stallsAndDoesNotRequeue() {
+        // Reproduces the production bug: an IN_FLIGHT command with
+        // attemptCount = MAX_ATTEMPTS used to keep looping via this method
+        // because the cap check only existed on the transport-failure path.
+        TerminalCommand cmd = buildQueued();
+        cmd.setStatus(TerminalCommandStatus.IN_FLIGHT);
+        cmd.setDispatchedAt(OffsetDateTime.now(fixed).minusMinutes(10));
+        cmd.setAttemptCount(com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy.MAX_ATTEMPTS);
+        when(cmdRepo.findByIdForUpdate(CMD_ID)).thenReturn(Optional.of(cmd));
+        when(cmdRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        task.markStaleAndRequeue(CMD_ID);
+
+        assertThat(cmd.getStatus()).isEqualTo(TerminalCommandStatus.FAILED);
+        assertThat(cmd.getRequiresManualReview()).isTrue();
+        // Stalled — must NOT schedule another retry.
+        assertThat(cmd.getNextAttemptAt())
+                .isEqualTo(OffsetDateTime.now(fixed).minusSeconds(1));
+    }
+
+    @Test
+    void markStaleAndRequeue_atAttemptCap_walletWithdrawalRefundsUser() {
+        TerminalCommand cmd = TerminalCommand.builder()
+                .id(CMD_ID)
+                .action(TerminalCommandAction.WITHDRAW)
+                .purpose(com.slparcelauctions.backend.escrow.command.TerminalCommandPurpose.WALLET_WITHDRAWAL)
+                .recipientUuid(UUID.randomUUID().toString())
+                .amount(100L)
+                .status(TerminalCommandStatus.IN_FLIGHT)
+                .attemptCount(com.slparcelauctions.backend.escrow.command.EscrowRetryPolicy.MAX_ATTEMPTS)
+                .dispatchedAt(OffsetDateTime.now(fixed).minusMinutes(10))
+                .idempotencyKey("WAL-99")
+                .requiresManualReview(false)
+                .build();
+        when(cmdRepo.findByIdForUpdate(CMD_ID)).thenReturn(Optional.of(cmd));
+        when(cmdRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        task.markStaleAndRequeue(CMD_ID);
+
+        // Reverses the wallet debit + IMs the user.
+        verify(walletWithdrawalCallbackHandler)
+                .onStall(eq(cmd), eq("IN_FLIGHT timeout without callback"));
+        assertThat(cmd.getStatus()).isEqualTo(TerminalCommandStatus.FAILED);
+        assertThat(cmd.getRequiresManualReview()).isTrue();
     }
 
     @Test
