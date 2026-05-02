@@ -86,8 +86,8 @@ describe("NotificationDropdownRow", () => {
 
     const row = screen.getByRole("button", { name: /You were outbid, unread/ });
     expect(row).toBeInTheDocument();
-    // The unread dot is a div with a rounded-full bg-primary class
-    expect(row.querySelector(".bg-primary.rounded-full")).toBeInTheDocument();
+    // The unread dot is a div with a rounded-full bg-brand class
+    expect(row.querySelector(".bg-brand.rounded-full")).toBeInTheDocument();
   });
 
   it("read row has no ', unread' suffix and no unread dot", () => {
@@ -96,6 +96,6 @@ describe("NotificationDropdownRow", () => {
 
     const row = screen.getByRole("button", { name: "You were outbid" });
     expect(row).toBeInTheDocument();
-    expect(row.querySelector(".bg-primary.rounded-full")).not.toBeInTheDocument();
+    expect(row.querySelector(".bg-brand.rounded-full")).not.toBeInTheDocument();
   });
 });

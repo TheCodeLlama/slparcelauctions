@@ -19,10 +19,10 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
     <button
       type="button"
       aria-label="User menu"
-      className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
     >
       <Avatar name={displayLabel} alt="User avatar" size="sm" />
-      <span className="hidden md:inline text-body-sm text-on-surface">{displayLabel}</span>
+      <span className="hidden md:inline text-xs text-fg">{displayLabel}</span>
     </button>
   );
 

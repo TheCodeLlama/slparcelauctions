@@ -19,10 +19,10 @@ export function GroupToggleRow({
   };
 
   return (
-    <div className="flex items-center justify-between py-4 border-b border-outline-variant last:border-0">
+    <div className="flex items-center justify-between py-4 border-b border-border-subtle last:border-0">
       <div className="flex-1 mr-4">
-        <div className="text-body-md font-medium text-on-surface">{label}</div>
-        <div className="text-body-sm text-on-surface-variant mt-0.5">{subtext}</div>
+        <div className="text-sm font-medium text-fg">{label}</div>
+        <div className="text-xs text-fg-muted mt-0.5">{subtext}</div>
       </div>
       <button
         type="button"
@@ -32,7 +32,7 @@ export function GroupToggleRow({
         onClick={handleClick}
         className={cn(
           "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-          value ? "bg-primary" : "bg-surface-container-high border border-outline",
+          value ? "bg-brand" : "bg-bg-hover border border-border",
           mutedDisabled && "opacity-50 cursor-not-allowed"
         )}
         aria-label={`${label} — ${value ? "on" : "off"}${mutedDisabled ? " (muted)" : ""}`}

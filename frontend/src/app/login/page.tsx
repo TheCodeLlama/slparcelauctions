@@ -16,7 +16,7 @@ export default function LoginPage() {
         <div className="text-center">
           <Link
             href="/forgot-password"
-            className="text-label-md text-primary hover:underline"
+            className="text-xs font-medium text-brand hover:underline"
           >
             Forgot your password?
           </Link>
@@ -24,7 +24,7 @@ export default function LoginPage() {
       </AuthCard.Body>
       <AuthCard.Footer>
         New to the curator?{" "}
-        <Link href="/register" className="font-semibold text-primary hover:underline">
+        <Link href="/register" className="font-semibold text-brand hover:underline">
           Request Membership
         </Link>
       </AuthCard.Footer>

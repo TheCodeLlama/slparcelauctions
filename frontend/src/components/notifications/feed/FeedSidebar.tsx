@@ -24,7 +24,7 @@ export function FeedSidebar({ value, onChange }: FeedSidebarProps) {
   const byGroup = breakdown.data?.byGroup ?? {};
 
   return (
-    <aside className="w-[220px] shrink-0 bg-surface border border-outline rounded-xl py-3 h-fit sticky top-24">
+    <aside className="w-[220px] shrink-0 bg-bg border border-border rounded-xl py-3 h-fit sticky top-24">
       <SidebarSection label="View">
         <SidebarItem active={value === "all"} onClick={() => onChange("all")} count={total}>
           All
@@ -52,7 +52,7 @@ export function FeedSidebar({ value, onChange }: FeedSidebarProps) {
 function SidebarSection({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="mb-2">
-      <div className="px-4 py-1.5 text-label-sm uppercase tracking-wide text-on-surface-variant font-semibold">
+      <div className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-muted font-semibold">
         {label}
       </div>
       <div className="flex flex-col">{children}</div>
@@ -68,17 +68,17 @@ function SidebarItem({ active, onClick, count, children }: {
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center justify-between px-4 py-2 text-body-sm border-l-[3px]",
+        "flex items-center justify-between px-4 py-2 text-xs border-l-[3px]",
         active
-          ? "bg-primary-container/40 text-on-surface font-semibold border-primary"
-          : "text-on-surface-variant border-transparent hover:bg-surface-container"
+          ? "bg-brand-soft/40 text-fg font-semibold border-brand"
+          : "text-fg-muted border-transparent hover:bg-bg-muted"
       )}
     >
       <span>{children}</span>
       {count != null && count > 0 && (
         <span className={cn(
-          "text-label-sm",
-          active ? "text-primary font-semibold" : "text-on-surface-variant"
+          "text-[11px] font-medium",
+          active ? "text-brand font-semibold" : "text-fg-muted"
         )}>{count}</span>
       )}
     </button>

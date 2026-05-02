@@ -62,12 +62,12 @@ export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
           data-testid="respond-modal"
-          className="w-full max-w-md flex flex-col gap-4 rounded-default bg-surface-container-low p-6"
+          className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6"
         >
-          <DialogTitle className="text-title-lg text-on-surface">
+          <DialogTitle className="text-base font-bold tracking-tight text-fg">
             Respond to this review
           </DialogTitle>
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             Your response appears publicly beneath the review. You can only
             respond once — no edits.
           </p>
@@ -79,14 +79,14 @@ export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
               onChange={(e) => setText(e.target.value)}
               placeholder="Say something constructive…"
               data-testid="respond-modal-textarea"
-              className="w-full resize-y rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary"
+              className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-brand"
             />
           </label>
           <div
             data-testid="respond-modal-counter"
             className={cn(
-              "self-end text-label-sm",
-              overLimit ? "text-error" : "text-on-surface-variant",
+              "self-end text-[11px] font-medium",
+              overLimit ? "text-danger-flat" : "text-fg-muted",
             )}
           >
             {text.length} / {MAX_LEN}

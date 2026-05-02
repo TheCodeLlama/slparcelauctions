@@ -79,12 +79,12 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
           data-testid="flag-modal"
-          className="w-full max-w-md flex flex-col gap-4 rounded-default bg-surface-container-low p-6"
+          className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6"
         >
-          <DialogTitle className="text-title-lg text-on-surface">
+          <DialogTitle className="text-base font-bold tracking-tight text-fg">
             Flag this review
           </DialogTitle>
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             Tell us why this review needs moderator attention. Flagging is
             confidential — the reviewer is not notified.
           </p>
@@ -93,13 +93,13 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
             className="flex flex-col gap-2"
             data-testid="flag-modal-reasons"
           >
-            <legend className="text-label-md font-medium text-on-surface">
+            <legend className="text-xs font-medium text-fg">
               Reason
             </legend>
             {REASONS.map((r) => (
               <label
                 key={r.code}
-                className="flex items-center gap-2 text-body-md text-on-surface"
+                className="flex items-center gap-2 text-sm text-fg"
               >
                 <input
                   type="radio"
@@ -116,7 +116,7 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
           </fieldset>
 
           <label className="flex flex-col gap-1">
-            <span className="text-label-md text-on-surface">
+            <span className="text-xs font-medium text-fg">
               {elaborationRequired
                 ? "Please elaborate (required)"
                 : "Additional details (optional)"}
@@ -127,14 +127,14 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
               onChange={(e) => setElaboration(e.target.value)}
               placeholder="What should the moderator know?"
               data-testid="flag-modal-elaboration"
-              className="w-full resize-y rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary"
+              className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-brand"
             />
           </label>
           <div
             data-testid="flag-modal-counter"
             className={cn(
-              "self-end text-label-sm",
-              overLimit ? "text-error" : "text-on-surface-variant",
+              "self-end text-[11px] font-medium",
+              overLimit ? "text-danger-flat" : "text-fg-muted",
             )}
           >
             {elaboration.length} / {MAX_LEN}

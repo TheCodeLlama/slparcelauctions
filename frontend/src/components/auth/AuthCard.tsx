@@ -30,10 +30,10 @@ export function AuthCard({ children }: AuthCardProps) {
     <div className="mx-auto max-w-md px-4 py-12">
       {/* Brand header — always rendered, not a slot */}
       <div className="mb-8 text-center">
-        <h1 className="text-display-sm font-black uppercase tracking-tight text-on-surface">
+        <h1 className="text-2xl font-bold tracking-tight font-black uppercase tracking-tight text-fg">
           SLPA
         </h1>
-        <p className="mt-2 text-label-sm uppercase tracking-widest text-on-surface-variant">
+        <p className="mt-2 text-[11px] font-medium uppercase tracking-widest text-fg-muted">
           The Digital Curator
         </p>
       </div>
@@ -57,7 +57,7 @@ export function AuthCard({ children }: AuthCardProps) {
 
 function Title({ children }: { children: ReactNode }) {
   return (
-    <h2 className="text-headline-sm font-semibold text-on-surface">
+    <h2 className="text-lg font-bold tracking-tight font-semibold text-fg">
       {children}
     </h2>
   );
@@ -65,7 +65,7 @@ function Title({ children }: { children: ReactNode }) {
 
 function Subtitle({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-1 text-body-md text-on-surface-variant">{children}</p>
+    <p className="mt-1 text-sm text-fg-muted">{children}</p>
   );
 }
 
@@ -83,7 +83,7 @@ function Footer({ children }: { children: ReactNode }) {
   // the card horizontally. The Card root's overflow-hidden clips the background
   // flush at the card edge — this only works when the values match perfectly.
   return (
-    <div className="mt-8 bg-surface-container-low -mx-10 -mb-10 px-10 py-6 text-center text-body-sm text-on-surface-variant">
+    <div className="mt-8 bg-bg-subtle -mx-10 -mb-10 px-10 py-6 text-center text-sm text-fg-muted">
       {children}
     </div>
   );

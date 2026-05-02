@@ -41,13 +41,13 @@ function PendingReviewRow({ item }: { item: PendingReviewDto }) {
   const href = `/auction/${item.auctionId}/escrow#review-panel`;
   return (
     <li
-      className="flex flex-col gap-3 rounded-default bg-surface-container-low p-4 ring-1 ring-outline-variant sm:flex-row sm:items-center"
+      className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center"
       data-testid="pending-review-row"
       data-auction-id={item.auctionId}
     >
       <div
         className={cn(
-          "relative h-20 w-full shrink-0 overflow-hidden rounded-default bg-surface-container sm:w-28",
+          "relative h-20 w-full shrink-0 overflow-hidden rounded-lg bg-bg-muted sm:w-28",
         )}
       >
         {item.primaryPhotoUrl && (
@@ -62,14 +62,14 @@ function PendingReviewRow({ item }: { item: PendingReviewDto }) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-baseline gap-2">
-          <span className="truncate text-title-md font-bold text-on-surface">
+          <span className="truncate text-sm font-semibold text-fg">
             {item.title}
           </span>
-          <span className="text-label-sm text-on-surface-variant">
+          <span className="text-[11px] font-medium text-fg-muted">
             · {roleLabel(item.viewerRole)}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+        <div className="flex items-center gap-2 text-sm text-fg-muted">
           <Avatar
             src={item.counterpartyAvatarUrl ?? undefined}
             alt={item.counterpartyDisplayName}
@@ -81,7 +81,7 @@ function PendingReviewRow({ item }: { item: PendingReviewDto }) {
           </span>
         </div>
         <p
-          className="text-label-sm text-on-surface-variant"
+          className="text-[11px] font-medium text-fg-muted"
           data-testid="pending-review-window"
         >
           {formatWindowRemaining(item.hoursRemaining)}
@@ -89,7 +89,7 @@ function PendingReviewRow({ item }: { item: PendingReviewDto }) {
       </div>
       <Link
         href={href}
-        className="inline-flex items-center gap-1 self-start rounded-default bg-primary px-3 py-2 text-label-md text-on-primary transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:self-center"
+        className="inline-flex items-center gap-1 self-start rounded-lg bg-brand px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-brand sm:self-center"
         data-testid="pending-review-cta"
       >
         Leave a review
@@ -119,7 +119,7 @@ export function PendingReviewsSection({ className }: { className?: string } = {}
   return (
     <Card className={className} data-testid="pending-reviews-section">
       <Card.Header>
-        <h2 className="text-title-md font-bold">Pending reviews</h2>
+        <h2 className="text-sm font-semibold tracking-tight font-bold">Pending reviews</h2>
       </Card.Header>
       <Card.Body>
         <ul className="flex flex-col gap-3">

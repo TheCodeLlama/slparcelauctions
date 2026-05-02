@@ -53,18 +53,18 @@ export function DeleteAccountSection() {
   };
 
   return (
-    <section className="bg-error-container/20 border border-error rounded p-4 mt-8">
+    <section className="bg-danger-bg/20 border border-danger-flat rounded p-4 mt-8">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
         className="w-full flex justify-between items-center text-left"
       >
-        <span className="font-semibold text-error">Delete account</span>
-        <span className="text-error">{expanded ? "▾" : "▸"}</span>
+        <span className="font-semibold text-danger-flat">Delete account</span>
+        <span className="text-danger-flat">{expanded ? "▾" : "▸"}</span>
       </button>
       {expanded && (
         <div className="mt-4 space-y-3">
-          <div className="bg-error-container text-on-error-container rounded p-3 text-xs">
+          <div className="bg-danger-bg text-danger-flat rounded p-3 text-xs">
             <strong>This is irreversible.</strong> Your auctions, bids, and reviews may remain
             visible as &quot;Deleted user&quot; to preserve past records. You can register a new
             account with the same email after deletion.
@@ -74,13 +74,13 @@ export function DeleteAccountSection() {
             placeholder="Enter your password to confirm"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-surface-container-low p-2 rounded text-sm"
+            className="w-full bg-bg-subtle p-2 rounded text-sm"
           />
           {error && typeof error === "string" && (
-            <p className="text-error text-xs">{error}</p>
+            <p className="text-danger-flat text-xs">{error}</p>
           )}
           {error && typeof error !== "string" && (
-            <div className="text-error text-xs">
+            <div className="text-danger-flat text-xs">
               <p className="font-medium">Cannot delete: {error.code}</p>
               <p className="mt-1 opacity-85">{error.message}</p>
               {error.blockingIds.length > 0 && (
@@ -96,7 +96,7 @@ export function DeleteAccountSection() {
             type="button"
             disabled={!password || mutation.isPending}
             onClick={submit}
-            className="px-4 py-2 bg-error text-on-error rounded text-sm font-semibold disabled:opacity-50"
+            className="px-4 py-2 bg-danger-flat text-white rounded text-sm font-semibold disabled:opacity-50"
           >
             {mutation.isPending ? "Deleting…" : "Delete my account"}
           </button>

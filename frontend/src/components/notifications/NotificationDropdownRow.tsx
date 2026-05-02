@@ -41,7 +41,7 @@ export function NotificationDropdownRow({ notification: n, onClose, variant = "d
       className={cn(
         "w-full flex gap-3 text-left transition-colors",
         variant === "dropdown" ? "px-4 py-3" : "px-4 py-4",
-        !n.read ? "bg-primary-container/40 hover:bg-primary-container/60" : "hover:bg-surface-container"
+        !n.read ? "bg-brand-soft/40 hover:bg-brand-soft/60" : "hover:bg-bg-muted"
       )}
       aria-label={`${n.title}${n.read ? "" : ", unread"}`}
     >
@@ -52,25 +52,25 @@ export function NotificationDropdownRow({ notification: n, onClose, variant = "d
         <Icon className="size-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-body-sm font-semibold text-on-surface truncate">{n.title}</div>
+        <div className="text-xs font-semibold text-fg truncate">{n.title}</div>
         <div className={cn(
-          "text-body-xs text-on-surface-variant",
+          "text-xs text-fg-muted",
           variant === "dropdown" ? "line-clamp-2" : "line-clamp-3"
         )}>{n.body}</div>
-        <div className="text-label-sm text-on-surface-variant mt-1">
+        <div className="text-[11px] font-medium text-fg-muted mt-1">
           {formatRelativeTime(n.updatedAt)}
         </div>
         {config.action && (
           <button
             type="button"
             onClick={handleClickAction}
-            className="mt-2 px-3 py-1 rounded-md text-label-md border border-outline text-primary hover:bg-primary-container/40"
+            className="mt-2 px-3 py-1 rounded-md text-xs font-medium border border-border text-brand hover:bg-brand-soft/40"
           >
             {config.action.label} →
           </button>
         )}
       </div>
-      {!n.read && <div className="shrink-0 mt-2 size-2 rounded-full bg-primary" />}
+      {!n.read && <div className="shrink-0 mt-2 size-2 rounded-full bg-brand" />}
     </button>
   );
 }

@@ -61,7 +61,7 @@ export function LoginForm() {
         error={form.formState.errors.password?.message}
       />
 
-      <p className="text-label-sm text-on-surface-variant">
+      <p className="text-[11px] font-medium text-fg-muted">
         Signed in for 7 days on this device
       </p>
 

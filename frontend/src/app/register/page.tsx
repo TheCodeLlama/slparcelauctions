@@ -16,7 +16,7 @@ export default function RegisterPage() {
       </AuthCard.Body>
       <AuthCard.Footer>
         Already an esteemed member?{" "}
-        <Link href="/login" className="font-semibold text-primary hover:underline">
+        <Link href="/login" className="font-semibold text-brand hover:underline">
           Sign In
         </Link>
       </AuthCard.Footer>
