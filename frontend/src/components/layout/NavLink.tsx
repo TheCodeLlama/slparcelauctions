@@ -19,12 +19,12 @@ export function NavLink({ href, variant, onClick, children }: NavLinkProps) {
 
   const base =
     variant === "header"
-      ? "text-body-md transition-colors"
-      : "text-headline-sm transition-colors";
+      ? "rounded-sm px-3 py-2 text-sm font-medium transition-colors"
+      : "block rounded-sm px-3 py-2 text-sm font-medium transition-colors";
 
   const state = isActive
-    ? "text-primary"
-    : "text-on-surface-variant hover:text-on-surface";
+    ? "bg-bg-muted text-fg"
+    : "text-fg-muted hover:bg-bg-hover hover:text-fg";
 
   return (
     <Link

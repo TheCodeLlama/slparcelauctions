@@ -25,7 +25,8 @@ describe("NavLink", () => {
       <NavLink variant="header" href="/browse">Browse</NavLink>
     );
     const link = screen.getByRole("link", { name: "Browse" });
-    expect(link.className).toContain("text-primary");
+    expect(link.className).toContain("text-fg");
+    expect(link.className).toContain("bg-bg-muted");
     expect(link.getAttribute("aria-current")).toBe("page");
   });
 
@@ -35,7 +36,7 @@ describe("NavLink", () => {
       <NavLink variant="header" href="/browse">Browse</NavLink>
     );
     const link = screen.getByRole("link", { name: "Browse" });
-    expect(link.className).toContain("text-on-surface-variant");
+    expect(link.className).toContain("text-fg-muted");
     expect(link.getAttribute("aria-current")).toBeNull();
   });
 
