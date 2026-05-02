@@ -31,7 +31,7 @@ export function Providers({ children }: { children: ReactNode }) {
   });
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           {children}
