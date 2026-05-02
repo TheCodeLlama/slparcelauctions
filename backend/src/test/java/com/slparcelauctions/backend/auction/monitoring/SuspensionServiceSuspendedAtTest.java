@@ -30,6 +30,7 @@ import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -72,9 +73,9 @@ class SuspensionServiceSuspendedAtTest {
             sellerId = seller.getId();
 
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("TestRegion")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(1024)
                 .build());
             parcelId = parcel.getId();
@@ -121,9 +122,9 @@ class SuspensionServiceSuspendedAtTest {
         return new ParcelMetadata(
             auction.getParcel().getSlParcelUuid(),
             UUID.randomUUID(),
-            "agent",
+            "agent", null,
             "TestRegion",
-            auction.getParcel().getRegionName(),
+            auction.getParcel().getRegion().getName(),
             null, null, null, null, null, null, null);
     }
 

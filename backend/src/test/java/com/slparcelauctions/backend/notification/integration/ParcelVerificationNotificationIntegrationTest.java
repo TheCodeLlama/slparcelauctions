@@ -34,6 +34,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCode;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for parcel verification notifications.
@@ -115,14 +116,12 @@ class ParcelVerificationNotificationIntegrationTest {
             sellerId = seller.getId();
 
             Parcel p = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(parcelUuid)
                     .ownerUuid(sellerAvatar)
                     .ownerType("agent")
-                    .regionName("VerifRegion")
-                    .continentName("Sansara")
-                    .areaSqm(512)
-                    .maturityRating("GENERAL")
-                    .verified(false)
+                                                            .areaSqm(512)
+                                        .verified(false)
                     .build());
             parcelId = p.getId();
 

@@ -46,6 +46,7 @@ import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link BotTaskService}. Covers Method C completion paths:
@@ -91,9 +92,10 @@ class BotTaskServiceTest {
 
         seller = User.builder().id(42L).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder().id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+                .verified(true).build();
 
         lenient().when(botTaskRepo.save(any(BotTask.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -210,7 +212,7 @@ class BotTaskServiceTest {
         // Parcel metadata refreshed from payload.
         assertThat(parcel.getOwnerUuid()).isEqualTo(SELLER_AVATAR);
         assertThat(parcel.getAreaSqm()).isEqualTo(2048);
-        assertThat(parcel.getRegionName()).isEqualTo("Coniston");
+        assertThat(parcel.getRegion().getName()).isEqualTo("Coniston");
         assertThat(parcel.getPositionX()).isEqualTo(128.0);
         assertThat(parcel.getLastChecked()).isEqualTo(OffsetDateTime.now(fixed));
 
@@ -509,7 +511,7 @@ class BotTaskServiceTest {
                 .status(status)
                 .auction(auction)
                 .parcelUuid(auction.getParcel().getSlParcelUuid())
-                .regionName(auction.getParcel().getRegionName())
+                .regionName(auction.getParcel().getRegion().getName())
                 .sentinelPrice(SENTINEL_PRICE)
                 .createdAt(OffsetDateTime.now(fixed).minusMinutes(30))
                 .build();

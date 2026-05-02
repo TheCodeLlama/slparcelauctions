@@ -39,11 +39,14 @@ import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -88,8 +91,9 @@ class EscrowOwnershipCheckTaskTest {
     void winnerMatch_delegatesToConfirmTransfer_noOtherSideEffects() {
         Escrow escrow = buildPending();
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(WINNER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(WINNER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         stubWinner();
 
         task.checkOne(ESCROW_ID);
@@ -107,8 +111,9 @@ class EscrowOwnershipCheckTaskTest {
         // Funded 2h ago — under the 24h reminder delay.
         escrow.setFundedAt(OffsetDateTime.now(fixed).minusHours(2));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         stubWinner();
 
         task.checkOne(ESCROW_ID);
@@ -124,8 +129,9 @@ class EscrowOwnershipCheckTaskTest {
         // Funded 30h ago — well past the 24h reminder delay.
         escrow.setFundedAt(OffsetDateTime.now(fixed).minusHours(30));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         stubWinner();
 
         task.checkOne(ESCROW_ID);
@@ -143,7 +149,8 @@ class EscrowOwnershipCheckTaskTest {
         Escrow escrow = buildPending();
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
         ParcelMetadata stranger = meta(STRANGER_AVATAR, "agent");
-        when(worldApi.fetchParcel(PARCEL_UUID)).thenReturn(Mono.just(stranger));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(stranger, java.util.UUID.randomUUID())));
         stubWinner();
 
         task.checkOne(ESCROW_ID);
@@ -167,7 +174,7 @@ class EscrowOwnershipCheckTaskTest {
     void parcelNotFound_delegatesToFreezeForFraud_withParcelDeleted() {
         Escrow escrow = buildPending();
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(Mono.error(new ParcelNotFoundInSlException(PARCEL_UUID)));
 
         task.checkOne(ESCROW_ID);
@@ -188,7 +195,7 @@ class EscrowOwnershipCheckTaskTest {
         // Counter one short of threshold — the about-to-happen failure pushes it over.
         escrow.setConsecutiveWorldApiFailures(FAILURE_THRESHOLD - 1);
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(Mono.error(new ExternalApiTimeoutException("World", "connect timeout")));
 
         task.checkOne(ESCROW_ID);
@@ -215,7 +222,7 @@ class EscrowOwnershipCheckTaskTest {
         Escrow escrow = buildPending();
         escrow.setConsecutiveWorldApiFailures(1);
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(Mono.error(new ExternalApiTimeoutException("World", "connect timeout")));
 
         task.checkOne(ESCROW_ID);
@@ -252,8 +259,9 @@ class EscrowOwnershipCheckTaskTest {
     void lockEntryPath_usesFindByIdForUpdate_notFindById() {
         Escrow escrow = buildPending();
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(WINNER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(WINNER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         stubWinner();
 
         task.checkOne(ESCROW_ID);
@@ -279,10 +287,10 @@ class EscrowOwnershipCheckTaskTest {
     private Escrow buildPending() {
         User seller = User.builder().id(SELLER_ID).email("seller@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        Parcel parcel = Parcel.builder().id(99L).slParcelUuid(PARCEL_UUID)
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(99L).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("EscrowMonitorRegion").continentName("Sansara")
-                .verified(true).build();
+                                .verified(true).build();
         Auction auction = Auction.builder()
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
@@ -315,7 +323,7 @@ class EscrowOwnershipCheckTaskTest {
 
     private ParcelMetadata meta(UUID owner, String ownerType) {
         return new ParcelMetadata(
-                PARCEL_UUID, owner, ownerType,
+                PARCEL_UUID, owner, ownerType, null,
                 "Test Parcel", "EscrowMonitorRegion",
                 1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);

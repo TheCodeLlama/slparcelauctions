@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for suspension notifications.
@@ -102,14 +103,12 @@ class SuspensionNotificationIntegrationTest {
     private Auction seedActiveAuction(User seller) {
         return new TransactionTemplate(txManager).execute(s -> {
             Parcel p = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(seller.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName("SuspRegion")
-                    .continentName("Sansara")
-                    .areaSqm(256)
-                    .maturityRating("GENERAL")
-                    .verified(true)
+                                                            .areaSqm(256)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             parcelId = p.getId();
@@ -146,9 +145,9 @@ class SuspensionNotificationIntegrationTest {
         ParcelMetadata evidence = new ParcelMetadata(
                 a.getParcel().getSlParcelUuid(),
                 UUID.randomUUID(),
-                "agent",
+                "agent", null,
                 "SuspRegion",
-                a.getParcel().getRegionName(),
+                a.getParcel().getRegion().getName(),
                 null, null, null, null, null, null, null);
         suspensionService.suspendForOwnershipChange(a, evidence);
 

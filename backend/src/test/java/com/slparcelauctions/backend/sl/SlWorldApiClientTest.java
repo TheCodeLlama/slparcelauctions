@@ -16,7 +16,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 
@@ -89,7 +91,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
 
         client = newClient();
-        ParcelMetadata result = client.fetchParcel(parcelUuid).block();
+        ParcelMetadata result = client.fetchParcelPage(parcelUuid).block().parcel();
 
         assertThat(result).isNotNull();
         assertThat(result.parcelName()).isEqualTo("Grass land 512sqm - Tula [M]");
@@ -119,7 +121,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
 
         client = newClient();
-        ParcelMetadata result = client.fetchParcel(parcelUuid).block();
+        ParcelMetadata result = client.fetchParcelPage(parcelUuid).block().parcel();
 
         assertThat(result).isNotNull();
         assertThat(result.ownerType()).isEqualTo("group");
@@ -148,7 +150,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
 
         client = newClient();
-        ParcelMetadata result = client.fetchParcel(parcelUuid).block();
+        ParcelMetadata result = client.fetchParcelPage(parcelUuid).block().parcel();
 
         assertThat(result.snapshotUrl()).isEqualTo("https://example.com/explicit.jpg");
     }
@@ -172,7 +174,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
 
         client = newClient();
-        ParcelMetadata result = client.fetchParcel(parcelUuid).block();
+        ParcelMetadata result = client.fetchParcelPage(parcelUuid).block().parcel();
 
         assertThat(result.description()).isNull();
         assertThat(result.snapshotUrl()).isNull();
@@ -201,7 +203,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
 
         client = newClient();
-        ParcelMetadata result = client.fetchParcel(parcelUuid).block();
+        ParcelMetadata result = client.fetchParcelPage(parcelUuid).block().parcel();
 
         assertThat(result.positionX()).isNull();
         assertThat(result.positionY()).isNull();
@@ -215,7 +217,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(404)));
 
         client = newClient();
-        assertThatThrownBy(() -> client.fetchParcel(parcelUuid).block())
+        assertThatThrownBy(() -> client.fetchParcelPage(parcelUuid).block())
                 .isInstanceOf(ParcelNotFoundInSlException.class);
     }
 
@@ -226,7 +228,7 @@ class SlWorldApiClientTest {
                 .willReturn(aResponse().withStatus(503)));
 
         client = newClient();
-        assertThatThrownBy(() -> client.fetchParcel(parcelUuid).block())
+        assertThatThrownBy(() -> client.fetchParcelPage(parcelUuid).block())
                 .isInstanceOf(ExternalApiTimeoutException.class);
     }
 }

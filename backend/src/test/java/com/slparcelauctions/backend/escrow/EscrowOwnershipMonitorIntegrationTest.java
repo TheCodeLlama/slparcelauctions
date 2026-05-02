@@ -45,13 +45,16 @@ import com.slparcelauctions.backend.escrow.scheduler.EscrowOwnershipMonitorJob;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -184,8 +187,9 @@ class EscrowOwnershipMonitorIntegrationTest {
     @Test
     void winnerOwnsParcel_stampsTransferConfirmed_broadcastsConfirmation() {
         seedTransferPendingEscrow();
-        when(worldApi.fetchParcel(seededParcelUuid))
-                .thenReturn(Mono.just(meta(seededWinnerAvatar, "agent")));
+        when(worldApi.fetchParcelPage(seededParcelUuid))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(seededWinnerAvatar, "agent"), java.util.UUID.randomUUID())));
 
         OffsetDateTime before = OffsetDateTime.now();
         job.sweep();
@@ -213,8 +217,9 @@ class EscrowOwnershipMonitorIntegrationTest {
     void strangerOwnsParcel_freezesWithUnknownOwnerFraud_broadcastsFreeze() {
         seedTransferPendingEscrow();
         UUID stranger = UUID.randomUUID();
-        when(worldApi.fetchParcel(seededParcelUuid))
-                .thenReturn(Mono.just(meta(stranger, "agent")));
+        when(worldApi.fetchParcelPage(seededParcelUuid))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(stranger, "agent"), java.util.UUID.randomUUID())));
 
         job.sweep();
 
@@ -248,7 +253,7 @@ class EscrowOwnershipMonitorIntegrationTest {
     @Test
     void parcelDeleted_freezesWithParcelDeletedFraud_broadcastsFreeze() {
         seedTransferPendingEscrow();
-        when(worldApi.fetchParcel(any(UUID.class)))
+        when(worldApi.fetchParcelPage(any(UUID.class)))
                 .thenReturn(Mono.error(new ParcelNotFoundInSlException(seededParcelUuid)));
 
         job.sweep();
@@ -293,14 +298,12 @@ class EscrowOwnershipMonitorIntegrationTest {
                     .verified(true)
                     .build());
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(parcelUuid)
                     .ownerUuid(sellerAvatar)
                     .ownerType("agent")
-                    .regionName("EscrowMonitorRegion")
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .verified(true)
+                                                            .areaSqm(1024)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();
@@ -355,7 +358,7 @@ class EscrowOwnershipMonitorIntegrationTest {
 
     private ParcelMetadata meta(UUID owner, String ownerType) {
         return new ParcelMetadata(
-                seededParcelUuid, owner, ownerType,
+                seededParcelUuid, owner, ownerType, null,
                 "Test Parcel", "EscrowMonitorRegion",
                 1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);

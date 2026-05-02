@@ -10,14 +10,12 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,18 +25,15 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
-import com.slparcelauctions.backend.sl.dto.RegionResolution;
+import com.slparcelauctions.backend.region.Region;
+import com.slparcelauctions.backend.region.RegionRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * Full-stack coverage for {@code GET /api/v1/auctions/search} — verifies
- * the public security path, the {@code Cache-Control} response header,
- * filter validation surface, and pagination clamps. Uses
- * {@code @SpringBootTest} so the entire Spring Security filter chain,
- * the search {@code @RestControllerAdvice}, and the read-through Redis
- * cache are exercised end-to-end.
+ * Full-stack coverage for {@code GET /api/v1/auctions/search}. Distance /
+ * near-region resolution reads the {@code regions} table directly (no SL
+ * HTTP round-trip), so test setup seeds region rows alongside parcels.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -54,25 +49,13 @@ class AuctionSearchControllerIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepo;
     @Autowired ParcelRepository parcelRepo;
+    @Autowired RegionRepository regionRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired StringRedisTemplate redis;
 
-    /**
-     * Mocked so distance tests can stub region resolution without
-     * hitting the real Grid Survey CAP service. Filter / pagination
-     * tests don't transit through this bean since they pass no
-     * {@code near_region} parameter.
-     */
-    @MockitoBean SlMapApiClient slMapApiClient;
-
     @BeforeEach
     void seed() {
-        // Cache state from prior tests can shadow stubbed lookups; clear
-        // both the resolver cache and the response cache up-front.
-        clearRedisKeys("slpa:grid-coord:*");
         clearRedisKeys("slpa:search:*");
-        Mockito.reset(slMapApiClient);
-
         User seller = userRepo.save(User.builder()
                 .email("seller-" + UUID.randomUUID() + "@ex.com")
                 .passwordHash("x").slAvatarUuid(UUID.randomUUID())
@@ -97,15 +80,6 @@ class AuctionSearchControllerIntegrationTest {
                 .andExpect(jsonPath("$.meta.sortApplied").value("newest"));
     }
 
-    /**
-     * Epic 07 sub-spec 2 added {@code endOutcome} to
-     * {@link AuctionSearchResultDto} so the frontend can derive SOLD /
-     * RESERVE_NOT_MET / NO_BIDS chips for ended auctions (surfaced on the
-     * Curator Tray's {@code ended_only} view). The {@code /search} endpoint
-     * itself filters to ACTIVE only, so the field is always null in this
-     * response — verify both that it is present on the payload and that it
-     * serializes to null for ACTIVE rows.
-     */
     @Test
     void response_includesEndOutcomeField_nullForActive() throws Exception {
         mockMvc.perform(get("/api/v1/auctions/search"))
@@ -187,9 +161,6 @@ class AuctionSearchControllerIntegrationTest {
 
     @Test
     void nearRegion_unknown_returns400RegionNotFound() throws Exception {
-        Mockito.when(slMapApiClient.resolve("Nowhere-x9z"))
-                .thenReturn(new RegionResolution.NotFound());
-
         mockMvc.perform(get("/api/v1/auctions/search").param("near_region", "Nowhere-x9z"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("REGION_NOT_FOUND"))
@@ -198,9 +169,6 @@ class AuctionSearchControllerIntegrationTest {
 
     @Test
     void nearRegion_resolved_populatesMeta() throws Exception {
-        Mockito.when(slMapApiClient.resolve("Tula"))
-                .thenReturn(new RegionResolution.Found(997.0, 1036.0));
-
         mockMvc.perform(get("/api/v1/auctions/search").param("near_region", "Tula"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.meta.nearRegionResolved.name").value("Tula"))
@@ -209,12 +177,19 @@ class AuctionSearchControllerIntegrationTest {
     }
 
     private void seedActive(
-            User seller, String region, int area, String maturity,
+            User seller, String regionName, int area, String maturity,
             Double gridX, Double gridY) {
+        Region region = regionRepo.findByNameIgnoreCase(regionName)
+                .orElseGet(() -> regionRepo.save(Region.builder()
+                        .slUuid(UUID.randomUUID())
+                        .name(regionName)
+                        .gridX(gridX).gridY(gridY)
+                        .maturityRating(maturity)
+                        .build()));
         Parcel p = parcelRepo.save(Parcel.builder()
                 .slParcelUuid(UUID.randomUUID())
-                .regionName(region).areaSqm(area).maturityRating(maturity)
-                .gridX(gridX).gridY(gridY)
+                .region(region)
+                .areaSqm(area)
                 .verified(true).build());
         auctionRepo.save(Auction.builder()
                 .parcel(p).seller(seller).title("Test")

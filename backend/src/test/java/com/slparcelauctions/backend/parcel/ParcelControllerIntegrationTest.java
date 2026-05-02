@@ -27,10 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.parcel.dto.ParcelLookupRequest;
 import com.slparcelauctions.backend.sl.ParcelIngestException;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 
 import reactor.core.publisher.Mono;
 
@@ -67,8 +67,6 @@ class ParcelControllerIntegrationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean SlWorldApiClient worldApi;
-    @MockitoBean SlMapApiClient mapApi;
-
     /** Unverified user: returned from register flow as-is. */
     private String unverifiedAccessToken;
 
@@ -132,8 +130,8 @@ class ParcelControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         // Second call must not hit external APIs
-        verify(worldApi, times(1)).fetchParcel(parcelUuid);
-        verify(mapApi, times(1)).resolveRegion("Coniston");
+        verify(worldApi, times(1)).fetchParcelPage(parcelUuid);
+        verify(worldApi, times(1)).fetchRegionPage(org.mockito.ArgumentMatchers.any(java.util.UUID.class));
         assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }
 
@@ -148,7 +146,7 @@ class ParcelControllerIntegrationTest {
         // bubbling up to the catch-all 500 — defense in depth in case SL
         // changes the page shape again.
         UUID parcelUuid = UUID.fromString("88888888-8888-8888-8888-888888888888");
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(
+        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
                 Mono.error(new ParcelIngestException("required meta missing")));
 
         mockMvc.perform(post("/api/v1/parcels/lookup")
@@ -269,11 +267,23 @@ class ParcelControllerIntegrationTest {
 
     private void stubMainlandMetadata(UUID parcelUuid, UUID ownerUuid, String regionName,
                                       double gridX, double gridY) {
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, ownerUuid, "agent",
-                "Test Parcel", regionName,
-                1024, "Test description", "http://example.com/snap.jpg", "MODERATE",
-                128.0, 64.0, 22.0)));
-        when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(gridX, gridY)));
+        UUID regionUuid = UUID.randomUUID();
+        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
+                Mono.just(new ParcelPageData(new ParcelMetadata(
+                        parcelUuid,
+                ownerUuid,
+                "agent",
+                null,
+                "Test Parcel",
+                regionName,
+                1024,
+                "Test description",
+                "http://example.com/snap.jpg",
+                null,
+                128.0,
+                64.0,
+                22.0), regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
+                Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
     }
 }

@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Verifies the {@code pg_advisory_xact_lock} cap-enforcement contract — two
@@ -197,11 +198,10 @@ class SavedAuctionConcurrencyTest {
 
     private Auction seedActive(int idx) {
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("R-" + idx + "-" + UUID.randomUUID())
-                .areaSqm(1024)
-                .maturityRating("GENERAL")
-                .verified(true)
+                                .areaSqm(1024)
+                                .verified(true)
                 .build());
         seededParcelIds.add(p.getId());
 

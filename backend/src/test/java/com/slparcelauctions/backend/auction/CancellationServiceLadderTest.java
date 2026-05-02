@@ -31,6 +31,7 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Boundary coverage for the cancellation-penalty ladder
@@ -78,7 +79,8 @@ class CancellationServiceLadderTest {
                 .penaltyBalanceOwed(0L)
                 .bannedFromListing(false)
                 .build();
-        parcel = Parcel.builder().id(100L).build();
+        parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(100L).build();
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(userRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(seller));
     }

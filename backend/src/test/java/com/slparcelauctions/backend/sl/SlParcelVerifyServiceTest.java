@@ -47,6 +47,7 @@ import com.slparcelauctions.backend.verification.VerificationCode;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
 import com.slparcelauctions.backend.verification.exception.CodeNotFoundException;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link SlParcelVerifyService}. Exercises each branch of
@@ -97,9 +98,10 @@ class SlParcelVerifyServiceTest {
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder().id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+                .verified(true).build();
         auction = Auction.builder()
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)

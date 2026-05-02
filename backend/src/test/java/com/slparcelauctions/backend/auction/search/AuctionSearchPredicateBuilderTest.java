@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.parceltag.ParcelTagRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for {@link AuctionSearchPredicateBuilder} against a
@@ -206,11 +207,10 @@ class AuctionSearchPredicateBuilderTest {
 
     private Auction seedActive(String region, int areaSqm, String maturity) {
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName(region)
-                .areaSqm(areaSqm)
-                .maturityRating(maturity)
-                .verified(true)
+                                .areaSqm(areaSqm)
+                                .verified(true)
                 .build());
         return auctionRepo.save(Auction.builder()
                 .parcel(p)
@@ -234,11 +234,10 @@ class AuctionSearchPredicateBuilderTest {
 
     private Auction seedActiveForSeller(User s) {
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("R-" + UUID.randomUUID())
-                .areaSqm(1024)
-                .maturityRating("GENERAL")
-                .verified(true)
+                                .areaSqm(1024)
+                                .verified(true)
                 .build());
         return auctionRepo.save(Auction.builder()
                 .parcel(p)

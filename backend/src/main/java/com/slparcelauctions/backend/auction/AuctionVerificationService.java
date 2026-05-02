@@ -191,7 +191,9 @@ public class AuctionVerificationService {
 
         ParcelMetadata fresh;
         try {
-            fresh = worldApi.fetchParcel(parcel.getSlParcelUuid()).block();
+            fresh = worldApi.fetchParcelPage(parcel.getSlParcelUuid())
+                    .map(com.slparcelauctions.backend.sl.dto.ParcelPageData::parcel)
+                    .block();
         } catch (RuntimeException e) {
             log.warn("Method A World API lookup failed for auction {}: {}",
                     a.getId(), e.getMessage());

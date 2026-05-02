@@ -29,6 +29,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for {@link BotMonitorLifecycleService} — the lifecycle
@@ -217,14 +218,12 @@ class BotMonitorLifecycleServiceTest {
             }
 
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(seller.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName("BotLifecycleRegion")
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .positionX(128.0)
+                                                            .areaSqm(1024)
+                                        .positionX(128.0)
                     .positionY(64.0)
                     .positionZ(22.0)
                     .verified(true)

@@ -83,10 +83,11 @@ public class AuctionSearchPredicateBuilder {
             List<Predicate> predicates, AuctionSearchQuery q,
             Root<Auction> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
         Join<Object, Object> parcel = root.join("parcel");
+        Join<Object, Object> region = parcel.join("region");
 
         if (q.region() != null && !q.region().isBlank()) {
             predicates.add(cb.equal(
-                    cb.lower(parcel.get("regionName")),
+                    cb.lower(region.get("name")),
                     q.region().toLowerCase()));
         }
         if (q.minArea() != null) {
@@ -106,7 +107,7 @@ public class AuctionSearchPredicateBuilder {
                     root.get("currentBid"), q.maxPrice()));
         }
         if (q.maturity() != null && !q.maturity().isEmpty()) {
-            predicates.add(parcel.get("maturityRating").in(q.maturity()));
+            predicates.add(region.get("maturityRating").in(q.maturity()));
         }
         if (q.verificationTier() != null && !q.verificationTier().isEmpty()) {
             predicates.add(root.get("verificationTier").in(q.verificationTier()));
@@ -138,14 +139,15 @@ public class AuctionSearchPredicateBuilder {
         Specification<Auction> base = build(q);
         return base.and((root, query, cb) -> {
             Join<Object, Object> parcel = root.join("parcel");
+            Join<Object, Object> region = parcel.join("region");
 
-            Expression<Double> dx = cb.diff(parcel.<Double>get("gridX"), cb.literal(x0));
-            Expression<Double> dy = cb.diff(parcel.<Double>get("gridY"), cb.literal(y0));
+            Expression<Double> dx = cb.diff(region.<Double>get("gridX"), cb.literal(x0));
+            Expression<Double> dy = cb.diff(region.<Double>get("gridY"), cb.literal(y0));
             Expression<Double> distSquared = cb.sum(cb.prod(dx, dx), cb.prod(dy, dy));
 
             List<Predicate> dp = new ArrayList<>();
-            dp.add(cb.between(parcel.<Double>get("gridX"), x0 - radius, x0 + radius));
-            dp.add(cb.between(parcel.<Double>get("gridY"), y0 - radius, y0 + radius));
+            dp.add(cb.between(region.<Double>get("gridX"), x0 - radius, x0 + radius));
+            dp.add(cb.between(region.<Double>get("gridY"), y0 - radius, y0 + radius));
             dp.add(cb.lessThanOrEqualTo(distSquared, (double) radius * radius));
             return cb.and(dp.toArray(Predicate[]::new));
         });

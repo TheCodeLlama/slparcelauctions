@@ -34,6 +34,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for cancellation fan-out notifications.
@@ -114,14 +115,12 @@ class CancellationFanoutIntegrationTest {
     private Auction buildActiveAuction(User seller, int bidCount, User topBidder, long currentBid) {
         return new TransactionTemplate(txManager).execute(s -> {
             Parcel p = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(seller.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName("CancelRegion")
-                    .continentName("Sansara")
-                    .areaSqm(256)
-                    .maturityRating("GENERAL")
-                    .verified(true)
+                                                            .areaSqm(256)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             parcelId = p.getId();

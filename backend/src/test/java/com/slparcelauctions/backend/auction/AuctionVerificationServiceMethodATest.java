@@ -35,10 +35,13 @@ import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.verification.VerificationCodeService;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -85,9 +88,10 @@ class AuctionVerificationServiceMethodATest {
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder().id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+                .verified(true).build();
 
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -106,8 +110,9 @@ class AuctionVerificationServiceMethodATest {
     void verify_fromDraftPaid_withMatchingOwnership_transitionsToActive() {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
@@ -129,8 +134,9 @@ class AuctionVerificationServiceMethodATest {
         Auction a = build(AuctionStatus.VERIFICATION_FAILED);
         a.setVerificationNotes("stale failure note");
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
@@ -169,8 +175,9 @@ class AuctionVerificationServiceMethodATest {
     void verify_withGroupOwnerType_transitionsToVerificationFailed() {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "group")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "group"), java.util.UUID.randomUUID())));
 
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
@@ -188,8 +195,9 @@ class AuctionVerificationServiceMethodATest {
         // impossible from this path (refunds only happen via explicit cancel).
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(OTHER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(OTHER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
 
@@ -203,7 +211,7 @@ class AuctionVerificationServiceMethodATest {
     void verify_worldApiTimeoutException_transitionsToVerificationFailed() {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(Mono.error(new ExternalApiTimeoutException("World", "upstream 503")));
 
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
@@ -224,8 +232,9 @@ class AuctionVerificationServiceMethodATest {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         a.setVerificationMethod(null);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         Auction out = service.triggerVerification(
                 AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID);
@@ -283,8 +292,9 @@ class AuctionVerificationServiceMethodATest {
     void verify_parcelLockedByAnotherActiveAuction_throwsParcelAlreadyListed() {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
                 PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
@@ -305,8 +315,9 @@ class AuctionVerificationServiceMethodATest {
     void verify_dataIntegrityViolationOnSave_throwsParcelAlreadyListedWithSentinel() {
         Auction a = build(AuctionStatus.DRAFT_PAID);
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         // Pre-check passes (exists=false) but the final saveAndFlush trips the unique index.
         when(auctionRepo.saveAndFlush(any(Auction.class)))
                 .thenThrow(new DataIntegrityViolationException("uq_auctions_parcel_locked_status"));
@@ -357,7 +368,7 @@ class AuctionVerificationServiceMethodATest {
 
     private ParcelMetadata meta(UUID owner, String ownerType) {
         return new ParcelMetadata(
-                PARCEL_UUID, owner, ownerType,
+                PARCEL_UUID, owner, ownerType, null,
                 "Test Parcel", "Coniston",
                 1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);

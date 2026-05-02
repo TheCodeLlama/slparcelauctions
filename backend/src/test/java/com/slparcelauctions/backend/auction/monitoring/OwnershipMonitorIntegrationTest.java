@@ -39,6 +39,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end coverage of the ownership-monitor sweep using a real World API
@@ -277,14 +278,12 @@ class OwnershipMonitorIntegrationTest {
             seededUserId = seller.getId();
 
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(parcelUuid)
                     .ownerUuid(sellerAvatar)
                     .ownerType("agent")
-                    .regionName("Coniston")
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .verified(true)
+                                                            .areaSqm(1024)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             seededParcelId = parcel.getId();

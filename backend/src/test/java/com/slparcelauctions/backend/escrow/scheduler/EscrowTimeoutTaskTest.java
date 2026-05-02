@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link EscrowTimeoutTask}. Exercises the per-escrow
@@ -259,10 +260,10 @@ class EscrowTimeoutTaskTest {
     private Escrow buildEscrow(EscrowState state) {
         User seller = User.builder().id(SELLER_ID).email("seller@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        Parcel parcel = Parcel.builder().id(99L).slParcelUuid(PARCEL_UUID)
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(99L).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("TimeoutRegion").continentName("Sansara")
-                .verified(true).build();
+                                .verified(true).build();
         Auction auction = Auction.builder()
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)

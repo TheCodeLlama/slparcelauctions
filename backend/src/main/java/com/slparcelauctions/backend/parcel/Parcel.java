@@ -9,12 +9,18 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.slparcelauctions.backend.region.Region;
+
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,9 +38,8 @@ import lombok.Setter;
 @Entity
 @Table(name = "parcels",
         indexes = {
-            @Index(name = "ix_parcels_grid_coords", columnList = "grid_x, grid_y"),
-            @Index(name = "ix_parcels_area_sqm", columnList = "area_sqm"),
-            @Index(name = "ix_parcels_maturity", columnList = "maturity_rating")
+            @Index(name = "ix_parcels_region", columnList = "region_id"),
+            @Index(name = "ix_parcels_area_sqm", columnList = "area_sqm")
         })
 @Getter
 @Setter
@@ -50,23 +55,22 @@ public class Parcel {
     @Column(name = "sl_parcel_uuid", nullable = false, unique = true)
     private UUID slParcelUuid;
 
+    // Cascade PERSIST so test fixtures that build a Parcel with an in-memory
+    // Region (TestRegions.mainland()) don't trip Hibernate's transient-FK
+    // assertion on flush. Production flow goes through RegionService.upsert
+    // which always supplies a managed Region — the cascade is a no-op there.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false, cascade = CascadeType.PERSIST)
+    @JoinColumn(name = "region_id", nullable = false)
+    private Region region;
+
     @Column(name = "owner_uuid")
     private UUID ownerUuid;
 
     @Column(name = "owner_type", length = 10)
     private String ownerType;   // "agent" or "group"
 
-    @Column(name = "region_name", length = 100)
-    private String regionName;
-
-    @Column(name = "grid_x")
-    private Double gridX;
-
-    @Column(name = "grid_y")
-    private Double gridY;
-
-    @Column(name = "continent_name", length = 50)
-    private String continentName;
+    @Column(name = "owner_name", length = 255)
+    private String ownerName;   // SL display name; null/blank when ownertype=group
 
     @Column(name = "area_sqm")
     private Integer areaSqm;
@@ -101,12 +105,6 @@ public class Parcel {
 
     @Column(columnDefinition = "text")
     private String slurl;
-
-    @Column(name = "maturity_rating", length = 10)
-    // "GENERAL", "MODERATE", "ADULT" — canonical SL terminology.
-    // Translated from the SL World API XML values ("PG", "Mature", "Adult")
-    // at ingest (SlWorldApiClient.parseHtml). See Epic 07 sub-spec 1.
-    private String maturityRating;
 
     @Builder.Default
     @Column(nullable = false)

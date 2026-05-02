@@ -2,6 +2,8 @@ package com.slparcelauctions.backend.sl;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -14,22 +16,39 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
+import com.slparcelauctions.backend.sl.exception.RegionNotFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 /**
- * Fetches parcel metadata HTML from {@code world.secondlife.com/place/{uuid}}
- * and parses meta tags with Jsoup. Unofficial API - retry 5xx with backoff,
- * fail fast on 404 (parcel does not exist), fail-hard on exhaustion.
+ * Fetches and parses the two SL World API pages used by the parcel-lookup
+ * flow:
+ * <ul>
+ *   <li>{@code world.secondlife.com/place/{parcelUuid}} — parcel metadata
+ *       (owner, area, description, position) plus the region's SL UUID via
+ *       a body link.</li>
+ *   <li>{@code world.secondlife.com/region/{regionUuid}} — region metadata
+ *       (name, grid coordinates in region units, maturity rating).</li>
+ * </ul>
+ *
+ * <p>Both endpoints retry 5xx / network errors with exponential backoff,
+ * fail fast on 404 (parcel doesn't exist / region doesn't exist), and
+ * surface other failures as {@link ExternalApiTimeoutException}. Parsing
+ * failures throw {@link ParcelIngestException} (mapped to 422).
  */
 @Component
 @Slf4j
 public class SlWorldApiClient {
+
+    private static final Pattern REGION_UUID_FROM_HREF = Pattern.compile(
+            "/region/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
 
     private final WebClient webClient;
     private final int retryAttempts;
@@ -45,7 +64,7 @@ public class SlWorldApiClient {
         this.retryBackoffMs = retryBackoffMs;
     }
 
-    public Mono<ParcelMetadata> fetchParcel(UUID parcelUuid) {
+    public Mono<ParcelPageData> fetchParcelPage(UUID parcelUuid) {
         return webClient.get()
                 .uri("/place/{uuid}", parcelUuid)
                 .retrieve()
@@ -53,16 +72,30 @@ public class SlWorldApiClient {
                         r -> Mono.error(new ParcelNotFoundInSlException(parcelUuid)))
                 .bodyToMono(String.class)
                 .retryWhen(Retry.backoff(retryAttempts, Duration.ofMillis(retryBackoffMs))
-                        .filter(this::isTransient))
+                        .filter(t -> isTransient(t, ParcelNotFoundInSlException.class)))
                 .onErrorMap(
                         throwable -> !(throwable instanceof ParcelNotFoundInSlException),
                         throwable -> new ExternalApiTimeoutException("World", throwable.getMessage()))
-                .map(html -> parseHtml(parcelUuid, html));
+                .map(html -> parseParcelHtml(parcelUuid, html));
     }
 
-    private boolean isTransient(Throwable t) {
-        if (t instanceof ParcelNotFoundInSlException) {
-            // 404 is mapped before bodyToMono via onStatus; never retry.
+    public Mono<RegionPageData> fetchRegionPage(UUID regionUuid) {
+        return webClient.get()
+                .uri("/region/{uuid}", regionUuid)
+                .retrieve()
+                .onStatus(HttpStatus.NOT_FOUND::equals,
+                        r -> Mono.error(new RegionNotFoundException(regionUuid.toString())))
+                .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(retryAttempts, Duration.ofMillis(retryBackoffMs))
+                        .filter(t -> isTransient(t, RegionNotFoundException.class)))
+                .onErrorMap(
+                        throwable -> !(throwable instanceof RegionNotFoundException),
+                        throwable -> new ExternalApiTimeoutException("World", throwable.getMessage()))
+                .map(this::parseRegionHtml);
+    }
+
+    private boolean isTransient(Throwable t, Class<? extends Throwable> nonTransient) {
+        if (nonTransient.isInstance(t)) {
             return false;
         }
         if (t instanceof WebClientResponseException e) {
@@ -72,25 +105,63 @@ public class SlWorldApiClient {
         return true;
     }
 
-    private ParcelMetadata parseHtml(UUID parcelUuid, String html) {
+    private ParcelPageData parseParcelHtml(UUID parcelUuid, String html) {
         Document doc = Jsoup.parse(html);
         String[] xyz = parseLocation(meta(doc, "name", "location"));
-        // maturityRating stays null at ingest — the parcel page does not reliably
-        // expose it; SL scopes maturity to the region, not the parcel. Filled in
-        // at listing-creation time via user input until a regions table lands.
-        return new ParcelMetadata(
+        ParcelMetadata parcel = new ParcelMetadata(
                 parcelUuid,
                 optionalUuid(meta(doc, "name", "ownerid")),
                 meta(doc, "name", "ownertype"),
+                meta(doc, "name", "owner"),
                 meta(doc, "name", "parcel"),
                 meta(doc, "name", "region"),
                 optionalInt(meta(doc, "name", "area")),
                 description(doc),
                 snapshotUrl(doc),
-                null,
+                null,                                    // maturity is region-scoped — see ParcelMetadata doc
                 optionalDouble(xyz[0]),
                 optionalDouble(xyz[1]),
                 optionalDouble(xyz[2]));
+        UUID regionUuid = parseRegionUuidFromBody(doc);
+        return new ParcelPageData(parcel, regionUuid);
+    }
+
+    private RegionPageData parseRegionHtml(String html) {
+        Document doc = Jsoup.parse(html);
+        UUID slUuid = optionalUuid(meta(doc, "name", "regionid"));
+        if (slUuid == null) {
+            throw new ParcelIngestException("regionid missing from region page");
+        }
+        String name = meta(doc, "name", "region");
+        if (name == null || name.isBlank()) {
+            throw new ParcelIngestException("region name missing from region page");
+        }
+        Double gridX = optionalDouble(meta(doc, "name", "gridx"));
+        Double gridY = optionalDouble(meta(doc, "name", "gridy"));
+        if (gridX == null || gridY == null) {
+            throw new ParcelIngestException("gridx/gridy missing from region page");
+        }
+        String maturityRaw = meta(doc, "name", "mat");
+        return new RegionPageData(slUuid, name, gridX, gridY, maturityRaw);
+    }
+
+    private UUID parseRegionUuidFromBody(Document doc) {
+        Element link = doc.selectFirst("a[href^=/region/]");
+        if (link == null) {
+            throw new ParcelIngestException("region link missing from parcel page");
+        }
+        String href = link.attr("href");
+        Matcher m = REGION_UUID_FROM_HREF.matcher(href);
+        if (!m.find()) {
+            throw new ParcelIngestException(
+                    "region link on parcel page is not a UUID: " + href);
+        }
+        try {
+            return UUID.fromString(m.group(1));
+        } catch (IllegalArgumentException e) {
+            throw new ParcelIngestException(
+                    "region link UUID failed to parse: " + m.group(1), e);
+        }
     }
 
     private String meta(Document doc, String attr, String value) {

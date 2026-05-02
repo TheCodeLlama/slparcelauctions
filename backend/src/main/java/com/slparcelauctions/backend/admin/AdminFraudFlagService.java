@@ -196,7 +196,7 @@ public class AdminFraudFlagService {
         }
 
         if (flag.getParcel() != null) {
-            parcelRegionName = flag.getParcel().getRegionName();
+            parcelRegionName = flag.getParcel().getRegion().getName();
         }
 
         return new AdminFraudFlagSummaryDto(

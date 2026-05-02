@@ -25,6 +25,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -117,9 +118,9 @@ class FeaturedRepositoryIntegrationTest {
 
     private Auction seedActive(OffsetDateTime endsAt, OffsetDateTime startsAt) {
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("R-" + UUID.randomUUID())
-                .areaSqm(1024).maturityRating("GENERAL").verified(true).build());
+                                .areaSqm(1024).verified(true).build());
         return auctionRepo.save(Auction.builder()
                 .parcel(p).seller(seller).title("Test")
                 .status(AuctionStatus.ACTIVE)

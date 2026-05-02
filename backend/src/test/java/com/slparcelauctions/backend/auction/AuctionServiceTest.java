@@ -40,6 +40,7 @@ import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.parceltag.ParcelTagRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @ExtendWith(MockitoExtension.class)
 class AuctionServiceTest {
@@ -60,8 +61,9 @@ class AuctionServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(service, "defaultCommissionRate", new BigDecimal("0.05"));
         seller = User.builder().id(42L).email("s@example.com").verified(true).build();
-        parcel = Parcel.builder().id(100L).slParcelUuid(UUID.randomUUID())
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+        parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(100L).slParcelUuid(UUID.randomUUID())
+                .verified(true).build();
         lenient().when(userRepo.findById(42L)).thenReturn(Optional.of(seller));
         lenient().when(parcelRepo.findById(100L)).thenReturn(Optional.of(parcel));
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> {
