@@ -49,7 +49,7 @@ export function ReportListingButton({ auctionId, sellerId }: Props) {
         title={title}
         onClick={() => setModalOpen(true)}
         data-testid="report-listing-btn"
-        className="px-3 py-1.5 rounded-default text-label-sm text-on-surface-variant bg-surface-container hover:bg-surface-container-high disabled:opacity-50 disabled:pointer-events-none transition-colors"
+        className="px-3 py-1.5 rounded-lg text-[11px] font-medium text-fg-muted bg-bg-muted hover:bg-bg-hover disabled:opacity-50 disabled:pointer-events-none transition-colors"
       >
         {label}
       </button>

@@ -68,7 +68,7 @@ export function AuctionHero({
       return (
         <div
           className={cn(
-            "rounded-default overflow-hidden h-[320px] md:h-[500px]",
+            "rounded-lg overflow-hidden h-[320px] md:h-[500px]",
             className,
           )}
           data-testid="auction-hero"
@@ -85,17 +85,17 @@ export function AuctionHero({
     return (
       <div
         className={cn(
-          "rounded-default overflow-hidden h-[320px] md:h-[500px]",
-          "bg-gradient-to-br from-primary-container to-surface-container-high",
+          "rounded-lg overflow-hidden h-[320px] md:h-[500px]",
+          "bg-gradient-to-br from-brand-soft to-bg-hover",
           "flex items-center justify-center text-center",
           className,
         )}
         data-testid="auction-hero"
         data-variant="placeholder"
       >
-        <div className="flex flex-col items-center gap-2 text-on-primary-container">
+        <div className="flex flex-col items-center gap-2 text-brand">
           <Building2 className="size-12" aria-hidden="true" />
-          <p className="text-title-lg font-display font-bold">
+          <p className="text-base font-bold tracking-tight font-display">
             {regionName ?? "Parcel preview unavailable"}
           </p>
         </div>
@@ -118,7 +118,7 @@ export function AuctionHero({
           onClick={() => setLightboxIndex(0)}
           aria-label="Open photo"
           className={cn(
-            "block w-full rounded-default overflow-hidden h-[320px] md:h-[500px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            "block w-full rounded-lg overflow-hidden h-[320px] md:h-[500px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
             className,
           )}
           data-testid="auction-hero"
@@ -154,7 +154,7 @@ export function AuctionHero({
             type="button"
             onClick={() => setLightboxIndex(0)}
             aria-label="Open photo 1"
-            className="md:col-span-3 md:row-span-2 rounded-default overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="md:col-span-3 md:row-span-2 rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <img
               src={hero.url}
@@ -172,7 +172,7 @@ export function AuctionHero({
                 key={photo.id}
                 onClick={() => setLightboxIndex(photoIndex)}
                 aria-label={`Open photo ${photoIndex + 1}`}
-                className="rounded-default overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="rounded-lg overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 data-testid={`auction-hero-secondary-${i}`}
               >
                 <img
@@ -187,7 +187,7 @@ export function AuctionHero({
                  * the Lightbox at this cell's index. */}
                 {i === secondaries.length - 1 && remainingCount > 0 && (
                   <span
-                    className="absolute inset-0 bg-scrim/60 text-on-surface-inverse flex items-center justify-center text-label-lg font-medium pointer-events-none"
+                    className="absolute inset-0 bg-scrim/60 text-white flex items-center justify-center text-sm font-medium pointer-events-none"
                     data-testid="auction-hero-more-overlay"
                   >
                     +{remainingCount} more
@@ -204,7 +204,7 @@ export function AuctionHero({
             type="button"
             onClick={() => setLightboxIndex(0)}
             aria-label="Open photo 1"
-            className="rounded-default overflow-hidden h-[240px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded-lg overflow-hidden h-[240px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             data-testid="auction-hero-mobile-primary"
           >
             <img
@@ -224,13 +224,13 @@ export function AuctionHero({
                 return (
                   <li
                     key={photo.id}
-                    className="shrink-0 w-24 h-24 rounded-default overflow-hidden"
+                    className="shrink-0 w-24 h-24 rounded-lg overflow-hidden"
                   >
                     <button
                       type="button"
                       onClick={() => setLightboxIndex(photoIndex)}
                       aria-label={`Open photo ${photoIndex + 1}`}
-                      className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       <img
                         src={photo.url}

@@ -40,12 +40,12 @@ export function AuthGateMessage({ kind, auctionId }: AuthGateMessageProps) {
       <div
         data-testid="auth-gate-message"
         data-kind="unauth"
-        className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
+        className="flex flex-col gap-3 rounded-xl bg-surface-raised p-6 shadow-sm"
       >
-        <h2 className="text-title-md text-on-surface">
+        <h2 className="text-sm font-semibold tracking-tight text-fg">
           Sign in to bid on this auction
         </h2>
-        <p className="text-body-sm text-on-surface-variant">
+        <p className="text-xs text-fg-muted">
           You need an account to place bids. Signing in takes a moment.
         </p>
         <Link href={`/login${next}`}>
@@ -62,12 +62,12 @@ export function AuthGateMessage({ kind, auctionId }: AuthGateMessageProps) {
       <div
         data-testid="auth-gate-message"
         data-kind="unverified"
-        className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
+        className="flex flex-col gap-3 rounded-xl bg-surface-raised p-6 shadow-sm"
       >
-        <h2 className="text-title-md text-on-surface">
+        <h2 className="text-sm font-semibold tracking-tight text-fg">
           Verify your Second Life avatar to bid
         </h2>
-        <p className="text-body-sm text-on-surface-variant">
+        <p className="text-xs text-fg-muted">
           Only SL-verified users can place bids. Head to your dashboard to
           finish verification.
         </p>
@@ -85,10 +85,10 @@ export function AuthGateMessage({ kind, auctionId }: AuthGateMessageProps) {
     <div
       data-testid="auth-gate-message"
       data-kind="seller"
-      className="flex flex-col gap-2 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
+      className="flex flex-col gap-2 rounded-xl bg-surface-raised p-6 shadow-sm"
     >
-      <h2 className="text-title-md text-on-surface">This is your auction</h2>
-      <p className="text-body-sm text-on-surface-variant">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">This is your auction</h2>
+      <p className="text-xs text-fg-muted">
         You cannot bid on your own listing. Watch the current bid and bidder
         count update in real time as bids come in.
       </p>

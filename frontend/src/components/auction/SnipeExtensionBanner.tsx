@@ -61,10 +61,10 @@ export function SnipeExtensionBanner({
       role="status"
       aria-live="polite"
       data-testid="snipe-extension-banner"
-      className="flex items-center gap-2 rounded-default bg-primary-container px-3 py-2 text-on-primary-container"
+      className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-2 text-brand"
     >
       <Shield className="size-4 shrink-0" aria-hidden="true" />
-      <span className="text-body-sm">
+      <span className="text-xs">
         <span className="font-semibold">
           Auction extended by {extensionMinutes}m
         </span>

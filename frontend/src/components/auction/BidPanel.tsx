@@ -120,7 +120,7 @@ function BidderPanel({
   return (
     <div
       data-testid="bid-panel-bidder"
-      className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
+      className="flex flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-sm"
     >
       <ReconnectingBanner state={connectionState} />
       {snipeExtension ? (
@@ -151,7 +151,7 @@ function BidderPanel({
       {auction.buyNowPrice != null ? (
         <div
           data-testid="bid-panel-buy-now-callout"
-          className="rounded-default bg-surface-container-low p-3 text-body-sm text-on-surface"
+          className="rounded-lg bg-bg-subtle p-3 text-xs text-fg"
         >
           Buy now for{" "}
           <span className="font-semibold">
@@ -187,7 +187,7 @@ function CurrentBidDisplay({
   const high = formatHighBid(auction.currentHighBid);
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs uppercase tracking-wider text-on-surface-variant">
+      <span className="text-xs uppercase tracking-wider text-fg-muted">
         Current bid
       </span>
       <span
@@ -196,7 +196,7 @@ function CurrentBidDisplay({
       >
         L$ {high}
       </span>
-      <span className="text-body-sm text-on-surface-variant">
+      <span className="text-xs text-fg-muted">
         <span data-testid="bid-panel-bidder-count">{auction.bidderCount}</span>{" "}
         bids
       </span>

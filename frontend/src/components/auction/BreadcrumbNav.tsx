@@ -90,13 +90,13 @@ export function BreadcrumbNav({ region, title }: Props) {
     <nav
       aria-label="Breadcrumb"
       data-testid="breadcrumb-nav"
-      className="text-body-sm text-on-surface-variant"
+      className="text-xs text-fg-muted"
     >
       <ol className="flex items-center gap-2">
         <li className="flex items-center gap-2">
           <Link
             href={browseHref}
-            className="transition-colors hover:text-on-surface"
+            className="transition-colors hover:text-fg"
             data-testid="breadcrumb-browse"
           >
             Browse
@@ -106,7 +106,7 @@ export function BreadcrumbNav({ region, title }: Props) {
         <li className="flex items-center gap-2">
           <Link
             href={regionHref}
-            className="transition-colors hover:text-on-surface"
+            className="transition-colors hover:text-fg"
             data-testid="breadcrumb-region"
           >
             {region}
@@ -116,7 +116,7 @@ export function BreadcrumbNav({ region, title }: Props) {
         <li className="truncate">
           <span
             aria-current="page"
-            className="text-on-surface"
+            className="text-fg"
             data-testid="breadcrumb-title"
             title={title}
           >

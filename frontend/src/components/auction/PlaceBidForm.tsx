@@ -151,7 +151,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
       <div>
         <label
           htmlFor={amountInputId}
-          className="text-label-md text-on-surface-variant"
+          className="text-xs font-medium text-fg-muted"
         >
           Your bid
         </label>
@@ -168,7 +168,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
           }}
           onFocus={scrollInputIntoView}
           placeholder={`L$${min.toLocaleString()}`}
-          leftIcon={<span className="text-label-md">L$</span>}
+          leftIcon={<span className="text-xs font-medium">L$</span>}
           className="text-right"
           data-testid="place-bid-amount-input"
           helperText={
@@ -191,7 +191,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
       </Button>
       {!isConnected ? (
         <p
-          className="text-body-sm text-on-surface-variant"
+          className="text-xs text-fg-muted"
           data-testid="place-bid-connection-helper"
         >
           Waiting for connection…

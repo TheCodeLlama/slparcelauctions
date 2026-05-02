@@ -46,15 +46,15 @@ const MATURITY_MAP: Record<
 > = {
   GENERAL: {
     label: "General",
-    cls: "bg-tertiary-container text-on-tertiary-container",
+    cls: "bg-info-bg text-fg",
   },
   MODERATE: {
     label: "Moderate",
-    cls: "bg-secondary-container text-on-secondary-container",
+    cls: "bg-bg-muted text-fg",
   },
   ADULT: {
     label: "Adult",
-    cls: "bg-error-container text-on-error-container",
+    cls: "bg-danger-bg text-danger-flat",
   },
 };
 
@@ -85,13 +85,13 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-2 min-w-0">
           <h1
-            className="text-headline-lg font-display font-bold text-on-surface"
+            className="text-2xl font-bold tracking-tight font-display text-fg"
             data-testid="parcel-info-panel-title"
           >
             {title}
           </h1>
           <p
-            className="flex flex-wrap items-center gap-2 text-body-md text-on-surface-variant"
+            className="flex flex-wrap items-center gap-2 text-sm text-fg-muted"
             data-testid="parcel-info-panel-subline"
           >
             <MapPin className="size-4" aria-hidden="true" />
@@ -101,7 +101,7 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
             <span aria-hidden="true">·</span>
             <span
               className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-label-sm font-medium",
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
                 maturity.cls,
               )}
               data-testid="parcel-info-panel-maturity"
@@ -150,7 +150,7 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
 
       {auction.sellerDesc && (
         <p
-          className="whitespace-pre-wrap text-body-lg text-on-surface max-w-2xl"
+          className="whitespace-pre-wrap text-base text-fg max-w-2xl"
           data-testid="parcel-info-panel-description"
         >
           {auction.sellerDesc}

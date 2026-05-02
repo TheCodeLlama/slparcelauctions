@@ -53,10 +53,10 @@ export function AuctionEndedRow({ auction }: AuctionEndedRowProps) {
       role="note"
       data-testid="auction-ended-row"
       data-outcome={outcome ?? "UNKNOWN"}
-      className="flex items-center gap-3 rounded-default bg-secondary-container px-4 py-3 text-on-secondary-container"
+      className="flex items-center gap-3 rounded-lg bg-bg-muted px-4 py-3 text-fg"
     >
       <Gavel className="size-5 shrink-0" aria-hidden="true" />
-      <span className="text-title-sm font-bold">{label}</span>
+      <span className="text-sm font-semibold">{label}</span>
     </div>
   );
 }
