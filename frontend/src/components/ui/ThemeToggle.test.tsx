@@ -7,9 +7,9 @@ describe("ThemeToggle", () => {
   it("renders the sun icon when theme is dark", async () => {
     renderWithProviders(<ThemeToggle />, { theme: "dark" });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
     });
-    const button = screen.getByRole("button", { name: "Toggle theme" });
+    const button = screen.getByRole("button", { name: "Switch to light mode" });
     const svg = button.querySelector("svg");
     expect(svg?.getAttribute("class") ?? "").toContain("lucide-sun");
   });
@@ -17,9 +17,9 @@ describe("ThemeToggle", () => {
   it("renders the moon icon when theme is light", async () => {
     renderWithProviders(<ThemeToggle />, { theme: "light" });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeInTheDocument();
     });
-    const button = screen.getByRole("button", { name: "Toggle theme" });
+    const button = screen.getByRole("button", { name: "Switch to dark mode" });
     const svg = button.querySelector("svg");
     expect(svg?.getAttribute("class") ?? "").toContain("lucide-moon");
   });
@@ -27,11 +27,11 @@ describe("ThemeToggle", () => {
   it("flips the documentElement class on click (integration test, not forced theme)", async () => {
     renderWithProviders(<ThemeToggle />, { theme: "dark" });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle theme" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeInTheDocument();
     });
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     await act(async () => {
-      await userEvent.click(screen.getByRole("button", { name: "Toggle theme" }));
+      await userEvent.click(screen.getByRole("button", { name: "Switch to light mode" }));
     });
     await waitFor(() => {
       expect(document.documentElement.classList.contains("light")).toBe(true);
