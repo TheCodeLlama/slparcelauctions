@@ -19,6 +19,7 @@ public record ParcelResponse(
         UUID ownerUuid,
         String ownerType,
         String ownerName,
+        String parcelName,
         String regionName,
         Double gridX,
         Double gridY,
@@ -39,7 +40,7 @@ public record ParcelResponse(
         Region r = p.getRegion();
         return new ParcelResponse(
                 p.getId(), p.getSlParcelUuid(), p.getOwnerUuid(), p.getOwnerType(),
-                p.getOwnerName(),
+                p.getOwnerName(), p.getParcelName(),
                 r.getName(), r.getGridX(), r.getGridY(),
                 p.getPositionX(), p.getPositionY(), p.getPositionZ(),
                 p.getAreaSqm(), p.getDescription(), p.getSnapshotUrl(), p.getSlurl(),

@@ -26,7 +26,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * {@link org.hibernate.LazyInitializationException} under
      * {@code spring.jpa.open-in-view=false}.
      */
-    @EntityGraph(attributePaths = {"parcel", "tags"})
+    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
     List<Auction> findBySellerIdOrderByCreatedAtDesc(Long sellerId);
 
     /**
@@ -52,7 +52,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * Eagerly fetches {@code parcel} + {@code tags} — see class-level note on
      * {@link #findBySellerIdOrderByCreatedAtDesc}.
      */
-    @EntityGraph(attributePaths = {"parcel", "tags"})
+    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
     Optional<Auction> findByIdAndSellerId(Long id, Long sellerId);
 
     /**
@@ -61,7 +61,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * {@link JpaRepository#findById} so every load path — including seller,
      * public, and service-layer lookups — returns a fully-initialized aggregate.
      */
-    @EntityGraph(attributePaths = {"parcel", "tags"})
+    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
     @Override
     Optional<Auction> findById(Long id);
 
@@ -75,7 +75,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * does not apply here: this is a single-row lookup with no
      * {@code Pageable}, so the multiple to-many fetches stay safe.
      */
-    @EntityGraph(attributePaths = {"parcel", "seller", "photos", "tags"})
+    @EntityGraph(attributePaths = {"parcel", "parcel.region", "seller", "photos", "tags"})
     @Query("SELECT a FROM Auction a WHERE a.id = :id")
     Optional<Auction> findByIdForDetail(@Param("id") Long id);
 
@@ -164,7 +164,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * layer re-sequences them against the incoming ID list to preserve exact
      * page order (same pattern as {@code MyBidsService}).
      */
-    @EntityGraph(attributePaths = {"parcel", "tags"})
+    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids ORDER BY a.endsAt ASC")
     List<Auction> findAllByIdInWithParcelAndTags(@Param("ids") Collection<Long> ids);
 
@@ -181,7 +181,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * against the original ID list themselves (the same pattern as
      * {@link #findAllByIdInWithParcelAndTags}).
      */
-    @EntityGraph(attributePaths = {"parcel", "seller"})
+    @EntityGraph(attributePaths = {"parcel", "parcel.region", "seller"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids")
     List<Auction> findAllByIdWithParcelAndSeller(@Param("ids") Collection<Long> ids);
 

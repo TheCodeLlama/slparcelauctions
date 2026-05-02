@@ -35,7 +35,7 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
      * supplied by the caller via {@link Pageable} — the controller pins
      * {@code Sort.by("cancelledAt").descending()} per spec §7.4.
      */
-    @EntityGraph(attributePaths = {"auction", "auction.parcel", "auction.photos"})
+    @EntityGraph(attributePaths = {"auction", "auction.parcel", "auction.parcel.region", "auction.photos"})
     Page<CancellationLog> findBySellerId(Long sellerId, Pageable pageable);
 
     /**
