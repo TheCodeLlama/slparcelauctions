@@ -14,7 +14,7 @@ export function WithdrawalModal({ onClose, available }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-surface rounded p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-bg rounded p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-sm font-semibold mb-3">Withdraw to Account</h2>
         <div className="space-y-3 text-xs">
           <div>
@@ -23,7 +23,7 @@ export function WithdrawalModal({ onClose, available }: Props) {
               type="number" value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               max={available}
-              className="w-full bg-surface-container-low p-2 rounded"
+              className="w-full bg-bg-subtle p-2 rounded"
             />
             <div className="text-[10px] opacity-60 mt-1">
               Available: L$ {available.toLocaleString()}
@@ -35,7 +35,7 @@ export function WithdrawalModal({ onClose, available }: Props) {
               value={recipientUuid}
               onChange={(e) => setRecipientUuid(e.target.value)}
               placeholder="00000000-0000-0000-0000-000000000000"
-              className="w-full bg-surface-container-low p-2 rounded font-mono"
+              className="w-full bg-bg-subtle p-2 rounded font-mono"
             />
           </div>
           <div>
@@ -43,21 +43,21 @@ export function WithdrawalModal({ onClose, available }: Props) {
             <textarea
               value={notes} onChange={(e) => setNotes(e.target.value)}
               maxLength={1000}
-              className="w-full bg-surface-container-low p-2 rounded h-20 resize-y"
+              className="w-full bg-bg-subtle p-2 rounded h-20 resize-y"
             />
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={onClose}
-                    className="flex-1 px-3 py-2 border border-outline rounded">Cancel</button>
+                    className="flex-1 px-3 py-2 border border-border rounded">Cancel</button>
             <button
               type="button"
               disabled={!valid || mutation.isPending}
               onClick={() => mutation.mutate({ amount, recipientUuid, notes }, { onSuccess: onClose })}
-              className="flex-1 px-3 py-2 bg-primary text-on-primary rounded font-semibold disabled:opacity-50"
+              className="flex-1 px-3 py-2 bg-brand text-white rounded font-semibold disabled:opacity-50"
             >{mutation.isPending ? "Submitting…" : "Withdraw"}</button>
           </div>
           {mutation.isError && (
-            <p className="text-[10px] text-error">{(mutation.error as Error).message}</p>
+            <p className="text-[10px] text-danger-flat">{(mutation.error as Error).message}</p>
           )}
         </div>
       </div>

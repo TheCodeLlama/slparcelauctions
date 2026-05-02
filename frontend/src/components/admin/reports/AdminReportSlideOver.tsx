@@ -100,21 +100,21 @@ export function AdminReportSlideOver({
         aria-hidden="true"
       />
       <aside
-        className="fixed top-16 right-0 bottom-0 z-40 w-[560px] flex flex-col bg-surface-container-low border-l border-outline-variant shadow-elevated overflow-hidden"
+        className="fixed top-16 right-0 bottom-0 z-40 w-[560px] flex flex-col bg-bg-subtle border-l border-border-subtle shadow-md overflow-hidden"
         data-testid="admin-report-slideover"
         role="dialog"
         aria-modal="true"
         aria-label="Listing reports detail"
       >
         {/* Navigation bar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-outline-variant shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle shrink-0">
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={onPrev}
               disabled={!hasPrev}
               aria-label="Previous listing"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:pointer-events-none"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted disabled:opacity-30 disabled:pointer-events-none"
             >
               ←
             </button>
@@ -123,7 +123,7 @@ export function AdminReportSlideOver({
               onClick={onNext}
               disabled={!hasNext}
               aria-label="Next listing"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:pointer-events-none"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted disabled:opacity-30 disabled:pointer-events-none"
             >
               →
             </button>
@@ -132,7 +132,7 @@ export function AdminReportSlideOver({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+            className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted"
           >
             ✕
           </button>
@@ -140,7 +140,7 @@ export function AdminReportSlideOver({
 
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
           {isLoading && (
-            <div className="text-body-sm text-on-surface-variant">Loading…</div>
+            <div className="text-sm text-fg-muted">Loading…</div>
           )}
 
           {listingRow && (
@@ -149,20 +149,20 @@ export function AdminReportSlideOver({
               <div className="flex items-start justify-between gap-2 flex-wrap">
                 <div className="flex flex-col gap-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-label-sm font-medium bg-error-container text-on-error-container px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-medium bg-danger-bg text-danger-flat px-2 py-0.5 rounded-full">
                       {openCount} open report{openCount !== 1 ? "s" : ""}
                     </span>
                     <span
-                      className="text-label-sm px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant"
+                      className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-bg-muted text-fg-muted"
                       data-testid="auction-status-chip"
                     >
                       {listingRow.auctionStatus}
                     </span>
                   </div>
-                  <div className="text-title-md font-semibold text-on-surface">
+                  <div className="text-sm font-semibold text-fg">
                     {listingRow.auctionTitle}
                   </div>
-                  <div className="text-body-sm text-on-surface-variant">
+                  <div className="text-sm text-fg-muted">
                     Auction #{listingRow.auctionId}
                     {listingRow.sellerDisplayName && (
                       <span>
@@ -170,7 +170,7 @@ export function AdminReportSlideOver({
                         · Seller:{" "}
                         <Link
                           href={`/admin/users/${listingRow.sellerUserId}`}
-                          className="text-primary underline underline-offset-2"
+                          className="text-brand underline underline-offset-2"
                         >
                           {listingRow.sellerDisplayName}
                         </Link>
@@ -225,7 +225,7 @@ export function AdminReportSlideOver({
               {/* Reports list */}
               {reports && reports.length > 0 && (
                 <div className="flex flex-col gap-3">
-                  <div className="text-label-md font-medium text-on-surface">
+                  <div className="text-xs font-medium text-fg">
                     Reports ({reports.length})
                   </div>
                   {reports.map((report) => (
@@ -235,16 +235,16 @@ export function AdminReportSlideOver({
               )}
 
               {reports && reports.length === 0 && (
-                <div className="text-body-sm text-on-surface-variant">
+                <div className="text-sm text-fg-muted">
                   No reports found for this listing.
                 </div>
               )}
 
               {/* Shared notes */}
               <div className="flex flex-col gap-1">
-                <label className="text-label-md font-medium text-on-surface">
-                  Admin notes <span className="text-error">*</span>
-                  <span className="text-on-surface-variant font-normal ml-1">
+                <label className="text-xs font-medium text-fg">
+                  Admin notes <span className="text-danger-flat">*</span>
+                  <span className="text-fg-muted font-normal ml-1">
                     (required for Warn / Suspend / Cancel)
                   </span>
                 </label>
@@ -255,9 +255,9 @@ export function AdminReportSlideOver({
                   onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
                   placeholder="Notes for this action…"
                   data-testid="admin-report-notes"
-                  className="w-full resize-y rounded-default bg-surface-container px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary disabled:opacity-50"
+                  className="w-full resize-y rounded-lg bg-bg-muted px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
                 />
-                <div className="self-end text-label-sm text-on-surface-variant">
+                <div className="self-end text-[11px] font-medium text-fg-muted">
                   {notes.length} / {NOTES_MAX}
                 </div>
               </div>

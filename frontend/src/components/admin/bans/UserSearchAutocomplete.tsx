@@ -44,16 +44,16 @@ export function UserSearchAutocomplete({ onSelect, placeholder = "Search by name
         onFocus={() => setClosedForQuery("")}
         placeholder={placeholder}
         data-testid="user-search-input"
-        className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary"
+        className="w-full rounded-lg bg-bg-muted px-4 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand"
       />
       {isFetching && (
-        <div className="absolute right-3 top-2.5 text-on-surface-variant text-[11px]">…</div>
+        <div className="absolute right-3 top-2.5 text-fg-muted text-[11px]">…</div>
       )}
       {open && (
         <ul
           role="listbox"
           data-testid="user-search-dropdown"
-          className="absolute z-50 left-0 right-0 mt-1 rounded-default bg-surface-container-low border border-outline-variant shadow-elevated overflow-hidden"
+          className="absolute z-50 left-0 right-0 mt-1 rounded-lg bg-bg-subtle border border-border-subtle shadow-md overflow-hidden"
         >
           {results.map((user) => (
             <li
@@ -62,12 +62,12 @@ export function UserSearchAutocomplete({ onSelect, placeholder = "Search by name
               aria-selected={false}
               onClick={() => handleSelect(user)}
               data-testid={`user-option-${user.id}`}
-              className="flex flex-col px-4 py-2 cursor-pointer hover:bg-surface-container transition-colors"
+              className="flex flex-col px-4 py-2 cursor-pointer hover:bg-bg-muted transition-colors"
             >
-              <span className="text-body-sm font-medium text-on-surface">
+              <span className="text-sm font-medium text-fg">
                 {user.displayName ?? "(no display name)"}
               </span>
-              <span className="text-[11px] text-on-surface-variant">{user.email}</span>
+              <span className="text-[11px] text-fg-muted">{user.email}</span>
             </li>
           ))}
         </ul>

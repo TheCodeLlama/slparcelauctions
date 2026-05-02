@@ -16,7 +16,7 @@ export function AdminDashboardPage() {
   }
   if (isError || !data) {
     return (
-      <div className="text-sm text-error">Could not load admin stats. Refresh to retry.</div>
+      <div className="text-sm text-danger-flat">Could not load admin stats. Refresh to retry.</div>
     );
   }
 

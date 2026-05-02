@@ -43,41 +43,41 @@ export function RecentIpsModal({ userId, onClose }: Props) {
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <div
-          className="w-full max-w-lg rounded-default bg-surface-container-low border border-outline-variant shadow-elevated p-6 flex flex-col gap-4 max-h-[80vh] overflow-y-auto"
+          className="w-full max-w-lg rounded-lg bg-bg-subtle border border-border-subtle shadow-md p-6 flex flex-col gap-4 max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between">
-            <h2 className="text-title-md font-semibold text-on-surface">Recent IPs</h2>
+            <h2 className="text-sm font-semibold text-fg">Recent IPs</h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted"
             >
               ✕
             </button>
           </div>
 
           {isLoading && (
-            <div className="text-body-sm text-on-surface-variant py-4">Loading IPs…</div>
+            <div className="text-sm text-fg-muted py-4">Loading IPs…</div>
           )}
 
           {isError && (
-            <div className="text-body-sm text-error py-4">Could not load IPs.</div>
+            <div className="text-sm text-danger-flat py-4">Could not load IPs.</div>
           )}
 
           {data && data.length === 0 && (
-            <div className="text-body-sm text-on-surface-variant py-4">No IP history found.</div>
+            <div className="text-sm text-fg-muted py-4">No IP history found.</div>
           )}
 
           {data && data.length > 0 && (
-            <div className="overflow-x-auto rounded-default border border-outline-variant">
-              <table className="w-full text-body-sm">
-                <thead className="bg-surface-container-low border-b border-outline-variant">
+            <div className="overflow-x-auto rounded-lg border border-border-subtle">
+              <table className="w-full text-sm">
+                <thead className="bg-bg-subtle border-b border-border-subtle">
                   <tr>
-                    <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">IP Address</th>
-                    <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Sessions</th>
-                    <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Last seen</th>
+                    <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">IP Address</th>
+                    <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Sessions</th>
+                    <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Last seen</th>
                     <th className="px-3 py-2.5 w-[80px]" />
                   </tr>
                 </thead>
@@ -85,18 +85,18 @@ export function RecentIpsModal({ userId, onClose }: Props) {
                   {data.map((row) => (
                     <tr
                       key={row.ipAddress}
-                      className="border-b border-outline-variant/50"
+                      className="border-b border-border-subtle/50"
                       data-testid={`ip-row-${row.ipAddress}`}
                     >
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-on-surface">{row.ipAddress}</td>
-                      <td className="px-3 py-2.5 text-on-surface-variant">{row.sessionCount}</td>
-                      <td className="px-3 py-2.5 text-on-surface-variant text-[11px]">{formatDate(row.lastSeenAt)}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-fg">{row.ipAddress}</td>
+                      <td className="px-3 py-2.5 text-fg-muted">{row.sessionCount}</td>
+                      <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.lastSeenAt)}</td>
                       <td className="px-3 py-2.5 text-right">
                         <button
                           type="button"
                           onClick={() => setBanIp(row.ipAddress)}
                           data-testid={`ban-ip-btn-${row.ipAddress}`}
-                          className="text-[11px] text-error hover:underline underline-offset-2"
+                          className="text-[11px] text-danger-flat hover:underline underline-offset-2"
                         >
                           Ban IP
                         </button>

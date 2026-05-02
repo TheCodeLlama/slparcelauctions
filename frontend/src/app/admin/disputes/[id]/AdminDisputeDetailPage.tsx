@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispute } from "@/lib/admin/disputeHooks";
 import { EscrowLedgerPanel } from "./EscrowLedgerPanel";
@@ -10,20 +11,20 @@ export function AdminDisputeDetailPage({ escrowId }: { escrowId: number }) {
   const router = useRouter();
   const { data, isLoading, error } = useDispute(escrowId);
   if (isLoading) return <p>Loading…</p>;
-  if (error || !data) return <p className="text-error">Failed to load dispute</p>;
+  if (error || !data) return <p className="text-danger-flat">Failed to load dispute</p>;
 
   return (
     <div className="space-y-4">
       <nav className="text-xs">
-        <a href="/admin/disputes" className="text-primary">← Disputes</a>
+        <Link href="/admin/disputes" className="text-brand">← Disputes</Link>
         <span className="opacity-40 mx-2">/</span>
         <span className="opacity-85">{data.auctionTitle}</span>
       </nav>
 
-      <header className="bg-surface-container rounded p-4 flex gap-4 items-center">
+      <header className="bg-bg-muted rounded p-4 flex gap-4 items-center">
         <span className={`px-2.5 py-1 rounded text-[11px] ${
-          data.status === "DISPUTED" ? "bg-error-container text-on-error-container" :
-          "bg-tertiary-container text-on-tertiary-container"
+          data.status === "DISPUTED" ? "bg-danger-bg text-danger-flat" :
+          "bg-info-bg text-info-flat"
         }`}>
           {data.status === "DISPUTED" ? "⚐ DISPUTED" : "❄ FROZEN"}
         </span>

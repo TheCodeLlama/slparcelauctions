@@ -100,20 +100,20 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
         aria-hidden="true"
       />
       <aside
-        className="fixed top-16 right-0 bottom-0 z-40 w-[520px] flex flex-col bg-surface-container-low border-l border-outline-variant shadow-elevated overflow-hidden"
+        className="fixed top-16 right-0 bottom-0 z-40 w-[520px] flex flex-col bg-bg-subtle border-l border-border-subtle shadow-md overflow-hidden"
         data-testid="fraud-flag-slideover"
         role="dialog"
         aria-modal="true"
         aria-label="Fraud flag detail"
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-outline-variant shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle shrink-0">
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={onPrev}
               disabled={!hasPrev}
               aria-label="Previous flag"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:pointer-events-none"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted disabled:opacity-30 disabled:pointer-events-none"
             >
               ←
             </button>
@@ -122,7 +122,7 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
               onClick={onNext}
               disabled={!hasNext}
               aria-label="Next flag"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container disabled:opacity-30 disabled:pointer-events-none"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted disabled:opacity-30 disabled:pointer-events-none"
             >
               →
             </button>
@@ -131,7 +131,7 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+            className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted"
           >
             ✕
           </button>
@@ -139,31 +139,31 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
 
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
           {isLoading && (
-            <div className="text-body-sm text-on-surface-variant">Loading…</div>
+            <div className="text-sm text-fg-muted">Loading…</div>
           )}
 
           {detail && (
             <>
               <div className="flex items-center gap-2 flex-wrap">
                 <ReasonBadge reason={detail.reason} />
-                <span className="text-label-sm text-on-surface-variant">
+                <span className="text-[11px] font-medium text-fg-muted">
                   Flag #{detail.id}
                 </span>
               </div>
 
               {detail.auction && (
                 <div>
-                  <div className="text-title-md font-semibold text-on-surface">
+                  <div className="text-sm font-semibold text-fg">
                     {detail.auction.title}
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-body-sm text-on-surface-variant">
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-sm text-fg-muted">
                     <span>Auction #{detail.auction.id}</span>
                     {detail.auction.sellerDisplayName && (
                       <span>
                         Seller:{" "}
                         <Link
                           href={`/users/${detail.auction.sellerUserId}`}
-                          className="text-primary underline underline-offset-2"
+                          className="text-brand underline underline-offset-2"
                         >
                           {detail.auction.sellerDisplayName}
                         </Link>
@@ -179,17 +179,17 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
               <FraudFlagEvidence detail={detail} />
 
               {detail.resolvedAt ? (
-                <div className="rounded-default bg-surface-container px-4 py-3 flex flex-col gap-1">
-                  <div className="text-label-md font-medium text-on-surface">Resolved</div>
-                  <div className="text-body-sm text-on-surface-variant">
+                <div className="rounded-lg bg-bg-muted px-4 py-3 flex flex-col gap-1">
+                  <div className="text-xs font-medium text-fg">Resolved</div>
+                  <div className="text-sm text-fg-muted">
                     By{" "}
-                    <span className="text-on-surface">
+                    <span className="text-fg">
                       {detail.resolvedByDisplayName ?? "(unknown)"}
                     </span>{" "}
                     on {formatDateTime(detail.resolvedAt)}
                   </div>
                   {detail.adminNotes && (
-                    <div className="mt-1 text-body-sm text-on-surface whitespace-pre-wrap">
+                    <div className="mt-1 text-sm text-fg whitespace-pre-wrap">
                       {detail.adminNotes}
                     </div>
                   )}
@@ -225,7 +225,7 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
                     </Button>
                   </div>
                   {detail.auction && (
-                    <div className="border-t border-outline-variant pt-3">
+                    <div className="border-t border-border-subtle pt-3">
                       <Button
                         variant="tertiary"
                         size="sm"

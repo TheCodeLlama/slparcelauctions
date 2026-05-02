@@ -24,48 +24,48 @@ export function ModerationTab({ userId }: Props) {
   const { data, isLoading, isError } = useAdminUserModeration(userId, page, PAGE_SIZE);
 
   if (isLoading) {
-    return <div className="py-6 text-body-sm text-on-surface-variant">Loading moderation history…</div>;
+    return <div className="py-6 text-sm text-fg-muted">Loading moderation history…</div>;
   }
 
   if (isError) {
-    return <div className="py-6 text-body-sm text-error">Could not load moderation history.</div>;
+    return <div className="py-6 text-sm text-danger-flat">Could not load moderation history.</div>;
   }
 
   if (!data || data.content.length === 0) {
-    return <div className="py-6 text-body-sm text-on-surface-variant">No moderation history found.</div>;
+    return <div className="py-6 text-sm text-fg-muted">No moderation history found.</div>;
   }
 
   return (
     <div data-testid="moderation-tab">
-      <div className="overflow-x-auto rounded-default border border-outline-variant">
-        <table className="w-full text-body-sm">
-          <thead className="bg-surface-container-low border-b border-outline-variant">
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
+        <table className="w-full text-sm">
+          <thead className="bg-bg-subtle border-b border-border-subtle">
             <tr>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Action</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">By</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Notes</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Date</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Action</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">By</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Notes</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Date</th>
             </tr>
           </thead>
           <tbody>
             {data.content.map((row) => (
               <tr
                 key={row.actionId}
-                className="border-b border-outline-variant/50"
+                className="border-b border-border-subtle/50"
                 data-testid={`moderation-row-${row.actionId}`}
               >
                 <td className="px-3 py-2.5">
-                  <span className="text-[10px] uppercase tracking-wide text-on-surface-variant/70">
+                  <span className="text-[10px] uppercase tracking-wide text-fg-muted/70">
                     {row.actionType}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant">
+                <td className="px-3 py-2.5 text-fg-muted">
                   {row.adminDisplayName ?? "System"}
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant max-w-xs">
+                <td className="px-3 py-2.5 text-fg-muted max-w-xs">
                   <span className="line-clamp-2">{row.notes ?? "—"}</span>
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant text-[11px]">{formatDate(row.createdAt)}</td>
+                <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.createdAt)}</td>
               </tr>
             ))}
           </tbody>

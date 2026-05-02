@@ -19,7 +19,7 @@ export function AdminAuditLogPage() {
   };
 
   if (isLoading) return <p>Loading…</p>;
-  if (error) return <p className="text-error">Failed to load audit log</p>;
+  if (error) return <p className="text-danger-flat">Failed to load audit log</p>;
 
   return (
     <div className="space-y-4">
@@ -37,7 +37,7 @@ export function AdminAuditLogPage() {
       />
       <AdminAuditLogTable rows={data?.content ?? []} />
       {data && (
-        <div className="flex justify-between text-xs opacity-60 border-t border-outline-variant pt-3">
+        <div className="flex justify-between text-xs opacity-60 border-t border-border-subtle pt-3">
           <span>
             Showing {data.content.length} of {data.totalElements}
           </span>

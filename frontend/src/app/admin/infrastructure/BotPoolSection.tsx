@@ -7,16 +7,16 @@ export function BotPoolSection() {
   const total = rows.length;
 
   return (
-    <section className="bg-surface-container rounded p-4">
+    <section className="bg-bg-muted rounded p-4">
       <header className="flex justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold">Bot pool</h2>
           <p className="text-[10px] opacity-55">Heartbeat 60s · Redis · TTL 180s</p>
         </div>
         <span className={`px-2.5 py-1 rounded-full text-[10px] ${
-          total === 0 ? "bg-surface-container-low" :
-          alive === total ? "bg-success-container text-on-success-container"
-                          : "bg-error-container text-on-error-container"
+          total === 0 ? "bg-bg-subtle" :
+          alive === total ? "bg-success-bg text-success-flat"
+                          : "bg-danger-bg text-danger-flat"
         }`}>● {alive}/{total} healthy</span>
       </header>
       {rows.length === 0 ? (
@@ -31,10 +31,10 @@ export function BotPoolSection() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.workerId} className="border-b border-outline-variant/40">
+              <tr key={r.workerId} className="border-b border-border-subtle/40">
                 <td className="py-2">{r.name}</td>
                 <td className="py-2 font-mono opacity-70">{r.slUuid.slice(0, 8)}…</td>
-                <td className={`py-2 ${r.isAlive ? "text-success" : "text-error"}`}>
+                <td className={`py-2 ${r.isAlive ? "text-success-flat" : "text-danger-flat"}`}>
                   ● {r.sessionState ?? "MISSING"}
                 </td>
                 <td className="py-2">{r.currentRegion ?? "—"}</td>

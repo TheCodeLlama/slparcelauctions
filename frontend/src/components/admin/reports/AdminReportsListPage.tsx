@@ -93,11 +93,11 @@ export function AdminReportsListPage() {
       </div>
 
       {isLoading && (
-        <div className="text-body-sm text-on-surface-variant py-8">Loading…</div>
+        <div className="text-sm text-fg-muted py-8">Loading…</div>
       )}
 
       {isError && (
-        <div className="text-body-sm text-error py-8">
+        <div className="text-sm text-danger-flat py-8">
           Could not load reports. Refresh to retry.
         </div>
       )}

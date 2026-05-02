@@ -21,7 +21,7 @@ function EvidenceValue({ value, linkedUsers }: EvidenceValueProps) {
         <Link
           href={`/users/${linked.userId}`}
           title={`${value} — ${linked.displayName ?? "(no display name)"}`}
-          className="font-mono text-primary underline underline-offset-2"
+          className="font-mono text-brand underline underline-offset-2"
         >
           {truncateUuid(value)}
         </Link>
@@ -47,15 +47,15 @@ export function FraudFlagEvidence({ detail }: Props) {
 
   return (
     <div className="flex flex-col gap-1" data-testid="fraud-flag-evidence">
-      <div className="text-label-md text-on-surface font-medium mb-1">Evidence</div>
-      <table className="w-full text-body-sm border-separate border-spacing-y-0.5">
+      <div className="text-xs font-medium text-fg mb-1">Evidence</div>
+      <table className="w-full text-sm border-separate border-spacing-y-0.5">
         <tbody>
           {entries.map(([key, val]) => (
             <tr key={key} className="align-top">
-              <td className="pr-3 py-1 text-on-surface-variant font-mono whitespace-nowrap w-[40%]">
+              <td className="pr-3 py-1 text-fg-muted font-mono whitespace-nowrap w-[40%]">
                 {key}
               </td>
-              <td className="py-1 text-on-surface break-all">
+              <td className="py-1 text-fg break-all">
                 <EvidenceValue value={val} linkedUsers={detail.linkedUsers} />
               </td>
             </tr>

@@ -7,12 +7,12 @@ type Props = { rows: AdminDisputeQueueRow[] };
 
 export function AdminDisputesTable({ rows }: Props) {
   if (rows.length === 0) {
-    return <p className="text-sm text-on-surface-variant">No disputes in this view.</p>;
+    return <p className="text-sm text-fg-muted">No disputes in this view.</p>;
   }
   return (
     <table className="w-full text-xs">
       <thead className="text-[10px] uppercase opacity-60 text-left">
-        <tr className="border-b border-outline-variant">
+        <tr className="border-b border-border-subtle">
           <th className="py-2 px-2">Status</th>
           <th className="py-2 px-2">Listing</th>
           <th className="py-2 px-2">Reason</th>
@@ -25,9 +25,9 @@ export function AdminDisputesTable({ rows }: Props) {
       </thead>
       <tbody>
         {rows.map((row) => (
-          <tr key={row.escrowId} className="border-b border-outline-variant/40 hover:bg-surface-container-low">
+          <tr key={row.escrowId} className="border-b border-border-subtle/40 hover:bg-bg-subtle">
             <td className="py-2 px-2">
-              <Link href={`/admin/disputes/${row.escrowId}`} className="text-error">
+              <Link href={`/admin/disputes/${row.escrowId}`} className="text-danger-flat">
                 {row.status === "DISPUTED" ? "⚐ Disputed" : "❄ Frozen"}
               </Link>
             </td>

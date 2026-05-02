@@ -14,18 +14,18 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
         <p className="text-[11px] opacity-70 mb-3">
           This value will <strong>not</strong> be shown again. Copy it before closing.
         </p>
-        <div className="bg-surface-container-low rounded p-3 font-mono text-xs break-all mb-3">
+        <div className="bg-bg-subtle rounded p-3 font-mono text-xs break-all mb-3">
           {rotate.data.secretValue}
         </div>
         <button
           type="button"
           onClick={() => navigator.clipboard.writeText(rotate.data!.secretValue)}
-          className="px-3 py-1.5 border border-outline rounded text-xs mb-3"
+          className="px-3 py-1.5 border border-border rounded text-xs mb-3"
         >Copy to clipboard</button>
         <h3 className="text-xs font-semibold mb-2">Push results</h3>
         <ul className="text-xs space-y-1 mb-3">
           {rotate.data.terminalPushResults.map((r) => (
-            <li key={r.terminalId} className={r.success ? "text-success" : "text-error"}>
+            <li key={r.terminalId} className={r.success ? "text-success-flat" : "text-danger-flat"}>
               {r.success ? "✓" : "✗"} {r.terminalName}
               {r.errorMessage && <span className="opacity-70"> — {r.errorMessage}</span>}
             </li>
@@ -34,7 +34,7 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-2 bg-primary text-on-primary rounded text-xs font-semibold w-full"
+          className="px-3 py-2 bg-brand text-white rounded text-xs font-semibold w-full"
         >I&apos;ve saved it, close</button>
       </Backdrop>
     );
@@ -53,12 +53,12 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
       </label>
       <div className="flex gap-2">
         <button type="button" onClick={onClose}
-                className="flex-1 px-3 py-2 border border-outline rounded text-xs">Cancel</button>
+                className="flex-1 px-3 py-2 border border-border rounded text-xs">Cancel</button>
         <button
           type="button"
           disabled={!confirmed || rotate.isPending}
           onClick={() => rotate.mutate()}
-          className="flex-1 px-3 py-2 bg-tertiary text-on-tertiary rounded text-xs font-semibold disabled:opacity-50"
+          className="flex-1 px-3 py-2 bg-info-flat text-white rounded text-xs font-semibold disabled:opacity-50"
         >{rotate.isPending ? "Rotating…" : "Rotate now"}</button>
       </div>
     </Backdrop>
@@ -68,7 +68,7 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
 function Backdrop({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-surface rounded p-5 max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-bg rounded p-5 max-w-md" onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

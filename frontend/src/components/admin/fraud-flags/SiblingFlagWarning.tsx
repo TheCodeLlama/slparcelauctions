@@ -6,7 +6,7 @@ export function SiblingFlagWarning({ count }: Props) {
   if (count <= 0) return null;
   return (
     <div
-      className="rounded-default bg-tertiary-container/30 border border-tertiary/30 px-4 py-3 text-body-sm text-on-tertiary-container"
+      className="rounded-lg bg-info-bg/30 border border-info-flat/30 px-4 py-3 text-sm text-info-flat"
       data-testid="sibling-flag-warning"
     >
       This auction has <span className="font-medium">{count}</span> other open flag

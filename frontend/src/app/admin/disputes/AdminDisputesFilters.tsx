@@ -26,7 +26,7 @@ export function AdminDisputesFilters({ filters, onChange }: Props) {
         ❄ Frozen
       </button>
       <select
-        className="px-2 py-1 bg-surface-container-low rounded text-xs"
+        className="px-2 py-1 bg-bg-subtle rounded text-xs"
         value={filters.reasonCategory ?? ""}
         onChange={(e) =>
           onChange({
@@ -49,7 +49,7 @@ export function AdminDisputesFilters({ filters, onChange }: Props) {
 function chipClass(active: boolean) {
   return `px-2.5 py-1.5 text-xs rounded-full border ${
     active
-      ? "bg-error-container text-on-error-container border-error"
-      : "bg-surface-container-low text-on-surface border-outline-variant"
+      ? "bg-danger-bg text-danger-flat border-danger-flat"
+      : "bg-bg-subtle text-fg border-border-subtle"
   }`;
 }

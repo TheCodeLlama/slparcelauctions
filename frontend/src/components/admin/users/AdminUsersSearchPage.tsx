@@ -10,7 +10,7 @@ function SkeletonRows() {
   return (
     <div className="space-y-2 py-4" aria-busy="true">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-12 rounded-default bg-surface-container animate-pulse" />
+        <div key={i} className="h-12 rounded-lg bg-bg-muted animate-pulse" />
       ))}
     </div>
   );
@@ -50,13 +50,13 @@ export function AdminUsersSearchPage() {
             navigate({ search: v || undefined, page: 0 });
           }
         }}
-        className="w-full mb-4 rounded-default bg-surface-container px-4 py-2.5 text-body-md text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary"
+        className="w-full mb-4 rounded-lg bg-bg-muted px-4 py-2.5 text-sm text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand"
       />
 
       {isLoading && <SkeletonRows />}
 
       {isError && (
-        <div className="text-body-sm text-error py-6">Could not load users. Refresh to retry.</div>
+        <div className="text-sm text-danger-flat py-6">Could not load users. Refresh to retry.</div>
       )}
 
       {data && (

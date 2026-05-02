@@ -12,8 +12,8 @@ function formatDate(iso: string): string {
 }
 
 const STATUS_CLASSES: Partial<Record<AuctionStatus, string>> = {
-  SUSPENDED: "text-error font-medium",
-  DISPUTED: "text-tertiary font-medium",
+  SUSPENDED: "text-danger-flat font-medium",
+  DISPUTED: "text-info-flat font-medium",
 };
 
 type Props = {
@@ -26,7 +26,7 @@ export function AdminReportsTable({ rows, selectedAuctionId, onSelect }: Props) 
   if (rows.length === 0) {
     return (
       <div
-        className="py-12 text-center text-body-sm text-on-surface-variant"
+        className="py-12 text-center text-sm text-fg-muted"
         data-testid="empty-state"
       >
         No reports match the current filter.
@@ -35,23 +35,23 @@ export function AdminReportsTable({ rows, selectedAuctionId, onSelect }: Props) 
   }
 
   return (
-    <div className="overflow-x-auto rounded-default border border-outline-variant">
-      <table className="w-full text-body-sm" data-testid="reports-table">
-        <thead className="sticky top-0 bg-surface-container-low border-b border-outline-variant">
+    <div className="overflow-x-auto rounded-lg border border-border-subtle">
+      <table className="w-full text-sm" data-testid="reports-table">
+        <thead className="sticky top-0 bg-bg-subtle border-b border-border-subtle">
           <tr>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium w-[90px]">
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted w-[90px]">
               Latest
             </th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">
               Listing
             </th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium w-[100px]">
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted w-[100px]">
               Seller
             </th>
-            <th className="px-3 py-2.5 text-right text-label-sm text-on-surface-variant font-medium w-[70px]">
+            <th className="px-3 py-2.5 text-right text-[11px] font-medium text-fg-muted w-[70px]">
               Reports
             </th>
-            <th className="px-3 py-2.5 text-right text-label-sm text-on-surface-variant font-medium w-[100px]">
+            <th className="px-3 py-2.5 text-right text-[11px] font-medium text-fg-muted w-[100px]">
               Status
             </th>
           </tr>
@@ -59,7 +59,7 @@ export function AdminReportsTable({ rows, selectedAuctionId, onSelect }: Props) 
         <tbody>
           {rows.map((row) => {
             const statusClass =
-              STATUS_CLASSES[row.auctionStatus] ?? "text-on-surface";
+              STATUS_CLASSES[row.auctionStatus] ?? "text-fg";
             return (
               <tr
                 key={row.auctionId}
@@ -67,29 +67,29 @@ export function AdminReportsTable({ rows, selectedAuctionId, onSelect }: Props) 
                 data-testid={`report-row-${row.auctionId}`}
                 onClick={() => onSelect(row.auctionId)}
                 className={cn(
-                  "border-b border-outline-variant/50 cursor-pointer transition-colors",
+                  "border-b border-border-subtle/50 cursor-pointer transition-colors",
                   selectedAuctionId === row.auctionId
-                    ? "bg-secondary-container/30"
-                    : "hover:bg-surface-container"
+                    ? "bg-info-bg/30"
+                    : "hover:bg-bg-muted"
                 )}
               >
-                <td className="px-3 py-2.5 text-on-surface-variant whitespace-nowrap">
+                <td className="px-3 py-2.5 text-fg-muted whitespace-nowrap">
                   {formatDate(row.latestReportAt)}
                 </td>
-                <td className="px-3 py-2.5 text-on-surface">
+                <td className="px-3 py-2.5 text-fg">
                   <div className="font-medium line-clamp-1">
                     {row.auctionTitle ?? "(no title)"}
                   </div>
                   {row.parcelRegionName && (
-                    <div className="text-on-surface-variant text-[11px]">
+                    <div className="text-fg-muted text-[11px]">
                       {row.parcelRegionName}
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant">
+                <td className="px-3 py-2.5 text-fg-muted">
                   {row.sellerDisplayName ?? "—"}
                 </td>
-                <td className="px-3 py-2.5 text-right font-medium text-on-surface">
+                <td className="px-3 py-2.5 text-right font-medium text-fg">
                   {row.openReportCount}
                 </td>
                 <td className={cn("px-3 py-2.5 text-right", statusClass)}>

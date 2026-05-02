@@ -22,7 +22,7 @@ export function AdminUserDetailPage({ userId }: Props) {
 
   if (isLoading) {
     return (
-      <div className="py-12 text-body-sm text-on-surface-variant" data-testid="user-detail-loading">
+      <div className="py-12 text-sm text-fg-muted" data-testid="user-detail-loading">
         Loading user…
       </div>
     );
@@ -30,7 +30,7 @@ export function AdminUserDetailPage({ userId }: Props) {
 
   if (isError || !user) {
     return (
-      <div className="py-12 text-body-sm text-error" data-testid="user-detail-error">
+      <div className="py-12 text-sm text-danger-flat" data-testid="user-detail-error">
         Could not load user. Refresh to retry.
       </div>
     );

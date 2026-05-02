@@ -27,7 +27,7 @@ type Props = {
 export function AdminBansFilters({ status, typeFilter, onStatusChange, onTypeChange }: Props) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2 border-b border-outline-variant">
+      <div className="flex items-center gap-2 border-b border-border-subtle">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -35,10 +35,10 @@ export function AdminBansFilters({ status, typeFilter, onStatusChange, onTypeCha
             onClick={() => onStatusChange(tab.value)}
             data-testid={`tab-${tab.value}`}
             className={cn(
-              "px-4 py-2 text-label-md font-medium border-b-2 -mb-px transition-colors",
+              "px-4 py-2 text-xs font-medium border-b-2 -mb-px transition-colors",
               status === tab.value
-                ? "border-primary text-primary"
-                : "border-transparent text-on-surface-variant hover:text-on-surface"
+                ? "border-brand text-brand"
+                : "border-transparent text-fg-muted hover:text-fg"
             )}
           >
             {tab.label}
@@ -54,10 +54,10 @@ export function AdminBansFilters({ status, typeFilter, onStatusChange, onTypeCha
             onClick={() => onTypeChange(pill.value)}
             data-testid={`type-pill-${pill.value}`}
             className={cn(
-              "px-3 py-1.5 rounded-full text-label-sm transition-colors",
+              "px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors",
               typeFilter === pill.value
-                ? "bg-secondary-container text-on-secondary-container font-medium"
-                : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                ? "bg-info-bg text-info-flat font-medium"
+                : "bg-bg-muted text-fg-muted hover:bg-bg-hover"
             )}
           >
             {pill.label}

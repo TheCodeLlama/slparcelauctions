@@ -327,9 +327,7 @@ function DisputeFormBody({
     defaultValues: { reasonCategory: "OTHER", description: "", slTransactionKey: "" },
   });
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const description = watch("description");
-  // eslint-disable-next-line react-hooks/incompatible-library
   const reasonCategory = watch("reasonCategory");
 
   const mutation = useMutation({

@@ -25,7 +25,7 @@ export function ReinstateBanner({ detail }: Props) {
 
   return (
     <div
-      className="rounded-default bg-error-container/30 border border-error/30 px-4 py-3 text-body-sm text-on-error-container"
+      className="rounded-lg bg-danger-bg/30 border border-danger-flat/30 px-4 py-3 text-sm text-danger-flat"
       data-testid="reinstate-banner"
     >
       <span className="font-medium">Auction is SUSPENDED.</span> Reinstate will restore{" "}

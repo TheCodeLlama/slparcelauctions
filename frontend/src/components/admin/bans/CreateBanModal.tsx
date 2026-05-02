@@ -101,16 +101,16 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <div
-          className="w-full max-w-lg rounded-default bg-surface-container-low border border-outline-variant shadow-elevated p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+          className="w-full max-w-lg rounded-lg bg-bg-subtle border border-border-subtle shadow-md p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between">
-            <h2 className="text-title-md font-semibold text-on-surface">Create ban</h2>
+            <h2 className="text-sm font-semibold text-fg">Create ban</h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted"
             >
               ✕
             </button>
@@ -119,18 +119,18 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {!hasPreFill && (
               <div className="flex flex-col gap-1">
-                <label className="text-label-md font-medium text-on-surface">
+                <label className="text-xs font-medium text-fg">
                   Search user (optional)
                 </label>
                 <UserSearchAutocomplete onSelect={handleUserSelect} />
-                <p className="text-[11px] text-on-surface-variant">
+                <p className="text-[11px] text-fg-muted">
                   Selecting a user fills the avatar UUID below.
                 </p>
               </div>
             )}
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-md font-medium text-on-surface">Ban type</label>
+              <label className="text-xs font-medium text-fg">Ban type</label>
               <div className="flex items-center gap-2">
                 {BAN_TYPES.map((t) => (
                   <button
@@ -138,10 +138,10 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                     type="button"
                     onClick={() => setBanType(t)}
                     data-testid={`ban-type-btn-${t}`}
-                    className={`px-3 py-1.5 rounded-full text-label-sm transition-colors ${
+                    className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
                       banType === t
-                        ? "bg-secondary-container text-on-secondary-container font-medium"
-                        : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                        ? "bg-info-bg text-info-flat font-medium"
+                        : "bg-bg-muted text-fg-muted hover:bg-bg-hover"
                     }`}
                   >
                     {t}
@@ -152,8 +152,8 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
 
             {(banType === "IP" || banType === "BOTH") && (
               <div className="flex flex-col gap-1">
-                <label htmlFor="ip-address" className="text-label-md font-medium text-on-surface">
-                  IP address <span className="text-error">*</span>
+                <label htmlFor="ip-address" className="text-xs font-medium text-fg">
+                  IP address <span className="text-danger-flat">*</span>
                 </label>
                 <input
                   id="ip-address"
@@ -162,15 +162,15 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                   onChange={(e) => setIpAddress(e.target.value)}
                   placeholder="192.168.0.1"
                   data-testid="ip-address-input"
-                  className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary font-mono"
+                  className="w-full rounded-lg bg-bg-muted px-4 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand font-mono"
                 />
               </div>
             )}
 
             {(banType === "AVATAR" || banType === "BOTH") && (
               <div className="flex flex-col gap-1">
-                <label htmlFor="avatar-uuid" className="text-label-md font-medium text-on-surface">
-                  Avatar UUID <span className="text-error">*</span>
+                <label htmlFor="avatar-uuid" className="text-xs font-medium text-fg">
+                  Avatar UUID <span className="text-danger-flat">*</span>
                 </label>
                 <input
                   id="avatar-uuid"
@@ -179,15 +179,15 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                   onChange={(e) => setSlAvatarUuid(e.target.value)}
                   placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   data-testid="avatar-uuid-input"
-                  className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary font-mono"
+                  className="w-full rounded-lg bg-bg-muted px-4 py-2 text-sm text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand font-mono"
                 />
               </div>
             )}
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-md font-medium text-on-surface">Expiry</label>
+              <label className="text-xs font-medium text-fg">Expiry</label>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-body-sm text-on-surface cursor-pointer">
+                <label className="flex items-center gap-1.5 text-sm text-fg cursor-pointer">
                   <input
                     type="radio"
                     name="expiry-mode"
@@ -198,7 +198,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                   />
                   Permanent
                 </label>
-                <label className="flex items-center gap-1.5 text-body-sm text-on-surface cursor-pointer">
+                <label className="flex items-center gap-1.5 text-sm text-fg cursor-pointer">
                   <input
                     type="radio"
                     name="expiry-mode"
@@ -216,13 +216,13 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                   value={expiresDate}
                   onChange={(e) => setExpiresDate(e.target.value)}
                   data-testid="expiry-date-input"
-                  className="mt-1 rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface ring-1 ring-outline-variant focus:outline-none focus:ring-primary"
+                  className="mt-1 rounded-lg bg-bg-muted px-4 py-2 text-sm text-fg ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               )}
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="reason-category" className="text-label-md font-medium text-on-surface">
+              <label htmlFor="reason-category" className="text-xs font-medium text-fg">
                 Reason category
               </label>
               <select
@@ -230,7 +230,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                 value={reasonCategory}
                 onChange={(e) => setReasonCategory(e.target.value as BanReasonCategory)}
                 data-testid="reason-category-select"
-                className="w-full rounded-default bg-surface-container px-4 py-2 text-body-md text-on-surface ring-1 ring-outline-variant focus:outline-none focus:ring-primary"
+                className="w-full rounded-lg bg-bg-muted px-4 py-2 text-sm text-fg ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand"
               >
                 {REASON_CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -241,8 +241,8 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="reason-text" className="text-label-md font-medium text-on-surface">
-                Reason details <span className="text-error">*</span>
+              <label htmlFor="reason-text" className="text-xs font-medium text-fg">
+                Reason details <span className="text-danger-flat">*</span>
               </label>
               <textarea
                 id="reason-text"
@@ -252,11 +252,11 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                 onChange={(e) => setReasonText(e.target.value)}
                 placeholder="Describe the reason for this ban…"
                 data-testid="reason-text-textarea"
-                className="w-full resize-y rounded-default bg-surface-container px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary disabled:opacity-50"
+                className="w-full resize-y rounded-lg bg-bg-muted px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
               />
             </div>
 
-            <div className="rounded-default bg-tertiary-container/30 border border-tertiary-container px-4 py-3 text-body-sm text-on-surface-variant">
+            <div className="rounded-lg bg-info-bg/30 border border-info-bg px-4 py-3 text-sm text-fg-muted">
               On create: token version bumps for any user with this avatar UUID — their session
               invalidates on next refresh. Ban cache flushes immediately.
             </div>
