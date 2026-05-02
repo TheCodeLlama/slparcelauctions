@@ -182,24 +182,57 @@ describe("useListingDraft", () => {
     expect(result.current.state.parcel?.id).toBe(sampleParcel.id);
   });
 
-  it("persists draft state to sessionStorage across remounts", async () => {
+  it("does NOT persist create-mode draft state across remounts", async () => {
+    // Create mode is intentionally fresh-on-remount: leaving /listings/create
+    // mid-form and coming back should land on a blank wizard, not the prior
+    // session's leftovers. Persistence is reserved for edit mode where the
+    // auction has a stable id to key on.
     const { result, unmount } = renderHook(() => useListingDraft({}), {
       wrapper: makeWrapper(),
     });
     act(() => result.current.setParcel(sampleParcel));
     act(() => result.current.update("startingBid", 1234));
-    act(() => result.current.update("sellerDesc", "Preserve me"));
+    act(() => result.current.update("sellerDesc", "Should not survive"));
     unmount();
 
     const { result: result2 } = renderHook(() => useListingDraft({}), {
       wrapper: makeWrapper(),
     });
 
+    expect(result2.current.state.sellerDesc).toBe("");
+    expect(result2.current.state.startingBid).toBe(100);
+    expect(result2.current.state.parcel).toBeNull();
+    // The "new" slot should never have been written in the first place.
+    expect(window.sessionStorage.getItem("slpa:draft:new")).toBeNull();
+  });
+
+  it("persists edit-mode draft state to sessionStorage across remounts", async () => {
+    // Edit mode keeps the recovery behavior — sellers editing a saved
+    // auction shouldn't lose unsaved tweaks if a tab closes.
+    server.use(
+      http.get("*/api/v1/auctions/77", () =>
+        HttpResponse.json(
+          sellerResponse({ id: 77, sellerDesc: "From server" }),
+        ),
+      ),
+    );
+
+    const { result, unmount } = renderHook(() => useListingDraft({ id: 77 }), {
+      wrapper: makeWrapper(),
+    });
+    await waitFor(() => expect(result.current.state.auctionId).toBe(77));
+    act(() => result.current.update("sellerDesc", "Locally edited"));
+    act(() => result.current.update("startingBid", 1234));
+    unmount();
+
+    const { result: result2 } = renderHook(() => useListingDraft({ id: 77 }), {
+      wrapper: makeWrapper(),
+    });
+
     await waitFor(() =>
-      expect(result2.current.state.sellerDesc).toBe("Preserve me"),
+      expect(result2.current.state.sellerDesc).toBe("Locally edited"),
     );
     expect(result2.current.state.startingBid).toBe(1234);
-    expect(result2.current.state.parcel?.id).toBe(sampleParcel.id);
   });
 
   it("queues removed uploaded photos for DELETE on next save", async () => {
