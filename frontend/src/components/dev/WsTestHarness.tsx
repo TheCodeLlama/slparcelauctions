@@ -46,10 +46,10 @@ export function WsTestHarness() {
 
   return (
     <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-2xl font-semibold text-on-surface">
+      <h1 className="text-2xl font-semibold text-fg">
         WebSocket Test Harness
       </h1>
-      <p className="mt-2 text-on-surface-variant">
+      <p className="mt-2 text-fg-muted">
         Dev-only page for verifying the STOMP pipe. Returns 404 in production
         builds.
       </p>
@@ -62,14 +62,14 @@ export function WsTestHarness() {
         <button
           type="button"
           onClick={__devForceDisconnect}
-          className="rounded-md bg-surface-container px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high"
+          className="rounded-md bg-bg-muted px-3 py-2 text-sm text-fg hover:bg-bg-hover"
         >
           Force Disconnect
         </button>
         <button
           type="button"
           onClick={__devForceReconnect}
-          className="rounded-md bg-surface-container px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high"
+          className="rounded-md bg-bg-muted px-3 py-2 text-sm text-fg hover:bg-bg-hover"
         >
           Force Reconnect
         </button>
@@ -84,7 +84,7 @@ export function WsTestHarness() {
       >
         <label
           htmlFor="ws-test-input"
-          className="block text-sm font-medium text-on-surface"
+          className="block text-sm font-medium text-fg"
         >
           Send test message
         </label>
@@ -95,44 +95,44 @@ export function WsTestHarness() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message"
-            className="flex-1 rounded-md bg-surface-container px-3 py-2 text-on-surface placeholder:text-on-surface-variant"
+            className="flex-1 rounded-md bg-bg-muted px-3 py-2 text-fg placeholder:text-fg-muted"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {sending ? "Sending..." : "Send"}
           </button>
         </div>
         {sendError ? (
-          <p className="mt-2 text-sm text-error">{sendError}</p>
+          <p className="mt-2 text-sm text-danger">{sendError}</p>
         ) : null}
       </form>
 
       <section className="mt-8">
-        <h2 className="text-lg font-medium text-on-surface">
+        <h2 className="text-lg font-medium text-fg">
           Received ({messages.length})
         </h2>
         <ol className="mt-2 space-y-2">
           {messages.map((m, i) => (
             <li
               key={`${m.timestamp}-${i}`}
-              className="rounded-md bg-surface-container p-3"
+              className="rounded-md bg-bg-muted p-3"
             >
               <div className="flex items-baseline justify-between">
-                <span className="text-on-surface">{m.message}</span>
-                <span className="font-mono text-xs text-on-surface-variant">
+                <span className="text-fg">{m.message}</span>
+                <span className="font-mono text-xs text-fg-muted">
                   {m.timestamp}
                 </span>
               </div>
-              <div className="mt-1 text-xs text-on-surface-variant">
+              <div className="mt-1 text-xs text-fg-muted">
                 from userId {m.senderId}
               </div>
             </li>
           ))}
           {messages.length === 0 ? (
-            <li className="rounded-md bg-surface-container p-3 text-sm text-on-surface-variant">
+            <li className="rounded-md bg-bg-muted p-3 text-sm text-fg-muted">
               No messages yet. Send one or trigger a broadcast from another
               tab / curl.
             </li>
@@ -153,11 +153,11 @@ function ConnectionBadge({ state }: { state: ConnectionState }) {
   }[state.status];
 
   const tone = {
-    disconnected: "bg-surface-container text-on-surface-variant",
-    connecting: "bg-tertiary-container text-on-tertiary-container",
-    connected: "bg-primary-container text-on-primary-container",
-    reconnecting: "bg-tertiary-container text-on-tertiary-container",
-    error: "bg-error-container text-on-error-container",
+    disconnected: "bg-bg-muted text-fg-muted",
+    connecting: "bg-info-bg text-info",
+    connected: "bg-brand-soft text-brand",
+    reconnecting: "bg-info-bg text-info",
+    error: "bg-danger-bg text-danger",
   }[state.status];
 
   return (

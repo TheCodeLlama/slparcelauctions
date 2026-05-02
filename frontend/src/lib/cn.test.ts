@@ -10,7 +10,7 @@ describe("cn", () => {
     const hasError = true;
     const isDisabled = false;
     expect(
-      cn("p-4", hasError && "ring-error", isDisabled && "opacity-50", null, undefined, "text-on-surface")
-    ).toBe("p-4 ring-error text-on-surface");
+      cn("p-4", hasError && "ring-danger", isDisabled && "opacity-50", null, undefined, "text-fg")
+    ).toBe("p-4 ring-danger text-fg");
   });
 });

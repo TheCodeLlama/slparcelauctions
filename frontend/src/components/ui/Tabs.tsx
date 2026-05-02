@@ -31,7 +31,7 @@ export function Tabs({ tabs, className }: TabsProps) {
     <nav
       role="tablist"
       aria-label="Dashboard sections"
-      className={cn("flex gap-1 border-b border-outline-variant", className)}
+      className={cn("flex gap-1 border-b border-border", className)}
     >
       {tabs.map((tab) => {
         const isActive = tab.href === activeHref;
@@ -43,10 +43,10 @@ export function Tabs({ tabs, className }: TabsProps) {
             aria-selected={isActive}
             aria-controls={`${tab.id}-panel`}
             className={cn(
-              "px-4 py-2 text-label-lg transition-colors",
+              "px-4 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "text-primary border-b-2 border-primary"
-                : "text-on-surface-variant hover:text-on-surface",
+                ? "text-brand border-b-2 border-brand"
+                : "text-fg-muted hover:text-fg",
             )}
           >
             {tab.label}

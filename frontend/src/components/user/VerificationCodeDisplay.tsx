@@ -22,7 +22,7 @@ export function VerificationCodeDisplay() {
   if (!activeCode) {
     return (
       <div className="flex flex-col items-center gap-6 py-8">
-        <p className="text-body-lg text-on-surface-variant text-center max-w-md">
+        <p className="text-base text-fg-muted text-center max-w-md">
           Click the button below to generate a 6-digit verification code.
           You&apos;ll have 15 minutes to enter it at any SLPA Verification
           Terminal in Second Life.
@@ -50,8 +50,8 @@ export function VerificationCodeDisplay() {
         onCopySuccess={() => toast.success("Code copied to clipboard")}
         onCopyError={() => toast.error("Failed to copy — copy the code manually")}
       />
-      <div className="flex items-center gap-2 text-on-surface-variant">
-        <span className="text-body-sm">Expires in</span>
+      <div className="flex items-center gap-2 text-fg-muted">
+        <span className="text-xs">Expires in</span>
         <CountdownTimer expiresAt={expiresAt} />
       </div>
       {!showRegenerateConfirm ? (
@@ -64,7 +64,7 @@ export function VerificationCodeDisplay() {
         </Button>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             This will invalidate the current code. Are you sure?
           </p>
           <div className="flex gap-2">

@@ -55,20 +55,20 @@ export function FilterChipsRow({
             aria-selected={selected}
             onClick={() => onChange(f)}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-label-md transition-colors",
+              "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors",
               selected
-                ? "bg-primary text-on-primary"
-                : "bg-surface-container-low text-on-surface hover:bg-surface-container",
+                ? "bg-brand text-white"
+                : "bg-bg-subtle text-fg hover:bg-bg-muted",
             )}
           >
             <span>{f}</span>
             {badge != null && (
               <span
                 className={cn(
-                  "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-label-sm",
+                  "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium",
                   selected
-                    ? "bg-on-primary/20 text-on-primary"
-                    : "bg-surface-container-high text-on-surface-variant",
+                    ? "bg-white/20 text-white"
+                    : "bg-bg-hover text-fg-muted",
                 )}
               >
                 {badge}

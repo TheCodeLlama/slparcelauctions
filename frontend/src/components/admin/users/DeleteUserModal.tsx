@@ -54,7 +54,7 @@ export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-surface rounded p-5 max-w-md w-full"
+        className="bg-bg rounded-lg p-5 max-w-md w-full"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-sm font-semibold mb-2">
@@ -65,22 +65,22 @@ export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
           and reviews remain visible as &quot;Deleted user&quot;.
         </p>
         <label className="text-[10px] uppercase opacity-55 block mb-1">
-          Admin note <span className="text-error normal-case">(required)</span>
+          Admin note <span className="text-danger normal-case">(required)</span>
         </label>
         <textarea
           value={adminNote}
           onChange={(e) => setAdminNote(e.target.value)}
           placeholder="Reason for deletion (e.g., 'GDPR request', 'Spam account')"
           maxLength={500}
-          className="w-full h-20 bg-surface-container-low text-xs p-2 rounded resize-y"
+          className="w-full h-20 bg-bg-subtle text-xs p-2 rounded resize-y"
         />
         <div className="text-[10px] opacity-40 mt-1 mb-3">{adminNote.length} / 500</div>
 
         {error && typeof error === "string" && (
-          <p className="text-error text-xs mb-3">{error}</p>
+          <p className="text-danger text-xs mb-3">{error}</p>
         )}
         {error && typeof error !== "string" && (
-          <div className="text-error text-xs mb-3">
+          <div className="text-danger text-xs mb-3">
             <p className="font-medium">Cannot delete: {error.code}</p>
             <p className="mt-1 opacity-85">{error.message}</p>
             {error.blockingIds.length > 0 && (
@@ -97,7 +97,7 @@ export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 px-3 py-2 border border-outline rounded text-xs"
+            className="flex-1 px-3 py-2 border border-border rounded text-xs"
           >
             Cancel
           </button>
@@ -105,7 +105,7 @@ export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
             type="button"
             disabled={!adminNote.trim() || mutation.isPending}
             onClick={submit}
-            className="flex-1 px-3 py-2 bg-error text-on-error rounded text-xs font-semibold disabled:opacity-50"
+            className="flex-1 px-3 py-2 bg-danger text-white rounded text-xs font-semibold disabled:opacity-50"
           >
             {mutation.isPending ? "Deleting…" : "Delete user"}
           </button>

@@ -27,17 +27,17 @@ export function FeedList({ group, unreadOnly }: FeedListProps) {
         <button
           type="button"
           onClick={() => markAllRead.mutate(group)}
-          className="text-label-md text-primary hover:underline"
+          className="text-xs font-medium text-brand hover:underline"
         >
           {markLabel}
         </button>
       </div>
 
-      <div className="bg-surface border border-outline rounded-xl overflow-hidden">
+      <div className="bg-bg border border-border rounded-xl overflow-hidden">
         {list.isPending ? (
           <div className="p-12 flex justify-center"><LoadingSpinner /></div>
         ) : list.data?.content.length === 0 ? (
-          <div className="p-12 text-center text-body-sm text-on-surface-variant">
+          <div className="p-12 text-center text-sm text-fg-muted">
             {unreadOnly ? "No unread notifications in this view." : "No notifications yet."}
           </div>
         ) : (

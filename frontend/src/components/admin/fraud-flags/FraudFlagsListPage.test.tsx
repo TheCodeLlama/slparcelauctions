@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderWithProviders, screen, waitFor } from "@/test/render";
 import { server } from "@/test/msw/server";
 import { adminHandlers } from "@/test/msw/handlers";
@@ -74,7 +73,7 @@ describe("FraudFlagsListPage", () => {
       ]),
     );
 
-    const { container: _c } = renderWithProviders(<FraudFlagsListPage />);
+    renderWithProviders(<FraudFlagsListPage />);
 
     await waitFor(() => expect(screen.getByTestId("flag-row-7")).toBeInTheDocument());
 

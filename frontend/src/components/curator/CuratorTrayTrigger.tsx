@@ -36,8 +36,8 @@ export function CuratorTrayTrigger({
       onClick={onOpen}
       aria-label="Open Curator Tray"
       className={cn(
-        "relative inline-flex items-center gap-1 rounded-full bg-surface-container-low px-3 py-1.5 text-label-md text-on-surface",
-        "hover:bg-surface-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+        "relative inline-flex items-center gap-1 rounded-full bg-bg-subtle px-3 py-1.5 text-xs font-medium text-fg",
+        "hover:bg-bg-muted focus-visible:ring-2 focus-visible:ring-brand",
         className,
       )}
       data-testid="curator-tray-trigger"

@@ -44,7 +44,7 @@ export function BidSheet({ isOpen, onClose, children }: BidSheetProps) {
       <div className="fixed inset-x-0 bottom-0 flex justify-center">
         <DialogPanel
           data-testid="bid-sheet"
-          className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-t-xl bg-surface-container-low p-6 pt-4 shadow-elevated"
+          className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-t-xl bg-bg-subtle p-6 pt-4 shadow-md"
         >
           {/* Decorative drag handle. Not a {@code button}, no
               {@code onClick}, no gesture listeners — purely visual
@@ -52,7 +52,7 @@ export function BidSheet({ isOpen, onClose, children }: BidSheetProps) {
           <div
             data-testid="bid-sheet-drag-handle"
             aria-hidden="true"
-            className="mx-auto mb-3 h-[3px] w-[30px] rounded-full bg-outline-variant"
+            className="mx-auto mb-3 h-[3px] w-[30px] rounded-full bg-border-subtle"
           />
 
           <div className="flex items-center justify-end">
@@ -61,7 +61,7 @@ export function BidSheet({ isOpen, onClose, children }: BidSheetProps) {
               onClick={onClose}
               aria-label="Close"
               data-testid="bid-sheet-close"
-              className="inline-flex size-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-high"
+              className="inline-flex size-9 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-bg-hover"
             >
               <X className="size-5" aria-hidden="true" />
             </button>

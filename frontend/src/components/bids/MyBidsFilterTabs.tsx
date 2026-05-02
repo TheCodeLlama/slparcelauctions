@@ -43,7 +43,7 @@ export function MyBidsFilterTabs({
       role="radiogroup"
       aria-label="Filter bids"
       className={cn(
-        "flex gap-1 border-b border-outline-variant",
+        "flex gap-1 border-b border-border-subtle",
         className,
       )}
     >
@@ -57,10 +57,10 @@ export function MyBidsFilterTabs({
             aria-checked={selected}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "px-4 py-2 text-label-lg transition-colors",
+              "px-4 py-2 text-sm font-medium transition-colors",
               selected
-                ? "text-primary border-b-2 border-primary"
-                : "text-on-surface-variant hover:text-on-surface",
+                ? "text-brand border-b-2 border-brand"
+                : "text-fg-muted hover:text-fg",
             )}
           >
             {tab.label}

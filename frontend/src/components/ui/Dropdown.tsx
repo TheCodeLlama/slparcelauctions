@@ -34,7 +34,7 @@ export function Dropdown({
       <MenuButton as="div">{trigger}</MenuButton>
       <MenuItems
         anchor={align === "end" ? "bottom end" : "bottom start"}
-        className="mt-2 min-w-48 bg-surface-container-lowest rounded-default shadow-elevated p-2 focus:outline-none"
+        className="mt-2 min-w-48 bg-surface-raised rounded-lg shadow-md p-2 focus:outline-none"
       >
         {items.map((item, i) => (
           <MenuItem key={i} disabled={item.disabled}>
@@ -46,9 +46,9 @@ export function Dropdown({
                 }}
                 disabled={item.disabled}
                 className={cn(
-                  "w-full text-left px-3 py-2 rounded-sm text-body-md flex items-center gap-2",
-                  focus && !item.disabled && "bg-surface-container",
-                  item.danger ? "text-error" : "text-on-surface",
+                  "w-full text-left px-3 py-2 rounded-sm text-sm flex items-center gap-2",
+                  focus && !item.disabled && "bg-bg-muted",
+                  item.danger ? "text-danger" : "text-fg",
                   item.disabled && "opacity-50 cursor-not-allowed"
                 )}
               >

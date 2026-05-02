@@ -23,55 +23,55 @@ export function CancellationsTab({ userId }: Props) {
   const { data, isLoading, isError } = useAdminUserCancellations(userId, page, PAGE_SIZE);
 
   if (isLoading) {
-    return <div className="py-6 text-body-sm text-on-surface-variant">Loading cancellations…</div>;
+    return <div className="py-6 text-sm text-fg-muted">Loading cancellations…</div>;
   }
 
   if (isError) {
-    return <div className="py-6 text-body-sm text-error">Could not load cancellations.</div>;
+    return <div className="py-6 text-sm text-danger">Could not load cancellations.</div>;
   }
 
   if (!data || data.content.length === 0) {
-    return <div className="py-6 text-body-sm text-on-surface-variant">No cancellations found.</div>;
+    return <div className="py-6 text-sm text-fg-muted">No cancellations found.</div>;
   }
 
   return (
     <div data-testid="cancellations-tab">
-      <div className="overflow-x-auto rounded-default border border-outline-variant">
-        <table className="w-full text-body-sm">
-          <thead className="bg-surface-container-low border-b border-outline-variant">
+      <div className="overflow-x-auto rounded-lg border border-border-subtle">
+        <table className="w-full text-sm">
+          <thead className="bg-bg-subtle border-b border-border-subtle">
             <tr>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Auction</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">From status</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Had bids</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Penalty</th>
-              <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Date</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Auction</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">From status</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Had bids</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Penalty</th>
+              <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Date</th>
             </tr>
           </thead>
           <tbody>
             {data.content.map((row) => (
               <tr
                 key={row.logId}
-                className="border-b border-outline-variant/50"
+                className="border-b border-border-subtle/50"
                 data-testid={`cancellation-row-${row.logId}`}
               >
                 <td className="px-3 py-2.5">
                   <Link
                     href={`/auction/${row.auctionId}`}
-                    className="text-primary hover:underline underline-offset-2 line-clamp-1"
+                    className="text-brand hover:underline underline-offset-2 line-clamp-1"
                     target="_blank"
                   >
                     {row.auctionTitle}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant">{row.cancelledFromStatus}</td>
+                <td className="px-3 py-2.5 text-fg-muted">{row.cancelledFromStatus}</td>
                 <td className="px-3 py-2.5">
                   {row.hadBids ? (
-                    <span className="text-error font-medium">Yes</span>
+                    <span className="text-danger font-medium">Yes</span>
                   ) : (
-                    <span className="text-on-surface-variant">No</span>
+                    <span className="text-fg-muted">No</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant">
+                <td className="px-3 py-2.5 text-fg-muted">
                   {row.penaltyKind ? (
                     <span>
                       {row.penaltyKind}
@@ -81,7 +81,7 @@ export function CancellationsTab({ userId }: Props) {
                     "—"
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-on-surface-variant text-[11px]">{formatDate(row.cancelledAt)}</td>
+                <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.cancelledAt)}</td>
               </tr>
             ))}
           </tbody>

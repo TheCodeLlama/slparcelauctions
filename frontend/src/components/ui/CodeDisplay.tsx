@@ -32,10 +32,10 @@ export function CodeDisplay({
   return (
     <div className={cn("flex flex-col gap-1", className)}>
       {label && (
-        <span className="text-label-sm text-on-surface-variant">{label}</span>
+        <span className="text-[11px] font-medium text-fg-muted">{label}</span>
       )}
-      <div className="flex items-center gap-2 rounded-lg bg-surface-container-lowest px-4 py-3">
-        <code className="flex-1 font-mono text-body-lg text-on-surface select-all">
+      <div className="flex items-center gap-2 rounded-lg bg-surface-raised px-4 py-3">
+        <code className="flex-1 font-mono text-base text-fg select-all">
           {code}
         </code>
         <IconButton

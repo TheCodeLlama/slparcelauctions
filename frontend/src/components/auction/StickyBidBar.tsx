@@ -112,9 +112,9 @@ export function StickyBidBar({
         // to the static {@code env(safe-area-inset-bottom)} expression
         // since this project doesn't have a {@code pb-safe} utility.
         "fixed bottom-0 left-0 right-0 z-40",
-        "bg-surface-container-lowest/92 dark:bg-surface-container-lowest/85",
+        "bg-surface-raised/92",
         "backdrop-blur-md",
-        "border-t border-outline-variant/30",
+        "border-t border-border-subtle/30",
         "px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]",
       )}
     >
@@ -155,17 +155,17 @@ function BidReadout({
     <div className="flex min-w-0 flex-col gap-0.5">
       <span
         data-testid="sticky-bid-bar-high"
-        className="text-title-md font-bold text-on-surface"
+        className="text-sm font-semibold tracking-tight font-bold text-fg"
       >
         L$ {high}
       </span>
       {expiresAt ? (
-        <span className="text-label-sm text-on-surface-variant flex items-center gap-1">
+        <span className="text-[11px] font-medium text-fg-muted flex items-center gap-1">
           <span>Ends in</span>
           <CountdownTimer
             expiresAt={expiresAt}
             format="hh:mm:ss"
-            className="!text-label-sm font-normal"
+            className="!text-[11px] font-medium font-normal"
           />
         </span>
       ) : null}
@@ -184,12 +184,12 @@ function SellerLeft({
   const high = formatBid(auction.currentHighBid);
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-label-sm text-on-surface-variant">
+      <span className="text-[11px] font-medium text-fg-muted">
         Your auction
       </span>
       <span
         data-testid="sticky-bid-bar-high"
-        className="text-title-md font-bold text-on-surface"
+        className="text-sm font-semibold tracking-tight font-bold text-fg"
       >
         L$ {high}
       </span>
@@ -223,13 +223,13 @@ function EndedLeft({
         className="flex min-w-0 flex-col gap-0.5"
         data-testid="sticky-bid-bar-ended"
       >
-        <span className="text-label-sm text-on-surface-variant">
+        <span className="text-[11px] font-medium text-fg-muted">
           {outcome === "BOUGHT_NOW" ? "Bought now" : "Sold"}
         </span>
-        <span className="truncate text-title-md font-bold text-on-surface">
+        <span className="truncate text-sm font-semibold tracking-tight font-bold text-fg">
           L${formatAmount(finalBid)}
           {winnerLabel ? (
-            <span className="text-label-sm font-normal text-on-surface-variant">
+            <span className="text-[11px] font-medium font-normal text-fg-muted">
               {" "}
               to {winnerLabel}
             </span>
@@ -245,10 +245,10 @@ function EndedLeft({
         className="flex min-w-0 flex-col gap-0.5"
         data-testid="sticky-bid-bar-ended"
       >
-        <span className="text-label-sm text-on-surface-variant">
+        <span className="text-[11px] font-medium text-fg-muted">
           Reserve not met
         </span>
-        <span className="text-title-md font-bold text-on-surface">
+        <span className="text-sm font-semibold tracking-tight font-bold text-fg">
           Ended without a sale
         </span>
       </div>
@@ -261,8 +261,8 @@ function EndedLeft({
       className="flex min-w-0 flex-col gap-0.5"
       data-testid="sticky-bid-bar-ended"
     >
-      <span className="text-label-sm text-on-surface-variant">Ended</span>
-      <span className="text-title-md font-bold text-on-surface">No bids</span>
+      <span className="text-[11px] font-medium text-fg-muted">Ended</span>
+      <span className="text-sm font-semibold tracking-tight font-bold text-fg">No bids</span>
     </div>
   );
 }
@@ -294,7 +294,7 @@ function RightSlot({
         href={`/login${next}`}
         data-testid="sticky-bid-bar-cta"
         data-kind="signin"
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-default bg-gradient-to-br from-primary to-primary-container px-5 text-label-lg font-medium text-on-primary shadow-soft transition-all hover:shadow-elevated"
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
       >
         Sign in to bid
       </Link>
@@ -307,7 +307,7 @@ function RightSlot({
         href="/dashboard/overview"
         data-testid="sticky-bid-bar-cta"
         data-kind="verify"
-        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-default bg-gradient-to-br from-primary to-primary-container px-5 text-label-lg font-medium text-on-primary shadow-soft transition-all hover:shadow-elevated"
+        className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-medium text-white shadow-sm transition-all hover:shadow-md"
       >
         Verify to bid
       </Link>

@@ -111,13 +111,13 @@ export function VerificationMethodPicker({
       {showFailureBanner && (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-default bg-error-container p-4 text-on-error-container"
+          className="flex items-start gap-3 rounded-lg bg-danger-bg p-4 text-danger"
         >
           <AlertTriangle aria-hidden="true" className="size-5 shrink-0" />
           <div className="flex-1 flex flex-col gap-1">
-            <p className="text-label-lg">Your last verification attempt failed</p>
-            <p className="text-body-sm">{lastFailureNotes}</p>
-            <p className="text-body-sm">
+            <p className="text-sm font-medium">Your last verification attempt failed</p>
+            <p className="text-xs">{lastFailureNotes}</p>
+            <p className="text-xs">
               Pick a method to try again — no additional fee needed.
             </p>
           </div>
@@ -125,7 +125,7 @@ export function VerificationMethodPicker({
             type="button"
             aria-label="Dismiss failure notice"
             onClick={() => setBannerDismissed(true)}
-            className="text-on-error-container hover:opacity-80"
+            className="text-danger hover:opacity-80"
           >
             <XCircle aria-hidden="true" className="size-5" />
           </button>
@@ -134,7 +134,7 @@ export function VerificationMethodPicker({
       {error && (
         <div
           role="alert"
-          className="rounded-default bg-error-container px-4 py-3 text-label-md text-on-error-container"
+          className="rounded-lg bg-danger-bg px-4 py-3 text-xs font-medium text-danger"
         >
           {error}
         </div>
@@ -143,10 +143,10 @@ export function VerificationMethodPicker({
         {METHODS.map((method) => (
           <article
             key={method.key}
-            className="flex flex-col gap-3 rounded-default bg-surface-container-low p-4"
+            className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4"
           >
-            <h3 className="text-title-md text-on-surface">{method.title}</h3>
-            <p className="text-body-sm text-on-surface-variant">
+            <h3 className="text-sm font-semibold tracking-tight text-fg">{method.title}</h3>
+            <p className="text-xs text-fg-muted">
               {method.body}
             </p>
             <div className="mt-auto">

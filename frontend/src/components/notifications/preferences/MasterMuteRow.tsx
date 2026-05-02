@@ -7,12 +7,12 @@ export interface MasterMuteRowProps {
 
 export function MasterMuteRow({ value, onChange }: MasterMuteRowProps) {
   return (
-    <div className="flex items-center justify-between py-4 border-b border-outline-variant mb-4">
+    <div className="flex items-center justify-between py-4 border-b border-border-subtle mb-4">
       <div>
-        <div className="text-title-sm font-semibold text-on-surface">
+        <div className="text-sm font-semibold text-fg">
           Mute all SL IM notifications
         </div>
-        <div className="text-body-sm text-on-surface-variant mt-1">
+        <div className="text-xs text-fg-muted mt-1">
           Master switch — overrides everything below.
         </div>
       </div>
@@ -23,7 +23,7 @@ export function MasterMuteRow({ value, onChange }: MasterMuteRowProps) {
         onClick={() => onChange(!value)}
         className={
           "relative inline-flex h-6 w-11 items-center rounded-full transition-colors " +
-          (value ? "bg-primary" : "bg-surface-container-high border border-outline")
+          (value ? "bg-brand" : "bg-bg-hover border border-border")
         }
         aria-label="Mute all SL IM notifications"
       >

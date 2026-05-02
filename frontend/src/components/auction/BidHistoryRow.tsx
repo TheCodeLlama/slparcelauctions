@@ -55,9 +55,9 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
       data-bid-id={entry.bidId}
       data-animated={isAnimated ? "true" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-default bg-surface-container-lowest px-3 py-2",
+        "flex items-center gap-3 rounded-lg bg-surface-raised px-3 py-2",
         "transition-colors",
-        isAnimated && "animate-pulse bg-primary-container/40",
+        isAnimated && "animate-pulse bg-brand-soft/40",
       )}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -77,7 +77,7 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
               name={entry.bidderDisplayName}
               size="sm"
             />
-            <span className="text-title-sm font-semibold text-on-surface">
+            <span className="text-sm font-semibold text-fg">
               {entry.bidderDisplayName}
             </span>
           </Link>
@@ -86,7 +86,7 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
             <StatusBadge
               tone="warning"
               data-testid="bid-history-row-snipe-chip"
-              className="text-label-sm"
+              className="text-[11px] font-medium"
             >
               <Shield className="size-3" aria-hidden="true" />
               Extended {entry.snipeExtensionMinutes}m
@@ -95,7 +95,7 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
         </div>
         <time
           dateTime={entry.createdAt}
-          className="text-label-sm text-on-surface-variant"
+          className="text-[11px] font-medium text-fg-muted"
           title={absolute}
           data-testid="bid-history-row-time"
         >
@@ -104,7 +104,7 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
       </div>
 
       <span
-        className="text-title-md font-bold text-on-surface tabular-nums"
+        className="text-sm font-semibold tracking-tight font-bold text-fg tabular-nums"
         data-testid="bid-history-row-amount"
       >
         L${entry.amount.toLocaleString()}
@@ -129,7 +129,7 @@ function BidTypeChip({
         tone="default"
         data-testid="bid-history-row-type-chip"
         data-type="PROXY_AUTO"
-        className="text-label-sm"
+        className="text-[11px] font-medium"
       >
         proxy
       </StatusBadge>
@@ -142,7 +142,7 @@ function BidTypeChip({
       tone="warning"
       data-testid="bid-history-row-type-chip"
       data-type="BUY_NOW"
-      className="text-label-sm"
+      className="text-[11px] font-medium"
     >
       buy now
     </StatusBadge>

@@ -21,8 +21,8 @@ export default function WalletPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col gap-6">
       <div>
-        <h1 className="text-headline-md font-display font-bold">Wallet</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
+        <h1 className="text-xl font-bold tracking-tight font-display">Wallet</h1>
+        <p className="text-sm text-fg-muted mt-1">
           Deposit, withdraw, and view your SLPA wallet activity.
         </p>
       </div>

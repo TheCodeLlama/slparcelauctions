@@ -13,20 +13,21 @@ type IconButtonProps = {
 
 const variantClasses: Record<IconButtonVariant, string> = {
   primary:
-    "bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-soft hover:shadow-elevated",
+    "bg-brand text-white border border-brand hover:bg-brand-hover",
   secondary:
-    "bg-surface-container-lowest text-on-surface shadow-soft hover:shadow-elevated",
-  tertiary: "text-on-surface-variant hover:bg-surface-container-low",
+    "bg-surface-raised text-fg border border-border hover:bg-bg-hover hover:border-border-strong",
+  tertiary:
+    "bg-transparent text-fg-muted hover:bg-bg-hover hover:text-fg",
 };
 
 const sizeClasses: Record<IconButtonSize, string> = {
-  sm: "h-9 w-9",
-  md: "h-11 w-11",
-  lg: "h-12 w-12",
+  sm: "h-8 w-8",
+  md: "h-9 w-9",
+  lg: "h-11 w-11",
 };
 
 const baseClasses =
-  "inline-flex items-center justify-center rounded-full transition-all disabled:opacity-50 disabled:pointer-events-none [&_svg]:size-5 [&_svg]:stroke-[1.5]";
+  "inline-flex items-center justify-center rounded-sm transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand [&_svg]:size-[18px] [&_svg]:stroke-[1.75]";
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   function IconButton(

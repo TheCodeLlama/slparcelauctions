@@ -87,7 +87,7 @@ export function SellerProfileCard({ seller, className }: Props) {
     <Link
       href={`/users/${seller.id}`}
       className={cn(
-        "block rounded-default bg-surface-container-lowest p-6 transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "block rounded-lg bg-surface-raised p-6 transition-colors hover:bg-bg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
         className,
       )}
       data-testid="seller-profile-card"
@@ -102,12 +102,12 @@ export function SellerProfileCard({ seller, className }: Props) {
             size="lg"
           />
           <div className="flex min-w-0 flex-col gap-0.5">
-            <h2 className="text-title-lg font-bold text-on-surface truncate">
+            <h2 className="text-base font-bold tracking-tight text-fg truncate">
               {seller.displayName}
             </h2>
             {memberSinceLabel && (
               <p
-                className="text-label-sm text-on-surface-variant"
+                className="text-[11px] font-medium text-fg-muted"
                 data-testid="seller-profile-card-member-since"
               >
                 {memberSinceLabel}
@@ -118,11 +118,11 @@ export function SellerProfileCard({ seller, className }: Props) {
 
         <div className="flex flex-col gap-2">
           <ReputationStars rating={rating} reviewCount={reviewCount} />
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             {completedSales} completed sale{completedSales === 1 ? "" : "s"}
           </p>
           <p
-            className="text-body-sm text-on-surface-variant"
+            className="text-xs text-fg-muted"
             data-testid="seller-profile-card-completion-rate"
           >
             Completion rate: {completionLabel}
@@ -141,7 +141,7 @@ export function SellerProfileCard({ seller, className }: Props) {
         </div>
 
         <span
-          className="inline-flex items-center gap-1 text-primary text-label-lg font-medium self-start"
+          className="inline-flex items-center gap-1 text-brand text-sm font-medium self-start"
           data-testid="seller-profile-card-link"
         >
           View profile

@@ -20,12 +20,12 @@ export function ExpiredStateCard({ escrow, role }: StateCardProps) {
       data-state="EXPIRED"
       data-phase={postFund ? "transfer-timeout" : "payment-timeout"}
       data-role={role}
-      className="flex flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <h2 className="text-title-md text-on-surface">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         {postFund ? "Transfer deadline expired" : "Payment deadline expired"}
       </h2>
-      <p className="text-body-md text-on-surface-variant">
+      <p className="text-sm text-fg-muted">
         {renderBody({ escrow, role, postFund })}
       </p>
     </section>

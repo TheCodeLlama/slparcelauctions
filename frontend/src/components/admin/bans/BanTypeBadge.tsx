@@ -2,9 +2,9 @@
 import type { BanType } from "@/lib/admin/types";
 
 const TONE_CLASSES: Record<BanType, string> = {
-  IP: "bg-error-container text-on-error-container",
-  AVATAR: "bg-secondary-container text-on-secondary-container",
-  BOTH: "bg-tertiary-container text-on-tertiary-container",
+  IP: "bg-danger-bg text-danger",
+  AVATAR: "bg-info-bg text-info",
+  BOTH: "bg-info-bg text-info",
 };
 
 type Props = { banType: BanType };

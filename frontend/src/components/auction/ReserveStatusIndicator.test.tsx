@@ -17,7 +17,7 @@ describe("ReserveStatusIndicator", () => {
     const badge = screen.getByTestId("reserve-status-indicator");
     expect(badge).toHaveAttribute("data-state", "not-met");
     expect(badge).toHaveTextContent("Reserve not met");
-    expect(badge.className).toContain("bg-secondary-container");
+    expect(badge.className).toContain("bg-warning-bg");
   });
 
   it("renders 'Reserve not met' when currentBid is below reservePrice", () => {
@@ -36,7 +36,7 @@ describe("ReserveStatusIndicator", () => {
     const badge = screen.getByTestId("reserve-status-indicator");
     expect(badge).toHaveAttribute("data-state", "met");
     expect(badge).toHaveTextContent("Reserve met");
-    expect(badge.className).toContain("bg-tertiary-container");
+    expect(badge.className).toContain("bg-success-bg");
   });
 
   it("renders 'Reserve met' when currentBid exceeds reservePrice", () => {

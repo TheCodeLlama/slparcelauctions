@@ -17,28 +17,28 @@ export function PendingStateCard({ escrow, role }: StateCardProps) {
       data-testid="escrow-state-card"
       data-state="ESCROW_PENDING"
       data-role={role}
-      className="flex flex-col gap-4 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <span className="text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">
         {role === "seller" ? "Seller" : "Winner"}
       </span>
 
       {role === "seller" ? (
         <>
-          <h2 className="text-title-md text-on-surface">
+          <h2 className="text-sm font-semibold tracking-tight text-fg">
             Awaiting payment from {escrow.counterparty.displayName}
           </h2>
-          <p className="text-body-md text-on-surface-variant">
+          <p className="text-sm text-fg-muted">
             If they don&apos;t pay you&apos;ll be able to re-list once the
             escrow expires.
           </p>
         </>
       ) : (
         <>
-          <h2 className="text-title-md text-on-surface">
+          <h2 className="text-sm font-semibold tracking-tight text-fg">
             Pay L$ {escrow.finalBidAmount.toLocaleString()}
           </h2>
-          <p className="text-body-md text-on-surface-variant">
+          <p className="text-sm text-fg-muted">
             Pay at an SLPA terminal in-world. Your winning bid needs to land
             before the payment deadline.
           </p>
@@ -52,14 +52,14 @@ export function PendingStateCard({ escrow, role }: StateCardProps) {
         </>
       )}
 
-      <div className="flex items-center gap-2 text-body-md">
-        <span className="text-on-surface-variant">Payment deadline:</span>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-fg-muted">Payment deadline:</span>
         <EscrowDeadlineBadge deadline={escrow.paymentDeadline} />
       </div>
 
       <Link
         href={`/auction/${escrow.auctionId}/escrow/dispute`}
-        className="text-label-lg text-primary hover:underline"
+        className="text-sm font-medium text-brand hover:underline"
       >
         File a dispute
       </Link>

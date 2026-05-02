@@ -24,10 +24,10 @@ export function AdminReportsFilters({ status, onStatusChange }: Props) {
           onClick={() => onStatusChange(pill.value)}
           data-testid={`status-pill-${pill.value}`}
           className={cn(
-            "px-3 py-1.5 rounded-full text-label-sm transition-colors",
+            "px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors",
             status === pill.value
-              ? "bg-secondary-container text-on-secondary-container font-medium"
-              : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+              ? "bg-info-bg text-info font-medium"
+              : "bg-bg-muted text-fg-muted hover:bg-bg-hover"
           )}
         >
           {pill.label}

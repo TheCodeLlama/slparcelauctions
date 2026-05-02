@@ -16,33 +16,33 @@ const statusConfig: Record<
   { classes: string; label: string }
 > = {
   active: {
-    classes: "bg-tertiary-container text-on-tertiary-container",
+    classes: "bg-info-bg text-info",
     label: "Active",
   },
   "ending-soon": {
-    classes: "bg-error-container text-on-error-container",
+    classes: "bg-danger-bg text-danger",
     label: "Ending Soon",
   },
   ended: {
-    classes: "bg-surface-container-high text-on-surface-variant",
+    classes: "bg-bg-hover text-fg-muted",
     label: "Ended",
   },
   cancelled: {
     classes:
-      "bg-surface-container-high text-on-surface-variant line-through",
+      "bg-bg-hover text-fg-muted line-through",
     label: "Cancelled",
   },
 };
 
 const toneClasses: Record<Tone, string> = {
-  default: "bg-surface-container-high text-on-surface-variant",
-  success: "bg-tertiary-container text-on-tertiary-container",
-  warning: "bg-secondary-container text-on-secondary-container",
-  danger: "bg-error-container text-on-error-container",
+  default: "bg-bg-hover text-fg-muted",
+  success: "bg-success-bg text-success",
+  warning: "bg-warning-bg text-warning",
+  danger: "bg-danger-bg text-danger",
 };
 
 const baseClasses =
-  "rounded-full px-3 py-1 text-label-md font-medium inline-flex items-center gap-1.5";
+  "rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5";
 
 export function StatusBadge({
   status,

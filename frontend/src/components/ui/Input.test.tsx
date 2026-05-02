@@ -10,7 +10,7 @@ describe("Input", () => {
     expect(input).toBeInTheDocument();
     expect(input.tagName).toBe("INPUT");
     expect(input.className).toContain("max-w-md");
-    expect(input.className).toContain("bg-surface-container-low");
+    expect(input.className).toContain("bg-bg-subtle");
   });
 
   it("shows error text and applies the error ring when error prop is set", () => {
@@ -18,7 +18,7 @@ describe("Input", () => {
     expect(screen.getByText("must be a valid email")).toBeInTheDocument();
     expect(screen.queryByText("we never share this")).toBeNull();
     const input = screen.getByLabelText("Email");
-    expect(input.className).toContain("ring-error");
+    expect(input.className).toContain("ring-danger");
   });
 
   it("renders leftIcon with appropriate padding offset", () => {

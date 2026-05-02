@@ -9,7 +9,7 @@ export default async function AdminUserDetailRoute({ params }: Props) {
   const userId = parseInt(id, 10);
 
   if (!Number.isFinite(userId) || userId <= 0) {
-    return <div className="py-12 text-body-sm text-error">Invalid user ID.</div>;
+    return <div className="py-12 text-sm text-danger">Invalid user ID.</div>;
   }
 
   return <AdminUserDetailPage userId={userId} />;

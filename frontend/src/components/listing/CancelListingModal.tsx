@@ -180,11 +180,11 @@ export function CancelListingModal({
         aria-hidden="true"
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel className="w-full max-w-md flex flex-col gap-4 rounded-default bg-surface-container-low p-6">
-          <DialogTitle className="text-title-lg text-on-surface">
+        <DialogPanel className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6">
+          <DialogTitle className="text-base font-bold tracking-tight text-fg">
             Cancel this listing?
           </DialogTitle>
-          <div className="flex flex-col gap-2 text-body-md text-on-surface">
+          <div className="flex flex-col gap-2 text-sm text-fg">
             <p>
               <span className="font-medium">
                 {auction.parcel.description || "(unnamed parcel)"}
@@ -194,13 +194,13 @@ export function CancelListingModal({
               <ListingStatusBadge status={auction.status} />
             </div>
             <p
-              className="text-body-sm text-on-surface-variant"
+              className="text-xs text-fg-muted"
               data-testid="cancel-modal-consequence-copy"
               data-variant={copyVariant}
             >
               {consequenceCopy}
             </p>
-            <p className="text-body-sm text-on-surface-variant">
+            <p className="text-xs text-fg-muted">
               {refund.copy}
             </p>
           </div>
@@ -212,7 +212,7 @@ export function CancelListingModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Reason (optional)"
-              className="w-full resize-y rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary"
+              className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             />
           </label>
           <div className="flex justify-end gap-2">

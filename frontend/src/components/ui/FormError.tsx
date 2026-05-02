@@ -20,7 +20,7 @@ export function FormError({ message }: FormErrorProps) {
   return (
     <div
       role="alert"
-      className="rounded-md bg-error-container px-4 py-3 text-label-md text-on-error-container"
+      className="rounded-md bg-danger-bg px-4 py-3 text-xs font-medium text-danger"
     >
       {message}
     </div>

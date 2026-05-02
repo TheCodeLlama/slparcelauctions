@@ -175,11 +175,11 @@ export function LedgerFilterBar({
   const selected = new Set(filter.entryTypes ?? []);
 
   return (
-    <div className="bg-surface-container rounded-2xl p-4 flex flex-col gap-4">
-      <h3 className="text-sm font-medium text-on-surface">Filter activity</h3>
+    <div className="bg-bg-muted rounded-2xl p-4 flex flex-col gap-4">
+      <h3 className="text-sm font-medium text-fg">Filter activity</h3>
 
       <div>
-        <div className="text-xs uppercase tracking-wide text-on-surface-variant mb-2">
+        <div className="text-xs uppercase tracking-wide text-fg-muted mb-2">
           Type
         </div>
         <div className="flex flex-wrap gap-2">
@@ -192,10 +192,10 @@ export function LedgerFilterBar({
                 onClick={() => toggleChip(type)}
                 aria-pressed={isSelected}
                 className={cn(
-                  "h-8 px-3 rounded-full text-label-md transition-colors",
+                  "h-8 px-3 rounded-full text-xs font-medium transition-colors",
                   isSelected
-                    ? "bg-primary-container text-on-primary-container"
-                    : "border border-outline-variant text-on-surface-variant hover:bg-surface-container-low",
+                    ? "bg-brand-soft text-brand"
+                    : "border border-border-subtle text-fg-muted hover:bg-bg-subtle",
                 )}
               >
                 {label}

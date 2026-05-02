@@ -35,21 +35,21 @@ export function FeePaymentInstructions({
   return (
     <section
       aria-labelledby="fee-heading"
-      className="rounded-default bg-surface-container-low p-6 flex flex-col gap-4"
+      className="rounded-lg bg-bg-subtle p-6 flex flex-col gap-4"
     >
-      <h2 id="fee-heading" className="text-title-lg text-on-surface">
+      <h2 id="fee-heading" className="text-base font-bold tracking-tight text-fg">
         Pay the listing fee
       </h2>
-      <p className="text-body-md text-on-surface">
+      <p className="text-sm text-fg">
         Head to an SLPA terminal in-world and pay{" "}
         <strong>L${fee ?? "…"}</strong> with reference code{" "}
-        <code className="rounded bg-surface-container-high px-1.5 py-0.5 font-mono text-body-sm text-on-surface">
+        <code className="rounded bg-bg-hover px-1.5 py-0.5 font-mono text-xs text-fg">
           {reference}
         </code>
         . Once the platform detects your payment, this page advances
         automatically.
       </p>
-      <p className="text-body-sm text-on-surface-variant">
+      <p className="text-xs text-fg-muted">
         In-world payment terminals roll out in a later epic. Dev environments
         can use the staging endpoint to advance this listing.
       </p>

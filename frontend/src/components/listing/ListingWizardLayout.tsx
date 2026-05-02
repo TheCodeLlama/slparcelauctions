@@ -38,13 +38,13 @@ export function ListingWizardLayout({
     >
       <Stepper steps={steps} currentIndex={currentIndex} />
       <header className="flex flex-col gap-1">
-        <h1 className="text-headline-md text-on-surface">{title}</h1>
+        <h1 className="text-xl font-bold tracking-tight text-fg">{title}</h1>
         {description ? (
-          <p className="text-body-md text-on-surface-variant">{description}</p>
+          <p className="text-sm text-fg-muted">{description}</p>
         ) : null}
       </header>
       <section className="flex flex-col gap-4">{children}</section>
-      <footer className="flex justify-end gap-3 border-t border-outline-variant pt-4">
+      <footer className="flex justify-end gap-3 border-t border-border-subtle pt-4">
         {footer}
       </footer>
     </div>

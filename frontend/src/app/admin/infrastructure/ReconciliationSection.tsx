@@ -6,7 +6,7 @@ export function ReconciliationSection() {
   const latest = runs[0];
 
   return (
-    <section className="bg-surface-container rounded p-4">
+    <section className="bg-bg-muted rounded p-4">
       <header className="flex justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold">Daily balance reconciliation</h2>
@@ -22,12 +22,12 @@ export function ReconciliationSection() {
       {!latest && <p className="text-xs opacity-60">No reconciliation runs yet.</p>}
 
       {latest && (
-        <div className="bg-surface-container-low rounded p-3 mb-3 text-xs space-y-1">
+        <div className="bg-bg-subtle rounded p-3 mb-3 text-xs space-y-1">
           <Row label="Last run" value={new Date(latest.ranAt).toLocaleString()} />
           <Row label="Expected (locked sum)" value={`L$ ${latest.expected}`} />
           <Row label="Observed (grid balance)" value={latest.observed !== null ? `L$ ${latest.observed}` : "—"} />
           <Row label="Drift" value={latest.drift !== null ? `L$ ${latest.drift}` : "—"} />
-          {latest.errorMessage && <p className="text-error text-[11px] mt-2">{latest.errorMessage}</p>}
+          {latest.errorMessage && <p className="text-danger text-[11px] mt-2">{latest.errorMessage}</p>}
         </div>
       )}
 
@@ -58,9 +58,9 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function badgeFor(s: string) {
-  return s === "BALANCED" ? "bg-success-container text-on-success-container"
-       : s === "MISMATCH" ? "bg-tertiary-container text-on-tertiary-container"
-       : "bg-surface-container-low";
+  return s === "BALANCED" ? "bg-success-bg text-success"
+       : s === "MISMATCH" ? "bg-info-bg text-info"
+       : "bg-bg-subtle";
 }
 
 function labelFor(s: string) {

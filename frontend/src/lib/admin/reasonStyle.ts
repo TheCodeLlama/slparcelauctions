@@ -33,8 +33,8 @@ export const REASON_LABEL: Record<FraudFlagReason, string> = {
 };
 
 export const FAMILY_TONE_CLASSES: Record<ReasonFamily, string> = {
-  ownership: "bg-error-container text-on-error-container",
-  bot: "bg-secondary-container text-on-secondary-container",
-  escrow: "bg-tertiary-container text-on-tertiary-container",
-  "cancel-and-sell": "bg-primary-container text-on-primary-container",
+  ownership: "bg-danger-bg text-danger",
+  bot: "bg-info-bg text-info",
+  escrow: "bg-info-bg text-info",
+  "cancel-and-sell": "bg-brand-soft text-brand",
 };

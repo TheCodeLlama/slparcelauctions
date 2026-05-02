@@ -29,12 +29,12 @@ function CancellationHistoryRow({ row }: { row: CancellationHistoryDto }) {
 
   return (
     <li
-      className="flex flex-col gap-3 rounded-default bg-surface-container-low p-4 ring-1 ring-outline-variant"
+      className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4 ring-1 ring-border-subtle"
       data-testid="cancellation-history-row"
       data-auction-id={row.auctionId}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-default bg-surface-container sm:w-28">
+        <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-lg bg-bg-muted sm:w-28">
           {row.primaryPhotoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- Deferred: swap to next/image when backend returns image dimensions + a stable remotePatterns list for SL CDN hosts is agreed upon. Matches the PendingReviewsSection deferral.
             <img
@@ -46,10 +46,10 @@ function CancellationHistoryRow({ row }: { row: CancellationHistoryDto }) {
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate text-title-md font-bold text-on-surface">
+          <span className="truncate text-sm font-semibold tracking-tight text-fg">
             {row.auctionTitle}
           </span>
-          <p className="text-label-sm text-on-surface-variant">
+          <p className="text-[11px] font-medium text-fg-muted">
             Cancelled {formatCancelledAt(row.cancelledAt)} ·{" "}
             {row.cancelledFromStatus}
             {row.hadBids ? " · had bids" : ""}
@@ -70,7 +70,7 @@ function CancellationHistoryRow({ row }: { row: CancellationHistoryDto }) {
             aria-expanded={expanded}
             aria-controls={reasonId}
             data-testid="cancellation-reason-toggle"
-            className="inline-flex items-center gap-1 self-start rounded-default text-label-sm text-on-surface-variant hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            className="inline-flex items-center gap-1 self-start rounded-lg text-[11px] font-medium text-fg-muted hover:text-fg focus-visible:ring-2 focus-visible:ring-brand"
           >
             {expanded ? (
               <ChevronUp className="size-4" aria-hidden="true" />
@@ -83,7 +83,7 @@ function CancellationHistoryRow({ row }: { row: CancellationHistoryDto }) {
             <p
               id={reasonId}
               className={cn(
-                "rounded-default bg-surface-container px-3 py-2 text-body-sm text-on-surface",
+                "rounded-lg bg-bg-muted px-3 py-2 text-xs text-fg",
               )}
               data-testid="cancellation-reason-text"
             >
@@ -128,10 +128,10 @@ export function CancellationHistorySection({
         data-variant="empty"
       >
         <Card.Header>
-          <h2 className="text-title-md font-bold">Cancellation history</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Cancellation history</h2>
         </Card.Header>
         <Card.Body>
-          <p className="text-body-md text-on-surface-variant">
+          <p className="text-sm text-fg-muted">
             No cancellations yet.
           </p>
         </Card.Body>
@@ -142,7 +142,7 @@ export function CancellationHistorySection({
   return (
     <Card className={className} data-testid="cancellation-history-section">
       <Card.Header>
-        <h2 className="text-title-md font-bold">Cancellation history</h2>
+        <h2 className="text-sm font-semibold tracking-tight">Cancellation history</h2>
       </Card.Header>
       <Card.Body>
         <ul className="flex flex-col gap-3">

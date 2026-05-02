@@ -19,4 +19,7 @@ export { DropZone } from "./DropZone";
 export type { DropZoneProps } from "./DropZone";
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
+export { WalletPill } from "./WalletPill";
+export { Eyebrow } from "./Eyebrow";
+export { SectionHeading } from "./SectionHeading";
 export * from "./icons";

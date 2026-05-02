@@ -73,14 +73,14 @@ export function SuspensionErrorModal({
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
-          className="w-full max-w-md flex flex-col gap-4 rounded-default bg-surface-container-low p-6"
+          className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6"
           data-testid="suspension-error-modal"
           data-code={code ?? undefined}
         >
-          <DialogTitle className="text-title-lg text-on-surface">
+          <DialogTitle className="text-base font-bold tracking-tight text-fg">
             {copy.title}
           </DialogTitle>
-          <p className="text-body-md text-on-surface-variant">{copy.body}</p>
+          <p className="text-sm text-fg-muted">{copy.body}</p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
               Dismiss

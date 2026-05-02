@@ -27,7 +27,7 @@ export function ResolutionPanel({ dispute, onResolved }: Props) {
   };
 
   return (
-    <aside className="bg-surface-container rounded p-4 space-y-3">
+    <aside className="bg-bg-muted rounded p-4 space-y-3">
       <div className="text-[10px] uppercase opacity-60">Resolution</div>
 
       <fieldset className="space-y-2">
@@ -53,7 +53,7 @@ export function ResolutionPanel({ dispute, onResolved }: Props) {
       </fieldset>
 
       {showCancelCheckbox && (
-        <label className="flex gap-2 items-start text-xs cursor-pointer bg-surface-container-low p-2.5 rounded">
+        <label className="flex gap-2 items-start text-xs cursor-pointer bg-bg-subtle p-2.5 rounded">
           <input type="checkbox" checked={alsoCancel} onChange={(e) => setAlsoCancel(e.target.checked)} />
           <span>
             <span className="font-medium">Also cancel this listing and refund winner</span>
@@ -65,14 +65,14 @@ export function ResolutionPanel({ dispute, onResolved }: Props) {
 
       <div>
         <label className="text-[10px] uppercase opacity-55 block mb-1">
-          Admin note <span className="text-error normal-case">(required)</span>
+          Admin note <span className="text-danger normal-case">(required)</span>
         </label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="What did you verify and why this action?"
           maxLength={500}
-          className="w-full h-20 text-xs bg-surface-container-low rounded p-2 resize-y"
+          className="w-full h-20 text-xs bg-bg-subtle rounded p-2 resize-y"
         />
         <div className="text-[10px] opacity-40 mt-1">{note.length} / 500</div>
       </div>
@@ -81,13 +81,13 @@ export function ResolutionPanel({ dispute, onResolved }: Props) {
         type="button"
         disabled={mutation.isPending || note.trim().length === 0}
         onClick={submit}
-        className="w-full py-2 bg-primary text-on-primary rounded text-xs font-semibold disabled:opacity-50"
+        className="w-full py-2 bg-brand text-white rounded text-xs font-semibold disabled:opacity-50"
       >
         {mutation.isPending ? "Applying…" : "Apply resolution"}
       </button>
 
       {mutation.isError && (
-        <p className="text-[10px] text-error">Failed to apply: {(mutation.error as Error).message}</p>
+        <p className="text-[10px] text-danger">Failed to apply: {(mutation.error as Error).message}</p>
       )}
     </aside>
   );

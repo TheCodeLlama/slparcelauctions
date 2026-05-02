@@ -21,7 +21,7 @@ export function AdminUsersTable({ rows }: Props) {
   if (rows.length === 0) {
     return (
       <div
-        className="py-12 text-center text-body-sm text-on-surface-variant"
+        className="py-12 text-center text-sm text-fg-muted"
         data-testid="empty-state"
       >
         No users found.
@@ -30,17 +30,17 @@ export function AdminUsersTable({ rows }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-default border border-outline-variant" data-testid="users-table">
-      <table className="w-full text-body-sm">
-        <thead className="bg-surface-container-low border-b border-outline-variant">
+    <div className="overflow-x-auto rounded-lg border border-border-subtle" data-testid="users-table">
+      <table className="w-full text-sm">
+        <thead className="bg-bg-subtle border-b border-border-subtle">
           <tr>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Name</th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Email</th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">SL UUID</th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Role</th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Verified</th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Status</th>
-            <th className="px-3 py-2.5 text-left text-label-sm text-on-surface-variant font-medium">Member since</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Name</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Email</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">SL UUID</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Role</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Verified</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Status</th>
+            <th className="px-3 py-2.5 text-left text-[11px] font-medium text-fg-muted">Member since</th>
           </tr>
         </thead>
         <tbody>
@@ -48,7 +48,7 @@ export function AdminUsersTable({ rows }: Props) {
             <tr
               key={row.id}
               data-testid={`user-row-${row.id}`}
-              className="border-b border-outline-variant/50 hover:bg-surface-container/50 cursor-pointer"
+              className="border-b border-border-subtle/50 hover:bg-bg-muted/50 cursor-pointer"
             >
               <td className="px-3 py-2.5">
                 <Link
@@ -56,55 +56,55 @@ export function AdminUsersTable({ rows }: Props) {
                   className="block"
                   data-testid={`user-link-${row.id}`}
                 >
-                  <div className="text-on-surface font-medium">
+                  <div className="text-fg font-medium">
                     {row.displayName ?? row.email}
                   </div>
-                  <div className="text-[11px] text-on-surface-variant mt-0.5">
+                  <div className="text-[11px] text-fg-muted mt-0.5">
                     {row.completedSales} sold
                     {row.cancelledWithBids > 0 && (
-                      <span className="text-error"> · {row.cancelledWithBids} cancelled</span>
+                      <span className="text-danger"> · {row.cancelledWithBids} cancelled</span>
                     )}
                   </div>
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-on-surface-variant">{row.email}</td>
+              <td className="px-3 py-2.5 text-fg-muted">{row.email}</td>
               <td className="px-3 py-2.5">
                 {row.slAvatarUuid ? (
-                  <span className="font-mono text-[11px] text-on-surface-variant" title={row.slAvatarUuid}>
+                  <span className="font-mono text-[11px] text-fg-muted" title={row.slAvatarUuid}>
                     {truncateUuid(row.slAvatarUuid)}
                   </span>
                 ) : (
-                  <span className="text-on-surface-variant/50">—</span>
+                  <span className="text-fg-muted/50">—</span>
                 )}
               </td>
               <td className="px-3 py-2.5">
                 {row.role === "ADMIN" ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-tertiary-container text-on-tertiary-container">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-info-bg text-info">
                     ADMIN
                   </span>
                 ) : (
-                  <span className="text-[11px] text-on-surface-variant">User</span>
+                  <span className="text-[11px] text-fg-muted">User</span>
                 )}
               </td>
               <td className="px-3 py-2.5">
                 {row.verified ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-secondary-container text-on-secondary-container">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-info-bg text-info">
                     Yes
                   </span>
                 ) : (
-                  <span className="text-[11px] text-on-surface-variant">No</span>
+                  <span className="text-[11px] text-fg-muted">No</span>
                 )}
               </td>
               <td className="px-3 py-2.5">
                 {row.hasActiveBan ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-error text-on-error">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-danger text-white">
                     BANNED
                   </span>
                 ) : (
-                  <span className="text-[11px] text-on-surface-variant">—</span>
+                  <span className="text-[11px] text-fg-muted">—</span>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-on-surface-variant text-[11px]">{formatDate(row.createdAt)}</td>
+              <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.createdAt)}</td>
             </tr>
           ))}
         </tbody>

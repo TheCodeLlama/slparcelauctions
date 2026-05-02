@@ -7,6 +7,7 @@ describe("MobileMenu", () => {
     renderWithProviders(<MobileMenu open onClose={() => {}} />);
     expect(screen.getByRole("link", { name: "Browse" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sell parcel" })).toBeInTheDocument();
   });
 
   it("does not render content when open is false", () => {

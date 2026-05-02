@@ -62,7 +62,7 @@ export function CountdownTimer({
     <time
       role="timer"
       aria-live="polite"
-      className={cn("font-mono tabular-nums text-body-lg", className)}
+      className={cn("font-mono tabular-nums text-base", className)}
     >
       {formatRemaining(remaining, format)}
     </time>

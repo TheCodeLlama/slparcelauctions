@@ -49,11 +49,11 @@ export function NotificationPreferencesPage() {
 
       <MasterMuteRow value={local.slImMuted} onChange={handleMasterMute} />
 
-      <div className="mb-2 text-label-sm uppercase tracking-wide text-on-surface-variant font-semibold">
+      <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-fg-muted font-semibold">
         Send via SL IM
       </div>
 
-      <div className="bg-surface border border-outline rounded-xl">
+      <div className="bg-bg border border-border rounded-xl">
         {EDITABLE_GROUPS.map((g) => (
           <GroupToggleRow
             key={g}

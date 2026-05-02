@@ -57,7 +57,7 @@ export function ReviewCard({
       data-testid="review-card"
       data-review-id={review.id}
       className={cn(
-        "flex flex-col gap-3 rounded-default bg-surface-container-low p-4 ring-1 ring-outline-variant",
+        "flex flex-col gap-3 rounded-lg bg-bg-subtle p-4 ring-1 ring-border-subtle",
         className,
       )}
     >
@@ -70,14 +70,14 @@ export function ReviewCard({
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-body-md font-medium text-on-surface">
+            <span className="text-sm font-medium text-fg">
               {review.reviewerDisplayName}
             </span>
             {submittedAt && (
               <time
                 dateTime={submittedAt}
                 title={formatAbsoluteTime(submittedAt)}
-                className="text-label-sm text-on-surface-variant"
+                className="text-[11px] font-medium text-fg-muted"
               >
                 {formatRelativeTime(submittedAt)}
               </time>
@@ -96,7 +96,7 @@ export function ReviewCard({
           <button
             type="button"
             onClick={() => setFlagOpen(true)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-default px-2 py-1 text-label-sm text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             aria-label="Flag this review"
             data-testid="review-card-flag"
           >
@@ -108,7 +108,7 @@ export function ReviewCard({
 
       {review.text && (
         <p
-          className="whitespace-pre-wrap text-body-md text-on-surface"
+          className="whitespace-pre-wrap text-sm text-fg"
           data-testid="review-card-text"
         >
           {review.text}
@@ -118,7 +118,7 @@ export function ReviewCard({
       {!hideAuctionLink && (
         <Link
           href={`/auction/${review.auctionId}`}
-          className="inline-flex w-fit items-center gap-1 rounded-default bg-surface-container px-3 py-1 text-label-sm text-on-surface-variant transition-colors hover:text-primary"
+          className="inline-flex w-fit items-center gap-1 rounded-lg bg-bg-muted px-3 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:text-brand"
           data-testid="review-card-auction-link"
         >
           <span className="truncate">{review.auctionTitle}</span>
@@ -127,21 +127,21 @@ export function ReviewCard({
 
       {review.response && (
         <div
-          className="ml-6 flex flex-col gap-1 rounded-default bg-surface-container px-3 py-2"
+          className="ml-6 flex flex-col gap-1 rounded-lg bg-bg-muted px-3 py-2"
           data-testid="review-card-response"
         >
-          <div className="flex items-center gap-1 text-label-sm font-medium text-on-surface-variant">
+          <div className="flex items-center gap-1 text-[11px] font-medium text-fg-muted">
             <CornerDownRight className="size-3.5" aria-hidden="true" />
             <span>{responseLabel(review.reviewedRole)}</span>
             <time
               dateTime={review.response.createdAt}
               title={formatAbsoluteTime(review.response.createdAt)}
-              className="text-label-sm text-on-surface-variant"
+              className="text-[11px] font-medium text-fg-muted"
             >
               · {formatRelativeTime(review.response.createdAt)}
             </time>
           </div>
-          <p className="whitespace-pre-wrap text-body-md text-on-surface">
+          <p className="whitespace-pre-wrap text-sm text-fg">
             {review.response.text}
           </p>
         </div>

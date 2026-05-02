@@ -15,12 +15,12 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: PageHeader
     <div className="mx-auto max-w-7xl px-6 pt-12 pb-8">
       {breadcrumbs && breadcrumbs.length > 0 && (
         <nav aria-label="Breadcrumb" className="mb-4">
-          <ol className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+          <ol className="flex items-center gap-2 text-xs text-fg-muted">
             {breadcrumbs.map((crumb, i) => (
               <li key={i} className="flex items-center gap-2">
                 {i > 0 && <ChevronRight className="size-4" />}
                 {crumb.href ? (
-                  <Link href={crumb.href} className="hover:text-on-surface transition-colors">
+                  <Link href={crumb.href} className="hover:text-fg transition-colors">
                     {crumb.label}
                   </Link>
                 ) : (
@@ -34,9 +34,9 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: PageHeader
 
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-display-md text-on-surface">{title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-fg">{title}</h1>
           {subtitle && (
-            <p className="mt-2 text-body-lg text-on-surface-variant">{subtitle}</p>
+            <p className="mt-2 text-base text-fg-muted">{subtitle}</p>
           )}
         </div>
         {actions && <div className="flex items-center gap-3">{actions}</div>}

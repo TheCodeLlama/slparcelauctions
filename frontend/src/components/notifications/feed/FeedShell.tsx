@@ -16,22 +16,22 @@ export function FeedShell() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-headline-md font-display font-bold">Notifications</h1>
+        <h1 className="text-xl font-bold tracking-tight font-display font-bold">Notifications</h1>
         <Link
           href="/settings/notifications"
-          className="p-2 text-on-surface-variant hover:text-on-surface rounded-md hover:bg-surface-container"
+          className="p-2 text-fg-muted hover:text-fg rounded-md hover:bg-bg-muted"
           aria-label="Notification settings"
         >
           <Settings className="size-5" />
         </Link>
       </div>
-      <p className="text-body-sm text-on-surface-variant mb-6">
+      <p className="text-xs text-fg-muted mb-6">
         Activity from your bids, listings, and account.
       </p>
 
       {/* Mobile filter drawer — below md breakpoint only */}
       <Disclosure as="div" className="md:hidden mb-4">
-        <DisclosureButton className="flex items-center gap-2 px-4 py-2 border border-outline rounded-md text-body-sm">
+        <DisclosureButton className="flex items-center gap-2 px-4 py-2 border border-border rounded-md text-sm">
           <FilterIcon className="size-4" />
           Filters
         </DisclosureButton>

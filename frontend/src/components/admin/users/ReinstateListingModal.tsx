@@ -50,13 +50,13 @@ export function ReinstateListingModal({ auction, userId, onClose }: Props) {
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <div
-          className="w-full max-w-md rounded-default bg-surface-container-low border border-outline-variant shadow-elevated p-6 flex flex-col gap-4"
+          className="w-full max-w-md rounded-lg bg-bg-subtle border border-border-subtle shadow-md p-6 flex flex-col gap-4"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-title-md font-semibold text-on-surface">Reinstate listing</h2>
-              <p className="mt-1 text-body-sm text-on-surface-variant line-clamp-2">
+              <h2 className="text-sm font-semibold text-fg">Reinstate listing</h2>
+              <p className="mt-1 text-sm text-fg-muted line-clamp-2">
                 {auction.title}
                 {auction.regionName ? ` · ${auction.regionName}` : ""}
               </p>
@@ -65,7 +65,7 @@ export function ReinstateListingModal({ auction, userId, onClose }: Props) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted"
             >
               ✕
             </button>
@@ -73,8 +73,8 @@ export function ReinstateListingModal({ auction, userId, onClose }: Props) {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="reinstate-notes" className="text-label-md font-medium text-on-surface">
-                Notes <span className="text-error">*</span>
+              <label htmlFor="reinstate-notes" className="text-xs font-medium text-fg">
+                Notes <span className="text-danger">*</span>
               </label>
               <textarea
                 id="reinstate-notes"
@@ -84,9 +84,9 @@ export function ReinstateListingModal({ auction, userId, onClose }: Props) {
                 onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
                 placeholder="Explain why this listing is being reinstated…"
                 data-testid="reinstate-notes-textarea"
-                className="w-full resize-y rounded-default bg-surface-container px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary disabled:opacity-50"
+                className="w-full resize-y rounded-lg bg-bg-muted px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
               />
-              <div className="self-end text-label-sm text-on-surface-variant">
+              <div className="self-end text-[11px] font-medium text-fg-muted">
                 {notes.length} / {NOTES_MAX}
               </div>
             </div>
