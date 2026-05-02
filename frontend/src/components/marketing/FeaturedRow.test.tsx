@@ -75,8 +75,8 @@ describe("FeaturedRow", () => {
     const viewAll = screen.getByRole("link", { name: /view all/i });
     expect(viewAll).toHaveAttribute("href", "/browse?sort=ending_soonest");
 
-    // Rail exists, empty/unavailable placeholders do not
-    expect(screen.getByTestId("featured-row-rail")).toBeInTheDocument();
+    // Grid exists, empty/unavailable placeholders do not
+    expect(screen.getByTestId("featured-row-grid")).toBeInTheDocument();
     expect(screen.queryByTestId("featured-row-empty")).toBeNull();
     expect(screen.queryByTestId("featured-row-unavailable")).toBeNull();
 
@@ -102,7 +102,7 @@ describe("FeaturedRow", () => {
     expect(screen.getByTestId("featured-row-empty")).toHaveTextContent(
       /no listings ending soon right now/i,
     );
-    expect(screen.queryByTestId("featured-row-rail")).toBeNull();
+    expect(screen.queryByTestId("featured-row-grid")).toBeNull();
     expect(screen.queryByTestId("featured-row-unavailable")).toBeNull();
   });
 
@@ -143,7 +143,7 @@ describe("FeaturedRow", () => {
     expect(screen.getByTestId("featured-row-unavailable")).toHaveTextContent(
       /ending soon auctions are temporarily unavailable/i,
     );
-    expect(screen.queryByTestId("featured-row-rail")).toBeNull();
+    expect(screen.queryByTestId("featured-row-grid")).toBeNull();
     expect(screen.queryByTestId("featured-row-empty")).toBeNull();
     // Header + View all link should still render so the page structure stays
     // stable when a single rail goes down.

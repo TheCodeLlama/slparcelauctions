@@ -1,27 +1,22 @@
-// frontend/src/app/page.tsx
 import { Hero } from "@/components/marketing/Hero";
-import { HowItWorksSection } from "@/components/marketing/HowItWorksSection";
-import { FeaturesSection } from "@/components/marketing/FeaturesSection";
-import { CtaSection } from "@/components/marketing/CtaSection";
 import { FeaturedRow } from "@/components/marketing/FeaturedRow";
+import { TrustStrip } from "@/components/marketing/TrustStrip";
 import { fetchFeatured } from "@/lib/api/auctions-search";
 
 /**
  * Homepage server component. Fans out the three featured-rail fetches under
- * a single {@link Promise.allSettled} so one endpoint's 5xx doesn't cascade
- * into a full-page 500 — failing rails render a neutral placeholder instead.
+ * a single Promise.allSettled so one endpoint's 5xx doesn't cascade into a
+ * full-page 500 — failing rails render a neutral placeholder instead.
  *
- * NB: {@code Promise.allSettled} (not {@code Promise.all}) is load-bearing
- * here. {@code Promise.all} short-circuits on the first rejection, which
- * would couple the three independent rails; {@code allSettled} never
- * rejects, so every rail lands in the render regardless of the others'
- * outcomes.
+ * NB: Promise.allSettled (not Promise.all) is load-bearing here. Promise.all
+ * short-circuits on the first rejection, which would couple the three
+ * independent rails; allSettled never rejects, so every rail lands in the
+ * render regardless of the others' outcomes.
  *
  * StatsBar is intentionally omitted. Per product decision, launching with
  * low activity numbers reads as a liability rather than social proof — the
- * backend {@code /stats/public} endpoint is live but the component is
- * deferred until activity threshold is met. See
- * {@code docs/implementation/DEFERRED_WORK.md}.
+ * backend /stats/public endpoint is live but the component is deferred until
+ * activity threshold is met. See docs/implementation/DEFERRED_WORK.md.
  */
 export default async function HomePage() {
   const [endingSoon, justListed, mostActive] = await Promise.allSettled([
@@ -30,29 +25,38 @@ export default async function HomePage() {
     fetchFeatured("most-active"),
   ]);
 
+  // The Hero stack uses the first 3 ending-soon listings as its featured
+  // preview. If the fetch failed, it falls back to an empty stack.
+  const heroFeatured =
+    endingSoon.status === "fulfilled" ? endingSoon.value.content.slice(0, 3) : [];
+
   return (
     <>
-      <Hero />
+      <Hero featured={heroFeatured} />
       <FeaturedRow
-        title="Ending Soon"
+        title="Ending soon"
+        sub="Auctions closing in the next few hours."
         sortLink="/browse?sort=ending_soonest"
         result={endingSoon}
+        columns={4}
       />
       <FeaturedRow
-        title="Just Listed"
+        title="Featured this week"
+        sub="Hand-picked premium parcels with verified covenants."
         sortLink="/browse"
         result={justListed}
         emptyMessage="No new listings yet."
+        columns={3}
       />
+      <TrustStrip />
       <FeaturedRow
-        title="Most Active"
+        title="Trending across regions"
+        sub="Most-watched parcels right now."
         sortLink="/browse?sort=most_bids"
         result={mostActive}
         emptyMessage="No active bidding to highlight right now."
+        columns={4}
       />
-      <HowItWorksSection />
-      <FeaturesSection />
-      <CtaSection />
     </>
   );
 }

@@ -20,11 +20,12 @@ fi
 # Allowlisted file paths. Each entry MUST have a comment above it citing the
 # spec section that justifies the exception.
 #
-# - src/components/marketing/CtaSection.tsx: decorative radial-gradient dot
-#   pattern on the bottom CTA; Tailwind has no radial-gradient utility.
-#   See spec docs/superpowers/specs/2026-04-13-task-01-10-landing-page-design.md §6.8.
+# - src/components/marketing/HeroFeaturedStack.tsx: dynamic z-index per card
+#   index (3 - i) cannot be expressed as static Tailwind classes without
+#   spawning a class for each possible index. See spec
+#   docs/superpowers/specs/2026-05-01-frontend-redesign-design.md §6.
 allowlist=(
-  "src/components/marketing/CtaSection.tsx"
+  "src/components/marketing/HeroFeaturedStack.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.

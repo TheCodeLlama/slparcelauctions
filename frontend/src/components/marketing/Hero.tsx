@@ -1,47 +1,48 @@
-// frontend/src/components/marketing/Hero.tsx
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui";
+import type { AuctionSearchResultDto } from "@/types/search";
+import { Button, Eyebrow } from "@/components/ui";
+import { ArrowRight } from "@/components/ui/icons";
 import { useAuth } from "@/lib/auth";
-import { LivePill } from "./LivePill";
-import { HeroFeaturedParcel } from "./HeroFeaturedParcel";
+import { HeroFeaturedStack } from "./HeroFeaturedStack";
 
-export function Hero() {
+export interface HeroProps {
+  /** Up to 3 featured auctions to render in the right-side card stack. May be
+   *  empty during SSR fallback — the stack handles its own empty state. */
+  featured: AuctionSearchResultDto[];
+}
+
+export function Hero({ featured }: HeroProps) {
   const { status } = useAuth();
   const isAuthenticated = status === "authenticated";
-
-  const secondaryHref = isAuthenticated ? "/dashboard" : "/register";
-  const secondaryLabel = isAuthenticated ? "Go to Dashboard" : "Start Selling";
+  const sellHref = isAuthenticated ? "/listings/new" : "/register";
+  const sellLabel = isAuthenticated ? "List your parcel" : "Start selling";
 
   return (
-    <section className="relative min-h-[560px] overflow-hidden bg-surface md:min-h-[720px]">
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-12 gap-8 px-8 py-20 md:py-28">
-        <div className="col-span-12 flex flex-col justify-center lg:col-span-7">
-          <LivePill className="mb-6">Live Auctions Active</LivePill>
-
-          <h1 className="mb-8 font-display text-5xl font-extrabold leading-[1.05] tracking-tight text-on-surface md:text-7xl">
-            Buy &amp; Sell Second Life Land at Auction
+    <section className="border-b border-border bg-bg-subtle">
+      <div className="mx-auto grid w-full max-w-[var(--container-w)] grid-cols-1 items-center gap-12 px-6 py-14 lg:grid-cols-[1.1fr_1fr] lg:gap-14 lg:py-16">
+        <div>
+          <Eyebrow className="mb-4">The marketplace for virtual land</Eyebrow>
+          <h1 className="m-0 text-4xl font-extrabold leading-[1.05] tracking-tight text-fg md:text-5xl lg:text-[48px]">
+            Auction parcels with real escrow protection.
           </h1>
-
-          <p className="mb-10 max-w-xl text-xl leading-relaxed text-on-surface-variant">
-            The premium digital land curator. Secure your virtual footprint through our
-            verified auction house, featuring real-time bidding and exclusive parcel listings.
+          <p className="mt-4 max-w-[540px] text-base leading-[1.5] text-fg-muted md:text-lg">
+            Find premium Second Life parcels at fair prices. Every transaction
+            is protected by SLPA Escrow — no more lost L$ to bad-faith sellers.
           </p>
-
-          <div className="flex flex-wrap gap-4">
+          <div className="mt-7 flex flex-wrap gap-2.5">
             <Link href="/browse">
-              <Button variant="primary" size="lg">Browse Listings</Button>
+              <Button variant="primary" size="lg" rightIcon={<ArrowRight className="size-4" aria-hidden />}>
+                Browse auctions
+              </Button>
             </Link>
-            <Link href={secondaryHref}>
-              <Button variant="secondary" size="lg">{secondaryLabel}</Button>
+            <Link href={sellHref}>
+              <Button variant="secondary" size="lg">{sellLabel}</Button>
             </Link>
           </div>
         </div>
-
-        <div className="hidden lg:col-span-5 lg:flex lg:items-center lg:justify-center">
-          <HeroFeaturedParcel />
-        </div>
+        <HeroFeaturedStack featured={featured} />
       </div>
     </section>
   );
