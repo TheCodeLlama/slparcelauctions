@@ -1,0 +1,56 @@
+# .github/workflows/frontend-ci.yml
+#
+# Lint + test + production build + design-system guard scripts. Runs on every
+# push to dev/main and every PR that touches frontend/** so a failing typecheck
+# is caught before the merge to main triggers an Amplify build (which costs
+# minutes and a failed deployment slot).
+#
+# `npm run build` is what catches typecheck regressions — `next build` runs
+# tsc as part of the production build pipeline. We don't run `tsc --noEmit`
+# separately because Next's build is the source of truth for what Amplify
+# will run.
+
+name: frontend CI
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  check:
+    name: lint + test + build + verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build (includes typecheck)
+        run: npm run build
+
+      - name: Verify guards (no-dark-variants, no-hex-colors, no-inline-styles, coverage)
+        run: npm run verify
