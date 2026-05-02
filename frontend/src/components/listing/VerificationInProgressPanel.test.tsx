@@ -24,6 +24,8 @@ function makeAuction(
       positionX: 128,
       positionY: 128,
       positionZ: 0,
+      ownerName: null,
+      parcelName: null,
       continentName: null,
       areaSqm: 1024,
       description: null,

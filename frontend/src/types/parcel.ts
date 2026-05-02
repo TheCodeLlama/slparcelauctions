@@ -19,6 +19,11 @@ export interface ParcelDto {
   slParcelUuid: string;
   ownerUuid: string;
   ownerType: ParcelOwnerType;
+  /** SL display name for the avatar/group that owns the parcel. */
+  ownerName: string | null;
+  /** SL-side parcel display name (`<meta name="parcel">`). Used by the
+   *  create-listing wizard to pre-fill the listing title. */
+  parcelName: string | null;
   regionName: string;
   gridX: number;
   gridY: number;

@@ -14,6 +14,8 @@ const parcel: ParcelDto = {
   positionX: 128,
   positionY: 128,
   positionZ: 0,
+  ownerName: null,
+  parcelName: null,
   continentName: "Heterocera",
   areaSqm: 1024,
   description: "Beachfront retreat",
