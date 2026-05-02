@@ -35,9 +35,9 @@ export const REPORT_REASON_LABEL: Record<ListingReportReason, string> = {
 };
 
 export const REPORT_FAMILY_TONE_CLASSES: Record<ReportReasonFamily, string> = {
-  fraud: "bg-error-container text-on-error-container",
-  description: "bg-secondary-container text-on-secondary-container",
-  duplicate: "bg-tertiary-container text-on-tertiary-container",
-  tos: "bg-error-container text-on-error-container",
-  other: "bg-surface-container-high text-on-surface-variant",
+  fraud: "bg-danger-bg text-danger",
+  description: "bg-info-bg text-info",
+  duplicate: "bg-info-bg text-info",
+  tos: "bg-danger-bg text-danger",
+  other: "bg-bg-hover text-fg-muted",
 };

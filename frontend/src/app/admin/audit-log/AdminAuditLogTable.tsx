@@ -30,7 +30,7 @@ export function AdminAuditLogTable({ rows }: Props) {
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-on-surface-variant">
+      <p className="text-sm text-fg-muted">
         No audit log entries match.
       </p>
     );
@@ -46,7 +46,7 @@ export function AdminAuditLogTable({ rows }: Props) {
   return (
     <table className="w-full text-xs">
       <thead className="text-[10px] uppercase opacity-55 text-left">
-        <tr className="border-b border-outline-variant">
+        <tr className="border-b border-border-subtle">
           <th className="py-2 px-2 w-32">When</th>
           <th className="py-2 px-2">Action</th>
           <th className="py-2 px-2">Admin</th>
@@ -62,13 +62,13 @@ export function AdminAuditLogTable({ rows }: Props) {
           return (
             <Fragment key={row.id}>
               <tr
-                className="border-b border-outline-variant/40 hover:bg-surface-container-low cursor-pointer"
+                className="border-b border-border-subtle/40 hover:bg-bg-subtle cursor-pointer"
                 onClick={() => toggle(row.id)}
               >
                 <td className="py-2 px-2 opacity-70">
                   {new Date(row.occurredAt).toLocaleString()}
                 </td>
-                <td className="py-2 px-2 text-primary">{row.actionType}</td>
+                <td className="py-2 px-2 text-brand">{row.actionType}</td>
                 <td className="py-2 px-2">
                   {row.adminEmail ?? `#${row.adminUserId}`}
                 </td>
@@ -80,7 +80,7 @@ export function AdminAuditLogTable({ rows }: Props) {
                         <Link
                           href={url}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-primary"
+                          className="text-brand"
                         >
                           #{row.targetId}
                         </Link>
@@ -93,12 +93,12 @@ export function AdminAuditLogTable({ rows }: Props) {
                   )}
                 </td>
                 <td className="py-2 px-2 opacity-85">{row.notes ?? "—"}</td>
-                <td className="py-2 px-2 text-primary">
+                <td className="py-2 px-2 text-brand">
                   {isOpen ? "▾" : "▸"}
                 </td>
               </tr>
               {isOpen && (
-                <tr className="border-b border-outline-variant/40">
+                <tr className="border-b border-border-subtle/40">
                   <td colSpan={6} className="px-4">
                     <AuditLogRowDetails row={row} />
                   </td>

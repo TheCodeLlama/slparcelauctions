@@ -46,7 +46,7 @@ export interface WalletBalanceChangedEnvelope {
  *    exclude it — let React Query refetch the visible page.
  *
  * Idempotent across multiple mounted subscribers — both
- * {@link HeaderWalletIndicator} and {@link WalletPanel} can call this hook
+ * {@link WalletPill} and {@link WalletPanel} can call this hook
  * simultaneously and the cache merge stays correct (each gets the same
  * envelope, both write the same value).
  *

@@ -56,11 +56,11 @@ export function DropZone({
     <div
       data-testid="drop-zone"
       className={cn(
-        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-default border-2 border-dashed p-6 text-center transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
         over && !disabled
-          ? "border-primary bg-primary-container/20"
-          : "border-outline-variant",
+          ? "border-brand bg-brand-soft/20"
+          : "border-border-subtle",
         disabled && "cursor-not-allowed opacity-60",
         className,
       )}
@@ -79,10 +79,10 @@ export function DropZone({
       aria-disabled={disabled}
     >
       <UploadCloud
-        className="size-7 text-on-surface-variant"
+        className="size-7 text-fg-muted"
         aria-hidden="true"
       />
-      <span className="text-body-sm text-on-surface-variant">
+      <span className="text-xs text-fg-muted">
         {label ?? "Drag files here, or click to select"}
       </span>
       <input

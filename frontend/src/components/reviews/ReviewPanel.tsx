@@ -112,19 +112,19 @@ export function ReviewPanel({
       data-state={state}
       aria-labelledby="review-panel-heading"
       className={cn(
-        "flex flex-col gap-4 rounded-default bg-surface-container-low p-6 ring-1 ring-outline-variant",
+        "flex flex-col gap-4 rounded-lg bg-bg-subtle p-6 ring-1 ring-border-subtle",
         className,
       )}
     >
       <header className="flex items-baseline justify-between">
         <h2
           id="review-panel-heading"
-          className="text-title-lg font-bold text-on-surface"
+          className="text-base font-bold tracking-tight font-bold text-fg"
         >
           Reviews
         </h2>
         {envelope && envelope.reviews.length > 0 && (
-          <span className="text-label-md text-on-surface-variant">
+          <span className="text-xs font-medium text-fg-muted">
             {envelope.reviews.length} of 2 submitted
           </span>
         )}
@@ -162,7 +162,7 @@ export function ReviewPanel({
       {state === "window-closed-none" && (
         <p
           data-testid="review-panel-window-closed"
-          className="text-body-md text-on-surface-variant"
+          className="text-sm text-fg-muted"
         >
           The review window for this auction has closed.
         </p>
@@ -171,7 +171,7 @@ export function ReviewPanel({
       {state === "read-only" && (!envelope || envelope.reviews.length === 0) && (
         <p
           data-testid="review-panel-readonly"
-          className="text-body-md text-on-surface-variant"
+          className="text-sm text-fg-muted"
         >
           No reviews have been published for this auction yet.
         </p>
@@ -221,7 +221,7 @@ function SubmitState({
       data-testid="review-panel-submit"
       className="flex flex-col gap-4"
     >
-      <p className="text-body-md text-on-surface">
+      <p className="text-sm text-fg">
         How was the other party? Your review stays hidden until they submit
         theirs or on{" "}
         <time
@@ -236,7 +236,7 @@ function SubmitState({
       </p>
 
       <div className="flex flex-col gap-2">
-        <span className="text-label-md font-medium text-on-surface">
+        <span className="text-xs font-medium text-fg">
           Rating
         </span>
         <StarSelector
@@ -247,7 +247,7 @@ function SubmitState({
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-label-md font-medium text-on-surface">
+        <span className="text-xs font-medium text-fg">
           Your review (optional)
         </span>
         <textarea
@@ -257,7 +257,7 @@ function SubmitState({
           disabled={mutation.isPending}
           placeholder="Share what went well — or what didn't."
           data-testid="review-panel-submit-text"
-          className="w-full resize-y rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant transition-all focus:outline-none focus:ring-primary"
+          className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-brand"
         />
       </label>
 
@@ -265,8 +265,8 @@ function SubmitState({
         <span
           data-testid="review-panel-submit-counter"
           className={cn(
-            "text-label-sm",
-            overLimit ? "text-error" : "text-on-surface-variant",
+            "text-[11px] font-medium",
+            overLimit ? "text-danger" : "text-fg-muted",
           )}
         >
           {text.length} / {MAX_TEXT_LEN}
@@ -297,7 +297,7 @@ function PendingState({
       data-testid="review-panel-pending"
       className="flex flex-col gap-3"
     >
-      <p className="text-body-md text-on-surface">
+      <p className="text-sm text-fg">
         Your review has been submitted. It will appear when the other party
         submits theirs
         {windowClosesAt ? (
@@ -318,11 +318,11 @@ function PendingState({
       </p>
 
       <div
-        className="flex flex-col gap-2 rounded-default bg-surface-container px-4 py-3"
+        className="flex flex-col gap-2 rounded-lg bg-bg-muted px-4 py-3"
         data-testid="review-panel-pending-card"
       >
         <div className="flex items-center justify-between">
-          <span className="text-label-md font-medium text-on-surface-variant">
+          <span className="text-xs font-medium text-fg-muted">
             Your submission
           </span>
           <RatingSummary
@@ -334,7 +334,7 @@ function PendingState({
         </div>
         {review.text && (
           <p
-            className="whitespace-pre-wrap text-body-md text-on-surface"
+            className="whitespace-pre-wrap text-sm text-fg"
             data-testid="review-panel-pending-text"
           >
             {review.text}
@@ -373,7 +373,7 @@ function RevealedState({
       {showWindowClosedNote && (
         <p
           data-testid="review-panel-window-closed-note"
-          className="text-body-sm text-on-surface-variant md:col-span-2"
+          className="text-xs text-fg-muted md:col-span-2"
         >
           Your review window closed.
         </p>

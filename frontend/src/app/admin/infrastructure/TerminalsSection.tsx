@@ -21,13 +21,13 @@ export function TerminalsSection() {
   };
 
   return (
-    <section className="bg-surface-container rounded p-4">
+    <section className="bg-bg-muted rounded p-4">
       <header className="flex justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold">Terminals</h2>
           <p className="text-[10px] opacity-55">Registered LSL terminals · shared-secret authenticated</p>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-[10px] bg-success-container text-on-success-container">
+        <span className="px-2.5 py-1 rounded-full text-[10px] bg-success-bg text-success">
           ● {active}/{rows.length} active
         </span>
       </header>
@@ -47,7 +47,7 @@ export function TerminalsSection() {
           </thead>
           <tbody>
             {rows.map((t) => (
-              <tr key={t.terminalId} className="border-b border-outline-variant/40">
+              <tr key={t.terminalId} className="border-b border-border-subtle/40">
                 <td className="py-2">{t.regionName ?? "—"}</td>
                 <td className="py-2">{t.terminalId}</td>
                 <td className="py-2 opacity-80">{t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleString() : "—"}</td>
@@ -57,7 +57,7 @@ export function TerminalsSection() {
                   <button
                     type="button"
                     onClick={() => setConfirmId(t.terminalId)}
-                    className="px-2 py-1 text-[10px] text-error border border-error/40 rounded hover:bg-error/10"
+                    className="px-2 py-1 text-[10px] text-danger border border-danger/40 rounded hover:bg-danger-bg/10"
                     aria-label={`Unregister terminal ${t.terminalId}`}
                   >
                     Unregister
@@ -71,12 +71,12 @@ export function TerminalsSection() {
       <button
         type="button"
         onClick={() => setRotateOpen(true)}
-        className="px-3 py-1.5 border border-outline rounded text-xs text-tertiary"
+        className="px-3 py-1.5 border border-border rounded text-xs text-info"
       >⟳ Rotate shared secret →</button>
       {rotateOpen && <RotateSecretModal onClose={() => setRotateOpen(false)} />}
       {confirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-surface-container max-w-md w-full rounded-lg p-5">
+          <div className="bg-bg-muted max-w-md w-full rounded-lg p-5">
             <h3 className="text-sm font-semibold mb-2">Unregister terminal</h3>
             <p className="text-xs opacity-80 mb-3">
               This soft-deletes the terminal — sets <code>active=false</code> so the
@@ -92,7 +92,7 @@ export function TerminalsSection() {
                 type="button"
                 onClick={() => setConfirmId(null)}
                 disabled={deactivate.isPending}
-                className="px-3 py-1.5 border border-outline rounded text-xs"
+                className="px-3 py-1.5 border border-border rounded text-xs"
               >
                 Cancel
               </button>
@@ -100,13 +100,13 @@ export function TerminalsSection() {
                 type="button"
                 onClick={handleConfirmDeactivate}
                 disabled={deactivate.isPending}
-                className="px-3 py-1.5 bg-error text-on-error rounded text-xs"
+                className="px-3 py-1.5 bg-danger text-white rounded text-xs"
               >
                 {deactivate.isPending ? "Unregistering…" : "Unregister"}
               </button>
             </div>
             {deactivate.isError && (
-              <p className="mt-2 text-xs text-error">
+              <p className="mt-2 text-xs text-danger">
                 Failed to unregister. Try again or use the API directly.
               </p>
             )}

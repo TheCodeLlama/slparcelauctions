@@ -84,3 +84,6 @@ export {
   Unlock,
   Pencil,
 } from "lucide-react";
+
+// Cluster 2 redesign additions (TrustStrip)
+export { RefreshCw } from "lucide-react";

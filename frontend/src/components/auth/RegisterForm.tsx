@@ -95,7 +95,7 @@ export function RegisterForm() {
         label={
           <>
             I agree to the{" "}
-            <Link href="/terms" className="font-semibold text-primary hover:underline">
+            <Link href="/terms" className="font-semibold text-brand hover:underline">
               Terms
             </Link>
           </>

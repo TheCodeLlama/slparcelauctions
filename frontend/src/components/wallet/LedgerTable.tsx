@@ -62,7 +62,7 @@ type EntryVisual = {
 
 const WITHDRAW_PENDING_VISUAL: EntryVisual = { Icon: Clock, tone: "text-warning" };
 const WITHDRAW_COMPLETED_VISUAL: EntryVisual = { Icon: ArrowUpFromLine, tone: "text-success" };
-const WITHDRAW_REVERSED_VISUAL: EntryVisual = { Icon: Undo2, tone: "text-error" };
+const WITHDRAW_REVERSED_VISUAL: EntryVisual = { Icon: Undo2, tone: "text-danger" };
 
 function withdrawalVisual(status: WithdrawalStatus | null): EntryVisual {
   switch (status) {
@@ -92,19 +92,19 @@ function entryVisual(e: LedgerEntry): EntryVisual {
     case "BID_RESERVED":
       return { Icon: Lock, tone: "text-warning" };
     case "BID_RELEASED":
-      return { Icon: Unlock, tone: "text-on-surface-variant" };
+      return { Icon: Unlock, tone: "text-fg-muted" };
     case "ESCROW_DEBIT":
-      return { Icon: ArrowUpFromLine, tone: "text-on-surface" };
+      return { Icon: ArrowUpFromLine, tone: "text-fg" };
     case "ESCROW_REFUND":
       return { Icon: ArrowDownToLine, tone: "text-success" };
     case "LISTING_FEE_DEBIT":
-      return { Icon: Tag, tone: "text-on-surface" };
+      return { Icon: Tag, tone: "text-fg" };
     case "LISTING_FEE_REFUND":
       return { Icon: ArrowDownToLine, tone: "text-success" };
     case "PENALTY_DEBIT":
       return { Icon: AlertTriangle, tone: "text-warning" };
     case "ADJUSTMENT":
-      return { Icon: Pencil, tone: "text-on-surface-variant" };
+      return { Icon: Pencil, tone: "text-fg-muted" };
   }
 }
 
@@ -151,9 +151,9 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
   if (entries.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center text-center py-8 gap-3">
-        <Wallet className="h-12 w-12 text-on-surface-variant/40" />
-        <h3 className="font-medium text-on-surface">No activity yet</h3>
-        <p className="text-sm text-on-surface-variant max-w-sm">
+        <Wallet className="h-12 w-12 text-fg-muted/40" />
+        <h3 className="font-medium text-fg">No activity yet</h3>
+        <p className="text-sm text-fg-muted max-w-sm">
           Visit any SLPA Terminal in-world to make your first deposit.
           Locations: SLPA HQ and partner auction venues.
         </p>
@@ -163,7 +163,7 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
 
   if (entries.length === 0 && isLoading) {
     return (
-      <div className="text-sm text-on-surface-variant py-8 text-center">
+      <div className="text-sm text-fg-muted py-8 text-center">
         Loading activity...
       </div>
     );
@@ -178,8 +178,8 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
             key={e.id}
             className={cn(
               "flex justify-between items-start gap-3 px-2 py-2 rounded-md",
-              "border-b border-outline-variant last:border-b-0",
-              "hover:bg-surface-container-low",
+              "border-b border-border-subtle last:border-b-0",
+              "hover:bg-bg-subtle",
             )}
           >
             <div className="flex items-start min-w-0">
@@ -188,11 +188,11 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
                 aria-hidden="true"
               />
               <div className="min-w-0">
-                <div className="font-medium text-on-surface truncate">
+                <div className="font-medium text-fg truncate">
                   {entryTypeLabel(e)}
                 </div>
                 <div
-                  className="text-xs text-on-surface-variant"
+                  className="text-xs text-fg-muted"
                   title={new Date(e.createdAt).toLocaleString()}
                 >
                   {formatLedgerDate(e.createdAt)}
@@ -203,7 +203,7 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
               <div className={cn("tabular-nums", tone)}>
                 {formatLindens(e.amount)}
               </div>
-              <div className="text-xs text-on-surface-variant tabular-nums">
+              <div className="text-xs text-fg-muted tabular-nums">
                 Bal {formatLindens(e.balanceAfter)} / Res {formatLindens(e.reservedAfter)}
               </div>
             </div>

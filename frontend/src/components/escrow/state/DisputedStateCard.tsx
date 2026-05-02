@@ -26,23 +26,23 @@ export function DisputedStateCard({ escrow, role }: StateCardProps) {
       data-testid="escrow-state-card"
       data-state="DISPUTED"
       data-role={role}
-      className="flex flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <h2 className="text-title-md text-on-surface">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         Dispute filed
         {escrow.disputedAt ? ` ${formatTimestamp(escrow.disputedAt)}` : ""}
       </h2>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-body-md">
-        <dt className="text-on-surface-variant">Category:</dt>
-        <dd className="text-on-surface">{category}</dd>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-fg-muted">Category:</dt>
+        <dd className="text-fg">{category}</dd>
         {escrow.disputeDescription ? (
           <>
-            <dt className="text-on-surface-variant">Reason:</dt>
-            <dd className="text-on-surface">{escrow.disputeDescription}</dd>
+            <dt className="text-fg-muted">Reason:</dt>
+            <dd className="text-fg">{escrow.disputeDescription}</dd>
           </>
         ) : null}
       </dl>
-      <p className="text-body-md text-on-surface-variant">
+      <p className="text-sm text-fg-muted">
         SLPA is reviewing this transaction. Expect a response within 48 hours.
       </p>
     </section>

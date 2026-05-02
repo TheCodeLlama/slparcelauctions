@@ -98,7 +98,7 @@ export function PhotoUploader({
               key={p.id}
               data-testid="staged-photo"
               data-photo-error={p.error ? "true" : undefined}
-              className="relative overflow-hidden rounded-default border border-outline-variant"
+              className="relative overflow-hidden rounded-lg border border-border-subtle"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -107,7 +107,7 @@ export function PhotoUploader({
                 className="h-24 w-full object-cover"
               />
               {p.error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-error-container/90 p-2 text-center text-body-sm text-on-error-container">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-bg/90 p-2 text-center text-xs text-danger">
                   <AlertTriangle className="size-4" aria-hidden="true" />
                   <span>{p.error}</span>
                 </div>
@@ -117,12 +117,12 @@ export function PhotoUploader({
                 onClick={() => remove(p.id)}
                 disabled={disabled}
                 aria-label="Remove photo"
-                className="absolute right-1 top-1 rounded-full bg-surface-container-lowest/90 p-1 text-error hover:bg-surface-container-lowest disabled:opacity-50"
+                className="absolute right-1 top-1 rounded-full bg-surface-raised/90 p-1 text-danger hover:bg-surface-raised disabled:opacity-50"
               >
                 <Trash2 className="size-3.5" aria-hidden="true" />
               </button>
               {p.uploadedPhotoId == null ? (
-                <span className="absolute bottom-1 left-1 rounded-full bg-surface-container-high/90 px-2 py-0.5 text-label-sm text-on-surface-variant">
+                <span className="absolute bottom-1 left-1 rounded-full bg-bg-hover/90 px-2 py-0.5 text-[11px] font-medium text-fg-muted">
                   staged
                 </span>
               ) : null}

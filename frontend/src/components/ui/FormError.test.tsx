@@ -13,6 +13,6 @@ describe("FormError", () => {
     renderWithProviders(<FormError message="Email or password is incorrect." />);
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Email or password is incorrect.");
-    expect(alert.className).toContain("bg-error-container");
+    expect(alert.className).toContain("bg-danger-bg");
   });
 });

@@ -31,7 +31,7 @@ export function ReputationStars({
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <span className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">
+        <span className="text-[11px] font-medium font-bold uppercase tracking-widest text-fg-muted">
           {label}
         </span>
       )}

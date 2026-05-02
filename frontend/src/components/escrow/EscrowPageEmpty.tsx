@@ -18,7 +18,7 @@ export function EscrowPageEmpty({ auctionId }: EscrowPageEmptyProps) {
       headline="No escrow for this auction"
       description="Either this auction hasn't ended with a winner yet, or no escrow was created."
     >
-      <Link href={`/auction/${auctionId}`} className="text-primary hover:underline">
+      <Link href={`/auction/${auctionId}`} className="text-brand hover:underline">
         Back to auction
       </Link>
     </EmptyState>

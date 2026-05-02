@@ -58,10 +58,10 @@ const AUTO_DISMISS_MS = 3000;
  * backed tokens — no {@code dark:} variants, no raw hex.
  */
 const KIND_CLASSES: Record<ToastKind, string> = {
-  success: "bg-primary text-on-primary",
-  error: "bg-error text-on-error",
-  warning: "bg-error-container text-on-error-container",
-  info: "bg-surface-container-high text-on-surface",
+  success: "bg-brand text-white",
+  error: "bg-danger text-white",
+  warning: "bg-warning-bg text-warning",
+  info: "bg-bg-hover text-fg",
 };
 
 const KIND_ICON: Record<ToastKind, typeof CheckCircle2> = {
@@ -189,11 +189,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     aria-hidden="true"
                   />
                   <div className="flex flex-col gap-1 min-w-0">
-                    <span className="text-body-md font-medium">
+                    <span className="text-sm font-medium">
                       {toast.message}
                     </span>
                     {toast.description && (
-                      <span className="text-body-sm opacity-90">
+                      <span className="text-xs opacity-90">
                         {toast.description}
                       </span>
                     )}
@@ -204,7 +204,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                           toast.action?.onClick();
                           dismiss(toast.id);
                         }}
-                        className="self-start text-label-md font-semibold underline underline-offset-2 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-current rounded"
+                        className="self-start text-xs font-semibold underline underline-offset-2 hover:no-underline focus-visible:ring-2 focus-visible:ring-current rounded"
                       >
                         {toast.action.label}
                       </button>

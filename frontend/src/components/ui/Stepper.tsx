@@ -41,20 +41,20 @@ export function Stepper({ steps, currentIndex, className }: StepperProps) {
             data-state={state}
             aria-current={state === "current" ? "step" : undefined}
             className={cn(
-              "flex items-center gap-2 text-label-lg",
-              state === "complete" && "text-on-tertiary-container",
-              state === "current" && "text-primary",
-              state === "upcoming" && "text-on-surface-variant",
+              "flex items-center gap-2 text-sm font-medium",
+              state === "complete" && "text-info",
+              state === "current" && "text-brand",
+              state === "upcoming" && "text-fg-muted",
             )}
           >
             <span
               className={cn(
-                "inline-flex h-6 w-6 items-center justify-center rounded-full border text-label-md",
+                "inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-medium",
                 state === "complete" &&
-                  "border-tertiary bg-tertiary text-on-tertiary",
-                state === "current" && "border-primary text-primary",
+                  "border-info bg-info text-white",
+                state === "current" && "border-brand text-brand",
                 state === "upcoming" &&
-                  "border-outline-variant text-on-surface-variant",
+                  "border-border text-fg-muted",
               )}
             >
               {state === "complete" ? (
@@ -66,7 +66,7 @@ export function Stepper({ steps, currentIndex, className }: StepperProps) {
             <span>{label}</span>
             {idx < steps.length - 1 && (
               <span
-                className="mx-1 h-px w-6 bg-outline-variant"
+                className="mx-1 h-px w-6 bg-border"
                 aria-hidden="true"
               />
             )}

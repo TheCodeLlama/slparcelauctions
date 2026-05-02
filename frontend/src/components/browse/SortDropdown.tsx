@@ -42,7 +42,7 @@ export function SortDropdown({
     <div className={cn("flex items-center gap-2", className)}>
       <label
         htmlFor={id}
-        className="text-label-md text-on-surface-variant"
+        className="text-xs font-medium text-fg-muted"
       >
         Sort
       </label>
@@ -50,7 +50,7 @@ export function SortDropdown({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value as AuctionSort)}
-        className="h-9 rounded-default bg-surface-container-low text-on-surface px-3 text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
+        className="h-9 rounded-lg bg-bg-subtle text-fg px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand"
       >
         {OPTIONS.map((o) => (
           <option

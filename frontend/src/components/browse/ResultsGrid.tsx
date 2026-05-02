@@ -28,20 +28,20 @@ export interface ResultsGridProps {
   className?: string;
 }
 
-const GRID_CLASSES = "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3";
+const GRID_CLASSES = "grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
 const SKELETON_COUNT = 8;
 
 function ListingCardSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="flex animate-pulse flex-col overflow-hidden rounded-default bg-surface-container-lowest shadow-sm"
+      className="flex animate-pulse flex-col overflow-hidden rounded-lg bg-surface-raised shadow-sm"
     >
-      <div className="aspect-[4/3] w-full bg-surface-container-high" />
+      <div className="aspect-[4/3] w-full bg-bg-hover" />
       <div className="flex flex-col gap-2 p-4">
-        <div className="h-5 w-3/4 rounded bg-surface-container-high" />
-        <div className="h-4 w-1/2 rounded bg-surface-container-high" />
-        <div className="h-6 w-1/3 rounded bg-surface-container-high" />
+        <div className="h-5 w-3/4 rounded bg-bg-hover" />
+        <div className="h-4 w-1/2 rounded bg-bg-hover" />
+        <div className="h-6 w-1/3 rounded bg-bg-hover" />
       </div>
     </div>
   );

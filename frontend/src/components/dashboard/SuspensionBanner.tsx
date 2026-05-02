@@ -60,13 +60,13 @@ export function SuspensionBanner() {
   if (banned) {
     return (
       <Card
-        className="bg-error-container text-on-error-container"
+        className="bg-danger-bg text-danger"
         data-testid="suspension-banner"
         data-variant="banned"
         role="alert"
       >
         <Card.Body>
-          <p className="text-body-md">
+          <p className="text-sm">
             Your listing privileges have been permanently suspended. Contact
             support to request a review.
           </p>
@@ -78,13 +78,13 @@ export function SuspensionBanner() {
   if (isTimedSuspended && owesPenalty && suspendedUntil) {
     return (
       <Card
-        className="bg-secondary-container text-on-secondary-container"
+        className="bg-info-bg text-info"
         data-testid="suspension-banner"
         data-variant="timed-and-debt"
         role="alert"
       >
         <Card.Body>
-          <p className="text-body-md">
+          <p className="text-sm">
             Listing suspended until {formatSuspensionDate(suspendedUntil)}. You
             also owe{" "}
             <strong className="font-bold">
@@ -100,13 +100,13 @@ export function SuspensionBanner() {
   if (isTimedSuspended && suspendedUntil) {
     return (
       <Card
-        className="bg-secondary-container text-on-secondary-container"
+        className="bg-info-bg text-info"
         data-testid="suspension-banner"
         data-variant="timed-only"
         role="alert"
       >
         <Card.Body>
-          <p className="text-body-md">
+          <p className="text-sm">
             Listing suspended until {formatSuspensionDate(suspendedUntil)}.
           </p>
         </Card.Body>
@@ -117,13 +117,13 @@ export function SuspensionBanner() {
   if (owesPenalty) {
     return (
       <Card
-        className="bg-secondary-container text-on-secondary-container"
+        className="bg-info-bg text-info"
         data-testid="suspension-banner"
         data-variant="debt-only"
         role="alert"
       >
         <Card.Body>
-          <p className="text-body-md">
+          <p className="text-sm">
             You owe{" "}
             <strong className="font-bold">
               {formatPenalty(user.penaltyBalanceOwed)}

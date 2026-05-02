@@ -70,13 +70,13 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
         className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
       >
         <div
-          className="pointer-events-auto w-full max-w-lg bg-surface-container-low rounded-2xl shadow-elevated flex flex-col gap-4 p-6"
+          className="pointer-events-auto w-full max-w-lg bg-bg-subtle rounded-2xl shadow-md flex flex-col gap-4 p-6"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between">
             <h2
               id="report-modal-title"
-              className="text-title-lg font-semibold text-on-surface"
+              className="text-base font-bold tracking-tight text-fg"
             >
               Report listing
             </h2>
@@ -84,7 +84,7 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="p-1.5 rounded-default text-on-surface-variant hover:bg-surface-container"
+              className="p-1.5 rounded-lg text-fg-muted hover:bg-bg-muted"
             >
               ✕
             </button>
@@ -95,9 +95,9 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="report-subject"
-                className="text-label-md font-medium text-on-surface"
+                className="text-xs font-medium text-fg"
               >
-                Subject <span className="text-error">*</span>
+                Subject <span className="text-danger">*</span>
               </label>
               <input
                 id="report-subject"
@@ -107,9 +107,9 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Brief summary of the issue"
                 data-testid="report-subject"
-                className="w-full rounded-default bg-surface-container px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary text-body-md"
+                className="w-full rounded-lg bg-bg-muted px-4 py-2.5 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand text-sm"
               />
-              <div className="self-end text-label-sm text-on-surface-variant">
+              <div className="self-end text-[11px] font-medium text-fg-muted">
                 {subject.length} / {SUBJECT_MAX}
               </div>
             </div>
@@ -118,16 +118,16 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="report-reason"
-                className="text-label-md font-medium text-on-surface"
+                className="text-xs font-medium text-fg"
               >
-                Reason <span className="text-error">*</span>
+                Reason <span className="text-danger">*</span>
               </label>
               <select
                 id="report-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value as ListingReportReason | "")}
                 data-testid="report-reason"
-                className="w-full rounded-default bg-surface-container px-4 py-2.5 text-on-surface ring-1 ring-outline-variant focus:outline-none focus:ring-primary text-body-md"
+                className="w-full rounded-lg bg-bg-muted px-4 py-2.5 text-fg ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand text-sm"
               >
                 <option value="" disabled>
                   Select a reason…
@@ -144,9 +144,9 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
             <div className="flex flex-col gap-1">
               <label
                 htmlFor="report-details"
-                className="text-label-md font-medium text-on-surface"
+                className="text-xs font-medium text-fg"
               >
-                Details <span className="text-error">*</span>
+                Details <span className="text-danger">*</span>
               </label>
               <textarea
                 id="report-details"
@@ -155,15 +155,15 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
                 onChange={(e) => setDetails(e.target.value.slice(0, DETAILS_MAX))}
                 placeholder="Describe the issue in detail…"
                 data-testid="report-details"
-                className="w-full resize-y rounded-default bg-surface-container px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-outline-variant focus:outline-none focus:ring-primary text-body-md"
+                className="w-full resize-y rounded-lg bg-bg-muted px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand text-sm"
               />
-              <div className="self-end text-label-sm text-on-surface-variant">
+              <div className="self-end text-[11px] font-medium text-fg-muted">
                 {details.length} / {DETAILS_MAX}
               </div>
             </div>
 
             {/* Disclosure */}
-            <div className="rounded-default bg-surface-container px-4 py-3 text-body-sm text-on-surface-variant">
+            <div className="rounded-lg bg-bg-muted px-4 py-3 text-xs text-fg-muted">
               Your identity is shared with admin reviewers. The seller is never
               shown who reported. Frivolous reports are tracked.
             </div>

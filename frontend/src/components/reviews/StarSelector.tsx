@@ -22,7 +22,7 @@ import { cn } from "@/lib/cn";
  * The gradient-free solid star approach matches what the spec asks for —
  * the rating in a submit form is always an integer 1-5, so we flip between
  * fully-filled (selected or hovered) and fully-empty (unselected) with
- * {@code text-primary} and {@code text-surface-variant} tokens rather than
+ * {@code text-brand} and {@code text-fg-subtle} tokens rather than
  * reusing {@link RatingSummary}'s {@code <linearGradient>} machinery.
  */
 
@@ -157,8 +157,8 @@ export function StarSelector({
             onKeyDown={(e) => handleKey(e, value ?? starValue)}
             onMouseEnter={() => !disabled && setHover(starValue)}
             className={cn(
-              "rounded-default p-1 transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+              "rounded-lg p-1 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
               disabled && "opacity-50 cursor-not-allowed",
             )}
             data-testid={`star-selector-${starValue}`}
@@ -169,7 +169,7 @@ export function StarSelector({
               aria-hidden="true"
               className={cn(
                 SIZE_CLASS[size],
-                filled ? "text-primary" : "text-surface-variant",
+                filled ? "text-brand" : "text-fg-subtle",
               )}
             >
               <path

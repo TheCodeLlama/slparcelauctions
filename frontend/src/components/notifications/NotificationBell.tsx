@@ -21,14 +21,14 @@ export function NotificationBell() {
           <PopoverButton
             className={cn(
               "relative size-10 rounded-md flex items-center justify-center",
-              "text-on-surface hover:bg-surface-container transition-colors"
+              "text-fg hover:bg-bg-muted transition-colors"
             )}
             aria-label={count > 0 ? `Notifications (${count} unread)` : "Notifications"}
           >
             <Bell className="size-5" />
             {count > 0 && (
               <span
-                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-error text-on-error text-[10px] font-bold flex items-center justify-center border-2 border-surface"
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center border-2 border-bg"
                 aria-hidden
               >
                 {display}

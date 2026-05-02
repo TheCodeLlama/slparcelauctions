@@ -26,7 +26,7 @@ export default function VerifiedDashboardLayout({ children }: { children: React.
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-headline-md font-display font-bold mb-6">Dashboard</h1>
+      <h1 className="text-xl font-bold tracking-tight font-display mb-6">Dashboard</h1>
       <Tabs tabs={TABS} className="mb-8" />
       {children}
     </div>

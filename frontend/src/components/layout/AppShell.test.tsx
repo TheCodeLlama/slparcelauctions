@@ -13,8 +13,8 @@ describe("AppShell", () => {
         <div data-testid="page-content">page</div>
       </AppShell>
     );
-    expect(screen.getByRole("link", { name: "SLPA" })).toBeInTheDocument(); // Header
+    expect(screen.getByRole("link", { name: /Parcels/i })).toBeInTheDocument(); // Header
     expect(screen.getByTestId("page-content")).toBeInTheDocument();          // children inside main
-    expect(screen.getByText(/SLPA. Not affiliated/)).toBeInTheDocument();    // Footer
+    expect(screen.getByText(/SLPA · Independent marketplace/)).toBeInTheDocument();    // Footer
   });
 });

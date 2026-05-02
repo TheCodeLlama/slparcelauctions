@@ -179,20 +179,20 @@ export function ProxyBidSection({
     <div
       data-testid="proxy-bid-section"
       data-mode={mode}
-      className="flex flex-col gap-3 rounded-xl bg-surface-container-lowest p-4 shadow-soft"
+      className="flex flex-col gap-3 rounded-xl bg-surface-raised p-4 shadow-sm"
     >
       <div className="flex flex-col gap-1">
-        <h3 className="text-title-sm text-on-surface">
+        <h3 className="text-sm font-semibold text-fg">
           Auto-bid up to (proxy)
         </h3>
         {mode === "create" ? (
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             Set your maximum — we&apos;ll bid for you up to that amount.
           </p>
         ) : null}
         {mode === "active" && existingProxy ? (
           <p
-            className="text-body-sm text-on-surface-variant"
+            className="text-xs text-fg-muted"
             data-testid="proxy-active-callout"
           >
             You have a proxy at L$
@@ -201,7 +201,7 @@ export function ProxyBidSection({
         ) : null}
         {mode === "exhausted" && existingProxy ? (
           <p
-            className="text-body-sm text-on-surface-variant"
+            className="text-xs text-fg-muted"
             data-testid="proxy-exhausted-callout"
           >
             You were outbid at L$
@@ -215,7 +215,7 @@ export function ProxyBidSection({
         <div>
           <label
             htmlFor={maxInputId}
-            className="text-label-md text-on-surface-variant"
+            className="text-xs font-medium text-fg-muted"
           >
             Your max bid
           </label>
@@ -232,7 +232,7 @@ export function ProxyBidSection({
             }}
             onFocus={scrollInputIntoView}
             placeholder="L$"
-            leftIcon={<span className="text-label-md">L$</span>}
+            leftIcon={<span className="text-xs font-medium">L$</span>}
             className="text-right"
             data-testid="proxy-bid-max-input"
             error={inlineError ?? undefined}
@@ -263,7 +263,7 @@ export function ProxyBidSection({
         </div>
         {!isConnected ? (
           <p
-            className="text-body-sm text-on-surface-variant"
+            className="text-xs text-fg-muted"
             data-testid="proxy-bid-connection-helper"
           >
             Waiting for connection…

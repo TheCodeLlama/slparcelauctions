@@ -66,20 +66,20 @@ export function VerifiedIdentityCard(props: VerifiedIdentityCardProps) {
     <Card>
       <Card.Header>
         <div className="flex items-center gap-2">
-          <h2 className="text-title-md font-bold">Second Life Identity</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Second Life Identity</h2>
           {user.verified && (
-            <BadgeCheck className="size-5 text-primary" aria-hidden="true" />
+            <BadgeCheck className="size-5 text-brand" aria-hidden="true" />
           )}
         </div>
       </Card.Header>
       <Card.Body>
         <div className="flex flex-col gap-3">
           {user.slAvatarName && (
-            <p className="text-body-lg font-medium">{user.slAvatarName}</p>
+            <p className="text-base font-medium">{user.slAvatarName}</p>
           )}
           {user.slDisplayName &&
             user.slDisplayName !== user.slAvatarName && (
-              <p className="text-body-md text-on-surface-variant">
+              <p className="text-sm text-fg-muted">
                 {user.slDisplayName}
               </p>
             )}
@@ -87,7 +87,7 @@ export function VerifiedIdentityCard(props: VerifiedIdentityCardProps) {
           {variant === "dashboard" && (
             <>
               {(props.user as DashboardUser).slBornDate && (
-                <p className="text-body-sm text-on-surface-variant">
+                <p className="text-xs text-fg-muted">
                   Account age:{" "}
                   {calculateAccountAge(
                     (props.user as DashboardUser).slBornDate!,
@@ -102,7 +102,7 @@ export function VerifiedIdentityCard(props: VerifiedIdentityCardProps) {
                 </StatusBadge>
               )}
               {(props.user as DashboardUser).verifiedAt && (
-                <p className="text-body-sm text-on-surface-variant">
+                <p className="text-xs text-fg-muted">
                   Verified:{" "}
                   {new Date(
                     (props.user as DashboardUser).verifiedAt!,

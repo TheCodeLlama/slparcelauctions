@@ -25,10 +25,10 @@ export function EmptyState({
         className,
       )}
     >
-      <Icon className="size-10 text-on-surface-variant" aria-hidden="true" />
-      <h3 className="text-title-md text-on-surface">{headline}</h3>
+      <Icon className="size-10 text-fg-muted" aria-hidden="true" />
+      <h3 className="text-sm font-semibold tracking-tight text-fg">{headline}</h3>
       {description && (
-        <p className="text-body-md text-on-surface-variant max-w-sm">
+        <p className="text-sm text-fg-muted max-w-sm">
           {description}
         </p>
       )}

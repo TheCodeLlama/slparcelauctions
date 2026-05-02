@@ -34,38 +34,38 @@ export function AdminReportCard({ report, onDismissed }: Props) {
 
   return (
     <div
-      className="rounded-default border border-outline-variant bg-surface-container px-4 py-3 flex flex-col gap-2"
+      className="rounded-lg border border-border-subtle bg-bg-muted px-4 py-3 flex flex-col gap-2"
       data-testid={`report-card-${report.id}`}
     >
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <ReasonBadge reason={report.reason} />
           {isDismissed && (
-            <span className="text-[10px] font-medium text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-medium text-fg-muted bg-bg-hover px-2 py-0.5 rounded-full">
               Dismissed
             </span>
           )}
         </div>
-        <span className="text-label-sm text-on-surface-variant">
+        <span className="text-[11px] font-medium text-fg-muted">
           {formatDateTime(report.createdAt)}
         </span>
       </div>
 
-      <div className="text-label-md font-medium text-on-surface">{report.subject}</div>
+      <div className="text-xs font-medium text-fg">{report.subject}</div>
 
       {report.details && (
-        <div className="text-body-sm text-on-surface-variant whitespace-pre-wrap">
+        <div className="text-sm text-fg-muted whitespace-pre-wrap">
           {report.details}
         </div>
       )}
 
       <div className="flex items-center justify-between gap-2 mt-1">
-        <div className="text-body-sm text-on-surface-variant">
+        <div className="text-sm text-fg-muted">
           By{" "}
           {report.reporterDisplayName ? (
             <Link
               href={`/admin/users/${report.reporterUserId}`}
-              className="text-primary underline underline-offset-2"
+              className="text-brand underline underline-offset-2"
             >
               {report.reporterDisplayName}
             </Link>
@@ -73,7 +73,7 @@ export function AdminReportCard({ report, onDismissed }: Props) {
             <span>Unknown</span>
           )}
           {report.reporterDismissedReportsCount > 0 && (
-            <span className="ml-1 text-error text-[11px]">
+            <span className="ml-1 text-danger text-[11px]">
               ({report.reporterDismissedReportsCount} prior dismissed)
             </span>
           )}

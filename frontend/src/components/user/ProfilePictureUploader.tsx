@@ -106,7 +106,7 @@ export function ProfilePictureUploader({ user }: ProfilePictureUploaderProps) {
   return (
     <Card>
       <Card.Header>
-        <h2 className="text-title-md font-bold">Profile Picture</h2>
+        <h2 className="text-sm font-semibold tracking-tight">Profile Picture</h2>
       </Card.Header>
       <Card.Body>
         <div className="flex flex-col items-center gap-4">
@@ -139,15 +139,15 @@ export function ProfilePictureUploader({ user }: ProfilePictureUploaderProps) {
             onDragLeave={handleDragLeave}
             className={`flex w-full cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 transition-colors ${
               dragOver
-                ? "border-primary bg-primary/5"
-                : "border-outline-variant hover:border-primary"
+                ? "border-brand bg-brand/5"
+                : "border-border-subtle hover:border-brand"
             }`}
           >
-            <Upload className="size-6 text-on-surface-variant" aria-hidden="true" />
-            <p className="text-body-sm text-on-surface-variant">
+            <Upload className="size-6 text-fg-muted" aria-hidden="true" />
+            <p className="text-xs text-fg-muted">
               Drag and drop or click to select
             </p>
-            <p className="text-body-sm text-on-surface-variant">
+            <p className="text-xs text-fg-muted">
               JPEG, PNG, or WebP. Max 2MB.
             </p>
           </div>
@@ -163,7 +163,7 @@ export function ProfilePictureUploader({ user }: ProfilePictureUploaderProps) {
 
           {/* Error message */}
           {state.status === "error" && (
-            <p role="alert" className="text-body-sm text-error">
+            <p role="alert" className="text-xs text-danger">
               {state.message}
             </p>
           )}

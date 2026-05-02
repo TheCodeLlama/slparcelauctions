@@ -25,9 +25,8 @@ export interface ReconnectingBannerProps {
  *       suggests a session expiry, also render a sign-in link.</li>
  * </ul>
  *
- * Styling uses the M3-flavoured design tokens (see spec §15):
- * {@code rounded-default}, {@code bg-error-container},
- * {@code text-on-error-container}. Full-width inside the panel — the
+ * Styling uses design tokens: {@code rounded-lg}, {@code bg-danger-bg},
+ * {@code text-danger}. Full-width inside the panel — the
  * banner pushes the form content below rather than overlaying it so the
  * bid inputs stay reachable by keyboard and screen reader.
  */
@@ -43,7 +42,7 @@ export function ReconnectingBanner({ state }: ReconnectingBannerProps) {
             className="size-4 shrink-0 animate-spin"
             aria-hidden="true"
           />
-          <span className="text-body-sm">
+          <span className="text-xs">
             Reconnecting… bids paused.
           </span>
         </Banner>
@@ -55,13 +54,13 @@ export function ReconnectingBanner({ state }: ReconnectingBannerProps) {
             className="size-4 shrink-0"
             aria-hidden="true"
           />
-          <span className="text-body-sm flex-1">
+          <span className="text-xs flex-1">
             Connection lost. Reload to see live updates.
           </span>
           <button
             type="button"
             onClick={handleReload}
-            className="text-body-sm font-semibold underline underline-offset-2 hover:no-underline"
+            className="text-xs font-semibold underline underline-offset-2 hover:no-underline"
             data-testid="reconnecting-banner-reload"
           >
             Reload
@@ -76,13 +75,13 @@ export function ReconnectingBanner({ state }: ReconnectingBannerProps) {
             className="size-4 shrink-0"
             aria-hidden="true"
           />
-          <span className="text-body-sm flex-1">
+          <span className="text-xs flex-1">
             {state.detail || "Connection error."}
           </span>
           {needsSignIn ? (
             <Link
               href="/login"
-              className="text-body-sm font-semibold underline underline-offset-2 hover:no-underline"
+              className="text-xs font-semibold underline underline-offset-2 hover:no-underline"
               data-testid="reconnecting-banner-signin"
             >
               Sign in
@@ -130,15 +129,15 @@ function Banner({
   // colors) can slot in without rewriting the surface.
   const toneClasses =
     tone === "warning"
-      ? "bg-error-container text-on-error-container"
-      : "bg-error-container text-on-error-container";
+      ? "bg-danger-bg text-danger"
+      : "bg-danger-bg text-danger";
   return (
     <div
       role="status"
       aria-live="polite"
       data-testid={testId}
       data-tone={tone}
-      className={`flex items-center gap-2 rounded-default px-3 py-2 ${toneClasses}`}
+      className={`flex items-center gap-2 rounded-lg px-3 py-2 ${toneClasses}`}
     >
       {children}
     </div>

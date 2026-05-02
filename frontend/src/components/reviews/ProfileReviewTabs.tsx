@@ -116,16 +116,16 @@ function ProfileReviewTabsContent({
     >
       <TabList
         aria-label="Reviews by role"
-        className="flex gap-1 border-b border-outline-variant"
+        className="flex gap-1 border-b border-border-subtle"
       >
         <Tab
           data-testid="profile-review-tab-seller"
           className={({ selected }) =>
             cn(
-              "px-4 py-2 text-label-lg transition-colors focus:outline-none",
+              "px-4 py-2 text-sm font-medium transition-colors focus:outline-none",
               selected
-                ? "text-primary border-b-2 border-primary"
-                : "text-on-surface-variant hover:text-on-surface",
+                ? "text-brand border-b-2 border-brand"
+                : "text-fg-muted hover:text-fg",
             )
           }
         >
@@ -135,10 +135,10 @@ function ProfileReviewTabsContent({
           data-testid="profile-review-tab-buyer"
           className={({ selected }) =>
             cn(
-              "px-4 py-2 text-label-lg transition-colors focus:outline-none",
+              "px-4 py-2 text-sm font-medium transition-colors focus:outline-none",
               selected
-                ? "text-primary border-b-2 border-primary"
-                : "text-on-surface-variant hover:text-on-surface",
+                ? "text-brand border-b-2 border-brand"
+                : "text-fg-muted hover:text-fg",
             )
           }
         >
@@ -201,7 +201,7 @@ export function ProfileReviewTabs(props: ProfileReviewTabsProps) {
     <Suspense
       fallback={
         <div className="flex flex-col gap-4">
-          <div className="h-10 border-b border-outline-variant" />
+          <div className="h-10 border-b border-border-subtle" />
           <div className="h-32" aria-hidden="true" />
         </div>
       }

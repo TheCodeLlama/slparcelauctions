@@ -9,8 +9,8 @@ describe("CancellationConsequenceBadge", () => {
     );
     const badge = screen.getByTestId("cancellation-consequence-badge");
     expect(badge).toHaveTextContent("No penalty");
-    // default tone uses on-surface-variant text
-    expect(badge.className).toMatch(/text-on-surface-variant/);
+    // default tone uses fg-muted text
+    expect(badge.className).toMatch(/text-fg-muted/);
   });
 
   it("renders 'No penalty' when kind is NONE", () => {
@@ -28,7 +28,7 @@ describe("CancellationConsequenceBadge", () => {
     );
     const badge = screen.getByTestId("cancellation-consequence-badge");
     expect(badge).toHaveTextContent("Warning");
-    expect(badge.className).toMatch(/secondary-container/);
+    expect(badge.className).toMatch(/warning-bg/);
   });
 
   it("formats the L$ amount with locale grouping on PENALTY", () => {
@@ -37,7 +37,7 @@ describe("CancellationConsequenceBadge", () => {
     );
     const badge = screen.getByTestId("cancellation-consequence-badge");
     expect(badge).toHaveTextContent("L$1,000 penalty");
-    expect(badge.className).toMatch(/error-container/);
+    expect(badge.className).toMatch(/danger-bg/);
   });
 
   it("renders the combined copy on PENALTY_AND_30D", () => {
@@ -46,7 +46,7 @@ describe("CancellationConsequenceBadge", () => {
     );
     const badge = screen.getByTestId("cancellation-consequence-badge");
     expect(badge).toHaveTextContent("L$2,500 + 30-day suspension");
-    expect(badge.className).toMatch(/error-container/);
+    expect(badge.className).toMatch(/danger-bg/);
   });
 
   it("renders 'Permanent ban' on PERMANENT_BAN", () => {
@@ -55,7 +55,7 @@ describe("CancellationConsequenceBadge", () => {
     );
     const badge = screen.getByTestId("cancellation-consequence-badge");
     expect(badge).toHaveTextContent("Permanent ban");
-    expect(badge.className).toMatch(/error-container/);
+    expect(badge.className).toMatch(/danger-bg/);
   });
 
   it("falls back to '0' when amountL is null on a PENALTY", () => {

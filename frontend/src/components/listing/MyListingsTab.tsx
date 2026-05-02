@@ -144,9 +144,9 @@ export function MyListingsTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-title-lg text-on-surface">
+        <h2 className="text-base font-bold tracking-tight text-fg">
           My Listings{" "}
-          <span className="text-title-sm text-on-surface-variant">
+          <span className="text-sm font-semibold text-fg-muted">
             ({all.length})
           </span>
         </h2>
@@ -161,7 +161,7 @@ export function MyListingsTab() {
         totalCount={all.length}
       />
       {listings.length === 0 ? (
-        <p className="py-6 text-center text-body-md text-on-surface-variant">
+        <p className="py-6 text-center text-sm text-fg-muted">
           No listings in this filter.
         </p>
       ) : (

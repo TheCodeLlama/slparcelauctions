@@ -13,9 +13,9 @@ const SIZE_MAP: Record<
   Size,
   { star: string; text: string; count: string }
 > = {
-  sm: { star: "size-3.5", text: "text-label-md", count: "text-label-sm" },
-  md: { star: "size-4", text: "text-title-md font-bold", count: "text-body-sm" },
-  lg: { star: "size-5", text: "text-title-lg font-bold", count: "text-body-md" },
+  sm: { star: "size-3.5", text: "text-xs font-medium", count: "text-[11px] font-medium" },
+  md: { star: "size-4", text: "text-sm font-semibold tracking-tight font-bold", count: "text-xs" },
+  lg: { star: "size-5", text: "text-base font-bold tracking-tight font-bold", count: "text-sm" },
 };
 
 export interface RatingSummaryProps {
@@ -85,7 +85,7 @@ function PartialStar({ fillRatio, className, gradientId }: PartialStarProps) {
         fill={`url(#${gradientId})`}
         stroke="currentColor"
         strokeWidth="0.5"
-        className="text-primary"
+        className="text-brand"
       />
     </svg>
   );
@@ -120,7 +120,7 @@ export function RatingSummary({
   if (rating === null || rating <= 0 || reviewCount === 0) {
     return (
       <span
-        className={cn(sz.count, "text-on-surface-variant", className)}
+        className={cn(sz.count, "text-fg-muted", className)}
         data-testid="rating-empty"
       >
         No ratings yet
@@ -148,7 +148,7 @@ export function RatingSummary({
       </div>
       <span className={sz.text}>{numeric.toFixed(1)}</span>
       {!hideCountText && (
-        <span className={cn(sz.count, "text-on-surface-variant")}>
+        <span className={cn(sz.count, "text-fg-muted")}>
           ({reviewCount} review{reviewCount === 1 ? "" : "s"})
         </span>
       )}

@@ -13,11 +13,11 @@ export interface StatusChipProps {
  * a wrapping shell.
  */
 const TONE_CLASSES: Record<ChipTone, string> = {
-  live: "bg-error text-on-error",
-  ending_soon: "bg-error text-on-error animate-pulse",
-  sold: "bg-tertiary-container text-on-tertiary-container",
-  muted: "bg-surface-container-high text-on-surface-variant",
-  warning: "bg-error-container text-on-error-container",
+  live: "bg-danger text-white",
+  ending_soon: "bg-danger text-white animate-pulse",
+  sold: "bg-info-bg text-info",
+  muted: "bg-bg-hover text-fg-muted",
+  warning: "bg-warning-bg text-warning",
 };
 
 /**
@@ -30,7 +30,7 @@ export function StatusChip({ label, tone, className }: StatusChipProps) {
     <span
       data-tone={tone}
       className={cn(
-        "inline-flex items-center rounded px-2 py-0.5 text-label-sm font-bold uppercase tracking-wider",
+        "inline-flex items-center rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider",
         TONE_CLASSES[tone],
         className,
       )}

@@ -87,20 +87,20 @@ export function ConfirmBidDialog({
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
           data-testid="confirm-bid-dialog"
-          className="w-full max-w-md flex flex-col gap-4 rounded-default bg-surface-container-low p-6"
+          className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6"
         >
-          <DialogTitle className="text-title-lg text-on-surface">
+          <DialogTitle className="text-base font-bold tracking-tight text-fg">
             {title}
           </DialogTitle>
-          <p className="text-body-md text-on-surface">{message}</p>
+          <p className="text-sm text-fg">{message}</p>
           {dontAskAgainKey ? (
-            <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+            <label className="flex items-center gap-2 text-xs text-fg-muted">
               <input
                 type="checkbox"
                 checked={dontAskAgain}
                 onChange={(e) => setDontAskAgain(e.target.checked)}
                 data-testid="confirm-bid-dialog-dont-ask-again"
-                className="size-4 rounded border-outline"
+                className="size-4 rounded border-border"
               />
               Don&apos;t ask again this session
             </label>

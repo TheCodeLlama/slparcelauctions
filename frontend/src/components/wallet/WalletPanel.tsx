@@ -186,7 +186,7 @@ export function WalletPanel() {
 
   /**
    * Invalidate the shared wallet cache so this component, the
-   * {@link HeaderWalletIndicator}, and the {@link MobileMenu} all refetch
+   * {@link WalletPill}, and the {@link MobileMenu} all refetch
    * after a successful dialog action (withdraw / pay-penalty / accept-terms).
    * Also invalidates the ledger query so a brand-new entry appears immediately.
    */
@@ -198,8 +198,8 @@ export function WalletPanel() {
   if (isPending) return <LoadingSpinner label="Loading wallet..." />;
   if (error) {
     return (
-      <div className="bg-surface-container-lowest rounded-default shadow-soft p-6">
-        <p className="text-on-surface">
+      <div className="bg-surface-raised rounded-lg shadow-sm p-6">
+        <p className="text-fg">
           Error: {error instanceof Error ? error.message : "Failed to load wallet"}
         </p>
       </div>
@@ -211,30 +211,30 @@ export function WalletPanel() {
     <div className="flex flex-col gap-4">
       {/* Hero balance card — Available is dominant; Balance + Reserved are
           secondary breakdown rows. Replaces the earlier 3-equal-cell grid. */}
-      <div className="bg-surface-container rounded-2xl p-6">
-        <div className="text-xs uppercase tracking-wide text-on-surface-variant mb-1">
+      <div className="bg-bg-muted rounded-2xl p-6">
+        <div className="text-xs uppercase tracking-wide text-fg-muted mb-1">
           Available
         </div>
-        <div className="text-4xl font-semibold tabular-nums text-on-surface">
+        <div className="text-4xl font-semibold tabular-nums text-fg">
           {formatLindens(wallet.available)}
         </div>
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
-            <span className="text-on-surface-variant">Balance </span>
-            <span className="tabular-nums text-on-surface">
+            <span className="text-fg-muted">Balance </span>
+            <span className="tabular-nums text-fg">
               {formatLindens(wallet.balance)}
             </span>
           </div>
           <div>
-            <span className="text-on-surface-variant">Reserved (active bids) </span>
-            <span className="tabular-nums text-on-surface">
+            <span className="text-fg-muted">Reserved (active bids) </span>
+            <span className="tabular-nums text-fg">
               {formatLindens(wallet.reserved)}
             </span>
           </div>
           {wallet.queuedForWithdrawal > 0 && (
             <div>
-              <span className="text-on-surface-variant">Queued for Withdrawal </span>
-              <span className="tabular-nums text-on-surface">
+              <span className="text-fg-muted">Queued for Withdrawal </span>
+              <span className="tabular-nums text-fg">
                 {formatLindens(wallet.queuedForWithdrawal)}
               </span>
             </div>
@@ -262,17 +262,17 @@ export function WalletPanel() {
       </div>
 
       {wallet.penaltyOwed > 0 && (
-        <div className="rounded-2xl border border-warning bg-warning-container/40 p-4 flex gap-3">
+        <div className="rounded-2xl border border-warning bg-warning-bg p-4 flex gap-3">
           <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-medium text-on-warning-container">
+            <h3 className="font-medium text-warning">
               Outstanding penalty: {formatLindens(wallet.penaltyOwed)}
             </h3>
-            <p className="text-sm text-on-surface-variant mt-1">
+            <p className="text-sm text-fg-muted mt-1">
               Clear this to publish new listings or place new bids.
             </p>
             {wallet.available < wallet.penaltyOwed && (
-              <p className="text-sm text-on-surface-variant mt-1">
+              <p className="text-sm text-fg-muted mt-1">
                 Deposit {formatLindens(wallet.penaltyOwed - wallet.available)} more
                 or wait for active bids to resolve.
               </p>
@@ -296,8 +296,8 @@ export function WalletPanel() {
         onExport={handleExport}
       />
 
-      <div className="bg-surface-container-lowest rounded-default shadow-soft p-6">
-        <h3 className="text-lg font-semibold text-on-surface mb-3">
+      <div className="bg-surface-raised rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-fg mb-3">
           Activity
         </h3>
         <LedgerTable
@@ -386,7 +386,7 @@ export function WalletPanel() {
           <li>Right-click the terminal &rarr; Pay &rarr; enter the L$ amount.</li>
           <li>Funds will be credited to this wallet within seconds.</li>
         </ol>
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-fg-muted">
           Multiple users can deposit simultaneously. There&apos;s no menu choice
           &mdash; every payment to the terminal is a deposit to your SLPA wallet.
         </p>
@@ -471,7 +471,7 @@ function WithdrawDialog({
       <p>
         Available: <strong>{formatLindens(available)}</strong>
       </p>
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-fg-muted">
         Funds will be sent to your verified SL avatar via the in-world SLPA
         terminal pool.
       </p>
@@ -552,7 +552,7 @@ function PayPenaltyDialog({
       <p>
         Available balance: <strong>{formatLindens(available)}</strong>
       </p>
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-fg-muted">
         Partial payments allowed up to the owed amount.
       </p>
       <Input

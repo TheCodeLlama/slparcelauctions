@@ -85,17 +85,18 @@ describe("HomePage server component", () => {
     renderWithProviders(page);
 
     expect(
-      screen.getByRole("heading", { name: "Ending Soon" }),
+      screen.getByRole("heading", { name: "Ending soon" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Just Listed" }),
+      screen.getByRole("heading", { name: "Featured this week" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Most Active" }),
+      screen.getByRole("heading", { name: "Trending across regions" }),
     ).toBeInTheDocument();
 
-    // Each rail surfaces its own card.
-    expect(screen.getByText("Ending Parcel")).toBeInTheDocument();
+    // Each rail surfaces its own card. Ending Parcel appears twice because
+    // the Hero card stack also uses ending-soon listings as its preview.
+    expect(screen.getAllByText("Ending Parcel").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Fresh Parcel")).toBeInTheDocument();
     expect(screen.getByText("Busy Parcel")).toBeInTheDocument();
 
@@ -133,11 +134,11 @@ describe("HomePage server component", () => {
 
     // The other two rails render their content uninterrupted.
     expect(
-      screen.getByRole("heading", { name: "Just Listed" }),
+      screen.getByRole("heading", { name: "Featured this week" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Fresh Parcel")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Most Active" }),
+      screen.getByRole("heading", { name: "Trending across regions" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Busy Parcel")).toBeInTheDocument();
   });

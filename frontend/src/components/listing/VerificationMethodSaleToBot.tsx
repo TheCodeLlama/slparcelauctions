@@ -32,11 +32,11 @@ export function VerificationMethodSaleToBot({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-default bg-surface-container-low p-6 flex flex-col gap-3">
-        <h3 className="text-title-md text-on-surface">
+      <section className="rounded-lg bg-bg-subtle p-6 flex flex-col gap-3">
+        <h3 className="text-sm font-semibold tracking-tight text-fg">
           Set your land for sale to SLPAEscrow Resident
         </h3>
-        <ol className="list-decimal list-inside flex flex-col gap-1 text-body-md text-on-surface">
+        <ol className="list-decimal list-inside flex flex-col gap-1 text-sm text-fg">
           <li>Open the SL Land menu.</li>
           <li>Find the parcel you&apos;re listing.</li>
           <li>
@@ -52,7 +52,7 @@ export function VerificationMethodSaleToBot({
             Click <em>Sell</em> to confirm.
           </li>
         </ol>
-        <p className="text-body-sm text-on-surface-variant">
+        <p className="text-xs text-fg-muted">
           The bot will detect the sale within a few minutes. You do not need
           to keep this page open.
         </p>
@@ -60,7 +60,7 @@ export function VerificationMethodSaleToBot({
       {status && (
         <div
           role="status"
-          className="rounded-default bg-surface-container-high px-4 py-3 text-body-sm text-on-surface"
+          className="rounded-lg bg-bg-hover px-4 py-3 text-xs text-fg"
         >
           {status}
         </div>

@@ -31,12 +31,12 @@ export function TransferPendingStateCard({ escrow, role }: StateCardProps) {
         data-state="TRANSFER_PENDING"
         data-phase="payout-pending"
         data-role={role}
-        className="flex flex-col gap-4 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+        className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
       >
-        <h2 className="text-title-md text-on-surface">
+        <h2 className="text-sm font-semibold tracking-tight text-fg">
           Ownership transferred to the winner
         </h2>
-        <p className="text-body-md text-on-surface-variant">
+        <p className="text-sm text-fg-muted">
           Transferred at {formatTimestamp(escrow.transferConfirmedAt!)}.
           Finalizing the transaction — payout is dispatching now.
         </p>
@@ -76,20 +76,20 @@ function SellerPreConfirmation({
       data-state="TRANSFER_PENDING"
       data-phase="pre-confirmation"
       data-role="seller"
-      className="flex flex-col gap-4 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <span className="text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">
         Seller
       </span>
-      <h2 className="text-title-md text-on-surface">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         Transfer the parcel to {escrow.counterparty.displayName}
       </h2>
-      <ol className="flex list-decimal flex-col gap-2 pl-5 text-body-md text-on-surface-variant">
+      <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm text-fg-muted">
         <li>Right-click the parcel in-world and open About Land.</li>
         <li>Click Sell Land.</li>
         <li>
           Set &quot;Sell to:&quot; to{" "}
-          <span className="font-medium text-on-surface">
+          <span className="font-medium text-fg">
             {escrow.counterparty.slAvatarName}
           </span>
           .
@@ -105,15 +105,15 @@ function SellerPreConfirmation({
       </div>
 
       {escrow.transferDeadline ? (
-        <div className="flex items-center gap-2 text-body-md">
-          <span className="text-on-surface-variant">Transfer deadline:</span>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-fg-muted">Transfer deadline:</span>
           <EscrowDeadlineBadge deadline={escrow.transferDeadline} />
         </div>
       ) : null}
 
       <Link
         href={`/auction/${escrow.auctionId}/escrow/dispute`}
-        className="text-label-lg text-primary hover:underline"
+        className="text-sm font-medium text-brand hover:underline"
       >
         File a dispute
       </Link>
@@ -132,34 +132,34 @@ function WinnerPreConfirmation({
       data-state="TRANSFER_PENDING"
       data-phase="pre-confirmation"
       data-role="winner"
-      className="flex flex-col gap-4 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <span className="text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">
         Winner
       </span>
-      <h2 className="text-title-md text-on-surface">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         Waiting for seller to transfer the parcel
       </h2>
-      <p className="text-body-md text-on-surface-variant">
+      <p className="text-sm text-fg-muted">
         Typical completion is under 24 hours. You&apos;ll see this flip to
         Complete automatically within 5 minutes of the transfer.
       </p>
 
-      <div className="rounded-default bg-surface-container-low p-3">
-        <p className="mb-2 text-label-md font-semibold text-on-surface">
+      <div className="rounded-lg bg-bg-subtle p-3">
+        <p className="mb-2 text-xs font-medium font-semibold text-fg">
           What you can do:
         </p>
-        <ul className="flex list-disc flex-col gap-1 pl-5 text-body-sm text-on-surface-variant">
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-fg-muted">
           <li>
-            <span className="font-medium text-on-surface">Wait</span> — most
+            <span className="font-medium text-fg">Wait</span> — most
             transfers complete on their own.
           </li>
           <li>
-            <span className="font-medium text-on-surface">Message seller</span>{" "}
+            <span className="font-medium text-fg">Message seller</span>{" "}
             if stalled &gt; 24 hours.
           </li>
           <li>
-            <span className="font-medium text-on-surface">Dispute</span> if
+            <span className="font-medium text-fg">Dispute</span> if
             &gt; 48 hours with no progress.
           </li>
         </ul>
@@ -173,15 +173,15 @@ function WinnerPreConfirmation({
       </div>
 
       {escrow.transferDeadline ? (
-        <div className="flex items-center gap-2 text-body-md">
-          <span className="text-on-surface-variant">Transfer deadline:</span>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-fg-muted">Transfer deadline:</span>
           <EscrowDeadlineBadge deadline={escrow.transferDeadline} />
         </div>
       ) : null}
 
       <Link
         href={`/auction/${escrow.auctionId}/escrow/dispute`}
-        className="text-label-lg text-primary hover:underline"
+        className="text-sm font-medium text-brand hover:underline"
       >
         File a dispute
       </Link>

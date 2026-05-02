@@ -29,13 +29,13 @@ export interface MyBidSummaryRowProps {
  * </ul>
  */
 const BORDER_CLASS_BY_STATUS: Record<MyBidStatus, string> = {
-  WINNING: "border-l-tertiary-container",
-  OUTBID: "border-l-error",
-  WON: "border-l-primary",
-  LOST: "border-l-on-surface-variant",
-  RESERVE_NOT_MET: "border-l-secondary-container",
-  CANCELLED: "border-l-on-surface-variant",
-  SUSPENDED: "border-l-error",
+  WINNING: "border-l-info-bg",
+  OUTBID: "border-l-danger",
+  WON: "border-l-brand",
+  LOST: "border-l-fg-muted",
+  RESERVE_NOT_MET: "border-l-info-bg",
+  CANCELLED: "border-l-fg-muted",
+  SUSPENDED: "border-l-danger",
 };
 
 /**
@@ -77,7 +77,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
   return (
     <li
       className={cn(
-        "rounded-default border border-outline-variant bg-surface-container-lowest",
+        "rounded-lg border border-border-subtle bg-surface-raised",
         "border-l-4",
         BORDER_CLASS_BY_STATUS[myBidStatus],
         className,
@@ -87,15 +87,15 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
       <Link
         href={href}
         aria-label={linkLabel}
-        className="flex items-start gap-3 p-3 hover:bg-surface-container-low focus-visible:bg-surface-container-low focus-visible:outline-none"
+        className="flex items-start gap-3 p-3 hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
       >
         <Thumbnail src={thumb} alt="" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3
               className={cn(
-                "text-title-sm text-on-surface truncate",
-                striked && "line-through text-on-surface-variant",
+                "text-sm font-semibold text-fg truncate",
+                striked && "line-through text-fg-muted",
               )}
             >
               {parcelLabel}
@@ -110,7 +110,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
               />
             )}
           </div>
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             <span>
               {auction.parcelRegion ?? "—"}
               {auction.parcelAreaSqm != null
@@ -123,30 +123,30 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
                 <CountdownTimer
                   expiresAt={endsAtDate}
                   format="hh:mm:ss"
-                  className="inline text-body-sm"
+                  className="inline text-xs"
                 />
                 {" left"}
               </>
             ) : null}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-0.5 text-body-sm">
-          <span className="text-on-surface-variant">
+        <div className="flex flex-col items-end gap-0.5 text-xs">
+          <span className="text-fg-muted">
             Your bid{" "}
-            <span className="font-semibold text-on-surface">
+            <span className="font-semibold text-fg">
               {`L$${myHighestBidAmount.toLocaleString()}`}
             </span>
           </span>
-          <span className="text-on-surface-variant">
+          <span className="text-fg-muted">
             Current{" "}
-            <span className="font-semibold text-on-surface">
+            <span className="font-semibold text-fg">
               {currentBid == null ? "—" : `L$${currentBid.toLocaleString()}`}
             </span>
           </span>
           {myProxyMaxAmount != null ? (
-            <span className="text-on-surface-variant">
+            <span className="text-fg-muted">
               Proxy max{" "}
-              <span className="font-semibold text-on-surface">
+              <span className="font-semibold text-fg">
                 {`L$${myProxyMaxAmount.toLocaleString()}`}
               </span>
             </span>
@@ -158,7 +158,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
 }
 
 function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
-  const box = "size-14 shrink-0 rounded-default";
+  const box = "size-14 shrink-0 rounded-lg";
   if (src) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element -- snapshot URL is remote */
@@ -169,7 +169,7 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
     <div
       className={cn(
         box,
-        "flex items-center justify-center bg-surface-container-high text-on-surface-variant",
+        "flex items-center justify-center bg-bg-hover text-fg-muted",
       )}
       aria-hidden="true"
     >

@@ -8,7 +8,7 @@ describe("VerificationTierBadge", () => {
     const badge = screen.getByTestId("verification-tier-badge");
     expect(badge).toHaveAttribute("data-tier", "SCRIPT");
     expect(badge).toHaveTextContent("Script verified");
-    expect(badge.className).toContain("bg-surface-container-high");
+    expect(badge.className).toContain("bg-bg-hover");
   });
 
   it("renders BOT tier with success tone and bot label", () => {
@@ -16,7 +16,7 @@ describe("VerificationTierBadge", () => {
     const badge = screen.getByTestId("verification-tier-badge");
     expect(badge).toHaveAttribute("data-tier", "BOT");
     expect(badge).toHaveTextContent("Bot verified");
-    expect(badge.className).toContain("bg-tertiary-container");
+    expect(badge.className).toContain("bg-success-bg");
   });
 
   it("renders OWNERSHIP_TRANSFER tier with warning tone", () => {
@@ -24,7 +24,7 @@ describe("VerificationTierBadge", () => {
     const badge = screen.getByTestId("verification-tier-badge");
     expect(badge).toHaveAttribute("data-tier", "OWNERSHIP_TRANSFER");
     expect(badge).toHaveTextContent("Ownership transfer verified");
-    expect(badge.className).toContain("bg-secondary-container");
+    expect(badge.className).toContain("bg-warning-bg");
   });
 
   it("renders nothing when tier is null", () => {

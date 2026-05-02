@@ -16,7 +16,7 @@ export function EvidenceImageLightbox({ images }: Props) {
           <button
             key={img.s3Key}
             type="button"
-            className="aspect-square overflow-hidden rounded bg-surface-container-low"
+            className="aspect-square overflow-hidden rounded bg-bg-subtle"
             onClick={() => setIdx(i)}
           >
             <img src={img.presignedUrl} alt="" className="w-full h-full object-cover" />

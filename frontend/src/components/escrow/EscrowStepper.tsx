@@ -129,14 +129,14 @@ export function EscrowStepper({ escrow, className }: EscrowStepperProps) {
         ))}
         <li
           data-state="interrupt"
-          className="flex flex-col items-center gap-1 text-error"
+          className="flex flex-col items-center gap-1 text-danger"
         >
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-error bg-error-container text-on-error-container">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-danger bg-danger-bg text-danger">
             <AlertCircle className="size-3.5" aria-hidden="true" />
           </span>
-          <span className="text-label-md font-semibold">{interrupt.label}</span>
+          <span className="text-xs font-medium font-semibold">{interrupt.label}</span>
           {interrupt.timestamp && (
-            <span className="text-label-sm text-on-surface-variant">
+            <span className="text-[11px] font-medium text-fg-muted">
               {formatTimestamp(interrupt.timestamp)}
             </span>
           )}
@@ -176,19 +176,19 @@ function StepperNode({
         aria-current={node.state === "current" ? "step" : undefined}
         className={cn(
           "flex flex-col items-center gap-1",
-          node.state === "complete" && "text-on-tertiary-container",
-          node.state === "current" && "text-primary",
-          node.state === "upcoming" && "text-on-surface-variant",
+          node.state === "complete" && "text-info-bg",
+          node.state === "current" && "text-brand",
+          node.state === "upcoming" && "text-fg-muted",
         )}
       >
         <span
           className={cn(
-            "inline-flex h-6 w-6 items-center justify-center rounded-full border text-label-md",
+            "inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-medium",
             node.state === "complete" &&
-              "border-tertiary bg-tertiary text-on-tertiary",
-            node.state === "current" && "border-primary text-primary",
+              "border-info-bg bg-info-bg text-fg",
+            node.state === "current" && "border-brand text-brand",
             node.state === "upcoming" &&
-              "border-outline-variant text-on-surface-variant",
+              "border-border-subtle text-fg-muted",
           )}
         >
           {node.state === "complete" ? (
@@ -197,16 +197,16 @@ function StepperNode({
             index + 1
           )}
         </span>
-        <span className="text-label-md font-semibold">{node.label}</span>
+        <span className="text-xs font-medium font-semibold">{node.label}</span>
         {node.timestamp && (
-          <span className="text-label-sm text-on-surface-variant">
+          <span className="text-[11px] font-medium text-fg-muted">
             {formatTimestamp(node.timestamp)}
           </span>
         )}
       </li>
       {!last && (
         <span
-          className="mx-1 h-px w-6 bg-outline-variant"
+          className="mx-1 h-px w-6 bg-border-subtle"
           aria-hidden="true"
         />
       )}

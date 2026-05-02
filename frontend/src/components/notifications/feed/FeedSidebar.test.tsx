@@ -49,10 +49,10 @@ describe("FeedSidebar", () => {
     expect(biddingBtn.querySelectorAll("span")).toHaveLength(1);
   });
 
-  it("active item has the primary border class", () => {
+  it("active item has the brand border class", () => {
     renderWithProviders(<FeedSidebar value="escrow" onChange={vi.fn()} />);
 
     const escrowBtn = screen.getByRole("button", { name: /Escrow/i });
-    expect(escrowBtn).toHaveClass("border-primary");
+    expect(escrowBtn).toHaveClass("border-brand");
   });
 });

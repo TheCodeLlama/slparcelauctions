@@ -13,15 +13,16 @@ export function ThemeToggle() {
     setMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
-  if (!mounted) return null;
+  const isDark = mounted && resolvedTheme === "dark";
 
   return (
     <IconButton
-      aria-label="Toggle theme"
+      aria-label={mounted ? (isDark ? "Switch to light mode" : "Switch to dark mode") : "Toggle theme"}
       variant="tertiary"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      onClick={mounted ? () => setTheme(isDark ? "light" : "dark") : undefined}
+      disabled={!mounted}
     >
-      {resolvedTheme === "dark" ? <Sun /> : <Moon />}
+      {mounted ? (isDark ? <Sun /> : <Moon />) : <span aria-hidden className="block h-[18px] w-[18px]" />}
     </IconButton>
   );
 }

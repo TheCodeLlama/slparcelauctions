@@ -105,10 +105,10 @@ export function AuctionEndedPanel({
       aria-label="Auction ended"
       data-testid="auction-ended-panel"
       data-outcome={outcome}
-      className="flex flex-col gap-4 rounded-xl bg-surface-container-lowest p-6 shadow-soft"
+      className="flex flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-sm"
     >
       <div className="flex items-center gap-2">
-        <Gavel className="size-5 text-on-surface-variant" aria-hidden="true" />
+        <Gavel className="size-5 text-fg-muted" aria-hidden="true" />
         <StatusBadge status="ended" />
       </div>
 
@@ -124,7 +124,7 @@ export function AuctionEndedPanel({
 
       {ended.endsAt ? (
         <p
-          className="text-body-sm text-on-surface-variant"
+          className="text-xs text-fg-muted"
           data-testid="auction-ended-time"
         >
           Ended {formatRelativeTime(ended.endsAt)}
@@ -180,7 +180,7 @@ function OutcomeBlock({
     return (
       <div className="flex flex-col gap-3">
         <h2
-          className="text-headline-sm font-bold text-on-surface"
+          className="text-lg font-bold tracking-tight text-fg"
           data-testid="auction-ended-headline"
         >
           {headline}
@@ -188,7 +188,7 @@ function OutcomeBlock({
         {winnerId != null ? (
           <Link
             href={`/users/${winnerId}`}
-            className="flex items-center gap-3 rounded-default bg-surface-container-low p-3 hover:bg-surface-container-high"
+            className="flex items-center gap-3 rounded-lg bg-bg-subtle p-3 hover:bg-bg-hover"
             data-testid="auction-ended-winner"
           >
             <Avatar
@@ -198,11 +198,11 @@ function OutcomeBlock({
               size="md"
             />
             <div className="flex min-w-0 flex-col">
-              <span className="text-title-sm font-semibold text-on-surface truncate">
+              <span className="text-sm font-semibold text-fg truncate">
                 {winnerDisplayName ?? `User ${winnerId}`}
               </span>
               {winnerSlName ? (
-                <span className="text-label-sm text-on-surface-variant truncate">
+                <span className="text-[11px] font-medium text-fg-muted truncate">
                   {winnerSlName}
                 </span>
               ) : null}
@@ -217,12 +217,12 @@ function OutcomeBlock({
     return (
       <div className="flex flex-col gap-2">
         <h2
-          className="text-headline-sm font-bold text-on-surface"
+          className="text-lg font-bold tracking-tight text-fg"
           data-testid="auction-ended-headline"
         >
           Reserve not met — auction ended without a sale
         </h2>
-        <p className="text-body-md text-on-surface-variant">
+        <p className="text-sm text-fg-muted">
           Highest bid was L${formatAmount(numericHighBid(auction.currentHighBid))}
         </p>
       </div>
@@ -233,12 +233,12 @@ function OutcomeBlock({
   return (
     <div className="flex flex-col gap-2">
       <h2
-        className="text-headline-sm font-bold text-on-surface"
+        className="text-lg font-bold tracking-tight text-fg"
         data-testid="auction-ended-headline"
       >
         Ended with no bids
       </h2>
-      <p className="text-body-md text-on-surface-variant">
+      <p className="text-sm text-fg-muted">
         Starting bid was L${auction.startingBid.toLocaleString()}
       </p>
     </div>
@@ -265,14 +265,14 @@ function WinnerOverlay({
     <div
       data-testid="auction-ended-winner-overlay"
       className={cn(
-        "rounded-default bg-tertiary-container p-3",
-        "flex flex-col gap-1 text-body-md text-on-tertiary-container",
+        "rounded-lg bg-info-bg p-3",
+        "flex flex-col gap-1 text-sm text-fg",
       )}
     >
       <span className="font-semibold">You won this auction</span>
       <Link
         href="/dashboard/bids"
-        className="text-label-md font-medium underline-offset-4 hover:underline"
+        className="text-xs font-medium underline-offset-4 hover:underline"
       >
         View your winning bids
       </Link>
@@ -320,12 +320,12 @@ function SellerOverlay({
     <div
       data-testid="auction-ended-seller-overlay"
       className={cn(
-        "rounded-default bg-primary-container p-3",
-        "flex flex-col gap-1 text-body-md text-on-primary-container",
+        "rounded-lg bg-brand-soft p-3",
+        "flex flex-col gap-1 text-sm text-brand",
       )}
     >
       <span className="font-semibold">Your auction</span>
-      <p className="text-body-sm">{fallbackMessage}</p>
+      <p className="text-xs">{fallbackMessage}</p>
       {showEscrowBanner ? (
         <EscrowBannerForPanel
           auctionId={auctionId}
@@ -339,11 +339,11 @@ function SellerOverlay({
 }
 
 const bannerToneClasses: Record<BannerTone, string> = {
-  action: "bg-primary-container text-on-primary-container",
-  waiting: "bg-secondary-container text-on-secondary-container",
-  done: "bg-tertiary-container text-on-tertiary-container",
-  problem: "bg-error-container text-on-error-container",
-  muted: "bg-surface-container text-on-surface-variant",
+  action: "bg-brand-soft text-brand",
+  waiting: "bg-bg-muted text-fg",
+  done: "bg-info-bg text-fg",
+  problem: "bg-danger-bg text-danger",
+  muted: "bg-bg-muted text-fg-muted",
 };
 
 interface EscrowBannerForPanelProps {
@@ -383,13 +383,13 @@ function EscrowBannerForPanel({
         bannerToneClasses[tone],
       )}
     >
-      <span className="flex-1 text-body-md">
+      <span className="flex-1 text-sm">
         <strong>{headline}</strong>
         {detail ? <> {detail}</> : null}
       </span>
       <Link
         href={`/auction/${auctionId}/escrow`}
-        className="rounded-full bg-primary px-3 py-1 text-label-md font-semibold text-on-primary"
+        className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white"
       >
         View escrow
       </Link>

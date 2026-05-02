@@ -52,11 +52,11 @@ export function BidHistoryList({ auctionId }: BidHistoryListProps) {
       data-total-elements={total}
       className="flex flex-col gap-2"
     >
-      <h3 className="text-title-md font-semibold text-on-surface">
+      <h3 className="text-sm font-semibold tracking-tight text-fg">
         Bid history{" "}
         <span
           data-testid="bid-history-total"
-          className="text-body-md font-normal text-on-surface-variant"
+          className="text-sm font-normal text-fg-muted"
         >
           ({total})
         </span>
@@ -192,7 +192,7 @@ function BidHistoryPage({
     return isLast ? (
       <p
         data-testid="bid-history-error"
-        className="text-body-sm text-on-surface-variant"
+        className="text-xs text-fg-muted"
       >
         Couldn&apos;t load bids. They&apos;ll reappear when the connection is
         restored.
@@ -209,7 +209,7 @@ function BidHistoryPage({
     return (
       <p
         data-testid="bid-history-empty"
-        className="rounded-default bg-surface-container-lowest px-4 py-6 text-body-md text-on-surface-variant"
+        className="rounded-lg bg-surface-raised px-4 py-6 text-sm text-fg-muted"
       >
         No bids yet — be the first to bid.
       </p>

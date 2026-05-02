@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
       </AuthCard.Body>
       <AuthCard.Footer>
         Remember it after all?{" "}
-        <Link href="/login" className="font-semibold text-primary hover:underline">
+        <Link href="/login" className="font-semibold text-brand hover:underline">
           Back to Sign In
         </Link>
       </AuthCard.Footer>

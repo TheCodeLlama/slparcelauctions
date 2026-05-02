@@ -27,15 +27,15 @@ const MATURITY_MAP: Record<
 > = {
   GENERAL: {
     label: "General",
-    cls: "bg-tertiary-container text-on-tertiary-container",
+    cls: "bg-info-bg text-info",
   },
   MODERATE: {
     label: "Moderate",
-    cls: "bg-secondary-container text-on-secondary-container",
+    cls: "bg-warning-bg text-warning",
   },
   ADULT: {
     label: "Adult",
-    cls: "bg-error-container text-on-error-container",
+    cls: "bg-danger-bg text-danger",
   },
 };
 
@@ -52,7 +52,7 @@ export function ParcelLookupCard({
     <div
       data-testid="parcel-lookup-card"
       className={cn(
-        "flex gap-4 rounded-default border border-outline-variant bg-surface-container-lowest p-4",
+        "flex gap-4 rounded-lg border border-border-subtle bg-surface-raised p-4",
         className,
       )}
     >
@@ -61,29 +61,29 @@ export function ParcelLookupCard({
         <img
           src={parcel.snapshotUrl}
           alt=""
-          className="h-20 w-20 flex-shrink-0 rounded-default object-cover"
+          className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
         />
       ) : (
         <div
           aria-hidden="true"
-          className="h-20 w-20 flex-shrink-0 rounded-default bg-surface-container-high"
+          className="h-20 w-20 flex-shrink-0 rounded-lg bg-bg-hover"
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-title-md text-on-surface">{label}</p>
+          <p className="truncate text-sm font-semibold tracking-tight text-fg">{label}</p>
           <span
             data-testid="parcel-maturity-chip"
             data-maturity={parcel.maturityRating}
             className={cn(
-              "inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-label-sm font-medium",
+              "inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
               maturity.cls,
             )}
           >
             {maturity.label}
           </span>
         </div>
-        <p className="flex items-center gap-1 text-body-sm text-on-surface-variant">
+        <p className="flex items-center gap-1 text-xs text-fg-muted">
           <MapPin className="size-3.5" aria-hidden="true" />
           <span className="truncate">
             {parcel.regionName} ({parcel.gridX}, {parcel.gridY}) ·{" "}
@@ -91,11 +91,11 @@ export function ParcelLookupCard({
             {parcel.continentName ? ` · ${parcel.continentName}` : ""}
           </span>
         </p>
-        <p className="truncate text-label-sm text-on-surface-variant">
+        <p className="truncate text-[11px] font-medium text-fg-muted">
           Owner UUID: {parcel.ownerUuid} ({parcel.ownerType})
         </p>
         <a
-          className="inline-flex items-center gap-1 text-label-md text-primary hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
           href={parcel.slurl}
           target="_blank"
           rel="noreferrer"

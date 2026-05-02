@@ -26,11 +26,11 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   return (
     <PopoverPanel
       anchor={{ to: "bottom end", gap: 8 }}
-      className="w-[440px] max-h-[520px] flex flex-col bg-surface border border-outline rounded-xl shadow-elevation-3 overflow-hidden z-50"
+      className="w-[440px] max-h-[520px] flex flex-col bg-bg border border-border rounded-xl shadow-elevation-3 overflow-hidden z-50"
     >
-      <header className="flex items-center justify-between px-4 py-3 border-b border-outline-variant">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
         <div>
-          <h2 className="text-title-sm font-semibold text-on-surface">Notifications</h2>
+          <h2 className="text-sm font-semibold text-fg">Notifications</h2>
           <div className="mt-2">
             <FilterChips
               value={filter}
@@ -42,7 +42,7 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         <button
           type="button"
           onClick={() => markAllRead.mutate(undefined)}
-          className="text-label-md text-primary hover:underline shrink-0 ml-4"
+          className="text-xs font-medium text-brand hover:underline shrink-0 ml-4"
         >
           Mark all read
         </button>
@@ -52,7 +52,7 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         {list.isPending ? (
           <div className="p-8 flex justify-center"><LoadingSpinner /></div>
         ) : list.data?.content.length === 0 ? (
-          <div className="p-8 text-center text-body-sm text-on-surface-variant">
+          <div className="p-8 text-center text-sm text-fg-muted">
             {filter === "unread" ? "No unread notifications" : "No notifications yet"}
           </div>
         ) : (
@@ -62,18 +62,18 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         )}
       </div>
 
-      <footer className="border-t border-outline-variant px-4 py-2 flex items-center justify-between bg-surface-container">
+      <footer className="border-t border-border-subtle px-4 py-2 flex items-center justify-between bg-bg-muted">
         <Link
           href="/notifications"
           onClick={onClose}
-          className="text-label-md text-primary hover:underline"
+          className="text-xs font-medium text-brand hover:underline"
         >
           View all notifications
         </Link>
         <Link
           href="/settings/notifications"
           onClick={onClose}
-          className="text-on-surface-variant hover:text-on-surface"
+          className="text-fg-muted hover:text-fg"
           aria-label="Notification settings"
         >
           <Settings className="size-4" />

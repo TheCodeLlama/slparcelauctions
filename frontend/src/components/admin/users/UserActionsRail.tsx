@@ -94,13 +94,13 @@ export function UserActionsRail({ user, onRefresh }: Props) {
     >
       {/* Active ban callout */}
       {user.activeBan && (
-        <div className="rounded-default bg-error-container border border-error/20 p-4 flex flex-col gap-2">
-          <div className="text-label-sm font-semibold text-on-error-container">Active ban</div>
-          <div className="text-body-sm text-on-error-container/80 line-clamp-3">
+        <div className="rounded-lg bg-danger-bg border border-danger/20 p-4 flex flex-col gap-2">
+          <div className="text-[11px] font-semibold text-danger">Active ban</div>
+          <div className="text-sm text-danger/80 line-clamp-3">
             {user.activeBan.reasonText}
           </div>
           {user.activeBan.expiresAt && (
-            <div className="text-[11px] text-on-error-container/70">
+            <div className="text-[11px] text-danger/70">
               Expires {new Date(user.activeBan.expiresAt).toLocaleDateString()}
             </div>
           )}
@@ -118,8 +118,8 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       )}
 
       {/* Role actions */}
-      <div className="rounded-default bg-surface-container border border-outline-variant p-4 flex flex-col gap-2">
-        <div className="text-label-sm font-medium text-on-surface-variant mb-1">Role</div>
+      <div className="rounded-lg bg-bg-muted border border-border-subtle p-4 flex flex-col gap-2">
+        <div className="text-[11px] font-medium text-fg-muted mb-1">Role</div>
 
         {user.role === "USER" && (
           <Button
@@ -148,8 +148,8 @@ export function UserActionsRail({ user, onRefresh }: Props) {
 
       {/* Frivolous counter */}
       {user.cancelledWithBids > 0 && (
-        <div className="rounded-default bg-surface-container border border-outline-variant p-4 flex flex-col gap-2">
-          <div className="text-label-sm font-medium text-on-surface-variant mb-1">
+        <div className="rounded-lg bg-bg-muted border border-border-subtle p-4 flex flex-col gap-2">
+          <div className="text-[11px] font-medium text-fg-muted mb-1">
             Frivolous cancellations: {user.cancelledWithBids}
           </div>
           <Button
@@ -165,8 +165,8 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       )}
 
       {/* Bans */}
-      <div className="rounded-default bg-surface-container border border-outline-variant p-4 flex flex-col gap-2">
-        <div className="text-label-sm font-medium text-on-surface-variant mb-1">Bans</div>
+      <div className="rounded-lg bg-bg-muted border border-border-subtle p-4 flex flex-col gap-2">
+        <div className="text-[11px] font-medium text-fg-muted mb-1">Bans</div>
         <Button
           variant="secondary"
           size="sm"
@@ -179,8 +179,8 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       </div>
 
       {/* Danger zone */}
-      <div className="rounded-default bg-surface-container border border-error/30 p-4 flex flex-col gap-2">
-        <div className="text-label-sm font-medium text-error mb-1">Danger zone</div>
+      <div className="rounded-lg bg-bg-muted border border-danger/30 p-4 flex flex-col gap-2">
+        <div className="text-[11px] font-medium text-danger mb-1">Danger zone</div>
         <Button
           variant="destructive"
           size="sm"
@@ -193,11 +193,11 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       </div>
 
       {/* Quick links */}
-      <div className="rounded-default bg-surface-container border border-outline-variant p-4 flex flex-col gap-2">
-        <div className="text-label-sm font-medium text-on-surface-variant mb-1">Quick links</div>
+      <div className="rounded-lg bg-bg-muted border border-border-subtle p-4 flex flex-col gap-2">
+        <div className="text-[11px] font-medium text-fg-muted mb-1">Quick links</div>
         <Link
           href={`/users/${user.id}`}
-          className="text-body-sm text-primary hover:underline underline-offset-2"
+          className="text-sm text-brand hover:underline underline-offset-2"
           target="_blank"
           data-testid="public-profile-link"
         >
@@ -207,7 +207,7 @@ export function UserActionsRail({ user, onRefresh }: Props) {
           <button
             type="button"
             onClick={() => navigator.clipboard.writeText(user.slAvatarUuid!)}
-            className="text-left text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+            className="text-left text-sm text-fg-muted hover:text-fg transition-colors"
             data-testid="copy-uuid-btn"
           >
             Copy SL UUID
@@ -216,7 +216,7 @@ export function UserActionsRail({ user, onRefresh }: Props) {
         <button
           type="button"
           onClick={() => setShowIps(true)}
-          className="text-left text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+          className="text-left text-sm text-fg-muted hover:text-fg transition-colors"
           data-testid="recent-ips-btn"
         >
           Recent IPs

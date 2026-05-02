@@ -150,7 +150,7 @@ export function Lightbox({
           {/* Counter */}
           {isOpen && current && (
             <div
-              className="absolute left-4 top-4 z-10 rounded-full bg-scrim/70 px-3 py-1 text-label-md font-medium text-on-surface-inverse"
+              className="absolute left-4 top-4 z-10 rounded-full bg-scrim/70 px-3 py-1 text-xs font-medium text-white"
               data-testid="lightbox-counter"
             >
               {openIndex! + 1} / {total}
@@ -163,7 +163,7 @@ export function Lightbox({
             onClick={onClose}
             aria-label="Close"
             data-testid="lightbox-close"
-            className="absolute right-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full bg-scrim/70 text-on-surface-inverse transition-colors hover:bg-scrim"
+            className="absolute right-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full bg-scrim/70 text-white transition-colors hover:bg-scrim"
           >
             <X className="size-5" aria-hidden="true" />
           </button>
@@ -192,7 +192,7 @@ export function Lightbox({
                   onClick={() => openIndex != null && go(openIndex - 1)}
                   aria-label="Previous image"
                   data-testid="lightbox-prev"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 inline-flex size-12 items-center justify-center rounded-full bg-scrim/70 text-on-surface-inverse transition-colors hover:bg-scrim"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 inline-flex size-12 items-center justify-center rounded-full bg-scrim/70 text-white transition-colors hover:bg-scrim"
                 >
                   <ChevronLeft className="size-6" aria-hidden="true" />
                 </button>
@@ -201,7 +201,7 @@ export function Lightbox({
                   onClick={() => openIndex != null && go(openIndex + 1)}
                   aria-label="Next image"
                   data-testid="lightbox-next"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex size-12 items-center justify-center rounded-full bg-scrim/70 text-on-surface-inverse transition-colors hover:bg-scrim"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex size-12 items-center justify-center rounded-full bg-scrim/70 text-white transition-colors hover:bg-scrim"
                 >
                   <ChevronRight className="size-6" aria-hidden="true" />
                 </button>
@@ -213,7 +213,7 @@ export function Lightbox({
               the vertical space. */}
           {total > 1 && (
             <ul
-              className="flex shrink-0 gap-2 overflow-x-auto border-t border-outline-variant/30 bg-scrim/60 p-3"
+              className="flex shrink-0 gap-2 overflow-x-auto border-t border-border-subtle bg-scrim/60 p-3"
               data-testid="lightbox-strip"
             >
               {images.map((image, i) => {
@@ -228,10 +228,10 @@ export function Lightbox({
                       aria-current={active ? "true" : undefined}
                       data-testid={`lightbox-thumb-${i}`}
                       className={cn(
-                        "h-16 w-24 overflow-hidden rounded-default ring-2 transition",
+                        "h-16 w-24 overflow-hidden rounded-lg ring-2 transition",
                         active
-                          ? "ring-primary"
-                          : "ring-transparent hover:ring-outline-variant",
+                          ? "ring-brand"
+                          : "ring-transparent hover:ring-border",
                       )}
                     >
                       <img

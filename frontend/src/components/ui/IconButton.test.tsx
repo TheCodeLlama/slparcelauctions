@@ -31,17 +31,17 @@ describe("IconButton", () => {
       </IconButton>
     );
     const button = screen.getByRole("button", { name: "Search" });
-    expect(button.className).toContain("rounded-full");
+    expect(button.className).toContain("rounded-sm");
     expect(button.className).toContain("md:hidden");
   });
 
-  it("bakes the 1.5 stroke width into the SVG via the [&_svg]:stroke-[1.5] selector class", () => {
+  it("bakes the 1.75 stroke width into the SVG via the [&_svg]:stroke-[1.75] selector class", () => {
     renderWithProviders(
       <IconButton aria-label="Bell">
         <Bell />
       </IconButton>
     );
     const button = screen.getByRole("button", { name: "Bell" });
-    expect(button.className).toContain("[&_svg]:stroke-[1.5]");
+    expect(button.className).toContain("[&_svg]:stroke-[1.75]");
   });
 });

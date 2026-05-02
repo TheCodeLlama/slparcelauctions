@@ -92,8 +92,8 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
   return (
     <article
       className={cn(
-        "relative flex flex-col rounded-default bg-surface-container-lowest shadow-sm overflow-hidden",
-        "transition hover:shadow-elevated hover:scale-[1.01]",
+        "relative flex flex-col rounded-lg border border-border bg-surface-raised overflow-hidden",
+        "transition-all hover:border-border-strong hover:shadow-md",
         variant === "featured" && "md:col-span-2",
         className,
       )}
@@ -101,7 +101,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
     >
       <Link
         href={`/auction/${listing.id}`}
-        className="flex flex-col gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary rounded-default"
+        className="flex flex-col gap-3 focus-visible:ring-2 focus-visible:ring-brand rounded-lg"
         aria-label={`${listing.title} in ${listing.parcel.region}, current bid L$${listing.currentBid.toLocaleString()}, ${relativeTimeTo(listing.endsAt)}`}
       >
         <div
@@ -124,46 +124,46 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
             tone={chip.tone}
             className="absolute top-2 left-2"
           />
-          <span className="absolute bottom-2 right-2 rounded-full bg-on-surface/70 px-2 py-0.5 text-label-sm text-surface">
+          <span className="absolute bottom-2 right-2 rounded-pill bg-fg/70 px-2 py-0.5 text-[11px] text-bg">
             {listing.parcel.area}m²
           </span>
         </div>
         <div className="flex flex-col gap-1 px-4 pb-4">
           <h3
             className={cn(
-              "font-display font-bold tracking-[-0.02em]",
+              "font-bold tracking-tight text-fg",
               variant === "compact"
-                ? "text-title-md line-clamp-1"
-                : "text-title-lg line-clamp-2",
+                ? "text-sm line-clamp-1"
+                : "text-base line-clamp-2",
             )}
           >
             {listing.title}
           </h3>
-          <p className="text-body-sm text-on-surface-variant flex items-center gap-1">
+          <p className="text-xs text-fg-muted flex items-center gap-1">
             <MapPin className="size-3.5" aria-hidden="true" />
             <span>
               {listing.parcel.name} · {listing.parcel.region}
             </span>
           </p>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-display-sm font-bold">
+            <span className="text-xl font-bold tabular-nums text-fg">
               L$ {listing.currentBid.toLocaleString()}
             </span>
             {listing.snipeProtect && (
-              <span className="inline-flex items-center gap-1 text-body-sm text-on-surface-variant">
+              <span className="inline-flex items-center gap-1 text-xs text-fg-muted">
                 <ShieldCheck className="size-4" aria-hidden="true" />
                 {listing.snipeWindowMin ?? 5}min
               </span>
             )}
           </div>
           {variant !== "compact" && (
-            <p className="text-body-sm text-on-surface-variant">
+            <p className="text-xs text-fg-muted">
               {listing.bidCount} bid{listing.bidCount === 1 ? "" : "s"}
               {" · "}
               {listing.reserveMet ? "Reserve met" : "Reserve not met"}
             </p>
           )}
-          <div className="text-body-sm text-on-surface-variant">
+          <div className="text-xs text-fg-muted font-mono">
             <CountdownTimer
               expiresAt={new Date(listing.endsAt)}
               format="hh:mm:ss"
@@ -174,20 +174,20 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
               {visibleTags.map((t) => (
                 <span
                   key={t}
-                  className="rounded-full bg-surface-container-low px-2 py-0.5 text-label-sm"
+                  className="rounded-pill bg-bg-muted text-fg-muted text-[11px] px-2 py-0.5"
                 >
                   {t}
                 </span>
               ))}
               {overflow > 0 && (
-                <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-label-sm text-on-surface-variant">
+                <span className="rounded-pill bg-bg-muted text-fg-muted text-[11px] px-2 py-0.5">
                   +{overflow}
                 </span>
               )}
             </div>
           )}
           {listing.distanceRegions !== null && (
-            <span className="text-label-sm text-on-surface-variant">
+            <span className="text-[11px] text-fg-subtle">
               {listing.distanceRegions.toFixed(1)} regions
             </span>
           )}
@@ -227,12 +227,12 @@ function HeartOverlay({
         e.stopPropagation();
         void toggle(auctionId);
       }}
-      className="absolute top-2 right-2 rounded-full bg-surface-container-lowest/80 backdrop-blur p-2 hover:bg-surface-container-lowest focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      className="absolute top-2 right-2 rounded-full bg-bg/85 backdrop-blur p-2 hover:bg-bg focus-visible:ring-2 focus-visible:ring-brand"
     >
       <Heart
         className={cn(
           "size-5",
-          saved ? "fill-primary text-primary" : "text-on-surface-variant",
+          saved ? "fill-brand text-brand" : "text-fg-muted",
         )}
         aria-hidden="true"
       />

@@ -22,13 +22,13 @@ export function ParcelLayoutMapPlaceholder({ className }: Props) {
       aria-label="Parcel map"
       data-testid="parcel-layout-map-placeholder"
       className={cn(
-        "hidden md:block rounded-default bg-surface-container-lowest p-6",
+        "hidden md:block rounded-lg bg-surface-raised p-6",
         className,
       )}
     >
-      <div className="flex flex-col items-center gap-2 text-on-surface-variant text-center">
+      <div className="flex flex-col items-center gap-2 text-fg-muted text-center">
         <MapPin className="size-8" aria-hidden="true" />
-        <p className="text-body-md">Parcel map coming soon</p>
+        <p className="text-sm">Parcel map coming soon</p>
       </div>
     </section>
   );
