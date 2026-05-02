@@ -233,7 +233,7 @@ function BackToEscrowLink({ auctionId }: { auctionId: number }) {
   return (
     <Link
       href={`/auction/${auctionId}/escrow`}
-      className="mt-4 inline-block text-primary hover:underline"
+      className="mt-4 inline-block text-brand hover:underline"
     >
       Back to escrow
     </Link>
@@ -242,8 +242,8 @@ function BackToEscrowLink({ auctionId }: { auctionId: number }) {
 
 function NoEscrowPanel({ auctionId }: { auctionId: number }) {
   return (
-    <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-6 text-center">
-      <h2 className="text-title-md text-on-surface">
+    <div className="rounded-lg border border-border-subtle bg-surface-raised p-6 text-center">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         No escrow exists for this auction
       </h2>
       <BackToEscrowLink auctionId={auctionId} />
@@ -281,11 +281,11 @@ function TerminalStatePanel({
     FROZEN: "This escrow is in a FROZEN state and is no longer active.",
   };
   return (
-    <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-6">
-      <h2 className="text-title-md text-on-surface">
+    <div className="rounded-lg border border-border-subtle bg-surface-raised p-6">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         This escrow can no longer be disputed
       </h2>
-      <p className="mt-2 text-body-md text-on-surface-variant">
+      <p className="mt-2 text-sm text-fg-muted">
         {messages[escrow.state]}
       </p>
       <BackToEscrowLink auctionId={auctionId} />
@@ -382,7 +382,7 @@ function DisputeFormBody({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
-      <div className="rounded-md bg-surface-container-low p-4 text-body-sm text-on-surface-variant">
+      <div className="rounded-md bg-bg-subtle p-4 text-xs text-fg-muted">
         You&apos;re disputing escrow for <strong>{escrow.parcelName}</strong> —
         currently <strong>{escrow.state}</strong>, you are the{" "}
         <strong>{role}</strong>.
@@ -391,14 +391,14 @@ function DisputeFormBody({
       <div>
         <label
           htmlFor="reasonCategory"
-          className="text-label-lg font-semibold text-on-surface"
+          className="text-sm font-medium font-semibold text-fg"
         >
           Reason
         </label>
         <select
           id="reasonCategory"
           {...register("reasonCategory")}
-          className="mt-2 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md"
+          className="mt-2 w-full rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-sm"
         >
           {Object.entries(REASON_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -415,10 +415,10 @@ function DisputeFormBody({
         <div>
           <label
             htmlFor="slTransactionKey"
-            className="text-label-lg font-semibold text-on-surface"
+            className="text-sm font-medium font-semibold text-fg"
           >
             SL transaction key{" "}
-            <span className="text-label-sm font-normal text-on-surface-variant">
+            <span className="text-[11px] font-medium font-normal text-fg-muted">
               (required for payment-not-credited)
             </span>
           </label>
@@ -427,7 +427,7 @@ function DisputeFormBody({
             type="text"
             {...register("slTransactionKey")}
             placeholder="00000000-0000-0000-0000-000000000000"
-            className="mt-2 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md font-mono"
+            className="mt-2 w-full rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-sm font-mono"
           />
           {errors.slTransactionKey && (
             <FormError message={errors.slTransactionKey.message ?? ""} />
@@ -438,7 +438,7 @@ function DisputeFormBody({
       <div>
         <label
           htmlFor="description"
-          className="text-label-lg font-semibold text-on-surface"
+          className="text-sm font-medium font-semibold text-fg"
         >
           Description
         </label>
@@ -446,14 +446,14 @@ function DisputeFormBody({
           id="description"
           rows={4}
           {...register("description")}
-          className="mt-2 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-body-md"
+          className="mt-2 w-full rounded-md border border-border-subtle bg-surface-raised px-3 py-2 text-sm"
         />
         <div className="mt-1 flex items-center justify-between">
-          <span className="text-label-sm text-on-surface-variant">
+          <span className="text-[11px] font-medium text-fg-muted">
             {(description ?? "").length} / 2000
           </span>
           {errors.description && (
-            <span className="text-label-sm text-error">
+            <span className="text-[11px] font-medium text-danger-flat">
               {errors.description.message}
             </span>
           )}
@@ -465,7 +465,7 @@ function DisputeFormBody({
       <div className="flex items-center justify-between">
         <Link
           href={`/auction/${auctionId}/escrow`}
-          className="text-label-lg text-on-surface-variant hover:text-on-surface"
+          className="text-sm font-medium text-fg-muted hover:text-fg"
         >
           Cancel
         </Link>

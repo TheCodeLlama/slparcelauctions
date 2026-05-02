@@ -16,11 +16,11 @@ export function EscrowPageHeader({ escrow, role }: EscrowPageHeaderProps) {
   return (
     <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <div className="text-label-sm uppercase tracking-wide text-on-surface-variant">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">
           Escrow · {role}
         </div>
-        <h1 className="mt-1 text-headline-sm text-on-surface">{escrow.parcelName}</h1>
-        <div className="text-body-sm text-on-surface-variant">
+        <h1 className="mt-1 text-lg font-bold tracking-tight text-fg">{escrow.parcelName}</h1>
+        <div className="text-xs text-fg-muted">
           {escrow.region} · L$ {escrow.finalBidAmount.toLocaleString()} final
         </div>
       </div>

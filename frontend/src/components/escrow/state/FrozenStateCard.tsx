@@ -26,23 +26,23 @@ export function FrozenStateCard({ escrow, role }: StateCardProps) {
       data-testid="escrow-state-card"
       data-state="FROZEN"
       data-role={role}
-      className="flex flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <h2 className="text-title-md text-on-surface">
+      <h2 className="text-sm font-semibold tracking-tight text-fg">
         Escrow frozen
         {escrow.frozenAt ? ` ${formatTimestamp(escrow.frozenAt)}` : ""}
       </h2>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-body-md">
-        <dt className="text-on-surface-variant">Reason:</dt>
-        <dd className="text-on-surface">{reasonLabel}</dd>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-fg-muted">Reason:</dt>
+        <dd className="text-fg">{reasonLabel}</dd>
       </dl>
       {isTransient ? (
-        <p className="text-body-md text-on-surface-variant">
+        <p className="text-sm text-fg-muted">
           We couldn&apos;t verify parcel ownership repeatedly; this is likely
           a transient issue and SLPA will re-check manually.
         </p>
       ) : (
-        <p className="text-body-md text-on-surface-variant">
+        <p className="text-sm text-fg-muted">
           Your L$ will be refunded automatically. SLPA has flagged this
           auction for review.
         </p>

@@ -18,7 +18,7 @@ export function EscrowPageLayout({ auctionId, children }: EscrowPageLayoutProps)
     <main className="mx-auto max-w-2xl px-4 py-8">
       <Link
         href={`/auction/${auctionId}`}
-        className="inline-flex items-center gap-1 text-label-md text-on-surface-variant hover:text-on-surface"
+        className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted hover:text-fg"
       >
         <ChevronLeft className="size-4" aria-hidden="true" />
         Back to auction

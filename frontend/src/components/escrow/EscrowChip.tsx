@@ -52,16 +52,16 @@ function resolveChip(
 }
 
 const toneClasses: Record<EscrowChipTone, string> = {
-  action: "bg-primary-container text-on-primary-container",
-  waiting: "bg-secondary-container text-on-secondary-container",
-  done: "bg-tertiary-container text-on-tertiary-container",
-  problem: "bg-error-container text-on-error-container",
-  muted: "bg-surface-container text-on-surface-variant",
+  action: "bg-brand-soft text-brand",
+  waiting: "bg-bg-muted text-fg-muted",
+  done: "bg-info-bg text-fg",
+  problem: "bg-danger-bg text-danger-flat",
+  muted: "bg-bg-muted text-fg-muted",
 };
 
 const sizeClasses: Record<EscrowChipSize, string> = {
-  sm: "px-2 py-0.5 text-label-sm",
-  md: "px-3 py-1 text-label-md",
+  sm: "px-2 py-0.5 text-[11px] font-medium",
+  md: "px-3 py-1 text-xs font-medium",
 };
 
 /**

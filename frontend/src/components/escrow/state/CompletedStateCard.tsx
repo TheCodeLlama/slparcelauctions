@@ -12,17 +12,17 @@ export function CompletedStateCard({ escrow, role }: StateCardProps) {
       data-testid="escrow-state-card"
       data-state="COMPLETED"
       data-role={role}
-      className="flex flex-col gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-soft"
+      className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-raised p-5 shadow-sm"
     >
-      <span className="text-label-sm uppercase tracking-wide text-on-surface-variant">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-fg-muted">
         {role === "seller" ? "Seller" : "Winner"}
       </span>
       {role === "seller" ? (
         <>
-          <h2 className="text-title-md text-on-surface">
+          <h2 className="text-sm font-semibold tracking-tight text-fg">
             Payout of L$ {escrow.payoutAmt.toLocaleString()} sent
           </h2>
-          <p className="text-body-md text-on-surface-variant">
+          <p className="text-sm text-fg-muted">
             Commission L$ {escrow.commissionAmt.toLocaleString()}.
             {escrow.completedAt
               ? ` Completed ${formatTimestamp(escrow.completedAt)}.`
@@ -31,14 +31,14 @@ export function CompletedStateCard({ escrow, role }: StateCardProps) {
         </>
       ) : (
         <>
-          <h2 className="text-title-md text-on-surface">Parcel transferred</h2>
-          <p className="text-body-md text-on-surface-variant">
+          <h2 className="text-sm font-semibold tracking-tight text-fg">Parcel transferred</h2>
+          <p className="text-sm text-fg-muted">
             You&apos;re the owner of{" "}
-            <span className="font-medium text-on-surface">
+            <span className="font-medium text-fg">
               {escrow.parcelName}
             </span>{" "}
             in{" "}
-            <span className="font-medium text-on-surface">{escrow.region}</span>
+            <span className="font-medium text-fg">{escrow.region}</span>
             .
             {escrow.completedAt
               ? ` Completed ${formatTimestamp(escrow.completedAt)}.`

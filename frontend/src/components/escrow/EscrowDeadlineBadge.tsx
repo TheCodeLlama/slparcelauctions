@@ -14,10 +14,10 @@ export interface EscrowDeadlineBadgeProps {
 type Urgency = "neutral" | "warning" | "urgent" | "past";
 
 const urgencyClasses: Record<Urgency, string> = {
-  neutral: "text-on-surface-variant",
-  warning: "text-tertiary",
-  urgent: "text-error",
-  past: "text-error line-through",
+  neutral: "text-fg-muted",
+  warning: "text-warning-flat",
+  urgent: "text-danger-flat",
+  past: "text-danger-flat line-through",
 };
 
 function urgencyFor(msRemaining: number): Urgency {
@@ -67,7 +67,7 @@ export function EscrowDeadlineBadge({
     <span
       data-urgency={urgency}
       className={cn(
-        "text-label-md font-medium",
+        "text-xs font-medium",
         urgencyClasses[urgency],
         className,
       )}
