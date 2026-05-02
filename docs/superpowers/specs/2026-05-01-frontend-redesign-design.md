@@ -135,6 +135,8 @@ Commits land directly on `heath/update-frontend`. Each frontend commit message s
 
 **Order rationale:** front-load high-traffic / high-judgment pages (home → browse → auction) so the redesign's character is visible early; bid/escrow/wallet flows next because they're the product's core; admin last because it's internal-facing and bulk-volume.
 
+**Per-page mental model (clusters 2–14).** Each page's re-skin is "drop in the design's JSX → wire to existing hooks/mutations → translate inline styles," not "tweak the existing M3 markup." Concretely: open the design's `page-<x>.jsx`, copy its component structure into the matching Next.js route file, replace the design's mock data references (`window.SLP_DATA`, `D.AUCTIONS[i]`, etc.) with the existing TanStack Query hooks and mutation handlers from the current `frontend/src/`, and translate every inline `style={...}` to Tailwind utilities per Section 6. The route shell, providers, middleware, hooks, API client, and test scaffolding stay; the page body is replaced wholesale. End-state visual fidelity comes from copying the design's JSX, not from re-styling the M3 markup.
+
 ## Section 5 — Modals, overlays, and the backend-completeness rule
 
 **Hard rule:** every cluster ships the frontend re-skin **plus the backend for any feature the design introduces** that doesn't yet exist. No `DEFERRED_WORK.md` entries for design-implied features. No mock fixtures in app code. No `// TODO: wire` UI stubs.
