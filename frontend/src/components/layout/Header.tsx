@@ -50,9 +50,10 @@ export function Header() {
 
           <div className="flex shrink-0 items-center gap-1.5">
             <IconButton
-              aria-label="Search"
+              aria-label="Search (coming soon)"
               variant="tertiary"
               className="hidden md:inline-flex"
+              disabled
             >
               <Search className="h-[18px] w-[18px]" />
             </IconButton>
