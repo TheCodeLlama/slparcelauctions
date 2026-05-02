@@ -17,7 +17,7 @@ export const walletQueryKey = ["me", "wallet"] as const;
  * Subscribe to the authenticated user's wallet view.
  *
  * Used by:
- * - {@link HeaderWalletIndicator} (verified-only desktop pill + popover)
+ * - {@link WalletPill} (verified-only desktop pill + popover)
  * - {@link MobileMenu} (verified-only Wallet row with inline available)
  * - {@link WalletPanel} (the /wallet page surface)
  *

@@ -37,7 +37,7 @@
 
 **Deleted files:**
 - `frontend/src/components/wallet/HeaderWalletIndicator.tsx` — replaced by `WalletPill`
-- `frontend/src/components/wallet/HeaderWalletIndicator.test.tsx` — replaced by `WalletPill.test.tsx`
+  (no test file existed; never had one in git history)
 
 **Untouched (verified by reading first):**
 - `frontend/src/lib/wallet/use-wallet.ts`, `use-wallet-ws.ts`

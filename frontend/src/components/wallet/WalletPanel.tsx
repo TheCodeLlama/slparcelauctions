@@ -186,7 +186,7 @@ export function WalletPanel() {
 
   /**
    * Invalidate the shared wallet cache so this component, the
-   * {@link HeaderWalletIndicator}, and the {@link MobileMenu} all refetch
+   * {@link WalletPill}, and the {@link MobileMenu} all refetch
    * after a successful dialog action (withdraw / pay-penalty / accept-terms).
    * Also invalidates the ledger query so a brand-new entry appears immediately.
    */
