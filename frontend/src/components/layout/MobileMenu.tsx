@@ -49,14 +49,14 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
           </div>
 
           <nav className="flex flex-col gap-1 p-3">
+            <NavLink variant="mobile" href="/dashboard" onClick={onClose}>
+              Dashboard
+            </NavLink>
             <NavLink variant="mobile" href="/browse" onClick={onClose}>
               Browse
             </NavLink>
             <NavLink variant="mobile" href="/listings/create" onClick={onClose}>
               Sell parcel
-            </NavLink>
-            <NavLink variant="mobile" href="/dashboard" onClick={onClose}>
-              Dashboard
             </NavLink>
             {verified && (
               <NavLink variant="mobile" href="/wallet" onClick={onClose}>
