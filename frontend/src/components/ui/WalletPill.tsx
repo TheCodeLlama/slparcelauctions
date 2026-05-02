@@ -62,7 +62,7 @@ export function WalletPill() {
         role="tooltip"
         className={cn(
           "absolute right-0 top-full z-50 mt-2 w-64 p-3",
-          "rounded-lg border border-border bg-surface shadow-lg",
+          "rounded-lg border border-border bg-bg shadow-lg",
           "invisible pointer-events-none opacity-0",
           "transition-opacity",
           "group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100",
