@@ -52,7 +52,7 @@ const SNIPE_WINDOWS: { value: AuctionSnipeWindowMin; label: string }[] = [
 ];
 
 const SELECT_CLASSES =
-  "h-12 w-full rounded-default bg-surface-container-low text-on-surface px-4 ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary disabled:opacity-60";
+  "h-12 w-full rounded-lg bg-bg-subtle text-fg px-4 ring-1 ring-transparent transition-all focus:bg-surface-raised focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-60";
 
 export function AuctionSettingsForm({
   value,
@@ -217,15 +217,15 @@ function LabeledField({
     <div className="flex w-full flex-col gap-1">
       <label
         htmlFor={id}
-        className="text-label-md text-on-surface-variant"
+        className="text-xs font-medium text-fg-muted"
       >
         {label}
       </label>
       {render(id)}
       {error ? (
-        <span className="text-body-sm text-error">{error}</span>
+        <span className="text-xs text-danger-flat">{error}</span>
       ) : helperText ? (
-        <span className="text-body-sm text-on-surface-variant">
+        <span className="text-xs text-fg-muted">
           {helperText}
         </span>
       ) : null}
@@ -258,15 +258,15 @@ function SnipeProtectToggle({
         onChange={(e) => onChange(e.target.checked)}
         className={cn(
           "peer h-5 w-5 appearance-none rounded border-2 border-on-surface-variant/40",
-          "bg-surface-container-lowest transition-colors",
-          "checked:border-primary checked:bg-primary",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+          "bg-surface-raised transition-colors",
+          "checked:border-brand checked:bg-brand",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
           "disabled:opacity-60",
         )}
       />
-      <label htmlFor={id} className="flex flex-col gap-1 text-body-md text-on-surface">
+      <label htmlFor={id} className="flex flex-col gap-1 text-sm text-fg">
         <span className="font-medium">Snipe protection</span>
-        <span className="text-body-sm text-on-surface-variant">
+        <span className="text-xs text-fg-muted">
           Extend the auction when someone bids near the end.
         </span>
       </label>

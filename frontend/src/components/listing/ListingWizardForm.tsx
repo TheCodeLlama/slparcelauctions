@@ -306,11 +306,11 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
           <section className="flex flex-col gap-2">
             <label
               htmlFor="listing-title"
-              className="text-label-md font-semibold tracking-wider uppercase text-on-surface-variant"
+              className="text-xs font-medium font-semibold tracking-wider uppercase text-fg-muted"
             >
               Listing Title
             </label>
-            <p className="text-body-sm text-on-surface-variant">
+            <p className="text-xs text-fg-muted">
               A short, punchy headline for your listing (max 120 characters).
             </p>
             <TitleField
@@ -323,7 +323,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
             />
           </section>
           <section className="flex flex-col gap-2">
-            <h2 className="text-title-md text-on-surface">Parcel</h2>
+            <h2 className="text-sm font-semibold tracking-tight text-fg">Parcel</h2>
             <ParcelLookupField
               initialParcel={parcel}
               locked={isEdit}
@@ -333,7 +333,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
           {parcel && (
             <>
               <section className="flex flex-col gap-3">
-                <h2 className="text-title-md text-on-surface">
+                <h2 className="text-sm font-semibold tracking-tight text-fg">
                   Auction settings
                 </h2>
                 <AuctionSettingsForm
@@ -343,7 +343,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
               </section>
 
               <section className="flex flex-col gap-2">
-                <h2 className="text-title-md text-on-surface">
+                <h2 className="text-sm font-semibold tracking-tight text-fg">
                   Description
                 </h2>
                 <DescriptionField
@@ -353,7 +353,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
               </section>
 
               <section className="flex flex-col gap-2">
-                <h2 className="text-title-md text-on-surface">Tags</h2>
+                <h2 className="text-sm font-semibold tracking-tight text-fg">Tags</h2>
                 <TagSelector
                   value={draft.state.tags}
                   onChange={(next) => draft.update("tags", next)}
@@ -361,7 +361,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
               </section>
 
               <section className="flex flex-col gap-2">
-                <h2 className="text-title-md text-on-surface">Photos</h2>
+                <h2 className="text-sm font-semibold tracking-tight text-fg">Photos</h2>
                 <PhotoUploader
                   staged={draft.state.stagedPhotos}
                   onStagedChange={draft.addStagedPhotos}
@@ -464,13 +464,13 @@ function TitleField({
         placeholder="Give your listing a clear, compelling headline."
         aria-invalid={error != null}
         aria-describedby="listing-title-counter"
-        className="w-full rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary"
+        className="w-full rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-transparent transition-all focus:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       />
       <span
         id="listing-title-counter"
         className={cn(
-          "self-end text-body-sm",
-          warn ? "text-error" : "text-on-surface-variant",
+          "self-end text-xs",
+          warn ? "text-danger-flat" : "text-fg-muted",
         )}
         data-testid="title-counter"
       >
@@ -508,10 +508,10 @@ function DescriptionField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Describe what makes this parcel special — location, views, build history, etc."
-        className="w-full resize-y rounded-default bg-surface-container-low px-4 py-3 text-on-surface placeholder:text-on-surface-variant ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary"
+        className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-transparent transition-all focus:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       />
       <span
-        className="self-end text-body-sm text-on-surface-variant"
+        className="self-end text-xs text-fg-muted"
         data-testid="desc-counter"
       >
         {value.length}/{MAX_DESC}

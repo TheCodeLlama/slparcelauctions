@@ -16,59 +16,59 @@ const STATUS_MAP: Record<
 > = {
   DRAFT: {
     label: "Draft",
-    cls: "bg-surface-container-high text-on-surface-variant",
+    cls: "bg-bg-hover text-fg-muted",
   },
   DRAFT_PAID: {
     label: "Paid",
-    cls: "bg-secondary-container text-on-secondary-container",
+    cls: "bg-info-bg text-info-flat",
   },
   VERIFICATION_PENDING: {
     label: "Verifying",
-    cls: "bg-primary-container text-on-primary-container",
+    cls: "bg-brand-soft text-brand",
   },
   VERIFICATION_FAILED: {
     label: "Verify failed",
-    cls: "bg-error-container text-on-error-container",
+    cls: "bg-danger-bg text-danger-flat",
   },
   ACTIVE: {
     label: "Active",
-    cls: "bg-tertiary-container text-on-tertiary-container",
+    cls: "bg-info-bg text-info-flat",
   },
   ENDED: {
     label: "Ended",
-    cls: "bg-surface-container-high text-on-surface-variant",
+    cls: "bg-bg-hover text-fg-muted",
   },
   ESCROW_PENDING: {
     label: "Escrow pending",
-    cls: "bg-secondary-container text-on-secondary-container",
+    cls: "bg-info-bg text-info-flat",
   },
   ESCROW_FUNDED: {
     label: "Escrow funded",
-    cls: "bg-secondary-container text-on-secondary-container",
+    cls: "bg-info-bg text-info-flat",
   },
   TRANSFER_PENDING: {
     label: "Transferring",
-    cls: "bg-secondary-container text-on-secondary-container",
+    cls: "bg-info-bg text-info-flat",
   },
   COMPLETED: {
     label: "Completed",
-    cls: "bg-tertiary-container text-on-tertiary-container",
+    cls: "bg-info-bg text-info-flat",
   },
   CANCELLED: {
     label: "Cancelled",
-    cls: "bg-surface-container-high text-on-surface-variant line-through",
+    cls: "bg-bg-hover text-fg-muted line-through",
   },
   EXPIRED: {
     label: "Expired",
-    cls: "bg-surface-container-high text-on-surface-variant",
+    cls: "bg-bg-hover text-fg-muted",
   },
   DISPUTED: {
     label: "Disputed",
-    cls: "bg-error-container text-on-error-container",
+    cls: "bg-danger-bg text-danger-flat",
   },
   SUSPENDED: {
     label: "Suspended",
-    cls: "bg-error-container text-on-error-container",
+    cls: "bg-danger-bg text-danger-flat",
   },
 };
 
@@ -84,7 +84,7 @@ export function ListingStatusBadge({
     <span
       data-status={status}
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-label-sm font-medium",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium",
         entry.cls,
         className,
       )}

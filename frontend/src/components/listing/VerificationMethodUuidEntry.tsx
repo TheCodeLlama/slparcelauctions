@@ -23,17 +23,17 @@ export function VerificationMethodUuidEntry() {
   return (
     <section
       aria-live="polite"
-      className="flex flex-col items-center gap-3 rounded-default bg-surface-container-low p-6 text-center"
+      className="flex flex-col items-center gap-3 rounded-lg bg-bg-subtle p-6 text-center"
     >
       <Loader2
         aria-hidden="true"
-        className="size-7 animate-spin text-primary"
+        className="size-7 animate-spin text-brand"
       />
-      <p className="text-title-sm text-on-surface">
+      <p className="text-sm font-semibold text-fg">
         Checking ownership with the Second Life World API…
       </p>
       {slow && (
-        <p className="text-body-sm text-on-surface-variant">
+        <p className="text-xs text-fg-muted">
           This is taking longer than usual.
         </p>
       )}

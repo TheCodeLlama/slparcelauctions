@@ -74,13 +74,13 @@ export function VerificationMethodRezzable({
   return (
     <div className="flex flex-col gap-4">
       {pending.code ? (
-        <section className="flex flex-col gap-3 rounded-default bg-surface-container-low p-6">
-          <p className="text-label-md text-on-surface-variant uppercase tracking-wide">
+        <section className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-6">
+          <p className="text-xs font-medium text-fg-muted uppercase tracking-wide">
             Parcel verification code
           </p>
           <CodeDisplay code={pending.code} />
           {expiresAt && !expired && (
-            <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
+            <p className="text-xs text-fg-muted flex items-center gap-2">
               <span>Expires in</span>
               <CountdownTimer
                 expiresAt={expiresAt}
@@ -90,7 +90,7 @@ export function VerificationMethodRezzable({
           )}
           {expired && (
             <div className="flex flex-col gap-2">
-              <p className="text-body-sm text-on-surface-variant">
+              <p className="text-xs text-fg-muted">
                 This code has expired.
               </p>
               <Button
@@ -104,7 +104,7 @@ export function VerificationMethodRezzable({
           )}
         </section>
       ) : null}
-      <ol className="list-decimal list-inside flex flex-col gap-2 rounded-default bg-surface-container-low p-6 text-body-md text-on-surface">
+      <ol className="list-decimal list-inside flex flex-col gap-2 rounded-lg bg-bg-subtle p-6 text-sm text-fg">
         <li>
           Open your SL inventory and find the &quot;SLPA Parcel Terminal&quot;
           object.

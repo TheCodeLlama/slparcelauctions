@@ -92,12 +92,12 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
       <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 p-6 text-center">
         <CheckCircle2
           aria-hidden="true"
-          className="size-12 text-primary"
+          className="size-12 text-brand"
         />
-        <h1 className="text-headline-sm text-on-surface">
+        <h1 className="text-lg font-bold tracking-tight text-fg">
           Your listing is live.
         </h1>
-        <p className="text-body-md text-on-surface-variant">
+        <p className="text-sm text-fg-muted">
           The public browse page picks this up on its next refresh.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
@@ -149,11 +149,11 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
       {auction.status === "VERIFICATION_PENDING" && (
         <VerificationInProgressPanel auction={auction} />
       )}
-      <div className="border-t border-outline-variant pt-4">
+      <div className="border-t border-border-subtle pt-4">
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
-          className="text-label-md text-error underline underline-offset-4 hover:opacity-80"
+          className="text-xs font-medium text-danger-flat underline underline-offset-4 hover:opacity-80"
         >
           Cancel this listing
         </button>

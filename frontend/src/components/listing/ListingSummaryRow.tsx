@@ -96,7 +96,7 @@ export function ListingSummaryRow({
   return (
     <li
       className={cn(
-        "flex flex-col gap-2 rounded-default border border-outline-variant bg-surface-container-lowest p-3",
+        "flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-raised p-3",
         className,
       )}
       data-testid={`listing-row-${auction.id}`}
@@ -106,7 +106,7 @@ export function ListingSummaryRow({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3
-              className="text-title-sm text-on-surface truncate"
+              className="text-sm font-semibold text-fg truncate"
               data-testid="listing-summary-primary"
             >
               {primaryLabel}
@@ -122,7 +122,7 @@ export function ListingSummaryRow({
             )}
           </div>
           <p
-            className="text-body-sm text-on-surface-variant"
+            className="text-xs text-fg-muted"
             data-testid="listing-summary-secondary"
           >
             {secondaryLabel}
@@ -139,7 +139,7 @@ export function ListingSummaryRow({
       {isSuspended && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-default bg-error-container p-2.5 text-body-sm text-on-error-container"
+          className="flex items-start gap-2 rounded-lg bg-danger-bg p-2.5 text-xs text-danger-flat"
         >
           <AlertTriangle
             className="mt-0.5 size-4 shrink-0"
@@ -160,7 +160,7 @@ export function ListingSummaryRow({
 }
 
 function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
-  const box = "size-14 shrink-0 rounded-default";
+  const box = "size-14 shrink-0 rounded-lg";
   if (src) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element -- MinIO-served bytes */
@@ -175,7 +175,7 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
     <div
       className={cn(
         box,
-        "flex items-center justify-center bg-surface-container-high text-on-surface-variant",
+        "flex items-center justify-center bg-bg-hover text-fg-muted",
       )}
       aria-hidden="true"
     >
@@ -228,8 +228,8 @@ function ActiveBidSummary({
   const bidsText = bidCount === 1 ? "1 bid" : `${bidCount} bids`;
   const endsAtDate = parseDate(auction.endsAt);
   return (
-    <p className="text-body-sm text-on-surface-variant">
-      <span className="font-medium text-on-surface">
+    <p className="text-xs text-fg-muted">
+      <span className="font-medium text-fg">
         {highBid == null ? "—" : `L$${highBid.toLocaleString()}`}
       </span>
       <span>{` current · ${bidsText}`}</span>
@@ -239,7 +239,7 @@ function ActiveBidSummary({
           <CountdownTimer
             expiresAt={endsAtDate}
             format="hh:mm:ss"
-            className="inline text-body-sm"
+            className="inline text-xs"
           />
           {" left"}
         </>
@@ -290,13 +290,13 @@ function EndedBidSummary({
     const finalAmount = auction.finalBidAmount ?? highBid;
     const formattedAmount = finalAmount == null ? "—" : `L$${finalAmount.toLocaleString()}`;
     return (
-      <p className="text-body-sm text-on-surface-variant">
+      <p className="text-xs text-fg-muted">
         Sold for{" "}
-        <span className="font-medium text-on-surface">{formattedAmount}</span>
+        <span className="font-medium text-fg">{formattedAmount}</span>
         {winnerDisplayName ? (
           <>
             {" to "}
-            <span className="font-medium text-on-surface">{`@${winnerDisplayName}`}</span>
+            <span className="font-medium text-fg">{`@${winnerDisplayName}`}</span>
           </>
         ) : null}
       </p>
@@ -305,16 +305,16 @@ function EndedBidSummary({
   if (outcome === "RESERVE_NOT_MET") {
     const formattedBid = highBid == null ? "—" : `L$${highBid.toLocaleString()}`;
     return (
-      <p className="text-body-sm text-on-surface-variant">
+      <p className="text-xs text-fg-muted">
         {"Ended — reserve not met (highest bid "}
-        <span className="font-medium text-on-surface">{formattedBid}</span>
+        <span className="font-medium text-fg">{formattedBid}</span>
         {")"}
       </p>
     );
   }
   // NO_BIDS (default for ENDED without bids)
   return (
-    <p className="text-body-sm text-on-surface-variant">
+    <p className="text-xs text-fg-muted">
       Ended with no bids
     </p>
   );

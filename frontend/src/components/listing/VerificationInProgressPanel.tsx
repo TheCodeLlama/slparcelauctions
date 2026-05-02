@@ -24,13 +24,13 @@ function StartingSpinner() {
   return (
     <section
       aria-live="polite"
-      className="flex flex-col items-center gap-3 rounded-default bg-surface-container-low p-6 text-center"
+      className="flex flex-col items-center gap-3 rounded-lg bg-bg-subtle p-6 text-center"
     >
       <Loader2
         aria-hidden="true"
-        className="size-7 animate-spin text-primary"
+        className="size-7 animate-spin text-brand"
       />
-      <p className="text-title-sm text-on-surface">Starting verification…</p>
+      <p className="text-sm font-semibold text-fg">Starting verification…</p>
     </section>
   );
 }

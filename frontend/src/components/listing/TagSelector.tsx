@@ -42,12 +42,12 @@ export function TagSelector({
 
   if (isLoading) {
     return (
-      <p className="text-body-sm text-on-surface-variant">Loading tags…</p>
+      <p className="text-xs text-fg-muted">Loading tags…</p>
     );
   }
   if (isError || !data) {
     return (
-      <p className="text-body-sm text-error">
+      <p className="text-xs text-danger-flat">
         Couldn&apos;t load tag catalogue. Try again later.
       </p>
     );
@@ -70,12 +70,12 @@ export function TagSelector({
         return (
           <div
             key={group.category}
-            className="rounded-default border border-outline-variant"
+            className="rounded-lg border border-border-subtle"
           >
             <button
               type="button"
               aria-expanded={open}
-              className="flex w-full items-center justify-between px-3 py-2 text-label-lg text-on-surface"
+              className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium text-fg"
               onClick={() =>
                 setCollapsed((s) => ({ ...s, [group.category]: open }))
               }
@@ -88,7 +88,7 @@ export function TagSelector({
               )}
             </button>
             {open && (
-              <div className="flex flex-wrap gap-2 border-t border-outline-variant p-3">
+              <div className="flex flex-wrap gap-2 border-t border-border-subtle p-3">
                 {group.tags.map((tag) => {
                   const selected = value.includes(tag.code);
                   const capped =
@@ -101,10 +101,10 @@ export function TagSelector({
                       disabled={disabled || capped}
                       onClick={() => toggle(tag.code)}
                       className={cn(
-                        "rounded-full border px-3 py-1 text-label-md transition-colors",
+                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                         selected
-                          ? "border-primary bg-primary text-on-primary"
-                          : "border-outline-variant bg-surface-container-low text-on-surface",
+                          ? "border-brand bg-brand text-on-primary"
+                          : "border-border-subtle bg-bg-subtle text-fg",
                         (disabled || capped) &&
                           "cursor-not-allowed opacity-60",
                       )}
@@ -118,7 +118,7 @@ export function TagSelector({
           </div>
         );
       })}
-      <p className="text-body-sm text-on-surface-variant">
+      <p className="text-xs text-fg-muted">
         {value.length}/{maxSelections} selected
       </p>
     </div>

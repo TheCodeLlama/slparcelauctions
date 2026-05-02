@@ -61,12 +61,12 @@ export function ListingPreviewCard({
   return (
     <article
       className={cn(
-        "flex flex-col gap-3 rounded-default border border-outline-variant bg-surface-container-lowest p-4",
+        "flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-raised p-4",
         className,
       )}
     >
       {isPreview && (
-        <div className="rounded-default bg-primary-container px-3 py-2 text-body-sm text-on-primary-container">
+        <div className="rounded-lg bg-brand-soft px-3 py-2 text-xs text-brand">
           Preview — this is how your listing will appear to buyers.
         </div>
       )}
@@ -75,14 +75,14 @@ export function ListingPreviewCard({
         <img
           src={cover}
           alt=""
-          className="h-48 w-full rounded-default object-cover"
+          className="h-48 w-full rounded-lg object-cover"
         />
       ) : null}
-      <h3 className="text-title-lg text-on-surface">{headline}</h3>
+      <h3 className="text-base font-bold tracking-tight text-fg">{headline}</h3>
       {subtitle ? (
-        <p className="text-body-sm text-on-surface-variant">{subtitle}</p>
+        <p className="text-xs text-fg-muted">{subtitle}</p>
       ) : null}
-      <p className="flex items-center gap-1 text-body-sm text-on-surface-variant">
+      <p className="flex items-center gap-1 text-xs text-fg-muted">
         <MapPin className="size-3.5" aria-hidden="true" />
         <span>
           {auction.parcel.regionName} · {auction.parcel.areaSqm} m²
@@ -102,7 +102,7 @@ export function ListingPreviewCard({
         />
       </dl>
       {auction.sellerDesc && (
-        <p className="whitespace-pre-wrap text-body-md text-on-surface">
+        <p className="whitespace-pre-wrap text-sm text-fg">
           {auction.sellerDesc}
         </p>
       )}
@@ -111,7 +111,7 @@ export function ListingPreviewCard({
           {auction.tags.map((t) => (
             <li
               key={t.code}
-              className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2 py-0.5 text-label-sm text-on-surface-variant"
+              className="inline-flex items-center gap-1 rounded-full bg-bg-hover px-2 py-0.5 text-[11px] font-medium text-fg-muted"
             >
               <TagIcon className="size-3" aria-hidden="true" />
               {t.label}
@@ -126,10 +126,10 @@ export function ListingPreviewCard({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-label-sm uppercase text-on-surface-variant">
+      <dt className="text-[11px] font-medium uppercase text-fg-muted">
         {label}
       </dt>
-      <dd className="text-body-md font-medium text-on-surface">{value}</dd>
+      <dd className="text-sm font-medium text-fg">{value}</dd>
     </div>
   );
 }
