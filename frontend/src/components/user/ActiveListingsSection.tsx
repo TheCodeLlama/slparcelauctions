@@ -82,7 +82,7 @@ export function ActiveListingsSection({
         <div className="flex justify-end">
           <Link
             href={`/users/${userId}/listings`}
-            className="text-label-lg font-medium text-primary underline-offset-4 hover:underline"
+            className="text-sm font-medium text-brand underline-offset-4 hover:underline"
           >
             View all ({data.totalElements})
           </Link>
@@ -100,23 +100,23 @@ function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
   const endsAtDate = parseDate(auction.endsAt);
 
   return (
-    <li className="rounded-default border border-outline-variant bg-surface-container-lowest">
+    <li className="rounded-lg border border-border-subtle bg-surface-raised">
       <Link
         href={`/auction/${auction.id}`}
-        className="flex flex-col gap-2 p-3 hover:bg-surface-container-low focus-visible:bg-surface-container-low focus-visible:outline-none"
+        className="flex flex-col gap-2 p-3 hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
       >
         <Thumbnail src={thumb} alt="" />
         <div className="flex flex-col gap-1">
-          <h3 className="text-title-sm font-semibold text-on-surface truncate">
+          <h3 className="text-sm font-semibold text-fg truncate">
             {parcelLabel}
           </h3>
-          <p className="text-body-sm text-on-surface-variant truncate">
+          <p className="text-xs text-fg-muted truncate">
             {auction.parcel.regionName} · {auction.parcel.areaSqm.toLocaleString()} m²
           </p>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-body-sm text-on-surface-variant">
+            <span className="text-xs text-fg-muted">
               Current{" "}
-              <span className="font-semibold text-on-surface">
+              <span className="font-semibold text-fg">
                 {highBid == null
                   ? `L$${auction.startingBid.toLocaleString()}`
                   : `L$${highBid.toLocaleString()}`}
@@ -126,11 +126,11 @@ function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
               <CountdownTimer
                 expiresAt={endsAtDate}
                 format="hh:mm:ss"
-                className="inline text-body-sm"
+                className="inline text-xs"
               />
             ) : null}
           </div>
-          <span className="text-label-md font-medium text-primary underline-offset-4 hover:underline">
+          <span className="text-xs font-medium text-brand underline-offset-4 hover:underline">
             View listing
           </span>
         </div>
@@ -140,7 +140,7 @@ function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
 }
 
 function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
-  const box = "aspect-video w-full rounded-default";
+  const box = "aspect-video w-full rounded-lg";
   if (src) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element -- snapshot / MinIO-served bytes */
@@ -151,7 +151,7 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
     <div
       className={cn(
         box,
-        "flex items-center justify-center bg-surface-container-high text-on-surface-variant",
+        "flex items-center justify-center bg-bg-hover text-fg-muted",
       )}
       aria-hidden="true"
     >

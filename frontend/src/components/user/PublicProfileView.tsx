@@ -58,7 +58,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
         />
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-headline-md font-display font-bold">
+            <h1 className="text-xl font-bold tracking-tight font-display">
               {profile.displayName ?? "Anonymous"}
             </h1>
             {profile.verified ? (
@@ -70,9 +70,9 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
             )}
           </div>
           {profile.bio && (
-            <p className="text-body-md text-on-surface-variant">{profile.bio}</p>
+            <p className="text-sm text-fg-muted">{profile.bio}</p>
           )}
-          <p className="text-body-sm text-on-surface-variant">
+          <p className="text-xs text-fg-muted">
             Member since {new Date(profile.createdAt).toLocaleDateString()}
           </p>
         </div>
@@ -86,7 +86,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
       {/* Reputation */}
       <Card>
         <Card.Header>
-          <h2 className="text-title-md font-bold">Reputation</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Reputation</h2>
         </Card.Header>
         <Card.Body>
           <div className="flex flex-col gap-4">
@@ -104,7 +104,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
             </div>
             <div className="flex items-center gap-4">
               <NewSellerBadge completedSales={profile.completedSales} />
-              <span className="text-body-sm text-on-surface-variant">
+              <span className="text-xs text-fg-muted">
                 {profile.completedSales} completed sale{profile.completedSales === 1 ? "" : "s"}
               </span>
             </div>
@@ -115,7 +115,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
       {/* Reviews (Epic 08 sub-spec 1 §8.2) */}
       <Card>
         <Card.Header>
-          <h2 className="text-title-md font-bold">Reviews</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Reviews</h2>
         </Card.Header>
         <Card.Body>
           <ProfileReviewTabs
@@ -131,7 +131,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
       {/* Active listings (Epic 04 sub-spec 2 §14) */}
       <Card>
         <Card.Header>
-          <h2 className="text-title-md font-bold">Active listings</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Active listings</h2>
         </Card.Header>
         <Card.Body>
           <ActiveListingsSection userId={profile.id} />

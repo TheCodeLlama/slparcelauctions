@@ -58,15 +58,15 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
   return (
     <Card>
       <Card.Header>
-        <h2 className="text-title-md font-bold">Edit Profile</h2>
+        <h2 className="text-sm font-semibold tracking-tight">Edit Profile</h2>
       </Card.Header>
       <Card.Body>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-label-md text-on-surface-variant">
+            <label className="text-xs font-medium text-fg-muted">
               Email
             </label>
-            <p className="text-body-md text-on-surface">{user.email}</p>
+            <p className="text-sm text-fg">{user.email}</p>
           </div>
 
           <Input
@@ -78,19 +78,19 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
           <div className="flex flex-col gap-1">
             <label
               htmlFor="bio"
-              className="text-label-md text-on-surface-variant"
+              className="text-xs font-medium text-fg-muted"
             >
               Bio
             </label>
             <textarea
               id="bio"
               rows={4}
-              className="w-full rounded-default bg-surface-container-low text-on-surface placeholder:text-on-surface-variant px-4 py-3 ring-1 ring-transparent transition-all focus:bg-surface-container-lowest focus:outline-none focus:ring-primary resize-none"
+              className="w-full rounded-lg bg-bg-subtle text-fg placeholder:text-fg-muted px-4 py-3 ring-1 ring-transparent transition-all focus:bg-surface-raised focus:outline-none focus:ring-brand resize-none"
               aria-invalid={errors.bio ? true : undefined}
               {...register("bio")}
             />
             {errors.bio?.message && (
-              <span className="text-body-sm text-error">
+              <span className="text-xs text-danger-flat">
                 {errors.bio.message}
               </span>
             )}

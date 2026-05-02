@@ -56,7 +56,7 @@ describe("SuspensionBanner", () => {
     renderWithProviders(<SuspensionBanner />, { auth: "authenticated" });
     const banner = await screen.findByTestId("suspension-banner");
     expect(banner.dataset.variant).toBe("banned");
-    expect(banner.className).toMatch(/error-container/);
+    expect(banner.className).toMatch(/danger-bg/);
     expect(banner).toHaveTextContent(
       /listing privileges have been permanently suspended/i,
     );
@@ -78,7 +78,7 @@ describe("SuspensionBanner", () => {
     renderWithProviders(<SuspensionBanner />, { auth: "authenticated" });
     const banner = await screen.findByTestId("suspension-banner");
     expect(banner.dataset.variant).toBe("timed-and-debt");
-    expect(banner.className).toMatch(/secondary-container/);
+    expect(banner.className).toMatch(/info-bg/);
     expect(banner).toHaveTextContent(/listing suspended until/i);
     expect(banner).toHaveTextContent(/L\$2,500/);
     expect(banner).toHaveTextContent(/visit any slpa terminal/i);
