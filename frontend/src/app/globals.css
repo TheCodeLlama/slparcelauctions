@@ -158,6 +158,61 @@
   /* ===== Shadows (soft, low-intensity per DESIGN.md §4) ===== */
   --shadow-soft: 0 8px 24px rgba(25, 28, 30, 0.04);
   --shadow-elevated: 0 20px 40px rgba(25, 28, 30, 0.06);
+
+  /* ===== New design tokens (cluster 1 — coexist with M3 above) ===== */
+  /* Brand */
+  --color-brand: #E3631E;
+  --color-brand-hover: #C9551A;
+  --color-brand-soft: #FFF1E8;
+  --color-brand-border: #F8D2B5;
+
+  /* Backgrounds — warm neutrals */
+  --color-bg: #FFFFFF;
+  --color-bg-subtle: #FAFAF9;
+  --color-bg-muted: #F4F4F2;
+  --color-bg-hover: #F0EFEC;
+  --color-surface-raised: #FFFFFF;
+  /* note: --color-surface already exists from M3; we keep its M3 value during transition */
+
+  /* Foregrounds */
+  --color-fg: #18181B;
+  --color-fg-muted: #52525B;
+  --color-fg-subtle: #71717A;
+  --color-fg-faint: #A1A1AA;
+
+  /* Borders */
+  --color-border: #E7E5E0;
+  --color-border-strong: #D4D2CC;
+  --color-border-subtle: #EFEDE8;
+
+  /* Semantic — flat, no on-* pairs */
+  --color-success-flat: #15803D;
+  --color-success-bg: #F0FDF4;
+  --color-warning-flat: #B45309;
+  --color-warning-bg: #FFFBEB;
+  --color-danger-flat: #B91C1C;
+  --color-danger-bg: #FEF2F2;
+  --color-info-flat: #1D4ED8;
+  --color-info-bg: #EFF6FF;
+
+  /* Radii — values from new design (override M3 values for `sm`, `lg`) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  /* Shadows — subtle */
+  --shadow-xs: 0 1px 2px rgba(24,24,27,.04);
+  --shadow-sm: 0 1px 3px rgba(24,24,27,.06), 0 1px 2px rgba(24,24,27,.04);
+  --shadow-md: 0 4px 12px -2px rgba(24,24,27,.06), 0 2px 6px -2px rgba(24,24,27,.04);
+  --shadow-lg: 0 12px 28px -8px rgba(24,24,27,.12), 0 6px 12px -4px rgba(24,24,27,.06);
+  --ring-color: rgba(227,99,30,.18);
+
+  /* Layout */
+  --container-w: 1320px;
+  --header-h: 60px;
 }
 
 .dark {
