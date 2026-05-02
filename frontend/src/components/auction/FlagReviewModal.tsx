@@ -5,9 +5,10 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Flag } from "@/components/ui/icons";
 import { flagReview } from "@/lib/api/reviews";
+import type { ReviewFlagReason } from "@/types/review";
 import { cn } from "@/lib/cn";
 
-const REASONS: Array<{ value: string; label: string; hint: string }> = [
+const REASONS: Array<{ value: ReviewFlagReason; label: string; hint: string }> = [
   {
     value: "FALSE_INFO",
     label: "Contains false information",
@@ -48,15 +49,15 @@ export function FlagReviewModal({
   reviewId,
   reviewSnippet,
 }: FlagReviewModalProps) {
-  const [reason, setReason] = useState<string | null>(null);
-  const [notes, setNotes] = useState("");
+  const [reason, setReason] = useState<ReviewFlagReason | null>(null);
+  const [elaboration, setElaboration] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
     setReason(null);
-    setNotes("");
+    setElaboration("");
     setSubmitting(false);
     setSubmitted(false);
     setError(null);
@@ -68,7 +69,11 @@ export function FlagReviewModal({
     setSubmitting(true);
     setError(null);
     try {
-      await flagReview(reviewId, { reason, notes: notes.trim() || undefined });
+      const trimmed = elaboration.trim();
+      await flagReview(reviewId, {
+        reason,
+        ...(trimmed.length > 0 ? { elaboration: trimmed } : {}),
+      });
       setSubmitted(true);
     } catch (err) {
       setError(
@@ -157,8 +162,8 @@ export function FlagReviewModal({
             ))}
           </div>
           <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={elaboration}
+            onChange={(e) => setElaboration(e.target.value)}
             placeholder="Optional context (won't be shared with the reviewer)…"
             rows={3}
             className="mt-3 w-full rounded-sm border border-border bg-surface-raised px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
