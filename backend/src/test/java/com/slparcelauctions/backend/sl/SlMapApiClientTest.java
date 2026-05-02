@@ -44,11 +44,13 @@ class SlMapApiClientTest {
 
     @Test
     void resolveRegion_validResponse_parsesCoordinates() {
+        // Current SL CAP shape: var <name> = {'x' : N, 'y' : N };
+        // The legacy `coords[0] = X` shape is no longer served.
         wireMock.stubFor(post(urlPathMatching("/cap/0/.*"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "text/javascript")
-                        .withBody("var coords = new Array();\ncoords[0] = 260000;\ncoords[1] = 254000;\n")));
+                        .withBody("var loc = {'x' : 260000, 'y' : 254000 };")));
 
         GridCoordinates result = newClient().resolveRegion("Coniston").block();
         assertThat(result).isNotNull();
@@ -58,8 +60,11 @@ class SlMapApiClientTest {
 
     @Test
     void resolveRegion_emptyResponse_throwsRegionNotFound() {
+        // SL responds without an 'x'/'y' object literal when the region
+        // doesn't exist. Whatever shape it takes, the parser only knows how
+        // to find coordinates — anything else collapses to "not found".
         wireMock.stubFor(post(urlPathMatching("/cap/0/.*"))
-                .willReturn(aResponse().withStatus(200).withBody("var coords = new Array();\n")));
+                .willReturn(aResponse().withStatus(200).withBody("var loc = {};")));
 
         assertThatThrownBy(() -> newClient().resolveRegion("NoSuchRegion").block())
                 .isInstanceOf(RegionNotFoundException.class);

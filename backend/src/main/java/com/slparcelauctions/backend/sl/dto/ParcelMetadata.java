@@ -16,7 +16,7 @@ public record ParcelMetadata(
         Integer areaSqm,
         String description,
         String snapshotUrl,
-        String maturityRating,   // canonical: "GENERAL", "MODERATE", "ADULT" (normalized at ingest)
+        String maturityRating,   // canonical: "GENERAL"/"MODERATE"/"ADULT". Always null from World API ingest — parcel pages don't expose it; user-supplied at listing time.
         Double positionX,
         Double positionY,
         Double positionZ) {

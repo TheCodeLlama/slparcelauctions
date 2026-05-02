@@ -19,6 +19,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
+import com.slparcelauctions.backend.sl.ParcelIngestException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.NotMainlandException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
@@ -273,6 +274,26 @@ public class GlobalExceptionHandler {
         pd.setProperty("code", "NOT_MAINLAND");
         pd.setProperty("gridX", e.getGridX());
         pd.setProperty("gridY", e.getGridY());
+        return pd;
+    }
+
+    // Parcel-page parser failed to extract a required field from the SL World
+    // API response. Surface as 422 (the upstream payload was unprocessable)
+    // rather than letting it fall through to the catch-all 500 — defense in
+    // depth so future drift in SL's HTML contract presents as a clean error
+    // instead of an opaque correlation-ID + alert page. Sister-class to
+    // {@link ParcelNotFoundInSlException} (404) and {@link NotMainlandException} (422).
+    @ExceptionHandler(ParcelIngestException.class)
+    public ProblemDetail handleParcelIngestFailed(ParcelIngestException e,
+                                                  HttpServletRequest req) {
+        log.warn("Parcel ingest failed at path={}: {}", req.getRequestURI(), e.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                "Could not parse parcel information from the Second Life World API. The page may have an unexpected format.");
+        pd.setType(URI.create("https://slpa.example/problems/sl/parcel-ingest-failed"));
+        pd.setTitle("Parcel ingest failed");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PARCEL_INGEST_FAILED");
         return pd;
     }
 
