@@ -223,7 +223,7 @@ function LabeledField({
       </label>
       {render(id)}
       {error ? (
-        <span className="text-xs text-danger-flat">{error}</span>
+        <span className="text-xs text-danger">{error}</span>
       ) : helperText ? (
         <span className="text-xs text-fg-muted">
           {helperText}

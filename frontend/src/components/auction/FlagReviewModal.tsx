@@ -108,7 +108,7 @@ export function FlagReviewModal({
     >
       {submitted ? (
         <div className="text-center">
-          <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-success-bg text-success-flat">
+          <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-success-bg text-success">
             <Flag className="size-5" aria-hidden />
           </div>
           <div className="mb-2 text-base font-semibold text-fg">
@@ -164,7 +164,7 @@ export function FlagReviewModal({
             className="mt-3 w-full rounded-sm border border-border bg-surface-raised px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
           />
           {error && (
-            <div className="mt-3 rounded-md border border-danger-flat/40 bg-danger-bg p-2.5 text-xs text-danger-flat">
+            <div className="mt-3 rounded-md border border-danger/40 bg-danger-bg p-2.5 text-xs text-danger">
               {error}
             </div>
           )}

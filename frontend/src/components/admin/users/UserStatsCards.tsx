@@ -13,9 +13,9 @@ type StatCardProps = {
 function StatCard({ label, value, variant = "default" }: StatCardProps) {
   const valueClass =
     variant === "error"
-      ? "text-danger-flat"
+      ? "text-danger"
       : variant === "warning"
-      ? "text-warning-flat"
+      ? "text-warning"
       : "text-fg";
 
   return (

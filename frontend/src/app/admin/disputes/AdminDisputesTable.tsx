@@ -27,7 +27,7 @@ export function AdminDisputesTable({ rows }: Props) {
         {rows.map((row) => (
           <tr key={row.escrowId} className="border-b border-border-subtle/40 hover:bg-bg-subtle">
             <td className="py-2 px-2">
-              <Link href={`/admin/disputes/${row.escrowId}`} className="text-danger-flat">
+              <Link href={`/admin/disputes/${row.escrowId}`} className="text-danger">
                 {row.status === "DISPUTED" ? "⚐ Disputed" : "❄ Frozen"}
               </Link>
             </td>

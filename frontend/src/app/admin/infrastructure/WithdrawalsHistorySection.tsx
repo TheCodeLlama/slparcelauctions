@@ -23,8 +23,8 @@ export function WithdrawalsHistorySection() {
               <td className="py-2">L$ {w.amount.toLocaleString()}</td>
               <td className="py-2 font-mono">{w.recipientUuid.slice(0, 8)}…</td>
               <td className={`py-2 ${
-                w.status === "COMPLETED" ? "text-success-flat" :
-                w.status === "FAILED" ? "text-danger-flat" : "text-info-flat"
+                w.status === "COMPLETED" ? "text-success" :
+                w.status === "FAILED" ? "text-danger" : "text-info"
               }`}>{w.status}</td>
               <td className="py-2 opacity-70">{w.completedAt ? new Date(w.completedAt).toLocaleString() : "—"}</td>
               <td className="py-2 opacity-70">{w.notes ?? "—"}</td>

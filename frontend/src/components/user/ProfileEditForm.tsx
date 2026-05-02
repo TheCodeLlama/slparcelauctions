@@ -90,7 +90,7 @@ export function ProfileEditForm({ user }: ProfileEditFormProps) {
               {...register("bio")}
             />
             {errors.bio?.message && (
-              <span className="text-xs text-danger-flat">
+              <span className="text-xs text-danger">
                 {errors.bio.message}
               </span>
             )}

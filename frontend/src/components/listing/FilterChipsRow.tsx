@@ -57,7 +57,7 @@ export function FilterChipsRow({
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors",
               selected
-                ? "bg-brand text-on-primary"
+                ? "bg-brand text-white"
                 : "bg-bg-subtle text-fg hover:bg-bg-muted",
             )}
           >
@@ -67,7 +67,7 @@ export function FilterChipsRow({
                 className={cn(
                   "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium",
                   selected
-                    ? "bg-on-primary/20 text-on-primary"
+                    ? "bg-white/20 text-white"
                     : "bg-bg-hover text-fg-muted",
                 )}
               >

@@ -153,7 +153,7 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
-          className="text-xs font-medium text-danger-flat underline underline-offset-4 hover:opacity-80"
+          className="text-xs font-medium text-danger underline underline-offset-4 hover:opacity-80"
         >
           Cancel this listing
         </button>

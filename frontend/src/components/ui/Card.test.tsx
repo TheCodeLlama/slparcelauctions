@@ -10,9 +10,9 @@ describe("Card", () => {
       </Card>
     );
     const card = screen.getByTestId("card");
-    expect(card.className).toContain("bg-surface-container-lowest");
-    expect(card.className).toContain("rounded-default");
-    expect(card.className).toContain("shadow-soft");
+    expect(card.className).toContain("bg-surface-raised");
+    expect(card.className).toContain("rounded-lg");
+    expect(card.className).toContain("shadow-sm");
     expect(card.className).toContain("max-w-md");
     expect(screen.getByText("hello")).toBeInTheDocument();
   });

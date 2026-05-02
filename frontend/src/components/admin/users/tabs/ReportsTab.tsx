@@ -27,7 +27,7 @@ export function ReportsTab({ userId }: Props) {
   }
 
   if (isError) {
-    return <div className="py-6 text-sm text-danger-flat">Could not load reports.</div>;
+    return <div className="py-6 text-sm text-danger">Could not load reports.</div>;
   }
 
   if (!data || data.content.length === 0) {
@@ -70,7 +70,7 @@ export function ReportsTab({ userId }: Props) {
                       Filed by
                     </span>
                   ) : (
-                    <span className="text-[11px] bg-danger-bg px-2 py-0.5 rounded-full text-danger-flat">
+                    <span className="text-[11px] bg-danger-bg px-2 py-0.5 rounded-full text-danger">
                       Against listing
                     </span>
                   )}

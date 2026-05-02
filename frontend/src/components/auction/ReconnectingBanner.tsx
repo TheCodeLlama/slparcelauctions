@@ -25,9 +25,8 @@ export interface ReconnectingBannerProps {
  *       suggests a session expiry, also render a sign-in link.</li>
  * </ul>
  *
- * Styling uses the M3-flavoured design tokens (see spec §15):
- * {@code rounded-default}, {@code bg-error-container},
- * {@code text-on-error-container}. Full-width inside the panel — the
+ * Styling uses design tokens: {@code rounded-lg}, {@code bg-danger-bg},
+ * {@code text-danger}. Full-width inside the panel — the
  * banner pushes the form content below rather than overlaying it so the
  * bid inputs stay reachable by keyboard and screen reader.
  */
@@ -130,8 +129,8 @@ function Banner({
   // colors) can slot in without rewriting the surface.
   const toneClasses =
     tone === "warning"
-      ? "bg-danger-bg text-danger-flat"
-      : "bg-danger-bg text-danger-flat";
+      ? "bg-danger-bg text-danger"
+      : "bg-danger-bg text-danger";
   return (
     <div
       role="status"

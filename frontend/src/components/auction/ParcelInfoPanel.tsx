@@ -54,7 +54,7 @@ const MATURITY_MAP: Record<
   },
   ADULT: {
     label: "Adult",
-    cls: "bg-danger-bg text-danger-flat",
+    cls: "bg-danger-bg text-danger",
   },
 };
 

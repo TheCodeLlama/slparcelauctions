@@ -74,7 +74,7 @@ export function ReinstateListingModal({ auction, userId, onClose }: Props) {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <label htmlFor="reinstate-notes" className="text-xs font-medium text-fg">
-                Notes <span className="text-danger-flat">*</span>
+                Notes <span className="text-danger">*</span>
               </label>
               <textarea
                 id="reinstate-notes"

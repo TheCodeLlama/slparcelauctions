@@ -57,14 +57,14 @@ export function CuratorTrayHeader({
         className,
       )}
     >
-      <h2 className="text-title-md font-bold font-display tracking-[-0.02em]">
+      <h2 className="text-sm font-semibold tracking-tight font-bold font-display tracking-[-0.02em]">
         Your Curator Tray ({count.toLocaleString()} saved)
       </h2>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <label
             htmlFor={sortId}
-            className="text-label-md text-on-surface-variant"
+            className="text-xs font-medium text-fg-muted"
           >
             Sort
           </label>
@@ -78,7 +78,7 @@ export function CuratorTrayHeader({
                 page: 0,
               })
             }
-            className="h-9 rounded-default bg-surface-container-low text-on-surface px-3 text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-9 rounded-lg bg-bg-subtle text-fg px-3 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -90,7 +90,7 @@ export function CuratorTrayHeader({
         <div className="flex items-center gap-2">
           <label
             htmlFor={statusId}
-            className="text-label-md text-on-surface-variant"
+            className="text-xs font-medium text-fg-muted"
           >
             Status
           </label>
@@ -104,7 +104,7 @@ export function CuratorTrayHeader({
                 page: 0,
               })
             }
-            className="h-9 rounded-default bg-surface-container-low text-on-surface px-3 text-label-md focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-9 rounded-lg bg-bg-subtle text-fg px-3 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand"
           >
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>

@@ -11,7 +11,7 @@ export function AdminDisputesListPage() {
   const { data, isLoading, error } = useDisputesQueue(filters);
 
   if (isLoading) return <p>Loading…</p>;
-  if (error) return <p className="text-danger-flat">Failed to load disputes</p>;
+  if (error) return <p className="text-danger">Failed to load disputes</p>;
 
   return (
     <div>

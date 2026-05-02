@@ -94,14 +94,14 @@ export function WalletPill() {
         </dl>
         {penaltyOwed > 0 && (
           <div className={cn(
-            "mt-3 flex gap-2 rounded-md border border-warning-flat/40 bg-warning-bg p-2 text-xs"
+            "mt-3 flex gap-2 rounded-md border border-warning/40 bg-warning-bg p-2 text-xs"
           )}>
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-flat" aria-hidden />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
             <div>
-              <div className="text-warning-flat">
+              <div className="text-warning">
                 Penalty owed: {formatLindens(penaltyOwed)}
               </div>
-              <span className="mt-1 inline-flex items-center gap-1 underline text-warning-flat">
+              <span className="mt-1 inline-flex items-center gap-1 underline text-warning">
                 Pay penalty
                 <ArrowRight className="h-3 w-3" aria-hidden />
               </span>

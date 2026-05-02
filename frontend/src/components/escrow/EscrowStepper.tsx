@@ -129,9 +129,9 @@ export function EscrowStepper({ escrow, className }: EscrowStepperProps) {
         ))}
         <li
           data-state="interrupt"
-          className="flex flex-col items-center gap-1 text-danger-flat"
+          className="flex flex-col items-center gap-1 text-danger"
         >
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-danger-flat bg-danger-bg text-danger-flat">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-danger bg-danger-bg text-danger">
             <AlertCircle className="size-3.5" aria-hidden="true" />
           </span>
           <span className="text-xs font-medium font-semibold">{interrupt.label}</span>

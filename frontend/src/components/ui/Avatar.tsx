@@ -13,11 +13,11 @@ type AvatarProps = {
 };
 
 const sizeMap: Record<AvatarSize, { px: number; class: string }> = {
-  xs: { px: 24, class: "size-6 text-label-sm" },
-  sm: { px: 32, class: "size-8 text-label-md" },
-  md: { px: 40, class: "size-10 text-label-lg" },
-  lg: { px: 56, class: "size-14 text-title-md" },
-  xl: { px: 80, class: "size-20 text-title-lg" },
+  xs: { px: 24, class: "size-6 text-[11px] font-medium" },
+  sm: { px: 32, class: "size-8 text-xs font-medium" },
+  md: { px: 40, class: "size-10 text-sm font-medium" },
+  lg: { px: 56, class: "size-14 text-sm font-semibold tracking-tight" },
+  xl: { px: 80, class: "size-20 text-base font-bold tracking-tight" },
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
@@ -64,7 +64,7 @@ export function Avatar({
       role="img"
       aria-label={alt}
       className={cn(
-        "rounded-full bg-tertiary-container text-on-tertiary-container font-semibold inline-flex items-center justify-center",
+        "rounded-full bg-info-bg text-info font-semibold inline-flex items-center justify-center",
         sizeClass,
         className
       )}

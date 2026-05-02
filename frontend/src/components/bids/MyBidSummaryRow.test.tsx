@@ -70,12 +70,12 @@ describe("MyBidSummaryRow", () => {
 
   it.each<{ status: MyBidStatus; borderClass: string }>([
     { status: "WINNING", borderClass: "border-l-info-bg" },
-    { status: "OUTBID", borderClass: "border-l-danger-flat" },
+    { status: "OUTBID", borderClass: "border-l-danger" },
     { status: "WON", borderClass: "border-l-brand" },
     { status: "LOST", borderClass: "border-l-fg-muted" },
     { status: "RESERVE_NOT_MET", borderClass: "border-l-info-bg" },
     { status: "CANCELLED", borderClass: "border-l-fg-muted" },
-    { status: "SUSPENDED", borderClass: "border-l-danger-flat" },
+    { status: "SUSPENDED", borderClass: "border-l-danger" },
   ])("applies the $borderClass accent for $status", ({ status, borderClass }) => {
     render(<MyBidSummaryRow bid={summary({ status })} />);
     const row = screen.getByTestId("my-bid-row-42");

@@ -111,7 +111,7 @@ export function VerificationMethodPicker({
       {showFailureBanner && (
         <div
           role="status"
-          className="flex items-start gap-3 rounded-lg bg-danger-bg p-4 text-danger-flat"
+          className="flex items-start gap-3 rounded-lg bg-danger-bg p-4 text-danger"
         >
           <AlertTriangle aria-hidden="true" className="size-5 shrink-0" />
           <div className="flex-1 flex flex-col gap-1">
@@ -125,7 +125,7 @@ export function VerificationMethodPicker({
             type="button"
             aria-label="Dismiss failure notice"
             onClick={() => setBannerDismissed(true)}
-            className="text-danger-flat hover:opacity-80"
+            className="text-danger hover:opacity-80"
           >
             <XCircle aria-hidden="true" className="size-5" />
           </button>
@@ -134,7 +134,7 @@ export function VerificationMethodPicker({
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-danger-bg px-4 py-3 text-xs font-medium text-danger-flat"
+          className="rounded-lg bg-danger-bg px-4 py-3 text-xs font-medium text-danger"
         >
           {error}
         </div>

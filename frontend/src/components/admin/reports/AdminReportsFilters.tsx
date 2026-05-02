@@ -26,7 +26,7 @@ export function AdminReportsFilters({ status, onStatusChange }: Props) {
           className={cn(
             "px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors",
             status === pill.value
-              ? "bg-info-bg text-info-flat font-medium"
+              ? "bg-info-bg text-info font-medium"
               : "bg-bg-muted text-fg-muted hover:bg-bg-hover"
           )}
         >

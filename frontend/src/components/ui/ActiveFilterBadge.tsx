@@ -21,8 +21,8 @@ export function ActiveFilterBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-body-sm",
-        "bg-surface-container-low text-on-surface-variant",
+        "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs",
+        "bg-bg-subtle text-fg-muted",
         className,
       )}
     >
@@ -31,7 +31,7 @@ export function ActiveFilterBadge({
         type="button"
         onClick={onRemove}
         aria-label={`Remove filter: ${label}`}
-        className="rounded-full p-0.5 hover:bg-surface-container-high focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        className="rounded-full p-0.5 hover:bg-bg-hover focus-visible:ring-2 focus-visible:ring-brand"
       >
         <X className="size-3.5" aria-hidden="true" />
       </button>

@@ -11,7 +11,7 @@ export function AdminDisputeDetailPage({ escrowId }: { escrowId: number }) {
   const router = useRouter();
   const { data, isLoading, error } = useDispute(escrowId);
   if (isLoading) return <p>Loading…</p>;
-  if (error || !data) return <p className="text-danger-flat">Failed to load dispute</p>;
+  if (error || !data) return <p className="text-danger">Failed to load dispute</p>;
 
   return (
     <div className="space-y-4">
@@ -23,8 +23,8 @@ export function AdminDisputeDetailPage({ escrowId }: { escrowId: number }) {
 
       <header className="bg-bg-muted rounded p-4 flex gap-4 items-center">
         <span className={`px-2.5 py-1 rounded text-[11px] ${
-          data.status === "DISPUTED" ? "bg-danger-bg text-danger-flat" :
-          "bg-info-bg text-info-flat"
+          data.status === "DISPUTED" ? "bg-danger-bg text-danger" :
+          "bg-info-bg text-info"
         }`}>
           {data.status === "DISPUTED" ? "⚐ DISPUTED" : "❄ FROZEN"}
         </span>

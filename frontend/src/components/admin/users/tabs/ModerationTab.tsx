@@ -28,7 +28,7 @@ export function ModerationTab({ userId }: Props) {
   }
 
   if (isError) {
-    return <div className="py-6 text-sm text-danger-flat">Could not load moderation history.</div>;
+    return <div className="py-6 text-sm text-danger">Could not load moderation history.</div>;
   }
 
   if (!data || data.content.length === 0) {

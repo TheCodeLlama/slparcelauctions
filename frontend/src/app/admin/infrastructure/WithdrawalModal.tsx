@@ -57,7 +57,7 @@ export function WithdrawalModal({ onClose, available }: Props) {
             >{mutation.isPending ? "Submitting…" : "Withdraw"}</button>
           </div>
           {mutation.isError && (
-            <p className="text-[10px] text-danger-flat">{(mutation.error as Error).message}</p>
+            <p className="text-[10px] text-danger">{(mutation.error as Error).message}</p>
           )}
         </div>
       </div>

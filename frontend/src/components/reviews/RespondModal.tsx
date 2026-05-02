@@ -86,7 +86,7 @@ export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
             data-testid="respond-modal-counter"
             className={cn(
               "self-end text-[11px] font-medium",
-              overLimit ? "text-danger-flat" : "text-fg-muted",
+              overLimit ? "text-danger" : "text-fg-muted",
             )}
           >
             {text.length} / {MAX_LEN}

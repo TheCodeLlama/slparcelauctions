@@ -139,7 +139,7 @@ export function ListingSummaryRow({
       {isSuspended && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg bg-danger-bg p-2.5 text-xs text-danger-flat"
+          className="flex items-start gap-2 rounded-lg bg-danger-bg p-2.5 text-xs text-danger"
         >
           <AlertTriangle
             className="mt-0.5 size-4 shrink-0"

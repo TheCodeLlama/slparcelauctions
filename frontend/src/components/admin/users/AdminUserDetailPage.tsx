@@ -30,7 +30,7 @@ export function AdminUserDetailPage({ userId }: Props) {
 
   if (isError || !user) {
     return (
-      <div className="py-12 text-sm text-danger-flat" data-testid="user-detail-error">
+      <div className="py-12 text-sm text-danger" data-testid="user-detail-error">
         Could not load user. Refresh to retry.
       </div>
     );

@@ -108,7 +108,7 @@ export function DistanceSearchBlock({
           className="h-10 rounded-lg bg-bg-subtle text-fg placeholder:text-fg-muted px-3 ring-1 ring-transparent focus:bg-surface-raised focus:outline-none focus:ring-2 focus:ring-brand"
         />
         {errorMessage && (
-          <p role="alert" className="text-xs text-danger-flat">
+          <p role="alert" className="text-xs text-danger">
             {errorMessage}
           </p>
         )}

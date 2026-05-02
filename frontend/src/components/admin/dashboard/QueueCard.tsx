@@ -5,13 +5,13 @@ type Tone = "fraud" | "warning";
 const TONE_CLASSES: Record<Tone, { bg: string; border: string; value: string }> = {
   fraud: {
     bg: "bg-danger-bg",
-    border: "border-danger-flat",
-    value: "text-danger-flat",
+    border: "border-danger",
+    value: "text-danger",
   },
   warning: {
     bg: "bg-info-bg",
-    border: "border-info-flat",
-    value: "text-info-flat",
+    border: "border-info",
+    value: "text-info",
   },
 };
 

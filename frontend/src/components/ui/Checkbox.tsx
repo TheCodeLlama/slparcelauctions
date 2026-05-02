@@ -32,23 +32,23 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               id={checkboxId}
               type="checkbox"
               className={cn(
-                "peer h-5 w-5 appearance-none rounded border-2 border-on-surface-variant/40",
-                "bg-surface-container-lowest transition-colors",
-                "checked:border-primary checked:bg-primary",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                error && "border-error"
+                "peer h-5 w-5 appearance-none rounded border-2 border-fg-muted/40",
+                "bg-surface-raised transition-colors",
+                "checked:border-brand checked:bg-brand",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+                error && "border-danger"
               )}
               {...props}
             />
             <Check
-              className="pointer-events-none absolute inset-0 hidden h-5 w-5 text-on-primary peer-checked:block"
+              className="pointer-events-none absolute inset-0 hidden h-5 w-5 text-white peer-checked:block"
               strokeWidth={3}
             />
           </div>
-          <span className="text-body-sm text-on-surface">{label}</span>
+          <span className="text-xs text-fg">{label}</span>
         </label>
         {error && (
-          <p className="ml-8 mt-1 text-label-sm text-error">{error}</p>
+          <p className="ml-8 mt-1 text-[11px] font-medium text-danger">{error}</p>
         )}
       </div>
     );

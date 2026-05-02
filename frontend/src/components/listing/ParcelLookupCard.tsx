@@ -27,15 +27,15 @@ const MATURITY_MAP: Record<
 > = {
   GENERAL: {
     label: "General",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   MODERATE: {
     label: "Moderate",
-    cls: "bg-warning-bg text-warning-flat",
+    cls: "bg-warning-bg text-warning",
   },
   ADULT: {
     label: "Adult",
-    cls: "bg-danger-bg text-danger-flat",
+    cls: "bg-danger-bg text-danger",
   },
 };
 

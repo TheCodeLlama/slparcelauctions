@@ -62,7 +62,7 @@ export function AdminUsersTable({ rows }: Props) {
                   <div className="text-[11px] text-fg-muted mt-0.5">
                     {row.completedSales} sold
                     {row.cancelledWithBids > 0 && (
-                      <span className="text-danger-flat"> · {row.cancelledWithBids} cancelled</span>
+                      <span className="text-danger"> · {row.cancelledWithBids} cancelled</span>
                     )}
                   </div>
                 </Link>
@@ -79,7 +79,7 @@ export function AdminUsersTable({ rows }: Props) {
               </td>
               <td className="px-3 py-2.5">
                 {row.role === "ADMIN" ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-info-bg text-info-flat">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-info-bg text-info">
                     ADMIN
                   </span>
                 ) : (
@@ -88,7 +88,7 @@ export function AdminUsersTable({ rows }: Props) {
               </td>
               <td className="px-3 py-2.5">
                 {row.verified ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-info-bg text-info-flat">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-info-bg text-info">
                     Yes
                   </span>
                 ) : (
@@ -97,7 +97,7 @@ export function AdminUsersTable({ rows }: Props) {
               </td>
               <td className="px-3 py-2.5">
                 {row.hasActiveBan ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-danger-flat text-white">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-danger text-white">
                     BANNED
                   </span>
                 ) : (

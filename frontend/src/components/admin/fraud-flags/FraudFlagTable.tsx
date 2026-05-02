@@ -13,8 +13,8 @@ function formatDate(iso: string): string {
 }
 
 const STATUS_CLASSES: Partial<Record<AuctionStatus, string>> = {
-  SUSPENDED: "text-danger-flat font-medium",
-  DISPUTED: "text-info-flat font-medium",
+  SUSPENDED: "text-danger font-medium",
+  DISPUTED: "text-info font-medium",
 };
 
 type Props = {

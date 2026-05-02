@@ -7,7 +7,7 @@ function CardRoot({ className, children, ...rest }: CardProps) {
   return (
     <div
       className={cn(
-        "bg-surface-container-lowest rounded-default shadow-soft overflow-hidden",
+        "bg-surface-raised rounded-lg shadow-sm overflow-hidden",
         className
       )}
       {...rest}

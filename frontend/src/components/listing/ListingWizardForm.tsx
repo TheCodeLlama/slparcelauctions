@@ -432,7 +432,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
 
 /**
  * Title input with a live character counter. The counter renders muted by
- * default and switches to {@code text-error} once the seller crosses
+ * default and switches to {@code text-danger} once the seller crosses
  * {@link TITLE_WARN_AT} so they can see the cap approaching before they
  * hit it. Submit-path validation (1..120 chars after trim) lives on the
  * parent's {@link titleSchema}; this component only renders the raw
@@ -470,7 +470,7 @@ function TitleField({
         id="listing-title-counter"
         className={cn(
           "self-end text-xs",
-          warn ? "text-danger-flat" : "text-fg-muted",
+          warn ? "text-danger" : "text-fg-muted",
         )}
         data-testid="title-counter"
       >

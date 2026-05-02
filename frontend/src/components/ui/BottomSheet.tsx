@@ -48,25 +48,25 @@ export function BottomSheet({
           transition
           className={cn(
             "w-full max-h-[85vh] rounded-t-xl",
-            "bg-surface-container-lowest/90 backdrop-blur-xl border-t border-outline-variant/30",
-            "shadow-elevated",
+            "bg-surface-raised/90 backdrop-blur-xl border-t border-border-subtle",
+            "shadow-md",
             "transition data-[closed]:translate-y-full data-[enter]:duration-250 data-[leave]:duration-200",
             className,
           )}
         >
           <div
-            className="mx-auto mt-3 mb-2 h-1 w-10 rounded-full bg-outline-variant"
+            className="mx-auto mt-3 mb-2 h-1 w-10 rounded-full bg-border"
             aria-hidden="true"
           />
           <div className="flex items-center justify-between px-5 py-3">
-            <DialogTitle className="text-title-md font-bold">
+            <DialogTitle className="text-sm font-semibold tracking-tight font-bold">
               {title}
             </DialogTitle>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="rounded p-1 hover:bg-surface-container-high"
+              className="rounded p-1 hover:bg-bg-hover"
             >
               <X className="size-5" aria-hidden="true" />
             </button>
@@ -75,7 +75,7 @@ export function BottomSheet({
             {children}
           </div>
           {footer && (
-            <div className="sticky bottom-0 bg-surface-container-lowest/95 backdrop-blur border-t border-outline-variant/30 px-5 py-3">
+            <div className="sticky bottom-0 bg-surface-raised/95 backdrop-blur border-t border-border-subtle px-5 py-3">
               {footer}
             </div>
           )}

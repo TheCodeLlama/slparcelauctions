@@ -28,7 +28,7 @@ export function UserProfileHeader({ user }: Props) {
             {user.activeBan && (
               <span
                 data-testid="banned-chip"
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger-flat text-white"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger text-white"
               >
                 BANNED
               </span>
@@ -36,7 +36,7 @@ export function UserProfileHeader({ user }: Props) {
             {user.role === "ADMIN" && (
               <span
                 data-testid="admin-chip"
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info-flat"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info"
               >
                 ADMIN
               </span>
@@ -44,7 +44,7 @@ export function UserProfileHeader({ user }: Props) {
             {user.verified ? (
               <span
                 data-testid="verified-chip"
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info-flat"
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-info-bg text-info"
               >
                 VERIFIED
               </span>

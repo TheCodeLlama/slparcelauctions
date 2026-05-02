@@ -27,7 +27,7 @@ export function TerminalsSection() {
           <h2 className="text-sm font-semibold">Terminals</h2>
           <p className="text-[10px] opacity-55">Registered LSL terminals · shared-secret authenticated</p>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-[10px] bg-success-bg text-success-flat">
+        <span className="px-2.5 py-1 rounded-full text-[10px] bg-success-bg text-success">
           ● {active}/{rows.length} active
         </span>
       </header>
@@ -57,7 +57,7 @@ export function TerminalsSection() {
                   <button
                     type="button"
                     onClick={() => setConfirmId(t.terminalId)}
-                    className="px-2 py-1 text-[10px] text-danger-flat border border-danger-flat/40 rounded hover:bg-danger-bg/10"
+                    className="px-2 py-1 text-[10px] text-danger border border-danger/40 rounded hover:bg-danger-bg/10"
                     aria-label={`Unregister terminal ${t.terminalId}`}
                   >
                     Unregister
@@ -71,7 +71,7 @@ export function TerminalsSection() {
       <button
         type="button"
         onClick={() => setRotateOpen(true)}
-        className="px-3 py-1.5 border border-border rounded text-xs text-info-flat"
+        className="px-3 py-1.5 border border-border rounded text-xs text-info"
       >⟳ Rotate shared secret →</button>
       {rotateOpen && <RotateSecretModal onClose={() => setRotateOpen(false)} />}
       {confirmId && (
@@ -100,13 +100,13 @@ export function TerminalsSection() {
                 type="button"
                 onClick={handleConfirmDeactivate}
                 disabled={deactivate.isPending}
-                className="px-3 py-1.5 bg-danger-flat text-white rounded text-xs"
+                className="px-3 py-1.5 bg-danger text-white rounded text-xs"
               >
                 {deactivate.isPending ? "Unregistering…" : "Unregister"}
               </button>
             </div>
             {deactivate.isError && (
-              <p className="mt-2 text-xs text-danger-flat">
+              <p className="mt-2 text-xs text-danger">
                 Failed to unregister. Try again or use the API directly.
               </p>
             )}

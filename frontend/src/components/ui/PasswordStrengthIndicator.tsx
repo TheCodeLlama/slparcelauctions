@@ -18,7 +18,7 @@ type PasswordStrengthIndicatorProps = {
  * down as the user starts typing.
  *
  * Visual design matches the Stitch mockups: 4 equal-width segments, h-1,
- * gap-1, rounded-full. Filled segments use bg-primary; empty use bg-primary/20.
+ * gap-1, rounded-full. Filled segments use bg-brand; empty use bg-brand/20.
  *
  * See spec §7.2.
  */
@@ -43,13 +43,13 @@ export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicato
           <div
             key={i}
             className={`h-1 flex-1 rounded-full ${
-              i < bars ? "bg-primary" : "bg-primary/20"
+              i < bars ? "bg-brand" : "bg-brand/20"
             }`}
           />
         ))}
       </div>
-      <p className="mt-1 text-label-sm text-on-surface-variant">
-        Strength: <span className="font-semibold text-on-surface">{label}</span>
+      <p className="mt-1 text-[11px] font-medium text-fg-muted">
+        Strength: <span className="font-semibold text-fg">{label}</span>
       </p>
     </div>
   );

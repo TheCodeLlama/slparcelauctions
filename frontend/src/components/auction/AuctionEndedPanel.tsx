@@ -342,7 +342,7 @@ const bannerToneClasses: Record<BannerTone, string> = {
   action: "bg-brand-soft text-brand",
   waiting: "bg-bg-muted text-fg",
   done: "bg-info-bg text-fg",
-  problem: "bg-danger-bg text-danger-flat",
+  problem: "bg-danger-bg text-danger",
   muted: "bg-bg-muted text-fg-muted",
 };
 

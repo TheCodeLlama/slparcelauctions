@@ -56,7 +56,7 @@ export function AdminBansFilters({ status, typeFilter, onStatusChange, onTypeCha
             className={cn(
               "px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors",
               typeFilter === pill.value
-                ? "bg-info-bg text-info-flat font-medium"
+                ? "bg-info-bg text-info font-medium"
                 : "bg-bg-muted text-fg-muted hover:bg-bg-hover"
             )}
           >

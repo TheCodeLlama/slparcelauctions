@@ -107,7 +107,7 @@ export function PhotoUploader({
                 className="h-24 w-full object-cover"
               />
               {p.error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-bg/90 p-2 text-center text-xs text-danger-flat">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-bg/90 p-2 text-center text-xs text-danger">
                   <AlertTriangle className="size-4" aria-hidden="true" />
                   <span>{p.error}</span>
                 </div>
@@ -117,7 +117,7 @@ export function PhotoUploader({
                 onClick={() => remove(p.id)}
                 disabled={disabled}
                 aria-label="Remove photo"
-                className="absolute right-1 top-1 rounded-full bg-surface-raised/90 p-1 text-danger-flat hover:bg-surface-raised disabled:opacity-50"
+                className="absolute right-1 top-1 rounded-full bg-surface-raised/90 p-1 text-danger hover:bg-surface-raised disabled:opacity-50"
               >
                 <Trash2 className="size-3.5" aria-hidden="true" />
               </button>

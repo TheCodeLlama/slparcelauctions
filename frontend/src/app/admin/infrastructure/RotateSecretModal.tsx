@@ -25,7 +25,7 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
         <h3 className="text-xs font-semibold mb-2">Push results</h3>
         <ul className="text-xs space-y-1 mb-3">
           {rotate.data.terminalPushResults.map((r) => (
-            <li key={r.terminalId} className={r.success ? "text-success-flat" : "text-danger-flat"}>
+            <li key={r.terminalId} className={r.success ? "text-success" : "text-danger"}>
               {r.success ? "✓" : "✗"} {r.terminalName}
               {r.errorMessage && <span className="opacity-70"> — {r.errorMessage}</span>}
             </li>
@@ -58,7 +58,7 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
           type="button"
           disabled={!confirmed || rotate.isPending}
           onClick={() => rotate.mutate()}
-          className="flex-1 px-3 py-2 bg-info-flat text-white rounded text-xs font-semibold disabled:opacity-50"
+          className="flex-1 px-3 py-2 bg-info text-white rounded text-xs font-semibold disabled:opacity-50"
         >{rotate.isPending ? "Rotating…" : "Rotate now"}</button>
       </div>
     </Backdrop>

@@ -27,7 +27,7 @@ export function ReconciliationSection() {
           <Row label="Expected (locked sum)" value={`L$ ${latest.expected}`} />
           <Row label="Observed (grid balance)" value={latest.observed !== null ? `L$ ${latest.observed}` : "—"} />
           <Row label="Drift" value={latest.drift !== null ? `L$ ${latest.drift}` : "—"} />
-          {latest.errorMessage && <p className="text-danger-flat text-[11px] mt-2">{latest.errorMessage}</p>}
+          {latest.errorMessage && <p className="text-danger text-[11px] mt-2">{latest.errorMessage}</p>}
         </div>
       )}
 
@@ -58,8 +58,8 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function badgeFor(s: string) {
-  return s === "BALANCED" ? "bg-success-bg text-success-flat"
-       : s === "MISMATCH" ? "bg-info-bg text-info-flat"
+  return s === "BALANCED" ? "bg-success-bg text-success"
+       : s === "MISMATCH" ? "bg-info-bg text-info"
        : "bg-bg-subtle";
 }
 

@@ -63,7 +63,7 @@ export function RecentIpsModal({ userId, onClose }: Props) {
           )}
 
           {isError && (
-            <div className="text-sm text-danger-flat py-4">Could not load IPs.</div>
+            <div className="text-sm text-danger py-4">Could not load IPs.</div>
           )}
 
           {data && data.length === 0 && (
@@ -96,7 +96,7 @@ export function RecentIpsModal({ userId, onClose }: Props) {
                           type="button"
                           onClick={() => setBanIp(row.ipAddress)}
                           data-testid={`ban-ip-btn-${row.ipAddress}`}
-                          className="text-[11px] text-danger-flat hover:underline underline-offset-2"
+                          className="text-[11px] text-danger hover:underline underline-offset-2"
                         >
                           Ban IP
                         </button>

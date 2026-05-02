@@ -140,7 +140,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
                     data-testid={`ban-type-btn-${t}`}
                     className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
                       banType === t
-                        ? "bg-info-bg text-info-flat font-medium"
+                        ? "bg-info-bg text-info font-medium"
                         : "bg-bg-muted text-fg-muted hover:bg-bg-hover"
                     }`}
                   >
@@ -153,7 +153,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
             {(banType === "IP" || banType === "BOTH") && (
               <div className="flex flex-col gap-1">
                 <label htmlFor="ip-address" className="text-xs font-medium text-fg">
-                  IP address <span className="text-danger-flat">*</span>
+                  IP address <span className="text-danger">*</span>
                 </label>
                 <input
                   id="ip-address"
@@ -170,7 +170,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
             {(banType === "AVATAR" || banType === "BOTH") && (
               <div className="flex flex-col gap-1">
                 <label htmlFor="avatar-uuid" className="text-xs font-medium text-fg">
-                  Avatar UUID <span className="text-danger-flat">*</span>
+                  Avatar UUID <span className="text-danger">*</span>
                 </label>
                 <input
                   id="avatar-uuid"
@@ -242,7 +242,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
 
             <div className="flex flex-col gap-1">
               <label htmlFor="reason-text" className="text-xs font-medium text-fg">
-                Reason details <span className="text-danger-flat">*</span>
+                Reason details <span className="text-danger">*</span>
               </label>
               <textarea
                 id="reason-text"

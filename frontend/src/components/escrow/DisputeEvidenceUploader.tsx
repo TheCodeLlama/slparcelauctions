@@ -58,7 +58,7 @@ export function DisputeEvidenceUploader({
         onChange={(e) => handleAdd(e.target.files)}
         className="text-xs"
       />
-      {error && <p className="text-[10px] text-danger-flat mt-1">{error}</p>}
+      {error && <p className="text-[10px] text-danger mt-1">{error}</p>}
       {files.length > 0 && (
         <ul className="mt-2 space-y-1">
           {files.map((f, i) => (
@@ -73,7 +73,7 @@ export function DisputeEvidenceUploader({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="text-danger-flat"
+                className="text-danger"
               >
                 remove
               </button>

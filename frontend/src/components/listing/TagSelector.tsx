@@ -47,7 +47,7 @@ export function TagSelector({
   }
   if (isError || !data) {
     return (
-      <p className="text-xs text-danger-flat">
+      <p className="text-xs text-danger">
         Couldn&apos;t load tag catalogue. Try again later.
       </p>
     );
@@ -103,7 +103,7 @@ export function TagSelector({
                       className={cn(
                         "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                         selected
-                          ? "border-brand bg-brand text-on-primary"
+                          ? "border-brand bg-brand text-white"
                           : "border-border-subtle bg-bg-subtle text-fg",
                         (disabled || capped) &&
                           "cursor-not-allowed opacity-60",

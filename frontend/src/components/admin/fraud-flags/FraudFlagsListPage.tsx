@@ -93,7 +93,7 @@ export function FraudFlagsListPage() {
       )}
 
       {isError && (
-        <div className="text-sm text-danger-flat py-8">
+        <div className="text-sm text-danger py-8">
           Could not load fraud flags. Refresh to retry.
         </div>
       )}

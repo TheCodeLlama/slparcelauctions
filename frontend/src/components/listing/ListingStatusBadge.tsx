@@ -20,7 +20,7 @@ const STATUS_MAP: Record<
   },
   DRAFT_PAID: {
     label: "Paid",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   VERIFICATION_PENDING: {
     label: "Verifying",
@@ -28,11 +28,11 @@ const STATUS_MAP: Record<
   },
   VERIFICATION_FAILED: {
     label: "Verify failed",
-    cls: "bg-danger-bg text-danger-flat",
+    cls: "bg-danger-bg text-danger",
   },
   ACTIVE: {
     label: "Active",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   ENDED: {
     label: "Ended",
@@ -40,19 +40,19 @@ const STATUS_MAP: Record<
   },
   ESCROW_PENDING: {
     label: "Escrow pending",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   ESCROW_FUNDED: {
     label: "Escrow funded",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   TRANSFER_PENDING: {
     label: "Transferring",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   COMPLETED: {
     label: "Completed",
-    cls: "bg-info-bg text-info-flat",
+    cls: "bg-info-bg text-info",
   },
   CANCELLED: {
     label: "Cancelled",
@@ -64,11 +64,11 @@ const STATUS_MAP: Record<
   },
   DISPUTED: {
     label: "Disputed",
-    cls: "bg-danger-bg text-danger-flat",
+    cls: "bg-danger-bg text-danger",
   },
   SUSPENDED: {
     label: "Suspended",
-    cls: "bg-danger-bg text-danger-flat",
+    cls: "bg-danger-bg text-danger",
   },
 };
 

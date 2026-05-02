@@ -73,7 +73,7 @@ export function AdminReportCard({ report, onDismissed }: Props) {
             <span>Unknown</span>
           )}
           {report.reporterDismissedReportsCount > 0 && (
-            <span className="ml-1 text-danger-flat text-[11px]">
+            <span className="ml-1 text-danger text-[11px]">
               ({report.reporterDismissedReportsCount} prior dismissed)
             </span>
           )}

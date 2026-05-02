@@ -20,12 +20,12 @@ describe("Button", () => {
     expect(button.className).toContain("border-border");
   });
 
-  it("renders the destructive variant with danger-flat tokens", () => {
+  it("renders the destructive variant with danger tokens", () => {
     renderWithProviders(<Button variant="destructive">Cancel listing</Button>);
     const button = screen.getByRole("button", { name: "Cancel listing" });
-    expect(button.className).toContain("bg-danger-flat");
+    expect(button.className).toContain("bg-danger");
     expect(button.className).toContain("text-white");
-    expect(button.className).toContain("border-danger-flat");
+    expect(button.className).toContain("border-danger");
   });
 
   it("renders the tertiary ghost variant", () => {

@@ -42,7 +42,7 @@ describe("Dropdown", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("renders danger items with text-error", async () => {
+  it("renders danger items with text-danger", async () => {
     renderWithProviders(
       <Dropdown
         trigger={<button>Open</button>}
@@ -51,7 +51,7 @@ describe("Dropdown", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
     const item = screen.getByText("Sign out");
-    expect(item.className).toContain("text-error");
+    expect(item.className).toContain("text-danger");
   });
 
   it("closes the menu when escape is pressed", async () => {

@@ -94,13 +94,13 @@ export function UserActionsRail({ user, onRefresh }: Props) {
     >
       {/* Active ban callout */}
       {user.activeBan && (
-        <div className="rounded-lg bg-danger-bg border border-danger-flat/20 p-4 flex flex-col gap-2">
-          <div className="text-[11px] font-semibold text-danger-flat">Active ban</div>
-          <div className="text-sm text-danger-flat/80 line-clamp-3">
+        <div className="rounded-lg bg-danger-bg border border-danger/20 p-4 flex flex-col gap-2">
+          <div className="text-[11px] font-semibold text-danger">Active ban</div>
+          <div className="text-sm text-danger/80 line-clamp-3">
             {user.activeBan.reasonText}
           </div>
           {user.activeBan.expiresAt && (
-            <div className="text-[11px] text-danger-flat/70">
+            <div className="text-[11px] text-danger/70">
               Expires {new Date(user.activeBan.expiresAt).toLocaleDateString()}
             </div>
           )}
@@ -179,8 +179,8 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       </div>
 
       {/* Danger zone */}
-      <div className="rounded-lg bg-bg-muted border border-danger-flat/30 p-4 flex flex-col gap-2">
-        <div className="text-[11px] font-medium text-danger-flat mb-1">Danger zone</div>
+      <div className="rounded-lg bg-bg-muted border border-danger/30 p-4 flex flex-col gap-2">
+        <div className="text-[11px] font-medium text-danger mb-1">Danger zone</div>
         <Button
           variant="destructive"
           size="sm"

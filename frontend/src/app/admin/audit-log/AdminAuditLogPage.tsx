@@ -19,7 +19,7 @@ export function AdminAuditLogPage() {
   };
 
   if (isLoading) return <p>Loading…</p>;
-  if (error) return <p className="text-danger-flat">Failed to load audit log</p>;
+  if (error) return <p className="text-danger">Failed to load audit log</p>;
 
   return (
     <div className="space-y-4">

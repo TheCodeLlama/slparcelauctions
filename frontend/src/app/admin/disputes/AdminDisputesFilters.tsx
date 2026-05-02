@@ -49,7 +49,7 @@ export function AdminDisputesFilters({ filters, onChange }: Props) {
 function chipClass(active: boolean) {
   return `px-2.5 py-1.5 text-xs rounded-full border ${
     active
-      ? "bg-danger-bg text-danger-flat border-danger-flat"
+      ? "bg-danger-bg text-danger border-danger"
       : "bg-bg-subtle text-fg border-border-subtle"
   }`;
 }

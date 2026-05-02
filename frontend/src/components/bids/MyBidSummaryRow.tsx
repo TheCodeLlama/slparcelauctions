@@ -30,12 +30,12 @@ export interface MyBidSummaryRowProps {
  */
 const BORDER_CLASS_BY_STATUS: Record<MyBidStatus, string> = {
   WINNING: "border-l-info-bg",
-  OUTBID: "border-l-danger-flat",
+  OUTBID: "border-l-danger",
   WON: "border-l-brand",
   LOST: "border-l-fg-muted",
   RESERVE_NOT_MET: "border-l-info-bg",
   CANCELLED: "border-l-fg-muted",
-  SUSPENDED: "border-l-danger-flat",
+  SUSPENDED: "border-l-danger",
 };
 
 /**

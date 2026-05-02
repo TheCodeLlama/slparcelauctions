@@ -14,7 +14,7 @@ export function NotesField({ value, onChange, disabled }: Props) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-fg">
-        Admin notes <span className="text-danger-flat">*</span>
+        Admin notes <span className="text-danger">*</span>
       </label>
       <textarea
         rows={4}
@@ -28,7 +28,7 @@ export function NotesField({ value, onChange, disabled }: Props) {
       <div
         className={cn(
           "self-end text-[11px] font-medium",
-          over ? "text-danger-flat" : "text-fg-muted"
+          over ? "text-danger" : "text-fg-muted"
         )}
       >
         {value.length} / {MAX}

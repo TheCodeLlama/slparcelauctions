@@ -1,166 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  /* ===== Surface family (light defaults) ===== */
-  --color-background: #f7f9fb;
-  --color-on-background: #191c1e;
-  --color-surface: #f7f9fb;
-  --color-on-surface: #191c1e;
-  --color-on-surface-variant: #4e4638;
-  --color-surface-tint: #7b5808;
-  --color-surface-bright: #f7f9fb;
-  --color-surface-dim: #d8dadc;
-  --color-surface-variant: #e0e3e5;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f2f4f6;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e6e8ea;
-  --color-surface-container-highest: #e0e3e5;
-
-  /* ===== Primary (warm amber) ===== */
-  --color-primary: #7b5808;
-  --color-on-primary: #ffffff;
-  --color-primary-container: #c99e4c;
-  --color-on-primary-container: #4e3600;
-  --color-primary-fixed: #ffdea7;
-  --color-on-primary-fixed: #271900;
-  --color-primary-fixed-dim: #eec06a;
-  --color-on-primary-fixed-variant: #5e4200;
-
-  /* ===== Secondary (cool slate) ===== */
-  --color-secondary: #545f73;
-  --color-on-secondary: #ffffff;
-  --color-secondary-container: #d5e0f8;
-  --color-on-secondary-container: #586377;
-  --color-secondary-fixed: #d8e3fb;
-  --color-on-secondary-fixed: #111c2d;
-  --color-secondary-fixed-dim: #bcc7de;
-  --color-on-secondary-fixed-variant: #3c475a;
-
-  /* ===== Tertiary (cooler blue, "Active" status accents) ===== */
-  --color-tertiary: #3f5f93;
-  --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #86a5de;
-  --color-on-tertiary-container: #163a6c;
-  --color-tertiary-fixed: #d6e3ff;
-  --color-on-tertiary-fixed: #001b3e;
-  --color-tertiary-fixed-dim: #aac7ff;
-  --color-on-tertiary-fixed-variant: #254779;
-
-  /* ===== Error / "Ending Soon" status ===== */
-  --color-error: #ba1a1a;
-  --color-on-error: #ffffff;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #93000a;
-
-  /* ===== Warning (penalty owed, reserved bids, withdraw reversed) ===== */
-  --color-warning: #b54708;
-  --color-on-warning: #ffffff;
-  --color-warning-container: #fde7b7;
-  --color-on-warning-container: #4a2400;
-
-  /* ===== Success (deposits, refunds, credits) ===== */
-  --color-success: #146c2e;
-  --color-on-success: #ffffff;
-  --color-success-container: #c5f0c2;
-  --color-on-success-container: #002107;
-
-  /* ===== Scrim (modal/dialog backdrops) ===== */
-  --color-scrim: #000000;
-
-  /* ===== Outline (used at low opacity, the no-line rule applies) ===== */
-  --color-outline: #807666;
-  --color-outline-variant: #d2c5b2;
-
-  /* ===== Inverse (snackbars, tooltips, modal backdrops) ===== */
-  --color-inverse-surface: #2d3133;
-  --color-inverse-on-surface: #eff1f3;
-  --color-inverse-primary: #eec06a;
-
   /* ===== Typography ===== */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
 
-  /* ===== M3 Type Scale (size / line-height / weight / tracking) ===== */
-  /* px values are M3 standards; letter-spacing uses absolute px (M3 spec). */
-  --text-display-lg: 3.5625rem;            /* 57px — flagged for revisit in Task 01-10 */
-  --text-display-lg--line-height: 4rem;
-  --text-display-lg--font-weight: 400;
-  --text-display-lg--letter-spacing: -0.25px;
-  --text-display-md: 2.8125rem;            /* 45px */
-  --text-display-md--line-height: 3.25rem;
-  --text-display-md--font-weight: 400;
-  --text-display-md--letter-spacing: 0px;
-  --text-display-sm: 2.25rem;              /* 36px */
-  --text-display-sm--line-height: 2.75rem;
-  --text-display-sm--font-weight: 400;
-  --text-display-sm--letter-spacing: 0px;
+  /* ===== Scrim (modal/dialog backdrops) ===== */
+  --color-scrim: #000000;
 
-  --text-headline-lg: 2rem;                /* 32px */
-  --text-headline-lg--line-height: 2.5rem;
-  --text-headline-lg--font-weight: 400;
-  --text-headline-lg--letter-spacing: 0px;
-  --text-headline-md: 1.75rem;             /* 28px */
-  --text-headline-md--line-height: 2.25rem;
-  --text-headline-md--font-weight: 400;
-  --text-headline-md--letter-spacing: 0px;
-  --text-headline-sm: 1.5rem;              /* 24px */
-  --text-headline-sm--line-height: 2rem;
-  --text-headline-sm--font-weight: 400;
-  --text-headline-sm--letter-spacing: 0px;
-
-  --text-title-lg: 1.375rem;               /* 22px */
-  --text-title-lg--line-height: 1.75rem;
-  --text-title-lg--font-weight: 400;
-  --text-title-lg--letter-spacing: 0px;
-  --text-title-md: 1rem;                   /* 16px */
-  --text-title-md--line-height: 1.5rem;
-  --text-title-md--font-weight: 500;
-  --text-title-md--letter-spacing: 0.15px;
-  --text-title-sm: 0.875rem;               /* 14px */
-  --text-title-sm--line-height: 1.25rem;
-  --text-title-sm--font-weight: 500;
-  --text-title-sm--letter-spacing: 0.1px;
-
-  --text-body-lg: 1rem;                    /* 16px */
-  --text-body-lg--line-height: 1.5rem;
-  --text-body-lg--font-weight: 400;
-  --text-body-lg--letter-spacing: 0.5px;
-  --text-body-md: 0.875rem;                /* 14px */
-  --text-body-md--line-height: 1.25rem;
-  --text-body-md--font-weight: 400;
-  --text-body-md--letter-spacing: 0.25px;
-  --text-body-sm: 0.75rem;                 /* 12px */
-  --text-body-sm--line-height: 1rem;
-  --text-body-sm--font-weight: 400;
-  --text-body-sm--letter-spacing: 0.4px;
-
-  --text-label-lg: 0.875rem;               /* 14px */
-  --text-label-lg--line-height: 1.25rem;
-  --text-label-lg--font-weight: 500;
-  --text-label-lg--letter-spacing: 0.1px;
-  --text-label-md: 0.75rem;                /* 12px */
-  --text-label-md--line-height: 1rem;
-  --text-label-md--font-weight: 500;
-  --text-label-md--letter-spacing: 0.5px;
-  --text-label-sm: 0.6875rem;              /* 11px */
-  --text-label-sm--line-height: 1rem;
-  --text-label-sm--font-weight: 500;
-  --text-label-sm--letter-spacing: 0.5px;
-
-  /* ===== Radius ===== */
-  --radius-sm: 0.5rem;        /* 8px — chips, checkboxes, small icon buttons */
-  --radius-default: 1rem;     /* 16px — buttons, inputs, cards (DESIGN.md "Round 4") */
-  --radius-lg: 1.5rem;        /* 24px — card corners on hero images */
-  --radius-full: 9999px;      /* pills, avatars */
-
-  /* ===== Shadows (soft, low-intensity per DESIGN.md §4) ===== */
-  --shadow-soft: 0 8px 24px rgba(25, 28, 30, 0.04);
-  --shadow-elevated: 0 20px 40px rgba(25, 28, 30, 0.06);
-
-  /* ===== New design tokens (cluster 1 — coexist with M3 above) ===== */
   /* Brand */
   --color-brand: #E3631E;
   --color-brand-hover: #C9551A;
@@ -173,7 +22,6 @@
   --color-bg-muted: #F4F4F2;
   --color-bg-hover: #F0EFEC;
   --color-surface-raised: #FFFFFF;
-  /* note: --color-surface already exists from M3; we keep its M3 value during transition */
 
   /* Foregrounds */
   --color-fg: #18181B;
@@ -186,25 +34,25 @@
   --color-border-strong: #D4D2CC;
   --color-border-subtle: #EFEDE8;
 
-  /* Semantic — flat, no on-* pairs */
-  --color-success-flat: #15803D;
+  /* Semantic — foreground + background pairs */
+  --color-success: #15803D;
   --color-success-bg: #F0FDF4;
-  --color-warning-flat: #B45309;
+  --color-warning: #B45309;
   --color-warning-bg: #FFFBEB;
-  --color-danger-flat: #B91C1C;
+  --color-danger: #B91C1C;
   --color-danger-bg: #FEF2F2;
-  --color-info-flat: #1D4ED8;
+  --color-info: #1D4ED8;
   --color-info-bg: #EFF6FF;
 
-  /* Radii — values from new design (override M3 values for `sm`, `lg`) */
+  /* Radii */
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 18px;
-  --radius-pill: 999px;
+  --radius-full: 999px;
 
-  /* Shadows — subtle */
+  /* Shadows */
   --shadow-xs: 0 1px 2px rgba(24,24,27,.04);
   --shadow-sm: 0 1px 3px rgba(24,24,27,.06), 0 1px 2px rgba(24,24,27,.04);
   --shadow-md: 0 4px 12px -2px rgba(24,24,27,.06), 0 2px 6px -2px rgba(24,24,27,.04);
@@ -216,62 +64,8 @@
 }
 
 [data-theme="dark"] {
-  /* Only the tokens that DIFFER from light. Tokens absent here are intentionally
-     shared between modes (mostly the *-fixed family and tertiary container tokens). */
+  /* Only the tokens that DIFFER from light. */
 
-  --color-background: #121416;
-  --color-on-background: #e2e2e5;
-  --color-surface: #121416;
-  --color-on-surface: #e2e2e5;
-  --color-on-surface-variant: #d2c5b2;
-  --color-surface-tint: #eec06a;
-  --color-surface-bright: #37393b;
-  --color-surface-dim: #121416;
-  --color-surface-variant: #333537;
-  --color-surface-container-lowest: #0c0e10;
-  --color-surface-container-low: #1a1c1e;
-  --color-surface-container: #1e2022;
-  --color-surface-container-high: #282a2c;
-  --color-surface-container-highest: #333537;
-
-  --color-primary: #eec06a;
-  --color-on-primary: #412d00;
-
-  --color-secondary: #dcc39a;
-  --color-on-secondary: #3d2e11;
-  --color-secondary-container: #584627;
-  --color-on-secondary-container: #ceb58d;
-  --color-secondary-fixed: #fadfb4;
-  --color-on-secondary-fixed: #261901;
-  --color-secondary-fixed-dim: #dcc39a;
-  --color-on-secondary-fixed-variant: #554425;
-
-  --color-tertiary: #aac7ff;
-  --color-on-tertiary: #053062;
-
-  --color-error: #ffb4ab;
-  --color-on-error: #690005;
-  --color-error-container: #93000a;
-  --color-on-error-container: #ffdad6;
-
-  --color-warning: #ffb868;
-  --color-on-warning: #492900;
-  --color-warning-container: #683c00;
-  --color-on-warning-container: #fde7b7;
-
-  --color-success: #8edb8e;
-  --color-on-success: #00390d;
-  --color-success-container: #1f5128;
-  --color-on-success-container: #c5f0c2;
-
-  --color-outline: #9b8f7e;
-  --color-outline-variant: #4e4638;
-
-  --color-inverse-surface: #e2e2e5;
-  --color-inverse-on-surface: #2f3133;
-  --color-inverse-primary: #7b5808;
-
-  /* New design tokens — dark overrides (values from final-design styles.css:76-105) */
   --color-bg: #0E0E10;
   --color-bg-subtle: #131316;
   --color-bg-muted: #1A1A1E;
@@ -290,12 +84,12 @@
   --color-brand-soft: rgba(227,99,30,.14);
   --color-brand-border: rgba(227,99,30,.32);
 
-  /* Flat semantic foregrounds — lighten in dark for AA contrast on the
-     translucent -bg backgrounds defined below. */
-  --color-success-flat: #4ADE80;
-  --color-warning-flat: #FBBF24;
-  --color-danger-flat: #F87171;
-  --color-info-flat: #60A5FA;
+  /* Semantic foregrounds — lighten in dark for AA contrast on
+     the translucent -bg backgrounds defined below. */
+  --color-success: #4ADE80;
+  --color-warning: #FBBF24;
+  --color-danger: #F87171;
+  --color-info: #60A5FA;
 
   --color-success-bg: rgba(34,197,94,.12);
   --color-warning-bg: rgba(234,179,8,.12);

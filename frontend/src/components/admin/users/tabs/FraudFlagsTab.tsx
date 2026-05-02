@@ -27,7 +27,7 @@ export function FraudFlagsTab({ userId }: Props) {
   }
 
   if (isError) {
-    return <div className="py-6 text-sm text-danger-flat">Could not load fraud flags.</div>;
+    return <div className="py-6 text-sm text-danger">Could not load fraud flags.</div>;
   }
 
   if (!data || data.content.length === 0) {
@@ -69,7 +69,7 @@ export function FraudFlagsTab({ userId }: Props) {
                       Resolved
                     </span>
                   ) : (
-                    <span className="text-[11px] bg-danger-bg px-2 py-0.5 rounded-full text-danger-flat">
+                    <span className="text-[11px] bg-danger-bg px-2 py-0.5 rounded-full text-danger">
                       Open
                     </span>
                   )}

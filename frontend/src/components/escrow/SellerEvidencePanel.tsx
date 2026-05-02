@@ -60,7 +60,7 @@ export function SellerEvidencePanel({ auctionId }: Props) {
         {submit.isPending ? "Submitting…" : "Submit evidence"}
       </button>
       {submit.isError && (
-        <p className="text-[10px] text-danger-flat">
+        <p className="text-[10px] text-danger">
           Submit failed: {(submit.error as Error).message}
         </p>
       )}

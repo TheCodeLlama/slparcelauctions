@@ -263,9 +263,9 @@ export function WalletPanel() {
 
       {wallet.penaltyOwed > 0 && (
         <div className="rounded-2xl border border-warning bg-warning-bg p-4 flex gap-3">
-          <AlertTriangle className="h-5 w-5 text-warning-flat shrink-0 mt-0.5" />
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="flex-1">
-            <h3 className="font-medium text-warning-flat">
+            <h3 className="font-medium text-warning">
               Outstanding penalty: {formatLindens(wallet.penaltyOwed)}
             </h3>
             <p className="text-sm text-fg-muted mt-1">

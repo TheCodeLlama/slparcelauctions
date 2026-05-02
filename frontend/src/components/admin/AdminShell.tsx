@@ -45,13 +45,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
               className={cn(
                 "flex items-center justify-between rounded-md px-3 py-2 text-sm",
                 active
-                  ? "bg-info-bg text-info-flat font-medium"
+                  ? "bg-info-bg text-info font-medium"
                   : "opacity-85 hover:opacity-100"
               )}
             >
               <span>{item.label}</span>
               {item.badge !== undefined && item.badge > 0 && (
-                <span className="bg-danger-flat text-white rounded-full px-1.5 py-0.5 text-[10px] ml-1">
+                <span className="bg-danger text-white rounded-full px-1.5 py-0.5 text-[10px] ml-1">
                   {item.badge}
                 </span>
               )}

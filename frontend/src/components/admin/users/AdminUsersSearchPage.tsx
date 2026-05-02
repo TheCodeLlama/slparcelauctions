@@ -56,7 +56,7 @@ export function AdminUsersSearchPage() {
       {isLoading && <SkeletonRows />}
 
       {isError && (
-        <div className="text-sm text-danger-flat py-6">Could not load users. Refresh to retry.</div>
+        <div className="text-sm text-danger py-6">Could not load users. Refresh to retry.</div>
       )}
 
       {data && (

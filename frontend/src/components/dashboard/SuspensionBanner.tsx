@@ -60,7 +60,7 @@ export function SuspensionBanner() {
   if (banned) {
     return (
       <Card
-        className="bg-danger-bg text-danger-flat"
+        className="bg-danger-bg text-danger"
         data-testid="suspension-banner"
         data-variant="banned"
         role="alert"
@@ -78,7 +78,7 @@ export function SuspensionBanner() {
   if (isTimedSuspended && owesPenalty && suspendedUntil) {
     return (
       <Card
-        className="bg-info-bg text-info-flat"
+        className="bg-info-bg text-info"
         data-testid="suspension-banner"
         data-variant="timed-and-debt"
         role="alert"
@@ -100,7 +100,7 @@ export function SuspensionBanner() {
   if (isTimedSuspended && suspendedUntil) {
     return (
       <Card
-        className="bg-info-bg text-info-flat"
+        className="bg-info-bg text-info"
         data-testid="suspension-banner"
         data-variant="timed-only"
         role="alert"
@@ -117,7 +117,7 @@ export function SuspensionBanner() {
   if (owesPenalty) {
     return (
       <Card
-        className="bg-info-bg text-info-flat"
+        className="bg-info-bg text-info"
         data-testid="suspension-banner"
         data-variant="debt-only"
         role="alert"

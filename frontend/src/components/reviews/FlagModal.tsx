@@ -134,7 +134,7 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
             data-testid="flag-modal-counter"
             className={cn(
               "self-end text-[11px] font-medium",
-              overLimit ? "text-danger-flat" : "text-fg-muted",
+              overLimit ? "text-danger" : "text-fg-muted",
             )}
           >
             {elaboration.length} / {MAX_LEN}

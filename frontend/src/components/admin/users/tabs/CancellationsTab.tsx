@@ -27,7 +27,7 @@ export function CancellationsTab({ userId }: Props) {
   }
 
   if (isError) {
-    return <div className="py-6 text-sm text-danger-flat">Could not load cancellations.</div>;
+    return <div className="py-6 text-sm text-danger">Could not load cancellations.</div>;
   }
 
   if (!data || data.content.length === 0) {
@@ -66,7 +66,7 @@ export function CancellationsTab({ userId }: Props) {
                 <td className="px-3 py-2.5 text-fg-muted">{row.cancelledFromStatus}</td>
                 <td className="px-3 py-2.5">
                   {row.hadBids ? (
-                    <span className="text-danger-flat font-medium">Yes</span>
+                    <span className="text-danger font-medium">Yes</span>
                   ) : (
                     <span className="text-fg-muted">No</span>
                   )}

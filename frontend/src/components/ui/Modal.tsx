@@ -20,9 +20,8 @@ export interface ModalProps {
  * directly; this primitive is intended for the simple "open / show
  * content / close" pattern.
  *
- * The surface uses {@code bg-surface-container} so it adapts to the
- * active theme; the backdrop uses {@code bg-scrim/40} for the standard
- * Material-3 scrim treatment.
+ * The surface uses {@code bg-surface-raised} so it adapts to the
+ * active theme; the backdrop uses {@code bg-scrim/40} for the scrim treatment.
  */
 export function Modal({
   open,
@@ -67,14 +66,14 @@ export function Modal({
       <div
         ref={containerRef}
         className={cn(
-          "bg-surface-container rounded-2xl p-6 max-w-md w-full",
+          "bg-surface-raised rounded-2xl p-6 max-w-md w-full",
           "max-h-[80vh] overflow-y-auto",
-          "shadow-elevated",
+          "shadow-md",
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold text-on-surface mb-4">{title}</h3>
-        <div className="text-sm text-on-surface space-y-3">{children}</div>
+        <h3 className="text-lg font-semibold text-fg mb-4">{title}</h3>
+        <div className="text-sm text-fg space-y-3">{children}</div>
         {footer && <div className="mt-4 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>

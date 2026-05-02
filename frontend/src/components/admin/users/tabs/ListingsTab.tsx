@@ -13,9 +13,9 @@ function statusLabel(status: AuctionStatus): { label: string; className: string 
   const map: Partial<Record<AuctionStatus, { label: string; className: string }>> = {
     ACTIVE: { label: "Active", className: "text-brand" },
     ENDED: { label: "Ended", className: "text-fg-muted" },
-    COMPLETED: { label: "Completed", className: "text-success-flat" },
-    CANCELLED: { label: "Cancelled", className: "text-danger-flat" },
-    SUSPENDED: { label: "Suspended", className: "text-danger-flat font-semibold" },
+    COMPLETED: { label: "Completed", className: "text-success" },
+    CANCELLED: { label: "Cancelled", className: "text-danger" },
+    SUSPENDED: { label: "Suspended", className: "text-danger font-semibold" },
     EXPIRED: { label: "Expired", className: "text-fg-muted" },
     DRAFT: { label: "Draft", className: "text-fg-muted" },
   };
@@ -44,7 +44,7 @@ export function ListingsTab({ userId }: Props) {
   }
 
   if (isError) {
-    return <div className="py-6 text-sm text-danger-flat">Could not load listings.</div>;
+    return <div className="py-6 text-sm text-danger">Could not load listings.</div>;
   }
 
   if (!data || data.content.length === 0) {

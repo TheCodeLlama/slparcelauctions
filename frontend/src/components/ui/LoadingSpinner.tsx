@@ -12,9 +12,9 @@ export function LoadingSpinner({ label, className }: LoadingSpinnerProps) {
         className,
       )}
     >
-      <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="size-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
       {label && (
-        <span className="text-body-sm text-on-surface-variant">{label}</span>
+        <span className="text-xs text-fg-muted">{label}</span>
       )}
     </div>
   );

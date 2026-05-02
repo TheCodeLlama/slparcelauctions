@@ -63,7 +63,7 @@ export function Pagination({
         onClick={() => onPageChange(page - 1)}
         disabled={page === 0}
         aria-label="Previous page"
-        className="flex size-9 items-center justify-center rounded bg-surface-container-lowest text-on-surface disabled:opacity-40 hover:bg-surface-container-low"
+        className="flex size-9 items-center justify-center rounded bg-surface-raised text-fg disabled:opacity-40 hover:bg-bg-muted"
       >
         <ChevronLeft className="size-4" aria-hidden="true" />
       </button>
@@ -71,7 +71,7 @@ export function Pagination({
         p === "ellipsis" ? (
           <span
             key={`e-${idx}`}
-            className="px-2 text-on-surface-variant"
+            className="px-2 text-fg-muted"
             aria-hidden="true"
           >
             …
@@ -84,10 +84,10 @@ export function Pagination({
             aria-label={`Page ${p + 1}`}
             aria-current={p === page ? "page" : undefined}
             className={cn(
-              "flex size-9 items-center justify-center rounded text-label-md",
+              "flex size-9 items-center justify-center rounded text-xs font-medium",
               p === page
-                ? "bg-primary text-on-primary"
-                : "bg-surface-container-lowest text-on-surface hover:bg-surface-container-low",
+                ? "bg-brand text-white"
+                : "bg-surface-raised text-fg hover:bg-bg-muted",
             )}
           >
             {p + 1}
@@ -99,7 +99,7 @@ export function Pagination({
         onClick={() => onPageChange(page + 1)}
         disabled={page === totalPages - 1}
         aria-label="Next page"
-        className="flex size-9 items-center justify-center rounded bg-surface-container-lowest text-on-surface disabled:opacity-40 hover:bg-surface-container-low"
+        className="flex size-9 items-center justify-center rounded bg-surface-raised text-fg disabled:opacity-40 hover:bg-bg-muted"
       >
         <ChevronRight className="size-4" aria-hidden="true" />
       </button>

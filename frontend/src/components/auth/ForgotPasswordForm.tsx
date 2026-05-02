@@ -36,7 +36,7 @@ export function ForgotPasswordForm() {
   if (forgotPassword.isSuccess) {
     return (
       <div className="space-y-4 text-center">
-        <div className="mb-4 rounded-md bg-info-bg px-3 py-2 text-[11px] font-medium text-info-flat">
+        <div className="mb-4 rounded-md bg-info-bg px-3 py-2 text-[11px] font-medium text-info">
           <strong>[STUB]</strong> Backend password-reset endpoint not yet
           implemented. No email will arrive. This success state is UI-only for
           the current task.

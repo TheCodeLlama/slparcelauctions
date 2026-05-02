@@ -60,9 +60,9 @@ type EntryVisual = {
   tone: string;
 };
 
-const WITHDRAW_PENDING_VISUAL: EntryVisual = { Icon: Clock, tone: "text-warning-flat" };
-const WITHDRAW_COMPLETED_VISUAL: EntryVisual = { Icon: ArrowUpFromLine, tone: "text-success-flat" };
-const WITHDRAW_REVERSED_VISUAL: EntryVisual = { Icon: Undo2, tone: "text-danger-flat" };
+const WITHDRAW_PENDING_VISUAL: EntryVisual = { Icon: Clock, tone: "text-warning" };
+const WITHDRAW_COMPLETED_VISUAL: EntryVisual = { Icon: ArrowUpFromLine, tone: "text-success" };
+const WITHDRAW_REVERSED_VISUAL: EntryVisual = { Icon: Undo2, tone: "text-danger" };
 
 function withdrawalVisual(status: WithdrawalStatus | null): EntryVisual {
   switch (status) {
@@ -82,7 +82,7 @@ function withdrawalVisual(status: WithdrawalStatus | null): EntryVisual {
 function entryVisual(e: LedgerEntry): EntryVisual {
   switch (e.entryType) {
     case "DEPOSIT":
-      return { Icon: ArrowDownToLine, tone: "text-success-flat" };
+      return { Icon: ArrowDownToLine, tone: "text-success" };
     case "WITHDRAW_QUEUED":
       return withdrawalVisual(e.withdrawalStatus);
     case "WITHDRAW_COMPLETED":
@@ -90,19 +90,19 @@ function entryVisual(e: LedgerEntry): EntryVisual {
     case "WITHDRAW_REVERSED":
       return WITHDRAW_REVERSED_VISUAL;
     case "BID_RESERVED":
-      return { Icon: Lock, tone: "text-warning-flat" };
+      return { Icon: Lock, tone: "text-warning" };
     case "BID_RELEASED":
       return { Icon: Unlock, tone: "text-fg-muted" };
     case "ESCROW_DEBIT":
       return { Icon: ArrowUpFromLine, tone: "text-fg" };
     case "ESCROW_REFUND":
-      return { Icon: ArrowDownToLine, tone: "text-success-flat" };
+      return { Icon: ArrowDownToLine, tone: "text-success" };
     case "LISTING_FEE_DEBIT":
       return { Icon: Tag, tone: "text-fg" };
     case "LISTING_FEE_REFUND":
-      return { Icon: ArrowDownToLine, tone: "text-success-flat" };
+      return { Icon: ArrowDownToLine, tone: "text-success" };
     case "PENALTY_DEBIT":
-      return { Icon: AlertTriangle, tone: "text-warning-flat" };
+      return { Icon: AlertTriangle, tone: "text-warning" };
     case "ADJUSTMENT":
       return { Icon: Pencil, tone: "text-fg-muted" };
   }

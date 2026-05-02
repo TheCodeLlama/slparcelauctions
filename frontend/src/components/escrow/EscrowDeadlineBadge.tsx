@@ -15,9 +15,9 @@ type Urgency = "neutral" | "warning" | "urgent" | "past";
 
 const urgencyClasses: Record<Urgency, string> = {
   neutral: "text-fg-muted",
-  warning: "text-warning-flat",
-  urgent: "text-danger-flat",
-  past: "text-danger-flat line-through",
+  warning: "text-warning",
+  urgent: "text-danger",
+  past: "text-danger line-through",
 };
 
 function urgencyFor(msRemaining: number): Urgency {

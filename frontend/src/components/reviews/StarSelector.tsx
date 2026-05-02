@@ -22,7 +22,7 @@ import { cn } from "@/lib/cn";
  * The gradient-free solid star approach matches what the spec asks for —
  * the rating in a submit form is always an integer 1-5, so we flip between
  * fully-filled (selected or hovered) and fully-empty (unselected) with
- * {@code text-primary} and {@code text-surface-variant} tokens rather than
+ * {@code text-brand} and {@code text-fg-subtle} tokens rather than
  * reusing {@link RatingSummary}'s {@code <linearGradient>} machinery.
  */
 

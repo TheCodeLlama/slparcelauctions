@@ -65,7 +65,7 @@ export function ResolutionPanel({ dispute, onResolved }: Props) {
 
       <div>
         <label className="text-[10px] uppercase opacity-55 block mb-1">
-          Admin note <span className="text-danger-flat normal-case">(required)</span>
+          Admin note <span className="text-danger normal-case">(required)</span>
         </label>
         <textarea
           value={note}
@@ -87,7 +87,7 @@ export function ResolutionPanel({ dispute, onResolved }: Props) {
       </button>
 
       {mutation.isError && (
-        <p className="text-[10px] text-danger-flat">Failed to apply: {(mutation.error as Error).message}</p>
+        <p className="text-[10px] text-danger">Failed to apply: {(mutation.error as Error).message}</p>
       )}
     </aside>
   );

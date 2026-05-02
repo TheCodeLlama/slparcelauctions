@@ -163,7 +163,7 @@ export function ProfilePictureUploader({ user }: ProfilePictureUploaderProps) {
 
           {/* Error message */}
           {state.status === "error" && (
-            <p role="alert" className="text-xs text-danger-flat">
+            <p role="alert" className="text-xs text-danger">
               {state.message}
             </p>
           )}

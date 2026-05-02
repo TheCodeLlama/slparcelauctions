@@ -22,7 +22,7 @@ const variantClasses: Record<ButtonVariant, string> = {
     "bg-surface-raised text-fg border border-border hover:bg-bg-hover hover:border-border-strong",
   tertiary: "bg-transparent text-fg-muted hover:bg-bg-hover hover:text-fg",
   destructive:
-    "bg-danger-flat text-white border-danger-flat hover:opacity-90",
+    "bg-danger text-white border-danger hover:opacity-90",
   dark: "bg-fg text-bg border-fg hover:opacity-90",
 };
 

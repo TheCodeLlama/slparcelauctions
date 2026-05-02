@@ -99,7 +99,7 @@ export function AdminBansPage() {
       )}
 
       {isError && (
-        <div className="text-sm text-danger-flat py-8">
+        <div className="text-sm text-danger py-8">
           Could not load bans. Refresh to retry.
         </div>
       )}

@@ -76,7 +76,7 @@ export function LiftBanModal({ ban, onClose }: Props) {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-fg" htmlFor="lift-reason">
-                Reason for lifting <span className="text-danger-flat">*</span>
+                Reason for lifting <span className="text-danger">*</span>
               </label>
               <textarea
                 id="lift-reason"

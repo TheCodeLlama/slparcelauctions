@@ -97,7 +97,7 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
                 htmlFor="report-subject"
                 className="text-xs font-medium text-fg"
               >
-                Subject <span className="text-danger-flat">*</span>
+                Subject <span className="text-danger">*</span>
               </label>
               <input
                 id="report-subject"
@@ -120,7 +120,7 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
                 htmlFor="report-reason"
                 className="text-xs font-medium text-fg"
               >
-                Reason <span className="text-danger-flat">*</span>
+                Reason <span className="text-danger">*</span>
               </label>
               <select
                 id="report-reason"
@@ -146,7 +146,7 @@ export function ReportListingModal({ auctionId, onClose }: Props) {
                 htmlFor="report-details"
                 className="text-xs font-medium text-fg"
               >
-                Details <span className="text-danger-flat">*</span>
+                Details <span className="text-danger">*</span>
               </label>
               <textarea
                 id="report-details"

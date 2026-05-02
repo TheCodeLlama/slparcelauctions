@@ -451,7 +451,7 @@ function DisputeFormBody({
             {(description ?? "").length} / 2000
           </span>
           {errors.description && (
-            <span className="text-[11px] font-medium text-danger-flat">
+            <span className="text-[11px] font-medium text-danger">
               {errors.description.message}
             </span>
           )}

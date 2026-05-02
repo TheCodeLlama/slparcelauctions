@@ -149,7 +149,7 @@ export function AdminReportSlideOver({
               <div className="flex items-start justify-between gap-2 flex-wrap">
                 <div className="flex flex-col gap-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-medium bg-danger-bg text-danger-flat px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-medium bg-danger-bg text-danger px-2 py-0.5 rounded-full">
                       {openCount} open report{openCount !== 1 ? "s" : ""}
                     </span>
                     <span
@@ -243,7 +243,7 @@ export function AdminReportSlideOver({
               {/* Shared notes */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-fg">
-                  Admin notes <span className="text-danger-flat">*</span>
+                  Admin notes <span className="text-danger">*</span>
                   <span className="text-fg-muted font-normal ml-1">
                     (required for Warn / Suspend / Cancel)
                   </span>
