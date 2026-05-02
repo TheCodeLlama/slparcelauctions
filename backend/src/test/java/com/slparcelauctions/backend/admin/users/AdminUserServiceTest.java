@@ -168,7 +168,10 @@ class AdminUserServiceTest {
     @Test
     void listings_mapsAuctionToDto() {
         Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).build();
+                .region(com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name("Test Region")
+                        .gridX(1014.0).gridY(1014.0).maturityRating("GENERAL").build())
+                .build();
         Auction auction = Auction.builder()
             .title("My Auction")
             .status(AuctionStatus.ACTIVE)

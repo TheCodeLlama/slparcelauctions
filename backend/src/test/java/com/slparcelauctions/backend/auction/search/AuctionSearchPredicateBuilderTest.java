@@ -50,6 +50,7 @@ class AuctionSearchPredicateBuilderTest {
     @Autowired AuctionSearchPredicateBuilder builder;
     @Autowired AuctionRepository auctionRepo;
     @Autowired ParcelRepository parcelRepo;
+    @Autowired com.slparcelauctions.backend.region.RegionRepository regionRepo;
     @Autowired UserRepository userRepo;
     @Autowired ParcelTagRepository tagRepo;
 
@@ -206,8 +207,12 @@ class AuctionSearchPredicateBuilderTest {
     }
 
     private Auction seedActive(String region, int areaSqm, String maturity) {
+        com.slparcelauctions.backend.region.Region r = regionRepo.save(
+                com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name(region)
+                        .gridX(1014.0).gridY(1014.0).maturityRating(maturity).build());
         Parcel p = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
+                .region(r)
                 .slParcelUuid(UUID.randomUUID())
                                 .areaSqm(areaSqm)
                                 .verified(true)

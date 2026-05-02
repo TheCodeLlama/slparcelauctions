@@ -172,6 +172,10 @@ class BotMonitorLifecycleServiceResumedTest {
                 .build());
             auctionId = a.getId();
         });
-        return auctionRepo.findById(auctionId).orElseThrow();
+        return tx.execute(s -> {
+            Auction reloaded = auctionRepo.findById(auctionId).orElseThrow();
+            reloaded.getParcel().getRegion().getName();
+            return reloaded;
+        });
     }
 }

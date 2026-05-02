@@ -93,7 +93,10 @@ class BotTaskServiceTest {
         seller = User.builder().id(42L).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
         parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+                .region(com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name("Coniston")
+                        .gridX(1014.0).gridY(1014.0).maturityRating("MODERATE").build())
+                .id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
                 .verified(true).build();
 

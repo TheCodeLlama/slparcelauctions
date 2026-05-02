@@ -263,7 +263,14 @@ class BotMonitorLifecycleServiceTest {
             Auction a = auctionRepo.save(b.build());
             auctionId = a.getId();
         });
-        return auctionRepo.findById(auctionId).orElseThrow();
+        // Reload inside a fresh transaction and force-init the lazy chain
+        // (auction → parcel → region) so the returned entity is safe to use
+        // outside a session.
+        return tx.execute(s -> {
+            Auction a = auctionRepo.findById(auctionId).orElseThrow();
+            a.getParcel().getRegion().getName();
+            return a;
+        });
     }
 
     private Escrow seedEscrow(Auction auction) {

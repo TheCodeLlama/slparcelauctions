@@ -71,6 +71,7 @@ class SlWorldApiClientTest {
                 </head><body>
                   <div class="details_content">
                     <p class="desc">Super awesome plot of land. It&#x27;s a rectangle!</p>
+                    <a href="/region/f54a1a30-2dbf-4922-8871-3e5b3de81fcf">Tula</a>
                     <a class="button teleport web_link"
                        href="https://maps.secondlife.com/secondlife/Tula/80/104/0/">Visit</a>
                   </div>
@@ -143,6 +144,7 @@ class SlWorldApiClientTest {
                 <meta name="area" content="1024">
                 <meta name="location" content="128/128/22">
                 </head><body>
+                <a href="/region/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa">Coniston</a>
                 <img src="https://wrong.example.com/img.jpg" class="parcelimg">
                 </body></html>
                 """;
@@ -168,7 +170,9 @@ class SlWorldApiClientTest {
                 <meta name="ownerid" content="22222222-2222-2222-2222-222222222222">
                 <meta name="parcel" content="Coniston Plot">
                 <meta name="area" content="1024">
-                </head><body></body></html>
+                </head><body>
+                <a href="/region/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa">Coniston</a>
+                </body></html>
                 """;
         wireMock.stubFor(get(urlPathMatching("/place/.*"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
@@ -197,7 +201,9 @@ class SlWorldApiClientTest {
                 <meta name="parcel" content="Coniston Plot">
                 <meta name="area" content="1024">
                 <meta name="location" content="80/104">
-                </head><body></body></html>
+                </head><body>
+                <a href="/region/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa">Coniston</a>
+                </body></html>
                 """;
         wireMock.stubFor(get(urlPathMatching("/place/.*"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));

@@ -112,6 +112,7 @@ public class AuctionController {
     }
 
     @PutMapping("/auctions/{id}/verify")
+    @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse verify(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal,

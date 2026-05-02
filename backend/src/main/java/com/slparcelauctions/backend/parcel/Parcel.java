@@ -55,11 +55,16 @@ public class Parcel {
     @Column(name = "sl_parcel_uuid", nullable = false, unique = true)
     private UUID slParcelUuid;
 
+    // EAGER + JOIN fetch: callers all but invariably read at least one region
+    // field when they touch the parcel. Hibernate's ManyToOne EAGER alone
+    // still hands back a bytecode proxy that needs an open session to
+    // initialize — @Fetch(JOIN) forces a JOIN at query time so the region is
+    // a real entity by the time we return, safe to access after the session
+    // closes (DTO mappers run after the service's @Transactional ends).
     // Cascade PERSIST so test fixtures that build a Parcel with an in-memory
-    // Region (TestRegions.mainland()) don't trip Hibernate's transient-FK
-    // assertion on flush. Production flow goes through RegionService.upsert
-    // which always supplies a managed Region — the cascade is a no-op there.
-    @ManyToOne(fetch = FetchType.LAZY, optional = false, cascade = CascadeType.PERSIST)
+    // Region don't trip the transient-FK assertion on flush.
+    @ManyToOne(fetch = FetchType.EAGER, optional = false, cascade = CascadeType.PERSIST)
+    @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.JOIN)
     @JoinColumn(name = "region_id", nullable = false)
     private Region region;
 
