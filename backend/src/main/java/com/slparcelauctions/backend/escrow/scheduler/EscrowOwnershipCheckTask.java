@@ -95,7 +95,9 @@ public class EscrowOwnershipCheckTask {
         UUID parcelUuid = escrow.getAuction().getParcel().getSlParcelUuid();
 
         try {
-            ParcelMetadata result = worldApi.fetchParcel(parcelUuid).block();
+            ParcelMetadata result = worldApi.fetchParcelPage(parcelUuid)
+                    .map(com.slparcelauctions.backend.sl.dto.ParcelPageData::parcel)
+                    .block();
             if (result == null) {
                 // Defensive: a null block() result is degenerate but should not
                 // tip us into a freeze on a single run. Treat as transient.

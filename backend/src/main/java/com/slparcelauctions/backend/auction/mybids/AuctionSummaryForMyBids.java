@@ -65,7 +65,7 @@ public record AuctionSummaryForMyBids(
                 a.getStatus(),
                 a.getEndOutcome(),
                 a.getParcel() == null ? null : a.getParcel().getLocation(),
-                a.getParcel() == null ? null : a.getParcel().getRegionName(),
+                a.getParcel() == null ? null : a.getParcel().getRegion().getName(),
                 a.getParcel() == null ? null : a.getParcel().getAreaSqm(),
                 a.getParcel() == null ? null : a.getParcel().getSnapshotUrl(),
                 a.getEndsAt(),

@@ -37,6 +37,7 @@ import com.slparcelauctions.backend.review.dto.PendingReviewDto;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for the list paths on {@link ReviewService} —
@@ -80,7 +81,8 @@ class ReviewServiceListTest {
         stranger = User.builder().email("x@example.com").passwordHash("x").build();
         stranger.setId(99L);
 
-        Parcel parcel = Parcel.builder().snapshotUrl("https://snap/1.jpg").build();
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)
@@ -288,7 +290,8 @@ class ReviewServiceListTest {
         // + 14d is a constant offset, so oldest completedAt = most urgent).
         // Service must not re-order; assert the output list mirrors the
         // repo's ascending-completedAt ordering.
-        Parcel parcel = Parcel.builder().snapshotUrl("https://snap/x.jpg").build();
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).snapshotUrl("https://snap/x.jpg").build();
 
         Auction auctionOld = Auction.builder()
                 .title("Oldest")

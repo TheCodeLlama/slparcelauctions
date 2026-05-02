@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -130,14 +131,12 @@ class BotMonitorLifecycleServiceResumedTest {
             sellerId = seller.getId();
 
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
                 .ownerUuid(seller.getSlAvatarUuid())
                 .ownerType("agent")
-                .regionName("ResumedRegion")
-                .continentName("Sansara")
-                .areaSqm(1024)
-                .maturityRating("MODERATE")
-                .positionX(128.0)
+                                                .areaSqm(1024)
+                                .positionX(128.0)
                 .positionY(64.0)
                 .positionZ(22.0)
                 .verified(true)
@@ -173,6 +172,10 @@ class BotMonitorLifecycleServiceResumedTest {
                 .build());
             auctionId = a.getId();
         });
-        return auctionRepo.findById(auctionId).orElseThrow();
+        return tx.execute(s -> {
+            Auction reloaded = auctionRepo.findById(auctionId).orElseThrow();
+            reloaded.getParcel().getRegion().getName();
+            return reloaded;
+        });
     }
 }

@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.auction.ProxyBidStatus;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Service-layer unit tests for {@link MyBidsService}. Covers:
@@ -242,10 +243,10 @@ class MyBidsServiceTest {
 
     private static Auction baseAuction(Long id) {
         Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland())
                 .id(id * 10)
                 .location("Test Parcel " + id)
-                .regionName("TestRegion")
-                .areaSqm(1024)
+                                .areaSqm(1024)
                 .snapshotUrl("http://example.com/snap.jpg")
                 .build();
         User seller = new User();

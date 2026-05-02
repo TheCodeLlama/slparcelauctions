@@ -146,7 +146,9 @@ public class OwnershipCheckTask {
                 && OffsetDateTime.now(clock).isBefore(auction.getPostCancelWatchUntil());
 
         try {
-            ParcelMetadata result = worldApi.fetchParcel(parcelUuid).block();
+            ParcelMetadata result = worldApi.fetchParcelPage(parcelUuid)
+                    .map(com.slparcelauctions.backend.sl.dto.ParcelPageData::parcel)
+                    .block();
             if (result == null) {
                 // Defensive: block() returning null is degenerate. Treat as a
                 // transient World API failure so the counter advances but the

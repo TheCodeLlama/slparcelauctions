@@ -18,6 +18,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Persistence-level verification of
@@ -140,14 +141,12 @@ class AuctionRepositoryOwnershipCheckTest {
 
     private Parcel buildParcel() {
         return Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
                 .ownerUuid(UUID.randomUUID())
                 .ownerType("agent")
-                .regionName("Coniston")
-                .continentName("Sansara")
-                .areaSqm(1024)
-                .maturityRating("MODERATE")
-                .verified(true)
+                                                .areaSqm(1024)
+                                .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build();
     }

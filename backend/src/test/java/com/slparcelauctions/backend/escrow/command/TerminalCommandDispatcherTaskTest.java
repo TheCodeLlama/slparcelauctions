@@ -46,6 +46,7 @@ import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Mockito unit coverage for {@link TerminalCommandDispatcherTask}. Exercises
@@ -383,9 +384,10 @@ class TerminalCommandDispatcherTaskTest {
     private Escrow buildEscrow() {
         User seller = User.builder().id(1L).email("s@e.com")
                 .slAvatarUuid(UUID.randomUUID()).verified(true).build();
-        Parcel parcel = Parcel.builder().id(9L).slParcelUuid(UUID.randomUUID())
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(9L).slParcelUuid(UUID.randomUUID())
                 .ownerUuid(seller.getSlAvatarUuid()).ownerType("agent")
-                .regionName("Reg").continentName("Sansara").verified(true).build();
+                .verified(true).build();
         Auction auction = Auction.builder()
                 .title("Test listing")
                 .id(1001L).seller(seller).parcel(parcel)

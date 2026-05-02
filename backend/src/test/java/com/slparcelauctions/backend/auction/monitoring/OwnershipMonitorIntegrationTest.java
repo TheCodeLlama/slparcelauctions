@@ -39,6 +39,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end coverage of the ownership-monitor sweep using a real World API
@@ -240,19 +241,23 @@ class OwnershipMonitorIntegrationTest {
     // -------------------------------------------------------------------------
 
     private void stubWorldApiOwner(UUID parcelUuid, UUID ownerUuid, String ownerType, String title) {
+        // Matches the SL World API HTML shape PR-2 parses: name=parcel/region/
+        // location/area/owner*, plus the body's <a href="/region/{uuid}"> that
+        // SlWorldApiClient extracts for the region UUID. Old fixtures used
+        // og:* and secondlife:* metas that the new parser doesn't read.
         String html = """
                 <html><head>
-                <meta property="og:title" content="%s">
-                <meta property="og:description" content="desc">
-                <meta property="og:image" content="http://example.com/snap.jpg">
-                <meta name="secondlife:region" content="Coniston">
-                <meta name="secondlife:parcelid" content="%s">
+                <meta name="parcel" content="%s">
+                <meta name="region" content="Coniston">
                 <meta name="ownerid" content="%s">
                 <meta name="ownertype" content="%s">
+                <meta name="owner" content="Test Owner">
                 <meta name="area" content="1024">
-                <meta name="maturityrating" content="Mature">
-                </head><body></body></html>
-                """.formatted(title, parcelUuid, ownerUuid, ownerType);
+                <meta name="location" content="80/104/0">
+                </head><body>
+                <a href="/region/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa">Coniston</a>
+                </body></html>
+                """.formatted(title, ownerUuid, ownerType);
         wireMock.stubFor(get(urlPathMatching("/place/.*"))
                 .willReturn(aResponse()
                         .withStatus(200)
@@ -277,14 +282,12 @@ class OwnershipMonitorIntegrationTest {
             seededUserId = seller.getId();
 
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(parcelUuid)
                     .ownerUuid(sellerAvatar)
                     .ownerType("agent")
-                    .regionName("Coniston")
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .verified(true)
+                                                            .areaSqm(1024)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             seededParcelId = parcel.getId();

@@ -11,25 +11,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
-import com.slparcelauctions.backend.sl.MainlandContinents;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
+import com.slparcelauctions.backend.region.Region;
+import com.slparcelauctions.backend.region.RegionService;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
-import com.slparcelauctions.backend.sl.exception.NotMainlandException;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Looks up a parcel by UUID, fetching World API + Map API metadata on first
- * sight and caching into the {@code parcels} table. Shared row — multiple
- * auctions may reference the same parcel. No ownership check here; ownership
- * is per-auction and runs at {@code /verify} time (Task 6).
+ * Looks up a parcel by UUID, fetching the parcel page + region page on first
+ * sight and caching into the {@code parcels} + {@code regions} tables. Two
+ * outbound HTTP calls per first-sight lookup (parcel page + region page); the
+ * region page fetch always happens — coords on Mainland can in principle
+ * change, so we re-resolve on every parcel lookup and {@code RegionService}
+ * UPDATEs the row in place when SL has shifted any field. Subsequent
+ * lookups of the same parcel UUID short-circuit on the {@code parcels} cache.
  *
- * <p>Mainland check runs against {@link MainlandContinents}. Parcels outside
- * every Mainland bounding box are rejected with {@link NotMainlandException}
- * (HTTP 422) — Phase 1 supports Mainland only.
+ * <p>Mainland check happens inside {@link RegionService#upsert} — non-Mainland
+ * regions never get persisted, and the {@code NotMainlandException} (HTTP 422)
+ * surfaces from there.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ParcelLookupService {
 
     private final SlWorldApiClient worldApi;
-    private final SlMapApiClient mapApi;
+    private final RegionService regionService;
     private final ParcelRepository repo;
     private final Clock clock;
 
@@ -48,36 +51,32 @@ public class ParcelLookupService {
             return ParcelResponse.from(existing.get());
         }
 
-        ParcelMetadata meta = worldApi.fetchParcel(slParcelUuid).block();
-        GridCoordinates coords = mapApi.resolveRegion(meta.regionName()).block();
+        ParcelPageData parcelPage = worldApi.fetchParcelPage(slParcelUuid).block();
+        RegionPageData regionPage = worldApi.fetchRegionPage(parcelPage.regionUuid()).block();
+        Region region = regionService.upsert(regionPage);
 
-        String continent = MainlandContinents.continentAt(coords.gridX(), coords.gridY())
-                .orElseThrow(() -> new NotMainlandException(coords.gridX(), coords.gridY()));
-
+        ParcelMetadata meta = parcelPage.parcel();
         OffsetDateTime now = OffsetDateTime.now(clock);
         Parcel parcel = Parcel.builder()
                 .slParcelUuid(slParcelUuid)
+                .region(region)
                 .ownerUuid(meta.ownerUuid())
                 .ownerType(meta.ownerType())
-                .regionName(meta.regionName())
-                .gridX(coords.gridX())
-                .gridY(coords.gridY())
-                .continentName(continent)
+                .ownerName(meta.ownerName())
                 .areaSqm(meta.areaSqm())
                 .description(meta.description())
                 .snapshotUrl(meta.snapshotUrl())
-                .maturityRating(meta.maturityRating())
                 .positionX(meta.positionX())
                 .positionY(meta.positionY())
                 .positionZ(meta.positionZ())
-                .slurl(buildSlurl(meta.regionName(), meta.positionX(), meta.positionY(), meta.positionZ()))
+                .slurl(buildSlurl(region.getName(), meta.positionX(), meta.positionY(), meta.positionZ()))
                 .verified(true)
                 .verifiedAt(now)
                 .lastChecked(now)
                 .build();
         parcel = repo.save(parcel);
-        log.info("Parcel row created: id={}, uuid={}, region={}, continent={}",
-                parcel.getId(), slParcelUuid, meta.regionName(), continent);
+        log.info("Parcel row created: id={}, uuid={}, region_id={}, region={}",
+                parcel.getId(), slParcelUuid, region.getId(), region.getName());
         return ParcelResponse.from(parcel);
     }
 

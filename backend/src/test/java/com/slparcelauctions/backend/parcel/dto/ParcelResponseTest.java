@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit tests for the {@link ParcelResponse#from(Parcel)} mapper.
@@ -22,17 +23,14 @@ class ParcelResponseTest {
     @Test
     void from_populatesPositionsFromParcelEntity() {
         Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland())
                 .id(1L)
                 .slParcelUuid(UUID.fromString("00000000-0000-0000-0000-000000000001"))
-                .regionName("Heterocera")
-                .gridX(1000.0)
-                .gridY(1001.0)
-                .positionX(45.5)
+                                                                .positionX(45.5)
                 .positionY(72.25)
                 .positionZ(24.0)
                 .areaSqm(1024)
-                .maturityRating("GENERAL")
-                .verified(true)
+                                .verified(true)
                 .createdAt(OffsetDateTime.parse("2026-04-17T00:00:00Z"))
                 .build();
 
@@ -50,17 +48,14 @@ class ParcelResponseTest {
         // trip as null so the frontend can surface the region-centre
         // fallback explicitly.
         Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland())
                 .id(2L)
                 .slParcelUuid(UUID.fromString("00000000-0000-0000-0000-000000000002"))
-                .regionName("Sansara")
-                .gridX(260000.0)
-                .gridY(254000.0)
-                .positionX(null)
+                                                                .positionX(null)
                 .positionY(null)
                 .positionZ(null)
                 .areaSqm(512)
-                .maturityRating("MODERATE")
-                .verified(true)
+                                .verified(true)
                 .createdAt(OffsetDateTime.parse("2026-04-17T00:00:00Z"))
                 .build();
 

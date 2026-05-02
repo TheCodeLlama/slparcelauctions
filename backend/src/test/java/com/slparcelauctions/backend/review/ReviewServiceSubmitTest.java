@@ -38,6 +38,7 @@ import com.slparcelauctions.backend.review.exception.ReviewWindowClosedException
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link ReviewService#submit(Long, User, ReviewSubmitRequest)}.
@@ -83,7 +84,8 @@ class ReviewServiceSubmitTest {
         stranger = User.builder().email("stranger@example.com").passwordHash("x").build();
         stranger.setId(99L);
 
-        Parcel parcel = Parcel.builder().snapshotUrl("https://snap/1.jpg").build();
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)

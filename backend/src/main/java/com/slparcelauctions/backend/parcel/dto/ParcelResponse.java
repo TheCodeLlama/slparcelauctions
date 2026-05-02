@@ -4,24 +4,27 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.region.Region;
 
 /**
  * Public view of a {@link Parcel} row. Built via {@link #from(Parcel)}.
- * Shared across auctions — this DTO deliberately exposes only the
- * metadata fields populated by World API + Map API (no layout map).
+ * Region-scoped fields ({@code regionName}, {@code gridX}, {@code gridY},
+ * {@code maturityRating}) are read through {@code parcel.region.*} but
+ * surfaced flat on the response so the frontend doesn't have to traverse a
+ * nested region object.
  */
 public record ParcelResponse(
         Long id,
         UUID slParcelUuid,
         UUID ownerUuid,
         String ownerType,
+        String ownerName,
         String regionName,
         Double gridX,
         Double gridY,
         Double positionX,
         Double positionY,
         Double positionZ,
-        String continentName,
         Integer areaSqm,
         String description,
         String snapshotUrl,
@@ -33,13 +36,14 @@ public record ParcelResponse(
         OffsetDateTime createdAt) {
 
     public static ParcelResponse from(Parcel p) {
+        Region r = p.getRegion();
         return new ParcelResponse(
                 p.getId(), p.getSlParcelUuid(), p.getOwnerUuid(), p.getOwnerType(),
-                p.getRegionName(), p.getGridX(), p.getGridY(),
+                p.getOwnerName(),
+                r.getName(), r.getGridX(), r.getGridY(),
                 p.getPositionX(), p.getPositionY(), p.getPositionZ(),
-                p.getContinentName(),
                 p.getAreaSqm(), p.getDescription(), p.getSnapshotUrl(), p.getSlurl(),
-                p.getMaturityRating(), p.getVerified(), p.getVerifiedAt(),
+                r.getMaturityRating(), p.getVerified(), p.getVerifiedAt(),
                 p.getLastChecked(), p.getCreatedAt());
     }
 }

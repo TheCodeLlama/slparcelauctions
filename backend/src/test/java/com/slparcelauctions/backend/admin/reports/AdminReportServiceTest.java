@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -133,9 +134,9 @@ class AdminReportServiceTest {
             reporter4Id = reporter4.getId();
 
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("ReportAdminRegion")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(1024)
                 .build());
             parcelId = parcel.getId();

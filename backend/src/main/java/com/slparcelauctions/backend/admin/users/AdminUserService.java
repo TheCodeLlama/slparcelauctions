@@ -96,7 +96,7 @@ public class AdminUserService {
         Page<Auction> page = auctionRepo.findBySellerIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.from(page.map(a -> new AdminUserListingRowDto(
             a.getId(), a.getTitle(),
-            a.getParcel() != null ? a.getParcel().getRegionName() : null,
+            a.getParcel() != null ? a.getParcel().getRegion().getName() : null,
             a.getStatus(), a.getEndsAt(), a.getFinalBidAmount())));
     }
 

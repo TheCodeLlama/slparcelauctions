@@ -44,6 +44,7 @@ import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end coverage for Escrow row creation on the inline buy-it-now close
@@ -229,14 +230,12 @@ class EscrowCreateOnBuyNowIntegrationTest {
                     .verified(true)
                     .build());
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(seller.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName("EscrowBuyNowRegion")
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .verified(true)
+                                                            .areaSqm(1024)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();

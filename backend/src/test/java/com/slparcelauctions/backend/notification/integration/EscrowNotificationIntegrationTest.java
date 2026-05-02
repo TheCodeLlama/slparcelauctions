@@ -46,6 +46,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for escrow lifecycle notifications.
@@ -133,13 +134,11 @@ class EscrowNotificationIntegrationTest {
             User seller = userRepo.findById(sellerId).orElseThrow();
             User winner = userRepo.findById(winnerId).orElseThrow();
             Parcel p = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerType("agent")
-                    .regionName("EscrowTestRegion")
-                    .continentName("Sansara")
-                    .areaSqm(256)
-                    .maturityRating("GENERAL")
-                    .verified(true)
+                                                            .areaSqm(256)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             parcelId = p.getId();

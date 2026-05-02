@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration tests for {@link CancellationService#cancelByAdmin}.
@@ -115,14 +116,12 @@ class CancellationServiceCancelByAdminTest {
     private Auction buildActiveAuction(User seller, int bidCount) {
         return new TransactionTemplate(txManager).execute(s -> {
             Parcel p = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(seller.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName("AdminCancelRegion")
-                    .continentName("Sansara")
-                    .areaSqm(512)
-                    .maturityRating("GENERAL")
-                    .verified(true)
+                                                            .areaSqm(512)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             parcelId = p.getId();

@@ -56,7 +56,12 @@ public class Auction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // EAGER: every auction-rendering path (search results, detail page,
+    // monitor scheduler) reads parcel.region.* — LAZY caused
+    // LazyInitializationException when auction was passed across a
+    // transaction boundary (e.g. BotMonitorLifecycleService called from a
+    // post-commit hook). Region itself is also EAGER on Parcel.
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "parcel_id", nullable = false)
     private Parcel parcel;
 

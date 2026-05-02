@@ -30,6 +30,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Verifies that two parallel {@code claim()} calls race cleanly over
@@ -170,14 +171,12 @@ class BotTaskClaimRaceIntegrationTest {
                 .build());
         UUID parcelUuid = UUID.randomUUID();
         Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(parcelUuid)
                 .ownerUuid(seller.getSlAvatarUuid())
                 .ownerType("agent")
-                .regionName("BotClaimRaceRegion")
-                .continentName("Sansara")
-                .areaSqm(1024)
-                .maturityRating("MODERATE")
-                .verified(true)
+                                                .areaSqm(1024)
+                                .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         OffsetDateTime now = OffsetDateTime.now();

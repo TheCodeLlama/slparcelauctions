@@ -22,6 +22,7 @@ import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 class AuctionDtoMapperTest {
 
@@ -155,9 +156,9 @@ class AuctionDtoMapperTest {
     private Auction buildAuction(AuctionStatus status) {
         User seller = User.builder().id(42L).email("s@example.com").build();
         Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland())
                 .id(100L).slParcelUuid(UUID.randomUUID())
-                .regionName("Coniston").continentName("Sansara")
-                .verified(true).build();
+                                .verified(true).build();
         return Auction.builder()
                 .title("Test listing")
                 .id(1L).seller(seller).parcel(parcel)

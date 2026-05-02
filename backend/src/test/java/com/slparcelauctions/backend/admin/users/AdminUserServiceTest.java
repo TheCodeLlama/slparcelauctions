@@ -44,6 +44,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserServiceTest {
@@ -166,7 +167,11 @@ class AdminUserServiceTest {
 
     @Test
     void listings_mapsAuctionToDto() {
-        Parcel parcel = Parcel.builder().regionName("Test Region").build();
+        Parcel parcel = Parcel.builder()
+                .region(com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name("Test Region")
+                        .gridX(1014.0).gridY(1014.0).maturityRating("GENERAL").build())
+                .build();
         Auction auction = Auction.builder()
             .title("My Auction")
             .status(AuctionStatus.ACTIVE)

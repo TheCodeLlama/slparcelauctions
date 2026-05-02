@@ -27,10 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.parcel.dto.ParcelLookupRequest;
 import com.slparcelauctions.backend.sl.ParcelIngestException;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 
 import reactor.core.publisher.Mono;
 
@@ -67,8 +67,6 @@ class ParcelControllerIntegrationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean SlWorldApiClient worldApi;
-    @MockitoBean SlMapApiClient mapApi;
-
     /** Unverified user: returned from register flow as-is. */
     private String unverifiedAccessToken;
 
@@ -91,7 +89,7 @@ class ParcelControllerIntegrationTest {
     void lookup_newMainlandUuid_returns200AndPersistsParcel() throws Exception {
         UUID parcelUuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID ownerUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
-        stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 260000.0, 254000.0);
+        stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 1014.0, 1014.0);
 
         mockMvc.perform(post("/api/v1/parcels/lookup")
                 .header("Authorization", "Bearer " + verifiedAccessToken)
@@ -100,7 +98,6 @@ class ParcelControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.slParcelUuid").value(parcelUuid.toString()))
                 .andExpect(jsonPath("$.regionName").value("Coniston"))
-                .andExpect(jsonPath("$.continentName").value("Sansara"))
                 .andExpect(jsonPath("$.verified").value(true))
                 .andExpect(jsonPath("$.slurl").value(org.hamcrest.Matchers.containsString("Coniston")))
                 // Detail-page VisitInSecondLifeBlock reads these off the DTO.
@@ -115,7 +112,7 @@ class ParcelControllerIntegrationTest {
     void lookup_sameUuidTwice_secondCallIsCacheHit() throws Exception {
         UUID parcelUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
         UUID ownerUuid = UUID.fromString("66666666-6666-6666-6666-666666666666");
-        stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 260000.0, 254000.0);
+        stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 1014.0, 1014.0);
 
         String body = objectMapper.writeValueAsString(new ParcelLookupRequest(parcelUuid));
 
@@ -132,8 +129,8 @@ class ParcelControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         // Second call must not hit external APIs
-        verify(worldApi, times(1)).fetchParcel(parcelUuid);
-        verify(mapApi, times(1)).resolveRegion("Coniston");
+        verify(worldApi, times(1)).fetchParcelPage(parcelUuid);
+        verify(worldApi, times(1)).fetchRegionPage(org.mockito.ArgumentMatchers.any(java.util.UUID.class));
         assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }
 
@@ -148,7 +145,7 @@ class ParcelControllerIntegrationTest {
         // bubbling up to the catch-all 500 — defense in depth in case SL
         // changes the page shape again.
         UUID parcelUuid = UUID.fromString("88888888-8888-8888-8888-888888888888");
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(
+        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
                 Mono.error(new ParcelIngestException("required meta missing")));
 
         mockMvc.perform(post("/api/v1/parcels/lookup")
@@ -164,7 +161,7 @@ class ParcelControllerIntegrationTest {
         UUID parcelUuid = UUID.fromString("77777777-7777-7777-7777-777777777777");
         UUID ownerUuid = UUID.randomUUID();
         // Region resolves to coords that fall outside every Mainland bounding box.
-        stubMainlandMetadata(parcelUuid, ownerUuid, "PrivateEstate", 100000.0, 100000.0);
+        stubMainlandMetadata(parcelUuid, ownerUuid, "PrivateEstate", 390.0, 390.0);
 
         mockMvc.perform(post("/api/v1/parcels/lookup")
                 .header("Authorization", "Bearer " + verifiedAccessToken)
@@ -269,11 +266,23 @@ class ParcelControllerIntegrationTest {
 
     private void stubMainlandMetadata(UUID parcelUuid, UUID ownerUuid, String regionName,
                                       double gridX, double gridY) {
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, ownerUuid, "agent",
-                "Test Parcel", regionName,
-                1024, "Test description", "http://example.com/snap.jpg", "MODERATE",
-                128.0, 64.0, 22.0)));
-        when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(gridX, gridY)));
+        UUID regionUuid = UUID.randomUUID();
+        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
+                Mono.just(new ParcelPageData(new ParcelMetadata(
+                        parcelUuid,
+                ownerUuid,
+                "agent",
+                null,
+                "Test Parcel",
+                regionName,
+                1024,
+                "Test description",
+                "http://example.com/snap.jpg",
+                null,
+                128.0,
+                64.0,
+                22.0), regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
+                Mono.just(new RegionPageData(regionUuid, regionName, gridX, gridY, "M_NOT")));
     }
 }

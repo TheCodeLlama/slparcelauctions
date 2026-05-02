@@ -22,8 +22,8 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.search.exception.RegionNotFoundException;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
-import com.slparcelauctions.backend.sl.CachedRegionResolver;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.region.Region;
+import com.slparcelauctions.backend.region.RegionRepository;
 
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
@@ -45,12 +45,16 @@ import lombok.RequiredArgsConstructor;
  * denormalized count; no subquery against {@code Bid} is required.
  *
  * <p>Distance search: when {@code near_region} is supplied, the service
- * resolves the region name to grid coordinates via
- * {@link CachedRegionResolver}, builds a bounding-box + squared-distance
- * predicate, computes per-row distances in memory after pagination
- * (cheap — at most {@code size} rows), and surfaces the resolved
- * region in {@link SearchMeta#nearRegionResolved} so the frontend can
- * confirm which anchor was used.
+ * resolves the region name to grid coordinates by reading the
+ * {@code regions} table directly (case-insensitive match on
+ * {@code regions.name}). Unknown regions return {@link RegionNotFoundException}
+ * — Phase 1 only knows about regions that already host a listed parcel; a
+ * future autocomplete UX is the right place to surface unknown regions
+ * without a 404. The service then builds a bounding-box + squared-distance
+ * predicate, computes per-row distances in memory after pagination (cheap —
+ * at most {@code size} rows), and surfaces the resolved region in
+ * {@link SearchMeta#nearRegionResolved} so the frontend can confirm which
+ * anchor was used.
  */
 @Service
 @RequiredArgsConstructor
@@ -63,7 +67,7 @@ public class AuctionSearchService {
     private final AuctionSearchResultMapper mapper;
     private final SearchResponseCache cache;
     private final AuctionSearchQueryValidator validator;
-    private final CachedRegionResolver regionResolver;
+    private final RegionRepository regionRepository;
 
     @Transactional(readOnly = true)
     public SearchPagedResponse<AuctionSearchResultDto> search(AuctionSearchQuery rawQuery) {
@@ -76,12 +80,10 @@ public class AuctionSearchService {
         Specification<Auction> spec;
 
         if (query.nearRegion() != null && !query.nearRegion().isBlank()) {
-            Optional<GridCoordinates> coord = regionResolver.resolve(query.nearRegion());
-            if (coord.isEmpty()) {
-                throw new RegionNotFoundException(query.nearRegion());
-            }
-            double x0 = coord.get().gridX();
-            double y0 = coord.get().gridY();
+            Region anchor = regionRepository.findByNameIgnoreCase(query.nearRegion())
+                    .orElseThrow(() -> new RegionNotFoundException(query.nearRegion()));
+            double x0 = anchor.getGridX();
+            double y0 = anchor.getGridY();
             int radius = query.distance() != null
                     ? query.distance()
                     : AuctionSearchQuery.DEFAULT_DISTANCE;
@@ -119,11 +121,12 @@ public class AuctionSearchService {
         Map<Long, BigDecimal> out = new HashMap<>(rows.size());
         for (Auction a : rows) {
             Parcel p = a.getParcel();
-            if (p == null || p.getGridX() == null || p.getGridY() == null) {
+            if (p == null || p.getRegion() == null) {
                 continue;
             }
-            double dx = p.getGridX() - x0;
-            double dy = p.getGridY() - y0;
+            Region r = p.getRegion();
+            double dx = r.getGridX() - x0;
+            double dy = r.getGridY() - y0;
             double dist = Math.sqrt(dx * dx + dy * dy);
             out.put(a.getId(), BigDecimal.valueOf(dist).setScale(1, RoundingMode.HALF_UP));
         }
@@ -156,8 +159,9 @@ public class AuctionSearchService {
                 final double y0 = resolvedRegion.gridY();
                 yield base.and((root, q, cb) -> {
                     Join<Object, Object> parcel = root.join("parcel");
-                    Expression<Double> dx = cb.diff(parcel.<Double>get("gridX"), cb.literal(x0));
-                    Expression<Double> dy = cb.diff(parcel.<Double>get("gridY"), cb.literal(y0));
+                    Join<Object, Object> region = parcel.join("region");
+                    Expression<Double> dx = cb.diff(region.<Double>get("gridX"), cb.literal(x0));
+                    Expression<Double> dy = cb.diff(region.<Double>get("gridY"), cb.literal(y0));
                     Expression<Double> distSquared = cb.sum(cb.prod(dx, dx), cb.prod(dy, dy));
                     q.orderBy(cb.asc(distSquared), cb.asc(root.get("id")));
                     return cb.conjunction();

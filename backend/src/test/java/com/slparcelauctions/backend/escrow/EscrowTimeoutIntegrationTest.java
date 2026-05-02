@@ -49,6 +49,7 @@ import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end coverage of {@link EscrowTimeoutJob}. Four scenarios:
@@ -450,14 +451,12 @@ class EscrowTimeoutIntegrationTest {
 
     private Parcel saveParcel(UUID sellerAvatar) {
         return parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
                 .ownerUuid(sellerAvatar)
                 .ownerType("agent")
-                .regionName("EscrowTimeoutRegion")
-                .continentName("Sansara")
-                .areaSqm(1024)
-                .maturityRating("MODERATE")
-                .verified(true)
+                                                .areaSqm(1024)
+                                .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
     }
