@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.verification.VerificationCodeService;
 import com.slparcelauctions.backend.verification.dto.ActiveCodeResponse;
 import com.slparcelauctions.backend.verification.dto.GenerateCodeResponse;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link AuctionVerificationService} Method B (REZZABLE).
@@ -82,9 +83,10 @@ class AuctionVerificationServiceMethodBTest {
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder().id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+                .verified(true).build();
 
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));

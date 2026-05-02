@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 class AuctionSearchResultMapperTest {
 
@@ -111,13 +112,11 @@ class AuctionSearchResultMapperTest {
                 .totalSellerReviews(5)
                 .build();
         Parcel p = Parcel.builder()
+                .region(TestRegions.mainland())
                 .id(99L)
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("Tula")
-                .areaSqm(1024)
-                .maturityRating("GENERAL")
-                .gridX(997.0).gridY(1036.0)
-                .positionX(80.0).positionY(104.0).positionZ(89.0)
+                                .areaSqm(1024)
+                                                .positionX(80.0).positionY(104.0).positionZ(89.0)
                 .build();
         return Auction.builder()
                 .id(id)

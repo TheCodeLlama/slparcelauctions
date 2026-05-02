@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.parceltag.ParcelTagRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for {@link AuctionSearchPredicateBuilder} against a
@@ -49,6 +50,7 @@ class AuctionSearchPredicateBuilderTest {
     @Autowired AuctionSearchPredicateBuilder builder;
     @Autowired AuctionRepository auctionRepo;
     @Autowired ParcelRepository parcelRepo;
+    @Autowired com.slparcelauctions.backend.region.RegionRepository regionRepo;
     @Autowired UserRepository userRepo;
     @Autowired ParcelTagRepository tagRepo;
 
@@ -205,12 +207,15 @@ class AuctionSearchPredicateBuilderTest {
     }
 
     private Auction seedActive(String region, int areaSqm, String maturity) {
+        com.slparcelauctions.backend.region.Region r = regionRepo.save(
+                com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name(region)
+                        .gridX(1014.0).gridY(1014.0).maturityRating(maturity).build());
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(r)
                 .slParcelUuid(UUID.randomUUID())
-                .regionName(region)
-                .areaSqm(areaSqm)
-                .maturityRating(maturity)
-                .verified(true)
+                                .areaSqm(areaSqm)
+                                .verified(true)
                 .build());
         return auctionRepo.save(Auction.builder()
                 .parcel(p)
@@ -234,11 +239,10 @@ class AuctionSearchPredicateBuilderTest {
 
     private Auction seedActiveForSeller(User s) {
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("R-" + UUID.randomUUID())
-                .areaSqm(1024)
-                .maturityRating("GENERAL")
-                .verified(true)
+                                .areaSqm(1024)
+                                .verified(true)
                 .build());
         return auctionRepo.save(Auction.builder()
                 .parcel(p)

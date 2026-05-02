@@ -36,6 +36,7 @@ import com.slparcelauctions.backend.review.exception.ReviewNotFoundException;
 import com.slparcelauctions.backend.review.exception.ReviewResponseAlreadyExistsException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link ReviewService#respondTo(Long, User,
@@ -84,7 +85,8 @@ class ReviewServiceActionTest {
         stranger.setId(99L);
         stranger.setDisplayName("Sam");
 
-        Parcel parcel = Parcel.builder().snapshotUrl("https://snap/1.jpg").build();
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)

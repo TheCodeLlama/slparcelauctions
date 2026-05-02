@@ -164,7 +164,7 @@ public class SuspensionService {
         } else {
             ev.put("hoursSinceCancellation", null);
         }
-        ev.put("parcelRegion", auction.getParcel().getRegionName());
+        ev.put("parcelRegion", auction.getParcel().getRegion().getName());
         // The Parcel entity carries no SL-side "local id" today — surface the
         // database id as a stable handle so admin tools can join back to the
         // parcel without leaking SL implementation details. If a future SL

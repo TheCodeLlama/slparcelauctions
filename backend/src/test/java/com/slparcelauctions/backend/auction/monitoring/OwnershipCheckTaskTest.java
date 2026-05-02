@@ -31,10 +31,13 @@ import com.slparcelauctions.backend.auction.CancellationLogRepository;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -74,8 +77,9 @@ class OwnershipCheckTaskTest {
         Auction a = buildActive();
         a.setConsecutiveWorldApiFailures(3);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -91,7 +95,8 @@ class OwnershipCheckTaskTest {
         Auction a = buildActive();
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         ParcelMetadata changed = meta(OTHER_AVATAR, "agent");
-        when(worldApi.fetchParcel(PARCEL_UUID)).thenReturn(Mono.just(changed));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(changed, java.util.UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -108,7 +113,8 @@ class OwnershipCheckTaskTest {
         Auction a = buildActive();
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         ParcelMetadata groupOwned = meta(SELLER_AVATAR, "group");
-        when(worldApi.fetchParcel(PARCEL_UUID)).thenReturn(Mono.just(groupOwned));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(groupOwned, java.util.UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -119,7 +125,7 @@ class OwnershipCheckTaskTest {
     void parcelNotFound_delegatesToSuspensionService_forDeletedParcel() {
         Auction a = buildActive();
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
-        when(worldApi.fetchParcel(PARCEL_UUID))
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(Mono.error(new ParcelNotFoundInSlException(PARCEL_UUID)));
 
         task.checkOne(AUCTION_ID);
@@ -133,7 +139,7 @@ class OwnershipCheckTaskTest {
         Auction a = buildActive();
         a.setConsecutiveWorldApiFailures(2);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
-        when(worldApi.fetchParcel(PARCEL_UUID))
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(Mono.error(new ExternalApiTimeoutException("World", "upstream 503")));
 
         task.checkOne(AUCTION_ID);
@@ -170,8 +176,9 @@ class OwnershipCheckTaskTest {
         a.setPostCancelWatchUntil(watchUntil);
         OffsetDateTime cancelledAt = OffsetDateTime.now(fixed).minusHours(4);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(OTHER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(OTHER_AVATAR, "agent"), java.util.UUID.randomUUID())));
         com.slparcelauctions.backend.auction.CancellationLog log =
                 com.slparcelauctions.backend.auction.CancellationLog.builder()
                         .id(7L).auction(a).seller(a.getSeller())
@@ -205,8 +212,9 @@ class OwnershipCheckTaskTest {
         a.setStatus(AuctionStatus.CANCELLED);
         a.setPostCancelWatchUntil(OffsetDateTime.now(fixed).plusHours(24));
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -267,8 +275,9 @@ class OwnershipCheckTaskTest {
     void lockEntryPath_usesFindByIdForUpdate_notFindById() {
         Auction a = buildActive();
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
-        when(worldApi.fetchParcel(PARCEL_UUID))
-                .thenReturn(Mono.just(meta(SELLER_AVATAR, "agent")));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -283,9 +292,10 @@ class OwnershipCheckTaskTest {
     private Auction buildActive() {
         User seller = User.builder().id(42L).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        Parcel parcel = Parcel.builder().id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+                .verified(true).build();
         return Auction.builder()
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)
@@ -303,7 +313,7 @@ class OwnershipCheckTaskTest {
 
     private ParcelMetadata meta(UUID owner, String ownerType) {
         return new ParcelMetadata(
-                PARCEL_UUID, owner, ownerType,
+                PARCEL_UUID, owner, ownerType, null,
                 "Test Parcel", "Coniston",
                 1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);

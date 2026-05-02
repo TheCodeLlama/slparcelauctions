@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.review.dto.ReviewSubmitRequest;
 import com.slparcelauctions.backend.review.exception.ReviewNotFoundException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link ReviewService#reveal(Long)} +
@@ -76,7 +77,8 @@ class ReviewServiceRevealTest {
         winner.setId(20L);
         winner.setDisplayName("Willy");
 
-        Parcel parcel = Parcel.builder().snapshotUrl("https://snap/1.jpg").build();
+        Parcel parcel = Parcel.builder()
+                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)

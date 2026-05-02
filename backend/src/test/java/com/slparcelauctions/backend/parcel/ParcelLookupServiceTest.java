@@ -20,10 +20,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
+import com.slparcelauctions.backend.region.Region;
+import com.slparcelauctions.backend.region.RegionService;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.NotMainlandException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 
@@ -33,7 +35,7 @@ import reactor.core.publisher.Mono;
 class ParcelLookupServiceTest {
 
     @Mock SlWorldApiClient worldApi;
-    @Mock SlMapApiClient mapApi;
+    @Mock RegionService regionService;
     @Mock ParcelRepository repo;
 
     ParcelLookupService service;
@@ -41,20 +43,29 @@ class ParcelLookupServiceTest {
     @BeforeEach
     void setUp() {
         Clock fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        service = new ParcelLookupService(worldApi, mapApi, repo, fixed);
+        service = new ParcelLookupService(worldApi, regionService, repo, fixed);
     }
 
     @Test
     void lookup_newUuidOnMainland_createsParcelAndReturnsResponse() {
         UUID parcelUuid = UUID.fromString("11111111-1111-1111-1111-111111111111");
         UUID ownerUuid = UUID.fromString("22222222-2222-2222-2222-222222222222");
+        UUID regionUuid = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        ParcelMetadata meta = new ParcelMetadata(
+                parcelUuid, ownerUuid, "agent", "Sunset Bay Holdings",
+                "Sunset Bay", "Coniston",
+                1024, "Waterfront", "http://example.com/snap.jpg", null,
+                128.0, 64.0, 22.0);
+        RegionPageData regionPage = new RegionPageData(
+                regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT");
+        Region region = Region.builder()
+                .id(7L).slUuid(regionUuid).name("Coniston")
+                .gridX(1014.0).gridY(1014.0).maturityRating("MODERATE").build();
         when(repo.findBySlParcelUuid(parcelUuid)).thenReturn(Optional.empty());
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, ownerUuid, "agent", "Sunset Bay", "Coniston",
-                1024, "Waterfront", "http://example.com/snap.jpg", "MODERATE",
-                128.0, 64.0, 22.0)));
-        // Grid coords inside the Sansara continent box (254208..265984, 250368..259328)
-        when(mapApi.resolveRegion("Coniston")).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
+        when(worldApi.fetchParcelPage(parcelUuid))
+                .thenReturn(Mono.just(new ParcelPageData(meta, regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(Mono.just(regionPage));
+        when(regionService.upsert(regionPage)).thenReturn(region);
         when(repo.save(any(Parcel.class))).thenAnswer(inv -> {
             Parcel p = inv.getArgument(0);
             p.setId(42L);
@@ -65,12 +76,12 @@ class ParcelLookupServiceTest {
 
         assertThat(result.id()).isEqualTo(42L);
         assertThat(result.regionName()).isEqualTo("Coniston");
-        assertThat(result.continentName()).isEqualTo("Sansara");
+        assertThat(result.gridX()).isEqualTo(1014.0);
+        assertThat(result.gridY()).isEqualTo(1014.0);
+        assertThat(result.maturityRating()).isEqualTo("MODERATE");
+        assertThat(result.ownerName()).isEqualTo("Sunset Bay Holdings");
         assertThat(result.slurl()).contains("Coniston").contains("128").contains("64");
         assertThat(result.verified()).isTrue();
-        // positionX/Y/Z must flow through so the frontend's
-        // VisitInSecondLifeBlock lands users on the actual parcel instead
-        // of defaulting to region-centre 128/128/0.
         assertThat(result.positionX()).isEqualTo(128.0);
         assertThat(result.positionY()).isEqualTo(64.0);
         assertThat(result.positionZ()).isEqualTo(22.0);
@@ -79,22 +90,25 @@ class ParcelLookupServiceTest {
     @Test
     void lookup_existingUuid_shortCircuitsNoExternalCalls() {
         UUID parcelUuid = UUID.randomUUID();
+        Region region = Region.builder().id(7L).name("Sansara")
+                .gridX(1000.0).gridY(1000.0).maturityRating("GENERAL").build();
         Parcel existing = Parcel.builder()
-                .id(99L).slParcelUuid(parcelUuid).regionName("Sansara").build();
+                .id(99L).slParcelUuid(parcelUuid).region(region).build();
         when(repo.findBySlParcelUuid(parcelUuid)).thenReturn(Optional.of(existing));
 
         ParcelResponse result = service.lookup(parcelUuid);
 
         assertThat(result.id()).isEqualTo(99L);
-        verify(worldApi, never()).fetchParcel(any());
-        verify(mapApi, never()).resolveRegion(any());
+        verify(worldApi, never()).fetchParcelPage(any());
+        verify(worldApi, never()).fetchRegionPage(any());
+        verify(regionService, never()).upsert(any());
     }
 
     @Test
     void lookup_worldApi404_propagates() {
         UUID parcelUuid = UUID.randomUUID();
         when(repo.findBySlParcelUuid(parcelUuid)).thenReturn(Optional.empty());
-        when(worldApi.fetchParcel(parcelUuid))
+        when(worldApi.fetchParcelPage(parcelUuid))
                 .thenReturn(Mono.error(new ParcelNotFoundInSlException(parcelUuid)));
 
         assertThatThrownBy(() -> service.lookup(parcelUuid))
@@ -105,12 +119,18 @@ class ParcelLookupServiceTest {
     void lookup_nonMainlandCoords_throwsNotMainland() {
         UUID parcelUuid = UUID.randomUUID();
         UUID ownerUuid = UUID.randomUUID();
+        UUID regionUuid = UUID.randomUUID();
+        ParcelMetadata meta = new ParcelMetadata(
+                parcelUuid, ownerUuid, "agent", "X Holdings", "X", "SomeEstate", 1024,
+                null, null, null, 128.0, 128.0, 22.0);
+        RegionPageData regionPage = new RegionPageData(
+                regionUuid, "SomeEstate", 390.0, 390.0, "PG_NOT");
         when(repo.findBySlParcelUuid(parcelUuid)).thenReturn(Optional.empty());
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, ownerUuid, "agent", "X", "SomeEstate", 1024, null, null, "PG",
-                128.0, 128.0, 22.0)));
-        // Coords outside every Mainland bounding box
-        when(mapApi.resolveRegion("SomeEstate")).thenReturn(Mono.just(new GridCoordinates(100000.0, 100000.0)));
+        when(worldApi.fetchParcelPage(parcelUuid))
+                .thenReturn(Mono.just(new ParcelPageData(meta, regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(Mono.just(regionPage));
+        when(regionService.upsert(regionPage))
+                .thenThrow(new NotMainlandException(390.0, 390.0));
 
         assertThatThrownBy(() -> service.lookup(parcelUuid))
                 .isInstanceOf(NotMainlandException.class);

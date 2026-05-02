@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link SuspensionService}. Two public entry points
@@ -72,7 +73,7 @@ class SuspensionServiceTest {
     void suspendForOwnershipChange_flipsStatus_stampsTimestamp_writesFlagWithEvidence() {
         Auction a = buildActive();
         ParcelMetadata attacker = new ParcelMetadata(
-                PARCEL_UUID, ATTACKER_AVATAR, "agent",
+                PARCEL_UUID, ATTACKER_AVATAR, "agent", null,
                 "Hijacked", "Coniston", 1024, "desc", null, "MODERATE",
                 1.0, 2.0, 3.0);
 
@@ -171,9 +172,13 @@ class SuspensionServiceTest {
     private Auction buildActive() {
         User seller = User.builder().id(42L).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        Parcel parcel = Parcel.builder().id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        Parcel parcel = Parcel.builder()
+                .region(com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name("Coniston")
+                        .gridX(1014.0).gridY(1014.0).maturityRating("MODERATE").build())
+                .id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .regionName("Coniston").continentName("Sansara").verified(true).build();
+                .verified(true).build();
         return Auction.builder()
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).parcel(parcel)

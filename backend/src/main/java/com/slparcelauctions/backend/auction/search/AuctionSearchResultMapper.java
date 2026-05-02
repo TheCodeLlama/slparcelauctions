@@ -78,14 +78,14 @@ public class AuctionSearchResultMapper {
 
         ParcelSummaryDto parcelDto = p == null ? null : new ParcelSummaryDto(
                 p.getId(),
-                // No separate parcel "name" column on the entity; reuse regionName.
-                p.getRegionName(),
-                p.getRegionName(),
+                // No separate parcel "name" column on the entity; reuse region name.
+                p.getRegion().getName(),
+                p.getRegion().getName(),
                 p.getAreaSqm(),
-                p.getMaturityRating(),
+                p.getRegion().getMaturityRating(),
                 p.getSnapshotUrl(),
-                p.getGridX(),
-                p.getGridY(),
+                p.getRegion().getGridX(),
+                p.getRegion().getGridY(),
                 p.getPositionX(),
                 p.getPositionY(),
                 p.getPositionZ(),

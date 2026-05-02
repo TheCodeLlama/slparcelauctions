@@ -40,9 +40,12 @@ import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTask;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -156,12 +159,12 @@ class BidSuspendRaceTest {
         // World API always reports a different owner (someone "hijacked" the
         // parcel), so the check invariably dispatches suspension.
         UUID attacker = UUID.randomUUID();
-        when(worldApi.fetchParcel(any(UUID.class)))
-                .thenReturn(Mono.just(new ParcelMetadata(
-                        parcelUuid, attacker, "agent",
+        when(worldApi.fetchParcelPage(any(UUID.class)))
+                .thenReturn(Mono.just(new ParcelPageData(new ParcelMetadata(
+                        parcelUuid, attacker, "agent", null,
                         "Hijacked", "SuspendRaceRegion",
                         1024, "desc", "http://example.com/snap.jpg", "MODERATE",
-                        128.0, 64.0, 22.0)));
+                        128.0, 64.0, 22.0), UUID.randomUUID())));
 
         TransactionTemplate txTemplate = new TransactionTemplate(txManager);
 
@@ -293,14 +296,12 @@ class BidSuspendRaceTest {
                 .build());
         UUID pUuid = UUID.randomUUID();
         Parcel parcel = parcelRepository.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(pUuid)
                 .ownerUuid(seller.getSlAvatarUuid())
                 .ownerType("agent")
-                .regionName("SuspendRaceRegion")
-                .continentName("Sansara")
-                .areaSqm(1024)
-                .maturityRating("MODERATE")
-                .verified(true)
+                                                .areaSqm(1024)
+                                .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         OffsetDateTime now = OffsetDateTime.now();

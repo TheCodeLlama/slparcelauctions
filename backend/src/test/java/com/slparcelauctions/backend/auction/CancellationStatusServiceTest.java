@@ -29,6 +29,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link CancellationStatusService}.
@@ -193,7 +194,8 @@ class CancellationStatusServiceTest {
         Auction auction = Auction.builder()
                 .id(101L)
                 .title("Pre-active cancel")
-                .parcel(Parcel.builder().id(7L).snapshotUrl("https://snap.example/p7.png").build())
+                .parcel(Parcel.builder()
+                .region(TestRegions.mainland()).id(7L).snapshotUrl("https://snap.example/p7.png").build())
                 .build();
         CancellationLog log = CancellationLog.builder()
                 .id(1L)
@@ -227,7 +229,8 @@ class CancellationStatusServiceTest {
         Auction auction = Auction.builder()
                 .id(202L)
                 .title("Active cancel with bids")
-                .parcel(Parcel.builder().id(9L).build())
+                .parcel(Parcel.builder()
+                .region(TestRegions.mainland()).id(9L).build())
                 .build();
         CancellationLog log = CancellationLog.builder()
                 .id(2L)
@@ -258,7 +261,8 @@ class CancellationStatusServiceTest {
         Auction auction = Auction.builder()
                 .id(303L)
                 .title("Photo'd auction")
-                .parcel(Parcel.builder().id(11L).snapshotUrl("ignored.png").build())
+                .parcel(Parcel.builder()
+                .region(TestRegions.mainland()).id(11L).snapshotUrl("ignored.png").build())
                 // Order in the list is intentionally not sortOrder ASC — the
                 // service must pick the min(sortOrder) regardless.
                 .photos(new java.util.ArrayList<>(List.of(p1, p2)))

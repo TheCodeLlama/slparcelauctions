@@ -53,6 +53,7 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for the retry state machine in
@@ -243,14 +244,12 @@ class TerminalCommandRetryIntegrationTest {
                     .verified(true)
                     .build());
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(UUID.randomUUID())
                     .ownerUuid(bidder.getSlAvatarUuid())
                     .ownerType("agent")
-                    .regionName(REGION_NAME)
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .verified(true)
+                                                            .areaSqm(1024)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();

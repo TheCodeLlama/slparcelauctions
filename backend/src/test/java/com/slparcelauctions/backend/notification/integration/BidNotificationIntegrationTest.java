@@ -33,6 +33,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for bid-event notifications.
@@ -113,14 +114,12 @@ class BidNotificationIntegrationTest {
 
     private Auction activeAuction(User seller, long startingBid) {
         Parcel p = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
                 .ownerUuid(seller.getSlAvatarUuid())
                 .ownerType("agent")
-                .regionName("TestRegion")
-                .continentName("Sansara")
-                .areaSqm(512)
-                .maturityRating("GENERAL")
-                .verified(true)
+                                                .areaSqm(512)
+                                .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         parcelId = p.getId();

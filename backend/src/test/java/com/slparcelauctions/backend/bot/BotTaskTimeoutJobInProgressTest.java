@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Verifies the divergent IN_PROGRESS timeout behavior of
@@ -155,14 +156,12 @@ class BotTaskTimeoutJobInProgressTest {
                 .verified(true)
                 .build());
         Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
                 .ownerUuid(seller.getSlAvatarUuid())
                 .ownerType("agent")
-                .regionName("BotTimeoutRegion")
-                .continentName("Sansara")
-                .areaSqm(1024)
-                .maturityRating("MODERATE")
-                .verified(true)
+                                                .areaSqm(1024)
+                                .verified(true)
                 .verifiedAt(OffsetDateTime.now())
                 .build());
         OffsetDateTime now = OffsetDateTime.now();

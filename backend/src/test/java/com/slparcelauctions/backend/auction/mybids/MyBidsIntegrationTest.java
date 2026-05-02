@@ -43,10 +43,10 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
-import com.slparcelauctions.backend.sl.SlMapApiClient;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -88,7 +88,6 @@ class MyBidsIntegrationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean SlWorldApiClient worldApi;
-    @MockitoBean SlMapApiClient mapApi;
     @MockitoBean AuctionBroadcastPublisher broadcastPublisher;
 
     private String sellerAccessToken;
@@ -597,18 +596,28 @@ class MyBidsIntegrationTest {
     }
 
     private Parcel seedParcel(int index) throws Exception {
+        UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.fromString(
                 String.format("44444444-4444-4444-4444-%012d", 110 + index));
         UUID ownerUuid = UUID.fromString(
                 String.format("55555555-5555-5555-5555-%012d", 120 + index));
-        when(worldApi.fetchParcel(parcelUuid)).thenReturn(Mono.just(new ParcelMetadata(
-                parcelUuid, ownerUuid, "agent",
-                "MyBids Parcel " + index, "MyBidsRegion" + index,
-                2048, "Seed description " + index,
+        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
+                Mono.just(new ParcelPageData(new ParcelMetadata(
+                        parcelUuid,
+                ownerUuid,
+                "agent",
+                null,
+                "MyBids Parcel " + index,
+                "MyBidsRegion" + index,
+                2048,
+                "Seed description " + index,
                 "http://example.com/mybids-snap-" + index + ".jpg",
-                "MODERATE",
-                128.0 + index, 64.0 + index, 22.0)));
-        when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
+                null,
+                128.0 + index,
+                64.0 + index,
+                22.0), regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
+                Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
 
         mockMvc.perform(post("/api/v1/parcels/lookup")
                         .header("Authorization", "Bearer " + sellerAccessToken)

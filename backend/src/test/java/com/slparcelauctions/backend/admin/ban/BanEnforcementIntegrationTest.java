@@ -41,6 +41,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration tests verifying {@link BanCheckService#assertNotBanned} is wired
@@ -391,9 +392,9 @@ class BanEnforcementIntegrationTest {
 
     private Auction seedActiveAuction(User seller) {
         Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("BanTestRegion")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(512)
                 .build());
         OffsetDateTime now = OffsetDateTime.now();
@@ -421,9 +422,9 @@ class BanEnforcementIntegrationTest {
 
     private Auction seedDraftAuction(User seller) {
         Parcel parcel = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("BanCancelRegion")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(512)
                 .build());
         return auctionRepo.save(Auction.builder()

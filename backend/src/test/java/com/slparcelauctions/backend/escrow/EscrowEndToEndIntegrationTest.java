@@ -54,12 +54,15 @@ import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -189,8 +192,9 @@ class EscrowEndToEndIntegrationTest {
 
         // World API reports the winner owns the parcel → monitor stamps
         // transferConfirmedAt and queues the PAYOUT command.
-        when(worldApi.fetchParcel(seededParcelUuid))
-                .thenReturn(Mono.just(meta(seededWinnerAvatar, "agent")));
+        when(worldApi.fetchParcelPage(seededParcelUuid))
+                .thenReturn(
+                Mono.just(new ParcelPageData(meta(seededWinnerAvatar, "agent"), java.util.UUID.randomUUID())));
         // Dispatcher's HTTP POST ACKs → command flips to IN_FLIGHT.
         when(terminalHttp.post(anyString(), any()))
                 .thenReturn(TerminalHttpClient.TerminalHttpResult.ok());
@@ -285,7 +289,7 @@ class EscrowEndToEndIntegrationTest {
 
     private ParcelMetadata meta(UUID owner, String ownerType) {
         return new ParcelMetadata(
-                seededParcelUuid, owner, ownerType,
+                seededParcelUuid, owner, ownerType, null,
                 "Test Parcel", REGION_NAME,
                 1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
@@ -313,14 +317,12 @@ class EscrowEndToEndIntegrationTest {
                     .verified(true)
                     .build());
             Parcel parcel = parcelRepo.save(Parcel.builder()
+                    .region(TestRegions.mainland())
                     .slParcelUuid(parcelUuid)
                     .ownerUuid(winnerAvatar)
                     .ownerType("agent")
-                    .regionName(REGION_NAME)
-                    .continentName("Sansara")
-                    .areaSqm(1024)
-                    .maturityRating("MODERATE")
-                    .verified(true)
+                                                            .areaSqm(1024)
+                                        .verified(true)
                     .verifiedAt(OffsetDateTime.now())
                     .build());
             OffsetDateTime now = OffsetDateTime.now();

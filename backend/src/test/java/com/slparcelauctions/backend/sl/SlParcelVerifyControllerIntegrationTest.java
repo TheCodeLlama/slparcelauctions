@@ -33,8 +33,9 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
-import com.slparcelauctions.backend.sl.dto.GridCoordinates;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -65,8 +66,6 @@ class SlParcelVerifyControllerIntegrationTest {
     @Autowired AuctionRepository auctionRepository;
 
     @MockitoBean SlWorldApiClient worldApi;
-    @MockitoBean SlMapApiClient mapApi;
-
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private String sellerAccessToken;
@@ -277,15 +276,27 @@ class SlParcelVerifyControllerIntegrationTest {
     }
 
     private Parcel seedParcel() throws Exception {
+        UUID regionUuid = UUID.randomUUID();
         UUID parcel = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID owner = UUID.fromString(sellerAvatarUuid);
         User seller = userRepository.findById(sellerId).orElseThrow();
-        when(worldApi.fetchParcel(parcel)).thenReturn(Mono.just(new ParcelMetadata(
-                parcel, owner, "agent",
-                "Seed Parcel", "Coniston",
-                1024, "Seed description", "http://example.com/snap.jpg", "MODERATE",
-                128.0, 64.0, 22.0)));
-        when(mapApi.resolveRegion(any())).thenReturn(Mono.just(new GridCoordinates(260000.0, 254000.0)));
+        when(worldApi.fetchParcelPage(parcel)).thenReturn(
+                Mono.just(new ParcelPageData(new ParcelMetadata(
+                        parcel,
+                owner,
+                "agent",
+                null,
+                "Seed Parcel",
+                "Coniston",
+                1024,
+                "Seed description",
+                "http://example.com/snap.jpg",
+                null,
+                128.0,
+                64.0,
+                22.0), regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
+                Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
 
         mockMvc.perform(post("/api/v1/parcels/lookup")
                 .header("Authorization", "Bearer " + sellerAccessToken)

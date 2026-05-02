@@ -109,7 +109,7 @@ public class BotTaskService {
                 .status(BotTaskStatus.PENDING)
                 .auction(auction)
                 .parcelUuid(parcel.getSlParcelUuid())
-                .regionName(parcel.getRegionName())
+                .regionName(parcel.getRegion().getName())
                 .positionX(parcel.getPositionX())
                 .positionY(parcel.getPositionY())
                 .positionZ(parcel.getPositionZ())
@@ -206,7 +206,10 @@ public class BotTaskService {
         // Refresh parcel metadata from the bot payload.
         if (body.parcelOwner() != null) parcel.setOwnerUuid(body.parcelOwner());
         if (body.areaSqm() != null) parcel.setAreaSqm(body.areaSqm());
-        if (body.regionName() != null) parcel.setRegionName(body.regionName());
+        // body.regionName() is no longer applied to the parcel — region is now
+        // FK'd at parcel-create time and is the canonical source. A bot-reported
+        // region rename would be applied via RegionService.upsert on the next
+        // parcel lookup in that region; we don't drift here.
         if (body.positionX() != null) parcel.setPositionX(body.positionX());
         if (body.positionY() != null) parcel.setPositionY(body.positionY());
         if (body.positionZ() != null) parcel.setPositionZ(body.positionZ());

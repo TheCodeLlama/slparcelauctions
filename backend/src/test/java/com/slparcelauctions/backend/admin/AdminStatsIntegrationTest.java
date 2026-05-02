@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -74,25 +75,25 @@ class AdminStatsIntegrationTest {
             sellerId = seller.getId();
 
             Parcel parcel1 = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("Region1")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(512)
                 .build());
             parcel1Id = parcel1.getId();
 
             Parcel parcel2 = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("Region2")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(512)
                 .build());
             parcel2Id = parcel2.getId();
 
             Parcel parcel3 = parcelRepo.save(Parcel.builder()
+                .region(TestRegions.mainland())
                 .slParcelUuid(UUID.randomUUID())
-                .regionName("Region3")
-                .ownerUuid(seller.getSlAvatarUuid())
+                                .ownerUuid(seller.getSlAvatarUuid())
                 .areaSqm(512)
                 .build());
             parcel3Id = parcel3.getId();

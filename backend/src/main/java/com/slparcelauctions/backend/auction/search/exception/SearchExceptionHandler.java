@@ -78,16 +78,4 @@ public class SearchExceptionHandler {
         return pd;
     }
 
-    @ExceptionHandler(RegionLookupUnavailableException.class)
-    public ProblemDetail handleRegionLookupUnavailable(
-            RegionLookupUnavailableException e, HttpServletRequest req) {
-        log.warn("Grid Survey upstream failure: {}", e.getMessage());
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "Region lookup upstream unavailable");
-        pd.setTitle("Region Lookup Unavailable");
-        pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "REGION_LOOKUP_UNAVAILABLE");
-        return pd;
-    }
 }

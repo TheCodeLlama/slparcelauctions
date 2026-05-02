@@ -32,9 +32,10 @@ class PgIndexExistenceTest {
                 "ix_auctions_status_current_bid",
                 "ix_auctions_seller_status",
                 "ix_auctions_status_reserve",
-                "ix_parcels_grid_coords",
+                "ix_parcels_region",
                 "ix_parcels_area_sqm",
-                "ix_parcels_maturity",
+                "ix_regions_grid_coords",
+                "ix_regions_maturity",
                 "ix_auction_tags_tag_id",
                 // Task 7: saved-auctions composite read index + per-user uniqueness
                 // (Postgres backs UNIQUE constraints with a same-named btree index).
