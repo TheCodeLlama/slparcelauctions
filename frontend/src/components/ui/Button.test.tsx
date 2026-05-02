@@ -3,38 +3,37 @@ import { renderWithProviders, screen, userEvent } from "@/test/render";
 import { Button } from "./Button";
 
 describe("Button", () => {
-  it("renders with the primary variant gradient and merges consumer className via cn", () => {
+  it("renders with the primary variant (flat brand orange) and merges consumer className via cn", () => {
     renderWithProviders(<Button className="w-32">Bid</Button>);
     const button = screen.getByRole("button", { name: "Bid" });
-    expect(button.className).toContain("bg-gradient-to-br");
-    expect(button.className).toContain("from-primary");
-    expect(button.className).toContain("to-primary-container");
-    expect(button.className).toContain("text-on-primary");
+    expect(button.className).toContain("bg-brand");
+    expect(button.className).toContain("text-white");
+    expect(button.className).toContain("border-brand");
     expect(button.className).toContain("w-32");
   });
 
-  it("renders the secondary ghost variant", () => {
+  it("renders the secondary outlined variant", () => {
     renderWithProviders(<Button variant="secondary">Cancel</Button>);
     const button = screen.getByRole("button", { name: "Cancel" });
-    expect(button.className).toContain("bg-surface-container-lowest");
-    expect(button.className).toContain("text-on-surface");
-    expect(button.className).toContain("shadow-soft");
+    expect(button.className).toContain("bg-surface-raised");
+    expect(button.className).toContain("text-fg");
+    expect(button.className).toContain("border-border");
   });
 
-  it("renders the destructive variant with error tokens", () => {
+  it("renders the destructive variant with danger-flat tokens", () => {
     renderWithProviders(<Button variant="destructive">Cancel listing</Button>);
     const button = screen.getByRole("button", { name: "Cancel listing" });
-    expect(button.className).toContain("bg-error");
-    expect(button.className).toContain("text-on-error");
-    expect(button.className).not.toContain("bg-gradient-to-br");
+    expect(button.className).toContain("bg-danger-flat");
+    expect(button.className).toContain("text-white");
+    expect(button.className).toContain("border-danger-flat");
   });
 
-  it("renders the tertiary text-only variant", () => {
+  it("renders the tertiary ghost variant", () => {
     renderWithProviders(<Button variant="tertiary">Forgot password?</Button>);
     const button = screen.getByRole("button", { name: "Forgot password?" });
-    expect(button.className).toContain("text-primary");
-    expect(button.className).toContain("hover:underline");
-    expect(button.className).not.toContain("bg-gradient-to-br");
+    expect(button.className).toContain("bg-transparent");
+    expect(button.className).toContain("text-fg-muted");
+    expect(button.className).not.toContain("underline");
   });
 
   it("disables the button and renders a spinner when loading", () => {

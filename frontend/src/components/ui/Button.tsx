@@ -2,8 +2,8 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Loader2 } from "./icons";
 import { cn } from "@/lib/cn";
 
-type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive";
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = "primary" | "secondary" | "tertiary" | "destructive" | "dark";
+type ButtonSize = "sm" | "md" | "lg" | "xl";
 
 type ButtonProps = {
   variant?: ButtonVariant;
@@ -17,22 +17,24 @@ type ButtonProps = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-soft hover:shadow-elevated",
+    "bg-brand text-white border-brand hover:bg-brand-hover hover:border-brand-hover",
   secondary:
-    "bg-surface-container-lowest text-on-surface shadow-soft hover:shadow-elevated",
-  tertiary: "text-primary hover:underline underline-offset-4",
+    "bg-surface-raised text-fg border border-border hover:bg-bg-hover hover:border-border-strong",
+  tertiary: "bg-transparent text-fg-muted hover:bg-bg-hover hover:text-fg",
   destructive:
-    "bg-error text-on-error shadow-soft hover:shadow-elevated hover:opacity-90",
+    "bg-danger-flat text-white border-danger-flat hover:opacity-90",
+  dark: "bg-fg text-bg border-fg hover:opacity-90",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-9 px-4 text-label-md",
-  md: "h-11 px-5 text-label-lg",
-  lg: "h-12 px-6 text-title-md",
+  sm: "h-8 px-3 text-xs",
+  md: "h-9 px-4 text-sm",
+  lg: "h-11 px-5 text-sm",
+  xl: "h-12 px-6 text-base",
 };
 
 const baseClasses =
-  "inline-flex items-center justify-center gap-2 rounded-default font-medium transition-all disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-1.5 rounded-sm border font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand";
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
