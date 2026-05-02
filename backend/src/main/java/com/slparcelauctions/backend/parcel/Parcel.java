@@ -77,6 +77,12 @@ public class Parcel {
     @Column(name = "owner_name", length = 255)
     private String ownerName;   // SL display name; null/blank when ownertype=group
 
+    @Column(name = "parcel_name", length = 255)
+    // SL-side parcel display name (from the parcel page's <meta name="parcel">).
+    // Used as the default listing title when a seller first picks this parcel
+    // in the create-listing wizard.
+    private String parcelName;
+
     @Column(name = "area_sqm")
     private Integer areaSqm;
 

@@ -63,6 +63,7 @@ public class ParcelLookupService {
                 .ownerUuid(meta.ownerUuid())
                 .ownerType(meta.ownerType())
                 .ownerName(meta.ownerName())
+                .parcelName(meta.parcelName())
                 .areaSqm(meta.areaSqm())
                 .description(meta.description())
                 .snapshotUrl(meta.snapshotUrl())
