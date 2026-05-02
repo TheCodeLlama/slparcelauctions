@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.parcel.dto.ParcelLookupRequest;
+import com.slparcelauctions.backend.sl.ParcelIngestException;
 import com.slparcelauctions.backend.sl.SlMapApiClient;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.GridCoordinates;
@@ -139,6 +140,24 @@ class ParcelControllerIntegrationTest {
     // -------------------------------------------------------------------------
     // Domain error paths (service throws, GlobalExceptionHandler maps)
     // -------------------------------------------------------------------------
+
+    @Test
+    void lookup_worldApiParserFailure_returns422() throws Exception {
+        // World API returned HTML the parser couldn't extract a required field
+        // from. Surfaced as a clean 422 PARCEL_INGEST_FAILED rather than
+        // bubbling up to the catch-all 500 — defense in depth in case SL
+        // changes the page shape again.
+        UUID parcelUuid = UUID.fromString("88888888-8888-8888-8888-888888888888");
+        when(worldApi.fetchParcel(parcelUuid)).thenReturn(
+                Mono.error(new ParcelIngestException("required meta missing")));
+
+        mockMvc.perform(post("/api/v1/parcels/lookup")
+                .header("Authorization", "Bearer " + verifiedAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ParcelLookupRequest(parcelUuid))))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("PARCEL_INGEST_FAILED"));
+    }
 
     @Test
     void lookup_nonMainlandCoords_returns422() throws Exception {

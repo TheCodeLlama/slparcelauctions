@@ -32,8 +32,17 @@ import reactor.util.retry.Retry;
 @Slf4j
 public class SlMapApiClient {
 
-    private static final Pattern COORD_PATTERN = Pattern.compile(
-            "coords\\[(\\d+)\\]\\s*=\\s*([\\d.]+)");
+    // SL CAP responses today look like {@code var <name> = {'x' : 1114, 'y' : 1034 };}.
+    // The legacy {@code coords[N] = X} shape that earlier code parsed no longer
+    // appears in the wild.
+    private static final Pattern XY_PATTERN = Pattern.compile(
+            "'x'\\s*:\\s*([\\d.]+)\\s*,\\s*'y'\\s*:\\s*([\\d.]+)");
+
+    // Arbitrary JS identifier passed as the `var` query param. The CAP
+    // endpoint echoes it as the variable name in its response body — the
+    // value matters only insofar as it's a valid JS identifier; the parser
+    // ignores it.
+    private static final String VAR_NAME = "loc";
 
     private final WebClient webClient;
     private final String capUuid;
@@ -87,7 +96,8 @@ public class SlMapApiClient {
 
     public Mono<GridCoordinates> resolveRegion(String regionName) {
         log.debug("Resolving region {} via Map API", regionName);
-        String body = "var=" + URLEncoder.encode(regionName, StandardCharsets.UTF_8);
+        String body = "var=" + URLEncoder.encode(VAR_NAME, StandardCharsets.UTF_8)
+                + "&sim_name=" + URLEncoder.encode(regionName, StandardCharsets.UTF_8);
         return webClient.post()
                 .uri("/cap/0/{cap}", capUuid)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -116,19 +126,13 @@ public class SlMapApiClient {
     }
 
     private GridCoordinates parse(String regionName, String response) {
-        Double x = null;
-        Double y = null;
-        Matcher m = COORD_PATTERN.matcher(response);
-        while (m.find()) {
-            int idx = Integer.parseInt(m.group(1));
-            double val = Double.parseDouble(m.group(2));
-            if (idx == 0) x = val;
-            if (idx == 1) y = val;
+        Matcher m = XY_PATTERN.matcher(response);
+        if (m.find()) {
+            return new GridCoordinates(
+                    Double.parseDouble(m.group(1)),
+                    Double.parseDouble(m.group(2)));
         }
-        if (x == null || y == null) {
-            log.warn("Map API returned response with no coords for region {}", regionName);
-            throw new RegionNotFoundException(regionName);
-        }
-        return new GridCoordinates(x, y);
+        log.warn("Map API returned response with no coords for region {}", regionName);
+        throw new RegionNotFoundException(regionName);
     }
 }

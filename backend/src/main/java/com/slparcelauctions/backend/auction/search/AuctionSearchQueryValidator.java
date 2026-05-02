@@ -6,7 +6,7 @@ import com.slparcelauctions.backend.auction.search.exception.DistanceRequiresNea
 import com.slparcelauctions.backend.auction.search.exception.InvalidFilterValueException;
 import com.slparcelauctions.backend.auction.search.exception.InvalidRangeException;
 import com.slparcelauctions.backend.auction.search.exception.NearestRequiresNearRegionException;
-import com.slparcelauctions.backend.parcel.MaturityRatingNormalizer;
+import com.slparcelauctions.backend.parcel.MaturityRating;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,9 +28,9 @@ public class AuctionSearchQueryValidator {
     public AuctionSearchQuery validate(AuctionSearchQuery q) {
         if (q.maturity() != null) {
             for (String m : q.maturity()) {
-                if (!MaturityRatingNormalizer.CANONICAL_VALUES.contains(m)) {
+                if (!MaturityRating.CANONICAL_VALUES.contains(m)) {
                     throw new InvalidFilterValueException("maturity", m,
-                            String.join(", ", MaturityRatingNormalizer.CANONICAL_VALUES));
+                            String.join(", ", MaturityRating.CANONICAL_VALUES));
                 }
             }
         }
