@@ -52,7 +52,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
             <NavLink variant="mobile" href="/browse" onClick={onClose}>
               Browse
             </NavLink>
-            <NavLink variant="mobile" href="/listings/new" onClick={onClose}>
+            <NavLink variant="mobile" href="/listings/create" onClick={onClose}>
               Sell parcel
             </NavLink>
             <NavLink variant="mobile" href="/dashboard" onClick={onClose}>

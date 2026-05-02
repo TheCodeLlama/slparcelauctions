@@ -16,7 +16,7 @@ export interface HeroProps {
 export function Hero({ featured }: HeroProps) {
   const { status } = useAuth();
   const isAuthenticated = status === "authenticated";
-  const sellHref = isAuthenticated ? "/listings/new" : "/register";
+  const sellHref = isAuthenticated ? "/listings/create" : "/register";
   const sellLabel = isAuthenticated ? "List your parcel" : "Start selling";
 
   return (

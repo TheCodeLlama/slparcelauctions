@@ -32,7 +32,7 @@ describe("Header", () => {
   it("renders desktop nav links to Browse, Sell parcel, Dashboard", () => {
     renderWithProviders(<Header />);
     expect(screen.getByRole("link", { name: "Browse" }).getAttribute("href")).toBe("/browse");
-    expect(screen.getByRole("link", { name: "Sell parcel" }).getAttribute("href")).toBe("/listings/new");
+    expect(screen.getByRole("link", { name: "Sell parcel" }).getAttribute("href")).toBe("/listings/create");
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/dashboard");
   });
 

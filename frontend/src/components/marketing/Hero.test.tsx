@@ -77,12 +77,12 @@ describe("Hero", () => {
     });
   });
 
-  it("renders 'List your parcel → /listings/new' for authenticated users", async () => {
+  it("renders 'List your parcel → /listings/create' for authenticated users", async () => {
     server.use(authHandlers.refreshSuccess());
     renderWithProviders(<Hero featured={[]} />);
     await waitFor(() => {
       const listLink = screen.getByRole("link", { name: /list your parcel/i });
-      expect(listLink).toHaveAttribute("href", "/listings/new");
+      expect(listLink).toHaveAttribute("href", "/listings/create");
     });
   });
 
