@@ -128,8 +128,8 @@ export function FilterSidebarContent({
 
       <FilterSection title="Price">
         <div className="flex items-center gap-2">
-          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
-            <span className="text-label-sm text-on-surface-variant">L$</span>
+          <label className="flex flex-1 items-center gap-1 rounded border border-border-subtle bg-bg-subtle px-2 py-1 focus-within:border-border">
+            <span className="text-[11px] font-medium text-fg-muted">L$</span>
             <input
               type="number"
               inputMode="numeric"
@@ -140,12 +140,12 @@ export function FilterSidebarContent({
               onChange={(e) =>
                 update({ minPrice: parseBound(e.target.value) })
               }
-              className="w-full bg-transparent text-body-md outline-none"
+              className="w-full bg-transparent text-sm outline-none"
             />
           </label>
-          <span className="text-label-sm text-on-surface-variant">–</span>
-          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
-            <span className="text-label-sm text-on-surface-variant">L$</span>
+          <span className="text-[11px] font-medium text-fg-muted">–</span>
+          <label className="flex flex-1 items-center gap-1 rounded border border-border-subtle bg-bg-subtle px-2 py-1 focus-within:border-border">
+            <span className="text-[11px] font-medium text-fg-muted">L$</span>
             <input
               type="number"
               inputMode="numeric"
@@ -156,7 +156,7 @@ export function FilterSidebarContent({
               onChange={(e) =>
                 update({ maxPrice: parseBound(e.target.value) })
               }
-              className="w-full bg-transparent text-body-md outline-none"
+              className="w-full bg-transparent text-sm outline-none"
             />
           </label>
         </div>
@@ -164,7 +164,7 @@ export function FilterSidebarContent({
 
       <FilterSection title="Size">
         <div className="flex items-center gap-2">
-          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
+          <label className="flex flex-1 items-center gap-1 rounded border border-border-subtle bg-bg-subtle px-2 py-1 focus-within:border-border">
             <input
               type="number"
               inputMode="numeric"
@@ -175,12 +175,12 @@ export function FilterSidebarContent({
               onChange={(e) =>
                 update({ minArea: parseBound(e.target.value) })
               }
-              className="w-full bg-transparent text-body-md outline-none"
+              className="w-full bg-transparent text-sm outline-none"
             />
-            <span className="text-label-sm text-on-surface-variant">m²</span>
+            <span className="text-[11px] font-medium text-fg-muted">m²</span>
           </label>
-          <span className="text-label-sm text-on-surface-variant">–</span>
-          <label className="flex flex-1 items-center gap-1 rounded border border-outline-variant bg-surface-container-low px-2 py-1 focus-within:border-primary">
+          <span className="text-[11px] font-medium text-fg-muted">–</span>
+          <label className="flex flex-1 items-center gap-1 rounded border border-border-subtle bg-bg-subtle px-2 py-1 focus-within:border-border">
             <input
               type="number"
               inputMode="numeric"
@@ -191,9 +191,9 @@ export function FilterSidebarContent({
               onChange={(e) =>
                 update({ maxArea: parseBound(e.target.value) })
               }
-              className="w-full bg-transparent text-body-md outline-none"
+              className="w-full bg-transparent text-sm outline-none"
             />
-            <span className="text-label-sm text-on-surface-variant">m²</span>
+            <span className="text-[11px] font-medium text-fg-muted">m²</span>
           </label>
         </div>
       </FilterSection>
@@ -202,12 +202,12 @@ export function FilterSidebarContent({
         {MATURITY_OPTIONS.map((m) => {
           const checked = local.maturity?.includes(m) ?? false;
           return (
-            <label key={m} className="flex items-center gap-2 text-body-md">
+            <label key={m} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={() => toggleMaturity(m)}
-                className="size-4 accent-primary"
+                className="size-4 accent-brand"
               />
               <span>{m.charAt(0) + m.slice(1).toLowerCase()}</span>
             </label>
@@ -222,7 +222,7 @@ export function FilterSidebarContent({
             update({ tags: next.length > 0 ? next : undefined })
           }
         />
-        <div className="flex items-center gap-3 text-label-sm text-on-surface-variant">
+        <div className="flex items-center gap-3 text-[11px] font-medium text-fg-muted">
           <span>Match</span>
           {(["or", "and"] as TagsMode[]).map((m) => (
             <label key={m} className="flex items-center gap-1">
@@ -231,7 +231,7 @@ export function FilterSidebarContent({
                 name="tags-mode"
                 checked={(local.tagsMode ?? "or") === m}
                 onChange={() => update({ tagsMode: m === "or" ? undefined : m })}
-                className="accent-primary"
+                className="accent-brand"
               />
               <span>{m === "or" ? "Any" : "All"}</span>
             </label>
@@ -241,7 +241,7 @@ export function FilterSidebarContent({
 
       <FilterSection title="Reserve">
         {RESERVE_OPTIONS.map((o) => (
-          <label key={o.value} className="flex items-center gap-2 text-body-md">
+          <label key={o.value} className="flex items-center gap-2 text-sm">
             <input
               type="radio"
               name="reserve-status"
@@ -251,7 +251,7 @@ export function FilterSidebarContent({
                   reserveStatus: o.value === "all" ? undefined : o.value,
                 })
               }
-              className="accent-primary"
+              className="accent-brand"
             />
             <span>{o.label}</span>
           </label>
@@ -260,7 +260,7 @@ export function FilterSidebarContent({
 
       <FilterSection title="Snipe protection">
         {SNIPE_OPTIONS.map((o) => (
-          <label key={o.value} className="flex items-center gap-2 text-body-md">
+          <label key={o.value} className="flex items-center gap-2 text-sm">
             <input
               type="radio"
               name="snipe-protection"
@@ -270,7 +270,7 @@ export function FilterSidebarContent({
                   snipeProtection: o.value === "any" ? undefined : o.value,
                 })
               }
-              className="accent-primary"
+              className="accent-brand"
             />
             <span>{o.label}</span>
           </label>
@@ -283,13 +283,13 @@ export function FilterSidebarContent({
           return (
             <label
               key={t.value}
-              className="flex items-center gap-2 text-body-md"
+              className="flex items-center gap-2 text-sm"
             >
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={() => toggleTier(t.value)}
-                className="size-4 accent-primary"
+                className="size-4 accent-brand"
               />
               <span>{t.label}</span>
             </label>
@@ -301,14 +301,14 @@ export function FilterSidebarContent({
         {ENDING_OPTIONS.map((o) => (
           <label
             key={o.label}
-            className="flex items-center gap-2 text-body-md"
+            className="flex items-center gap-2 text-sm"
           >
             <input
               type="radio"
               name="ending-within"
               checked={local.endingWithin === o.value}
               onChange={() => update({ endingWithin: o.value })}
-              className="accent-primary"
+              className="accent-brand"
             />
             <span>{o.label}</span>
           </label>

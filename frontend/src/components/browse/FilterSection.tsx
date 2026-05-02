@@ -24,12 +24,12 @@ export function FilterSection({
 }: FilterSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div className={cn("border-b border-border-subtle pb-4 mb-4 flex flex-col", className)}>
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center justify-between text-label-md font-bold uppercase tracking-wider text-on-surface-variant"
+        className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-fg-subtle mb-2"
       >
         <span>{title}</span>
         {open ? (
@@ -38,7 +38,7 @@ export function FilterSection({
           <ChevronDown className="size-4" aria-hidden="true" />
         )}
       </button>
-      {open && <div className="flex flex-col gap-2">{children}</div>}
+      {open && <div className="flex flex-col space-y-2">{children}</div>}
     </div>
   );
 }

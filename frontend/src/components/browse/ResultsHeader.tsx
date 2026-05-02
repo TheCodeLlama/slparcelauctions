@@ -37,10 +37,12 @@ export function ResultsHeader({
       )}
     >
       <div>
-        <h1 className="text-headline-sm font-display font-bold">{title}</h1>
-        <p className="text-body-sm text-on-surface-variant">
-          {total.toLocaleString()} result{total === 1 ? "" : "s"}
-        </p>
+        <h1 className="text-lg font-bold tracking-tight">
+          {title}{" "}
+          <span className="text-fg-subtle font-medium">
+            · {total.toLocaleString()} result{total === 1 ? "" : "s"}
+          </span>
+        </h1>
       </div>
       <div className="flex items-center gap-2">
         {onOpenMobile && (
@@ -48,7 +50,7 @@ export function ResultsHeader({
             type="button"
             onClick={onOpenMobile}
             aria-label="Filters"
-            className="md:hidden inline-flex items-center gap-2 rounded-default bg-surface-container-low px-3 py-2 text-label-md text-on-surface"
+            className="md:hidden inline-flex items-center gap-2 rounded-lg bg-bg-subtle px-3 py-2 text-xs font-medium text-fg"
           >
             <MenuIcon className="size-4" aria-hidden="true" />
             <span>Filters</span>

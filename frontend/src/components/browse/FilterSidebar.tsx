@@ -18,7 +18,7 @@ export function FilterSidebar({ children, className }: FilterSidebarProps) {
     <aside
       aria-label="Filters"
       className={cn(
-        "flex flex-col gap-4 border-r border-outline-variant bg-surface-container-lowest p-4 overflow-y-auto",
+        "flex flex-col gap-4 border-r border-border-subtle bg-surface-raised p-4 overflow-y-auto sticky top-[calc(var(--header-h,0px)+16px)] h-fit",
         className,
       )}
     >

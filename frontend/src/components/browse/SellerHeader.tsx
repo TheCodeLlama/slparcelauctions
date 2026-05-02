@@ -21,7 +21,7 @@ export function SellerHeader({ user, className }: SellerHeaderProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-4 border-b border-outline-variant px-6 py-4",
+        "flex items-center gap-4 border-b border-border-subtle px-6 py-4",
         className,
       )}
     >
@@ -33,22 +33,22 @@ export function SellerHeader({ user, className }: SellerHeaderProps) {
       />
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-title-lg font-display font-bold">
+          <h1 className="text-base font-bold tracking-tight">
             {displayName}&rsquo;s listings
           </h1>
           {user.verified && (
             <BadgeCheck
-              className="size-4 text-primary"
+              className="size-4 text-brand"
               aria-label="Verified"
             />
           )}
         </div>
-        <p className="text-body-sm text-on-surface-variant">
+        <p className="text-xs text-fg-muted">
           Member since {memberSince}
           <span aria-hidden="true"> · </span>
           <Link
             href={`/users/${user.id}`}
-            className="text-primary hover:underline"
+            className="text-brand hover:underline"
           >
             View full profile
           </Link>

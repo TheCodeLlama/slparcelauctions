@@ -93,7 +93,7 @@ export function DistanceSearchBlock({
       <div className="flex flex-col gap-1">
         <label
           htmlFor={regionId}
-          className="text-label-md text-on-surface-variant"
+          className="text-xs font-medium text-fg-muted"
         >
           Region name
         </label>
@@ -105,16 +105,16 @@ export function DistanceSearchBlock({
           onBlur={onBlur}
           placeholder="e.g. Tula"
           aria-invalid={errorMessage ? true : undefined}
-          className="h-10 rounded-default bg-surface-container-low text-on-surface placeholder:text-on-surface-variant px-3 ring-1 ring-transparent focus:bg-surface-container-lowest focus:outline-none focus:ring-primary"
+          className="h-10 rounded-lg bg-bg-subtle text-fg placeholder:text-fg-muted px-3 ring-1 ring-transparent focus:bg-surface-raised focus:outline-none focus:ring-2 focus:ring-brand"
         />
         {errorMessage && (
-          <p role="alert" className="text-body-sm text-error">
+          <p role="alert" className="text-xs text-danger-flat">
             {errorMessage}
           </p>
         )}
       </div>
       <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-label-md text-on-surface-variant">
+        <div className="flex items-center justify-between text-xs font-medium text-fg-muted">
           <span>Within</span>
           <span>{distance} regions</span>
         </div>

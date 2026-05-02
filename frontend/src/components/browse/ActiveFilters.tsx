@@ -211,7 +211,7 @@ export function ActiveFilters({
           onClick={() =>
             onChange({ ...defaultAuctionSearchQuery, ...(fixedFilters ?? {}) })
           }
-          className="text-body-sm text-primary hover:underline"
+          className="text-xs text-brand hover:underline"
         >
           Clear all
         </button>
