@@ -39,12 +39,19 @@ import type { ParcelDto } from "@/types/parcel";
  *     save; DELETE is queued and flushed on the next save().
  *
  * Persistence:
- *   - sessionStorage keyed by "slpa:draft:<auctionId|new>". Blob-backed
- *     stagedPhotos are intentionally dropped from the persisted snapshot
- *     (File/Blob can't round-trip JSON). Everything else — parcel, prices,
- *     tags, sellerDesc, auctionId, status, uploadedPhotos, removedPhotoIds —
- *     survives a tab close. Writes are debounced 150ms so per-keystroke
- *     edits don't hammer sessionStorage.
+ *   - Edit mode (id supplied): sessionStorage keyed by "slpa:draft:<id>".
+ *     Blob-backed stagedPhotos are intentionally dropped from the persisted
+ *     snapshot (File/Blob can't round-trip JSON). Everything else — parcel,
+ *     prices, tags, sellerDesc, auctionId, status, uploadedPhotos,
+ *     removedPhotoIds — survives a tab close. Writes are debounced 150ms.
+ *   - Create mode (no id): persistence is intentionally OFF. Visiting
+ *     /listings/create always starts blank. Sellers who navigate away
+ *     mid-form get a clean slate when they come back, which is the expected
+ *     behavior for a creation flow (the alternate "draft recovery" was
+ *     surprising — leaving the page mid-typing and returning still showed
+ *     the old form). Once the first save promotes auctionId from null to a
+ *     real id, the wizard navigates to /listings/<id>/activate and any
+ *     subsequent edits land in edit mode where persistence is on.
  */
 export interface DraftState {
   auctionId: number | null;
@@ -164,18 +171,20 @@ interface DraftContainer {
 
 function initialStateFrom(id: number | string | undefined): DraftContainer {
   if (typeof window === "undefined") return { state: EMPTY, hydrated: false };
+  // Create mode: ignore any sessionStorage entry under "new" and start blank.
+  // The persistence-on-write side (below) also skips writes in create mode,
+  // so any stale "new" slot from before this gate landed is harmless and
+  // simply orphaned.
+  if (id === undefined || id === null) {
+    return { state: EMPTY, hydrated: true };
+  }
   try {
-    const raw = window.sessionStorage.getItem(storageKey(id ?? null));
-    if (!raw) {
-      // In create mode with nothing persisted, EMPTY is the canonical
-      // starting point — mark hydrated so the server-fetch effect
-      // doesn't wait for data that will never arrive.
-      return { state: EMPTY, hydrated: id === undefined || id === null };
-    }
+    const raw = window.sessionStorage.getItem(storageKey(id));
+    if (!raw) return { state: EMPTY, hydrated: false };
     const parsed = JSON.parse(raw) as PersistedDraft;
     return { state: { ...parsed, stagedPhotos: [] }, hydrated: true };
   } catch {
-    return { state: EMPTY, hydrated: id === undefined || id === null };
+    return { state: EMPTY, hydrated: false };
   }
 }
 
@@ -244,13 +253,18 @@ export function useListingDraft(
   } | null>(null);
 
   // Persist every state change (minus blob-backed staged files) so a
-  // tab close doesn't nuke unsaved work. Gated on `hydrated` so we
-  // don't overwrite existing persisted state with the EMPTY placeholder
-  // before server hydration runs. Writes are debounced 150ms so a rapid
-  // keystroke burst turns into a single sessionStorage write at the end.
+  // tab close doesn't nuke unsaved work in edit mode. Gated on `hydrated`
+  // so we don't overwrite existing persisted state with the EMPTY placeholder
+  // before server hydration runs. Create mode skips writes entirely — see
+  // the persistence note in the file-level docblock. Writes are debounced
+  // 150ms so a rapid keystroke burst turns into a single sessionStorage
+  // write at the end.
+  const isCreateMode =
+    (options.id === undefined || options.id === null) && state.auctionId === null;
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!hydrated) return;
+    if (isCreateMode) return;
     pendingWriteRef.current = { state, id: options.id, hydrated: true };
     const timerId = setTimeout(() => {
       const { stagedPhotos: _staged, ...persisted } = state;
@@ -266,7 +280,7 @@ export function useListingDraft(
       pendingWriteRef.current = null;
     }, 150);
     return () => clearTimeout(timerId);
-  }, [state, hydrated, options.id]);
+  }, [state, hydrated, options.id, isCreateMode]);
 
   // Unmount-only flush: if the component tears down while a debounced
   // write is still pending, write it out synchronously so tab-close
