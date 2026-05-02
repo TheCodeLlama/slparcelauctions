@@ -15,6 +15,6 @@ describe("AppShell", () => {
     );
     expect(screen.getByRole("link", { name: "SLPA" })).toBeInTheDocument(); // Header
     expect(screen.getByTestId("page-content")).toBeInTheDocument();          // children inside main
-    expect(screen.getByText(/SLPA. Not affiliated/)).toBeInTheDocument();    // Footer
+    expect(screen.getByText(/SLPA · Independent marketplace/)).toBeInTheDocument();    // Footer
   });
 });
