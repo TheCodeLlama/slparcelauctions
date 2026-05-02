@@ -23,17 +23,17 @@ describe("Header", () => {
     mockedUseAuth.mockReturnValue({ status: "unauthenticated", user: null });
   });
 
-  it("renders the SLPA wordmark linking to /", () => {
+  it("renders the Parcels wordmark linking to /", () => {
     renderWithProviders(<Header />);
-    const logo = screen.getByRole("link", { name: "SLPA" });
+    const logo = screen.getByRole("link", { name: /Parcels/i });
     expect(logo.getAttribute("href")).toBe("/");
   });
 
-  it("renders desktop nav links to Browse, Dashboard, Create Listing", () => {
+  it("renders desktop nav links to Browse, Sell parcel, Dashboard", () => {
     renderWithProviders(<Header />);
     expect(screen.getByRole("link", { name: "Browse" }).getAttribute("href")).toBe("/browse");
+    expect(screen.getByRole("link", { name: "Sell parcel" }).getAttribute("href")).toBe("/listings/new");
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/dashboard");
-    expect(screen.getByRole("link", { name: "Create Listing" }).getAttribute("href")).toBe("/auction/new");
   });
 
   it("renders Sign in and Register buttons when unauthenticated", () => {
