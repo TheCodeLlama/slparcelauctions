@@ -1,12 +1,9 @@
 package com.slparcelauctions.backend.auction;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.dto.AuctionPhotoResponse;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
-import com.slparcelauctions.backend.storage.StoredObject;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,10 +21,8 @@ import lombok.RequiredArgsConstructor;
  * Per-auction photo endpoints. Write paths (upload, delete) are gated to the
  * seller via {@link AuctionPhotoService} which calls
  * {@link AuctionService#loadForSeller(Long, Long)} — non-sellers get a 404
- * to avoid leaking draft existence. The public {@code GET /bytes} endpoint
- * proxies the stored object directly and is permitted at the security layer
- * (see {@code SecurityConfig}) because listing photos are part of the public
- * auction view.
+ * to avoid leaking draft existence. Public photo bytes are now served by the
+ * flat {@code GET /api/v1/photos/{id}} endpoint in {@link PhotoController}.
  */
 @RestController
 @RequestMapping("/api/v1/auctions/{auctionId}/photos")
@@ -54,21 +48,5 @@ public class AuctionPhotoController {
             @PathVariable Long photoId,
             @AuthenticationPrincipal AuthPrincipal principal) {
         service.delete(auctionId, photoId, principal.userId());
-    }
-
-    @GetMapping("/{photoId}/bytes")
-    public ResponseEntity<byte[]> bytes(
-            @PathVariable Long auctionId,
-            @PathVariable Long photoId,
-            @AuthenticationPrincipal AuthPrincipal principal) {
-        // Principal is null on anonymous access (SecurityConfig permits this path).
-        // The service uses the caller id to gate pre-ACTIVE auctions to the seller.
-        Long callerId = principal != null ? principal.userId() : null;
-        StoredObject stored = service.fetchBytes(auctionId, photoId, callerId);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, stored.contentType())
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
-                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(stored.contentLength()))
-                .body(stored.bytes());
     }
 }
