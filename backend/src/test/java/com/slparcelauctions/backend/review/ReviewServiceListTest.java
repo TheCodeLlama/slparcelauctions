@@ -12,6 +12,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,6 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.AuctionReviewsResponse;
@@ -37,7 +37,6 @@ import com.slparcelauctions.backend.review.dto.PendingReviewDto;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for the list paths on {@link ReviewService} —
@@ -81,12 +80,10 @@ class ReviewServiceListTest {
         stranger = User.builder().email("x@example.com").passwordHash("x").build();
         stranger.setId(99L);
 
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(UUID.randomUUID())
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
@@ -290,13 +287,10 @@ class ReviewServiceListTest {
         // + 14d is a constant offset, so oldest completedAt = most urgent).
         // Service must not re-order; assert the output list mirrors the
         // repo's ascending-completedAt ordering.
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).snapshotUrl("https://snap/x.jpg").build();
-
         Auction auctionOld = Auction.builder()
                 .title("Oldest")
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(UUID.randomUUID())
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
@@ -314,7 +308,7 @@ class ReviewServiceListTest {
         Auction auctionMid = Auction.builder()
                 .title("Middle")
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(UUID.randomUUID())
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
@@ -332,7 +326,7 @@ class ReviewServiceListTest {
         Auction auctionNew = Auction.builder()
                 .title("Newest")
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(UUID.randomUUID())
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();

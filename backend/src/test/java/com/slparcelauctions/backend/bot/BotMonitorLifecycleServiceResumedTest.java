@@ -23,12 +23,10 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -52,13 +50,11 @@ class BotMonitorLifecycleServiceResumedTest {
     @Autowired private BotTaskRepository botTaskRepo;
     @Autowired private AuctionRepository auctionRepo;
     @Autowired private UserRepository userRepo;
-    @Autowired private ParcelRepository parcelRepo;
     @Autowired private PlatformTransactionManager txManager;
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
     private Long sellerId;
-    private Long parcelId;
     private Long auctionId;
 
     @AfterEach
@@ -70,15 +66,11 @@ class BotMonitorLifecycleServiceResumedTest {
                     .forEach(botTaskRepo::delete);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) {
-                parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
-            }
             if (sellerId != null) {
                 userRepo.findById(sellerId).ifPresent(userRepo::delete);
             }
         });
         sellerId = null;
-        parcelId = null;
         auctionId = null;
     }
 
@@ -96,7 +88,7 @@ class BotMonitorLifecycleServiceResumedTest {
         BotTask monitor = rows.get(0);
         assertThat(monitor.getStatus()).isEqualTo(BotTaskStatus.PENDING);
         assertThat(monitor.getExpectedOwnerUuid())
-            .isEqualTo(auction.getParcel().getOwnerUuid());
+            .isEqualTo(auction.getParcelSnapshot().getOwnerUuid());
         assertThat(monitor.getNextRunAt())
             .isAfter(OffsetDateTime.now().minusMinutes(1));
     }
@@ -130,24 +122,11 @@ class BotMonitorLifecycleServiceResumedTest {
                 .build());
             sellerId = seller.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .positionX(128.0)
-                .positionY(64.0)
-                .positionZ(22.0)
-                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction a = auctionRepo.save(Auction.builder()
                 .title("Resumed Test Listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.SALE_TO_BOT)
@@ -170,12 +149,21 @@ class BotMonitorLifecycleServiceResumedTest {
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Resumed Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0)
+                .positionY(64.0)
+                .positionZ(22.0)
+                .build());
+            auctionRepo.save(a);
             auctionId = a.getId();
         });
-        return tx.execute(s -> {
-            Auction reloaded = auctionRepo.findById(auctionId).orElseThrow();
-            reloaded.getParcel().getRegion().getName();
-            return reloaded;
-        });
+        return auctionRepo.findById(auctionId).orElseThrow();
     }
 }

@@ -31,8 +31,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -64,7 +62,6 @@ class DevBotTaskControllerTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
 
     @MockitoBean SlWorldApiClient worldApi;
@@ -73,7 +70,7 @@ class DevBotTaskControllerTest {
     private String sellerAccessToken;
     private Long sellerId;
     private String sellerAvatarUuid;
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -81,7 +78,7 @@ class DevBotTaskControllerTest {
         sellerAccessToken = registerAndVerifyUser(
                 "dev-bot-seller@example.com", "DevBotSeller", sellerAvatarUuid);
         sellerId = userRepository.findByEmail("dev-bot-seller@example.com").orElseThrow().getId();
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     @Test
@@ -122,14 +119,14 @@ class DevBotTaskControllerTest {
     private Long createAndPayAuction() throws Exception {
         String body = String.format("""
             {
-              "parcelId":%d,
+              "slParcelUuid":"%s",
               "title":"Test listing",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
               "sellerDesc":"Nice parcel"
             }
-            """, sellerParcel.getId());
+            """, sellerParcelUuid);
         MvcResult res = mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -201,7 +198,7 @@ class DevBotTaskControllerTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcel = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID owner = UUID.fromString(sellerAvatarUuid);
@@ -229,6 +226,6 @@ class DevBotTaskControllerTest {
                 .content("{\"slParcelUuid\":\"" + parcel + "\"}"))
                 .andExpect(status().isOk());
 
-        return parcelRepository.findBySlParcelUuid(parcel).orElseThrow();
+        return parcel;
     }
 }

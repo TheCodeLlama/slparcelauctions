@@ -28,11 +28,11 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
+import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link SuspensionService}. Two public entry points
@@ -45,7 +45,6 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
 class SuspensionServiceTest {
 
     private static final Long AUCTION_ID = 1L;
-    private static final Long PARCEL_ID = 100L;
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID ATTACKER_AVATAR = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -88,7 +87,7 @@ class SuspensionServiceTest {
         FraudFlag flag = captor.getValue();
         assertThat(flag.getReason()).isEqualTo(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN);
         assertThat(flag.getAuction()).isSameAs(a);
-        assertThat(flag.getParcel()).isSameAs(a.getParcel());
+        assertThat(flag.getSlParcelUuid()).isEqualTo(PARCEL_UUID);
         assertThat(flag.getDetectedAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(flag.isResolved()).isFalse();
         assertThat(flag.getEvidenceJson())
@@ -126,7 +125,7 @@ class SuspensionServiceTest {
                 .containsEntry("expectedSellerKey", SELLER_AVATAR.toString())
                 .containsEntry("observedOwnerKey", ATTACKER_AVATAR.toString())
                 .containsEntry("parcelRegion", "Coniston")
-                .containsEntry("parcelLocalId", PARCEL_ID)
+                .containsEntry("parcelUuid", PARCEL_UUID.toString())
                 .containsEntry("auctionTitle", "Test listing");
         // hoursSinceCancellation: ~4.25 hours (4h 15m)
         Object hours = flag.getEvidenceJson().get("hoursSinceCancellation");
@@ -172,18 +171,12 @@ class SuspensionServiceTest {
     private Auction buildActive() {
         User seller = User.builder().id(42L).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        Parcel parcel = Parcel.builder()
-                .region(com.slparcelauctions.backend.region.Region.builder()
-                        .slUuid(UUID.randomUUID()).name("Coniston")
-                        .gridX(1014.0).gridY(1014.0).maturityRating("MODERATE").build())
-                .id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
-                .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .verified(true).build();
-        return Auction.builder()
+        Auction auction = Auction.builder()
                 .title("Test listing")
-                .id(AUCTION_ID).seller(seller).parcel(parcel)
+                .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).listingFeePaid(true)
                 .currentBid(0L).bidCount(0)
@@ -192,5 +185,16 @@ class SuspensionServiceTest {
                 .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .build();
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
+                .ownerUuid(SELLER_AVATAR)
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auction;
     }
 }

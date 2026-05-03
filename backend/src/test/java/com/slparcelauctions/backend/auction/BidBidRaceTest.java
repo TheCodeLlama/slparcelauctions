@@ -24,11 +24,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.BidTooLowException;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Success Criterion §1 regression test: two concurrent {@code placeBid}
@@ -55,7 +52,6 @@ class BidBidRaceTest {
     @Autowired BidService bidService;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
 
@@ -68,7 +64,6 @@ class BidBidRaceTest {
     private Long sellerId;
     private Long bidderAId;
     private Long bidderBId;
-    private Long parcelId;
 
     @AfterEach
     void cleanup() {
@@ -86,9 +81,6 @@ class BidBidRaceTest {
                     auctionRepository.delete(a);
                 });
             }
-            if (parcelId != null) {
-                parcelRepository.findById(parcelId).ifPresent(parcelRepository::delete);
-            }
             if (bidderAId != null) {
                 userRepository.findById(bidderAId).ifPresent(userRepository::delete);
             }
@@ -100,7 +92,6 @@ class BidBidRaceTest {
             }
         });
         auctionId = null;
-        parcelId = null;
         bidderAId = null;
         bidderBId = null;
         sellerId = null;
@@ -221,19 +212,11 @@ class BidBidRaceTest {
                 .verified(true)
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(UUID.randomUUID())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -251,11 +234,21 @@ class BidBidRaceTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("Race Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(auction);
 
         this.sellerId = seller.getId();
         this.bidderAId = bidderA.getId();
         this.bidderBId = bidderB.getId();
-        this.parcelId = parcel.getId();
         this.auctionId = auction.getId();
     }
 }

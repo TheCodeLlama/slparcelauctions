@@ -34,8 +34,6 @@ import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -72,7 +70,6 @@ class FullFlowSmokeTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired ListingFeeRefundRepository refundRepository;
 
@@ -82,7 +79,6 @@ class FullFlowSmokeTest {
     private String sellerAccessToken;
     private Long sellerId;
     private String sellerAvatarUuid;
-    private Parcel sellerParcel;
     private UUID parcelUuid;
 
     @BeforeEach
@@ -91,8 +87,7 @@ class FullFlowSmokeTest {
         sellerAccessToken = registerAndVerifyUser(
                 "full-flow-seller@example.com", "FullFlowSeller", sellerAvatarUuid);
         sellerId = userRepository.findByEmail("full-flow-seller@example.com").orElseThrow().getId();
-        sellerParcel = seedParcelViaLookup();
-        parcelUuid = sellerParcel.getSlParcelUuid();
+        parcelUuid = seedParcelViaLookup();
     }
 
     // -------------------------------------------------------------------------
@@ -370,14 +365,14 @@ class FullFlowSmokeTest {
     private Long createAuction() throws Exception {
         String body = String.format("""
             {
-              "parcelId":%d,
+              "slParcelUuid":"%s",
               "title":"Test listing",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
               "sellerDesc":"Nice parcel"
             }
-            """, sellerParcel.getId());
+            """, parcelUuid);
         MvcResult res = mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -429,7 +424,7 @@ class FullFlowSmokeTest {
         return token;
     }
 
-    private Parcel seedParcelViaLookup() throws Exception {
+    private UUID seedParcelViaLookup() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcel = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID owner = UUID.fromString(sellerAvatarUuid);
@@ -460,6 +455,6 @@ class FullFlowSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.slParcelUuid").value(parcel.toString()));
 
-        return parcelRepository.findBySlParcelUuid(parcel).orElseThrow();
+        return parcel;
     }
 }

@@ -42,11 +42,9 @@ import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for escrow lifecycle notifications.
@@ -73,7 +71,6 @@ class EscrowNotificationIntegrationTest {
     @Autowired EscrowTransactionRepository ledgerRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired NotificationRepository notifRepo;
     @Autowired TerminalRepository terminalRepo;
@@ -83,7 +80,7 @@ class EscrowNotificationIntegrationTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, winnerId, auctionId, parcelId, escrowId;
+    private Long sellerId, winnerId, auctionId, escrowId;
     private String terminalId;
 
     @AfterEach
@@ -98,7 +95,6 @@ class EscrowNotificationIntegrationTest {
                 bidRepo.deleteAllByAuctionId(auctionId);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
             if (terminalId != null) terminalRepo.findById(terminalId).ifPresent(terminalRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
@@ -113,7 +109,7 @@ class EscrowNotificationIntegrationTest {
                 }
             }
         }
-        sellerId = winnerId = auctionId = parcelId = escrowId = null;
+        sellerId = winnerId = auctionId = escrowId = null;
         terminalId = null;
     }
 
@@ -133,19 +129,11 @@ class EscrowNotificationIntegrationTest {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
             User seller = userRepo.findById(sellerId).orElseThrow();
             User winner = userRepo.findById(winnerId).orElseThrow();
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerType("agent")
-                                                            .areaSqm(256)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction a = auctionRepo.save(Auction.builder()
                     .title("Escrow Test Lot")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .endOutcome(AuctionEndOutcome.SOLD)
@@ -169,6 +157,13 @@ class EscrowNotificationIntegrationTest {
                     .endedAt(now.minusHours(1))
                     .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid).ownerType("agent")
+                    .ownerName("Seller").parcelName("Escrow Notification Parcel")
+                    .regionName("Mainland").areaSqm(256)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             Escrow e = escrowRepo.save(Escrow.builder()
                     .auction(a)
                     .state(EscrowState.ESCROW_PENDING)

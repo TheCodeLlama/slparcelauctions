@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,9 +34,7 @@ import com.slparcelauctions.backend.auction.ProxyBid;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidStatus;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Service-layer unit tests for {@link MyBidsService}. Covers:
@@ -242,19 +241,13 @@ class MyBidsServiceTest {
     }
 
     private static Auction baseAuction(Long id) {
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland())
-                .id(id * 10)
-                .location("Test Parcel " + id)
-                                .areaSqm(1024)
-                .snapshotUrl("http://example.com/snap.jpg")
-                .build();
         User seller = new User();
         seller.setId(OTHER_USER);
         seller.setDisplayName("Seller");
         Auction a = new Auction();
         a.setId(id);
-        a.setParcel(parcel);
+        a.setSlParcelUuid(UUID.fromString(
+                String.format("44444444-4444-4444-4444-%012d", id)));
         a.setSeller(seller);
         a.setCurrentBid(1000L);
         a.setBidCount(3);

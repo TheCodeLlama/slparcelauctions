@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.admin.dto.AdminFraudFlagSummaryDto;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
@@ -32,11 +33,8 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -55,7 +53,6 @@ class AdminFraudFlagServiceListTest {
 
     @Autowired AdminFraudFlagService service;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -64,7 +61,6 @@ class AdminFraudFlagServiceListTest {
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
     private Long sellerId;
-    private Long parcelId;
     private Long auctionId;
     private Long flag1Id, flag2Id, flag3Id, flag4Id, flag5Id;
 
@@ -80,17 +76,10 @@ class AdminFraudFlagServiceListTest {
                 .build());
             sellerId = seller.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(1024)
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             Auction auction = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .title("Suspended fraud auction")
                 .status(AuctionStatus.SUSPENDED)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -98,13 +87,25 @@ class AdminFraudFlagServiceListTest {
                 .startingBid(100L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
+                .consecutiveWorldApiFailures(0)
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("FF List Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction);
             auctionId = auction.getId();
 
             // 3 open OWNERSHIP_CHANGED_TO_UNKNOWN
             FraudFlag f1 = fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(OffsetDateTime.now().minusHours(3))
                 .resolved(false)
@@ -113,7 +114,7 @@ class AdminFraudFlagServiceListTest {
 
             FraudFlag f2 = fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(OffsetDateTime.now().minusHours(2))
                 .resolved(false)
@@ -122,7 +123,7 @@ class AdminFraudFlagServiceListTest {
 
             FraudFlag f3 = fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(OffsetDateTime.now().minusHours(1))
                 .resolved(false)
@@ -132,7 +133,7 @@ class AdminFraudFlagServiceListTest {
             // 1 open BOT_PRICE_DRIFT
             FraudFlag f4 = fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.BOT_PRICE_DRIFT)
                 .detectedAt(OffsetDateTime.now().minusMinutes(30))
                 .resolved(false)
@@ -142,7 +143,7 @@ class AdminFraudFlagServiceListTest {
             // 1 resolved PARCEL_DELETED_OR_MERGED
             FraudFlag f5 = fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.PARCEL_DELETED_OR_MERGED)
                 .detectedAt(OffsetDateTime.now().minusDays(1))
                 .resolved(true)
@@ -155,18 +156,16 @@ class AdminFraudFlagServiceListTest {
 
     @AfterEach
     void cleanup() throws Exception {
-        new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            if (flag1Id != null) fraudFlagRepo.findById(flag1Id).ifPresent(fraudFlagRepo::delete);
-            if (flag2Id != null) fraudFlagRepo.findById(flag2Id).ifPresent(fraudFlagRepo::delete);
-            if (flag3Id != null) fraudFlagRepo.findById(flag3Id).ifPresent(fraudFlagRepo::delete);
-            if (flag4Id != null) fraudFlagRepo.findById(flag4Id).ifPresent(fraudFlagRepo::delete);
-            if (flag5Id != null) fraudFlagRepo.findById(flag5Id).ifPresent(fraudFlagRepo::delete);
-            if (auctionId != null) auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
-        });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
             try (var st = conn.createStatement()) {
+                for (Long fid : new Long[]{flag1Id, flag2Id, flag3Id, flag4Id, flag5Id}) {
+                    if (fid != null) st.execute("DELETE FROM fraud_flags WHERE id = " + fid);
+                }
+                if (auctionId != null) {
+                    st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auctions WHERE id = " + auctionId);
+                }
                 if (sellerId != null) {
                     st.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                     st.execute("DELETE FROM refresh_tokens WHERE user_id = " + sellerId);
@@ -175,7 +174,6 @@ class AdminFraudFlagServiceListTest {
             }
         }
         sellerId = null;
-        parcelId = null;
         auctionId = null;
         flag1Id = flag2Id = flag3Id = flag4Id = flag5Id = null;
     }
@@ -205,7 +203,10 @@ class AdminFraudFlagServiceListTest {
 
     @Test
     void list_allStatus_returnsAllFiveSeededFlags() {
-        PagedResponse<AdminFraudFlagSummaryDto> result = service.list("all", List.of(), PAGE);
+        // Use a large page to avoid the oldest seeded flag (flag5, detectedAt -1d) being
+        // pushed off page 0 when the DB has many existing fraud_flag rows.
+        PageRequest bigPage = PageRequest.of(0, 1000, Sort.by(Sort.Direction.DESC, "detectedAt"));
+        PagedResponse<AdminFraudFlagSummaryDto> result = service.list("all", List.of(), bigPage);
 
         List<Long> ids = result.content().stream().map(AdminFraudFlagSummaryDto::id).toList();
         assertThat(ids).contains(flag1Id, flag2Id, flag3Id, flag4Id, flag5Id);

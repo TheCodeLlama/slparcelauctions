@@ -11,11 +11,10 @@ import org.junit.jupiter.api.Test;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 class AuctionSearchResultMapperTest {
 
@@ -43,11 +42,10 @@ class AuctionSearchResultMapperTest {
     }
 
     @Test
-    void primaryPhotoUrl_fallsBackToParcelSnapshot_whenNoSellerPhotos() {
+    void primaryPhotoUrl_nullWhenNoPhotoUrlProvided() {
         Auction a = auction(4L, 500L, null);
-        a.getParcel().setSnapshotUrl("/api/parcels/99/snapshot");
         AuctionSearchResultDto dto = mapOne(a);
-        assertThat(dto.primaryPhotoUrl()).isEqualTo("/api/parcels/99/snapshot");
+        assertThat(dto.primaryPhotoUrl()).isNull();
     }
 
     @Test
@@ -111,18 +109,12 @@ class AuctionSearchResultMapperTest {
                 .avgSellerRating(new BigDecimal("4.5"))
                 .totalSellerReviews(5)
                 .build();
-        Parcel p = Parcel.builder()
-                .region(TestRegions.mainland())
-                .id(99L)
-                .slParcelUuid(UUID.randomUUID())
-                                .areaSqm(1024)
-                                                .positionX(80.0).positionY(104.0).positionZ(89.0)
-                .build();
-        return Auction.builder()
+        UUID parcelUuid = UUID.randomUUID();
+        Auction a = Auction.builder()
                 .id(id)
                 .title("Test")
                 .status(AuctionStatus.ACTIVE)
-                .parcel(p)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .startingBid(500L)
                 .currentBid(currentBid)
@@ -134,5 +126,13 @@ class AuctionSearchResultMapperTest {
                 .verificationTier(VerificationTier.BOT)
                 .durationHours(168)
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .regionName("Coniston")
+                .regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(80.0).positionY(104.0).positionZ(89.0)
+                .build());
+        return a;
     }
 }

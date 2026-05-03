@@ -14,11 +14,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Persistence-level verification of
@@ -43,7 +40,6 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
 class AuctionRepositoryOwnershipCheckTest {
 
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
 
     @Test
@@ -56,31 +52,31 @@ class AuctionRepositoryOwnershipCheckTest {
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
 
-        // Each row gets its own parcel so the parcel-lock partial unique
+        // Each row gets its own parcel UUID so the parcel-lock partial unique
         // index (which covers ACTIVE and ENDED, among others) doesn't reject
-        // duplicate rows on the same parcel_id.
-        Parcel p1 = parcelRepo.save(buildParcel());
-        Parcel p2 = parcelRepo.save(buildParcel());
-        Parcel p3 = parcelRepo.save(buildParcel());
-        Parcel p4 = parcelRepo.save(buildParcel());
-        Parcel p5 = parcelRepo.save(buildParcel());
-        Parcel p6 = parcelRepo.save(buildParcel());
+        // duplicate rows on the same sl_parcel_uuid.
+        UUID u1 = UUID.randomUUID();
+        UUID u2 = UUID.randomUUID();
+        UUID u3 = UUID.randomUUID();
+        UUID u4 = UUID.randomUUID();
+        UUID u5 = UUID.randomUUID();
+        UUID u6 = UUID.randomUUID();
 
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime cutoff = now.minusMinutes(30);
 
         // 1) Stale (at cutoff boundary — should be included via <=)
-        Auction stale = auctionRepo.save(build(seller, p1, AuctionStatus.ACTIVE, cutoff));
+        Auction stale = auctionRepo.save(build(seller, u1, AuctionStatus.ACTIVE, cutoff));
         // 2) Very stale (older — should also be included)
-        Auction veryStale = auctionRepo.save(build(seller, p2, AuctionStatus.ACTIVE, now.minusHours(3)));
+        Auction veryStale = auctionRepo.save(build(seller, u2, AuctionStatus.ACTIVE, now.minusHours(3)));
         // 3) Never checked (null timestamp — NULLS FIRST)
-        Auction neverChecked = auctionRepo.save(build(seller, p3, AuctionStatus.ACTIVE, null));
+        Auction neverChecked = auctionRepo.save(build(seller, u3, AuctionStatus.ACTIVE, null));
         // 4) Fresh (after cutoff — excluded)
-        Auction fresh = auctionRepo.save(build(seller, p4, AuctionStatus.ACTIVE, now.minusMinutes(5)));
+        Auction fresh = auctionRepo.save(build(seller, u4, AuctionStatus.ACTIVE, now.minusMinutes(5)));
         // 5) SUSPENDED (excluded regardless of timestamp)
-        Auction suspended = auctionRepo.save(build(seller, p5, AuctionStatus.SUSPENDED, now.minusHours(5)));
+        Auction suspended = auctionRepo.save(build(seller, u5, AuctionStatus.SUSPENDED, now.minusHours(5)));
         // 6) ENDED (excluded regardless of timestamp)
-        Auction ended = auctionRepo.save(build(seller, p6, AuctionStatus.ENDED, now.minusHours(5)));
+        Auction ended = auctionRepo.save(build(seller, u6, AuctionStatus.ENDED, now.minusHours(5)));
 
         List<Long> due = auctionRepo.findDueForOwnershipCheck(cutoff, now);
 
@@ -106,23 +102,23 @@ class AuctionRepositoryOwnershipCheckTest {
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
 
-        Parcel pa = parcelRepo.save(buildParcel());
-        Parcel pb = parcelRepo.save(buildParcel());
-        Parcel pc = parcelRepo.save(buildParcel());
+        UUID ua = UUID.randomUUID();
+        UUID ub = UUID.randomUUID();
+        UUID uc = UUID.randomUUID();
 
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime cutoff = now.minusMinutes(30);
 
         // ACTIVE, due — should be picked up.
-        Auction active = auctionRepo.save(buildWithWatch(seller, pa,
+        Auction active = auctionRepo.save(buildWithWatch(seller, ua,
                 AuctionStatus.ACTIVE, now.minusHours(1), null));
         // CANCELLED with open post-cancel watch — should be picked up.
-        Auction watched = buildWithWatch(seller, pb,
+        Auction watched = buildWithWatch(seller, ub,
                 AuctionStatus.CANCELLED, now.minusHours(1), now.plusHours(24));
         watched = auctionRepo.save(watched);
         // CANCELLED with expired post-cancel watch — must be excluded even
         // though lastOwnershipCheckAt is stale.
-        Auction expired = buildWithWatch(seller, pc,
+        Auction expired = buildWithWatch(seller, uc,
                 AuctionStatus.CANCELLED, now.minusHours(1), now.minusHours(1));
         expired = auctionRepo.save(expired);
 
@@ -132,29 +128,17 @@ class AuctionRepositoryOwnershipCheckTest {
         assertThat(due).doesNotContain(expired.getId());
     }
 
-    private Auction buildWithWatch(User seller, Parcel parcel, AuctionStatus status,
+    private Auction buildWithWatch(User seller, UUID parcelUuid, AuctionStatus status,
                                    OffsetDateTime lastCheck, OffsetDateTime watchUntil) {
-        Auction a = build(seller, parcel, status, lastCheck);
+        Auction a = build(seller, parcelUuid, status, lastCheck);
         a.setPostCancelWatchUntil(watchUntil);
         return a;
     }
 
-    private Parcel buildParcel() {
-        return Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(UUID.randomUUID())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build();
-    }
-
-    private Auction build(User seller, Parcel parcel, AuctionStatus status, OffsetDateTime lastCheck) {
-        return Auction.builder()
+    private Auction build(User seller, UUID parcelUuid, AuctionStatus status, OffsetDateTime lastCheck) {
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -170,5 +154,16 @@ class AuctionRepositoryOwnershipCheckTest {
                 .agentFeeRate(BigDecimal.ZERO)
                 .lastOwnershipCheckAt(lastCheck)
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return a;
     }
 }

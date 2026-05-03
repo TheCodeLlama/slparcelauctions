@@ -20,13 +20,11 @@ import org.springframework.test.context.TestPropertySource;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Verifies the divergent IN_PROGRESS timeout behavior of
@@ -60,12 +58,10 @@ class BotTaskTimeoutJobInProgressTest {
     @Autowired private BotTaskService service;
     @Autowired private BotTaskRepository botTaskRepo;
     @Autowired private AuctionRepository auctionRepo;
-    @Autowired private ParcelRepository parcelRepo;
     @Autowired private UserRepository userRepo;
     @Autowired private javax.sql.DataSource dataSource;
 
     private Long auctionId;
-    private Long parcelId;
     private Long sellerId;
     private Long taskId;
 
@@ -77,14 +73,13 @@ class BotTaskTimeoutJobInProgressTest {
                 if (taskId != null) stmt.execute("DELETE FROM bot_tasks WHERE id = " + taskId);
                 if (auctionId != null) {
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId);
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId);
                 }
-                if (parcelId != null) stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
                 if (sellerId != null) stmt.execute("DELETE FROM users WHERE id = " + sellerId);
             }
         }
         auctionId = null;
-        parcelId = null;
         sellerId = null;
         taskId = null;
     }
@@ -155,19 +150,11 @@ class BotTaskTimeoutJobInProgressTest {
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
                 .build());
-        Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepo.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.SALE_TO_BOT)
@@ -184,8 +171,20 @@ class BotTaskTimeoutJobInProgressTest {
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Timeout Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0)
+                .positionY(64.0)
+                .positionZ(22.0)
+                .build());
+        auctionRepo.save(auction);
         this.sellerId = seller.getId();
-        this.parcelId = parcel.getId();
         this.auctionId = auction.getId();
         return auction;
     }

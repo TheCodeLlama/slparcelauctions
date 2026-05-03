@@ -32,15 +32,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -67,7 +65,6 @@ class AuctionControllerIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired AuctionPhotoRepository photoRepository;
     @Autowired UserRepository userRepository;
@@ -86,8 +83,8 @@ class AuctionControllerIntegrationTest {
     /** Unverified user (for 403 on write paths). */
     private String unverifiedAccessToken;
 
-    /** A parcel owned by {@code sellerId}. */
-    private Parcel sellerParcel;
+    /** A parcel UUID owned by the seller (used in create requests and snapshot seeding). */
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -102,7 +99,7 @@ class AuctionControllerIntegrationTest {
 
         unverifiedAccessToken = registerUser("auction-unverified@example.com", "Unverified");
 
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     // -------------------------------------------------------------------------
@@ -112,7 +109,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_validRequest_returns201AndDraft() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null,
                 168, false, null, "Nice parcel", null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -137,7 +134,7 @@ class AuctionControllerIntegrationTest {
         userRepository.save(seller);
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -156,7 +153,7 @@ class AuctionControllerIntegrationTest {
         userRepository.save(seller);
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -177,7 +174,7 @@ class AuctionControllerIntegrationTest {
         userRepository.save(seller);
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -191,7 +188,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void create_asUnverifiedUser_returns403() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                sellerParcel.getId(), "Test listing", 1000L, null, null,
+                sellerParcelUuid, "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
@@ -203,17 +200,25 @@ class AuctionControllerIntegrationTest {
     }
 
     @Test
-    void create_nonExistentParcel_returns400() throws Exception {
+    void create_unknownParcelUuid_returnsSlParcelNotFound() throws Exception {
+        // Since AuctionCreateRequest now takes a UUID, and the service does a live
+        // SL World API lookup, a UUID that the mock doesn't stub returns a 404
+        // with code SL_PARCEL_NOT_FOUND (the worldApi mock returns null by default
+        // which triggers ParcelNotFoundInSlException inside the lookup chain).
+        UUID unknownUuid = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        when(worldApi.fetchParcelPage(unknownUuid)).thenReturn(
+                Mono.error(new ParcelNotFoundInSlException(unknownUuid)));
+
         AuctionCreateRequest req = new AuctionCreateRequest(
-                999999L, "Test listing", 1000L, null, null,
+                unknownUuid, "Test listing", 1000L, null, null,
                 168, false, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SL_PARCEL_NOT_FOUND"));
     }
 
     @Test
@@ -223,12 +228,12 @@ class AuctionControllerIntegrationTest {
         // standard problem-detail body with a "code" field.
         String body = """
                 {
-                  "parcelId": %d,
+                  "slParcelUuid": "%s",
                   "startingBid": 1000,
                   "durationHours": 168,
                   "snipeProtect": false
                 }
-                """.formatted(sellerParcel.getId());
+                """.formatted(sellerParcelUuid);
         mockMvc.perform(post("/api/v1/auctions")
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -241,13 +246,13 @@ class AuctionControllerIntegrationTest {
     void create_blankTitle_returns400WithProblemDetail() throws Exception {
         String body = """
                 {
-                  "parcelId": %d,
+                  "slParcelUuid": "%s",
                   "title": "   ",
                   "startingBid": 1000,
                   "durationHours": 168,
                   "snipeProtect": false
                 }
-                """.formatted(sellerParcel.getId());
+                """.formatted(sellerParcelUuid);
         mockMvc.perform(post("/api/v1/auctions")
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -261,13 +266,13 @@ class AuctionControllerIntegrationTest {
         String over120 = "x".repeat(121);
         String body = """
                 {
-                  "parcelId": %d,
+                  "slParcelUuid": "%s",
                   "title": "%s",
                   "startingBid": 1000,
                   "durationHours": 168,
                   "snipeProtect": false
                 }
-                """.formatted(sellerParcel.getId(), over120);
+                """.formatted(sellerParcelUuid, over120);
         mockMvc.perform(post("/api/v1/auctions")
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -472,7 +477,7 @@ class AuctionControllerIntegrationTest {
     void update_onDraft_returns200() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2500L, null, null, null, null, null, "updated description", null);
+                null, null, 2500L, null, null, null, null, null, "updated description", null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -487,7 +492,7 @@ class AuctionControllerIntegrationTest {
     void update_onActive_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2500L, null, null, null, null, null, null, null);
+                null, null, 2500L, null, null, null, null, null, null, null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -507,8 +512,8 @@ class AuctionControllerIntegrationTest {
         // Seed a group-owned parcel for the seller and a DRAFT_PAID auction
         // over it. The verify trigger must reject any method other than
         // SALE_TO_BOT with a 422 ProblemDetail carrying the agreed code/title.
-        Parcel groupParcel = seedGroupOwnedParcel();
-        Auction a = seedAuctionFor(groupParcel, AuctionStatus.DRAFT_PAID, true);
+        UUID groupParcelUuid = seedGroupOwnedParcel();
+        Auction a = seedAuctionFor(groupParcelUuid, "group", AuctionStatus.DRAFT_PAID, true, 0, null);
 
         mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -763,10 +768,12 @@ class AuctionControllerIntegrationTest {
     }
 
     /**
-     * Seeds a parcel by going through the full /parcels/lookup flow once so the parcel row
-     * is persisted and {@code verified=true}. We stub the SL HTTP clients to avoid network.
+     * Stubs the SL World API for the seller's default parcel UUID so that
+     * POST /api/v1/auctions (create) and PUT /api/v1/auctions/{id}/verify can
+     * call {@code parcelLookupService.lookup()} without network access.
+     * Returns the parcel UUID to use in {@link AuctionCreateRequest}.
      */
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID ownerUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
@@ -787,33 +794,31 @@ class AuctionControllerIntegrationTest {
                 22.0), regionUuid)));
         when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
                 Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+        return parcelUuid;
     }
 
     private Auction seedAuction(AuctionStatus status, boolean listingFeePaid, int bidCount) {
-        return seedAuctionFor(sellerParcel, status, listingFeePaid, bidCount,
+        return seedAuctionFor(sellerParcelUuid, "agent", status, listingFeePaid, bidCount,
                 VerificationMethod.UUID_ENTRY);
     }
 
-    private Auction seedAuctionFor(Parcel parcel, AuctionStatus status, boolean listingFeePaid) {
+    private Auction seedAuctionFor(UUID parcelUuid, AuctionStatus status, boolean listingFeePaid) {
         // Sub-spec 2 §7.1 — verificationMethod is null until the seller picks
         // one at the verify trigger. Group-owned parcel tests rely on this.
-        return seedAuctionFor(parcel, status, listingFeePaid, 0, null);
+        return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, 0, null);
     }
 
-    private Auction seedAuctionFor(Parcel parcel, AuctionStatus status,
+    private Auction seedAuctionFor(UUID parcelUuid, AuctionStatus status,
+            boolean listingFeePaid, int bidCount, VerificationMethod method) {
+        return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, bidCount, method);
+    }
+
+    private Auction seedAuctionFor(UUID parcelUuid, String ownerType, AuctionStatus status,
             boolean listingFeePaid, int bidCount, VerificationMethod method) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(method)
@@ -823,6 +828,7 @@ class AuctionControllerIntegrationTest {
                 .listingFeePaid(listingFeePaid)
                 .currentBid(0L)
                 .bidCount(bidCount)
+                .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build();
@@ -832,6 +838,17 @@ class AuctionControllerIntegrationTest {
             a.setEndsAt(now.plusDays(1));
             a.setOriginalEndsAt(now.plusDays(1));
         }
+        a = auctionRepository.save(a);
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.fromString("44444444-4444-4444-4444-444444444444"))
+                .ownerType(ownerType)
+                .parcelName("Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
         return auctionRepository.save(a);
     }
 
@@ -875,41 +892,19 @@ class AuctionControllerIntegrationTest {
     }
 
     /**
-     * Seeds an agent-owned verified parcel directly via the repository. Used
-     * by tests that need multiple parcels (e.g. multi-auction scenarios) so
-     * they don't trip the parcel-locking partial unique index.
+     * Returns a unique parcel UUID per seed int. Since parcels are no longer
+     * persisted separately, this just provides a unique UUID for each auction.
      */
-    private Parcel seedExtraParcel(int seed) {
-        UUID parcelUuid = new UUID(0L, 0x10000000L + seed);
-        UUID ownerUuid = new UUID(0L, 0x20000000L + seed);
-        Parcel p = Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(parcelUuid)
-                .ownerUuid(ownerUuid)
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                .verified(true)
-                .build();
-        return parcelRepository.save(p);
+    private UUID seedExtraParcel(int seed) {
+        return new UUID(0L, 0x10000000L + seed);
     }
 
     /**
-     * Seeds a group-owned parcel directly via the repository (the /parcels/lookup
-     * flow stubs an agent-owner, so bypass it). Group-owned parcels trip the
-     * group-land gate on PUT /auctions/{id}/verify for any method other than
-     * SALE_TO_BOT — sub-spec 2 §7.2.
+     * Returns a UUID representing a group-owned parcel. The ownerType="group"
+     * is set on the AuctionParcelSnapshot when calling seedAuctionFor with
+     * this UUID and explicitly passing ownerType="group".
      */
-    private Parcel seedGroupOwnedParcel() {
-        UUID parcelUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
-        UUID groupUuid = UUID.fromString("66666666-6666-6666-6666-666666666666");
-        Parcel p = Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(parcelUuid)
-                .ownerUuid(groupUuid)
-                .ownerType("group")
-                                                .areaSqm(2048)
-                .verified(true)
-                .build();
-        return parcelRepository.save(p);
+    private UUID seedGroupOwnedParcel() {
+        return UUID.fromString("55555555-5555-5555-5555-555555555555");
     }
 }

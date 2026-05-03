@@ -21,14 +21,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -57,7 +56,6 @@ import jakarta.persistence.PersistenceContext;
 class FraudFlagRepositoryTest {
 
     @Autowired FraudFlagRepository fraudFlagRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
@@ -69,7 +67,7 @@ class FraudFlagRepositoryTest {
     // State for the count-method tests (BeforeEach / AfterEach)
     // -----------------------------------------------------------------------
 
-    private Long seedAuctionId, seedParcelId, seedUserId;
+    private Long seedAuctionId, seedUserId;
     private FraudFlag flagA, flagB;
 
     @BeforeEach
@@ -82,25 +80,32 @@ class FraudFlagRepositoryTest {
                 .build());
             seedUserId = user.getId();
 
-            Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(user.getSlAvatarUuid())
-                .areaSqm(512)
-                .build());
-            seedParcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             Auction auction = auctionRepository.save(Auction.builder()
-                .seller(user).parcel(parcel).title("Test")
+                .seller(user)
+                .slParcelUuid(parcelUuid)
+                .title("Test")
                 .status(AuctionStatus.SUSPENDED)
                 .startingBid(1L)
                 .durationHours(24)
+                .consecutiveWorldApiFailures(0)
                 .endsAt(OffsetDateTime.now().plusHours(1))
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(user.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Seed Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(512)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepository.save(auction);
             seedAuctionId = auction.getId();
 
             flagA = fraudFlagRepository.save(FraudFlag.builder()
-                .auction(auction).parcel(parcel)
+                .auction(auction).slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(OffsetDateTime.now())
                 .resolved(false)
@@ -108,7 +113,7 @@ class FraudFlagRepositoryTest {
                 .build());
 
             flagB = fraudFlagRepository.save(FraudFlag.builder()
-                .auction(auction).parcel(parcel)
+                .auction(auction).slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.PARCEL_DELETED_OR_MERGED)
                 .detectedAt(OffsetDateTime.now())
                 .resolved(false)
@@ -124,7 +129,6 @@ class FraudFlagRepositoryTest {
                 fraudFlagRepository.deleteAll(fraudFlagRepository.findByAuctionId(seedAuctionId));
                 auctionRepository.findById(seedAuctionId).ifPresent(auctionRepository::delete);
             }
-            if (seedParcelId != null) parcelRepository.findById(seedParcelId).ifPresent(parcelRepository::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -136,7 +140,7 @@ class FraudFlagRepositoryTest {
                 }
             }
         }
-        seedUserId = seedAuctionId = seedParcelId = null;
+        seedUserId = seedAuctionId = null;
     }
 
     // -----------------------------------------------------------------------
@@ -151,39 +155,44 @@ class FraudFlagRepositoryTest {
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Fraud Seller")
                 .verified(false)
+                .slAvatarUuid(UUID.randomUUID())
                 .build());
 
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(UUID.randomUUID())
-                .ownerType("agent")
-                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-
+        UUID parcelUuid = UUID.randomUUID();
         Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)
                 .snipeProtect(false)
                 .listingFeePaid(false)
                 .currentBid(0L)
                 .bidCount(0)
+                .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Fraud Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(auction);
 
         UUID expectedOwner = UUID.randomUUID();
         UUID detectedOwner = UUID.randomUUID();
         FraudFlag saved = fraudFlagRepository.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(OffsetDateTime.now())
                 .evidenceJson(Map.of(
@@ -207,7 +216,7 @@ class FraudFlagRepositoryTest {
                 .containsEntry("expected_owner", expectedOwner.toString())
                 .containsEntry("detected_owner", detectedOwner.toString());
         assertThat(loaded.getAuction().getId()).isEqualTo(auction.getId());
-        assertThat(loaded.getParcel().getId()).isEqualTo(parcel.getId());
+        assertThat(loaded.getSlParcelUuid()).isEqualTo(parcelUuid);
     }
 
     @Test
@@ -218,28 +227,21 @@ class FraudFlagRepositoryTest {
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Fraud Seller")
                 .verified(false)
+                .slAvatarUuid(UUID.randomUUID())
                 .build());
 
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(UUID.randomUUID())
-                .ownerType("agent")
-                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-
-        Auction auctionA = auctionRepository.save(buildDraft(seller, parcel));
-        Auction auctionB = auctionRepository.save(buildDraft(seller, parcel));
+        UUID parcelUuidA = UUID.randomUUID();
+        UUID parcelUuidB = UUID.randomUUID();
+        Auction auctionA = buildAndSaveDraft(seller, parcelUuidA);
+        Auction auctionB = buildAndSaveDraft(seller, parcelUuidB);
 
         fraudFlagRepository.save(FraudFlag.builder()
-                .auction(auctionA).parcel(parcel)
+                .auction(auctionA).slParcelUuid(parcelUuidA)
                 .reason(FraudFlagReason.WORLD_API_FAILURE_THRESHOLD)
                 .detectedAt(OffsetDateTime.now())
                 .resolved(false).build());
         fraudFlagRepository.save(FraudFlag.builder()
-                .auction(auctionB).parcel(parcel)
+                .auction(auctionB).slParcelUuid(parcelUuidB)
                 .reason(FraudFlagReason.PARCEL_DELETED_OR_MERGED)
                 .detectedAt(OffsetDateTime.now())
                 .resolved(false).build());
@@ -292,21 +294,34 @@ class FraudFlagRepositoryTest {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private Auction buildDraft(User seller, Parcel parcel) {
-        return Auction.builder()
+    private Auction buildAndSaveDraft(User seller, UUID parcelUuid) {
+        Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)
                 .snipeProtect(false)
                 .listingFeePaid(false)
                 .currentBid(0L)
                 .bidCount(0)
+                .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
-                .build();
+                .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Fraud Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(auction);
     }
 }

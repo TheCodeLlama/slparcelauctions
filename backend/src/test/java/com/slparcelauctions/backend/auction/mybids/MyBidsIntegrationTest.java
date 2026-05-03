@@ -40,17 +40,10 @@ import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidType;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
-import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.region.dto.RegionPageData;
-import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
-import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-
-import reactor.core.publisher.Mono;
 
 /**
  * Full-stack coverage for {@code GET /api/v1/users/me/bids}. Seeds one bidder
@@ -79,7 +72,6 @@ class MyBidsIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
     @Autowired UserRepository userRepository;
@@ -87,7 +79,6 @@ class MyBidsIntegrationTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @MockitoBean SlWorldApiClient worldApi;
     @MockitoBean AuctionBroadcastPublisher broadcastPublisher;
 
     private String sellerAccessToken;
@@ -95,8 +86,7 @@ class MyBidsIntegrationTest {
     private String bidderAccessToken;
     private Long bidderId;
     private Long otherBidderId;
-    private java.util.List<Parcel> parcels;
-
+    private java.util.List<UUID> parcelUuids;
     private Long winningAuctionId;
     private Long outbidAuctionId;
     private Long wonAuctionId;
@@ -122,9 +112,10 @@ class MyBidsIntegrationTest {
                 "33333333-aaaa-bbbb-cccc-000000000103");
         otherBidderId = userRepository.findByEmail("mybids-other@example.com").orElseThrow().getId();
 
-        parcels = new java.util.ArrayList<>(7);
+        parcelUuids = new java.util.ArrayList<>(7);
         for (int i = 0; i < 7; i++) {
-            parcels.add(seedParcel(i));
+            parcelUuids.add(UUID.fromString(
+                    String.format("44444444-4444-4444-4444-%012d", 110 + i)));
         }
 
         winningAuctionId = seedWinning();
@@ -245,8 +236,8 @@ class MyBidsIntegrationTest {
         // stable tiebreaker the DB is free to interleave these across pages,
         // which causes duplicate / missing rows in a paginated traversal.
         OffsetDateTime sharedEndsAt = OffsetDateTime.now().plusDays(2).withNano(0);
-        Parcel pA = seedParcel(100);
-        Parcel pB = seedParcel(101);
+        UUID pA = UUID.fromString("44444444-4444-4444-4444-000000000100");
+        UUID pB = UUID.fromString("44444444-4444-4444-4444-000000000101");
         Auction auctionA = seedAuctionWithEndsAt(pA, sharedEndsAt);
         Auction auctionB = seedAuctionWithEndsAt(pB, sharedEndsAt);
         saveBid(auctionA, bidderId, 2500L);
@@ -280,12 +271,12 @@ class MyBidsIntegrationTest {
         }
     }
 
-    private Auction seedAuctionWithEndsAt(Parcel parcelForAuction, OffsetDateTime endsAt) {
+    private Auction seedAuctionWithEndsAt(UUID parcelUuid, OffsetDateTime endsAt) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(parcelForAuction)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -303,7 +294,18 @@ class MyBidsIntegrationTest {
         a.setStartsAt(now.minusHours(1));
         a.setEndsAt(endsAt);
         a.setOriginalEndsAt(endsAt);
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("MyBids Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(2048)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 
     // -------------------------------------------------------------------------
@@ -318,8 +320,8 @@ class MyBidsIntegrationTest {
         // auctionLateEndsAt:  endsAt=now-2h,  endedAt=now-5h (closed earlier, no extension)
         // If sorted by endsAt DESC: late (-2h) before early (-10h) -> WRONG
         // If sorted by endedAt DESC: early (-1h) before late (-5h) -> CORRECT
-        Parcel pEarly = seedParcel(200);
-        Parcel pLate = seedParcel(201);
+        UUID pEarly = UUID.fromString("44444444-4444-4444-4444-000000000200");
+        UUID pLate = UUID.fromString("44444444-4444-4444-4444-000000000201");
 
         OffsetDateTime now = OffsetDateTime.now();
         Auction earlyEndsAtAuction = seedEndedAuctionWithTimes(
@@ -353,12 +355,12 @@ class MyBidsIntegrationTest {
     }
 
     private Auction seedEndedAuctionWithTimes(
-            Parcel parcelForAuction, OffsetDateTime endsAt, OffsetDateTime endedAt) {
+            UUID parcelUuid, OffsetDateTime endsAt, OffsetDateTime endedAt) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime startsAt = endsAt.minusDays(7);
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(parcelForAuction)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ENDED)
                 .endOutcome(AuctionEndOutcome.SOLD)
@@ -378,7 +380,18 @@ class MyBidsIntegrationTest {
         a.setEndsAt(endsAt);
         a.setOriginalEndsAt(endsAt);
         a.setEndedAt(endedAt);
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("MyBids Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(2048)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 
     // -------------------------------------------------------------------------
@@ -437,7 +450,7 @@ class MyBidsIntegrationTest {
 
     private Long seedWinning() {
         // ACTIVE, caller is currentBidder.
-        Auction a = seedAuction(parcels.get(0), AuctionStatus.ACTIVE, 1500L, 1);
+        Auction a = seedAuction(parcelUuids.get(0), AuctionStatus.ACTIVE, 1500L, 1);
         a.setCurrentBidderId(bidderId);
         auctionRepository.save(a);
         saveBid(a, bidderId, 1500L);
@@ -446,7 +459,7 @@ class MyBidsIntegrationTest {
 
     private Long seedOutbid() {
         // ACTIVE, someone else is currentBidder; caller still has a bid on record.
-        Auction a = seedAuction(parcels.get(1), AuctionStatus.ACTIVE, 2000L, 2);
+        Auction a = seedAuction(parcelUuids.get(1), AuctionStatus.ACTIVE, 2000L, 2);
         a.setCurrentBidderId(otherBidderId);
         auctionRepository.save(a);
         saveBid(a, bidderId, 1500L);
@@ -456,7 +469,7 @@ class MyBidsIntegrationTest {
 
     private Long seedWon() {
         // ENDED + SOLD, caller is winner.
-        Auction a = seedAuction(parcels.get(2), AuctionStatus.ENDED, 3000L, 1);
+        Auction a = seedAuction(parcelUuids.get(2), AuctionStatus.ENDED, 3000L, 1);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setCurrentBidderId(bidderId);
         a.setWinnerUserId(bidderId);
@@ -469,7 +482,7 @@ class MyBidsIntegrationTest {
 
     private Long seedLost() {
         // ENDED + SOLD, someone else is winner; caller bid earlier.
-        Auction a = seedAuction(parcels.get(3), AuctionStatus.ENDED, 4000L, 2);
+        Auction a = seedAuction(parcelUuids.get(3), AuctionStatus.ENDED, 4000L, 2);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setCurrentBidderId(otherBidderId);
         a.setWinnerUserId(otherBidderId);
@@ -483,7 +496,7 @@ class MyBidsIntegrationTest {
 
     private Long seedReserveNotMet() {
         // ENDED + RESERVE_NOT_MET, caller was the high bidder.
-        Auction a = seedAuction(parcels.get(4), AuctionStatus.ENDED, 1200L, 1);
+        Auction a = seedAuction(parcelUuids.get(4), AuctionStatus.ENDED, 1200L, 1);
         a.setReservePrice(5000L);
         a.setEndOutcome(AuctionEndOutcome.RESERVE_NOT_MET);
         a.setCurrentBidderId(bidderId);
@@ -496,7 +509,7 @@ class MyBidsIntegrationTest {
 
     private Long seedCancelled() {
         // CANCELLED by seller after caller had already bid.
-        Auction a = seedAuction(parcels.get(5), AuctionStatus.CANCELLED, 1000L, 1);
+        Auction a = seedAuction(parcelUuids.get(5), AuctionStatus.CANCELLED, 1000L, 1);
         a.setEndedAt(OffsetDateTime.now().minusHours(4));
         auctionRepository.save(a);
         saveBid(a, bidderId, 1000L);
@@ -505,7 +518,7 @@ class MyBidsIntegrationTest {
 
     private Long seedSuspended() {
         // SUSPENDED via ownership-check path. Caller bid earlier.
-        Auction a = seedAuction(parcels.get(6), AuctionStatus.SUSPENDED, 1100L, 1);
+        Auction a = seedAuction(parcelUuids.get(6), AuctionStatus.SUSPENDED, 1100L, 1);
         a.setEndedAt(OffsetDateTime.now().minusHours(5));
         auctionRepository.save(a);
         saveBid(a, bidderId, 1100L);
@@ -513,12 +526,14 @@ class MyBidsIntegrationTest {
     }
 
     private Auction seedAuction(
-            Parcel parcelForAuction, AuctionStatus status, long currentBid, int bidCount) {
+            UUID parcelUuid, AuctionStatus status, long currentBid, int bidCount) {
         User seller = userRepository.findById(sellerId).orElseThrow();
+        UUID ownerUuid = UUID.fromString(
+                String.format("55555555-5555-5555-5555-%012d", parcelUuid.getLeastSignificantBits() & 0xFFFFFFFFFFFFL));
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(parcelForAuction)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -541,7 +556,18 @@ class MyBidsIntegrationTest {
             a.setEndsAt(now.minusHours(1));
             a.setOriginalEndsAt(now.minusHours(1));
         }
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(ownerUuid)
+                .ownerType("agent")
+                .parcelName("MyBids Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(2048)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 
     private void saveBid(Auction a, Long userId, Long amount) {
@@ -595,36 +621,4 @@ class MyBidsIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel(int index) throws Exception {
-        UUID regionUuid = UUID.randomUUID();
-        UUID parcelUuid = UUID.fromString(
-                String.format("44444444-4444-4444-4444-%012d", 110 + index));
-        UUID ownerUuid = UUID.fromString(
-                String.format("55555555-5555-5555-5555-%012d", 120 + index));
-        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
-                Mono.just(new ParcelPageData(new ParcelMetadata(
-                        parcelUuid,
-                ownerUuid,
-                "agent",
-                null,
-                "MyBids Parcel " + index,
-                "MyBidsRegion" + index,
-                2048,
-                "Seed description " + index,
-                "http://example.com/mybids-snap-" + index + ".jpg",
-                null,
-                128.0 + index,
-                64.0 + index,
-                22.0), regionUuid)));
-        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
-                Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                        .header("Authorization", "Bearer " + sellerAccessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
-    }
 }

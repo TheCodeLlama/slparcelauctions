@@ -20,6 +20,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.admin.dto.AdminStatsResponse;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
@@ -28,11 +29,8 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -52,7 +50,6 @@ class AdminStatsIntegrationTest {
     @Autowired AdminStatsService statsService;
     @Autowired AuctionRepository auctionRepo;
     @Autowired EscrowRepository escrowRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
@@ -60,7 +57,6 @@ class AdminStatsIntegrationTest {
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
     private Long sellerId;
-    private Long parcel1Id, parcel2Id, parcel3Id;
     private Long auction1Id, auction2Id, auction3Id;
     private Long escrow1Id, escrow2Id, escrow3Id;
 
@@ -74,33 +70,10 @@ class AdminStatsIntegrationTest {
                 .build());
             sellerId = seller.getId();
 
-            Parcel parcel1 = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(512)
-                .build());
-            parcel1Id = parcel1.getId();
-
-            Parcel parcel2 = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(512)
-                .build());
-            parcel2Id = parcel2.getId();
-
-            Parcel parcel3 = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(512)
-                .build());
-            parcel3Id = parcel3.getId();
-
+            UUID parcelUuid1 = UUID.randomUUID();
             Auction auction1 = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel1)
+                .slParcelUuid(parcelUuid1)
                 .title("Active auction 1")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -108,12 +81,25 @@ class AdminStatsIntegrationTest {
                 .startingBid(100L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
+                .consecutiveWorldApiFailures(0)
                 .build());
+            auction1.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid1)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Stats Parcel 1")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(512)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction1);
             auction1Id = auction1.getId();
 
+            UUID parcelUuid2 = UUID.randomUUID();
             Auction auction2 = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel2)
+                .slParcelUuid(parcelUuid2)
                 .title("Active auction 2")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -121,12 +107,25 @@ class AdminStatsIntegrationTest {
                 .startingBid(200L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
+                .consecutiveWorldApiFailures(0)
                 .build());
+            auction2.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid2)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Stats Parcel 2")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(512)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction2);
             auction2Id = auction2.getId();
 
+            UUID parcelUuid3 = UUID.randomUUID();
             Auction auction3 = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel3)
+                .slParcelUuid(parcelUuid3)
                 .title("Suspended auction")
                 .status(AuctionStatus.SUSPENDED)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -134,7 +133,19 @@ class AdminStatsIntegrationTest {
                 .startingBid(150L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
+                .consecutiveWorldApiFailures(0)
                 .build());
+            auction3.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid3)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Stats Parcel 3")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(512)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction3);
             auction3Id = auction3.getId();
 
             Escrow escrow1 = escrowRepo.save(Escrow.builder()
@@ -175,20 +186,18 @@ class AdminStatsIntegrationTest {
 
     @AfterEach
     void cleanup() throws Exception {
-        new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            if (escrow1Id != null) escrowRepo.findById(escrow1Id).ifPresent(escrowRepo::delete);
-            if (escrow2Id != null) escrowRepo.findById(escrow2Id).ifPresent(escrowRepo::delete);
-            if (escrow3Id != null) escrowRepo.findById(escrow3Id).ifPresent(escrowRepo::delete);
-            if (auction1Id != null) auctionRepo.findById(auction1Id).ifPresent(auctionRepo::delete);
-            if (auction2Id != null) auctionRepo.findById(auction2Id).ifPresent(auctionRepo::delete);
-            if (auction3Id != null) auctionRepo.findById(auction3Id).ifPresent(auctionRepo::delete);
-            if (parcel1Id != null) parcelRepo.findById(parcel1Id).ifPresent(parcelRepo::delete);
-            if (parcel2Id != null) parcelRepo.findById(parcel2Id).ifPresent(parcelRepo::delete);
-            if (parcel3Id != null) parcelRepo.findById(parcel3Id).ifPresent(parcelRepo::delete);
-        });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
             try (var st = conn.createStatement()) {
+                for (Long eid : new Long[]{escrow1Id, escrow2Id, escrow3Id}) {
+                    if (eid != null) st.execute("DELETE FROM escrows WHERE id = " + eid);
+                }
+                for (Long aid : new Long[]{auction1Id, auction2Id, auction3Id}) {
+                    if (aid != null) {
+                        st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + aid);
+                        st.execute("DELETE FROM auctions WHERE id = " + aid);
+                    }
+                }
                 if (sellerId != null) {
                     st.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                     st.execute("DELETE FROM refresh_tokens WHERE user_id = " + sellerId);
@@ -198,7 +207,6 @@ class AdminStatsIntegrationTest {
         }
         sellerId = null;
         auction1Id = auction2Id = auction3Id = null;
-        parcel1Id = parcel2Id = parcel3Id = null;
         escrow1Id = escrow2Id = escrow3Id = null;
     }
 

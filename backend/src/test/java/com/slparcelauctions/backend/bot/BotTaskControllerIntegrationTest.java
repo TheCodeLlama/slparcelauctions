@@ -33,8 +33,6 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -75,7 +73,6 @@ class BotTaskControllerIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BotTaskRepository botTaskRepository;
 
@@ -85,7 +82,7 @@ class BotTaskControllerIntegrationTest {
     private String sellerAccessToken;
     private Long sellerId;
     private String sellerAvatarUuid;
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -93,7 +90,7 @@ class BotTaskControllerIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "method-c-seller@example.com", "MethodCSeller", sellerAvatarUuid);
         sellerId = userRepository.findByEmail("method-c-seller@example.com").orElseThrow().getId();
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     // -------------------------------------------------------------------------
@@ -123,7 +120,7 @@ class BotTaskControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].taskType").value("VERIFY"))
                 .andExpect(jsonPath("$[0].auctionId").value(auctionId))
                 .andExpect(jsonPath("$[0].parcelUuid").value(
-                        sellerParcel.getSlParcelUuid().toString()))
+                        sellerParcelUuid.toString()))
                 .andExpect(jsonPath("$[0].sentinelPrice").value(SENTINEL_PRICE));
     }
 
@@ -249,14 +246,14 @@ class BotTaskControllerIntegrationTest {
     private Long createAndPayAuction() throws Exception {
         String body = String.format("""
             {
-              "parcelId":%d,
+              "slParcelUuid":"%s",
               "title":"Test listing",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
               "sellerDesc":"Nice parcel"
             }
-            """, sellerParcel.getId());
+            """, sellerParcelUuid);
         MvcResult res = mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -332,7 +329,7 @@ class BotTaskControllerIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcel = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID owner = UUID.fromString(sellerAvatarUuid);
@@ -360,6 +357,6 @@ class BotTaskControllerIntegrationTest {
                 .content("{\"slParcelUuid\":\"" + parcel + "\"}"))
                 .andExpect(status().isOk());
 
-        return parcelRepository.findBySlParcelUuid(parcel).orElseThrow();
+        return parcel;
     }
 }

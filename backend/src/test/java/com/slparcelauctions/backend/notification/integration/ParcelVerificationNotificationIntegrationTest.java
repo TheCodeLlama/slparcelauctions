@@ -25,8 +25,7 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.sl.SlParcelVerifyService;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
 import com.slparcelauctions.backend.user.User;
@@ -34,7 +33,6 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCode;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for parcel verification notifications.
@@ -58,7 +56,6 @@ class ParcelVerificationNotificationIntegrationTest {
 
     @Autowired SlParcelVerifyService slParcelVerifyService;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired VerificationCodeRepository codeRepo;
     @Autowired NotificationRepository notifRepo;
@@ -67,7 +64,7 @@ class ParcelVerificationNotificationIntegrationTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, auctionId, parcelId;
+    private Long sellerId, auctionId;
     private String codeStr;
 
     @AfterEach
@@ -81,7 +78,6 @@ class ParcelVerificationNotificationIntegrationTest {
                 }
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -94,7 +90,7 @@ class ParcelVerificationNotificationIntegrationTest {
                 }
             }
         }
-        sellerId = auctionId = parcelId = null;
+        sellerId = auctionId = null;
         codeStr = null;
     }
 
@@ -104,7 +100,7 @@ class ParcelVerificationNotificationIntegrationTest {
         UUID parcelUuid = UUID.randomUUID();
         codeStr = "VRF123";
 
-        // Seed seller, parcel, auction in VERIFICATION_PENDING
+        // Seed seller, auction in VERIFICATION_PENDING
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
             User seller = userRepo.save(User.builder()
                     .email("verif-seller-" + UUID.randomUUID() + "@test.com")
@@ -115,19 +111,9 @@ class ParcelVerificationNotificationIntegrationTest {
                     .build());
             sellerId = seller.getId();
 
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(parcelUuid)
-                    .ownerUuid(sellerAvatar)
-                    .ownerType("agent")
-                                                            .areaSqm(512)
-                                        .verified(false)
-                    .build());
-            parcelId = p.getId();
-
             Auction a = auctionRepo.save(Auction.builder()
                     .title("Verification Test Lot")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.VERIFICATION_PENDING)
                     .verificationMethod(VerificationMethod.REZZABLE)
@@ -145,6 +131,14 @@ class ParcelVerificationNotificationIntegrationTest {
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))
                     .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid).ownerUuid(sellerAvatar)
+                    .ownerType("agent").ownerName("VerifSeller")
+                    .parcelName("Verification Test Parcel")
+                    .regionName("VerifRegion").areaSqm(512)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
 
             // Seed the verification code
             codeRepo.save(VerificationCode.builder()

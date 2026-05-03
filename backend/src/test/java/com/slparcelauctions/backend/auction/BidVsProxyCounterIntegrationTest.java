@@ -27,8 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -66,7 +64,6 @@ class BidVsProxyCounterIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired ProxyBidRepository proxyBidRepository;
     @Autowired BidRepository bidRepository;
@@ -83,7 +80,7 @@ class BidVsProxyCounterIntegrationTest {
     private Long aId;
     private String bAccessToken;
     private Long bId;
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -102,7 +99,7 @@ class BidVsProxyCounterIntegrationTest {
                 "33333333-aaaa-bbbb-cccc-000000000503");
         bId = userRepository.findByEmail("cnt-bob@example.com").orElseThrow().getId();
 
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     @Test
@@ -215,7 +212,7 @@ class BidVsProxyCounterIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.fromString("44444444-4444-4444-4444-000000000504");
         UUID ownerUuid = UUID.fromString("55555555-5555-5555-5555-000000000505");
@@ -243,14 +240,14 @@ class BidVsProxyCounterIntegrationTest {
                         .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
                 .andExpect(status().isOk());
 
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+        return parcelUuid;
     }
 
     private Auction seedAuction() {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(sellerParcel)
+                .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -265,6 +262,13 @@ class BidVsProxyCounterIntegrationTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(sellerParcelUuid)
+                .ownerUuid(UUID.fromString("55555555-5555-5555-5555-000000000505"))
+                .ownerType("agent").parcelName("Counter Parcel")
+                .regionName("Coniston").regionMaturityRating("M_NOT")
+                .areaSqm(1024).positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
         OffsetDateTime now = OffsetDateTime.now();
         a.setStartsAt(now.minusHours(1));
         a.setEndsAt(now.plusDays(1));

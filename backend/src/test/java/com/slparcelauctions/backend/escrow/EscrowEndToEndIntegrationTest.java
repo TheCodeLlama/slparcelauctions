@@ -51,8 +51,7 @@ import com.slparcelauctions.backend.escrow.scheduler.EscrowOwnershipMonitorJob;
 import com.slparcelauctions.backend.escrow.scheduler.TerminalCommandDispatcherJob;
 import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -62,7 +61,6 @@ import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -121,7 +119,6 @@ class EscrowEndToEndIntegrationTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
     @Autowired ProxyBidRepository proxyBidRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
@@ -131,7 +128,6 @@ class EscrowEndToEndIntegrationTest {
 
     private Long seededAuctionId;
     private Long seededEscrowId;
-    private Long seededParcelId;
     private Long seededSellerId;
     private Long seededBidderId;
     private UUID seededParcelUuid;
@@ -161,9 +157,6 @@ class EscrowEndToEndIntegrationTest {
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
-            if (seededParcelId != null) {
-                parcelRepo.findById(seededParcelId).ifPresent(parcelRepo::delete);
-            }
             for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
                 if (userId == null) continue;
                 refreshTokenRepo.findAllByUserId(userId).forEach(refreshTokenRepo::delete);
@@ -178,7 +171,6 @@ class EscrowEndToEndIntegrationTest {
         });
         seededAuctionId = null;
         seededEscrowId = null;
-        seededParcelId = null;
         seededSellerId = null;
         seededBidderId = null;
         seededParcelUuid = null;
@@ -316,20 +308,11 @@ class EscrowEndToEndIntegrationTest {
                     .slAvatarUuid(winnerAvatar)
                     .verified(true)
                     .build());
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(parcelUuid)
-                    .ownerUuid(winnerAvatar)
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -352,6 +335,18 @@ class EscrowEndToEndIntegrationTest {
                     .winnerUserId(bidder.getId())
                     .finalBidAmount(finalBid)
                     .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(winnerAvatar)
+                    .ownerType("agent")
+                    .parcelName("E2E Test Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(auction);
+
             Escrow escrow = escrowRepo.save(Escrow.builder()
                     .auction(auction)
                     .state(EscrowState.TRANSFER_PENDING)
@@ -374,7 +369,6 @@ class EscrowEndToEndIntegrationTest {
 
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();
-            seededParcelId = parcel.getId();
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
             seededParcelUuid = parcelUuid;

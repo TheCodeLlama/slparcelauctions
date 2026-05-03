@@ -20,12 +20,10 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.Bid;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidType;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -50,7 +48,6 @@ class FeaturedRepositoryIntegrationTest {
 
     @Autowired FeaturedRepository featuredRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired BidRepository bidRepo;
 
@@ -117,19 +114,28 @@ class FeaturedRepositoryIntegrationTest {
     }
 
     private Auction seedActive(OffsetDateTime endsAt, OffsetDateTime startsAt) {
-        Parcel p = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .areaSqm(1024).verified(true).build());
-        return auctionRepo.save(Auction.builder()
-                .parcel(p).seller(seller).title("Test")
+        UUID parcelUuid = UUID.randomUUID();
+        Auction auction = auctionRepo.save(Auction.builder()
+                .slParcelUuid(parcelUuid).seller(seller).title("Test")
                 .status(AuctionStatus.ACTIVE)
                 .startingBid(1000L).currentBid(1000L)
                 .endsAt(endsAt).startsAt(startsAt)
                 .durationHours(168)
                 .snipeProtect(false)
+                .consecutiveWorldApiFailures(0)
                 .verificationTier(VerificationTier.BOT)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Featured Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepo.save(auction);
     }
 
     private Bid seedBid(Auction auction, long amount) {

@@ -36,11 +36,9 @@ import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for auction-end notifications.
@@ -67,7 +65,6 @@ class AuctionEndNotificationIntegrationTest {
     @Autowired UserRepository userRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired EscrowRepository escrowRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
@@ -79,7 +76,6 @@ class AuctionEndNotificationIntegrationTest {
     private Long bidderId;
     private Long loserBidderId;
     private Long auctionId;
-    private Long parcelId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -88,7 +84,6 @@ class AuctionEndNotificationIntegrationTest {
                 escrowRepo.findByAuctionId(auctionId).ifPresent(escrowRepo::delete);
                 bidRepo.deleteAllByAuctionId(auctionId);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
-                if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
             });
         }
         try (var conn = dataSource.getConnection()) {
@@ -103,7 +98,7 @@ class AuctionEndNotificationIntegrationTest {
                 }
             }
         }
-        sellerId = bidderId = loserBidderId = auctionId = parcelId = null;
+        sellerId = bidderId = loserBidderId = auctionId = null;
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -120,19 +115,11 @@ class AuctionEndNotificationIntegrationTest {
 
     private void seedAuction(long currentBid, Long reserve, Long currentBidderId) {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerType("agent")
-                                                            .areaSqm(512)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction a = auctionRepo.save(Auction.builder()
                     .title("End Notification Test")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(userRepo.findById(sellerId).orElseThrow())
                     .status(AuctionStatus.ACTIVE)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -153,6 +140,13 @@ class AuctionEndNotificationIntegrationTest {
                     .originalEndsAt(now.minusSeconds(1))
                     .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid).ownerType("agent")
+                    .ownerName("Seller").parcelName("End Notification Parcel")
+                    .regionName("Mainland").areaSqm(512)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             if (currentBidderId != null) {
                 bidRepo.save(Bid.builder()
                         .auction(a)

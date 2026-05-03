@@ -29,21 +29,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.region.dto.RegionPageData;
-import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
-import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-
-import reactor.core.publisher.Mono;
 
 /**
  * Full-stack coverage for {@code /api/v1/me/saved/*}. Exercises:
@@ -77,13 +71,11 @@ class SavedAuctionControllerIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired UserRepository userRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @MockitoBean SlWorldApiClient worldApi;
     @MockitoBean AuctionBroadcastPublisher broadcastPublisher;
 
     private String sellerAccessToken;
@@ -310,13 +302,16 @@ class SavedAuctionControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private Auction seedAuction(int idx, AuctionStatus status) throws Exception {
-        Parcel parcel = seedParcel(idx);
+    private Auction seedAuction(int idx, AuctionStatus status) {
+        UUID parcelUuid = UUID.fromString(
+                String.format("66666666-6666-6666-6666-%012d", 210 + idx));
+        UUID ownerUuid = UUID.fromString(
+                String.format("77777777-7777-7777-7777-%012d", 220 + idx));
         User seller = userRepository.findById(sellerId).orElseThrow();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
                 .title("Saved test " + idx)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -339,10 +334,21 @@ class SavedAuctionControllerIntegrationTest {
             a.setEndsAt(now.minusHours(1));
             a.setOriginalEndsAt(now.minusHours(1));
         }
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(ownerUuid)
+                .ownerType("agent")
+                .parcelName("Saved Parcel " + idx)
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(2048)
+                .positionX(128.0 + idx).positionY(64.0 + idx).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 
-    private Long seedEnded(int idx) throws Exception {
+    private Long seedEnded(int idx) {
         Auction a = seedAuction(idx, AuctionStatus.ENDED);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setEndedAt(OffsetDateTime.now().minusHours(1));
@@ -389,39 +395,6 @@ class SavedAuctionControllerIntegrationTest {
                         .header("X-SecondLife-Owner-Key", TRUSTED_OWNER))
                 .andExpect(status().isOk());
         return token;
-    }
-
-    private Parcel seedParcel(int index) throws Exception {
-        UUID regionUuid = UUID.randomUUID();
-        UUID parcelUuid = UUID.fromString(
-                String.format("66666666-6666-6666-6666-%012d", 210 + index));
-        UUID ownerUuid = UUID.fromString(
-                String.format("77777777-7777-7777-7777-%012d", 220 + index));
-        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
-                Mono.just(new ParcelPageData(new ParcelMetadata(
-                        parcelUuid,
-                ownerUuid,
-                "agent",
-                null,
-                "Saved Parcel " + index,
-                "SavedRegion" + index,
-                2048,
-                "Seed description " + index,
-                "http://example.com/saved-snap-" + index + ".jpg",
-                null,
-                128.0 + index,
-                64.0 + index,
-                22.0), regionUuid)));
-        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
-                Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                        .header("Authorization", "Bearer " + sellerAccessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
     }
 
 }

@@ -13,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,6 @@ import org.springframework.security.access.AccessDeniedException;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.ReviewFlagRequest;
@@ -36,7 +36,6 @@ import com.slparcelauctions.backend.review.exception.ReviewNotFoundException;
 import com.slparcelauctions.backend.review.exception.ReviewResponseAlreadyExistsException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link ReviewService#respondTo(Long, User,
@@ -85,12 +84,10 @@ class ReviewServiceActionTest {
         stranger.setId(99L);
         stranger.setDisplayName("Sam");
 
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(UUID.randomUUID())
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
