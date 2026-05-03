@@ -217,7 +217,7 @@ class AuctionPhotoControllerIntegrationTest {
     }
 
     @Test
-    void getBytes_publiclyServesPhotoWithCacheHeader() throws Exception {
+    void getBytes_activeAuction_publiclyServesPhotoWithCacheHeader() throws Exception {
         Auction a = seedDraftAuction();
         byte[] bytes = generateSimplePng();
         MockMultipartFile file = new MockMultipartFile(
@@ -230,13 +230,9 @@ class AuctionPhotoControllerIntegrationTest {
         Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
                 .get("id").asLong();
 
-        // Photos on pre-ACTIVE auctions are draft-private. Flip to ACTIVE so the
-        // public GET works. (See getBytes_draftAuction_returns404ToAnonymous for
-        // the inverse case.)
         a.setStatus(AuctionStatus.ACTIVE);
         auctionRepository.save(a);
 
-        // Fetch without any Authorization header — public endpoint.
         mockMvc.perform(get("/api/v1/photos/" + photoId))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
@@ -244,10 +240,11 @@ class AuctionPhotoControllerIntegrationTest {
     }
 
     @Test
-    void getBytes_draftAuction_returns404ToAnonymous() throws Exception {
-        // Upload to a DRAFT auction and attempt anonymous read — 404 hides the
-        // photo's existence so outsiders can't enumerate draft listings by
-        // iterating photo IDs.
+    void getBytes_draftAuction_servesBytesToAnonymous() throws Exception {
+        // Photo bytes are fully public on every status — `<img src>` cannot send
+        // the seller's JWT, so the homepage and listing cards must be able to
+        // fetch draft snapshots anonymously. The auction's metadata stays
+        // hidden behind AuctionController's pre-ACTIVE 404 logic.
         Auction a = seedDraftAuction();
         byte[] bytes = generateSimplePng();
         MockMultipartFile file = new MockMultipartFile(
@@ -261,12 +258,12 @@ class AuctionPhotoControllerIntegrationTest {
                 .get("id").asLong();
 
         mockMvc.perform(get("/api/v1/photos/" + photoId))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"));
     }
 
     @Test
     void getBytes_draftAuction_servesBytesToSeller() throws Exception {
-        // Seller can still preview draft photos.
         Auction a = seedDraftAuction();
         byte[] bytes = generateSimplePng();
         MockMultipartFile file = new MockMultipartFile(
