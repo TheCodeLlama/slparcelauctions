@@ -123,17 +123,19 @@ public class AuctionSearchResultMapper {
     }
 
     /**
-     * {@link ParcelTag} is an entity, not naturally {@link Comparable}; sort by
-     * id for a stable client-visible order. Null ids (transient tags) sink to
-     * the front via the natural ordering of {@code Long.compare(0, ...)}.
+     * Project tag entities to their human-readable labels (sorted by id for
+     * a stable client-visible order). Returning the full entity used to
+     * leak audit columns and crash the frontend's React SSR — the
+     * frontend's TS type for this field is {@code string[]}.
      */
-    private List<ParcelTag> sortedTagsList(Set<ParcelTag> tags) {
+    private List<String> sortedTagsList(Set<ParcelTag> tags) {
         if (tags == null || tags.isEmpty()) {
             return List.of();
         }
         return tags.stream()
                 .sorted(Comparator.comparingLong(
                         t -> t.getId() == null ? 0L : t.getId()))
+                .map(ParcelTag::getLabel)
                 .toList();
     }
 
