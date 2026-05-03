@@ -82,26 +82,68 @@ Requires real SL credentials in `.env.bot-N`. No mock mode. See `bot/README.md`.
 ## Backend Stack Details
 
 - **ORM**: Spring Data JPA / Hibernate with Lombok for boilerplate
-- **Database migrations**: Hibernate manages schema via `ddl-auto: update` until SLPA has real users. Entity changes do NOT require a Flyway migration. Breaking schema changes are handled by wiping the DB and letting Hibernate rebuild from entities. Re-enable Flyway-first discipline before launch.
+- **Database migrations**: `application.yml` sets `ddl-auto: update`, but **Spring Boot 4 silently sets `hibernate.hbm2ddl.auto=none` whenever Flyway is on the classpath** — Flyway is the actual schema manager and Hibernate fills no gaps. The "no migrations until users" intent isn't realised today: entity changes still need a paired Flyway migration (`backend/src/main/resources/db/migration/V<N>__*.sql`). To make the original intent real, set `spring.flyway.enabled: false` and rebuild — until then, write a migration when you change an entity.
 
-  Existing Flyway migrations (`backend/src/main/resources/db/migration/V<N>__*.sql`) stay on disk and run on startup against fresh DBs to apply baseline + cleanup. Do not write new ones during active iteration; if you make breaking schema changes, wipe instead.
-
-  **DB wipe procedure (prod):**
+  **DB wipe procedure (prod).** RDS is in a private subnet, so `psql -h <rds>` from a dev box can't reach it. Use a one-shot Fargate task with the `postgres:16` image inside the same VPC:
 
   ```bash
-  PGPASSWORD=$(aws secretsmanager get-secret-value --profile slpa-prod \
-    --secret-id slpa/prod/db --query SecretString --output text | jq -r .password) \
-    psql -h $RDS_ENDPOINT -U slpa -d slpa -c \
-    "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-
-  aws ecs update-service --profile slpa-prod \
-    --cluster slpa-prod --service slpa-backend --force-new-deployment
+  # Task def already lives at .scratch/wipe-task-def.json (subnets + sg of the
+  # backend service, IAM exec role pulls the password from SSM).
+  aws --profile slpa-prod ecs register-task-definition \
+      --cli-input-json file://./.scratch/wipe-task-def.json
+  aws --profile slpa-prod ecs run-task \
+      --cluster slpa-prod \
+      --task-definition slpa-prod-db-wipe \
+      --launch-type FARGATE \
+      --network-configuration 'awsvpcConfiguration={subnets=[<backend-subnets>],securityGroups=[<backend-sg>],assignPublicIp=DISABLED}'
+  # Wait until the task lastStatus=STOPPED, then force a backend redeploy
+  # so the new container starts against the empty schema:
+  aws --profile slpa-prod ecs update-service \
+      --cluster slpa-prod --service slpa-prod-backend --force-new-deployment
   ```
+
+  Existing Flyway migrations on disk apply automatically on startup. After a wipe Hibernate plays no role — Flyway recreates the entire schema from V1 onwards.
+
 - **Auth**: Spring Security + JWT
 - **Real-time**: Spring WebSocket with STOMP protocol
 - **Cache/Sessions**: Redis (via spring-boot-starter-data-redis + spring-session)
 - **HTTP client**: WebFlux's WebClient (for SL World API calls)
 - **Validation**: Bean Validation (JSR-380)
+
+## Frontend SSR caveats
+
+Server components and Amplify build-time prerendering have surprised us repeatedly — write defensively:
+
+- **`<img src>` does not send the JWT.** Backend endpoints serving image bytes (`/api/v1/photos/{id}`, snapshot URLs, avatars) must be `permitAll` on every status — never gate on the seller's principal. The browser's image fetcher has no Authorization header, so a privacy gate that uses `@AuthenticationPrincipal` 404s the seller to themselves.
+- **Server components don't have the user's JWT either.** SSR fetches in `app/**/page.tsx` run on the Amplify runtime with no client cookies. Any backend endpoint a server component hits has to work anonymously (or be moved to a client component).
+- **Default to `export const dynamic = "force-dynamic"`** on any page whose data changes per visit (countdowns, current bids, listings). Static prerendering at Amplify build time couples the build to whatever the prod API happens to be serving — a single bad-shape JSON field crashes the entire build and blocks every other page from deploying. The home page already runs `force-dynamic`; mirror that posture for new visit-changing pages.
+- **`apiUrl(path)` wraps every backend-emitted URL.** Backend emits relative paths (`/api/v1/photos/3`); the browser resolves them against the page origin (`slparcels.com`), which doesn't proxy `/api/*` to the backend. Always render `<img src={apiUrl(photo.url) ?? undefined}>`. Helper at `frontend/src/lib/api/url.ts`.
+- **Defensive coercion at render sites.** When the backend has the freedom to regress (e.g. `tags: ParcelTag[]` instead of `string[]`), components should narrow at the boundary so a wire-shape regression never crashes SSR.
+
+## In-world payment terminals — always refund on deposit error
+
+Once L$ has reached an SLPA Terminal script (the `money()` event has fired), every non-OK backend response **must** bounce the L$ back via `llTransferLindenDollars`. The earlier "ERROR could be an attacker probing, owner-say only" rationale was wrong — SL header + shared-secret pre-flight rejects bad senders before any L$-bearing path runs, so a real ERROR reaching the deposit response handler is a legitimate-but-failed deposit, not an attack. Backend `/sl/wallet/deposit` returns REFUND (not ERROR) for any failure after L$ is in hand; the LSL script also refunds on ERROR responses defensively. Withdraw-side errors are different — no L$ has moved, ERROR is fine there.
+
+## AWS / Prod Ops
+
+- **AWS CLI is on PATH.** Run `aws` directly. (Earlier Claude Code sessions inherited a stale PATH from IntelliJ-spawned shells started before the install — if `aws` ever doesn't resolve in a tool call, restart the parent terminal so the new env propagates.)
+- **Profile**: `slpa-prod` (IAM Identity Center user `heath`, account `486208158127`, region `us-east-1`).
+- **ECS**: cluster `slpa-prod`. Services: `slpa-prod-backend`, `slpa-prod-bot-1`, `slpa-prod-bot-2`. ECS Exec is enabled on the backend service.
+- **CloudWatch logs**: `/aws/ecs/slpa-backend` for backend stdout. Tail with `aws --profile slpa-prod logs tail /aws/ecs/slpa-backend --since 5m --format short`.
+- **Amplify**: app id `dil6fhehya5jf`, branch `main`. List recent jobs with `aws --profile slpa-prod amplify list-jobs --app-id dil6fhehya5jf --branch-name main --max-items 5`. Amplify rebuilds on every push to `main` regardless of which paths changed.
+- **RDS**: `slpa-prod-postgres.celewqkic6r2.us-east-1.rds.amazonaws.com`, db `slpa`, user `slpa`. **Private subnet — not reachable from a dev box.** Use the one-shot Fargate task pattern for any psql operation.
+- **SSM Parameter Store** (encrypted, region us-east-1): `/slpa/prod/rds/{username,password}`, `/slpa/prod/jwt/secret`, `/slpa/prod/redis/auth-token`, `/slpa/prod/escrow/terminal-shared-secret`, `/slpa/prod/sl/{primary-escrow-uuid,trusted-owner-keys}`, `/slpa/prod/bot-N/{username,password,uuid}`, `/slpa/prod/notifications/sl-im/dispatcher-secret`. Read with `aws --profile slpa-prod ssm get-parameter --name /slpa/prod/... --with-decryption --query 'Parameter.Value' --output text`. Secrets Manager is empty — everything lives in SSM.
+
+## Deploy pipelines
+
+- **Backend**: GitHub Actions workflow `.github/workflows/deploy-backend.yml`. Triggers on push to `main` with `paths: backend/**`. Builds + pushes the image to ECR, updates the ECS service. Tail with `gh run list --branch main --workflow 'deploy backend' --limit 3 --json status,conclusion`.
+- **Frontend**: Amplify on its own webhook. Triggers on every push to `main` regardless of paths. Independent of the backend pipeline — frontend can finish *before* the backend is up, which causes "build hits old API shape, fails prerender" timing bugs. Forcing pages to `dynamic = "force-dynamic"` (see Frontend SSR caveats above) is the durable fix; if you need to retrigger Amplify without a code change, use `aws --profile slpa-prod amplify start-job --app-id dil6fhehya5jf --branch-name main --job-type RELEASE`.
+
+## Branch / PR workflow
+
+- Feature branches and PRs target `dev`, not `main`.
+- Claude opens + merges PRs into `dev`. PRs from `dev` to `main` are reviewed + merged by the user (autonomous prod merge only on explicit per-task authorization).
+- Push commits before asking for review — local-only commits don't show on GitHub.
 
 ## Second Life Integration Notes
 
