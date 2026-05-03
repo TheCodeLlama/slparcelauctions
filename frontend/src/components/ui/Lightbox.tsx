@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { Dialog, DialogPanel } from "@headlessui/react";
 import { ChevronLeft, ChevronRight, X } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 
 /**
  * Minimal image shape the {@link Lightbox} renders. Callers typically hand
@@ -175,7 +176,7 @@ export function Lightbox({
             {current && (
               <img
                 key={current.id}
-                src={current.url}
+                src={apiUrl(current.url) ?? undefined}
                 alt=""
                 className="max-h-full max-w-full object-contain"
                 data-testid="lightbox-image"
@@ -235,7 +236,7 @@ export function Lightbox({
                       )}
                     >
                       <img
-                        src={image.url}
+                        src={apiUrl(image.url) ?? undefined}
                         alt=""
                         className="h-full w-full object-cover"
                       />

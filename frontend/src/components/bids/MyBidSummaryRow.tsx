@@ -5,6 +5,7 @@ import { Building2 } from "@/components/ui/icons";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import type { MyBidStatus, MyBidSummary } from "@/types/auction";
 import { MyBidStatusBadge } from "./MyBidStatusBadge";
 
@@ -64,7 +65,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
   const { auction, myHighestBidAmount, myProxyMaxAmount, myBidStatus } = bid;
   const parcelLabel = auction.parcelName?.trim() || "(unnamed parcel)";
   const striked = STRIKE_STATUSES.has(myBidStatus);
-  const thumb = auction.snapshotUrl;
+  const thumb = apiUrl(auction.snapshotUrl);
   const endsAtDate = parseDate(auction.endsAt);
   const isActive = auction.status === "ACTIVE" && endsAtDate != null;
   const currentBid = auction.currentBid;

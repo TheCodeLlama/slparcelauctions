@@ -1,5 +1,6 @@
 import { MapPin, Tag as TagIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import type { SellerAuctionResponse } from "@/types/auction";
 
@@ -36,7 +37,7 @@ export function ListingPreviewCard({
   isPreview = false,
   className,
 }: ListingPreviewCardProps) {
-  const cover = auction.photos[0]?.url ?? null;
+  const cover = apiUrl(auction.photos[0]?.url);
   // Seller-authored title is the primary headline. Falls back to
   // parcel.description (then region name) when a draft is previewed
   // before the seller has entered a title. The backend enforces non-null

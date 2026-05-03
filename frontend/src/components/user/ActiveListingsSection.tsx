@@ -6,6 +6,7 @@ import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import type { PublicAuctionResponse } from "@/types/auction";
 import { useActiveListings } from "@/hooks/useActiveListings";
 
@@ -95,7 +96,7 @@ export function ActiveListingsSection({
 function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
   const parcelLabel =
     auction.parcel.description?.trim() || "(unnamed parcel)";
-  const thumb = auction.photos[0]?.url ?? auction.parcel.snapshotUrl ?? null;
+  const thumb = apiUrl(auction.photos[0]?.url ?? auction.parcel.snapshotUrl);
   const highBid = numericHighBid(auction.currentHighBid);
   const endsAtDate = parseDate(auction.endsAt);
 

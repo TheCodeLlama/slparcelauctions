@@ -111,6 +111,7 @@ describe("ListingPreviewCard", () => {
     // alt="" makes the image presentational, so getByRole("img") won't
     // find it — fall back to a DOM query for the src match.
     const cover = container.querySelector("img");
-    expect(cover?.getAttribute("src")).toMatch(/photos\/1\/bytes$/);
+    // apiUrl prefixes relative paths; assert on the invariant path tail.
+    expect(cover?.getAttribute("src")).toMatch(/photos\/1\/bytes/);
   });
 });
