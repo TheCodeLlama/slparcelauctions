@@ -72,4 +72,15 @@ public class WalletExceptionHandler {
         pd.setProperty("code", "USER_BLOCKED");
         return pd;
     }
+
+    @ExceptionHandler(WalletTermsNotAcceptedException.class)
+    public ProblemDetail handleTermsNotAccepted(
+            WalletTermsNotAcceptedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Wallet terms not accepted");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "WALLET_TERMS_NOT_ACCEPTED");
+        return pd;
+    }
 }

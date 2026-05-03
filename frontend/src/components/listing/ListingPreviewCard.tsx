@@ -5,9 +5,8 @@ import type { SellerAuctionResponse } from "@/types/auction";
 
 /**
  * Read-only preview of a listing. Used on:
- *   - the Create-listing Review step (isPreview=true)
+ *   - the activate page DRAFT state (isPreview=true)
  *   - the seller preview page (GET /auctions/{id}/preview)
- *   - the Epic 04 public listing page will later import this too.
  *
  * Takes a narrow subset of SellerAuctionResponse so it also works with a
  * draft-shaped object that has photos as URLs and tags as ParcelTagDto[].

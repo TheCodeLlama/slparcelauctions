@@ -1,27 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isApiError } from "@/lib/api";
-import { listParcelTagGroups } from "@/lib/api/parcelTags";
 import { useListingDraft } from "@/hooks/useListingDraft";
 import { cn } from "@/lib/cn";
-import type { ParcelTagDto } from "@/types/parcelTag";
-import type {
-  AuctionPhotoDto,
-  SellerAuctionResponse,
-} from "@/types/auction";
+import type { SellerAuctionResponse } from "@/types/auction";
 import type { SuspensionReasonCode } from "@/types/cancellation";
 import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
-import { ListingPreviewCard, type ListingPreviewAuction } from "./ListingPreviewCard";
 import { ListingWizardLayout } from "./ListingWizardLayout";
 import { ParcelLookupField } from "./ParcelLookupField";
-import { PARCEL_TAGS_KEY, TagSelector } from "./TagSelector";
+import { TagSelector } from "./TagSelector";
 import { PhotoUploader } from "./PhotoUploader";
 import { SuspensionErrorModal } from "./SuspensionErrorModal";
 
@@ -45,7 +38,6 @@ function asSuspensionCode(value: unknown): SuspensionReasonCode | null {
     : null;
 }
 
-const WIZARD_STEPS = ["Configure", "Review & Submit"];
 const MAX_DESC = 5000;
 const MAX_TITLE = 120;
 const TITLE_WARN_AT = 100;
@@ -72,22 +64,19 @@ export interface ListingWizardFormProps {
  * (`/listings/[id]/edit`) flows. Both routes reduce to this component
  * with a different mode/id combo.
  *
- * Step 1 (Configure): parcel lookup + settings + description + tags +
- *   photos. In edit mode the parcel lookup is locked — the backend
- *   rejects parcel changes on a DRAFT_PAID auction (sub-spec 2 §6.2).
- * Step 2 (Review): read-only preview with Back/Submit footer.
+ * Single-step Configure form: parcel lookup + settings + description +
+ * tags + photos. In edit mode the parcel lookup is locked — the backend
+ * rejects parcel changes on a DRAFT_PAID auction (sub-spec 2 §6.2). The
+ * preview + activation step lives on /listings/{id}/activate.
  *
  * Save semantics:
- *   - "Save as Draft" / "Save changes" → draft.save() but stays on
- *     Configure; surfaces field errors inline through the form.
- *   - "Continue to Review" → saves and advances to step 2 on success.
- *   - "Submit" from Review → saves once more (to flush any in-step-2
- *     edits, which shouldn't happen but guards the happy path) and
- *     navigates to /listings/{id}/activate.
+ *   - "Save as Draft" / "Save changes" → draft.save() but stays on the
+ *     form; surfaces field errors inline.
+ *   - "Save & continue" → save then navigate to the activate page where
+ *     the seller reviews the listing and pays the listing fee from wallet.
  */
 export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const router = useRouter();
-  const [step, setStep] = useState<"configure" | "review">("configure");
   const draft = useListingDraft({ id });
 
   const [saving, setSaving] = useState(false);
@@ -125,23 +114,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   // and to guarantee the redirect fires at most once per mount.
   const createRedirectedRef = useRef(false);
 
-  // Used by the Review step to render tag chips by label (draft stores
-  // codes; labels live in the tag catalogue fetch cached by TagSelector).
-  const tagsQ = useQuery({
-    queryKey: PARCEL_TAGS_KEY,
-    queryFn: listParcelTagGroups,
-    staleTime: 60 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-  });
-
-  const tagByCode = useMemo(() => {
-    const map = new Map<string, ParcelTagDto>();
-    for (const group of tagsQ.data ?? []) {
-      for (const t of group.tags) map.set(t.code, t);
-    }
-    return map;
-  }, [tagsQ.data]);
-
   const settings: AuctionSettingsValue = {
     startingBid: draft.state.startingBid,
     reservePrice: draft.state.reservePrice,
@@ -176,10 +148,10 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     try {
       const saved = await draft.save();
       // First save in create mode — replace the URL so a refresh lands
-      // back on the same auction's Configure step instead of a fresh
-      // create flow (sub-spec 2 §4.1.4). The ref guard ensures we only
-      // issue the replace once per create even if save() is called
-      // again before navigation completes.
+      // back on the same auction's edit page instead of a fresh create
+      // flow (sub-spec 2 §4.1.4). The ref guard ensures we only issue
+      // the replace once per create even if save() is called again
+      // before navigation completes.
       if (
         !isEdit &&
         previousAuctionId == null &&
@@ -226,16 +198,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     }
   }
 
-  async function handleContinue() {
-    setSaving(true);
-    try {
-      const saved = await runSave();
-      if (saved) setStep("review");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleSubmit() {
     setSubmitting(true);
     try {
@@ -262,23 +224,13 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       ? "Update your listing details before paying the listing fee or relisting."
       : "Set up your parcel auction. You can save a draft and return to it any time.";
 
-  // Mounted alongside both step branches so the focused suspension modal
-  // (sub-spec 2 §8.4) appears regardless of whether the seller hit the
-  // 403 from the Configure-step "Save" or the Review-step "Submit".
-  const suspensionModal = (
-    <SuspensionErrorModal
-      code={suspensionCode}
-      onClose={() => setSuspensionCode(null)}
-    />
-  );
-
-  if (step === "configure") {
-    return (
-      <>
-      {suspensionModal}
+  return (
+    <>
+      <SuspensionErrorModal
+        code={suspensionCode}
+        onClose={() => setSuspensionCode(null)}
+      />
       <ListingWizardLayout
-        steps={WIZARD_STEPS}
-        currentIndex={0}
         title={title}
         description={description}
         footer={
@@ -292,11 +244,11 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
               {saveLabel}
             </Button>
             <Button
-              onClick={handleContinue}
-              loading={saving}
+              onClick={handleSubmit}
+              loading={submitting}
               disabled={saving || submitting || !parcel}
             >
-              Continue to Review
+              Save & continue
             </Button>
           </>
         }
@@ -368,61 +320,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                 />
               </section>
             </>
-          )}
-        </div>
-      </ListingWizardLayout>
-      </>
-    );
-  }
-
-  // Review step — render a read-only preview.
-  const previewAuction = parcel
-    ? buildPreviewAuction({
-        title: (draft.state.title ?? "").trim(),
-        parcel,
-        startingBid: draft.state.startingBid,
-        reservePrice: draft.state.reservePrice,
-        buyNowPrice: draft.state.buyNowPrice,
-        durationHours: draft.state.durationHours,
-        sellerDesc: draft.state.sellerDesc,
-        tagCodes: draft.state.tags,
-        tagByCode,
-        stagedPhotos: draft.state.stagedPhotos.map((p) => p.objectUrl),
-        uploadedPhotos: draft.state.uploadedPhotos,
-      })
-    : null;
-
-  return (
-    <>
-      {suspensionModal}
-      <ListingWizardLayout
-        steps={WIZARD_STEPS}
-        currentIndex={1}
-        title="Review & Submit"
-        description="Double-check your listing before continuing to activate."
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              onClick={() => setStep("configure")}
-              disabled={submitting}
-            >
-              Back to edit
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              loading={submitting}
-              disabled={submitting || !parcel}
-            >
-              Submit
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <FormError message={error ?? undefined} />
-          {previewAuction && (
-            <ListingPreviewCard auction={previewAuction} isPreview />
           )}
         </div>
       </ListingWizardLayout>
@@ -518,64 +415,4 @@ function DescriptionField({
       </span>
     </div>
   );
-}
-
-/**
- * Builds a ListingPreviewAuction out of the draft state. Server-side
- * uploaded photos (full DTOs with canonical URLs) render first, followed
- * by any just-staged photos (object URLs with negative-id placeholders)
- * so the preview accurately reflects what a just-saved auction looks
- * like — critical in edit mode where the auction already has photos.
- */
-function buildPreviewAuction({
-  title,
-  parcel,
-  startingBid,
-  reservePrice,
-  buyNowPrice,
-  durationHours,
-  sellerDesc,
-  tagCodes,
-  tagByCode,
-  stagedPhotos,
-  uploadedPhotos,
-}: {
-  title: string;
-  parcel: ListingPreviewAuction["parcel"];
-  startingBid: number;
-  reservePrice: number | null;
-  buyNowPrice: number | null;
-  durationHours: number;
-  sellerDesc: string;
-  tagCodes: string[];
-  tagByCode: Map<string, ParcelTagDto>;
-  stagedPhotos: string[];
-  uploadedPhotos: AuctionPhotoDto[];
-}): ListingPreviewAuction {
-  const stagedEntries: AuctionPhotoDto[] = stagedPhotos.map((url, i) => ({
-    id: -(i + 1),
-    url,
-    contentType: "image/jpeg",
-    sizeBytes: 0,
-    sortOrder: uploadedPhotos.length + i,
-    uploadedAt: "",
-  }));
-  const photos: AuctionPhotoDto[] = [...uploadedPhotos, ...stagedEntries];
-
-  const tags: ParcelTagDto[] = tagCodes.flatMap((code) => {
-    const hit = tagByCode.get(code);
-    return hit ? [hit] : [];
-  });
-
-  return {
-    title,
-    parcel,
-    startingBid,
-    reservePrice,
-    buyNowPrice,
-    durationHours,
-    sellerDesc: sellerDesc || null,
-    tags,
-    photos,
-  };
 }

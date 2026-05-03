@@ -104,6 +104,36 @@ describe("ActivateClient", () => {
     vi.useRealTimers();
   });
 
+  it("DRAFT → renders the listing preview + activate panel", async () => {
+    server.use(
+      http.get("*/api/v1/auctions/42", () =>
+        HttpResponse.json(auctionBase({ status: "DRAFT" })),
+      ),
+      http.get("*/api/v1/me/wallet", () =>
+        HttpResponse.json({
+          balance: 500,
+          reserved: 0,
+          available: 500,
+          penaltyOwed: 0,
+          queuedForWithdrawal: 0,
+          termsAccepted: true,
+          termsVersion: "v1.0",
+          termsAcceptedAt: "2026-04-17T00:00:00Z",
+          recentLedger: [],
+        }),
+      ),
+    );
+    renderWithProviders(<ActivateClient auctionId={42} />, {
+      auth: "authenticated",
+    });
+    expect(
+      await screen.findByText(/Preview — this is how your listing/i),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /Activate Listing/i }),
+    ).toBeInTheDocument();
+  });
+
   it("DRAFT_PAID → click a method → shows the in-progress panel", async () => {
     let calls = 0;
     server.use(

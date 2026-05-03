@@ -3,8 +3,9 @@ import { Stepper } from "@/components/ui/Stepper";
 import { cn } from "@/lib/cn";
 
 export interface ListingWizardLayoutProps {
-  steps: string[];
-  currentIndex: number;
+  /** When provided, renders a stepper above the title. Omit for single-step flows. */
+  steps?: string[];
+  currentIndex?: number;
   title: string;
   description?: ReactNode;
   /** Body content for the current step (form fields, review summary, etc.). */
@@ -15,14 +16,13 @@ export interface ListingWizardLayoutProps {
 }
 
 /**
- * Shared wizard frame for the Create / Edit / Activate listing pages. Pulls
- * the Stepper up to a single header location so all three flows stay
- * visually consistent and a Task 8 / 9 consumer doesn't have to re-lay-out
- * steps per-page.
+ * Shared wizard frame for the listing flows. The optional Stepper renders
+ * when {@code steps} is non-empty so single-step flows can reuse the same
+ * frame without a one-step indicator.
  */
 export function ListingWizardLayout({
   steps,
-  currentIndex,
+  currentIndex = 0,
   title,
   description,
   children,
@@ -36,7 +36,9 @@ export function ListingWizardLayout({
         className,
       )}
     >
-      <Stepper steps={steps} currentIndex={currentIndex} />
+      {steps && steps.length > 0 && (
+        <Stepper steps={steps} currentIndex={currentIndex} />
+      )}
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-bold tracking-tight text-fg">{title}</h1>
         {description ? (
