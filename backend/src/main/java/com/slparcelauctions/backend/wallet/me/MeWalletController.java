@@ -40,6 +40,7 @@ import com.slparcelauctions.backend.wallet.LedgerRow;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
+import com.slparcelauctions.backend.wallet.exception.WalletTermsNotAcceptedException;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -254,6 +255,10 @@ public class MeWalletController {
         }
 
         User user = userRepository.findByIdForUpdate(principal.userId()).orElseThrow();
+
+        if (user.getWalletTermsAcceptedAt() == null) {
+            throw new WalletTermsNotAcceptedException();
+        }
 
         long owed = user.getPenaltyBalanceOwed() == null ? 0L : user.getPenaltyBalanceOwed();
         if (owed > 0) {
