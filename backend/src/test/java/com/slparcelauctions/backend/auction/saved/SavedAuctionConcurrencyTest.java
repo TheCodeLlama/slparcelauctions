@@ -24,15 +24,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.saved.exception.SavedLimitReachedException;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Verifies the {@code pg_advisory_xact_lock} cap-enforcement contract — two
@@ -61,12 +59,10 @@ class SavedAuctionConcurrencyTest {
     @Autowired SavedAuctionRepository savedRepo;
     @Autowired UserRepository userRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired JdbcTemplate jdbc;
 
     private User user;
     private final List<Long> seededAuctionIds = new ArrayList<>();
-    private final List<Long> seededParcelIds = new ArrayList<>();
     private Long seededUserId;
 
     @BeforeEach
@@ -106,14 +102,8 @@ class SavedAuctionConcurrencyTest {
         }
         for (Long aid : seededAuctionIds) {
             try {
+                jdbc.update("DELETE FROM auction_parcel_snapshots WHERE auction_id = ?", aid);
                 auctionRepo.deleteById(aid);
-            } catch (Exception ignored) {
-                // best-effort
-            }
-        }
-        for (Long pid : seededParcelIds) {
-            try {
-                parcelRepo.deleteById(pid);
             } catch (Exception ignored) {
                 // best-effort
             }
@@ -126,7 +116,6 @@ class SavedAuctionConcurrencyTest {
             }
         }
         seededAuctionIds.clear();
-        seededParcelIds.clear();
         seededUserId = null;
     }
 
@@ -197,17 +186,10 @@ class SavedAuctionConcurrencyTest {
     }
 
     private Auction seedActive(int idx) {
-        Parcel p = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .areaSqm(1024)
-                                .verified(true)
-                .build());
-        seededParcelIds.add(p.getId());
-
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = Auction.builder()
-                .parcel(p)
+                .slParcelUuid(parcelUuid)
                 .seller(user)
                 .title("T-" + idx)
                 .status(AuctionStatus.ACTIVE)
@@ -225,6 +207,17 @@ class SavedAuctionConcurrencyTest {
         a.setEndsAt(now.plusDays(7));
         a.setOriginalEndsAt(now.plusDays(7));
         Auction saved = auctionRepo.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(user.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Test Parcel " + idx)
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        saved = auctionRepo.save(saved);
         seededAuctionIds.add(saved.getId());
         return saved;
     }

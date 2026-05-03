@@ -18,8 +18,8 @@ import lombok.RequiredArgsConstructor;
  * page and pick a winner in Java.
  *
  * <p>The URL shape mirrors the live route on
- * {@link com.slparcelauctions.backend.auction.AuctionPhotoController}
- * ({@code GET /api/v1/auctions/&#123;auctionId&#125;/photos/&#123;photoId&#125;/bytes}).
+ * {@link com.slparcelauctions.backend.auction.PhotoController}
+ * ({@code GET /api/v1/photos/&#123;photoId&#125;}).
  * If that route ever moves the search-result thumbnails will rot
  * silently — that's why the path is built here from the column data
  * rather than being a static constant: there's only one place to
@@ -44,7 +44,7 @@ public class AuctionPhotoBatchRepositoryImpl implements AuctionPhotoBatchReposit
                 SELECT auction_id, url
                 FROM (
                   SELECT auction_id,
-                         '/api/v1/auctions/' || auction_id || '/photos/' || id || '/bytes' AS url,
+                         '/api/v1/photos/' || id AS url,
                          ROW_NUMBER() OVER (
                            PARTITION BY auction_id
                            ORDER BY sort_order ASC, id ASC

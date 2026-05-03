@@ -37,7 +37,7 @@ import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
-import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -46,7 +46,6 @@ import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -287,13 +286,9 @@ class EscrowOwnershipCheckTaskTest {
     private Escrow buildPending() {
         User seller = User.builder().id(SELLER_ID).email("seller@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(99L).slParcelUuid(PARCEL_UUID)
-                .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                                .verified(true).build();
         Auction auction = Auction.builder()
                 .title("Test listing")
-                .id(AUCTION_ID).seller(seller).parcel(parcel)
+                .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID)
                 .status(AuctionStatus.ENDED)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
@@ -307,6 +302,16 @@ class EscrowOwnershipCheckTaskTest {
                 .endOutcome(AuctionEndOutcome.SOLD)
                 .winnerUserId(WINNER_ID)
                 .build();
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
+                .ownerUuid(SELLER_AVATAR)
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .regionName("EscrowMonitorRegion")
+                .regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
         return Escrow.builder()
                 .id(ESCROW_ID)
                 .auction(auction)

@@ -4,6 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import jakarta.persistence.LockModeType;
 
@@ -26,23 +27,25 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * {@link org.hibernate.LazyInitializationException} under
      * {@code spring.jpa.open-in-view=false}.
      */
-    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "tags"})
     List<Auction> findBySellerIdOrderByCreatedAtDesc(Long sellerId);
 
     /**
      * Parcel-locking check. Used by AuctionVerificationService before every
-     * VERIFICATION_PENDING → ACTIVE transition.
+     * VERIFICATION_PENDING → ACTIVE transition. Queries by the denormalized
+     * {@code sl_parcel_uuid} column (replaces the old {@code parcel_id} FK
+     * after the per-auction snapshot refactor).
      */
-    boolean existsByParcelIdAndStatusInAndIdNot(
-            Long parcelId, Collection<AuctionStatus> statuses, Long excludeAuctionId);
+    boolean existsBySlParcelUuidAndStatusInAndIdNot(
+            UUID slParcelUuid, Collection<AuctionStatus> statuses, Long excludeAuctionId);
 
     /**
-     * Identifies the auction currently holding the parcel-lock on a parcel so
+     * Identifies the auction currently holding the parcel-lock so
      * {@code ParcelAlreadyListedException} can surface its ID in the 409
-     * response. Paired with {@link #existsByParcelIdAndStatusInAndIdNot}.
+     * response. Paired with {@link #existsBySlParcelUuidAndStatusInAndIdNot}.
      */
-    Optional<Auction> findFirstByParcelIdAndStatusIn(
-            Long parcelId, Collection<AuctionStatus> statuses);
+    Optional<Auction> findFirstBySlParcelUuidAndStatusIn(
+            UUID slParcelUuid, Collection<AuctionStatus> statuses);
 
     /** Used by ParcelCodeExpiryJob to find stuck Method B auctions. */
     List<Auction> findByStatusAndVerificationMethod(
@@ -52,7 +55,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * Eagerly fetches {@code parcel} + {@code tags} — see class-level note on
      * {@link #findBySellerIdOrderByCreatedAtDesc}.
      */
-    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "tags"})
     Optional<Auction> findByIdAndSellerId(Long id, Long sellerId);
 
     /**
@@ -61,7 +64,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * {@link JpaRepository#findById} so every load path — including seller,
      * public, and service-layer lookups — returns a fully-initialized aggregate.
      */
-    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "tags"})
     @Override
     Optional<Auction> findById(Long id);
 
@@ -75,7 +78,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * does not apply here: this is a single-row lookup with no
      * {@code Pageable}, so the multiple to-many fetches stay safe.
      */
-    @EntityGraph(attributePaths = {"parcel", "parcel.region", "seller", "photos", "tags"})
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "seller", "photos", "tags"})
     @Query("SELECT a FROM Auction a WHERE a.id = :id")
     Optional<Auction> findByIdForDetail(@Param("id") Long id);
 
@@ -164,7 +167,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * layer re-sequences them against the incoming ID list to preserve exact
      * page order (same pattern as {@code MyBidsService}).
      */
-    @EntityGraph(attributePaths = {"parcel", "parcel.region", "tags"})
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "tags"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids ORDER BY a.endsAt ASC")
     List<Auction> findAllByIdInWithParcelAndTags(@Param("ids") Collection<Long> ids);
 
@@ -181,7 +184,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * against the original ID list themselves (the same pattern as
      * {@link #findAllByIdInWithParcelAndTags}).
      */
-    @EntityGraph(attributePaths = {"parcel", "parcel.region", "seller"})
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "seller"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids")
     List<Auction> findAllByIdWithParcelAndSeller(@Param("ids") Collection<Long> ids);
 

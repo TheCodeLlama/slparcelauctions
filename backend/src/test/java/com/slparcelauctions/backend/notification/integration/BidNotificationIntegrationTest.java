@@ -29,11 +29,9 @@ import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for bid-event notifications.
@@ -60,7 +58,6 @@ class BidNotificationIntegrationTest {
     @Autowired NotificationRepository notifRepo;
     @Autowired UserRepository userRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired com.slparcelauctions.backend.auction.BidRepository bidRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
@@ -72,7 +69,6 @@ class BidNotificationIntegrationTest {
     private Long aliceId;
     private Long bobId;
     private Long auctionId;
-    private Long parcelId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -92,12 +88,9 @@ class BidNotificationIntegrationTest {
                         st.execute("DELETE FROM users WHERE id = " + id);
                     }
                 }
-                if (parcelId != null) {
-                    st.execute("DELETE FROM parcels WHERE id = " + parcelId);
-                }
             }
         }
-        sellerId = aliceId = bobId = auctionId = parcelId = null;
+        sellerId = aliceId = bobId = auctionId = null;
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -113,20 +106,11 @@ class BidNotificationIntegrationTest {
     }
 
     private Auction activeAuction(User seller, long startingBid) {
-        Parcel p = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(512)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-        parcelId = p.getId();
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
-        return auctionRepo.save(Auction.builder()
+        Auction a = auctionRepo.save(Auction.builder()
                 .title("Notification Test Lot")
-                .parcel(p)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -142,6 +126,14 @@ class BidNotificationIntegrationTest {
                 .endsAt(now.plusHours(24))
                 .originalEndsAt(now.plusHours(24))
                 .build());
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid).ownerType("agent")
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerName("Seller").parcelName("Bid Notification Parcel")
+                .regionName("Mainland").areaSqm(512)
+                .positionX(128.0).positionY(128.0).positionZ(22.0)
+                .build());
+        return auctionRepo.save(a);
     }
 
     // ── tests ────────────────────────────────────────────────────────────────

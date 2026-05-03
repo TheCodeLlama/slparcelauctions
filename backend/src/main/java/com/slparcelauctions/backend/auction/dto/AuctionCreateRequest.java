@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.util.Set;
+import java.util.UUID;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -16,11 +17,15 @@ import jakarta.validation.constraints.Size;
  * {@link AuctionVerifyRequest}. {@code Auction.verificationMethod} stays
  * null between create and the verify trigger.
  *
+ * <p>{@code slParcelUuid} replaced the legacy {@code parcelId} field —
+ * the caller supplies the SL parcel UUID and the backend performs a live
+ * lookup + snapshot on create.
+ *
  * <p>Validation rules enforced via JSR-380 + extra checks in AuctionService
  * (reserve &gt;= starting, buy_now &gt;= max, etc.).
  */
 public record AuctionCreateRequest(
-        @NotNull Long parcelId,
+        @NotNull UUID slParcelUuid,
         @NotBlank(message = "title must not be blank")
         @Size(max = 120, message = "title must be at most 120 characters")
         String title,

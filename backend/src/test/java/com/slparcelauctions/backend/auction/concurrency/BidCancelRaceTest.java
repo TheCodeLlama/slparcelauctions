@@ -31,11 +31,9 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionAlreadyEndedException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import javax.sql.DataSource;
 
@@ -85,7 +83,6 @@ class BidCancelRaceTest {
     @Autowired CancellationService cancellationService;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
@@ -97,7 +94,6 @@ class BidCancelRaceTest {
     private Long auctionId;
     private Long sellerId;
     private Long bidderId;
-    private Long parcelId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -114,10 +110,8 @@ class BidCancelRaceTest {
                     stmt.execute("DELETE FROM listing_fee_refunds WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM bids WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId);
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                    if (parcelId != null) {
-                        stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
-                    }
                     if (bidderId != null) {
                         stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
@@ -130,7 +124,6 @@ class BidCancelRaceTest {
             }
         }
         auctionId = null;
-        parcelId = null;
         bidderId = null;
         sellerId = null;
     }
@@ -279,19 +272,11 @@ class BidCancelRaceTest {
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
                 .build());
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -311,9 +296,20 @@ class BidCancelRaceTest {
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
 
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("BidCancel Race Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(auction);
+
         this.sellerId = seller.getId();
         this.bidderId = bidder.getId();
-        this.parcelId = parcel.getId();
         this.auctionId = auction.getId();
     }
 }

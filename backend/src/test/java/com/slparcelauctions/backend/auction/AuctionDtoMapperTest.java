@@ -20,7 +20,6 @@ import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionStatus;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
@@ -155,13 +154,10 @@ class AuctionDtoMapperTest {
 
     private Auction buildAuction(AuctionStatus status) {
         User seller = User.builder().id(42L).email("s@example.com").build();
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland())
-                .id(100L).slParcelUuid(UUID.randomUUID())
-                                .verified(true).build();
-        return Auction.builder()
+        UUID parcelUuid = UUID.randomUUID();
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .id(1L).seller(seller).parcel(parcel)
+                .id(1L).seller(seller).slParcelUuid(parcelUuid)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
@@ -174,5 +170,15 @@ class AuctionDtoMapperTest {
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID()).ownerType("agent")
+                .parcelName("Test Parcel")
+                .region(TestRegions.mainland())
+                .regionName("Coniston").regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return a;
     }
 }

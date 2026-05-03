@@ -25,11 +25,9 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for {@link BotMonitorLifecycleService} — the lifecycle
@@ -64,13 +62,11 @@ class BotMonitorLifecycleServiceTest {
     @Autowired private AuctionRepository auctionRepo;
     @Autowired private EscrowRepository escrowRepo;
     @Autowired private UserRepository userRepo;
-    @Autowired private ParcelRepository parcelRepo;
     @Autowired private PlatformTransactionManager txManager;
     @Autowired private javax.sql.DataSource dataSource;
 
     private Long sellerId;
     private Long winnerId;
-    private Long parcelId;
     private Long auctionId;
     private Long escrowId;
 
@@ -87,10 +83,8 @@ class BotMonitorLifecycleServiceTest {
                 }
                 if (auctionId != null) {
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId);
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                }
-                if (parcelId != null) {
-                    stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
                 }
                 if (winnerId != null) {
                     stmt.execute("DELETE FROM users WHERE id = " + winnerId);
@@ -102,7 +96,6 @@ class BotMonitorLifecycleServiceTest {
         }
         sellerId = null;
         winnerId = null;
-        parcelId = null;
         auctionId = null;
         escrowId = null;
     }
@@ -121,7 +114,7 @@ class BotMonitorLifecycleServiceTest {
         BotTask monitor = rows.get(0);
         assertThat(monitor.getStatus()).isEqualTo(BotTaskStatus.PENDING);
         assertThat(monitor.getExpectedOwnerUuid())
-                .isEqualTo(auction.getParcel().getOwnerUuid());
+                .isEqualTo(auction.getParcelSnapshot().getOwnerUuid());
         // Default slpa.bot.monitor-auction-interval is PT30M = 1800 seconds.
         assertThat(monitor.getRecurrenceIntervalSeconds()).isEqualTo(1800);
         assertThat(monitor.getNextRunAt())
@@ -217,24 +210,11 @@ class BotMonitorLifecycleServiceTest {
                 winnerId = winner.getId();
             }
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(seller.getSlAvatarUuid())
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .positionX(128.0)
-                    .positionY(64.0)
-                    .positionZ(22.0)
-                    .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction.AuctionBuilder b = Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(status)
                     .verificationMethod(VerificationMethod.SALE_TO_BOT)
@@ -261,16 +241,20 @@ class BotMonitorLifecycleServiceTest {
                         .endedAt(now);
             }
             Auction a = auctionRepo.save(b.build());
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(seller.getSlAvatarUuid())
+                    .ownerType("agent")
+                    .parcelName("Test Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             auctionId = a.getId();
         });
-        // Reload inside a fresh transaction and force-init the lazy chain
-        // (auction → parcel → region) so the returned entity is safe to use
-        // outside a session.
-        return tx.execute(s -> {
-            Auction a = auctionRepo.findById(auctionId).orElseThrow();
-            a.getParcel().getRegion().getName();
-            return a;
-        });
+        return auctionRepo.findById(auctionId).orElseThrow();
     }
 
     private Escrow seedEscrow(Auction auction) {

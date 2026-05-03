@@ -4,11 +4,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.OffsetDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.region.Region;
@@ -22,17 +20,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Looks up a parcel by UUID, fetching the parcel page + region page on first
- * sight and caching into the {@code parcels} + {@code regions} tables. Two
- * outbound HTTP calls per first-sight lookup (parcel page + region page); the
- * region page fetch always happens — coords on Mainland can in principle
- * change, so we re-resolve on every parcel lookup and {@code RegionService}
- * UPDATEs the row in place when SL has shifted any field. Subsequent
- * lookups of the same parcel UUID short-circuit on the {@code parcels} cache.
+ * Stateless parcel lookup — fetches the parcel page + region page from the SL
+ * World API, upserts the {@link Region} row (for global identity), and returns
+ * a {@link ParcelLookupResult} carrying a {@link ParcelResponse} and the
+ * resolved region. Nothing else is persisted; callers are responsible for
+ * writing any snapshot they need.
  *
- * <p>Mainland check happens inside {@link RegionService#upsert} — non-Mainland
- * regions never get persisted, and the {@code NotMainlandException} (HTTP 422)
- * surfaces from there.
+ * <p>Two outbound HTTP calls per invocation: parcel page + region page. The
+ * Mainland check happens inside {@link RegionService#upsert} — non-Mainland
+ * regions are rejected with {@code NotMainlandException} (HTTP 422) before
+ * this method returns.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,55 +38,48 @@ public class ParcelLookupService {
 
     private final SlWorldApiClient worldApi;
     private final RegionService regionService;
-    private final ParcelRepository repo;
     private final Clock clock;
 
-    @Transactional
-    public ParcelResponse lookup(UUID slParcelUuid) {
-        // Lookup is user-initiated (the seller hits the Lookup button) — it
-        // must reflect current SL state. The parcels row exists as a stable
-        // FK target so multiple drafts can share it; we update its
-        // SL-sourced fields in place rather than caching across lookups.
+    /**
+     * Bundles the flat {@link ParcelResponse} with the hydrated {@link Region}
+     * so callers can build an {@link com.slparcelauctions.backend.auction.AuctionParcelSnapshot}
+     * without a second query.
+     */
+    public record ParcelLookupResult(ParcelResponse response, Region region) {}
+
+    public ParcelLookupResult lookup(UUID slParcelUuid) {
         ParcelPageData parcelPage = worldApi.fetchParcelPage(slParcelUuid).block();
         RegionPageData regionPage = worldApi.fetchRegionPage(parcelPage.regionUuid()).block();
         Region region = regionService.upsert(regionPage);
 
         ParcelMetadata meta = parcelPage.parcel();
         OffsetDateTime now = OffsetDateTime.now(clock);
+        String slurl = buildSlurl(region.getName(), meta.positionX(), meta.positionY(), meta.positionZ());
 
-        Optional<Parcel> existing = repo.findBySlParcelUuid(slParcelUuid);
-        Parcel parcel = existing.orElseGet(() -> Parcel.builder()
-                .slParcelUuid(slParcelUuid)
-                .verified(true)
-                .verifiedAt(now)
-                .build());
-        parcel.setRegion(region);
-        parcel.setOwnerUuid(meta.ownerUuid());
-        parcel.setOwnerType(meta.ownerType());
-        parcel.setOwnerName(meta.ownerName());
-        parcel.setParcelName(meta.parcelName());
-        parcel.setAreaSqm(meta.areaSqm());
-        parcel.setDescription(meta.description());
-        parcel.setSnapshotUrl(meta.snapshotUrl());
-        parcel.setPositionX(meta.positionX());
-        parcel.setPositionY(meta.positionY());
-        parcel.setPositionZ(meta.positionZ());
-        parcel.setSlurl(buildSlurl(region.getName(), meta.positionX(), meta.positionY(), meta.positionZ()));
-        parcel.setLastChecked(now);
+        ParcelResponse response = new ParcelResponse(
+                slParcelUuid,
+                meta.ownerUuid(),
+                meta.ownerType(),
+                meta.ownerName(),
+                meta.parcelName(),
+                region.getId(),
+                region.getName(),
+                region.getMaturityRating(),
+                region.getGridX(),
+                region.getGridY(),
+                meta.positionX(),
+                meta.positionY(),
+                meta.positionZ(),
+                meta.areaSqm(),
+                meta.description(),
+                meta.snapshotUrl(),
+                slurl,
+                true,
+                now,
+                now);
 
-        try {
-            parcel = repo.save(parcel);
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Concurrent first-lookup race on the sl_parcel_uuid unique
-            // constraint. Re-find the winner and return its current state.
-            parcel = repo.findBySlParcelUuid(slParcelUuid)
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Race-loss couldn't re-find parcel " + slParcelUuid, e));
-        }
-        log.info("Parcel lookup: id={} uuid={} region_id={} region={} {}",
-                parcel.getId(), slParcelUuid, region.getId(), region.getName(),
-                existing.isPresent() ? "(refreshed)" : "(created)");
-        return ParcelResponse.from(parcel);
+        log.info("Parcel lookup: uuid={} region_id={} region={}", slParcelUuid, region.getId(), region.getName());
+        return new ParcelLookupResult(response, region);
     }
 
     private String buildSlurl(String regionName, Double x, Double y, Double z) {

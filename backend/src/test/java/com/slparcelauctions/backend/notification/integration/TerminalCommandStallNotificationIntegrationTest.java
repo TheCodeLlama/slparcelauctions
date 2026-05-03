@@ -38,11 +38,9 @@ import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration test for ESCROW_PAYOUT_STALLED notification.
@@ -67,7 +65,6 @@ class TerminalCommandStallNotificationIntegrationTest {
     @Autowired EscrowRepository escrowRepo;
     @Autowired EscrowTransactionRepository ledgerRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired NotificationRepository notifRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -75,7 +72,7 @@ class TerminalCommandStallNotificationIntegrationTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, winnerId, auctionId, parcelId, escrowId, cmdId;
+    private Long sellerId, winnerId, auctionId, escrowId, cmdId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -88,7 +85,6 @@ class TerminalCommandStallNotificationIntegrationTest {
             if (auctionId != null) {
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -102,7 +98,7 @@ class TerminalCommandStallNotificationIntegrationTest {
                 }
             }
         }
-        sellerId = winnerId = auctionId = parcelId = escrowId = cmdId = null;
+        sellerId = winnerId = auctionId = escrowId = cmdId = null;
     }
 
     private User newUser(String prefix) {
@@ -120,18 +116,10 @@ class TerminalCommandStallNotificationIntegrationTest {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
             User seller = userRepo.findById(sellerId).orElseThrow();
             User winner = userRepo.findById(winnerId).orElseThrow();
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerType("agent")
-                                                            .areaSqm(256)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             Auction a = auctionRepo.save(Auction.builder()
                     .title("Stall Test Lot")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .endOutcome(AuctionEndOutcome.SOLD)
@@ -155,6 +143,13 @@ class TerminalCommandStallNotificationIntegrationTest {
                     .endedAt(OffsetDateTime.now().minusDays(1))
                     .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid).ownerType("agent")
+                    .ownerName("Seller").parcelName("Stall Test Parcel")
+                    .regionName("Mainland").areaSqm(256)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             Escrow e = escrowRepo.save(Escrow.builder()
                     .auction(a)
                     .state(EscrowState.TRANSFER_PENDING)
@@ -218,14 +213,9 @@ class TerminalCommandStallNotificationIntegrationTest {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
             User w = userRepo.findById(winnerId).orElseThrow();
             User sl = userRepo.findById(sellerId).orElseThrow();
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerType("agent")                    .areaSqm(256).verified(true)
-                    .verifiedAt(OffsetDateTime.now()).build());
-            parcelId = p.getId();
+            UUID parcelUuid2 = UUID.randomUUID();
             Auction a = auctionRepo.save(Auction.builder()
-                    .title("NoStall Test Lot").parcel(p).seller(sl)
+                    .title("NoStall Test Lot").slParcelUuid(parcelUuid2).seller(sl)
                     .status(AuctionStatus.DISPUTED)
                     .endOutcome(AuctionEndOutcome.SOLD)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -241,6 +231,13 @@ class TerminalCommandStallNotificationIntegrationTest {
                     .originalEndsAt(OffsetDateTime.now().minusDays(1))
                     .endedAt(OffsetDateTime.now().minusDays(1)).build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid2).ownerType("agent")
+                    .ownerName("Seller").parcelName("NoStall Test Parcel")
+                    .regionName("Mainland").areaSqm(256)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             Escrow e = escrowRepo.save(Escrow.builder()
                     .auction(a).state(EscrowState.DISPUTED)
                     .finalBidAmount(1500L).commissionAmt(75L).payoutAmt(1425L)

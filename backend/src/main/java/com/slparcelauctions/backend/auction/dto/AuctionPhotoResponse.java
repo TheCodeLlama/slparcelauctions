@@ -13,7 +13,7 @@ public record AuctionPhotoResponse(
         OffsetDateTime uploadedAt) {
 
     public static AuctionPhotoResponse from(AuctionPhoto p) {
-        String url = "/api/v1/auctions/" + p.getAuction().getId() + "/photos/" + p.getId() + "/bytes";
+        String url = "/api/v1/photos/" + p.getId();
         return new AuctionPhotoResponse(p.getId(), url, p.getContentType(),
                 p.getSizeBytes(), p.getSortOrder(), p.getUploadedAt());
     }

@@ -29,14 +29,13 @@ class AuctionSearchSortSpecTest {
     }
 
     /**
-     * The {@link com.slparcelauctions.backend.parcel.Parcel} entity stores
-     * area in {@code areaSqm} — the spec's {@code parcel.area} shorthand
-     * resolves to that JPA path.
+     * {@code parcelSnapshot.areaSqm} — the per-auction snapshot replaced the
+     * shared {@code parcel} entity in the Phase 5 refactor.
      */
     @Test
     void largestArea_descParcelAreaSqmThenId() {
         Sort sort = AuctionSearchSortSpec.toSort(AuctionSearchSort.LARGEST_AREA);
-        assertThat(sort.toString()).contains("parcel.areaSqm: DESC").contains("id: DESC");
+        assertThat(sort.toString()).contains("parcelSnapshot.areaSqm: DESC").contains("id: DESC");
     }
 
     // LOWEST_PRICE, MOST_BIDS, NEAREST require raw SQL / computed order

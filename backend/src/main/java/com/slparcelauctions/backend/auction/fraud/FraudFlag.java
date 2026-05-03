@@ -8,8 +8,9 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.slparcelauctions.backend.auction.Auction;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
+
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,9 +53,14 @@ public class FraudFlag {
     @JoinColumn(name = "auction_id")
     private Auction auction;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "parcel_id", nullable = false)
-    private Parcel parcel;
+    /**
+     * Denormalized SL parcel UUID at the time the flag was raised. No FK to
+     * a parcel table — the legacy {@code parcels} table was removed in the
+     * per-auction snapshot refactor; the canonical parcel identity lives on
+     * {@code auctions.sl_parcel_uuid}.
+     */
+    @Column(name = "sl_parcel_uuid")
+    private UUID slParcelUuid;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)

@@ -26,8 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -59,7 +57,6 @@ class DevAuctionControllerTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired UserRepository userRepository;
 
@@ -71,7 +68,7 @@ class DevAuctionControllerTest {
 
     private String otherAccessToken;
 
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -84,7 +81,7 @@ class DevAuctionControllerTest {
                 "dev-pay-other@example.com", "Other",
                 "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     @Test
@@ -227,7 +224,7 @@ class DevAuctionControllerTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID ownerUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
@@ -248,30 +245,25 @@ class DevAuctionControllerTest {
                 22.0), regionUuid)));
         when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
                 Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+        return parcelUuid;
     }
 
     private Auction seedAuction(AuctionStatus status) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(sellerParcel)
+                .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)
                 .snipeProtect(false)
                 .listingFeePaid(status == AuctionStatus.DRAFT_PAID)
                 .currentBid(0L)
                 .bidCount(0)
+                .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build();
@@ -281,6 +273,17 @@ class DevAuctionControllerTest {
             a.setEndsAt(now.plusDays(1));
             a.setOriginalEndsAt(now.plusDays(1));
         }
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(sellerParcelUuid)
+                .ownerUuid(UUID.fromString("44444444-4444-4444-4444-444444444444"))
+                .ownerType("agent")
+                .parcelName("Seed Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("M_NOT")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 }

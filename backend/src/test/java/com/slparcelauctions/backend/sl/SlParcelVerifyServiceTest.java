@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -37,9 +36,8 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.User;
@@ -47,7 +45,6 @@ import com.slparcelauctions.backend.verification.VerificationCode;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
 import com.slparcelauctions.backend.verification.exception.CodeNotFoundException;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link SlParcelVerifyService}. Exercises each branch of
@@ -62,7 +59,6 @@ class SlParcelVerifyServiceTest {
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID OTHER_AVATAR = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final Long AUCTION_ID = 77L;
-    private static final Long PARCEL_ID = 9L;
     private static final Long SELLER_ID = 42L;
     private static final String CODE = "123456";
 
@@ -72,12 +68,10 @@ class SlParcelVerifyServiceTest {
 
     private VerificationCodeRepository codeRepo;
     private AuctionRepository auctionRepo;
-    private ParcelRepository parcelRepo;
     private SlHeaderValidator headerValidator;
     private SlParcelVerifyService service;
 
     private User seller;
-    private Parcel parcel;
     private Auction auction;
     private VerificationCode code;
 
@@ -85,7 +79,6 @@ class SlParcelVerifyServiceTest {
     void setUp() {
         codeRepo = mock(VerificationCodeRepository.class);
         auctionRepo = mock(AuctionRepository.class);
-        parcelRepo = mock(ParcelRepository.class);
         headerValidator = new SlHeaderValidator(
                 new SlConfigProperties("Production", Set.of(TRUSTED)));
         OwnershipMonitorProperties ownershipProps = new OwnershipMonitorProperties();
@@ -93,18 +86,14 @@ class SlParcelVerifyServiceTest {
                 new OwnershipCheckTimestampInitializer(ownershipProps, FIXED);
         NotificationPublisher notificationPublisher = mock(NotificationPublisher.class);
         service = new SlParcelVerifyService(
-                headerValidator, codeRepo, auctionRepo, parcelRepo, ownershipInit,
+                headerValidator, codeRepo, auctionRepo, ownershipInit,
                 notificationPublisher, FIXED);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
-                .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .verified(true).build();
         auction = Auction.builder()
                 .title("Test listing")
-                .id(AUCTION_ID).seller(seller).parcel(parcel)
+                .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID)
                 .status(AuctionStatus.VERIFICATION_PENDING)
                 .verificationMethod(VerificationMethod.REZZABLE)
                 .startingBid(1000L).durationHours(168)
@@ -114,6 +103,13 @@ class SlParcelVerifyServiceTest {
                 .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .build();
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
+                .ownerUuid(SELLER_AVATAR).ownerType("agent")
+                .ownerName("Test Seller").parcelName("Test Parcel")
+                .description("desc").regionName("Mainland")
+                .areaSqm(512).positionX(100.0).positionY(100.0).positionZ(20.0)
+                .build());
         code = VerificationCode.builder()
                 .id(7L).userId(SELLER_ID).auctionId(AUCTION_ID)
                 .code(CODE).type(VerificationCodeType.PARCEL)
@@ -123,13 +119,11 @@ class SlParcelVerifyServiceTest {
         lenient().when(codeRepo.findByCodeAndTypeAndUsedFalseAndExpiresAtAfter(
                 CODE, VerificationCodeType.PARCEL, NOW)).thenReturn(List.of(code));
         lenient().when(auctionRepo.findById(AUCTION_ID)).thenReturn(Optional.of(auction));
-        lenient().when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                anyLong(), anyCollection(), anyLong())).thenReturn(false);
+        lenient().when(auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                any(UUID.class), anyCollection(), any(Long.class))).thenReturn(false);
         lenient().when(auctionRepo.saveAndFlush(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(codeRepo.save(any(VerificationCode.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(parcelRepo.save(any(Parcel.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -148,12 +142,12 @@ class SlParcelVerifyServiceTest {
         assertThat(auction.getOriginalEndsAt()).isEqualTo(NOW.plusHours(168));
         assertThat(auction.getVerifiedAt()).isEqualTo(NOW);
         assertThat(code.isUsed()).isTrue();
-        // Parcel metadata refreshed from the LSL report
-        assertThat(parcel.getAreaSqm()).isEqualTo(1024);
-        assertThat(parcel.getPositionX()).isEqualTo(128.0);
-        assertThat(parcel.getPositionY()).isEqualTo(64.0);
-        assertThat(parcel.getPositionZ()).isEqualTo(22.0);
-        assertThat(parcel.getLastChecked()).isEqualTo(NOW);
+        // Parcel snapshot metadata refreshed from the LSL report
+        assertThat(auction.getParcelSnapshot().getAreaSqm()).isEqualTo(1024);
+        assertThat(auction.getParcelSnapshot().getPositionX()).isEqualTo(128.0);
+        assertThat(auction.getParcelSnapshot().getPositionY()).isEqualTo(64.0);
+        assertThat(auction.getParcelSnapshot().getPositionZ()).isEqualTo(22.0);
+        assertThat(auction.getParcelSnapshot().getLastChecked()).isEqualTo(NOW);
         verify(auctionRepo).saveAndFlush(auction);
     }
 
@@ -303,17 +297,17 @@ class SlParcelVerifyServiceTest {
 
     @Test
     void parcelLockedByAnotherActiveAuction_throwsParcelAlreadyListed() {
-        when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
+        when(auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
         Auction blocker = Auction.builder().title("Test listing").id(55L).build();
-        when(auctionRepo.findFirstByParcelIdAndStatusIn(
-                PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES))
+        when(auctionRepo.findFirstBySlParcelUuidAndStatusIn(
+                PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));
 
         assertThatThrownBy(() -> service.verify("Production", TRUSTED_STR, body()))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
-                    assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
+                    assertThat(ex.getParcelId()).isEqualTo(AUCTION_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(55L);
                 });
         // Code not consumed on lock failure
@@ -327,7 +321,7 @@ class SlParcelVerifyServiceTest {
 
         assertThatThrownBy(() -> service.verify("Production", TRUSTED_STR, body()))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
-                    assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
+                    assertThat(ex.getParcelId()).isEqualTo(AUCTION_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(-1L);
                 });
     }

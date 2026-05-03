@@ -29,11 +29,9 @@ import com.slparcelauctions.backend.auction.CancellationService;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Epic 08 sub-spec 2 regression: two concurrent cancellations targeting two
@@ -77,15 +75,12 @@ class CancelLadderRaceTest {
     @Autowired CancellationService cancellationService;
     @Autowired CancellationLogRepository cancellationLogRepository;
     @Autowired AuctionRepository auctionRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
     @Autowired DataSource dataSource;
 
     @MockitoBean AuctionBroadcastPublisher publisher;
 
     private Long sellerId;
-    private Long parcelId1;
-    private Long parcelId2;
     private Long auctionId1;
     private Long auctionId2;
 
@@ -98,19 +93,15 @@ class CancelLadderRaceTest {
                     stmt.execute("DELETE FROM cancellation_logs WHERE auction_id = " + auctionId1);
                     stmt.execute("DELETE FROM bids WHERE auction_id = " + auctionId1);
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId1);
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId1);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId1);
                 }
                 if (auctionId2 != null) {
                     stmt.execute("DELETE FROM cancellation_logs WHERE auction_id = " + auctionId2);
                     stmt.execute("DELETE FROM bids WHERE auction_id = " + auctionId2);
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId2);
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId2);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId2);
-                }
-                if (parcelId1 != null) {
-                    stmt.execute("DELETE FROM parcels WHERE id = " + parcelId1);
-                }
-                if (parcelId2 != null) {
-                    stmt.execute("DELETE FROM parcels WHERE id = " + parcelId2);
                 }
                 if (sellerId != null) {
                     stmt.execute("DELETE FROM users WHERE id = " + sellerId);
@@ -118,8 +109,6 @@ class CancelLadderRaceTest {
             }
         }
         sellerId = null;
-        parcelId1 = null;
-        parcelId2 = null;
         auctionId1 = null;
         auctionId2 = null;
     }
@@ -214,28 +203,12 @@ class CancelLadderRaceTest {
                 .penaltyBalanceOwed(0L)
                 .bannedFromListing(false)
                 .build());
-        Parcel parcel1 = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-        Parcel parcel2 = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
+        UUID parcelUuid1 = UUID.randomUUID();
+        UUID parcelUuid2 = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a1 = auctionRepository.save(Auction.builder()
                 .title("Race auction 1")
-                .parcel(parcel1).seller(seller)
+                .slParcelUuid(parcelUuid1).seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -250,9 +223,21 @@ class CancelLadderRaceTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
+        a1.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid1)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Race Parcel 1")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(a1);
+
         Auction a2 = auctionRepository.save(Auction.builder()
                 .title("Race auction 2")
-                .parcel(parcel2).seller(seller)
+                .slParcelUuid(parcelUuid2).seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -267,10 +252,19 @@ class CancelLadderRaceTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
+        a2.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid2)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Race Parcel 2")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(a2);
 
         this.sellerId = seller.getId();
-        this.parcelId1 = parcel1.getId();
-        this.parcelId2 = parcel2.getId();
         this.auctionId1 = a1.getId();
         this.auctionId2 = a2.getId();
     }

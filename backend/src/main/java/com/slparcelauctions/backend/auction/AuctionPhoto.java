@@ -6,6 +6,8 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -47,6 +49,11 @@ public class AuctionPhoto {
 
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false)
+    @Builder.Default
+    private PhotoSource source = PhotoSource.SELLER_UPLOAD;
 
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)

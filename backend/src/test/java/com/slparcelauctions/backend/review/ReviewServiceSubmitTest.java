@@ -13,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,10 +36,8 @@ import com.slparcelauctions.backend.review.dto.ReviewSubmitRequest;
 import com.slparcelauctions.backend.review.exception.ReviewAlreadySubmittedException;
 import com.slparcelauctions.backend.review.exception.ReviewIneligibleException;
 import com.slparcelauctions.backend.review.exception.ReviewWindowClosedException;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link ReviewService#submit(Long, User, ReviewSubmitRequest)}.
@@ -84,12 +83,10 @@ class ReviewServiceSubmitTest {
         stranger = User.builder().email("stranger@example.com").passwordHash("x").build();
         stranger.setId(99L);
 
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).snapshotUrl("https://snap/1.jpg").build();
         auction = Auction.builder()
                 .title("Lakefront")
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(UUID.randomUUID())
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
@@ -233,8 +230,8 @@ class ReviewServiceSubmitTest {
         assertThat(dto.reviewedRole()).isEqualTo(ReviewedRole.SELLER);
         assertThat(dto.rating()).isEqualTo(5);
         assertThat(dto.text()).isEqualTo("Smooth transfer");
-        // Parcel snapshot URL fallback — no photos on the seeded auction.
-        assertThat(dto.auctionPrimaryPhotoUrl()).isEqualTo("https://snap/1.jpg");
+        // No photos on the seeded auction — primary photo URL is null.
+        assertThat(dto.auctionPrimaryPhotoUrl()).isNull();
     }
 
     @Test

@@ -92,7 +92,7 @@ public class EscrowOwnershipCheckTask {
         }
 
         OffsetDateTime now = OffsetDateTime.now(clock);
-        UUID parcelUuid = escrow.getAuction().getParcel().getSlParcelUuid();
+        UUID parcelUuid = escrow.getAuction().getSlParcelUuid();
 
         try {
             ParcelMetadata result = worldApi.fetchParcelPage(parcelUuid)

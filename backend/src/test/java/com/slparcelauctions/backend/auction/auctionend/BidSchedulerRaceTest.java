@@ -30,11 +30,9 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionAlreadyEndedException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Race regression for the Task 6 close path vs the snipe-extending bid path.
@@ -82,7 +80,6 @@ class BidSchedulerRaceTest {
     @Autowired AuctionEndTask auctionEndTask;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
     @Autowired com.slparcelauctions.backend.notification.NotificationRepository notificationRepository;
     @Autowired PlatformTransactionManager txManager;
@@ -94,7 +91,6 @@ class BidSchedulerRaceTest {
     private Long auctionId;
     private Long sellerId;
     private Long bidderId;
-    private Long parcelId;
 
     @AfterEach
     void cleanup() {
@@ -107,9 +103,6 @@ class BidSchedulerRaceTest {
                     auctionRepository.delete(a);
                 });
             }
-            if (parcelId != null) {
-                parcelRepository.findById(parcelId).ifPresent(parcelRepository::delete);
-            }
             if (bidderId != null) {
                 notificationRepository.deleteAllByUserId(bidderId);
                 userRepository.findById(bidderId).ifPresent(userRepository::delete);
@@ -120,7 +113,6 @@ class BidSchedulerRaceTest {
             }
         });
         auctionId = null;
-        parcelId = null;
         bidderId = null;
         sellerId = null;
     }
@@ -256,22 +248,14 @@ class BidSchedulerRaceTest {
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
                 .build());
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         // endsAt is 1 second in the future at setup time; by the time both
         // threads race past their 1.2s barrier, the clock has crossed it.
         OffsetDateTime endsAt = now.plusSeconds(1);
         Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -291,9 +275,20 @@ class BidSchedulerRaceTest {
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
 
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Race Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(auction);
+
         this.sellerId = seller.getId();
         this.bidderId = bidder.getId();
-        this.parcelId = parcel.getId();
         this.auctionId = auction.getId();
     }
 

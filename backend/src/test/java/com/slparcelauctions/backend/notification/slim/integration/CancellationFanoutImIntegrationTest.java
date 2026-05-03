@@ -14,11 +14,9 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.notification.slim.SlImMessage;
 import com.slparcelauctions.backend.notification.slim.SlImMessageRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -62,11 +60,9 @@ class CancellationFanoutImIntegrationTest {
     @Autowired UserRepository userRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
 
-    private Long parcelId;
     private Long auctionId;
     private final java.util.List<Long> userIds = new java.util.ArrayList<>();
 
@@ -83,10 +79,8 @@ class CancellationFanoutImIntegrationTest {
                 if (auctionId != null) {
                     st.execute("DELETE FROM cancellation_logs WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM bids WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                }
-                if (parcelId != null) {
-                    st.execute("DELETE FROM parcels WHERE id = " + parcelId);
                 }
             }
         } catch (Exception e) { /* best-effort */ }
@@ -106,7 +100,6 @@ class CancellationFanoutImIntegrationTest {
         }
         userIds.clear();
         auctionId = null;
-        parcelId = null;
     }
 
     @Test
@@ -218,19 +211,10 @@ class CancellationFanoutImIntegrationTest {
 
     private Auction saveAuction(User seller, long startBidL) {
         return new TransactionTemplate(txManager).execute(s -> {
-            Parcel p = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid() != null ? seller.getSlAvatarUuid() : UUID.randomUUID())
-                .ownerType("agent")
-                                                .areaSqm(256)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             Auction a = auctionRepo.save(Auction.builder()
                 .title("Cancellation IM Test Lot")
-                .parcel(p)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -249,6 +233,14 @@ class CancellationFanoutImIntegrationTest {
                 .originalEndsAt(OffsetDateTime.now().plusHours(24))
                 .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid).ownerType("agent")
+                .ownerUuid(seller.getSlAvatarUuid() != null ? seller.getSlAvatarUuid() : UUID.randomUUID())
+                .ownerName("Seller").parcelName("Cancellation IM Test Parcel")
+                .regionName("Mainland").areaSqm(256)
+                .positionX(128.0).positionY(128.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(a);
             return a;
         });
     }

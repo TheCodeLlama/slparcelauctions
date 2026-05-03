@@ -44,9 +44,8 @@ import com.slparcelauctions.backend.escrow.scheduler.TerminalCommandDispatcherTa
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Mockito unit coverage for {@link TerminalCommandDispatcherTask}. Exercises
@@ -384,13 +383,10 @@ class TerminalCommandDispatcherTaskTest {
     private Escrow buildEscrow() {
         User seller = User.builder().id(1L).email("s@e.com")
                 .slAvatarUuid(UUID.randomUUID()).verified(true).build();
-        Parcel parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(9L).slParcelUuid(UUID.randomUUID())
-                .ownerUuid(seller.getSlAvatarUuid()).ownerType("agent")
-                .verified(true).build();
+        UUID parcelUuid = UUID.randomUUID();
         Auction auction = Auction.builder()
                 .title("Test listing")
-                .id(1001L).seller(seller).parcel(parcel)
+                .id(1001L).seller(seller).slParcelUuid(parcelUuid)
                 .status(AuctionStatus.ENDED)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
@@ -404,6 +400,16 @@ class TerminalCommandDispatcherTaskTest {
                 .endOutcome(AuctionEndOutcome.SOLD)
                 .winnerUserId(2L)
                 .build();
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
         return Escrow.builder()
                 .id(ESCROW_ID).auction(auction)
                 .state(EscrowState.TRANSFER_PENDING)

@@ -40,7 +40,7 @@ import com.slparcelauctions.backend.auction.CancellationLogRepository;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.common.PagedResponse;
-import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -167,17 +167,24 @@ class AdminUserServiceTest {
 
     @Test
     void listings_mapsAuctionToDto() {
-        Parcel parcel = Parcel.builder()
-                .region(com.slparcelauctions.backend.region.Region.builder()
-                        .slUuid(UUID.randomUUID()).name("Test Region")
-                        .gridX(1014.0).gridY(1014.0).maturityRating("GENERAL").build())
-                .build();
+        UUID parcelUuid = UUID.randomUUID();
         Auction auction = Auction.builder()
             .title("My Auction")
             .status(AuctionStatus.ACTIVE)
             .endsAt(OffsetDateTime.now(FIXED_CLOCK).plusHours(24))
-            .parcel(parcel)
+            .slParcelUuid(parcelUuid)
             .build();
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID()).ownerType("agent")
+                .parcelName("Test Parcel")
+                .region(com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name("Test Region")
+                        .gridX(1014.0).gridY(1014.0).maturityRating("GENERAL").build())
+                .regionName("Test Region").regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
         try {
             java.lang.reflect.Field f = Auction.class.getDeclaredField("id");
             f.setAccessible(true);

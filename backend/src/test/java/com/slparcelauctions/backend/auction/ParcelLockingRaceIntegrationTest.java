@@ -32,8 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -67,7 +66,6 @@ class ParcelLockingRaceIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired UserRepository userRepository;
     @Autowired CancellationService cancellationService;
@@ -79,7 +77,6 @@ class ParcelLockingRaceIntegrationTest {
 
     private String sellerAccessToken;
     private Long sellerId;
-    private Parcel parcel;
     private UUID sellerAvatar;
     private UUID parcelUuid;
 
@@ -95,7 +92,7 @@ class ParcelLockingRaceIntegrationTest {
 
         sellerAccessToken = registerAndVerifyUser(email, "Locker", sellerAvatar.toString());
         sellerId = userRepository.findByEmail(email).orElseThrow().getId();
-        parcel = seedParcel();
+        seedParcel();
     }
 
     /**
@@ -115,8 +112,9 @@ class ParcelLockingRaceIntegrationTest {
                         + "(SELECT id FROM auctions WHERE seller_id = " + sellerId + ")");
                 stmt.execute("DELETE FROM auction_tags WHERE auction_id IN "
                         + "(SELECT id FROM auctions WHERE seller_id = " + sellerId + ")");
+                stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id IN "
+                        + "(SELECT id FROM auctions WHERE seller_id = " + sellerId + ")");
                 stmt.execute("DELETE FROM auctions WHERE seller_id = " + sellerId);
-                stmt.execute("DELETE FROM parcels WHERE id = " + parcel.getId());
                 stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM verification_codes WHERE user_id = " + sellerId);
                 stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + sellerId);
@@ -150,7 +148,7 @@ class ParcelLockingRaceIntegrationTest {
                 .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PARCEL_ALREADY_LISTED"))
-                .andExpect(jsonPath("$.parcelId").value(parcel.getId()))
+                .andExpect(jsonPath("$.parcelId").value(a2Id))
                 .andExpect(jsonPath("$.blockingAuctionId").value(a1Id));
     }
 
@@ -225,7 +223,7 @@ class ParcelLockingRaceIntegrationTest {
 
             long activeCount = auctionRepository.findAll().stream()
                     .filter(a -> a.getStatus() == AuctionStatus.ACTIVE)
-                    .filter(a -> a.getParcel().getId().equals(parcel.getId()))
+                    .filter(a -> parcelUuid.equals(a.getSlParcelUuid()))
                     .count();
             assertThat(activeCount).isEqualTo(1);
         } finally {
@@ -284,7 +282,7 @@ class ParcelLockingRaceIntegrationTest {
             User seller = userRepository.findById(sellerId).orElseThrow();
             Auction a = Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.DRAFT_PAID)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -295,9 +293,21 @@ class ParcelLockingRaceIntegrationTest {
                     .listingFeeAmt(100L)
                     .currentBid(0L)
                     .bidCount(0)
+                    .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
                     .agentFeeRate(BigDecimal.ZERO)
                     .build();
+            a = auctionRepository.save(a);
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(sellerAvatar)
+                    .ownerType("agent")
+                    .parcelName("Locking Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
             return auctionRepository.save(a).getId();
         });
     }
@@ -342,7 +352,12 @@ class ParcelLockingRaceIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    /**
+     * Stubs the SL World API for {@code parcelUuid} so that
+     * PUT /api/v1/auctions/{id}/verify can call {@code parcelLookupService.lookup()}
+     * without network access. No DB row is created.
+     */
+    private void seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
                 Mono.just(new ParcelPageData(new ParcelMetadata(
@@ -361,13 +376,5 @@ class ParcelLockingRaceIntegrationTest {
                 22.0), regionUuid)));
         when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
                 Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
     }
 }

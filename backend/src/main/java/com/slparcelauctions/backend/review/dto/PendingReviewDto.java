@@ -58,9 +58,7 @@ public record PendingReviewDto(
                 .findFirst()
                 .map(p -> "/api/v1/auctions/" + e.getAuction().getId()
                         + "/photos/" + p.getId() + "/bytes")
-                .orElseGet(() -> e.getAuction().getParcel() == null
-                        ? null
-                        : e.getAuction().getParcel().getSnapshotUrl());
+                .orElse(null);
 
         return new PendingReviewDto(
                 e.getAuction().getId(),

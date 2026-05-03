@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,11 +26,10 @@ import org.springframework.data.domain.Sort;
 
 import com.slparcelauctions.backend.auction.dto.CancellationHistoryDto;
 import com.slparcelauctions.backend.auction.dto.CancellationStatusResponse;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
+
 
 /**
  * Unit coverage for {@link CancellationStatusService}.
@@ -40,7 +40,7 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
  *   <li>History page-size clamp (>{@code MAX_PAGE_SIZE} → 50).</li>
  *   <li>History sort always cancelledAt DESC regardless of caller's Sort.</li>
  *   <li>{@code penaltyApplied} null when log row's kind is NONE.</li>
- *   <li>Photo URL falls back to parcel snapshot when no listing photos.</li>
+ *   <li>Photo URL is null when no listing photos (no parcel snapshot fallback).</li>
  * </ul>
  */
 @ExtendWith(MockitoExtension.class)
@@ -194,8 +194,7 @@ class CancellationStatusServiceTest {
         Auction auction = Auction.builder()
                 .id(101L)
                 .title("Pre-active cancel")
-                .parcel(Parcel.builder()
-                .region(TestRegions.mainland()).id(7L).snapshotUrl("https://snap.example/p7.png").build())
+                .slParcelUuid(UUID.fromString("11111111-1111-1111-1111-111111111111"))
                 .build();
         CancellationLog log = CancellationLog.builder()
                 .id(1L)
@@ -210,8 +209,7 @@ class CancellationStatusServiceTest {
                 .build();
         when(logRepo.findBySellerId(eq(USER_ID), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(log), PageRequest.of(0, 10), 1));
-        // Auction has no photos (default empty list on the builder) → falls back
-        // to the parcel snapshot URL via {@code auction.photos.isEmpty()}.
+        // Auction has no photos → primaryPhotoUrl is null (no parcel snapshot fallback).
 
         Page<CancellationHistoryDto> page = service.historyFor(USER_ID, PageRequest.of(0, 10));
 
@@ -219,8 +217,8 @@ class CancellationStatusServiceTest {
         CancellationHistoryDto dto = page.getContent().get(0);
         // No-bid cancellation → penaltyApplied is null per spec §7.4.
         assertThat(dto.penaltyApplied()).isNull();
-        // No listing photos → falls back to parcel snapshot URL.
-        assertThat(dto.primaryPhotoUrl()).isEqualTo("https://snap.example/p7.png");
+        // No listing photos and no parcel snapshot fallback → null.
+        assertThat(dto.primaryPhotoUrl()).isNull();
         assertThat(dto.auctionTitle()).isEqualTo("Pre-active cancel");
     }
 
@@ -229,8 +227,7 @@ class CancellationStatusServiceTest {
         Auction auction = Auction.builder()
                 .id(202L)
                 .title("Active cancel with bids")
-                .parcel(Parcel.builder()
-                .region(TestRegions.mainland()).id(9L).build())
+                .slParcelUuid(UUID.fromString("22222222-2222-2222-2222-222222222222"))
                 .build();
         CancellationLog log = CancellationLog.builder()
                 .id(2L)
@@ -261,8 +258,7 @@ class CancellationStatusServiceTest {
         Auction auction = Auction.builder()
                 .id(303L)
                 .title("Photo'd auction")
-                .parcel(Parcel.builder()
-                .region(TestRegions.mainland()).id(11L).snapshotUrl("ignored.png").build())
+                .slParcelUuid(UUID.fromString("33333333-3333-3333-3333-333333333333"))
                 // Order in the list is intentionally not sortOrder ASC — the
                 // service must pick the min(sortOrder) regardless.
                 .photos(new java.util.ArrayList<>(List.of(p1, p2)))
@@ -284,6 +280,6 @@ class CancellationStatusServiceTest {
 
         // Picks the photo with the smallest sortOrder (p2 = sortOrder 0).
         assertThat(page.getContent().get(0).primaryPhotoUrl())
-                .isEqualTo("/api/v1/auctions/303/photos/51/bytes");
+                .isEqualTo("/api/v1/photos/51");
     }
 }

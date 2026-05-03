@@ -40,13 +40,11 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Unit coverage for {@link BotTaskService}. Covers Method C completion paths:
@@ -58,7 +56,6 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
 class BotTaskServiceTest {
 
     private static final Long AUCTION_ID = 1L;
-    private static final Long PARCEL_ID = 100L;
     private static final Long TASK_ID = 77L;
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
@@ -68,14 +65,12 @@ class BotTaskServiceTest {
 
     @Mock BotTaskRepository botTaskRepo;
     @Mock AuctionRepository auctionRepo;
-    @Mock ParcelRepository parcelRepo;
     @Mock BotMonitorDispatcher dispatcher;
     @Mock BotMonitorLifecycleService monitorLifecycle;
 
     BotTaskService service;
 
     private User seller;
-    private Parcel parcel;
     private Clock fixed;
 
     @BeforeEach
@@ -85,20 +80,13 @@ class BotTaskServiceTest {
         OwnershipCheckTimestampInitializer ownershipInit =
                 new OwnershipCheckTimestampInitializer(ownershipProps, fixed);
         service = new BotTaskService(
-                botTaskRepo, auctionRepo, parcelRepo, ownershipInit, dispatcher,
+                botTaskRepo, auctionRepo, ownershipInit, dispatcher,
                 monitorLifecycle, fixed);
         injectConfig(service, "sentinelPrice", SENTINEL_PRICE);
         injectConfig(service, "primaryEscrowUuid", ESCROW_UUID);
 
         seller = User.builder().id(42L).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder()
-                .region(com.slparcelauctions.backend.region.Region.builder()
-                        .slUuid(UUID.randomUUID()).name("Coniston")
-                        .gridX(1014.0).gridY(1014.0).maturityRating("MODERATE").build())
-                .id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
-                .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .verified(true).build();
 
         lenient().when(botTaskRepo.save(any(BotTask.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -106,10 +94,8 @@ class BotTaskServiceTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(auctionRepo.saveAndFlush(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(parcelRepo.save(any(Parcel.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                        anyLong(), anyCollection(), anyLong()))
+        lenient().when(auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                        any(UUID.class), anyCollection(), anyLong()))
                 .thenReturn(false);
         lenient().when(botTaskRepo.findByStatusOrderByCreatedAtAsc(any(BotTaskStatus.class)))
                 .thenReturn(List.of());
@@ -212,12 +198,11 @@ class BotTaskServiceTest {
         assertThat(a.getOriginalEndsAt()).isEqualTo(a.getEndsAt());
         assertThat(a.getVerifiedAt()).isEqualTo(OffsetDateTime.now(fixed));
 
-        // Parcel metadata refreshed from payload.
-        assertThat(parcel.getOwnerUuid()).isEqualTo(SELLER_AVATAR);
-        assertThat(parcel.getAreaSqm()).isEqualTo(2048);
-        assertThat(parcel.getRegion().getName()).isEqualTo("Coniston");
-        assertThat(parcel.getPositionX()).isEqualTo(128.0);
-        assertThat(parcel.getLastChecked()).isEqualTo(OffsetDateTime.now(fixed));
+        // Snapshot metadata refreshed from payload.
+        assertThat(a.getParcelSnapshot().getOwnerUuid()).isEqualTo(SELLER_AVATAR);
+        assertThat(a.getParcelSnapshot().getAreaSqm()).isEqualTo(2048);
+        assertThat(a.getParcelSnapshot().getPositionX()).isEqualTo(128.0);
+        assertThat(a.getParcelSnapshot().getLastChecked()).isEqualTo(OffsetDateTime.now(fixed));
 
         verify(auctionRepo).saveAndFlush(a);
     }
@@ -274,18 +259,18 @@ class BotTaskServiceTest {
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
         when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
-        when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
+        when(auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
         Auction blocker = build(AuctionStatus.ACTIVE);
         blocker.setId(999L);
-        when(auctionRepo.findFirstByParcelIdAndStatusIn(
-                PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES))
+        when(auctionRepo.findFirstBySlParcelUuidAndStatusIn(
+                PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));
 
         assertThatThrownBy(() -> service.complete(TASK_ID, success()))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
-                    assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
+                    assertThat(ex.getParcelId()).isEqualTo(AUCTION_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(999L);
                 });
 
@@ -304,7 +289,7 @@ class BotTaskServiceTest {
 
         assertThatThrownBy(() -> service.complete(TASK_ID, success()))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
-                    assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
+                    assertThat(ex.getParcelId()).isEqualTo(AUCTION_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(-1L);
                 });
     }
@@ -491,9 +476,9 @@ class BotTaskServiceTest {
     // -------------------------------------------------------------------------
 
     private Auction build(AuctionStatus status) {
-        return Auction.builder()
+        Auction auction = Auction.builder()
                 .title("Test listing")
-                .id(AUCTION_ID).seller(seller).parcel(parcel).status(status)
+                .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
                 .verificationMethod(VerificationMethod.SALE_TO_BOT)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false)
@@ -504,7 +489,19 @@ class BotTaskServiceTest {
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))
+                .consecutiveWorldApiFailures(0)
                 .build();
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
+                .ownerUuid(SELLER_AVATAR)
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auction;
     }
 
     private BotTask botTask(Long id, Auction auction, BotTaskStatus status) {
@@ -513,8 +510,8 @@ class BotTaskServiceTest {
                 .taskType(BotTaskType.VERIFY)
                 .status(status)
                 .auction(auction)
-                .parcelUuid(auction.getParcel().getSlParcelUuid())
-                .regionName(auction.getParcel().getRegion().getName())
+                .parcelUuid(auction.getSlParcelUuid())
+                .regionName(auction.getParcelSnapshot().getRegionName())
                 .sentinelPrice(SENTINEL_PRICE)
                 .createdAt(OffsetDateTime.now(fixed).minusMinutes(30))
                 .build();

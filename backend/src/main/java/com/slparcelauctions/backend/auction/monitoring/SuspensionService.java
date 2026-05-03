@@ -70,11 +70,11 @@ public class SuspensionService {
                 ? null
                 : evidence.ownerUuid().toString());
         ev.put("detected_owner_type", evidence.ownerType());
-        ev.put("parcel_uuid", auction.getParcel().getSlParcelUuid().toString());
+        ev.put("parcel_uuid", auction.getSlParcelUuid().toString());
 
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(auction.getParcel())
+                .slParcelUuid(auction.getSlParcelUuid())
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(now)
                 .evidenceJson(ev)
@@ -104,11 +104,11 @@ public class SuspensionService {
         auctionRepo.save(auction);
 
         Map<String, Object> ev = new HashMap<>();
-        ev.put("parcel_uuid", auction.getParcel().getSlParcelUuid().toString());
+        ev.put("parcel_uuid", auction.getSlParcelUuid().toString());
 
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(auction.getParcel())
+                .slParcelUuid(auction.getSlParcelUuid())
                 .reason(FraudFlagReason.PARCEL_DELETED_OR_MERGED)
                 .detectedAt(now)
                 .evidenceJson(ev)
@@ -124,7 +124,7 @@ public class SuspensionService {
                 FraudFlagReason.PARCEL_DELETED_OR_MERGED.name());
 
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
-                auction.getId(), auction.getParcel().getSlParcelUuid());
+                auction.getId(), auction.getSlParcelUuid());
     }
 
     /**
@@ -164,17 +164,13 @@ public class SuspensionService {
         } else {
             ev.put("hoursSinceCancellation", null);
         }
-        ev.put("parcelRegion", auction.getParcel().getRegion().getName());
-        // The Parcel entity carries no SL-side "local id" today — surface the
-        // database id as a stable handle so admin tools can join back to the
-        // parcel without leaking SL implementation details. If a future SL
-        // local-id column lands on Parcel, swap this projection in place.
-        ev.put("parcelLocalId", auction.getParcel().getId());
+        ev.put("parcelRegion", auction.getParcelSnapshot().getRegionName());
+        ev.put("parcelUuid", auction.getSlParcelUuid() == null ? null : auction.getSlParcelUuid().toString());
         ev.put("auctionTitle", auction.getTitle());
 
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(auction.getParcel())
+                .slParcelUuid(auction.getSlParcelUuid())
                 .reason(FraudFlagReason.CANCEL_AND_SELL)
                 .detectedAt(now)
                 .evidenceJson(ev)
@@ -207,7 +203,7 @@ public class SuspensionService {
 
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(auction.getParcel())
+                .slParcelUuid(auction.getSlParcelUuid())
                 .reason(reason)
                 .detectedAt(now)
                 .evidenceJson(evidence)

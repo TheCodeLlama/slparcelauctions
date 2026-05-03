@@ -19,16 +19,14 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.parceltag.ParcelTagRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for {@link AuctionSearchPredicateBuilder} against a
@@ -49,7 +47,6 @@ class AuctionSearchPredicateBuilderTest {
 
     @Autowired AuctionSearchPredicateBuilder builder;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired com.slparcelauctions.backend.region.RegionRepository regionRepo;
     @Autowired UserRepository userRepo;
     @Autowired ParcelTagRepository tagRepo;
@@ -206,29 +203,39 @@ class AuctionSearchPredicateBuilderTest {
                 .doesNotContain(theirs.getId());
     }
 
-    private Auction seedActive(String region, int areaSqm, String maturity) {
+    private Auction seedActive(String regionName, int areaSqm, String maturity) {
         com.slparcelauctions.backend.region.Region r = regionRepo.save(
                 com.slparcelauctions.backend.region.Region.builder()
-                        .slUuid(UUID.randomUUID()).name(region)
+                        .slUuid(UUID.randomUUID()).name(regionName)
                         .gridX(1014.0).gridY(1014.0).maturityRating(maturity).build());
-        Parcel p = parcelRepo.save(Parcel.builder()
-                .region(r)
-                .slParcelUuid(UUID.randomUUID())
-                                .areaSqm(areaSqm)
-                                .verified(true)
-                .build());
-        return auctionRepo.save(Auction.builder()
-                .parcel(p)
-                .seller(seller)
+        return seedActiveForSellerWithRegion(seller, r, regionName, areaSqm, maturity);
+    }
+
+    private Auction seedActiveForSellerWithRegion(
+            User s, com.slparcelauctions.backend.region.Region r,
+            String regionName, int areaSqm, String maturity) {
+        UUID parcelUuid = UUID.randomUUID();
+        Auction auction = auctionRepo.save(Auction.builder()
+                .slParcelUuid(parcelUuid)
+                .seller(s)
                 .title("Test")
                 .status(AuctionStatus.ACTIVE)
                 .startingBid(1000L)
                 .currentBid(1000L)
                 .durationHours(168)
+                .consecutiveWorldApiFailures(0)
                 .endsAt(OffsetDateTime.now().plusDays(7))
                 .snipeProtect(false)
                 .verificationTier(VerificationTier.BOT)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .region(r)
+                .regionName(regionName)
+                .regionMaturityRating(maturity)
+                .areaSqm(areaSqm)
+                .build());
+        return auctionRepo.save(auction);
     }
 
     private Auction seedActiveWithTags(Set<ParcelTag> tags) {
@@ -238,23 +245,11 @@ class AuctionSearchPredicateBuilderTest {
     }
 
     private Auction seedActiveForSeller(User s) {
-        Parcel p = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .areaSqm(1024)
-                                .verified(true)
-                .build());
-        return auctionRepo.save(Auction.builder()
-                .parcel(p)
-                .seller(s)
-                .title("Test")
-                .status(AuctionStatus.ACTIVE)
-                .startingBid(1000L)
-                .currentBid(1000L)
-                .durationHours(168)
-                .endsAt(OffsetDateTime.now().plusDays(7))
-                .snipeProtect(false)
-                .verificationTier(VerificationTier.BOT)
-                .build());
+        String regionName = "Coniston-" + UUID.randomUUID();
+        com.slparcelauctions.backend.region.Region r = regionRepo.save(
+                com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name(regionName)
+                        .gridX(1014.0).gridY(1014.0).maturityRating("GENERAL").build());
+        return seedActiveForSellerWithRegion(s, r, regionName, 1024, "GENERAL");
     }
 }

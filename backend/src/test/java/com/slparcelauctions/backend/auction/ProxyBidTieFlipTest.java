@@ -27,8 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -64,7 +62,6 @@ class ProxyBidTieFlipTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired ProxyBidRepository proxyBidRepository;
     @Autowired BidRepository bidRepository;
@@ -81,7 +78,7 @@ class ProxyBidTieFlipTest {
     private Long aId;
     private String bAccessToken;
     private Long bId;
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -100,7 +97,7 @@ class ProxyBidTieFlipTest {
                 "33333333-aaaa-bbbb-cccc-000000000403");
         bId = userRepository.findByEmail("tie-bob@example.com").orElseThrow().getId();
 
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     @Test
@@ -226,7 +223,7 @@ class ProxyBidTieFlipTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.fromString("44444444-4444-4444-4444-000000000404");
         UUID ownerUuid = UUID.fromString("55555555-5555-5555-5555-000000000405");
@@ -247,21 +244,15 @@ class ProxyBidTieFlipTest {
                 22.0), regionUuid)));
         when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
                 Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                        .header("Authorization", "Bearer " + sellerAccessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+        return parcelUuid;
     }
 
     private Auction seedAuction() {
         User seller = userRepository.findById(sellerId).orElseThrow();
+        UUID ownerUuid = UUID.fromString("55555555-5555-5555-5555-000000000405");
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(sellerParcel)
+                .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -280,6 +271,17 @@ class ProxyBidTieFlipTest {
         a.setStartsAt(now.minusHours(1));
         a.setEndsAt(now.plusDays(1));
         a.setOriginalEndsAt(now.plusDays(1));
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(sellerParcelUuid)
+                .ownerUuid(ownerUuid)
+                .ownerType("agent")
+                .parcelName("Tie-flip Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("M_NOT")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 }

@@ -20,11 +20,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.region.Region;
 import com.slparcelauctions.backend.region.RegionRepository;
 import com.slparcelauctions.backend.user.User;
@@ -48,7 +47,6 @@ class AuctionSearchControllerIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired RegionRepository regionRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired StringRedisTemplate redis;
@@ -186,13 +184,10 @@ class AuctionSearchControllerIntegrationTest {
                         .gridX(gridX).gridY(gridY)
                         .maturityRating(maturity)
                         .build()));
-        Parcel p = parcelRepo.save(Parcel.builder()
-                .slParcelUuid(UUID.randomUUID())
-                .region(region)
-                .areaSqm(area)
-                .verified(true).build());
-        auctionRepo.save(Auction.builder()
-                .parcel(p).seller(seller).title("Test")
+        UUID parcelUuid = UUID.randomUUID();
+        Auction a = auctionRepo.save(Auction.builder()
+                .slParcelUuid(parcelUuid)
+                .seller(seller).title("Test")
                 .status(AuctionStatus.ACTIVE)
                 .startingBid(1000L).currentBid(1000L)
                 .endsAt(OffsetDateTime.now().plusDays(7))
@@ -200,5 +195,16 @@ class AuctionSearchControllerIntegrationTest {
                 .snipeProtect(false)
                 .verificationTier(VerificationTier.BOT)
                 .build());
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .region(region)
+                .regionName(regionName)
+                .regionMaturityRating(maturity)
+                .areaSqm(area)
+                .ownerType("agent")
+                .ownerName("Owner")
+                .parcelName(regionName + " Parcel")
+                .build());
+        auctionRepo.save(a);
     }
 }

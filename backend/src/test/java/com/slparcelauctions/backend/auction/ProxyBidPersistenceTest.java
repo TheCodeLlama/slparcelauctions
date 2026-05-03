@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -15,11 +14,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -50,7 +46,6 @@ class ProxyBidPersistenceTest {
 
     @Autowired ProxyBidRepository proxyBidRepository;
     @Autowired AuctionRepository auctionRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
 
     @PersistenceContext EntityManager em;
@@ -60,8 +55,7 @@ class ProxyBidPersistenceTest {
     void save_roundTripsEveryField() {
         User seller = userRepository.save(newUser("seller"));
         User bidder = userRepository.save(newUser("bidder"));
-        Parcel parcel = parcelRepository.save(newParcel());
-        Auction auction = auctionRepository.save(newAuction(seller, parcel));
+        Auction auction = auctionRepository.save(newAuction(seller));
 
         ProxyBid saved = proxyBidRepository.save(ProxyBid.builder()
                 .auction(auction)
@@ -95,8 +89,7 @@ class ProxyBidPersistenceTest {
     void partialUniqueIndexAllowsMultipleNonActiveButRejectsSecondActive() {
         User seller = userRepository.save(newUser("seller"));
         User bidder = userRepository.save(newUser("bidder"));
-        Parcel parcel = parcelRepository.save(newParcel());
-        Auction auction = auctionRepository.save(newAuction(seller, parcel));
+        Auction auction = auctionRepository.save(newAuction(seller));
 
         try {
             ProxyBid active = proxyBidRepository.saveAndFlush(ProxyBid.builder()
@@ -137,7 +130,6 @@ class ProxyBidPersistenceTest {
                             .filter(p -> p.getAuction().getId().equals(auction.getId()))
                             .toList());
             auctionRepository.delete(auction);
-            parcelRepository.delete(parcel);
             userRepository.delete(bidder);
             userRepository.delete(seller);
         }
@@ -153,22 +145,11 @@ class ProxyBidPersistenceTest {
                 .build();
     }
 
-    private static Parcel newParcel() {
-        return Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(UUID.randomUUID())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build();
-    }
-
-    private static Auction newAuction(User seller, Parcel parcel) {
-        return Auction.builder()
+    private static Auction newAuction(User seller) {
+        UUID parcelUuid = UUID.randomUUID();
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -183,5 +164,16 @@ class ProxyBidPersistenceTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return a;
     }
 }

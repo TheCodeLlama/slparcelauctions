@@ -23,14 +23,12 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -49,7 +47,6 @@ class SuspensionServiceSuspendedAtTest {
 
     @Autowired SuspensionService suspensionService;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -57,7 +54,8 @@ class SuspensionServiceSuspendedAtTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, parcelId, auctionId;
+    private Long sellerId, auctionId;
+    private UUID seedParcelUuid;
 
     // The saved auction entity (with real seller/parcel references, not lazy proxies)
     private Auction savedAuction;
@@ -72,25 +70,31 @@ class SuspensionServiceSuspendedAtTest {
                 .build());
             sellerId = seller.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(1024)
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
+            seedParcelUuid = parcelUuid;
             Auction auction = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .title("Test parcel auction")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(100L)
                 .durationHours(24)
+                .consecutiveWorldApiFailures(0)
                 .endsAt(OffsetDateTime.now().plusHours(24))
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("SuspendedAt Test Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction);
             auctionId = auction.getId();
             return auction;
         });
@@ -103,7 +107,6 @@ class SuspensionServiceSuspendedAtTest {
                 fraudFlagRepo.findByAuctionId(auctionId).forEach(fraudFlagRepo::delete);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -115,16 +118,17 @@ class SuspensionServiceSuspendedAtTest {
                 }
             }
         }
-        sellerId = auctionId = parcelId = null;
+        sellerId = auctionId = null;
+        seedParcelUuid = null;
     }
 
     private ParcelMetadata evidenceFor(Auction auction) {
         return new ParcelMetadata(
-            auction.getParcel().getSlParcelUuid(),
+            auction.getSlParcelUuid(),
             UUID.randomUUID(),
             "agent", null,
             "TestRegion",
-            auction.getParcel().getRegion().getName(),
+            "Coniston",
             null, null, null, null, null, null, null);
     }
 

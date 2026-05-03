@@ -16,6 +16,7 @@ import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { IconButton } from "@/components/ui/IconButton";
 import { EscrowChip } from "@/components/escrow/EscrowChip";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
@@ -70,7 +71,7 @@ export function ListingSummaryRow({
   className,
 }: ListingSummaryRowProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
-  const thumb = auction.photos[0]?.url ?? auction.parcel.snapshotUrl ?? null;
+  const thumb = apiUrl(auction.photos[0]?.url ?? auction.parcel.snapshotUrl);
   // Seller-authored title is the primary row label. Parcel name +
   // region fall through as the secondary line (spec §6.3 post sub-spec 2).
   // Legacy rows with no title fall back to parcel.description so pre-

@@ -30,15 +30,13 @@ import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.review.Review;
 import com.slparcelauctions.backend.review.ReviewRepository;
 import com.slparcelauctions.backend.review.ReviewService;
 import com.slparcelauctions.backend.review.ReviewedRole;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for review-reveal notifications.
@@ -62,7 +60,6 @@ class ReviewNotificationIntegrationTest {
     @Autowired ReviewRepository reviewRepo;
     @Autowired AuctionRepository auctionRepo;
     @Autowired EscrowRepository escrowRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired NotificationRepository notifRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -70,7 +67,7 @@ class ReviewNotificationIntegrationTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, winnerId, auctionId, parcelId, escrowId, reviewId;
+    private Long sellerId, winnerId, auctionId, escrowId, reviewId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -78,7 +75,6 @@ class ReviewNotificationIntegrationTest {
             if (reviewId != null) reviewRepo.findById(reviewId).ifPresent(reviewRepo::delete);
             if (escrowId != null) escrowRepo.findById(escrowId).ifPresent(escrowRepo::delete);
             if (auctionId != null) auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -92,7 +88,7 @@ class ReviewNotificationIntegrationTest {
                 }
             }
         }
-        sellerId = winnerId = auctionId = parcelId = escrowId = reviewId = null;
+        sellerId = winnerId = auctionId = escrowId = reviewId = null;
     }
 
     private User newUser(String prefix) {
@@ -109,18 +105,10 @@ class ReviewNotificationIntegrationTest {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
             User seller = userRepo.findById(sellerId).orElseThrow();
             User winner = userRepo.findById(winnerId).orElseThrow();
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerType("agent")
-                                                            .areaSqm(256)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             Auction a = auctionRepo.save(Auction.builder()
                     .title("Review Test Lot")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .endOutcome(AuctionEndOutcome.SOLD)
@@ -144,6 +132,13 @@ class ReviewNotificationIntegrationTest {
                     .endedAt(OffsetDateTime.now().minusDays(9))
                     .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid).ownerType("agent")
+                    .ownerName("Seller").parcelName("Review Notification Parcel")
+                    .regionName("Mainland").areaSqm(256)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             OffsetDateTime completedAt = OffsetDateTime.now().minusDays(8);
             Escrow e = escrowRepo.save(Escrow.builder()
                     .auction(a)

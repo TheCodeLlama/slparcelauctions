@@ -47,13 +47,11 @@ import com.slparcelauctions.backend.escrow.command.TerminalHttpClient;
 import com.slparcelauctions.backend.escrow.scheduler.TerminalCommandDispatcherJob;
 import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration coverage for the retry state machine in
@@ -108,7 +106,6 @@ class TerminalCommandRetryIntegrationTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
     @Autowired ProxyBidRepository proxyBidRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
@@ -118,7 +115,6 @@ class TerminalCommandRetryIntegrationTest {
     private Long seededAuctionId;
     private Long seededEscrowId;
     private Long seededCommandId;
-    private Long seededParcelId;
     private Long seededSellerId;
     private Long seededBidderId;
 
@@ -141,9 +137,6 @@ class TerminalCommandRetryIntegrationTest {
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
-            if (seededParcelId != null) {
-                parcelRepo.findById(seededParcelId).ifPresent(parcelRepo::delete);
-            }
             for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
                 if (userId == null) continue;
                 refreshTokenRepo.findAllByUserId(userId).forEach(refreshTokenRepo::delete);
@@ -158,7 +151,6 @@ class TerminalCommandRetryIntegrationTest {
         seededAuctionId = null;
         seededEscrowId = null;
         seededCommandId = null;
-        seededParcelId = null;
         seededSellerId = null;
         seededBidderId = null;
     }
@@ -243,20 +235,12 @@ class TerminalCommandRetryIntegrationTest {
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
                     .build());
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(bidder.getSlAvatarUuid())
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -279,6 +263,18 @@ class TerminalCommandRetryIntegrationTest {
                     .winnerUserId(bidder.getId())
                     .finalBidAmount(finalBid)
                     .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(bidder.getSlAvatarUuid())
+                    .ownerType("agent")
+                    .parcelName("Retry Test Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(auction);
+
             Escrow escrow = escrowRepo.save(Escrow.builder()
                     .auction(auction)
                     .state(EscrowState.TRANSFER_PENDING)
@@ -315,7 +311,6 @@ class TerminalCommandRetryIntegrationTest {
 
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();
-            seededParcelId = parcel.getId();
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
             seededCommandId = cmd.getId();

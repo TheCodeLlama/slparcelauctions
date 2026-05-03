@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,6 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.testsupport.TestRegions;
@@ -49,7 +49,6 @@ class CancellationServiceTest {
     CancellationService service;
 
     private User seller;
-    private Parcel parcel;
     private Clock fixed;
     private CancellationPenaltyProperties penaltyProps;
 
@@ -67,8 +66,6 @@ class CancellationServiceTest {
                 .penaltyBalanceOwed(0L)
                 .bannedFromListing(false)
                 .build();
-        parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(100L).build();
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(userRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(seller));
     }
@@ -251,10 +248,12 @@ class CancellationServiceTest {
     // Helpers
     // -------------------------------------------------------------------------
 
+    private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
     private Auction build(AuctionStatus status, boolean listingFeePaid, int bidCount) {
-        return Auction.builder()
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .id(1L).seller(seller).parcel(parcel).status(status)
+                .id(1L).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false)
@@ -266,5 +265,16 @@ class CancellationServiceTest {
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
+                .ownerUuid(UUID.fromString("44444444-4444-4444-4444-444444444444"))
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .region(TestRegions.mainland())
+                .regionName("Coniston").regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return a;
     }
 }

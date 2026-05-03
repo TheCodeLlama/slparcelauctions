@@ -26,16 +26,14 @@ import com.slparcelauctions.backend.admin.reports.exception.AuctionNotReportable
 import com.slparcelauctions.backend.admin.reports.exception.CannotReportOwnListingException;
 import com.slparcelauctions.backend.admin.reports.exception.MustBeVerifiedToReportException;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -55,7 +53,6 @@ class UserReportServiceTest {
     @Autowired UserReportService service;
     @Autowired ListingReportRepository reportRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
@@ -64,7 +61,6 @@ class UserReportServiceTest {
 
     private Long sellerId;
     private Long reporterId;
-    private Long parcelId;
     private Long auctionId;
 
     @BeforeEach
@@ -86,17 +82,10 @@ class UserReportServiceTest {
                 .build());
             reporterId = reporter.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(1024)
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             Auction auction = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .title("Reportable Auction")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -104,25 +93,33 @@ class UserReportServiceTest {
                 .startingBid(100L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
+                .consecutiveWorldApiFailures(0)
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Reportable Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction);
             auctionId = auction.getId();
         });
     }
 
     @AfterEach
     void cleanup() throws Exception {
-        new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            if (auctionId != null) {
-                reportRepo.deleteAll(reportRepo.findByAuctionIdOrderByCreatedAtDesc(auctionId));
-                auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
-            }
-            if (parcelId != null) {
-                parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
-            }
-        });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
             try (var st = conn.createStatement()) {
+                if (auctionId != null) {
+                    st.execute("DELETE FROM listing_reports WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auctions WHERE id = " + auctionId);
+                }
                 if (reporterId != null) {
                     st.execute("DELETE FROM notification WHERE user_id = " + reporterId);
                     st.execute("DELETE FROM refresh_tokens WHERE user_id = " + reporterId);
@@ -135,7 +132,7 @@ class UserReportServiceTest {
                 }
             }
         }
-        sellerId = reporterId = parcelId = auctionId = null;
+        sellerId = reporterId = auctionId = null;
     }
 
     // -------------------------------------------------------------------------

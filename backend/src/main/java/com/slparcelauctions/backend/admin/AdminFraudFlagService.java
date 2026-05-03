@@ -195,8 +195,8 @@ public class AdminFraudFlagService {
             auctionStatus = auction.getStatus();
         }
 
-        if (flag.getParcel() != null) {
-            parcelRegionName = flag.getParcel().getRegion().getName();
+        if (auction != null && auction.getParcelSnapshot() != null) {
+            parcelRegionName = auction.getParcelSnapshot().getRegionName();
         }
 
         return new AdminFraudFlagSummaryDto(

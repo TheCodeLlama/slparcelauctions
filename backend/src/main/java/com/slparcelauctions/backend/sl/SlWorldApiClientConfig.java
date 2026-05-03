@@ -15,6 +15,17 @@ import reactor.netty.http.client.HttpClient;
 @Configuration
 public class SlWorldApiClientConfig {
 
+    /**
+     * Exposes a default {@link WebClient.Builder} so that services like
+     * {@link com.slparcelauctions.backend.auction.ParcelSnapshotPhotoService}
+     * can inject a builder for one-off HTTP calls without a pre-configured
+     * base URL.
+     */
+    @Bean
+    public WebClient.Builder webClientBuilder() {
+        return WebClient.builder();
+    }
+
     @Bean
     public WebClient slWorldApiWebClient(
             @Value("${slpa.world-api.base-url}") String baseUrl,

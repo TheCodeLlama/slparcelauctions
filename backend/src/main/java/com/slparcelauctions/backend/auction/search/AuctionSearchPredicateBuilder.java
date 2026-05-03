@@ -16,6 +16,7 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -82,8 +83,8 @@ public class AuctionSearchPredicateBuilder {
     private void addFilterPredicates(
             List<Predicate> predicates, AuctionSearchQuery q,
             Root<Auction> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
-        Join<Object, Object> parcel = root.join("parcel");
-        Join<Object, Object> region = parcel.join("region");
+        Join<Object, Object> parcel = root.join("parcelSnapshot");
+        Join<Object, Object> region = parcel.join("region", JoinType.LEFT);
 
         if (q.region() != null && !q.region().isBlank()) {
             predicates.add(cb.equal(
@@ -138,8 +139,8 @@ public class AuctionSearchPredicateBuilder {
             AuctionSearchQuery q, double x0, double y0, int radius) {
         Specification<Auction> base = build(q);
         return base.and((root, query, cb) -> {
-            Join<Object, Object> parcel = root.join("parcel");
-            Join<Object, Object> region = parcel.join("region");
+            Join<Object, Object> parcel = root.join("parcelSnapshot");
+            Join<Object, Object> region = parcel.join("region", JoinType.LEFT);
 
             Expression<Double> dx = cb.diff(region.<Double>get("gridX"), cb.literal(x0));
             Expression<Double> dy = cb.diff(region.<Double>get("gridY"), cb.literal(y0));

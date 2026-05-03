@@ -1,7 +1,6 @@
 package com.slparcelauctions.backend.parcel;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,7 +62,6 @@ class ParcelControllerIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean SlWorldApiClient worldApi;
@@ -86,7 +84,7 @@ class ParcelControllerIntegrationTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void lookup_newMainlandUuid_returns200AndPersistsParcel() throws Exception {
+    void lookup_newMainlandUuid_returns200WithParcelData() throws Exception {
         UUID parcelUuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID ownerUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
         stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 1014.0, 1014.0);
@@ -104,16 +102,12 @@ class ParcelControllerIntegrationTest {
                 .andExpect(jsonPath("$.positionX").value(128.0))
                 .andExpect(jsonPath("$.positionY").value(64.0))
                 .andExpect(jsonPath("$.positionZ").value(22.0));
-
-        assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }
 
     @Test
     void lookup_sameUuidTwice_secondCallReFetchesFromSL() throws Exception {
         // Lookup is user-initiated (the seller hits the Lookup button) and
-        // must reflect current SL state. The parcels row is reused as a
-        // stable FK target — same row id across calls — but its
-        // SL-sourced fields are refreshed every time.
+        // must reflect current SL state. Both calls hit the SL World API.
         UUID parcelUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
         UUID ownerUuid = UUID.fromString("66666666-6666-6666-6666-666666666666");
         stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 1014.0, 1014.0);
@@ -126,8 +120,8 @@ class ParcelControllerIntegrationTest {
                 .content(body))
                 .andExpect(status().isOk())
                 .andReturn();
-        Long firstId = objectMapper.readTree(first.getResponse().getContentAsString())
-                .get("id").asLong();
+        String firstUuid = objectMapper.readTree(first.getResponse().getContentAsString())
+                .get("slParcelUuid").asText();
 
         MvcResult second = mockMvc.perform(post("/api/v1/parcels/lookup")
                 .header("Authorization", "Bearer " + verifiedAccessToken)
@@ -135,13 +129,12 @@ class ParcelControllerIntegrationTest {
                 .content(body))
                 .andExpect(status().isOk())
                 .andReturn();
-        Long secondId = objectMapper.readTree(second.getResponse().getContentAsString())
-                .get("id").asLong();
+        String secondUuid = objectMapper.readTree(second.getResponse().getContentAsString())
+                .get("slParcelUuid").asText();
 
-        assertThat(secondId).isEqualTo(firstId);
+        assertThat(secondUuid).isEqualTo(firstUuid);
         verify(worldApi, times(2)).fetchParcelPage(parcelUuid);
         verify(worldApi, times(2)).fetchRegionPage(org.mockito.ArgumentMatchers.any(java.util.UUID.class));
-        assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }
 
     // -------------------------------------------------------------------------

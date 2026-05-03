@@ -24,17 +24,15 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -53,7 +51,6 @@ class SuspensionServiceSuspendByAdminTest {
 
     @Autowired SuspensionService suspensionService;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
     @Autowired NotificationRepository notificationRepo;
@@ -63,7 +60,6 @@ class SuspensionServiceSuspendByAdminTest {
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
     private Long sellerId;
-    private Long parcelId;
     private Long auctionId;
     private Auction savedAuction;
 
@@ -77,25 +73,30 @@ class SuspensionServiceSuspendByAdminTest {
                 .build());
             sellerId = seller.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(1024)
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             Auction auction = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .title("Test parcel auction")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(100L)
                 .durationHours(24)
+                .consecutiveWorldApiFailures(0)
                 .endsAt(OffsetDateTime.now().plusHours(24))
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Admin Suspend Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction);
             auctionId = auction.getId();
             return auction;
         });
@@ -108,7 +109,6 @@ class SuspensionServiceSuspendByAdminTest {
                 fraudFlagRepo.findByAuctionId(auctionId).forEach(fraudFlagRepo::delete);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -120,7 +120,7 @@ class SuspensionServiceSuspendByAdminTest {
                 }
             }
         }
-        sellerId = auctionId = parcelId = null;
+        sellerId = auctionId = null;
     }
 
     @Test

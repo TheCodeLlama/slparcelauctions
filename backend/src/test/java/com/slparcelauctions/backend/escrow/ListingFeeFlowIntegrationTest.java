@@ -40,13 +40,11 @@ import com.slparcelauctions.backend.escrow.payment.dto.SlCallbackResponse;
 import com.slparcelauctions.backend.escrow.scheduler.ListingFeeRefundProcessorJob;
 import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end coverage for the listing-fee flow shipped by Epic 05 sub-spec 1
@@ -105,7 +103,6 @@ class ListingFeeFlowIntegrationTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
     @Autowired ProxyBidRepository proxyBidRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
@@ -116,7 +113,6 @@ class ListingFeeFlowIntegrationTest {
     @Autowired PlatformTransactionManager txManager;
 
     private Long seededAuctionId;
-    private Long seededParcelId;
     private Long seededSellerId;
     private Long seededRefundId;
     private Long seededCommandId;
@@ -141,9 +137,6 @@ class ListingFeeFlowIntegrationTest {
                 proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
                 auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
             }
-            if (seededParcelId != null) {
-                parcelRepo.findById(seededParcelId).ifPresent(parcelRepo::delete);
-            }
             if (seededSellerId != null) {
                 refreshTokenRepo.findAllByUserId(seededSellerId).forEach(refreshTokenRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(seededSellerId,
@@ -155,7 +148,6 @@ class ListingFeeFlowIntegrationTest {
             terminalRepo.findById(TERMINAL_ID).ifPresent(terminalRepo::delete);
         });
         seededAuctionId = null;
-        seededParcelId = null;
         seededSellerId = null;
         seededRefundId = null;
         seededCommandId = null;
@@ -330,19 +322,11 @@ class ListingFeeFlowIntegrationTest {
                     .slAvatarUuid(sellerUuid)
                     .verified(true)
                     .build());
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(sellerUuid)
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.DRAFT)
                     .startingBid(500L)
@@ -357,6 +341,17 @@ class ListingFeeFlowIntegrationTest {
                     .commissionRate(new BigDecimal("0.05"))
                     .agentFeeRate(BigDecimal.ZERO)
                     .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(sellerUuid)
+                    .ownerType("agent")
+                    .parcelName("Listing Fee Test Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(auction);
             terminalRepo.save(Terminal.builder()
                     .terminalId(TERMINAL_ID)
                     .httpInUrl(HTTP_IN_URL)
@@ -367,7 +362,6 @@ class ListingFeeFlowIntegrationTest {
 
             seededSellerId = seller.getId();
             seededSellerAvatarUuid = sellerUuid;
-            seededParcelId = parcel.getId();
             seededAuctionId = auction.getId();
         });
     }

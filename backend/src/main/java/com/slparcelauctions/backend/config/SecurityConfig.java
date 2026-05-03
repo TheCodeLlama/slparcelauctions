@@ -133,10 +133,11 @@ public class SecurityConfig {
                         // the /api/v1/** authenticated catch-all.
                         // FOOTGUNS §B.5: matcher order is first-match-wins.
                         .requestMatchers(HttpMethod.GET, "/api/v1/parcel-tags").permitAll()
-                        // Public listing-photo byte proxy. Must come before the
-                        // /api/v1/** catch-all and before the seller-only upload
-                        // endpoint. FOOTGUNS §B.5: matcher order is first-match-wins.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*/photos/*/bytes").permitAll()
+                        // Public photo byte proxy (flat URL: /api/v1/photos/{id}).
+                        // Serves both seller-uploaded and SL_PARCEL_SNAPSHOT photos.
+                        // Must come before the /api/v1/** catch-all.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/photos/*").permitAll()
                         // Authenticated seller-only upload + delete.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auctions/*/photos").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/auctions/*/photos/**").authenticated()

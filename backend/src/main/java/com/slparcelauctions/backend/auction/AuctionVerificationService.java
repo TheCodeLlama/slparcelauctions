@@ -22,7 +22,6 @@ import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
 import com.slparcelauctions.backend.bot.BotTaskStatus;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
@@ -125,7 +124,7 @@ public class AuctionVerificationService {
 
         // Group-owned land can only be verified via the sale-to-bot path —
         // UUID_ENTRY and REZZABLE both assume the seller's avatar is the owner.
-        if ("group".equalsIgnoreCase(a.getParcel().getOwnerType())
+        if ("group".equalsIgnoreCase(a.getParcelSnapshot().getOwnerType())
                 && method != VerificationMethod.SALE_TO_BOT) {
             throw new GroupLandRequiresSaleToBotException();
         }
@@ -186,12 +185,12 @@ public class AuctionVerificationService {
      * the two terminal states for this flow.
      */
     private Auction dispatchMethodA(Auction a) {
-        Parcel parcel = a.getParcel();
+        AuctionParcelSnapshot snapshot = a.getParcelSnapshot();
         User seller = a.getSeller();
 
         ParcelMetadata fresh;
         try {
-            fresh = worldApi.fetchParcelPage(parcel.getSlParcelUuid())
+            fresh = worldApi.fetchParcelPage(a.getSlParcelUuid())
                     .map(com.slparcelauctions.backend.sl.dto.ParcelPageData::parcel)
                     .block();
         } catch (RuntimeException e) {
@@ -222,10 +221,10 @@ public class AuctionVerificationService {
         // concurrent race that slips past this check.
         assertParcelNotLocked(a);
 
-        // Refresh parcel ownership fields from fresh World API data.
-        parcel.setOwnerUuid(fresh.ownerUuid());
-        parcel.setOwnerType(fresh.ownerType());
-        parcel.setLastChecked(OffsetDateTime.now(clock));
+        // Refresh snapshot ownership fields from fresh World API data.
+        snapshot.setOwnerUuid(fresh.ownerUuid());
+        snapshot.setOwnerType(fresh.ownerType());
+        snapshot.setLastChecked(OffsetDateTime.now(clock));
 
         OffsetDateTime now = OffsetDateTime.now(clock);
         OffsetDateTime ends = now.plusHours(a.getDurationHours());
@@ -255,7 +254,7 @@ public class AuctionVerificationService {
             // Postgres partial unique index tripped — concurrent race lost.
             log.warn("Method A verification lost parcel-lock race for auction {}: {}",
                     a.getId(), e.getMessage());
-            throw new ParcelAlreadyListedException(parcel.getId(), -1L);
+            throw new ParcelAlreadyListedException(a.getId(), -1L);
         }
     }
 
@@ -274,16 +273,16 @@ public class AuctionVerificationService {
      * {@code VERIFICATION_PENDING} and therefore not locking).
      */
     private void assertParcelNotLocked(Auction candidate) {
-        Long parcelId = candidate.getParcel().getId();
-        boolean exists = auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                parcelId, AuctionStatusConstants.LOCKING_STATUSES, candidate.getId());
+        UUID slParcelUuid = candidate.getSlParcelUuid();
+        boolean exists = auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                slParcelUuid, AuctionStatusConstants.LOCKING_STATUSES, candidate.getId());
         if (!exists) return;
 
         Long blockingId = auctionRepo
-                .findFirstByParcelIdAndStatusIn(parcelId, AuctionStatusConstants.LOCKING_STATUSES)
+                .findFirstBySlParcelUuidAndStatusIn(slParcelUuid, AuctionStatusConstants.LOCKING_STATUSES)
                 .map(Auction::getId)
                 .orElse(-1L);
-        throw new ParcelAlreadyListedException(parcelId, blockingId);
+        throw new ParcelAlreadyListedException(candidate.getId(), blockingId);
     }
 
     /**

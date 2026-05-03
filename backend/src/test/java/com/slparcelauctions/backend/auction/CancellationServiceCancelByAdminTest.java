@@ -21,12 +21,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration tests for {@link CancellationService#cancelByAdmin}.
@@ -57,7 +54,6 @@ class CancellationServiceCancelByAdminTest {
     @Autowired CancellationService cancellationService;
     @Autowired AuctionRepository auctionRepo;
     @Autowired CancellationLogRepository cancellationLogRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired NotificationRepository notifRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -65,7 +61,7 @@ class CancellationServiceCancelByAdminTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, adminId, auctionId, parcelId;
+    private Long sellerId, adminId, auctionId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -75,10 +71,8 @@ class CancellationServiceCancelByAdminTest {
                 if (auctionId != null) {
                     st.execute("DELETE FROM cancellation_logs WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM bids WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                }
-                if (parcelId != null) {
-                    st.execute("DELETE FROM parcels WHERE id = " + parcelId);
                 }
             }
         } catch (Exception ignored) {
@@ -97,7 +91,7 @@ class CancellationServiceCancelByAdminTest {
                 }
             }
         }
-        sellerId = adminId = auctionId = parcelId = null;
+        sellerId = adminId = auctionId = null;
     }
 
     private User newUser(String prefix, Role role) {
@@ -115,19 +109,10 @@ class CancellationServiceCancelByAdminTest {
 
     private Auction buildActiveAuction(User seller, int bidCount) {
         return new TransactionTemplate(txManager).execute(s -> {
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(seller.getSlAvatarUuid())
-                    .ownerType("agent")
-                                                            .areaSqm(512)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             Auction a = auctionRepo.save(Auction.builder()
                     .title("Admin Cancel Test Lot")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -145,6 +130,17 @@ class CancellationServiceCancelByAdminTest {
                     .endsAt(OffsetDateTime.now().plusHours(24))
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))
                     .build());
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(seller.getSlAvatarUuid())
+                    .ownerType("agent")
+                    .parcelName("Cancel Test Parcel")
+                    .regionName("Test Region")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(512)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             auctionId = a.getId();
             return a;
         });
