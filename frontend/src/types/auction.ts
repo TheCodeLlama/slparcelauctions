@@ -145,7 +145,7 @@ export type AuctionDurationHours = 24 | 48 | 72 | 168 | 336;
 export type AuctionSnipeWindowMin = 5 | 10 | 15 | 30 | 60;
 
 export interface AuctionCreateRequest {
-  parcelId: number;
+  slParcelUuid: string;
   /**
    * Seller-authored display title. Required by the backend (sub-spec 1
    * Task 2); validated 1–120 chars. The wizard trims whitespace before
@@ -163,7 +163,7 @@ export interface AuctionCreateRequest {
 }
 
 export type AuctionUpdateRequest = Partial<
-  Omit<AuctionCreateRequest, "parcelId">
+  Omit<AuctionCreateRequest, "slParcelUuid">
 >;
 
 export interface AuctionVerifyRequest {
