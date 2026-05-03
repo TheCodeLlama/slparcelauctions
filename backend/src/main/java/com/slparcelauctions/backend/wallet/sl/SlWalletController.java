@@ -54,8 +54,15 @@ public class SlWalletController {
             @Valid @RequestBody SlWalletDepositRequest req) {
         headerValidator.validate(shard, ownerKey);
         terminalService.assertSharedSecret(req.sharedSecret());
+        // Deposit is L$-bearing — when ANY deposit-time check fails, the
+        // L$ is already in the script's hands and we instruct it to refund.
+        // Returning ERROR (script logs only, no bounce) would steal from the
+        // payer, so unrecognised terminals / unparseable payer UUIDs are
+        // mapped to REFUND too. Only the upstream auth failures
+        // (header / shared-secret) remain ERROR — those throw before we
+        // get here and indicate an attacker, not a real payer.
         if (!terminalRepository.existsById(req.terminalId())) {
-            return SlWalletResponse.error(SlWalletResponseReason.UNKNOWN_TERMINAL,
+            return SlWalletResponse.refund(SlWalletResponseReason.UNKNOWN_TERMINAL,
                     "terminalId not registered");
         }
         // Authenticated traffic from this terminal keeps it "live" in the
@@ -69,7 +76,7 @@ public class SlWalletController {
         try {
             payerUuid = UUID.fromString(req.payerUuid());
         } catch (IllegalArgumentException e) {
-            return SlWalletResponse.error(SlWalletResponseReason.UNKNOWN_TERMINAL,
+            return SlWalletResponse.refund(SlWalletResponseReason.UNKNOWN_TERMINAL,
                     "payerUuid not parseable as UUID");
         }
 

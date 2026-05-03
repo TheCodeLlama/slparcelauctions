@@ -11,10 +11,16 @@ backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
   withdraw-request / payout-result requests. Inbound HTTP-in: shared-secret
   check on every command.
 - **Deposit flow (lockless):** Right-click → Pay → enter L$ amount → `money()`
-  fires → POST to `/sl/wallet/deposit` → OK / REFUND / ERROR. On REFUND, the
-  script `llTransferLindenDollars` to bounce; on ERROR, owner-say only (could
-  be an attacker probing). Background retry: 10s / 30s / 90s / 5m / 15m.
-  Multiple users can pay simultaneously — `money()` is naturally reentrant.
+  fires → POST to `/sl/wallet/deposit` → OK / REFUND / ERROR. On REFUND **and
+  ERROR**, the script `llTransferLindenDollars` to bounce — the payer's L$
+  is in our hands, so any non-OK response refunds. The earlier "ERROR
+  could be an attacker probe, owner-say only" stance was unfounded:
+  pre-flight `X-SecondLife-Shard` + `X-SecondLife-Owner-Key` + shared-secret
+  validation already throws before any L$-bearing code path runs, so an
+  ERROR reaching the deposit response handler implies a legitimate payer
+  with an unhandled failure (unknown terminal id, unparseable payer uuid,
+  etc). Background retry: 10s / 30s / 90s / 5m / 15m. Multiple users can
+  pay simultaneously — `money()` is naturally reentrant.
 - **Touch flow:** touch → `llDialog` `[Deposit, Withdraw]` (no lock acquired).
   Deposit selection → `llRegionSayTo` instructions, no state. Withdraw
   selection → acquire per-flow slot → text-box for amount → confirm dialog →
@@ -97,6 +103,9 @@ In steady state with `DEBUG_MODE=true`:
 - `SLPA Terminal: deposit ok L$<amount> from <payer>` — successful deposit POST.
 - `SLPA Terminal: deposit refunded (UNKNOWN_PAYER) L$<amount> to <payer>` —
   bounced an unknown-payer deposit.
+- `SLPA Terminal: deposit refunded on ERROR (<reason>) L$<amount> to <payer>` —
+  backend returned a non-REFUND error code (e.g. UNKNOWN_TERMINAL); the
+  script bounces the L$ regardless so the payer is never out money.
 - `SLPA Terminal: deposit retry N/5: status=...` — transient, retrying.
 - `SLPA Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
 - `SLPA Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
