@@ -4,6 +4,17 @@ import { TrustStrip } from "@/components/marketing/TrustStrip";
 import { fetchFeatured } from "@/lib/api/auctions-search";
 
 /**
+ * Render at request time, never at build time. Static prerendering would
+ * couple the Amplify build to whatever the backend happens to return at
+ * build time — a single bad-shape field on a featured auction (e.g. an
+ * accidentally-leaked entity row inside a list) crashes the build and
+ * blocks every other page from deploying. The home page's data
+ * (countdowns, current bids) changes on every visit anyway, so a static
+ * snapshot is never the right cache.
+ */
+export const dynamic = "force-dynamic";
+
+/**
  * Homepage server component. Fans out the three featured-rail fetches under
  * a single Promise.allSettled so one endpoint's 5xx doesn't cascade into a
  * full-page 500 — failing rails render a neutral placeholder instead.
