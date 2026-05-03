@@ -304,25 +304,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
         <div className="flex flex-col gap-6">
           <FormError message={error ?? undefined} />
           <section className="flex flex-col gap-2">
-            <label
-              htmlFor="listing-title"
-              className="text-xs font-medium font-semibold tracking-wider uppercase text-fg-muted"
-            >
-              Listing Title
-            </label>
-            <p className="text-xs text-fg-muted">
-              A short, punchy headline for your listing (max 120 characters).
-            </p>
-            <TitleField
-              value={draft.state.title ?? ""}
-              onChange={(next) => {
-                draft.setTitle(next);
-                if (titleError) setTitleError(null);
-              }}
-              error={titleError}
-            />
-          </section>
-          <section className="flex flex-col gap-2">
             <h2 className="text-sm font-semibold tracking-tight text-fg">Parcel</h2>
             <ParcelLookupField
               initialParcel={parcel}
@@ -332,6 +313,25 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
           </section>
           {parcel && (
             <>
+              <section className="flex flex-col gap-2">
+                <label
+                  htmlFor="listing-title"
+                  className="text-xs font-medium font-semibold tracking-wider uppercase text-fg-muted"
+                >
+                  Listing Title
+                </label>
+                <p className="text-xs text-fg-muted">
+                  A short, punchy headline for your listing (max 120 characters).
+                </p>
+                <TitleField
+                  value={draft.state.title ?? ""}
+                  onChange={(next) => {
+                    draft.setTitle(next);
+                    if (titleError) setTitleError(null);
+                  }}
+                  error={titleError}
+                />
+              </section>
               <section className="flex flex-col gap-3">
                 <h2 className="text-sm font-semibold tracking-tight text-fg">
                   Auction settings

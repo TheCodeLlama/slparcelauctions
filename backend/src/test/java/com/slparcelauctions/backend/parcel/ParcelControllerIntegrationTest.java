@@ -109,28 +109,38 @@ class ParcelControllerIntegrationTest {
     }
 
     @Test
-    void lookup_sameUuidTwice_secondCallIsCacheHit() throws Exception {
+    void lookup_sameUuidTwice_secondCallReFetchesFromSL() throws Exception {
+        // Lookup is user-initiated (the seller hits the Lookup button) and
+        // must reflect current SL state. The parcels row is reused as a
+        // stable FK target — same row id across calls — but its
+        // SL-sourced fields are refreshed every time.
         UUID parcelUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
         UUID ownerUuid = UUID.fromString("66666666-6666-6666-6666-666666666666");
         stubMainlandMetadata(parcelUuid, ownerUuid, "Coniston", 1014.0, 1014.0);
 
         String body = objectMapper.writeValueAsString(new ParcelLookupRequest(parcelUuid));
 
-        mockMvc.perform(post("/api/v1/parcels/lookup")
+        MvcResult first = mockMvc.perform(post("/api/v1/parcels/lookup")
                 .header("Authorization", "Bearer " + verifiedAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+        Long firstId = objectMapper.readTree(first.getResponse().getContentAsString())
+                .get("id").asLong();
 
-        mockMvc.perform(post("/api/v1/parcels/lookup")
+        MvcResult second = mockMvc.perform(post("/api/v1/parcels/lookup")
                 .header("Authorization", "Bearer " + verifiedAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+        Long secondId = objectMapper.readTree(second.getResponse().getContentAsString())
+                .get("id").asLong();
 
-        // Second call must not hit external APIs
-        verify(worldApi, times(1)).fetchParcelPage(parcelUuid);
-        verify(worldApi, times(1)).fetchRegionPage(org.mockito.ArgumentMatchers.any(java.util.UUID.class));
+        assertThat(secondId).isEqualTo(firstId);
+        verify(worldApi, times(2)).fetchParcelPage(parcelUuid);
+        verify(worldApi, times(2)).fetchRegionPage(org.mockito.ArgumentMatchers.any(java.util.UUID.class));
         assertThat(parcelRepository.findBySlParcelUuid(parcelUuid)).isPresent();
     }
 

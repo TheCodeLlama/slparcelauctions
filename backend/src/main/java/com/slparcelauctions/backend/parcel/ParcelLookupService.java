@@ -46,38 +46,49 @@ public class ParcelLookupService {
 
     @Transactional
     public ParcelResponse lookup(UUID slParcelUuid) {
-        Optional<Parcel> existing = repo.findBySlParcelUuid(slParcelUuid);
-        if (existing.isPresent()) {
-            return ParcelResponse.from(existing.get());
-        }
-
+        // Lookup is user-initiated (the seller hits the Lookup button) — it
+        // must reflect current SL state. The parcels row exists as a stable
+        // FK target so multiple drafts can share it; we update its
+        // SL-sourced fields in place rather than caching across lookups.
         ParcelPageData parcelPage = worldApi.fetchParcelPage(slParcelUuid).block();
         RegionPageData regionPage = worldApi.fetchRegionPage(parcelPage.regionUuid()).block();
         Region region = regionService.upsert(regionPage);
 
         ParcelMetadata meta = parcelPage.parcel();
         OffsetDateTime now = OffsetDateTime.now(clock);
-        Parcel parcel = Parcel.builder()
+
+        Optional<Parcel> existing = repo.findBySlParcelUuid(slParcelUuid);
+        Parcel parcel = existing.orElseGet(() -> Parcel.builder()
                 .slParcelUuid(slParcelUuid)
-                .region(region)
-                .ownerUuid(meta.ownerUuid())
-                .ownerType(meta.ownerType())
-                .ownerName(meta.ownerName())
-                .parcelName(meta.parcelName())
-                .areaSqm(meta.areaSqm())
-                .description(meta.description())
-                .snapshotUrl(meta.snapshotUrl())
-                .positionX(meta.positionX())
-                .positionY(meta.positionY())
-                .positionZ(meta.positionZ())
-                .slurl(buildSlurl(region.getName(), meta.positionX(), meta.positionY(), meta.positionZ()))
                 .verified(true)
                 .verifiedAt(now)
-                .lastChecked(now)
-                .build();
-        parcel = repo.save(parcel);
-        log.info("Parcel row created: id={}, uuid={}, region_id={}, region={}",
-                parcel.getId(), slParcelUuid, region.getId(), region.getName());
+                .build());
+        parcel.setRegion(region);
+        parcel.setOwnerUuid(meta.ownerUuid());
+        parcel.setOwnerType(meta.ownerType());
+        parcel.setOwnerName(meta.ownerName());
+        parcel.setParcelName(meta.parcelName());
+        parcel.setAreaSqm(meta.areaSqm());
+        parcel.setDescription(meta.description());
+        parcel.setSnapshotUrl(meta.snapshotUrl());
+        parcel.setPositionX(meta.positionX());
+        parcel.setPositionY(meta.positionY());
+        parcel.setPositionZ(meta.positionZ());
+        parcel.setSlurl(buildSlurl(region.getName(), meta.positionX(), meta.positionY(), meta.positionZ()));
+        parcel.setLastChecked(now);
+
+        try {
+            parcel = repo.save(parcel);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Concurrent first-lookup race on the sl_parcel_uuid unique
+            // constraint. Re-find the winner and return its current state.
+            parcel = repo.findBySlParcelUuid(slParcelUuid)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Race-loss couldn't re-find parcel " + slParcelUuid, e));
+        }
+        log.info("Parcel lookup: id={} uuid={} region_id={} region={} {}",
+                parcel.getId(), slParcelUuid, region.getId(), region.getName(),
+                existing.isPresent() ? "(refreshed)" : "(created)");
         return ParcelResponse.from(parcel);
     }
 
