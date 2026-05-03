@@ -8,9 +8,10 @@ import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { CheckCircle2 } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
+import { ActivateListingPanel } from "@/components/listing/ActivateListingPanel";
 import { ActivateStatusStepper } from "@/components/listing/ActivateStatusStepper";
 import { CancelListingModal } from "@/components/listing/CancelListingModal";
-import { FeePaymentInstructions } from "@/components/listing/FeePaymentInstructions";
+import { ListingPreviewCard } from "@/components/listing/ListingPreviewCard";
 import { VerificationInProgressPanel } from "@/components/listing/VerificationInProgressPanel";
 import { VerificationMethodPicker } from "@/components/listing/VerificationMethodPicker";
 import { useActivateAuction } from "@/hooks/useActivateAuction";
@@ -36,7 +37,7 @@ const TERMINAL_REDIRECT_STATUSES = new Set([
  * Client-side orchestrator for the activate flow (spec §5).
  *
  * Status dispatch:
- *   - DRAFT                                    → FeePaymentInstructions
+ *   - DRAFT                                    → review preview + ActivateListingPanel
  *   - DRAFT_PAID | VERIFICATION_FAILED         → VerificationMethodPicker
  *   - VERIFICATION_PENDING                     → VerificationInProgressPanel
  *   - ACTIVE                                   → success screen
@@ -108,11 +109,7 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
             Back to My Listings
           </Button>
           <Link href={`/auction/${auction.id}`}>
-            <Button
-              title="Public listing page ships in a later epic"
-            >
-              View public listing
-            </Button>
+            <Button>View public listing</Button>
           </Link>
         </div>
       </div>
@@ -133,7 +130,10 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <ActivateStatusStepper status={auction.status} />
       {auction.status === "DRAFT" && (
-        <FeePaymentInstructions auctionId={auction.id} />
+        <>
+          <ListingPreviewCard auction={auction} isPreview />
+          <ActivateListingPanel auctionId={auction.id} />
+        </>
       )}
       {(auction.status === "DRAFT_PAID" ||
         auction.status === "VERIFICATION_FAILED") && (

@@ -106,7 +106,8 @@ const DEFAULT_BID_HISTORY_SIZE = 20;
 /**
  * Default page size for user-scoped active listings. The public-profile
  * {@code ActiveListingsSection} renders up to 6 cards (md:grid-cols-2
- * lg:grid-cols-3) per spec §14; the "View all" escape hatch ships in Epic 07.
+ * lg:grid-cols-3) per spec §14; a "View all" link below the grid drops
+ * the seller into the full browse-filtered view when they have more.
  */
 const DEFAULT_ACTIVE_LISTINGS_SIZE = 6;
 

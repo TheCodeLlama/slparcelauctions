@@ -120,7 +120,7 @@ beforeEach(() => {
 });
 
 describe("ListingWizardForm (create flow)", () => {
-  it("walks lookup -> settings -> review -> submit and navigates to activate", async () => {
+  it("walks lookup -> settings -> save & continue and navigates to activate", async () => {
     installHappyPathHandlers();
 
     renderWithProviders(<ListingWizardForm mode="create" />);
@@ -143,19 +143,15 @@ describe("ListingWizardForm (create flow)", () => {
     await userEvent.type(startingBid, "500");
 
     await userEvent.click(
-      screen.getByRole("button", { name: /Continue to Review/i }),
+      screen.getByRole("button", { name: /Save & continue/i }),
     );
-
-    await screen.findByText(/Preview — this is how your listing/i);
-
-    await userEvent.click(screen.getByRole("button", { name: /^Submit$/ }));
 
     await waitFor(() =>
       expect(routerPush).toHaveBeenCalledWith("/listings/7/activate"),
     );
   });
 
-  it("saves as draft without advancing to Review", async () => {
+  it("saves as draft without navigating to activate", async () => {
     installHappyPathHandlers();
 
     renderWithProviders(<ListingWizardForm mode="create" />);
@@ -177,16 +173,13 @@ describe("ListingWizardForm (create flow)", () => {
       screen.getByRole("button", { name: /Save as Draft/i }),
     );
 
-    // Still on the Configure step — the Parcel heading is visible and
-    // the Review banner is not.
+    // Still on the configure form — the "Save & continue" button is
+    // still visible and we did NOT navigate to activate.
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: /Continue to Review/i }),
+        screen.getByRole("button", { name: /Save & continue/i }),
       ).toBeInTheDocument();
     });
-    expect(
-      screen.queryByText(/Preview — this is how your listing/i),
-    ).toBeNull();
     expect(routerPush).not.toHaveBeenCalled();
 
     // First successful create should replace the URL to /listings/{id}/edit
@@ -203,7 +196,7 @@ describe("ListingWizardForm (create flow)", () => {
       screen.getByRole("button", { name: /Save as Draft/i }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: /Continue to Review/i }),
+      screen.getByRole("button", { name: /Save & continue/i }),
     ).toBeDisabled();
   });
 
@@ -263,7 +256,7 @@ describe("ListingWizardForm (create flow)", () => {
 
     // Submit without a title → inline validation error surfaces.
     await userEvent.click(
-      screen.getByRole("button", { name: /continue to review/i }),
+      screen.getByRole("button", { name: /save & continue/i }),
     );
     expect(
       await screen.findByText(/title is required/i),
@@ -276,7 +269,7 @@ describe("ListingWizardForm (create flow)", () => {
     await userEvent.clear(titleInput);
     await userEvent.type(titleInput, "x".repeat(121));
     await userEvent.click(
-      screen.getByRole("button", { name: /continue to review/i }),
+      screen.getByRole("button", { name: /save & continue/i }),
     );
     expect(
       await screen.findByText(/120 characters or less/i),
