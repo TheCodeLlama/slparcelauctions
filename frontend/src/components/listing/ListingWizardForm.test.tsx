@@ -126,10 +126,6 @@ describe("ListingWizardForm (create flow)", () => {
     renderWithProviders(<ListingWizardForm mode="create" />);
 
     await userEvent.type(
-      screen.getByLabelText(/listing title/i),
-      "Premium Waterfront",
-    );
-    await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
     );
@@ -137,6 +133,10 @@ describe("ListingWizardForm (create flow)", () => {
       screen.getByRole("button", { name: /Look up/i }),
     );
     await screen.findByText("Beachfront retreat");
+    await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
 
     const startingBid = await screen.findByLabelText(/Starting bid/i);
     await userEvent.clear(startingBid);
@@ -161,10 +161,6 @@ describe("ListingWizardForm (create flow)", () => {
     renderWithProviders(<ListingWizardForm mode="create" />);
 
     await userEvent.type(
-      screen.getByLabelText(/listing title/i),
-      "Premium Waterfront",
-    );
-    await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
     );
@@ -172,6 +168,10 @@ describe("ListingWizardForm (create flow)", () => {
       screen.getByRole("button", { name: /Look up/i }),
     );
     await screen.findByText("Beachfront retreat");
+    await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
 
     await userEvent.click(
       screen.getByRole("button", { name: /Save as Draft/i }),
@@ -223,10 +223,6 @@ describe("ListingWizardForm (create flow)", () => {
 
     renderWithProviders(<ListingWizardForm mode="create" />);
     await userEvent.type(
-      screen.getByLabelText(/listing title/i),
-      "Premium Waterfront",
-    );
-    await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
     );
@@ -234,6 +230,10 @@ describe("ListingWizardForm (create flow)", () => {
       screen.getByRole("button", { name: /Look up/i }),
     );
     await screen.findByText("Beachfront retreat");
+    await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
 
     await userEvent.click(
       screen.getByRole("button", { name: /Save as Draft/i }),
@@ -379,10 +379,6 @@ describe("ListingWizardForm (suspension gate)", () => {
     renderWithProviders(<ListingWizardForm mode="create" />);
 
     await userEvent.type(
-      screen.getByLabelText(/listing title/i),
-      "Premium Waterfront",
-    );
-    await userEvent.type(
       screen.getByLabelText(/Parcel UUID/i),
       VALID_UUID,
     );
@@ -390,6 +386,10 @@ describe("ListingWizardForm (suspension gate)", () => {
       screen.getByRole("button", { name: /Look up/i }),
     );
     await screen.findByText("Beachfront retreat");
+    await userEvent.type(
+      screen.getByLabelText(/listing title/i),
+      "Premium Waterfront",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: /Save as Draft/i }),
     );
