@@ -29,8 +29,8 @@ export {
   ActivateStatusStepper,
   statusToStepperIndex,
 } from "./ActivateStatusStepper";
-export { FeePaymentInstructions } from "./FeePaymentInstructions";
-export type { FeePaymentInstructionsProps } from "./FeePaymentInstructions";
+export { ActivateListingPanel } from "./ActivateListingPanel";
+export type { ActivateListingPanelProps } from "./ActivateListingPanel";
 export { VerificationMethodPicker } from "./VerificationMethodPicker";
 export type { VerificationMethodPickerProps } from "./VerificationMethodPicker";
 export { VerificationInProgressPanel } from "./VerificationInProgressPanel";
