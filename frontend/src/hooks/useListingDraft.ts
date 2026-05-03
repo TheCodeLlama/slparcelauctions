@@ -364,6 +364,13 @@ export function useListingDraft(
     if (!s.parcel) {
       throw new Error("Cannot save without a parcel selected.");
     }
+    // parcel.id comes from the lookup response (POST /api/v1/parcels/lookup)
+    // which still returns the numeric id. It is absent from auction-embedded
+    // parcel blocks, but the draft state is always seeded from a fresh lookup
+    // result, so id is always defined here. Guard defensively.
+    if (s.parcel.id == null) {
+      throw new Error("Cannot save: parcel lookup result is missing numeric id.");
+    }
     // Title is required by the backend (sub-spec 1 Task 2). The wizard's
     // submit-path Zod validation blocks save() when the field is empty, so
     // reaching here with a null/blank title means either a non-wizard

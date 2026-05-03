@@ -1,6 +1,9 @@
 // Mirrors backend ParcelResponse (com.slparcelauctions.backend.parcel.dto.ParcelResponse).
 // Field shapes:
-//   - id: Long (number)
+//   - id: omitted from the parcel block embedded in auction responses
+//     (SellerAuctionResponse / PublicAuctionResponse) since the snapshot is
+//     now auction-scoped. Still present on the standalone parcel-lookup
+//     response (POST /api/v1/parcels/lookup) so it is kept optional here.
 //   - slParcelUuid/ownerUuid: UUID (serialized as string)
 //   - ownerType: backend stores "agent" or "group" (confirmed by
 //     SlParcelVerifyService and ParcelMetadata)
@@ -15,7 +18,9 @@ export type ParcelOwnerType = "agent" | "group";
 export type ParcelMaturityRating = "GENERAL" | "MODERATE" | "ADULT";
 
 export interface ParcelDto {
-  id: number;
+  /** Present on the standalone parcel-lookup response; absent from the parcel
+   *  block embedded in auction responses. Use slParcelUuid as a stable key. */
+  id?: number;
   slParcelUuid: string;
   ownerUuid: string;
   ownerType: ParcelOwnerType;
