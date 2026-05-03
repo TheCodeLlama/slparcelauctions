@@ -75,7 +75,7 @@ export function ListingPreviewCard({
         <img
           src={cover}
           alt=""
-          className="h-48 w-full rounded-lg object-cover"
+          className="aspect-square w-full max-w-[700px] mx-auto rounded-lg object-contain bg-bg-subtle"
         />
       ) : null}
       <h3 className="text-base font-bold tracking-tight text-fg">{headline}</h3>
