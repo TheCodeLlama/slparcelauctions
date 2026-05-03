@@ -311,20 +311,21 @@ export function useListingDraft(
   const setParcel = useCallback(
     (p: ParcelDto) => {
       setState((s) => {
-        // First-pick prefill: if the seller hasn't typed a title yet
-        // (untouched OR cleared back to empty) and the parcel ships an
-        // SL-side parcel name, seed the title from it. Once the seller
-        // edits the title, we never touch it again — including on a
-        // subsequent parcel swap. Edit mode flows through `hydrateFromServer`,
-        // not setParcel, so this branch never fires there.
+        // Create-mode-only first-pick prefill: if the seller hasn't typed a
+        // title yet (untouched OR cleared back to empty) and the parcel
+        // ships an SL-side parcel name, seed the title from it. Once the
+        // seller edits the title, we never touch it again — including on a
+        // subsequent parcel swap. Edit mode never auto-touches an existing
+        // auction's title under any circumstances.
         const titleEmpty =
           s.title === null || s.title.trim().length === 0;
-        const nextTitle =
-          titleEmpty && p.parcelName ? p.parcelName : s.title;
+        const shouldPrefill =
+          isCreateMode && titleEmpty && Boolean(p.parcelName);
+        const nextTitle = shouldPrefill ? p.parcelName : s.title;
         return { ...s, parcel: p, title: nextTitle, dirty: true };
       });
     },
-    [setState],
+    [setState, isCreateMode],
   );
 
   const setTitle = useCallback(
