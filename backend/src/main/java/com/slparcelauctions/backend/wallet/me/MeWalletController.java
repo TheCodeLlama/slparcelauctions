@@ -231,7 +231,7 @@ public class MeWalletController {
         user.setWalletTermsVersion(req.termsVersion());
         userRepository.save(user);
         log.info("user {} accepted wallet ToU version {}", principal.userId(), req.termsVersion());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     /* ============================================================ */

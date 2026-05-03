@@ -148,6 +148,11 @@ async function request<T>(
   }
 
   if (response.status === 204) return undefined as T;
+  // Some backend endpoints (e.g. POST /me/wallet/accept-terms) reply 200
+  // with an empty body via Spring's ResponseEntity.ok().build(). Treat
+  // a Content-Length: 0 response as void so the JSON parser doesn't
+  // throw on an empty payload.
+  if (response.headers.get("Content-Length") === "0") return undefined as T;
   return (await response.json()) as T;
 }
 

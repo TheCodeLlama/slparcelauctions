@@ -161,6 +161,18 @@ public class SecurityConfig {
                         // FOOTGUNS §B.5: matcher order is first-match-wins,
                         // so this rule MUST sit before /api/v1/**.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/featured/*").permitAll()
+                        // Public auction detail (Epic 04). The controller
+                        // hides DRAFT/DRAFT_PAID/VERIFICATION_PENDING/
+                        // VERIFICATION_FAILED/SUSPENDED via 404 for non-
+                        // sellers and serves the public response shape for
+                        // ACTIVE / terminal statuses, so the bare detail
+                        // endpoint is anonymous-safe. Single-segment "*"
+                        // intentionally — multi-segment paths (e.g.
+                        // /auctions/{id}/photos/{pid}/bytes, /bids,
+                        // /reviews, /preview) have their own rules above.
+                        // FOOTGUNS §B.5: matcher order is first-match-wins,
+                        // so this rule MUST sit before /api/v1/**.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/*").permitAll()
                         // Public bundled stats (Epic 07 sub-spec 1 §5.4).
                         // Anonymous homepage callers need the four-count
                         // snapshot; the response is wrapped in a 60s public
