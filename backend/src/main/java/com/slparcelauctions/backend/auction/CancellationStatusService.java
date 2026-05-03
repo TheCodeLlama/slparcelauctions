@@ -34,9 +34,8 @@ import lombok.RequiredArgsConstructor;
  *       abuse.</li>
  * </ul>
  *
- * <p>Photo-URL resolution mirrors the convention from {@code AuctionPhotoResponse}
- * — first sort-order photo via the byte-proxy URL, falling back to the parcel's
- * snapshot when no listing photos exist.
+ * <p>Photo-URL resolution uses the flat {@code GET /api/v1/photos/{id}} endpoint
+ * — first sort-order photo by sort_order; null when no listing photos exist.
  */
 @Service
 @RequiredArgsConstructor
@@ -107,12 +106,10 @@ public class CancellationStatusService {
         // Photos are eagerly hydrated by the {@code @EntityGraph} on
         // {@link CancellationLogRepository#findBySellerId} (one LEFT JOIN per
         // page, not per row), so we read straight off the entity collection
-        // and project to the byte-proxy URL the rest of the app uses.
+        // and project to the flat photo URL served by {@link PhotoController}.
         return auction.getPhotos().stream()
                 .min(Comparator.comparing(AuctionPhoto::getSortOrder))
-                .map(p -> "/api/v1/auctions/" + auction.getId() + "/photos/" + p.getId() + "/bytes")
-                .orElseGet(() -> auction.getParcel() == null
-                        ? null
-                        : auction.getParcel().getSnapshotUrl());
+                .map(p -> "/api/v1/photos/" + p.getId())
+                .orElse(null);
     }
 }

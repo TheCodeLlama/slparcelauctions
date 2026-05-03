@@ -18,9 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.search.exception.RegionNotFoundException;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.region.Region;
 import com.slparcelauctions.backend.region.RegionRepository;
@@ -120,11 +120,11 @@ public class AuctionSearchService {
         double y0 = resolvedRegion.gridY();
         Map<Long, BigDecimal> out = new HashMap<>(rows.size());
         for (Auction a : rows) {
-            Parcel p = a.getParcel();
-            if (p == null || p.getRegion() == null) {
+            AuctionParcelSnapshot snap = a.getParcelSnapshot();
+            if (snap == null || snap.getRegion() == null) {
                 continue;
             }
-            Region r = p.getRegion();
+            Region r = snap.getRegion();
             double dx = r.getGridX() - x0;
             double dy = r.getGridY() - y0;
             double dist = Math.sqrt(dx * dx + dy * dy);
@@ -158,7 +158,7 @@ public class AuctionSearchService {
                 final double x0 = resolvedRegion.gridX();
                 final double y0 = resolvedRegion.gridY();
                 yield base.and((root, q, cb) -> {
-                    Join<Object, Object> parcel = root.join("parcel");
+                    Join<Object, Object> parcel = root.join("parcelSnapshot");
                     Join<Object, Object> region = parcel.join("region");
                     Expression<Double> dx = cb.diff(region.<Double>get("gridX"), cb.literal(x0));
                     Expression<Double> dy = cb.diff(region.<Double>get("gridY"), cb.literal(y0));

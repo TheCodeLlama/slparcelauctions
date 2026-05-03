@@ -34,10 +34,12 @@ import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.parceltag.ParcelTagRepository;
+import com.slparcelauctions.backend.parcel.ParcelLookupService;
+import com.slparcelauctions.backend.parcel.ParcelLookupService.ParcelLookupResult;
+import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
+import com.slparcelauctions.backend.region.Region;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.testsupport.TestRegions;
@@ -46,7 +48,8 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
 class AuctionServiceTest {
 
     @Mock AuctionRepository auctionRepo;
-    @Mock ParcelRepository parcelRepo;
+    @Mock ParcelLookupService parcelLookupService;
+    @Mock ParcelSnapshotPhotoService parcelSnapshotPhotoService;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
     @Mock BanCheckService banCheckService;
@@ -54,23 +57,27 @@ class AuctionServiceTest {
 
     @InjectMocks AuctionService service;
 
+    private static final UUID PARCEL_UUID = UUID.randomUUID();
     private User seller;
-    private Parcel parcel;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(service, "defaultCommissionRate", new BigDecimal("0.05"));
         seller = User.builder().id(42L).email("s@example.com").verified(true).build();
-        parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(100L).slParcelUuid(UUID.randomUUID())
-                .verified(true).build();
         lenient().when(userRepo.findById(42L)).thenReturn(Optional.of(seller));
-        lenient().when(parcelRepo.findById(100L)).thenReturn(Optional.of(parcel));
+        Region region = TestRegions.mainland();
+        ParcelResponse response = new ParcelResponse(
+                PARCEL_UUID, UUID.randomUUID(), "agent", null, "Test Parcel",
+                null, "TestRegion", "GENERAL", 1014.0, 1014.0,
+                128.0, 64.0, 22.0, 1024, null, null, null, true, null, null);
+        lenient().when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupResult(response, region));
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> {
             Auction a = inv.getArgument(0);
             if (a.getId() == null) a.setId(1L);
             return a;
         });
+        // refreshFor is void — Mockito auto-stubs void methods on mocks; no explicit stub needed.
     }
 
     // -------------------------------------------------------------------------
@@ -80,14 +87,14 @@ class AuctionServiceTest {
     @Test
     void create_validRequest_savesInDraft() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 168, false, null, "Nice parcel", Set.of());
 
         Auction a = service.create(42L, req, null);
 
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.DRAFT);
         assertThat(a.getSeller().getId()).isEqualTo(42L);
-        assertThat(a.getParcel().getId()).isEqualTo(100L);
+        assertThat(a.getSlParcelUuid()).isEqualTo(PARCEL_UUID);
         assertThat(a.getListingFeePaid()).isFalse();
         assertThat(a.getCommissionRate()).isEqualByComparingTo(new BigDecimal("0.05"));
     }
@@ -147,7 +154,7 @@ class AuctionServiceTest {
 
         String over120 = "x".repeat(121);
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                over120, null, null, null, null, null, null, null, null);
+                null, over120, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -163,7 +170,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                "   ", null, null, null, null, null, null, null, null);
+                null, "   ", null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -177,7 +184,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getTitle()).isEqualTo("Original");
@@ -190,7 +197,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                "Renamed listing", null, null, null, null, null, null, null, null);
+                null, "Renamed listing", null, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getTitle()).isEqualTo("Renamed listing");
@@ -282,7 +289,7 @@ class AuctionServiceTest {
 
     private AuctionCreateRequest minimalCreateRequest(String title) {
         return new AuctionCreateRequest(
-                100L, title, 1000L, null, null,
+                PARCEL_UUID, title, 1000L, null, null,
                 168, false, null, null, Set.of());
     }
 
@@ -292,7 +299,7 @@ class AuctionServiceTest {
         // It is set on the verify trigger instead; a freshly-created DRAFT auction
         // must have a null verificationMethod.
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 500L, null, null,
+                PARCEL_UUID, "Test listing", 500L, null, null,
                 72, true, 10, "Test", Set.of());
 
         Auction created = service.create(42L, req, null);
@@ -304,7 +311,7 @@ class AuctionServiceTest {
     @Test
     void create_withSnipeProtect_setsSnipeWindow() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 168, true, 10, null, Set.of());
 
         Auction a = service.create(42L, req, null);
@@ -320,7 +327,7 @@ class AuctionServiceTest {
     @Test
     void create_reservePriceLessThanStarting_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, 500L, null,
+                PARCEL_UUID, "Test listing", 1000L, 500L, null,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -331,7 +338,7 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, 5000L, 4000L,
+                PARCEL_UUID, "Test listing", 1000L, 5000L, 4000L,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -342,7 +349,7 @@ class AuctionServiceTest {
     @Test
     void create_buyNowLessThanStartingWithNoReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, 500L,
+                PARCEL_UUID, "Test listing", 1000L, null, 500L,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -357,7 +364,7 @@ class AuctionServiceTest {
     @Test
     void create_durationNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 100, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -372,7 +379,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectTrueWithNullWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 168, true, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -383,7 +390,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeProtectFalseWithWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 168, false, 10, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -394,7 +401,7 @@ class AuctionServiceTest {
     @Test
     void create_snipeWindowNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 168, true, 7, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -414,7 +421,7 @@ class AuctionServiceTest {
                         .category("feature").active(true).sortOrder(1).build()));
 
         AuctionCreateRequest req = new AuctionCreateRequest(
-                100L, "Test listing", 1000L, null, null,
+                PARCEL_UUID, "Test listing", 1000L, null, null,
                 168, false, null, null, codes);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -425,9 +432,11 @@ class AuctionServiceTest {
 
     @Test
     void create_parcelNotFound_throws() {
-        when(parcelRepo.findById(999L)).thenReturn(Optional.empty());
+        UUID unknownUuid = UUID.randomUUID();
+        when(parcelLookupService.lookup(unknownUuid))
+                .thenThrow(new IllegalArgumentException("Parcel not found: " + unknownUuid));
         AuctionCreateRequest req = new AuctionCreateRequest(
-                999L, "Test listing", 1000L, null, null,
+                unknownUuid, "Test listing", 1000L, null, null,
                 168, false, null, null, Set.of());
 
         assertThatThrownBy(() -> service.create(42L, req, null))
@@ -445,7 +454,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, "updated desc", null);
+                null, null, 2000L, null, null, null, null, null, "updated desc", null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -458,7 +467,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getStartingBid()).isEqualTo(2000L);
@@ -470,7 +479,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -482,7 +491,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, 2000L, null, null, null, null, null, null, null);
+                null, null, 2000L, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> service.update(1L, 42L, req))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -496,7 +505,7 @@ class AuctionServiceTest {
         when(auctionRepo.findByIdAndSellerId(1L, 42L)).thenReturn(Optional.of(existing));
 
         AuctionUpdateRequest req = new AuctionUpdateRequest(
-                null, null, null, null, null, false, null, null, null);
+                null, null, null, null, null, null, false, null, null, null);
         Auction updated = service.update(1L, 42L, req);
 
         assertThat(updated.getSnipeProtect()).isFalse();
@@ -534,9 +543,9 @@ class AuctionServiceTest {
     }
 
     private Auction buildAuction(AuctionStatus status) {
-        return Auction.builder()
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .id(1L).seller(seller).parcel(parcel).status(status)
+                .id(1L).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).snipeWindowMin(null)
@@ -548,5 +557,18 @@ class AuctionServiceTest {
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())
                 .build();
+        AuctionParcelSnapshot snap = AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("Test Parcel")
+                .region(TestRegions.mainland())
+                .regionName("TestRegion")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build();
+        a.setParcelSnapshot(snap);
+        return a;
     }
 }

@@ -3,7 +3,6 @@ package com.slparcelauctions.backend.auction;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -19,11 +18,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Verifies {@link AuctionRepository#findByIdForUpdate(Long)} really takes a
@@ -44,7 +40,6 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
 class AuctionRepositoryLockTest {
 
     @Autowired AuctionRepository auctionRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
     @Autowired JdbcTemplate jdbc;
@@ -85,19 +80,11 @@ class AuctionRepositoryLockTest {
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
 
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                .ownerUuid(UUID.randomUUID())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
+        UUID parcelUuid = UUID.randomUUID();
 
         Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -112,6 +99,17 @@ class AuctionRepositoryLockTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID())
+                .ownerType("agent")
+                .parcelName("Lock Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(auction);
 
         Long auctionId = auction.getId();
         CountDownLatch lockAcquired = new CountDownLatch(1);
@@ -181,7 +179,6 @@ class AuctionRepositoryLockTest {
             // repository tests — e.g. findDueForOwnershipCheck which picks up
             // any ACTIVE auction with null lastOwnershipCheckAt.
             auctionRepository.deleteById(auctionId);
-            parcelRepository.delete(parcel);
             userRepository.delete(seller);
         }
 

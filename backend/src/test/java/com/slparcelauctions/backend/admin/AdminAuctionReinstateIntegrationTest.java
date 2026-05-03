@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.admin.audit.AdminActionService;
 import com.slparcelauctions.backend.admin.audit.AdminActionTargetType;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
@@ -34,12 +35,9 @@ import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -59,7 +57,6 @@ class AdminAuctionReinstateIntegrationTest {
     @Autowired AdminAuctionService adminAuctionService;
     @Autowired AdminActionService adminActionService;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired NotificationRepository notificationRepo;
     @Autowired AdminActionRepository adminActionRepo;
@@ -70,7 +67,6 @@ class AdminAuctionReinstateIntegrationTest {
 
     private Long sellerId;
     private Long adminId;
-    private Long parcelId;
     private Long auctionId;
 
     @BeforeEach
@@ -93,24 +89,11 @@ class AdminAuctionReinstateIntegrationTest {
                 .build());
             adminId = admin.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                .areaSqm(1024)
-                                .positionX(128.0)
-                .positionY(64.0)
-                .positionZ(22.0)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .title("Admin Reinstate Integration Auction")
                 .status(AuctionStatus.SUSPENDED)
                 .verificationTier(VerificationTier.BOT)
@@ -133,6 +116,17 @@ class AdminAuctionReinstateIntegrationTest {
                 .createdAt(now)
                 .updatedAt(now)
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Reinstate Integration Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction);
             auctionId = auction.getId();
         });
     }
@@ -146,10 +140,8 @@ class AdminAuctionReinstateIntegrationTest {
                     st.execute("DELETE FROM bot_tasks WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM admin_actions WHERE target_type = 'LISTING' AND target_id = " + auctionId);
                     st.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                }
-                if (parcelId != null) {
-                    st.execute("DELETE FROM parcels WHERE id = " + parcelId);
                 }
                 if (sellerId != null) {
                     st.execute("DELETE FROM notification WHERE user_id = " + sellerId);
@@ -167,7 +159,6 @@ class AdminAuctionReinstateIntegrationTest {
         }
         sellerId = null;
         adminId = null;
-        parcelId = null;
         auctionId = null;
     }
 

@@ -32,16 +32,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration tests verifying {@link BanCheckService#assertNotBanned} is wired
@@ -74,7 +72,6 @@ class BanEnforcementIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired BanRepository banRepo;
     @Autowired UserRepository userRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired AuctionRepository auctionRepo;
 
     @MockitoBean StringRedisTemplate redis;
@@ -391,16 +388,11 @@ class BanEnforcementIntegrationTest {
     }
 
     private Auction seedActiveAuction(User seller) {
-        Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(512)
-                .build());
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
-        return auctionRepo.save(Auction.builder()
+        Auction auction = auctionRepo.save(Auction.builder()
                 .title("Ban test auction")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -418,18 +410,24 @@ class BanEnforcementIntegrationTest {
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Ban Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(512)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepo.save(auction);
     }
 
     private Auction seedDraftAuction(User seller) {
-        Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .areaSqm(512)
-                .build());
-        return auctionRepo.save(Auction.builder()
+        UUID parcelUuid = UUID.randomUUID();
+        Auction auction = auctionRepo.save(Auction.builder()
                 .title("Ban cancel test auction")
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
                 .startingBid(1000L)
@@ -442,5 +440,16 @@ class BanEnforcementIntegrationTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Ban Cancel Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(512)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepo.save(auction);
     }
 }

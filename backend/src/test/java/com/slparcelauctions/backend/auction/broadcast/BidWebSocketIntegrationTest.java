@@ -43,11 +43,9 @@ import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidService;
 import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end WebSocket broadcast test — connects a real STOMP client to
@@ -88,7 +86,6 @@ class BidWebSocketIntegrationTest {
     @Autowired BidService bidService;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
 
@@ -97,7 +94,6 @@ class BidWebSocketIntegrationTest {
 
     private Long sellerId;
     private Long bidderId;
-    private Long parcelId;
     private Long auctionId;
 
     @AfterEach
@@ -226,19 +222,12 @@ class BidWebSocketIntegrationTest {
                     .verified(true)
                     .slAvatarUuid(UUID.randomUUID())
                     .build());
-            Parcel parcel = parcelRepository.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(UUID.randomUUID())
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
+            UUID parcelUuid = UUID.randomUUID();
+            UUID ownerUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepository.save(Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -257,9 +246,20 @@ class BidWebSocketIntegrationTest {
                     .agentFeeRate(BigDecimal.ZERO)
                     .build());
 
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(ownerUuid)
+                    .ownerType("agent")
+                    .parcelName("WS Test Parcel")
+                    .regionName("Test Region")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepository.save(auction);
+
             this.sellerId = seller.getId();
             this.bidderId = bidder.getId();
-            this.parcelId = parcel.getId();
             this.auctionId = auction.getId();
         });
     }
@@ -274,9 +274,6 @@ class BidWebSocketIntegrationTest {
                     auctionRepository.delete(a);
                 });
             }
-            if (parcelId != null) {
-                parcelRepository.findById(parcelId).ifPresent(parcelRepository::delete);
-            }
             if (bidderId != null) {
                 userRepository.findById(bidderId).ifPresent(userRepository::delete);
             }
@@ -285,7 +282,6 @@ class BidWebSocketIntegrationTest {
             }
         });
         auctionId = null;
-        parcelId = null;
         bidderId = null;
         sellerId = null;
     }

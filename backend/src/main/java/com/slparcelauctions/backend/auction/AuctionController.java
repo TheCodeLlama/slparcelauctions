@@ -102,6 +102,7 @@ public class AuctionController {
     }
 
     @PutMapping("/auctions/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse update(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal,
@@ -125,6 +126,7 @@ public class AuctionController {
     }
 
     @PutMapping("/auctions/{id}/cancel")
+    @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse cancel(
             @PathVariable Long id,
             @AuthenticationPrincipal AuthPrincipal principal,

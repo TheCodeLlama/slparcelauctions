@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Building2 } from "@/components/ui/icons";
 import { Lightbox } from "@/components/ui/Lightbox";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import type { AuctionPhotoDto } from "@/types/auction";
 
 /**
@@ -75,7 +76,7 @@ export function AuctionHero({
           data-variant="snapshot"
         >
           <img
-            src={snapshotUrl}
+            src={apiUrl(snapshotUrl) ?? undefined}
             alt={regionName ? `${regionName} snapshot` : "Parcel snapshot"}
             className="h-full w-full object-cover"
           />
@@ -106,7 +107,10 @@ export function AuctionHero({
   const [hero, ...rest] = sorted;
   const secondaries = rest.slice(0, 2);
   const remainingCount = Math.max(0, sorted.length - 3);
-  const lightboxImages = sorted.map((p) => ({ id: p.id, url: p.url }));
+  const lightboxImages = sorted.map((p) => ({
+    id: p.id,
+    url: apiUrl(p.url) ?? p.url,
+  }));
 
   // Single-photo shortcut: skip the asymmetric grid entirely so the hero
   // goes full-width at all breakpoints.
@@ -125,7 +129,7 @@ export function AuctionHero({
           data-variant="single"
         >
           <img
-            src={hero.url}
+            src={apiUrl(hero.url) ?? undefined}
             alt=""
             className="h-full w-full object-cover"
             data-testid="auction-hero-image"
@@ -157,7 +161,7 @@ export function AuctionHero({
             className="md:col-span-3 md:row-span-2 rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <img
-              src={hero.url}
+              src={apiUrl(hero.url) ?? undefined}
               alt=""
               className="h-full w-full object-cover"
               data-testid="auction-hero-image"
@@ -176,7 +180,7 @@ export function AuctionHero({
                 data-testid={`auction-hero-secondary-${i}`}
               >
                 <img
-                  src={photo.url}
+                  src={apiUrl(photo.url) ?? undefined}
                   alt=""
                   className="h-full w-full object-cover"
                 />
@@ -208,7 +212,7 @@ export function AuctionHero({
             data-testid="auction-hero-mobile-primary"
           >
             <img
-              src={hero.url}
+              src={apiUrl(hero.url) ?? undefined}
               alt=""
               className="h-full w-full object-cover"
             />
@@ -233,7 +237,7 @@ export function AuctionHero({
                       className="h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       <img
-                        src={photo.url}
+                        src={apiUrl(photo.url) ?? undefined}
                         alt=""
                         className="h-full w-full object-cover"
                       />

@@ -29,7 +29,6 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.verification.VerificationCodeService;
@@ -51,7 +50,6 @@ class AuctionVerificationServiceMethodBTest {
 
     private static final Long SELLER_ID = 42L;
     private static final Long AUCTION_ID = 1L;
-    private static final Long PARCEL_ID = 100L;
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
@@ -68,7 +66,7 @@ class AuctionVerificationServiceMethodBTest {
     AuctionVerificationService service;
 
     private User seller;
-    private Parcel parcel;
+    private AuctionParcelSnapshot snapshot;
     private Clock fixed;
 
     @BeforeEach
@@ -83,10 +81,15 @@ class AuctionVerificationServiceMethodBTest {
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        snapshot = AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .verified(true).build();
+                .parcelName("Test Parcel")
+                .region(TestRegions.mainland())
+                .regionName("Coniston").regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build();
 
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -179,9 +182,9 @@ class AuctionVerificationServiceMethodBTest {
     // -------------------------------------------------------------------------
 
     private Auction build(AuctionStatus status) {
-        return Auction.builder()
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .id(AUCTION_ID).seller(seller).parcel(parcel).status(status)
+                .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
                 .verificationMethod(VerificationMethod.REZZABLE)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false)
@@ -193,5 +196,15 @@ class AuctionVerificationServiceMethodBTest {
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(snapshot.getSlParcelUuid())
+                .ownerUuid(snapshot.getOwnerUuid()).ownerType(snapshot.getOwnerType())
+                .parcelName(snapshot.getParcelName()).region(snapshot.getRegion())
+                .regionName(snapshot.getRegionName())
+                .regionMaturityRating(snapshot.getRegionMaturityRating())
+                .areaSqm(snapshot.getAreaSqm())
+                .positionX(snapshot.getPositionX()).positionY(snapshot.getPositionY())
+                .positionZ(snapshot.getPositionZ()).build());
+        return a;
     }
 }

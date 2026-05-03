@@ -31,8 +31,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
@@ -62,7 +60,6 @@ class SlParcelVerifyControllerIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
 
     @MockitoBean SlWorldApiClient worldApi;
@@ -71,7 +68,6 @@ class SlParcelVerifyControllerIntegrationTest {
     private String sellerAccessToken;
     private Long sellerId;
     private String sellerAvatarUuid;
-    private Parcel sellerParcel;
     private UUID parcelUuid;
 
     @BeforeEach
@@ -80,8 +76,7 @@ class SlParcelVerifyControllerIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "method-b-seller@example.com", "MethodBSeller", sellerAvatarUuid);
         sellerId = userRepository.findByEmail("method-b-seller@example.com").orElseThrow().getId();
-        sellerParcel = seedParcel();
-        parcelUuid = sellerParcel.getSlParcelUuid();
+        parcelUuid = seedParcel();
     }
 
     @Test
@@ -204,14 +199,14 @@ class SlParcelVerifyControllerIntegrationTest {
     private Long createAndPayAuction() throws Exception {
         String body = String.format("""
             {
-              "parcelId":%d,
+              "slParcelUuid":"%s",
               "title":"Test listing",
               "startingBid":1000,
               "durationHours":168,
               "snipeProtect":false,
               "sellerDesc":"Nice parcel"
             }
-            """, sellerParcel.getId());
+            """, parcelUuid);
         MvcResult res = mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -275,7 +270,7 @@ class SlParcelVerifyControllerIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcel = UUID.fromString("33333333-3333-3333-3333-333333333333");
         UUID owner = UUID.fromString(sellerAvatarUuid);
@@ -306,6 +301,6 @@ class SlParcelVerifyControllerIntegrationTest {
 
         // Ensure the seller avatar is linked before the verify path runs.
         assertThat(seller.getSlAvatarUuid()).isNotNull();
-        return parcelRepository.findBySlParcelUuid(parcel).orElseThrow();
+        return parcel;
     }
 }

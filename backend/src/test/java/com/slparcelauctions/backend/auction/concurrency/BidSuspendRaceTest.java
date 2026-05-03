@@ -34,18 +34,16 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionAlreadyEndedException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTask;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 import reactor.core.publisher.Mono;
 
@@ -96,7 +94,6 @@ class BidSuspendRaceTest {
     @Autowired OwnershipCheckTask ownershipCheckTask;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired FraudFlagRepository fraudFlagRepository;
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
@@ -113,7 +110,6 @@ class BidSuspendRaceTest {
     private Long auctionId;
     private Long sellerId;
     private Long bidderId;
-    private Long parcelId;
     private UUID parcelUuid;
 
     @AfterEach
@@ -130,10 +126,8 @@ class BidSuspendRaceTest {
                     stmt.execute("DELETE FROM listing_fee_refunds WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM bids WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId);
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                    if (parcelId != null) {
-                        stmt.execute("DELETE FROM parcels WHERE id = " + parcelId);
-                    }
                     if (bidderId != null) {
                         stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
@@ -146,7 +140,6 @@ class BidSuspendRaceTest {
             }
         }
         auctionId = null;
-        parcelId = null;
         bidderId = null;
         sellerId = null;
         parcelUuid = null;
@@ -295,19 +288,10 @@ class BidSuspendRaceTest {
                 .verified(true)
                 .build());
         UUID pUuid = UUID.randomUUID();
-        Parcel parcel = parcelRepository.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(pUuid)
-                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                                                .areaSqm(1024)
-                                .verified(true)
-                .verifiedAt(OffsetDateTime.now())
-                .build());
         OffsetDateTime now = OffsetDateTime.now();
         Auction auction = auctionRepository.save(Auction.builder()
                 .title("Test listing")
-                .parcel(parcel)
+                .slParcelUuid(pUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -327,9 +311,20 @@ class BidSuspendRaceTest {
                 .agentFeeRate(BigDecimal.ZERO)
                 .build());
 
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(pUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("BidSuspend Race Parcel")
+                .regionName("SuspendRaceRegion")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auctionRepository.save(auction);
+
         this.sellerId = seller.getId();
         this.bidderId = bidder.getId();
-        this.parcelId = parcel.getId();
         this.parcelUuid = pUuid;
         this.auctionId = auction.getId();
     }

@@ -122,7 +122,7 @@ public class AdminReportService {
         notificationPublisher.listingWarned(
             auction.getSeller().getId(),
             auctionId,
-            auction.getParcel().getRegion().getName(),
+            auction.getParcelSnapshot() != null ? auction.getParcelSnapshot().getRegionName() : null,
             notes
         );
 

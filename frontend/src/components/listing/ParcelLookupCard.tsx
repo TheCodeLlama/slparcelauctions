@@ -1,5 +1,6 @@
 import { MapPin, ExternalLink } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import type { ParcelDto, ParcelMaturityRating } from "@/types/parcel";
 
 /**
@@ -59,7 +60,7 @@ export function ParcelLookupCard({
       {parcel.snapshotUrl ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
-          src={parcel.snapshotUrl}
+          src={apiUrl(parcel.snapshotUrl) ?? undefined}
           alt=""
           className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
         />

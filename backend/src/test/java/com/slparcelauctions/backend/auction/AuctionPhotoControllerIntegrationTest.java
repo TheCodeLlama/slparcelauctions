@@ -38,9 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
+import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
@@ -71,7 +71,6 @@ class AuctionPhotoControllerIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired UserRepository userRepository;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired AuctionPhotoRepository photoRepository;
     @Autowired ObjectStorageService storage;
@@ -82,7 +81,7 @@ class AuctionPhotoControllerIntegrationTest {
 
     private String sellerAccessToken;
     private Long sellerId;
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setup() throws Exception {
@@ -90,7 +89,7 @@ class AuctionPhotoControllerIntegrationTest {
         sellerAccessToken = registerAndVerify(uniqueEmail, "PhotoSeller",
                 UUID.randomUUID().toString());
         sellerId = userRepository.findByEmail(uniqueEmail).orElseThrow().getId();
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     @AfterEach
@@ -238,7 +237,7 @@ class AuctionPhotoControllerIntegrationTest {
         auctionRepository.save(a);
 
         // Fetch without any Authorization header — public endpoint.
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/photos/" + photoId + "/bytes"))
+        mockMvc.perform(get("/api/v1/photos/" + photoId))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
                 .andExpect(header().string("Cache-Control", "public, max-age=86400"));
@@ -261,7 +260,7 @@ class AuctionPhotoControllerIntegrationTest {
         Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
                 .get("id").asLong();
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/photos/" + photoId + "/bytes"))
+        mockMvc.perform(get("/api/v1/photos/" + photoId))
                 .andExpect(status().isNotFound());
     }
 
@@ -280,7 +279,7 @@ class AuctionPhotoControllerIntegrationTest {
         Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
                 .get("id").asLong();
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/photos/" + photoId + "/bytes")
+        mockMvc.perform(get("/api/v1/photos/" + photoId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));
@@ -338,7 +337,7 @@ class AuctionPhotoControllerIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.randomUUID();
         UUID ownerUuid = UUID.randomUUID();
@@ -359,24 +358,18 @@ class AuctionPhotoControllerIntegrationTest {
                 22.0), regionUuid)));
         when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
                 Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+        return parcelUuid;
     }
 
     private Auction seedDraftAuction() {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(sellerParcel)
+                .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
+                .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)
                 .snipeProtect(false)
@@ -385,8 +378,20 @@ class AuctionPhotoControllerIntegrationTest {
                 .bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
+                .consecutiveWorldApiFailures(0)
                 .build();
         Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(sellerParcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Seed Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("M_NOT")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        saved = auctionRepository.save(saved);
         createdAuctionIds.add(saved.getId());
         return saved;
     }

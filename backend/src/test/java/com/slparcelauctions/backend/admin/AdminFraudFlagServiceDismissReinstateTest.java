@@ -24,6 +24,7 @@ import com.slparcelauctions.backend.admin.dto.AdminFraudFlagDetailDto;
 import com.slparcelauctions.backend.admin.exception.AuctionNotSuspendedException;
 import com.slparcelauctions.backend.admin.exception.FraudFlagAlreadyResolvedException;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
@@ -32,12 +33,9 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -56,7 +54,6 @@ class AdminFraudFlagServiceDismissReinstateTest {
 
     @Autowired AdminFraudFlagService service;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -66,7 +63,6 @@ class AdminFraudFlagServiceDismissReinstateTest {
 
     private Long sellerId;
     private Long adminId;
-    private Long parcelId;
     private Long auctionId;
     private Long flagId;
 
@@ -90,22 +86,11 @@ class AdminFraudFlagServiceDismissReinstateTest {
                 .build());
             adminId = admin.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                .region(TestRegions.mainland())
-                .slParcelUuid(UUID.randomUUID())
-                                .ownerUuid(seller.getSlAvatarUuid())
-                .ownerType("agent")
-                .areaSqm(1024)
-                                .positionX(128.0)
-                .positionY(64.0)
-                .positionZ(22.0)
-                .build());
-            parcelId = parcel.getId();
-
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
                 .seller(seller)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .title("Suspended Test Auction")
                 .status(AuctionStatus.SUSPENDED)
                 .verificationTier(VerificationTier.SCRIPT)
@@ -116,11 +101,22 @@ class AdminFraudFlagServiceDismissReinstateTest {
                 .suspendedAt(now.minusHours(6))
                 .consecutiveWorldApiFailures(0)
                 .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Dismiss Test Parcel")
+                .regionName("Test Region")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+            auctionRepo.save(auction);
             auctionId = auction.getId();
 
             FraudFlag flag = fraudFlagRepo.save(FraudFlag.builder()
                 .auction(auction)
-                .parcel(parcel)
+                .slParcelUuid(parcelUuid)
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(now.minusHours(6))
                 .resolved(false)
@@ -137,7 +133,6 @@ class AdminFraudFlagServiceDismissReinstateTest {
                 // clean up bot tasks first if any
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -160,7 +155,6 @@ class AdminFraudFlagServiceDismissReinstateTest {
         }
         sellerId = null;
         adminId = null;
-        parcelId = null;
         auctionId = null;
         flagId = null;
     }

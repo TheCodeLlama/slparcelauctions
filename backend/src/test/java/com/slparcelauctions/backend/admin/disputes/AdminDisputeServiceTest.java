@@ -24,6 +24,7 @@ import com.slparcelauctions.backend.admin.disputes.exception.DisputeActionInvali
 import com.slparcelauctions.backend.admin.disputes.exception.DisputeNotFoundException;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
@@ -35,12 +36,9 @@ import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Integration tests for {@link AdminDisputeService#resolve}.
@@ -69,7 +67,6 @@ class AdminDisputeServiceTest {
     @Autowired AdminDisputeService service;
     @Autowired EscrowRepository escrowRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired TerminalCommandRepository terminalCommandRepo;
     @Autowired NotificationRepository notifRepo;
@@ -82,7 +79,6 @@ class AdminDisputeServiceTest {
     private Long sellerId;
     private Long bidderId;
     private Long adminId;
-    private Long parcelId;
     private Long auctionId;
     private Long escrowId;
 
@@ -301,21 +297,12 @@ class AdminDisputeServiceTest {
                     .role(Role.ADMIN)
                     .build());
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(seller.getSlAvatarUuid())
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-
+            UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
             Auction auction = auctionRepo.save(Auction.builder()
                     .title("Dispute Resolve Test Lot")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -365,12 +352,23 @@ class AdminDisputeServiceTest {
                         .freezeReason("UNKNOWN_OWNER");
             }
 
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(seller.getSlAvatarUuid())
+                    .ownerType("agent")
+                    .parcelName("Dispute Test Parcel")
+                    .regionName("Test Region")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(auction);
+
             Escrow escrow = escrowRepo.save(escrowBuilder.build());
 
             sellerId = seller.getId();
             bidderId = bidder.getId();
             adminId = admin.getId();
-            parcelId = parcel.getId();
             auctionId = auction.getId();
             escrowId = escrow.getId();
         });
@@ -398,10 +396,8 @@ class AdminDisputeServiceTest {
                             + " AND target_type = 'DISPUTE'");
                     st.execute("DELETE FROM cancellation_logs WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM bids WHERE auction_id = " + auctionId);
+                    st.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     st.execute("DELETE FROM auctions WHERE id = " + auctionId);
-                }
-                if (parcelId != null) {
-                    st.execute("DELETE FROM parcels WHERE id = " + parcelId);
                 }
                 for (Long uid : new Long[]{sellerId, bidderId, adminId}) {
                     if (uid != null) {
@@ -413,6 +409,6 @@ class AdminDisputeServiceTest {
                 }
             }
         }
-        sellerId = bidderId = adminId = parcelId = auctionId = escrowId = null;
+        sellerId = bidderId = adminId = auctionId = escrowId = null;
     }
 }

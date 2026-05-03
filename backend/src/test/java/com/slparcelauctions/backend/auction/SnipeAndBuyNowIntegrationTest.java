@@ -27,8 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -74,7 +72,6 @@ class SnipeAndBuyNowIntegrationTest {
     private static final String TRUSTED_OWNER = "00000000-0000-0000-0000-000000000001";
 
     @Autowired MockMvc mockMvc;
-    @Autowired ParcelRepository parcelRepository;
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
     @Autowired UserRepository userRepository;
@@ -90,7 +87,7 @@ class SnipeAndBuyNowIntegrationTest {
     private Long bidder1Id;
     private String bidder2AccessToken;
     private Long bidder2Id;
-    private Parcel sellerParcel;
+    private UUID sellerParcelUuid;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -109,7 +106,7 @@ class SnipeAndBuyNowIntegrationTest {
                 "33333333-aaaa-bbbb-cccc-000000000103");
         bidder2Id = userRepository.findByEmail("snipe-bidder-2@example.com").orElseThrow().getId();
 
-        sellerParcel = seedParcel();
+        sellerParcelUuid = seedParcel();
     }
 
     // ------------------------------------------------------------------
@@ -298,7 +295,7 @@ class SnipeAndBuyNowIntegrationTest {
         return token;
     }
 
-    private Parcel seedParcel() throws Exception {
+    private UUID seedParcel() throws Exception {
         UUID regionUuid = UUID.randomUUID();
         UUID parcelUuid = UUID.fromString("44444444-4444-4444-4444-000000000104");
         UUID ownerUuid = UUID.fromString("55555555-5555-5555-5555-000000000105");
@@ -319,23 +316,17 @@ class SnipeAndBuyNowIntegrationTest {
                 22.0), regionUuid)));
         when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
                 Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
-
-        mockMvc.perform(post("/api/v1/parcels/lookup")
-                        .header("Authorization", "Bearer " + sellerAccessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"slParcelUuid\":\"" + parcelUuid + "\"}"))
-                .andExpect(status().isOk());
-
-        return parcelRepository.findBySlParcelUuid(parcelUuid).orElseThrow();
+        return parcelUuid;
     }
 
     private Auction seedAuction(AuctionStatus status, long currentBid, int bidCount,
                                 boolean snipeProtect, Integer snipeWindowMin,
                                 OffsetDateTime endsAt, Long buyNowPrice) {
         User seller = userRepository.findById(sellerId).orElseThrow();
+        UUID ownerUuid = UUID.fromString("55555555-5555-5555-5555-000000000105");
         Auction a = Auction.builder()
                 .title("Test listing")
-                .parcel(sellerParcel)
+                .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -356,6 +347,17 @@ class SnipeAndBuyNowIntegrationTest {
         a.setStartsAt(now.minusHours(1));
         a.setEndsAt(endsAt);
         a.setOriginalEndsAt(endsAt);
-        return auctionRepository.save(a);
+        Auction saved = auctionRepository.save(a);
+        saved.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(sellerParcelUuid)
+                .ownerUuid(ownerUuid)
+                .ownerType("agent")
+                .parcelName("Snipe Parcel")
+                .regionName("Coniston")
+                .regionMaturityRating("M_NOT")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        return auctionRepository.save(saved);
     }
 }

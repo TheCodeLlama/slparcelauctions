@@ -11,7 +11,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.slparcelauctions.backend.auction.Auction;
-import com.slparcelauctions.backend.parcel.Parcel;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.user.User;
 
@@ -65,30 +65,30 @@ public class AuctionSearchResultMapper {
             String primaryPhotoUrl,
             BigDecimal distance) {
 
-        Parcel p = a.getParcel();
+        AuctionParcelSnapshot snap = a.getParcelSnapshot();
         User s = a.getSeller();
 
         boolean reserveMet = a.getReservePrice() == null
                 || (a.getCurrentBid() != null
                         && a.getCurrentBid() >= a.getReservePrice());
 
-        String photoUrl = primaryPhotoUrl != null
-                ? primaryPhotoUrl
-                : (p == null ? null : p.getSnapshotUrl());
+        // SL parcel snapshot photos are now auction_photos rows; primaryPhotoUrl
+        // is already resolved from that table by the caller. No snapshotUrl fallback.
+        String photoUrl = primaryPhotoUrl;
 
-        ParcelSummaryDto parcelDto = p == null ? null : new ParcelSummaryDto(
-                p.getId(),
-                // No separate parcel "name" column on the entity; reuse region name.
-                p.getRegion().getName(),
-                p.getRegion().getName(),
-                p.getAreaSqm(),
-                p.getRegion().getMaturityRating(),
-                p.getSnapshotUrl(),
-                p.getRegion().getGridX(),
-                p.getRegion().getGridY(),
-                p.getPositionX(),
-                p.getPositionY(),
-                p.getPositionZ(),
+        ParcelSummaryDto parcelDto = snap == null ? null : new ParcelSummaryDto(
+                a.getId(),
+                // Use regionName as the display name — same as the old Parcel behaviour.
+                snap.getRegionName(),
+                snap.getRegionName(),
+                snap.getAreaSqm(),
+                snap.getRegionMaturityRating(),
+                null, // snapshotUrl: SL parcel images are now auction_photos rows
+                snap.getRegion() == null ? null : snap.getRegion().getGridX(),
+                snap.getRegion() == null ? null : snap.getRegion().getGridY(),
+                snap.getPositionX(),
+                snap.getPositionY(),
+                snap.getPositionZ(),
                 sortedTagsList(tags));
 
         SellerSummaryDto sellerDto = s == null ? null : new SellerSummaryDto(

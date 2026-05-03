@@ -33,7 +33,6 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
 import com.slparcelauctions.backend.bot.BotTaskService;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -55,7 +54,6 @@ class AuctionVerificationServiceMethodATest {
 
     private static final Long SELLER_ID = 42L;
     private static final Long AUCTION_ID = 1L;
-    private static final Long PARCEL_ID = 100L;
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID OTHER_AVATAR = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -73,7 +71,7 @@ class AuctionVerificationServiceMethodATest {
     AuctionVerificationService service;
 
     private User seller;
-    private Parcel parcel;
+    private AuctionParcelSnapshot snapshot;
     private Clock fixed;
 
     @BeforeEach
@@ -88,17 +86,22 @@ class AuctionVerificationServiceMethodATest {
 
         seller = User.builder().id(SELLER_ID).email("s@example.com")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
-        parcel = Parcel.builder()
-                .region(TestRegions.mainland()).id(PARCEL_ID).slParcelUuid(PARCEL_UUID)
+        snapshot = AuctionParcelSnapshot.builder()
+                .slParcelUuid(PARCEL_UUID)
                 .ownerUuid(SELLER_AVATAR).ownerType("agent")
-                .verified(true).build();
+                .parcelName("Test Parcel")
+                .region(TestRegions.mainland())
+                .regionName("Coniston").regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build();
 
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         lenient().when(auctionRepo.saveAndFlush(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
-        lenient().when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                        anyLong(), anyCollection(), anyLong()))
+        lenient().when(auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                        any(UUID.class), anyCollection(), anyLong()))
                 .thenReturn(false);
     }
 
@@ -123,10 +126,10 @@ class AuctionVerificationServiceMethodATest {
         assertThat(out.getOriginalEndsAt()).isEqualTo(out.getEndsAt());
         assertThat(out.getVerifiedAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(out.getVerificationNotes()).isNull();
-        // Parcel ownership fields refreshed from World API
-        assertThat(out.getParcel().getOwnerUuid()).isEqualTo(SELLER_AVATAR);
-        assertThat(out.getParcel().getOwnerType()).isEqualTo("agent");
-        assertThat(out.getParcel().getLastChecked()).isEqualTo(OffsetDateTime.now(fixed));
+        // Snapshot ownership fields refreshed from World API
+        assertThat(out.getParcelSnapshot().getOwnerUuid()).isEqualTo(SELLER_AVATAR);
+        assertThat(out.getParcelSnapshot().getOwnerType()).isEqualTo("agent");
+        assertThat(out.getParcelSnapshot().getLastChecked()).isEqualTo(OffsetDateTime.now(fixed));
     }
 
     @Test
@@ -247,7 +250,7 @@ class AuctionVerificationServiceMethodATest {
         // Parcel owned by a group — UUID_ENTRY cannot resolve to a single
         // seller avatar, so the service rejects the request with 422.
         Auction a = build(AuctionStatus.DRAFT_PAID);
-        a.getParcel().setOwnerType("group");
+        a.getParcelSnapshot().setOwnerType("group");
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
         assertThatThrownBy(() -> service.triggerVerification(
@@ -260,7 +263,7 @@ class AuctionVerificationServiceMethodATest {
         // REZZABLE also fails for group land — the in-world object sees the
         // group key, not the seller. Only SALE_TO_BOT can transfer group land.
         Auction a = build(AuctionStatus.DRAFT_PAID);
-        a.getParcel().setOwnerType("group");
+        a.getParcelSnapshot().setOwnerType("group");
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
         assertThatThrownBy(() -> service.triggerVerification(
@@ -274,7 +277,7 @@ class AuctionVerificationServiceMethodATest {
         // Leaves the auction in VERIFICATION_PENDING (Method C is async; bot
         // worker callback drives the ACTIVE transition).
         Auction a = build(AuctionStatus.DRAFT_PAID);
-        a.getParcel().setOwnerType("group");
+        a.getParcelSnapshot().setOwnerType("group");
         when(auctionService.loadForSeller(AUCTION_ID, SELLER_ID)).thenReturn(a);
 
         Auction out = service.triggerVerification(
@@ -295,18 +298,18 @@ class AuctionVerificationServiceMethodATest {
         when(worldApi.fetchParcelPage(PARCEL_UUID))
                 .thenReturn(
                 Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
-        when(auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
+        when(auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
         Auction blocker = build(AuctionStatus.ACTIVE);
         blocker.setId(77L);
-        when(auctionRepo.findFirstByParcelIdAndStatusIn(
-                PARCEL_ID, AuctionStatusConstants.LOCKING_STATUSES))
+        when(auctionRepo.findFirstBySlParcelUuidAndStatusIn(
+                PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));
 
         assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
-                    assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
+                    assertThat(ex.getParcelId()).isEqualTo(AUCTION_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(77L);
                 });
     }
@@ -324,7 +327,7 @@ class AuctionVerificationServiceMethodATest {
 
         assertThatThrownBy(() -> service.triggerVerification(AUCTION_ID, VerificationMethod.UUID_ENTRY, SELLER_ID))
                 .isInstanceOfSatisfying(ParcelAlreadyListedException.class, ex -> {
-                    assertThat(ex.getParcelId()).isEqualTo(PARCEL_ID);
+                    assertThat(ex.getParcelId()).isEqualTo(AUCTION_ID);
                     assertThat(ex.getBlockingAuctionId()).isEqualTo(-1L);
                 });
     }
@@ -350,9 +353,9 @@ class AuctionVerificationServiceMethodATest {
     // -------------------------------------------------------------------------
 
     private Auction build(AuctionStatus status) {
-        return Auction.builder()
+        Auction a = Auction.builder()
                 .title("Test listing")
-                .id(AUCTION_ID).seller(seller).parcel(parcel).status(status)
+                .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
                 .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false)
@@ -364,6 +367,20 @@ class AuctionVerificationServiceMethodATest {
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))
                 .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(snapshot.getSlParcelUuid())
+                .ownerUuid(snapshot.getOwnerUuid())
+                .ownerType(snapshot.getOwnerType())
+                .parcelName(snapshot.getParcelName())
+                .region(snapshot.getRegion())
+                .regionName(snapshot.getRegionName())
+                .regionMaturityRating(snapshot.getRegionMaturityRating())
+                .areaSqm(snapshot.getAreaSqm())
+                .positionX(snapshot.getPositionX())
+                .positionY(snapshot.getPositionY())
+                .positionZ(snapshot.getPositionZ())
+                .build());
+        return a;
     }
 
     private ParcelMetadata meta(UUID owner, String ownerType) {

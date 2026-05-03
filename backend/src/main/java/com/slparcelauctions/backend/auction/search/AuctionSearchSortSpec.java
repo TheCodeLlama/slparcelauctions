@@ -36,7 +36,7 @@ public final class AuctionSearchSortSpec {
         return switch (sort) {
             case NEWEST         -> Sort.by(Sort.Order.desc("startsAt"), Sort.Order.desc("id"));
             case ENDING_SOONEST -> Sort.by(Sort.Order.asc("endsAt"), Sort.Order.asc("id"));
-            case LARGEST_AREA   -> Sort.by(Sort.Order.desc("parcel.areaSqm"), Sort.Order.desc("id"));
+            case LARGEST_AREA   -> Sort.by(Sort.Order.desc("parcelSnapshot.areaSqm"), Sort.Order.desc("id"));
             case LOWEST_PRICE, MOST_BIDS, NEAREST -> Sort.unsorted();
         };
     }

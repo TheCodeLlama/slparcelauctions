@@ -11,11 +11,9 @@ import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.notification.slim.SlImMessage;
 import com.slparcelauctions.backend.notification.slim.SlImMessageRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -59,12 +57,10 @@ class OutbidImIntegrationTest {
     @Autowired SlImMessageRepository slImRepo;
     @Autowired UserRepository userRepo;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired BidRepository bidRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
 
-    private Long parcelId;
     private Long auctionId;
     private final java.util.List<Long> userIds = new java.util.ArrayList<>();
 
@@ -92,14 +88,10 @@ class OutbidImIntegrationTest {
                         st.execute("DELETE FROM users WHERE id = " + id);
                     }
                 }
-                if (parcelId != null) {
-                    st.execute("DELETE FROM parcels WHERE id = " + parcelId);
-                }
             }
         }
         userIds.clear();
         auctionId = null;
-        parcelId = null;
     }
 
     @Test
@@ -219,20 +211,11 @@ class OutbidImIntegrationTest {
 
     private Auction saveAuction(User seller, long startBidL) {
         // Pattern from BidNotificationIntegrationTest.activeAuction
-        Parcel p = parcelRepo.save(Parcel.builder()
-            .region(TestRegions.mainland())
-            .slParcelUuid(UUID.randomUUID())
-            .ownerUuid(seller.getSlAvatarUuid() != null ? seller.getSlAvatarUuid() : UUID.randomUUID())
-            .ownerType("agent")
-                                    .areaSqm(512)
-                        .verified(true)
-            .verifiedAt(OffsetDateTime.now())
-            .build());
-        parcelId = p.getId();
+        UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         Auction a = auctionRepo.save(Auction.builder()
             .title("SL IM Test Lot")
-            .parcel(p)
+            .slParcelUuid(parcelUuid)
             .seller(seller)
             .status(AuctionStatus.ACTIVE)
             .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -249,6 +232,13 @@ class OutbidImIntegrationTest {
             .originalEndsAt(now.plusHours(24))
             .build());
         auctionId = a.getId();
-        return a;
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+            .slParcelUuid(parcelUuid).ownerType("agent")
+            .ownerUuid(seller.getSlAvatarUuid() != null ? seller.getSlAvatarUuid() : UUID.randomUUID())
+            .ownerName("Seller").parcelName("SL IM Test Parcel")
+            .regionName("Mainland").areaSqm(512)
+            .positionX(128.0).positionY(128.0).positionZ(22.0)
+            .build());
+        return auctionRepo.save(a);
     }
 }

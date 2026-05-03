@@ -30,12 +30,10 @@ import com.slparcelauctions.backend.auction.monitoring.SuspensionService;
 import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Vertical-slice integration tests for suspension notifications.
@@ -57,7 +55,6 @@ class SuspensionNotificationIntegrationTest {
 
     @Autowired SuspensionService suspensionService;
     @Autowired AuctionRepository auctionRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired NotificationRepository notifRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
@@ -66,7 +63,7 @@ class SuspensionNotificationIntegrationTest {
 
     @MockitoBean NotificationWsBroadcasterPort wsBroadcaster;
 
-    private Long sellerId, auctionId, parcelId;
+    private Long sellerId, auctionId;
 
     @AfterEach
     void cleanup() throws Exception {
@@ -75,7 +72,6 @@ class SuspensionNotificationIntegrationTest {
                 fraudFlagRepo.findByAuctionId(auctionId).forEach(fraudFlagRepo::delete);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             }
-            if (parcelId != null) parcelRepo.findById(parcelId).ifPresent(parcelRepo::delete);
         });
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -87,7 +83,7 @@ class SuspensionNotificationIntegrationTest {
                 }
             }
         }
-        sellerId = auctionId = parcelId = null;
+        sellerId = auctionId = null;
     }
 
     private User newUser(String prefix) {
@@ -102,19 +98,10 @@ class SuspensionNotificationIntegrationTest {
 
     private Auction seedActiveAuction(User seller) {
         return new TransactionTemplate(txManager).execute(s -> {
-            Parcel p = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(UUID.randomUUID())
-                    .ownerUuid(seller.getSlAvatarUuid())
-                    .ownerType("agent")
-                                                            .areaSqm(256)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            parcelId = p.getId();
+            UUID parcelUuid = UUID.randomUUID();
             Auction a = auctionRepo.save(Auction.builder()
                     .title("Suspension Test Lot")
-                    .parcel(p)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -133,6 +120,14 @@ class SuspensionNotificationIntegrationTest {
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))
                     .build());
             auctionId = a.getId();
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid).ownerType("agent")
+                    .ownerUuid(seller.getSlAvatarUuid())
+                    .ownerName("Seller").parcelName("Suspension Test Parcel")
+                    .regionName("Mainland").areaSqm(256)
+                    .positionX(128.0).positionY(128.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(a);
             return a;
         });
     }
@@ -143,11 +138,11 @@ class SuspensionNotificationIntegrationTest {
         Auction a = seedActiveAuction(seller);
 
         ParcelMetadata evidence = new ParcelMetadata(
-                a.getParcel().getSlParcelUuid(),
+                a.getSlParcelUuid(),
                 UUID.randomUUID(),
                 "agent", null,
                 "SuspRegion",
-                a.getParcel().getRegion().getName(),
+                a.getParcelSnapshot().getRegionName(),
                 null, null, null, null, null, null, null);
         suspensionService.suspendForOwnershipChange(a, evidence);
 

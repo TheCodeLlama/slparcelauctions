@@ -82,7 +82,21 @@ Requires real SL credentials in `.env.bot-N`. No mock mode. See `bot/README.md`.
 ## Backend Stack Details
 
 - **ORM**: Spring Data JPA / Hibernate with Lombok for boilerplate
-- **Database migrations**: Flyway (SQL-based, not Java) — files in `backend/src/main/resources/db/migration/V<N>__description.sql`. Hibernate runs in `ddl-auto: validate` in every profile; entity changes require a paired migration in the same commit.
+- **Database migrations**: Hibernate manages schema via `ddl-auto: update` until SLPA has real users. Entity changes do NOT require a Flyway migration. Breaking schema changes are handled by wiping the DB and letting Hibernate rebuild from entities. Re-enable Flyway-first discipline before launch.
+
+  Existing Flyway migrations (`backend/src/main/resources/db/migration/V<N>__*.sql`) stay on disk and run on startup against fresh DBs to apply baseline + cleanup. Do not write new ones during active iteration; if you make breaking schema changes, wipe instead.
+
+  **DB wipe procedure (prod):**
+
+  ```bash
+  PGPASSWORD=$(aws secretsmanager get-secret-value --profile slpa-prod \
+    --secret-id slpa/prod/db --query SecretString --output text | jq -r .password) \
+    psql -h $RDS_ENDPOINT -U slpa -d slpa -c \
+    "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+  aws ecs update-service --profile slpa-prod \
+    --cluster slpa-prod --service slpa-backend --force-new-deployment
+  ```
 - **Auth**: Spring Security + JWT
 - **Real-time**: Spring WebSocket with STOMP protocol
 - **Cache/Sessions**: Redis (via spring-boot-starter-data-redis + spring-session)

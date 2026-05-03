@@ -610,7 +610,7 @@ public class EscrowService {
                     ? "<null>" : winner.getSlAvatarUuid().toString();
             FraudFlag flag = FraudFlag.builder()
                     .auction(escrow.getAuction())
-                    .parcel(escrow.getAuction().getParcel())
+                    .slParcelUuid(escrow.getAuction().getSlParcelUuid())
                     .reason(FraudFlagReason.ESCROW_WRONG_PAYER)
                     .detectedAt(now)
                     .evidenceJson(Map.of(
@@ -774,7 +774,7 @@ public class EscrowService {
         };
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(escrow.getAuction())
-                .parcel(escrow.getAuction().getParcel())
+                .slParcelUuid(escrow.getAuction().getSlParcelUuid())
                 .reason(flagReason)
                 .detectedAt(now)
                 .evidenceJson(evidence)

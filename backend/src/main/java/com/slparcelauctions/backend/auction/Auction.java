@@ -11,10 +11,10 @@ import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.user.User;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,7 +29,9 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -56,14 +58,26 @@ public class Auction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // EAGER: every auction-rendering path (search results, detail page,
-    // monitor scheduler) reads parcel.region.* — LAZY caused
-    // LazyInitializationException when auction was passed across a
-    // transaction boundary (e.g. BotMonitorLifecycleService called from a
-    // post-commit hook). Region itself is also EAGER on Parcel.
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "parcel_id", nullable = false)
-    private Parcel parcel;
+    @Column(name = "sl_parcel_uuid", nullable = false)
+    private UUID slParcelUuid;
+
+    @Setter(AccessLevel.NONE)
+    @OneToOne(mappedBy = "auction", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private AuctionParcelSnapshot parcelSnapshot;
+
+    /**
+     * Setter override that keeps the denormalized {@link #slParcelUuid}
+     * mirror in sync with the snapshot's UUID. The mirror exists because the
+     * parcel-locking partial unique index lives on the auctions table —
+     * Postgres partial indexes can't span tables.
+     */
+    public void setParcelSnapshot(AuctionParcelSnapshot snapshot) {
+        this.parcelSnapshot = snapshot;
+        if (snapshot != null) {
+            snapshot.setAuction(this);
+            this.slParcelUuid = snapshot.getSlParcelUuid();
+        }
+    }
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "seller_id", nullable = false)

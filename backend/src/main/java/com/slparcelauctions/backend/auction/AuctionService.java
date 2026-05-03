@@ -24,8 +24,9 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
 import com.slparcelauctions.backend.auction.exception.SuspensionReason;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.parcel.ParcelLookupService;
+import com.slparcelauctions.backend.parcel.ParcelLookupService.ParcelLookupResult;
+import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.parceltag.ParcelTagRepository;
 import com.slparcelauctions.backend.user.User;
@@ -43,10 +44,11 @@ public class AuctionService {
     private static final Set<Integer> ALLOWED_SNIPE_WINDOWS = Set.of(5, 10, 15, 30, 60);
 
     private final AuctionRepository auctionRepo;
-    private final ParcelRepository parcelRepo;
     private final UserRepository userRepo;
     private final ParcelTagRepository tagRepo;
     private final BanCheckService banCheckService;
+    private final ParcelLookupService parcelLookupService;
+    private final ParcelSnapshotPhotoService parcelSnapshotPhotoService;
     private final Clock clock;
 
     @Value("${slpa.commission.default-rate:0.05}")
@@ -75,8 +77,7 @@ public class AuctionService {
             throw new SellerSuspendedException(suspended);
         }
 
-        Parcel parcel = parcelRepo.findById(req.parcelId())
-                .orElseThrow(() -> new IllegalArgumentException("Parcel not found: " + req.parcelId()));
+        ParcelLookupResult lookupResult = parcelLookupService.lookup(req.slParcelUuid());
 
         Set<ParcelTag> tags = resolveTags(req.tags());
 
@@ -85,7 +86,6 @@ public class AuctionService {
         // AuctionVerificationService.triggerVerification(...). The entity column
         // is nullable until that point.
         Auction a = Auction.builder()
-                .parcel(parcel)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
                 .title(req.title())
@@ -102,10 +102,18 @@ public class AuctionService {
                 .currentBid(0L)
                 .bidCount(0)
                 .listingFeePaid(false)
+                // slParcelUuid will be set via setParcelSnapshot below
+                .slParcelUuid(req.slParcelUuid())
                 .build();
+
+        AuctionParcelSnapshot snapshot = buildSnapshot(lookupResult);
+        a.setParcelSnapshot(snapshot);
+
         a = auctionRepo.save(a);
-        log.info("Auction created: id={}, sellerId={}, parcelId={}",
-                a.getId(), sellerId, parcel.getId());
+        log.info("Auction created: id={}, sellerId={}, slParcelUuid={}",
+                a.getId(), sellerId, a.getSlParcelUuid());
+
+        parcelSnapshotPhotoService.refreshFor(a, lookupResult.response().snapshotUrl());
         return a;
     }
 
@@ -164,6 +172,21 @@ public class AuctionService {
         if (req.tags() != null) {
             a.setTags(resolveTags(req.tags()));
         }
+
+        // Re-lookup if a new (different) slParcelUuid was supplied
+        if (req.slParcelUuid() != null && !req.slParcelUuid().equals(a.getSlParcelUuid())) {
+            ParcelLookupResult lookupResult = parcelLookupService.lookup(req.slParcelUuid());
+            AuctionParcelSnapshot existing = a.getParcelSnapshot();
+            if (existing != null) {
+                applyLookupToSnapshot(existing, lookupResult);
+            } else {
+                a.setParcelSnapshot(buildSnapshot(lookupResult));
+            }
+            a = auctionRepo.save(a);
+            parcelSnapshotPhotoService.refreshFor(a, lookupResult.response().snapshotUrl());
+            return a;
+        }
+
         return auctionRepo.save(a);
     }
 
@@ -234,6 +257,57 @@ public class AuctionService {
             }
         }
         return new PageImpl<>(ordered, pageable, idsPage.getTotalElements());
+    }
+
+    /**
+     * Builds a new {@link AuctionParcelSnapshot} from a lookup result.
+     * The {@code auction} back-reference is intentionally NOT set here —
+     * callers set it via {@link Auction#setParcelSnapshot(AuctionParcelSnapshot)}.
+     */
+    private AuctionParcelSnapshot buildSnapshot(ParcelLookupResult lookup) {
+        ParcelResponse r = lookup.response();
+        return AuctionParcelSnapshot.builder()
+                .slParcelUuid(r.slParcelUuid())
+                .ownerUuid(r.ownerUuid())
+                .ownerType(r.ownerType())
+                .ownerName(r.ownerName())
+                .parcelName(r.parcelName())
+                .region(lookup.region())
+                .regionName(r.regionName())
+                .regionMaturityRating(r.regionMaturityRating())
+                .areaSqm(r.areaSqm())
+                .description(r.description())
+                .positionX(r.positionX())
+                .positionY(r.positionY())
+                .positionZ(r.positionZ())
+                .slurl(r.slurl())
+                .verifiedAt(r.verifiedAt())
+                .lastChecked(r.lastChecked())
+                .build();
+    }
+
+    /**
+     * Refreshes an existing snapshot's fields in place from a new lookup result.
+     * Used by {@link #update} when the seller supplies a new {@code slParcelUuid}.
+     */
+    private void applyLookupToSnapshot(AuctionParcelSnapshot snap, ParcelLookupResult lookup) {
+        ParcelResponse r = lookup.response();
+        snap.setSlParcelUuid(r.slParcelUuid());
+        snap.setOwnerUuid(r.ownerUuid());
+        snap.setOwnerType(r.ownerType());
+        snap.setOwnerName(r.ownerName());
+        snap.setParcelName(r.parcelName());
+        snap.setRegion(lookup.region());
+        snap.setRegionName(r.regionName());
+        snap.setRegionMaturityRating(r.regionMaturityRating());
+        snap.setAreaSqm(r.areaSqm());
+        snap.setDescription(r.description());
+        snap.setPositionX(r.positionX());
+        snap.setPositionY(r.positionY());
+        snap.setPositionZ(r.positionZ());
+        snap.setSlurl(r.slurl());
+        snap.setVerifiedAt(r.verifiedAt());
+        snap.setLastChecked(r.lastChecked());
     }
 
     /**

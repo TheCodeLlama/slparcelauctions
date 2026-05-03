@@ -42,7 +42,7 @@ public class ParcelController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody ParcelLookupRequest body) {
         requireVerified(principal.userId());
-        return service.lookup(body.slParcelUuid());
+        return service.lookup(body.slParcelUuid()).response();
     }
 
     private void requireVerified(Long userId) {

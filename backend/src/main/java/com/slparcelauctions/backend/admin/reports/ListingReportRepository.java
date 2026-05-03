@@ -22,12 +22,12 @@ public interface ListingReportRepository extends JpaRepository<ListingReport, Lo
     @Query("""
         SELECT new com.slparcelauctions.backend.admin.reports.dto.AdminReportListingRowDto(
             r.auction.id, r.auction.title, r.auction.status,
-            r.auction.parcel.region.name, r.auction.seller.id, r.auction.seller.displayName,
+            r.auction.parcelSnapshot.regionName, r.auction.seller.id, r.auction.seller.displayName,
             COUNT(r), MAX(r.updatedAt))
         FROM ListingReport r
         WHERE r.status = :status
         GROUP BY r.auction.id, r.auction.title, r.auction.status,
-                 r.auction.parcel.region.name, r.auction.seller.id, r.auction.seller.displayName
+                 r.auction.parcelSnapshot.regionName, r.auction.seller.id, r.auction.seller.displayName
         ORDER BY COUNT(r) DESC, MAX(r.updatedAt) DESC
     """)
     Page<AdminReportListingRowDto> findListingsGroupedByStatus(
@@ -36,11 +36,11 @@ public interface ListingReportRepository extends JpaRepository<ListingReport, Lo
     @Query("""
         SELECT new com.slparcelauctions.backend.admin.reports.dto.AdminReportListingRowDto(
             r.auction.id, r.auction.title, r.auction.status,
-            r.auction.parcel.region.name, r.auction.seller.id, r.auction.seller.displayName,
+            r.auction.parcelSnapshot.regionName, r.auction.seller.id, r.auction.seller.displayName,
             COUNT(r), MAX(r.updatedAt))
         FROM ListingReport r
         GROUP BY r.auction.id, r.auction.title, r.auction.status,
-                 r.auction.parcel.region.name, r.auction.seller.id, r.auction.seller.displayName
+                 r.auction.parcelSnapshot.regionName, r.auction.seller.id, r.auction.seller.displayName
         ORDER BY COUNT(r) DESC, MAX(r.updatedAt) DESC
     """)
     Page<AdminReportListingRowDto> findAllListingsGrouped(Pageable pageable);

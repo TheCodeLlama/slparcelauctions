@@ -35,11 +35,9 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * End-to-end coverage of the ownership-monitor sweep using a real World API
@@ -109,14 +107,12 @@ class OwnershipMonitorIntegrationTest {
 
     @Autowired AuctionRepository auctionRepo;
     @Autowired FraudFlagRepository fraudFlagRepo;
-    @Autowired ParcelRepository parcelRepo;
     @Autowired UserRepository userRepo;
     @Autowired OwnershipMonitorScheduler scheduler;
     @Autowired PlatformTransactionManager txManager;
     @Autowired javax.sql.DataSource dataSource;
 
     private Long seededUserId;
-    private Long seededParcelId;
     private Long seededAuctionId;
 
     @AfterEach
@@ -128,10 +124,8 @@ class OwnershipMonitorIntegrationTest {
             try (var stmt = conn.createStatement()) {
                 stmt.execute("DELETE FROM fraud_flags WHERE auction_id = " + seededAuctionId);
                 stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + seededAuctionId);
+                stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + seededAuctionId);
                 stmt.execute("DELETE FROM auctions WHERE id = " + seededAuctionId);
-                if (seededParcelId != null) {
-                    stmt.execute("DELETE FROM parcels WHERE id = " + seededParcelId);
-                }
                 if (seededUserId != null) {
                     stmt.execute("DELETE FROM notification WHERE user_id = " + seededUserId);
                     stmt.execute("DELETE FROM verification_codes WHERE user_id = " + seededUserId);
@@ -141,7 +135,6 @@ class OwnershipMonitorIntegrationTest {
             }
         }
         seededAuctionId = null;
-        seededParcelId = null;
         seededUserId = null;
     }
 
@@ -281,21 +274,10 @@ class OwnershipMonitorIntegrationTest {
                     .build());
             seededUserId = seller.getId();
 
-            Parcel parcel = parcelRepo.save(Parcel.builder()
-                    .region(TestRegions.mainland())
-                    .slParcelUuid(parcelUuid)
-                    .ownerUuid(sellerAvatar)
-                    .ownerType("agent")
-                                                            .areaSqm(1024)
-                                        .verified(true)
-                    .verifiedAt(OffsetDateTime.now())
-                    .build());
-            seededParcelId = parcel.getId();
-
             OffsetDateTime now = OffsetDateTime.now();
             Auction auction = auctionRepo.save(Auction.builder()
                     .title("Test listing")
-                    .parcel(parcel)
+                    .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
                     .verificationMethod(VerificationMethod.UUID_ENTRY)
@@ -316,6 +298,17 @@ class OwnershipMonitorIntegrationTest {
                     // Intentionally stale so the next sweep finds it due.
                     .lastOwnershipCheckAt(now.minusHours(2))
                     .build());
+            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(sellerAvatar)
+                    .ownerType("agent")
+                    .parcelName("Monitor Test Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            auctionRepo.save(auction);
             seededAuctionId = auction.getId();
             return auction.getId();
         });
