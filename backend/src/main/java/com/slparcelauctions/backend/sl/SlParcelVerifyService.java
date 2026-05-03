@@ -3,12 +3,14 @@ package com.slparcelauctions.backend.sl;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.AuctionStatusConstants;
@@ -19,8 +21,6 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 import com.slparcelauctions.backend.sl.dto.SlParcelVerifyRequest;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.verification.VerificationCode;
@@ -56,7 +56,6 @@ public class SlParcelVerifyService {
     private final SlHeaderValidator headerValidator;
     private final VerificationCodeRepository codeRepo;
     private final AuctionRepository auctionRepo;
-    private final ParcelRepository parcelRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final NotificationPublisher notificationPublisher;
     private final Clock clock;
@@ -113,10 +112,10 @@ public class SlParcelVerifyService {
                     auctionId, auction.getStatus(), "SL_PARCEL_VERIFY");
         }
 
-        Parcel parcel = auction.getParcel();
-        if (!parcel.getSlParcelUuid().equals(body.parcelUuid())) {
+        UUID auctionParcelUuid = auction.getSlParcelUuid();
+        if (!auctionParcelUuid.equals(body.parcelUuid())) {
             throw new IllegalArgumentException(
-                    "Parcel UUID mismatch: code is bound to parcel " + parcel.getSlParcelUuid()
+                    "Parcel UUID mismatch: code is bound to parcel " + auctionParcelUuid
                             + " but the in-world object reports " + body.parcelUuid());
         }
         User seller = auction.getSeller();
@@ -131,30 +130,30 @@ public class SlParcelVerifyService {
         // for the 409 response; the Postgres partial unique index catches any
         // concurrent race that slips past this check (handled in the catch
         // below around saveAndFlush).
-        if (auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                parcel.getId(), AuctionStatusConstants.LOCKING_STATUSES, auction.getId())) {
+        if (auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                auctionParcelUuid, AuctionStatusConstants.LOCKING_STATUSES, auction.getId())) {
             Long blockingId = auctionRepo
-                    .findFirstByParcelIdAndStatusIn(
-                            parcel.getId(), AuctionStatusConstants.LOCKING_STATUSES)
+                    .findFirstBySlParcelUuidAndStatusIn(
+                            auctionParcelUuid, AuctionStatusConstants.LOCKING_STATUSES)
                     .map(Auction::getId)
                     .orElse(-1L);
-            throw new ParcelAlreadyListedException(parcel.getId(), blockingId);
+            throw new ParcelAlreadyListedException(auction.getId(), blockingId);
         }
 
         code.setUsed(true);
         codeRepo.save(code);
 
-        // Refresh parcel metadata from the in-world report. Only overwrite
+        // Refresh snapshot metadata from the in-world report. Only overwrite
         // fields the LSL object supplied — null on the wire means "unchanged".
-        if (body.areaSqm() != null) parcel.setAreaSqm(body.areaSqm());
-        if (body.description() != null) parcel.setDescription(body.description());
-        if (body.regionPosX() != null) parcel.setPositionX(body.regionPosX());
-        if (body.regionPosY() != null) parcel.setPositionY(body.regionPosY());
-        if (body.regionPosZ() != null) parcel.setPositionZ(body.regionPosZ());
-        parcel.setOwnerUuid(body.ownerUuid());
-        parcel.setOwnerType("agent");
-        parcel.setLastChecked(now);
-        parcelRepo.save(parcel);
+        AuctionParcelSnapshot snapshot = auction.getParcelSnapshot();
+        if (body.areaSqm() != null) snapshot.setAreaSqm(body.areaSqm());
+        if (body.description() != null) snapshot.setDescription(body.description());
+        if (body.regionPosX() != null) snapshot.setPositionX(body.regionPosX());
+        if (body.regionPosY() != null) snapshot.setPositionY(body.regionPosY());
+        if (body.regionPosZ() != null) snapshot.setPositionZ(body.regionPosZ());
+        snapshot.setOwnerUuid(body.ownerUuid());
+        snapshot.setOwnerType("agent");
+        snapshot.setLastChecked(now);
 
         OffsetDateTime endsAt = now.plusHours(auction.getDurationHours());
         auction.setStartsAt(now);
@@ -175,7 +174,7 @@ public class SlParcelVerifyService {
         } catch (DataIntegrityViolationException e) {
             log.warn("Method B verification lost parcel-lock race for auction {}: {}",
                     auction.getId(), e.getMessage());
-            throw new ParcelAlreadyListedException(parcel.getId(), -1L);
+            throw new ParcelAlreadyListedException(auction.getId(), -1L);
         }
         notificationPublisher.listingVerified(
                 seller.getId(), auction.getId(), auction.getTitle());

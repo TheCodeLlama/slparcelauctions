@@ -133,7 +133,7 @@ public class OwnershipCheckTask {
      * intentionally — admin-initiated rechecks apply to any status.
      */
     private OwnershipCheckResult doCheck(Auction auction) {
-        UUID parcelUuid = auction.getParcel().getSlParcelUuid();
+        UUID parcelUuid = auction.getSlParcelUuid();
         OffsetDateTime now = OffsetDateTime.now(clock);
         UUID expected = auction.getSeller().getSlAvatarUuid();
         UUID observed = null;

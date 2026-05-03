@@ -27,9 +27,8 @@ import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.bot.exception.BotEscrowTerminalException;
 import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
 import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.bot.exception.BotTaskWrongTypeException;
-import com.slparcelauctions.backend.parcel.Parcel;
-import com.slparcelauctions.backend.parcel.ParcelRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +63,6 @@ public class BotTaskService {
 
     private final BotTaskRepository botTaskRepo;
     private final AuctionRepository auctionRepo;
-    private final ParcelRepository parcelRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final BotMonitorDispatcher dispatcher;
     private final BotMonitorLifecycleService monitorLifecycle;
@@ -98,21 +96,21 @@ public class BotTaskService {
             }
         }
 
-        // Denormalize position coords from the parcel so the C# bot worker
-        // (VerifyHandler) can teleport without re-looking-up the parcel row.
+        // Denormalize position coords from the snapshot so the C# bot worker
+        // (VerifyHandler) can teleport without re-looking-up any parcel row.
         // Matches the shape BotMonitorLifecycleService uses for MONITOR_* rows.
         // Task 10's MISSING_COORDS guard in the worker rejects tasks without
         // coords, so these fields are now mandatory at creation time.
-        Parcel parcel = auction.getParcel();
+        AuctionParcelSnapshot snapshot = auction.getParcelSnapshot();
         BotTask task = BotTask.builder()
                 .taskType(BotTaskType.VERIFY)
                 .status(BotTaskStatus.PENDING)
                 .auction(auction)
-                .parcelUuid(parcel.getSlParcelUuid())
-                .regionName(parcel.getRegion().getName())
-                .positionX(parcel.getPositionX())
-                .positionY(parcel.getPositionY())
-                .positionZ(parcel.getPositionZ())
+                .parcelUuid(auction.getSlParcelUuid())
+                .regionName(snapshot.getRegionName())
+                .positionX(snapshot.getPositionX())
+                .positionY(snapshot.getPositionY())
+                .positionZ(snapshot.getPositionZ())
                 .sentinelPrice(sentinelPrice)
                 .build();
         task = botTaskRepo.save(task);
@@ -183,9 +181,9 @@ public class BotTaskService {
 
         // Service-layer parcel-lock pre-check. If another auction holds the lock,
         // mark the task FAILED with PARCEL_LOCKED and throw the standard 409.
-        Parcel parcel = auction.getParcel();
-        if (auctionRepo.existsByParcelIdAndStatusInAndIdNot(
-                parcel.getId(),
+        UUID slParcelUuid = auction.getSlParcelUuid();
+        if (auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                slParcelUuid,
                 AuctionStatusConstants.LOCKING_STATUSES,
                 auction.getId())) {
             task.setStatus(BotTaskStatus.FAILED);
@@ -196,25 +194,24 @@ public class BotTaskService {
             auction.setVerificationNotes("Bot: PARCEL_LOCKED");
             auctionRepo.save(auction);
             Long blockingId = auctionRepo
-                    .findFirstByParcelIdAndStatusIn(parcel.getId(),
+                    .findFirstBySlParcelUuidAndStatusIn(slParcelUuid,
                             AuctionStatusConstants.LOCKING_STATUSES)
                     .map(Auction::getId)
                     .orElse(-1L);
-            throw new ParcelAlreadyListedException(parcel.getId(), blockingId);
+            throw new ParcelAlreadyListedException(auction.getId(), blockingId);
         }
 
-        // Refresh parcel metadata from the bot payload.
-        if (body.parcelOwner() != null) parcel.setOwnerUuid(body.parcelOwner());
-        if (body.areaSqm() != null) parcel.setAreaSqm(body.areaSqm());
-        // body.regionName() is no longer applied to the parcel — region is now
-        // FK'd at parcel-create time and is the canonical source. A bot-reported
-        // region rename would be applied via RegionService.upsert on the next
-        // parcel lookup in that region; we don't drift here.
-        if (body.positionX() != null) parcel.setPositionX(body.positionX());
-        if (body.positionY() != null) parcel.setPositionY(body.positionY());
-        if (body.positionZ() != null) parcel.setPositionZ(body.positionZ());
-        parcel.setLastChecked(now);
-        parcelRepo.save(parcel);
+        // Refresh snapshot metadata from the bot payload.
+        AuctionParcelSnapshot snapshot = auction.getParcelSnapshot();
+        if (body.parcelOwner() != null) snapshot.setOwnerUuid(body.parcelOwner());
+        if (body.areaSqm() != null) snapshot.setAreaSqm(body.areaSqm());
+        // body.regionName() is informational only — the canonical region name
+        // is the denormalized snapshot.regionName set at create time. We do not
+        // drift here; a region rename flows through RegionService.upsert.
+        if (body.positionX() != null) snapshot.setPositionX(body.positionX());
+        if (body.positionY() != null) snapshot.setPositionY(body.positionY());
+        if (body.positionZ() != null) snapshot.setPositionZ(body.positionZ());
+        snapshot.setLastChecked(now);
 
         // Record result data for audit/debug. Use a mutable map because
         // parcelOwner can be null; Map.of rejects null values.
@@ -246,7 +243,7 @@ public class BotTaskService {
         } catch (DataIntegrityViolationException e) {
             log.warn("Bot task {} lost parcel-lock race for auction {}: {}",
                     taskId, auction.getId(), e.getMessage());
-            throw new ParcelAlreadyListedException(parcel.getId(), -1L);
+            throw new ParcelAlreadyListedException(auction.getId(), -1L);
         }
         // Seed the MONITOR_AUCTION row in the same transaction as the auction
         // state flip so the auction row and the monitor row commit together.

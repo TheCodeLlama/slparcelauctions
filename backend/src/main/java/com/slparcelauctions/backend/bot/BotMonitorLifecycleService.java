@@ -11,8 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.escrow.Escrow;
-import com.slparcelauctions.backend.parcel.Parcel;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -52,18 +52,18 @@ public class BotMonitorLifecycleService {
         if (auction.getVerificationTier() != VerificationTier.BOT) return;
         OffsetDateTime now = OffsetDateTime.now(clock);
         Duration interval = props.bot().monitorAuctionInterval();
-        Parcel parcel = auction.getParcel();
+        AuctionParcelSnapshot snapshot = auction.getParcelSnapshot();
         BotTask row = BotTask.builder()
                 .taskType(BotTaskType.MONITOR_AUCTION)
                 .status(BotTaskStatus.PENDING)
                 .auction(auction)
-                .parcelUuid(parcel.getSlParcelUuid())
-                .regionName(parcel.getRegion().getName())
-                .positionX(parcel.getPositionX())
-                .positionY(parcel.getPositionY())
-                .positionZ(parcel.getPositionZ())
+                .parcelUuid(auction.getSlParcelUuid())
+                .regionName(snapshot.getRegionName())
+                .positionX(snapshot.getPositionX())
+                .positionY(snapshot.getPositionY())
+                .positionZ(snapshot.getPositionZ())
                 .sentinelPrice(props.botTask().sentinelPriceLindens())
-                .expectedOwnerUuid(parcel.getOwnerUuid())
+                .expectedOwnerUuid(snapshot.getOwnerUuid())
                 .expectedAuthBuyerUuid(props.botTask().primaryEscrowUuid())
                 .expectedSalePriceLindens(props.botTask().sentinelPriceLindens())
                 .nextRunAt(now.plus(interval))
@@ -116,18 +116,18 @@ public class BotMonitorLifecycleService {
                         "Winner user not found for auction " + auction.getId()));
         UUID winnerUuid = winner.getSlAvatarUuid();
         UUID sellerUuid = auction.getSeller().getSlAvatarUuid();
-        Parcel parcel = auction.getParcel();
+        AuctionParcelSnapshot snapshot = auction.getParcelSnapshot();
 
         BotTask row = BotTask.builder()
                 .taskType(BotTaskType.MONITOR_ESCROW)
                 .status(BotTaskStatus.PENDING)
                 .auction(auction)
                 .escrow(escrow)
-                .parcelUuid(parcel.getSlParcelUuid())
-                .regionName(parcel.getRegion().getName())
-                .positionX(parcel.getPositionX())
-                .positionY(parcel.getPositionY())
-                .positionZ(parcel.getPositionZ())
+                .parcelUuid(auction.getSlParcelUuid())
+                .regionName(snapshot.getRegionName())
+                .positionX(snapshot.getPositionX())
+                .positionY(snapshot.getPositionY())
+                .positionZ(snapshot.getPositionZ())
                 .sentinelPrice(props.botTask().sentinelPriceLindens())
                 .expectedSellerUuid(sellerUuid)
                 .expectedWinnerUuid(winnerUuid)

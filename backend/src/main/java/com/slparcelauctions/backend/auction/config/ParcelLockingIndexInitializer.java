@@ -28,9 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ParcelLockingIndexInitializer {
 
+    private static final String DROP_OLD = """
+            DROP INDEX IF EXISTS uq_auctions_parcel_locked_status
+            """;
+
     private static final String DDL = """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_auctions_parcel_locked_status
-              ON auctions(parcel_id)
+              ON auctions(sl_parcel_uuid)
               WHERE status IN ('ACTIVE', 'ENDED', 'ESCROW_PENDING',
                                'ESCROW_FUNDED', 'TRANSFER_PENDING', 'DISPUTED')
             """;
@@ -39,7 +43,12 @@ public class ParcelLockingIndexInitializer {
 
     @EventListener(ApplicationReadyEvent.class)
     public void createIndex() {
-        new JdbcTemplate(dataSource).execute(DDL);
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        // Drop the old parcel_id-based index if it still exists (idempotent
+        // across schema wipes and fresh boots). The new index uses
+        // sl_parcel_uuid — the denormalized column on auctions.
+        jdbc.execute(DROP_OLD);
+        jdbc.execute(DDL);
         log.info("Parcel locking partial unique index ensured (uq_auctions_parcel_locked_status)");
     }
 }

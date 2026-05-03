@@ -82,7 +82,7 @@ public class AuctionSearchPredicateBuilder {
     private void addFilterPredicates(
             List<Predicate> predicates, AuctionSearchQuery q,
             Root<Auction> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
-        Join<Object, Object> parcel = root.join("parcel");
+        Join<Object, Object> parcel = root.join("parcelSnapshot");
         Join<Object, Object> region = parcel.join("region");
 
         if (q.region() != null && !q.region().isBlank()) {

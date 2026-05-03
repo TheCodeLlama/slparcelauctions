@@ -448,7 +448,7 @@ public class ReviewService {
                 .sorted(Comparator.comparing(AuctionPhoto::getSortOrder))
                 .findFirst()
                 .map(p -> "/api/v1/auctions/" + auction.getId() + "/photos/" + p.getId() + "/bytes")
-                .orElseGet(() -> auction.getParcel() == null ? null : auction.getParcel().getSnapshotUrl());
+                .orElse(null);
     }
 
     /**
