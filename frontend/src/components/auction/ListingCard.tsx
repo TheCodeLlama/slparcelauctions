@@ -85,8 +85,16 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
   const imageSrc =
     listing.primaryPhotoUrl ?? listing.parcel.snapshotUrl ?? undefined;
   const maxTags = MAX_TAGS[variant];
-  const visibleTags = listing.parcel.tags.slice(0, maxTags);
-  const overflow = listing.parcel.tags.length - visibleTags.length;
+  // Defensive coercion: the backend has historically wavered between
+  // string[] (current contract — labels) and ParcelTag entity rows (a
+  // bug we hit during the per-auction-snapshot rollout that crashed
+  // SSR with "Objects are not valid as a React child"). Tolerate both
+  // shapes here so a backend regression cannot crash the build again.
+  const tagLabels: string[] = (listing.parcel.tags ?? []).map((t) =>
+    typeof t === "string" ? t : ((t as { label?: string }).label ?? ""),
+  );
+  const visibleTags = tagLabels.slice(0, maxTags);
+  const overflow = tagLabels.length - visibleTags.length;
   const showHeart = !PRE_ACTIVE.has(listing.status);
 
   return (
