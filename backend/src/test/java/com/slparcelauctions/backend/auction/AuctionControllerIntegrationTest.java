@@ -392,6 +392,29 @@ class AuctionControllerIntegrationTest {
     }
 
     @Test
+    void get_activeAnonymous_returnsPublicView() throws Exception {
+        // The public auction page is anonymous-safe — viewers can hit the
+        // detail endpoint without an Authorization header.
+        Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
+
+        mockMvc.perform(get("/api/v1/auctions/" + a.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.listingFeePaid").doesNotExist());
+    }
+
+    @Test
+    void get_preActiveAnonymous_returns404() throws Exception {
+        // The 404-hide for pre-ACTIVE statuses applies to anonymous callers
+        // the same way it does to authenticated non-sellers.
+        Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
+
+        mockMvc.perform(get("/api/v1/auctions/" + a.getId()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("AUCTION_NOT_FOUND"));
+    }
+
+    @Test
     void get_cancelledAsNonSeller_returnsEndedWithoutWinnerOrFeeFields() throws Exception {
         Auction a = seedAuction(AuctionStatus.CANCELLED, true, 0);
         a.setWinnerId(null);

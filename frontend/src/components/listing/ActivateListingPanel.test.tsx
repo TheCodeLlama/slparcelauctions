@@ -76,7 +76,7 @@ describe("ActivateListingPanel", () => {
     expect(screen.getByText(/Loading fee details/i)).toBeInTheDocument();
   });
 
-  it("shows the wallet-terms gate when terms are not accepted", () => {
+  it("shows the wallet-terms gate with an inline Accept button when terms are not accepted", async () => {
     mockHooks({
       wallet: walletView({ termsAccepted: false, termsAcceptedAt: null }),
     });
@@ -84,13 +84,17 @@ describe("ActivateListingPanel", () => {
     expect(
       screen.getByRole("heading", { name: /Accept wallet terms first/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open wallet/i })).toHaveAttribute(
-      "href",
-      "/wallet",
-    );
     expect(
       screen.queryByRole("button", { name: /Activate Listing/i }),
     ).not.toBeInTheDocument();
+    // Clicking the gate button opens the WalletTermsModal in-place — no
+    // navigation to /wallet.
+    await userEvent.click(
+      screen.getByRole("button", { name: /Accept wallet terms/i }),
+    );
+    expect(
+      screen.getByRole("heading", { name: /SLPA Wallet Terms of Use/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows the penalty gate when penalty is owed", () => {

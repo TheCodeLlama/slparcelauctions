@@ -11,6 +11,7 @@ import { payListingFee } from "@/lib/api/wallet";
 import { useListingFeeConfig } from "@/hooks/useListingFeeConfig";
 import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
 import { activateAuctionKey } from "@/hooks/useActivateAuction";
+import { WalletTermsModal } from "@/components/wallet/WalletTermsModal";
 
 function genIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -43,6 +44,7 @@ export function ActivateListingPanel({ auctionId }: ActivateListingPanelProps) {
   const feeQ = useListingFeeConfig();
   const walletQ = useWallet(true);
   const [error, setError] = useState<string | null>(null);
+  const [termsOpen, setTermsOpen] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => payListingFee(auctionId, genIdempotencyKey()),
@@ -89,24 +91,31 @@ export function ActivateListingPanel({ auctionId }: ActivateListingPanelProps) {
 
   if (!wallet.termsAccepted) {
     return (
-      <section
-        aria-labelledby="activate-fee-heading"
-        className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-6"
-      >
-        <h2 id="activate-fee-heading" className="text-base font-bold tracking-tight text-fg">
-          Accept wallet terms first
-        </h2>
-        <p className="text-sm text-fg">
-          Listing fees are paid from your SLPA wallet. Open the wallet to
-          accept the terms of use, then come back to activate.
-        </p>
-        <Link
-          href="/wallet"
-          className="self-start text-sm font-medium text-brand underline underline-offset-4 hover:opacity-80"
+      <>
+        <section
+          aria-labelledby="activate-fee-heading"
+          className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-6"
         >
-          Open wallet
-        </Link>
-      </section>
+          <h2 id="activate-fee-heading" className="text-base font-bold tracking-tight text-fg">
+            Accept wallet terms first
+          </h2>
+          <p className="text-sm text-fg">
+            Listing fees are paid from your SLPA wallet. Accept the wallet
+            terms of use to continue.
+          </p>
+          <Button
+            variant="secondary"
+            className="self-start"
+            onClick={() => setTermsOpen(true)}
+          >
+            Accept wallet terms
+          </Button>
+        </section>
+        <WalletTermsModal
+          open={termsOpen}
+          onClose={() => setTermsOpen(false)}
+        />
+      </>
     );
   }
 

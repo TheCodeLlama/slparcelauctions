@@ -12,7 +12,6 @@ import { AlertTriangle } from "@/components/ui/icons";
 import {
   withdraw,
   payPenalty,
-  acceptTerms,
   getLedger,
   ledgerExportUrl,
 } from "@/lib/api/wallet";
@@ -20,6 +19,7 @@ import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
 import { useWalletWsSubscription } from "@/lib/wallet/use-wallet-ws";
 import { LedgerTable } from "@/components/wallet/LedgerTable";
 import { LedgerFilterBar } from "@/components/wallet/LedgerFilterBar";
+import { WalletTermsModal } from "@/components/wallet/WalletTermsModal";
 import type {
   LedgerFilter,
   UserLedgerEntryType,
@@ -315,61 +315,11 @@ export function WalletPanel() {
         )}
       </div>
 
-      <Modal
+      <WalletTermsModal
         open={showTerms}
-        title="SLPA Wallet Terms of Use"
         onClose={() => setShowTerms(false)}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowTerms(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={async () => {
-                await acceptTerms({ termsVersion: "1.0" });
-                await refresh();
-                setShowTerms(false);
-                setShowDeposit(true);
-              }}
-            >
-              I Accept
-            </Button>
-          </>
-        }
-      >
-        <p>By using the SLPA wallet, you acknowledge:</p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>
-            <strong>Non-interest-bearing.</strong> L$ held in your wallet do not
-            earn interest, dividends, or any return.
-          </li>
-          <li>
-            <strong>L$ status.</strong> L$ are a Linden Lab limited-license token,
-            not currency. SLPA holds L$ on your behalf as a transactional convenience.
-          </li>
-          <li>
-            <strong>No L$&harr;USD conversion.</strong> SLPA does not exchange L$
-            for USD or any other currency.
-          </li>
-          <li>
-            <strong>Recoverable on shutdown.</strong> If SLPA ceases operations,
-            all positive wallet balances will be returned to your verified SL avatar.
-          </li>
-          <li>
-            <strong>Freezable for fraud.</strong> SLPA may freeze a wallet balance
-            pending fraud investigation, max 30 days absent legal process.
-          </li>
-          <li>
-            <strong>Dormancy.</strong> Wallets inactive for 30 days are flagged;
-            after 4 weekly notifications, balance auto-returns to your SL avatar.
-          </li>
-          <li>
-            <strong>Banned-Resident handling.</strong> If your SL account loses
-            good standing, your wallet balance returns to your last-verified SL avatar.
-          </li>
-        </ul>
-      </Modal>
+        onAccepted={() => setShowDeposit(true)}
+      />
 
       <Modal
         open={showDeposit}
