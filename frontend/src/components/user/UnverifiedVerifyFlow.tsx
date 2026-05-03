@@ -43,7 +43,7 @@ export function UnverifiedVerifyFlow() {
         onClick={() => refetch()}
         className="text-fg-muted"
       >
-        I&apos;ve entered the code in-world — refresh my status
+        I&apos;ve entered the code in-world, refresh my status
       </Button>
     </div>
   );

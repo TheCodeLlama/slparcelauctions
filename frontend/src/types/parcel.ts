@@ -7,7 +7,7 @@
 //   - slParcelUuid/ownerUuid: UUID (serialized as string)
 //   - ownerType: backend stores "agent" or "group" (confirmed by
 //     SlParcelVerifyService and ParcelMetadata)
-//   - maturityRating: "GENERAL" | "MODERATE" | "ADULT" per spec §4
+//   - regionMaturityRating: "GENERAL" | "MODERATE" | "ADULT" per spec §4
 
 /**
  * Owner type reported by the SL World API. {@code "agent"} = individual
@@ -18,9 +18,20 @@ export type ParcelOwnerType = "agent" | "group";
 export type ParcelMaturityRating = "GENERAL" | "MODERATE" | "ADULT";
 
 export interface ParcelDto {
-  /** Present on the standalone parcel-lookup response; absent from the parcel
-   *  block embedded in auction responses. Use slParcelUuid as a stable key. */
+  /** Legacy field present in old test fixtures. The backend dropped parcel.id
+   *  from the wire shape — keep optional here so existing tests can still
+   *  declare it without a type error. */
   id?: number;
+  /** Legacy continent label from the pre-snapshot Parcel entity. Backend no
+   *  longer emits this; kept optional for fixture compatibility. */
+  continentName?: string | null;
+  /** Backwards-compat alias for {@link regionMaturityRating}. New backend
+   *  responses use the `regionMaturityRating` key; old fixtures still pass
+   *  this. Components should prefer regionMaturityRating. */
+  maturityRating?: ParcelMaturityRating;
+  /** Legacy createdAt from the parcels row. Backend no longer emits this on
+   *  the snapshot wire; kept optional for fixture compatibility. */
+  createdAt?: string;
   slParcelUuid: string;
   ownerUuid: string;
   ownerType: ParcelOwnerType;
@@ -29,7 +40,14 @@ export interface ParcelDto {
   /** SL-side parcel display name (`<meta name="parcel">`). Used by the
    *  create-listing wizard to pre-fill the listing title. */
   parcelName: string | null;
+  /** Backend region row id. Frontend doesn't surface it directly today
+   *  but the field is on the wire — keep it optional so test fixtures and
+   *  legacy code paths don't break by omitting it. */
+  regionId?: number;
   regionName: string;
+  /** SL maturity rating (snapshotted off the region row). Optional because
+   *  legacy fixtures still pass {@link maturityRating} instead. */
+  regionMaturityRating?: ParcelMaturityRating;
   gridX: number;
   gridY: number;
   // In-region coordinates of the parcel (World API-derived). Nullable to
@@ -39,14 +57,11 @@ export interface ParcelDto {
   positionX: number | null;
   positionY: number | null;
   positionZ: number | null;
-  continentName: string | null;
   areaSqm: number;
   description: string | null;
   snapshotUrl: string | null;
   slurl: string;
-  maturityRating: ParcelMaturityRating;
   verified: boolean;
   verifiedAt: string | null;
   lastChecked: string | null;
-  createdAt: string;
 }
