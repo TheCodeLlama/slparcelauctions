@@ -332,16 +332,6 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                   error={titleError}
                 />
               </section>
-              <section className="flex flex-col gap-3">
-                <h2 className="text-sm font-semibold tracking-tight text-fg">
-                  Auction settings
-                </h2>
-                <AuctionSettingsForm
-                  value={settings}
-                  onChange={applySettings}
-                />
-              </section>
-
               <section className="flex flex-col gap-2">
                 <h2 className="text-sm font-semibold tracking-tight text-fg">
                   Description
@@ -349,6 +339,16 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                 <DescriptionField
                   value={draft.state.sellerDesc}
                   onChange={(next) => draft.update("sellerDesc", next)}
+                />
+              </section>
+
+              <section className="flex flex-col gap-3">
+                <h2 className="text-sm font-semibold tracking-tight text-fg">
+                  Auction settings
+                </h2>
+                <AuctionSettingsForm
+                  value={settings}
+                  onChange={applySettings}
                 />
               </section>
 
