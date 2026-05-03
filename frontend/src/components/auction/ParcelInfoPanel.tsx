@@ -71,7 +71,7 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
     parcelDescription: parcel.description,
     regionName: parcel.regionName,
   });
-  const maturity = MATURITY_MAP[parcel.maturityRating];
+  const maturity = MATURITY_MAP[(parcel.regionMaturityRating ?? parcel.maturityRating ?? "GENERAL")];
   const showSnipe =
     auction.snipeProtect && auction.snipeWindowMin != null;
   const { x, y, z } = parseSlurlPosition(parcel.slurl);
@@ -105,7 +105,7 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
                 maturity.cls,
               )}
               data-testid="parcel-info-panel-maturity"
-              data-maturity={parcel.maturityRating}
+              data-maturity={(parcel.regionMaturityRating ?? parcel.maturityRating ?? "GENERAL")}
             >
               {maturity.label}
             </span>

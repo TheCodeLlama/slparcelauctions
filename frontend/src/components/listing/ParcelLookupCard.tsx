@@ -48,7 +48,7 @@ export function ParcelLookupCard({
   className?: string;
 }) {
   const label = parcel.description?.trim() || "(unnamed parcel)";
-  const maturity = MATURITY_MAP[parcel.maturityRating];
+  const maturity = MATURITY_MAP[(parcel.regionMaturityRating ?? parcel.maturityRating ?? "GENERAL")];
   return (
     <div
       data-testid="parcel-lookup-card"
@@ -75,7 +75,7 @@ export function ParcelLookupCard({
           <p className="truncate text-sm font-semibold tracking-tight text-fg">{label}</p>
           <span
             data-testid="parcel-maturity-chip"
-            data-maturity={parcel.maturityRating}
+            data-maturity={(parcel.regionMaturityRating ?? parcel.maturityRating ?? "GENERAL")}
             className={cn(
               "inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
               maturity.cls,
@@ -89,7 +89,6 @@ export function ParcelLookupCard({
           <span className="truncate">
             {parcel.regionName} ({parcel.gridX}, {parcel.gridY}) ·{" "}
             {parcel.areaSqm} m²
-            {parcel.continentName ? ` · ${parcel.continentName}` : ""}
           </span>
         </p>
         <p className="truncate text-[11px] font-medium text-fg-muted">
