@@ -761,11 +761,20 @@ default {
                             + reason + ") L$" + (string)paymentAmount
                             + " to " + (string)paymentPayer);
                 } else if (s == "ERROR") {
-                    // ERROR — do NOT refund (could be an attack probe).
+                    // Deposit ERROR — refund anyway. The payer is real and
+                    // their L$ is in our hands; whatever the backend tripped
+                    // on (unknown terminal id, unparseable payer uuid, etc.)
+                    // is our problem, not theirs. The earlier "could be an
+                    // attack probe" rationale was unfounded — pre-flight
+                    // shared-secret + SL header validation already throw
+                    // before any L$-bearing path, so reaching this branch
+                    // implies a legitimate but unhandled failure.
                     string reason = llJsonGetValue(body, ["reason"]);
-                    llOwnerSay("SLPA Terminal: deposit ERROR (" + reason
-                        + ") L$" + (string)paymentAmount + " from " + (string)paymentPayer
-                        + " — NOT refunded.");
+                    llTransferLindenDollars(paymentPayer, paymentAmount);
+                    if (DEBUG_MODE)
+                        llOwnerSay("SLPA Terminal: deposit refunded on ERROR ("
+                            + reason + ") L$" + (string)paymentAmount
+                            + " to " + (string)paymentPayer);
                 }
                 paymentPayer = NULL_KEY;
                 paymentAmount = 0;
