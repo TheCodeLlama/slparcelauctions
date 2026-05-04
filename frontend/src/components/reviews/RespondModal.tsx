@@ -69,7 +69,7 @@ export function RespondModal({ reviewPublicId, open, onClose }: RespondModalProp
           </DialogTitle>
           <p className="text-xs text-fg-muted">
             Your response appears publicly beneath the review. You can only
-            respond once — no edits.
+            respond once, and no edits are allowed afterward.
           </p>
           <label className="flex flex-col gap-1">
             <span className="sr-only">Response text</span>

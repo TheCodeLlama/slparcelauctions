@@ -126,7 +126,7 @@ describe("ActivateClient", () => {
       auth: "authenticated",
     });
     expect(
-      await screen.findByText(/Preview — this is how your listing/i),
+      await screen.findByText(/Preview: this is how your listing/i),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: /Activate Listing/i }),

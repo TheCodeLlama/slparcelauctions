@@ -31,7 +31,7 @@ public class WalletSlExceptionHandler {
 
     @ExceptionHandler(InvalidSlHeadersException.class)
     public ResponseEntity<SlWalletResponse> handleInvalidHeaders(InvalidSlHeadersException e) {
-        log.warn("Wallet SL endpoint rejected: bad headers — {}", e.getMessage());
+        log.warn("Wallet SL endpoint rejected: bad headers: {}", e.getMessage());
         return ResponseEntity.ok(SlWalletResponse.error(
                 SlWalletResponseReason.BAD_HEADERS, e.getMessage()));
     }

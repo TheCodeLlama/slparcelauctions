@@ -48,7 +48,7 @@ export function VerificationCodeDisplay() {
         code={activeCode.code}
         label="Enter this code at any SLPA Verification Terminal"
         onCopySuccess={() => toast.success("Code copied to clipboard")}
-        onCopyError={() => toast.error("Failed to copy — copy the code manually")}
+        onCopyError={() => toast.error("Failed to copy. Copy the code manually.")}
       />
       <div className="flex items-center gap-2 text-fg-muted">
         <span className="text-xs">Expires in</span>

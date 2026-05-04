@@ -37,11 +37,11 @@ export function BotPoolSection() {
                 <td className={`py-2 ${r.isAlive ? "text-success" : "text-danger"}`}>
                   ● {r.sessionState ?? "MISSING"}
                 </td>
-                <td className="py-2">{r.currentRegion ?? "—"}</td>
+                <td className="py-2">{r.currentRegion ?? "-"}</td>
                 <td className="py-2 opacity-80">
-                  {r.currentTaskType ? `${r.currentTaskType} ${r.currentTaskKey ?? ""}` : "—"}
+                  {r.currentTaskType ? `${r.currentTaskType} ${r.currentTaskKey ?? ""}` : "-"}
                 </td>
-                <td className="py-2 opacity-70">{r.isAlive ? `${secondsAgo(r.lastSeenAt)}s ago` : "—"}</td>
+                <td className="py-2 opacity-70">{r.isAlive ? `${secondsAgo(r.lastSeenAt)}s ago` : "-"}</td>
               </tr>
             ))}
           </tbody>

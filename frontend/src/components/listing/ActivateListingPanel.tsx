@@ -155,7 +155,7 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
         </h2>
         <p className="text-sm text-fg">
           Listing fee is <strong>{formatLindens(fee)}</strong>. Your wallet
-          has <strong>{formatLindens(wallet.available)}</strong> available —
+          has <strong>{formatLindens(wallet.available)}</strong> available;
           you need <strong>{formatLindens(short)}</strong> more. Pay any SLPA
           terminal in-world and your balance updates automatically.
         </p>
@@ -179,7 +179,7 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
         Activate this listing
       </h2>
       <p className="text-sm text-fg">
-        Listing fee is <strong>{formatLindens(fee)}</strong> — debited from
+        Listing fee is <strong>{formatLindens(fee)}</strong>, debited from
         your SLPA wallet. Available balance:{" "}
         <strong>{formatLindens(wallet.available)}</strong>.
       </p>

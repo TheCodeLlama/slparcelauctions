@@ -131,7 +131,7 @@ default {
         if (data == EOF) {
             // Validate required config.
             if (PARCEL_VERIFY_URL == "") {
-                dieWithMessage("✗ Parcel Verifier: incomplete config — PARCEL_VERIFY_URL required");
+                dieWithMessage("✗ Parcel Verifier: incomplete config. PARCEL_VERIFY_URL required.");
                 return;
             }
 
@@ -223,7 +223,7 @@ default {
         llSetTimerEvent(0);
 
         if (status == 204) {
-            dieWithMessage("✓ Parcel verified — your listing is live on slparcels.com.");
+            dieWithMessage("✓ Parcel verified. Your listing is live on slparcels.com.");
         } else if (status >= 400 && status < 500) {
             string title  = llJsonGetValue(body, ["title"]);
             string detail = llJsonGetValue(body, ["detail"]);

@@ -60,7 +60,7 @@ export function FraudFlagSlideOver({ flagId, hasPrev, hasNext, onPrev, onNext, o
     recheck.mutate(detail.auction.id, {
       onSuccess: (result) => {
         if (result.ownerMatch) {
-          toast.success("Owner match — no change.");
+          toast.success("Owner match. No change.");
         } else if (result.auctionStatus === "SUSPENDED") {
           toast.error("Owner mismatch detected. Auction suspended.");
         } else {

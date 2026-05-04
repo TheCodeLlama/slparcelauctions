@@ -107,11 +107,11 @@ describe("MyBidSummaryRow", () => {
     expect(screen.queryByText(/Proxy max/)).not.toBeInTheDocument();
   });
 
-  it("renders an em-dash for current when no current bid", () => {
+  it("renders a hyphen for current when no current bid", () => {
     render(
       <MyBidSummaryRow bid={summary({ currentBid: null })} />,
     );
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("-")).toBeInTheDocument();
   });
 
   it("falls back to '(unnamed parcel)' when parcelName missing", () => {

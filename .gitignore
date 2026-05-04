@@ -224,3 +224,5 @@ infra/crash.*.log
 # .terraform.lock.hcl IS committed — Terraform's recommendation. Pins provider
 # versions so every machine + CI run resolves the same provider versions.
 infra/.scratch/
+
+.ignored-docs

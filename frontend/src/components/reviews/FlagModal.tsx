@@ -86,7 +86,7 @@ export function FlagModal({ reviewPublicId, open, onClose }: FlagModalProps) {
           </DialogTitle>
           <p className="text-xs text-fg-muted">
             Tell us why this review needs moderator attention. Flagging is
-            confidential — the reviewer is not notified.
+            confidential. The reviewer is not notified.
           </p>
 
           <fieldset

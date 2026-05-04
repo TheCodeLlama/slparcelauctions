@@ -24,7 +24,7 @@ export function useReinstateFraudFlag() {
           return;
         }
         if (err.problem.code === "AUCTION_NOT_SUSPENDED") {
-          toast.error("Auction state changed — refreshing.");
+          toast.error("Auction state changed. Refreshing.");
           qc.invalidateQueries({ queryKey: adminQueryKeys.fraudFlags() });
           return;
         }

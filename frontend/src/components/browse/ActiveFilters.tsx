@@ -70,9 +70,9 @@ function buildChips(
     if (query.minPrice !== undefined && query.maxPrice === undefined) {
       label = `L$${query.minPrice}+`;
     } else if (query.minPrice === undefined && query.maxPrice !== undefined) {
-      label = `L$0–${query.maxPrice}`;
+      label = `L$0-${query.maxPrice}`;
     } else {
-      label = `L$${query.minPrice}–${query.maxPrice}`;
+      label = `L$${query.minPrice}-${query.maxPrice}`;
     }
     chips.push({
       key: "price",
@@ -85,9 +85,9 @@ function buildChips(
     if (query.minArea !== undefined && query.maxArea === undefined) {
       label = `${query.minArea} m²+`;
     } else if (query.minArea === undefined && query.maxArea !== undefined) {
-      label = `0–${query.maxArea} m²`;
+      label = `0-${query.maxArea} m²`;
     } else {
-      label = `${query.minArea}–${query.maxArea} m²`;
+      label = `${query.minArea}-${query.maxArea} m²`;
     }
     chips.push({
       key: "area",

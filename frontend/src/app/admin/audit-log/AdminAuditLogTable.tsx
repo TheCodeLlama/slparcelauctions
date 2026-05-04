@@ -89,10 +89,10 @@ export function AdminAuditLogTable({ rows }: Props) {
                       )}
                     </>
                   ) : (
-                    "—"
+                    "-"
                   )}
                 </td>
-                <td className="py-2 px-2 opacity-85">{row.notes ?? "—"}</td>
+                <td className="py-2 px-2 opacity-85">{row.notes ?? "-"}</td>
                 <td className="py-2 px-2 text-brand">
                   {isOpen ? "▾" : "▸"}
                 </td>

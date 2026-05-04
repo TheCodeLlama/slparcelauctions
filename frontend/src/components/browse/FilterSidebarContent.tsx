@@ -147,7 +147,7 @@ export function FilterSidebarContent({
               className="w-full bg-transparent text-sm outline-none"
             />
           </label>
-          <span className="text-[11px] font-medium text-fg-muted">–</span>
+          <span className="text-[11px] font-medium text-fg-muted">-</span>
           <label className="flex flex-1 items-center gap-1 rounded border border-border-subtle bg-bg-subtle px-2 py-1 focus-within:border-border">
             <span className="text-[11px] font-medium text-fg-muted">L$</span>
             <input
@@ -183,7 +183,7 @@ export function FilterSidebarContent({
             />
             <span className="text-[11px] font-medium text-fg-muted">m²</span>
           </label>
-          <span className="text-[11px] font-medium text-fg-muted">–</span>
+          <span className="text-[11px] font-medium text-fg-muted">-</span>
           <label className="flex flex-1 items-center gap-1 rounded border border-border-subtle bg-bg-subtle px-2 py-1 focus-within:border-border">
             <input
               type="number"

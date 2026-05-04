@@ -128,7 +128,7 @@ export function ResultsGrid({
         icon={AlertCircle}
         headline={
           tooMany
-            ? "Too many searches — try again in a minute"
+            ? "Too many searches. Try again in a minute."
             : "Couldn't load listings"
         }
         description={

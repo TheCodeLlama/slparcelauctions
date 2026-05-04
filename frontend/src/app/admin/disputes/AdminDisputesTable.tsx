@@ -34,7 +34,7 @@ export function AdminDisputesTable({ rows }: Props) {
             <td className="py-2 px-2">
               <Link href={`/admin/disputes/${row.escrowId}`}>{row.auctionTitle}</Link>
             </td>
-            <td className="py-2 px-2">{row.reasonCategory ?? "—"}</td>
+            <td className="py-2 px-2">{row.reasonCategory ?? "-"}</td>
             <td className="py-2 px-2">{row.sellerEmail} → {row.winnerEmail}</td>
             <td className="py-2 px-2">L$ {row.salePriceL.toLocaleString()}</td>
             <td className="py-2 px-2">{new Date(row.openedAt).toLocaleString()}</td>

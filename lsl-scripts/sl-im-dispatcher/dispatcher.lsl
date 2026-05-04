@@ -118,7 +118,7 @@ default {
         if (data == EOF) {
             // Notecard fully read; validate config.
             if (POLL_URL == "" || CONFIRM_URL_BASE == "" || SHARED_SECRET == "") {
-                llOwnerSay("SL IM dispatcher: incomplete config — POLL_URL / CONFIRM_URL_BASE / SHARED_SECRET required");
+                llOwnerSay("SL IM dispatcher: incomplete config. POLL_URL / CONFIRM_URL_BASE / SHARED_SECRET required.");
                 return;
             }
             if (DEBUG_MODE) llOwnerSay("SL IM dispatcher: ready (poll=" + POLL_URL + ")");

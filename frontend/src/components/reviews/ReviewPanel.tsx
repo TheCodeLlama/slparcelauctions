@@ -255,7 +255,7 @@ function SubmitState({
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={mutation.isPending}
-          placeholder="Share what went well — or what didn't."
+          placeholder="Share what went well, or what didn't."
           data-testid="review-panel-submit-text"
           className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle transition-all focus:outline-none focus:ring-brand"
         />

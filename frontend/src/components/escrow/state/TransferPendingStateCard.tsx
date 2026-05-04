@@ -35,7 +35,7 @@ export function TransferPendingStateCard({ escrow, role }: StateCardProps) {
         </h2>
         <p className="text-sm text-fg-muted">
           Transferred at {formatTimestamp(escrow.transferConfirmedAt!)}.
-          Finalizing the transaction — payout is dispatching now.
+          Finalizing the transaction. Payout is dispatching now.
         </p>
       </section>
     );
@@ -127,7 +127,7 @@ function WinnerPreConfirmation({
         </p>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-fg-muted">
           <li>
-            <span className="font-medium text-fg">Wait</span> — most
+            <span className="font-medium text-fg">Wait.</span> Most
             transfers complete on their own.
           </li>
           <li>

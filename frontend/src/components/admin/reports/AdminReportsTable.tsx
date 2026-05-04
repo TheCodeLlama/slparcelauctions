@@ -87,7 +87,7 @@ export function AdminReportsTable({ rows, selectedAuctionId, onSelect }: Props) 
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-fg-muted">
-                  {row.sellerDisplayName ?? "—"}
+                  {row.sellerDisplayName ?? "-"}
                 </td>
                 <td className="px-3 py-2.5 text-right font-medium text-fg">
                   {row.openReportCount}

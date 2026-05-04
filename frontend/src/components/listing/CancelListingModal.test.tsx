@@ -348,7 +348,7 @@ describe("CancelListingModal", () => {
     );
     expect(
       screen.getByText(
-        /No refund — cancelling an active listing does not refund the fee/i,
+        /No refund. Cancelling an active listing does not refund the fee/i,
       ),
     ).toBeInTheDocument();
   });

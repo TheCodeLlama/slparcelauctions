@@ -30,7 +30,7 @@ export function computeRefund(
       return {
         kind: "NONE",
         amountLindens: null,
-        copy: "No refund — no fee was paid yet.",
+        copy: "No refund. No fee was paid yet.",
       };
     case "DRAFT_PAID":
     case "VERIFICATION_PENDING":
@@ -47,7 +47,7 @@ export function computeRefund(
         kind: "NONE",
         amountLindens: null,
         copy:
-          "No refund — cancelling an active listing does not refund the fee.",
+          "No refund. Cancelling an active listing does not refund the fee.",
       };
     default:
       return {

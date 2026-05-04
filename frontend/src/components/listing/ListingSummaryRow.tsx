@@ -231,7 +231,7 @@ function ActiveBidSummary({
   return (
     <p className="text-xs text-fg-muted">
       <span className="font-medium text-fg">
-        {highBid == null ? "—" : `L$${highBid.toLocaleString()}`}
+        {highBid == null ? "-" : `L$${highBid.toLocaleString()}`}
       </span>
       <span>{` current · ${bidsText}`}</span>
       {endsAtDate != null ? (
@@ -289,7 +289,7 @@ function EndedBidSummary({
 
   if (outcome === "SOLD" || outcome === "BOUGHT_NOW") {
     const finalAmount = auction.finalBidAmount ?? highBid;
-    const formattedAmount = finalAmount == null ? "—" : `L$${finalAmount.toLocaleString()}`;
+    const formattedAmount = finalAmount == null ? "-" : `L$${finalAmount.toLocaleString()}`;
     return (
       <p className="text-xs text-fg-muted">
         Sold for{" "}
@@ -304,10 +304,10 @@ function EndedBidSummary({
     );
   }
   if (outcome === "RESERVE_NOT_MET") {
-    const formattedBid = highBid == null ? "—" : `L$${highBid.toLocaleString()}`;
+    const formattedBid = highBid == null ? "-" : `L$${highBid.toLocaleString()}`;
     return (
       <p className="text-xs text-fg-muted">
-        {"Ended — reserve not met (highest bid "}
+        {"Ended: reserve not met (highest bid "}
         <span className="font-medium text-fg">{formattedBid}</span>
         {")"}
       </p>

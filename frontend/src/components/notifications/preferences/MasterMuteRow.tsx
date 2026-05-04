@@ -13,7 +13,7 @@ export function MasterMuteRow({ value, onChange }: MasterMuteRowProps) {
           Mute all SL IM notifications
         </div>
         <div className="text-xs text-fg-muted mt-1">
-          Master switch — overrides everything below.
+          Master switch: overrides everything below.
         </div>
       </div>
       <button

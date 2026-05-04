@@ -167,7 +167,7 @@ export function useFlagReview(
     onSuccess: () =>
       toast.success({
         title: "Review flagged",
-        description: "Thanks — our team will review it shortly.",
+        description: "Thanks. Our team will review it shortly.",
       }),
     onError: (err) => {
       const already = err instanceof ApiError && err.status === 409;

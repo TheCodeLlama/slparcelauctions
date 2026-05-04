@@ -48,11 +48,11 @@ export function TerminalsSection() {
           <tbody>
             {rows.map((t) => (
               <tr key={t.terminalId} className="border-b border-border-subtle/40">
-                <td className="py-2">{t.regionName ?? "—"}</td>
+                <td className="py-2">{t.regionName ?? "-"}</td>
                 <td className="py-2">{t.terminalId}</td>
-                <td className="py-2 opacity-80">{t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleString() : "—"}</td>
-                <td className="py-2">{t.lastReportedBalance !== null ? `L$ ${t.lastReportedBalance}` : "—"}</td>
-                <td className="py-2">v{t.currentSecretVersion ?? "—"}</td>
+                <td className="py-2 opacity-80">{t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleString() : "-"}</td>
+                <td className="py-2">{t.lastReportedBalance !== null ? `L$ ${t.lastReportedBalance}` : "-"}</td>
+                <td className="py-2">v{t.currentSecretVersion ?? "-"}</td>
                 <td className="py-2 text-right">
                   <button
                     type="button"
@@ -79,7 +79,7 @@ export function TerminalsSection() {
           <div className="bg-bg-muted max-w-md w-full rounded-lg p-5">
             <h3 className="text-sm font-semibold mb-2">Unregister terminal</h3>
             <p className="text-xs opacity-80 mb-3">
-              This soft-deletes the terminal — sets <code>active=false</code> so the
+              This soft-deletes the terminal: sets <code>active=false</code> so the
               dispatcher stops routing commands to it. The row stays in the database
               for forensics. If the in-world script later re-registers, it will become
               active again.

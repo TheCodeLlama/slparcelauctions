@@ -113,7 +113,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
           </div>
           <p className="text-xs text-fg-muted">
             <span>
-              {auction.parcelRegion ?? "—"}
+              {auction.parcelRegion ?? "-"}
               {auction.parcelAreaSqm != null
                 ? ` · ${auction.parcelAreaSqm.toLocaleString()} m²`
                 : ""}
@@ -141,7 +141,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
           <span className="text-fg-muted">
             Current{" "}
             <span className="font-semibold text-fg">
-              {currentBid == null ? "—" : `L$${currentBid.toLocaleString()}`}
+              {currentBid == null ? "-" : `L$${currentBid.toLocaleString()}`}
             </span>
           </span>
           {myProxyMaxAmount != null ? (

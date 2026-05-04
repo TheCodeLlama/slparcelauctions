@@ -83,11 +83,11 @@ export function ListingsTab({ userId }: Props) {
                       {row.title}
                     </Link>
                   </td>
-                  <td className="px-3 py-2.5 text-fg-muted">{row.regionName ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-fg-muted">{row.regionName ?? "-"}</td>
                   <td className={`px-3 py-2.5 ${className}`}>{label}</td>
                   <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.endsAt)}</td>
                   <td className="px-3 py-2.5 text-right text-fg">
-                    {row.finalBidAmount !== null ? `L$ ${row.finalBidAmount.toLocaleString()}` : "—"}
+                    {row.finalBidAmount !== null ? `L$ ${row.finalBidAmount.toLocaleString()}` : "-"}
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     {row.status === "SUSPENDED" && (
