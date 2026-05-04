@@ -20,6 +20,8 @@ import jakarta.persistence.LockModeType;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    Optional<User> findByPublicId(UUID publicId);
+
     Optional<User> findByEmail(String email);
 
     Optional<User> findBySlAvatarUuid(UUID slAvatarUuid);
