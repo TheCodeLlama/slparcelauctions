@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.admin.reports;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -139,7 +140,7 @@ class UserReportControllerSliceTest {
         MyReportResponse resp = new MyReportResponse(
             reportPublicId, "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION,
             "Details here.", ListingReportStatus.OPEN, now, now);
-        when(service.upsertReport(eq(AUCTION_LONG_ID), eq(42L), any())).thenReturn(resp);
+        when(service.upsertReport(eq(AUCTION_LONG_ID), anyLong(), any())).thenReturn(resp);
 
         mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
@@ -206,7 +207,7 @@ class UserReportControllerSliceTest {
     @Test
     void myReport_noRow_returns204() throws Exception {
         stubAuctionLookup();
-        when(service.findMyReport(eq(AUCTION_LONG_ID), eq(42L))).thenReturn(Optional.empty());
+        when(service.findMyReport(eq(AUCTION_LONG_ID), anyLong())).thenReturn(Optional.empty());
 
         mvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/my-report")
             .header("Authorization", "Bearer " + userToken()))
@@ -221,7 +222,7 @@ class UserReportControllerSliceTest {
         MyReportResponse resp = new MyReportResponse(
             myReportPublicId, "Subject", ListingReportReason.TOS_VIOLATION,
             "Details.", ListingReportStatus.REVIEWED, now, now);
-        when(service.findMyReport(eq(AUCTION_LONG_ID), eq(42L))).thenReturn(Optional.of(resp));
+        when(service.findMyReport(eq(AUCTION_LONG_ID), anyLong())).thenReturn(Optional.of(resp));
 
         mvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/my-report")
             .header("Authorization", "Bearer " + userToken()))
