@@ -33,6 +33,7 @@ import com.slparcelauctions.backend.escrow.payment.dto.EscrowPaymentRequest;
 import com.slparcelauctions.backend.escrow.payment.dto.SlCallbackResponse;
 import com.slparcelauctions.backend.sl.SlHeaderValidator;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link EscrowPaymentController}. Stubs {@link EscrowService}
@@ -66,6 +67,7 @@ class EscrowPaymentControllerSliceTest {
     @MockitoBean EscrowService escrowService;
     @MockitoBean SlHeaderValidator headerValidator;
     @MockitoBean JwtService jwtService;
+    @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     // Slice tests don't exercise /api/v1/bot/** so a mock bean satisfies the

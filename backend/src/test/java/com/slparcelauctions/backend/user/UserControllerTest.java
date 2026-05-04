@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
 import com.slparcelauctions.backend.user.deletion.UserDeletionService;
@@ -53,6 +54,10 @@ class UserControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    @SuppressWarnings("unused")
+    private UserRepository userRepository;
 
     @Test
     void createUser_returns201() throws Exception {

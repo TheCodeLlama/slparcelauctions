@@ -19,6 +19,7 @@ import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.bot.BotSharedSecretAuthorizer;
 import com.slparcelauctions.backend.notification.slim.internal.SlImInternalConfig;
 import com.slparcelauctions.backend.config.SecurityConfig;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link VerificationController}. Exercises the security filter chain
@@ -46,6 +47,7 @@ class VerificationControllerSliceTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean VerificationCodeService service;
     @MockitoBean JwtService jwtService;
+    @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;

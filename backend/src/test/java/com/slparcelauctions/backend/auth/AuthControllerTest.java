@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.slparcelauctions.backend.user.UserRepository;
 
 @WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false) // filter is wired in SecurityConfig, tested separately
@@ -54,6 +55,7 @@ class AuthControllerTest {
     @MockitoBean private AuthService authService;
     @MockitoBean private JwtConfig jwtConfig;
     @MockitoBean private JwtService jwtService;
+    @MockitoBean private UserRepository userRepository;
 
     @BeforeEach
     void setUp() {

@@ -31,6 +31,7 @@ import com.slparcelauctions.backend.auction.exception.AuctionExceptionHandler;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link CancellationStatusController}. Filters off (the
@@ -54,6 +55,7 @@ class CancellationStatusControllerTest {
 
     @MockitoBean private CancellationStatusService service;
     @MockitoBean private JwtService jwtService;
+    @MockitoBean private UserRepository userRepository;
 
     @Test
     @WithMockAuthPrincipal(userId = 42L)

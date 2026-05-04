@@ -2,6 +2,8 @@ package com.slparcelauctions.backend.auth;
 
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import java.util.regex.Pattern;
 
 import lombok.RequiredArgsConstructor;
@@ -76,6 +78,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         Pattern.compile("^/topic/auction/\\d+$");
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -129,7 +132,18 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
         String token = authHeader.substring(7);
         try {
-            AuthPrincipal principal = jwtService.parseAccessToken(token);
+            AuthPrincipal parsed = jwtService.parseAccessToken(token);
+
+            User user = userRepository.findByPublicId(parsed.userPublicId())
+                .orElseThrow(() -> new TokenInvalidException("User not found for token subject."));
+
+            AuthPrincipal principal = new AuthPrincipal(
+                user.getId(),
+                user.getPublicId(),
+                parsed.email(),
+                parsed.tokenVersion(),
+                parsed.role());
+
             accessor.setUser(new StompAuthenticationToken(principal));
             log.debug("STOMP CONNECT authenticated: userId={}", principal.userId());
         } catch (TokenExpiredException | TokenInvalidException e) {

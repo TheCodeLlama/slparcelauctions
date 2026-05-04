@@ -38,6 +38,7 @@ import com.slparcelauctions.backend.escrow.exception.EscrowAccessDeniedException
 import com.slparcelauctions.backend.escrow.exception.EscrowExceptionHandler;
 import com.slparcelauctions.backend.escrow.exception.EscrowNotFoundException;
 import com.slparcelauctions.backend.escrow.exception.IllegalEscrowTransitionException;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link EscrowController}. Stubs {@link EscrowService}
@@ -68,6 +69,7 @@ class EscrowControllerSliceTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean EscrowService escrowService;
     @MockitoBean JwtService jwtService;
+    @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;

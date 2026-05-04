@@ -3,6 +3,8 @@ package com.slparcelauctions.backend.auth;
 import com.slparcelauctions.backend.auth.config.JwtConfig;
 import com.slparcelauctions.backend.auth.test.JwtTestFactory;
 import com.slparcelauctions.backend.user.Role;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,10 +19,12 @@ import javax.crypto.SecretKey;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class JwtAuthenticationFilterTest {
 
@@ -29,6 +33,7 @@ class JwtAuthenticationFilterTest {
     private JwtAuthenticationFilter filter;
     private JwtTestFactory testFactory;
     private FilterChain chain;
+    private UserRepository userRepository;
 
     private static String base64Of32RandomBytes() {
         byte[] bytes = new byte[32];
@@ -44,7 +49,8 @@ class JwtAuthenticationFilterTest {
         config.setRefreshTokenLifetime(Duration.ofDays(7));
         SecretKey key = JwtKeyFactory.buildKey(SECRET);
         JwtService jwtService = new JwtService(config, key);
-        filter = new JwtAuthenticationFilter(jwtService);
+        userRepository = mock(UserRepository.class);
+        filter = new JwtAuthenticationFilter(jwtService, userRepository);
         testFactory = JwtTestFactory.forKey(SECRET);
         chain = mock(FilterChain.class);
         SecurityContextHolder.clearContext();
@@ -55,11 +61,21 @@ class JwtAuthenticationFilterTest {
         SecurityContextHolder.clearContext();
     }
 
+    /** Builds a Mockito-backed User stub whose getId / getPublicId return the supplied values. */
+    private User stubUser(Long id, UUID publicId) {
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(id);
+        when(user.getPublicId()).thenReturn(publicId);
+        return user;
+    }
+
     @Test
     void doFilter_setsPrincipalOnValidToken() throws Exception {
         UUID publicId = UUID.randomUUID();
         AuthPrincipal principal = new AuthPrincipal(42L, publicId, "user@example.com", 0L, Role.USER);
         String token = testFactory.validAccessToken(principal);
+        User userStub = stubUser(42L, publicId);
+        when(userRepository.findByPublicId(publicId)).thenReturn(Optional.of(userStub));
 
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer " + token);
@@ -69,11 +85,28 @@ class JwtAuthenticationFilterTest {
 
         AuthPrincipal set = (AuthPrincipal) SecurityContextHolder.getContext()
             .getAuthentication().getPrincipal();
-        // userId is null after parse (resolved by filter in PT14); publicId and email round-trip
+        assertThat(set.userId()).isEqualTo(42L);
         assertThat(set.userPublicId()).isEqualTo(publicId);
         assertThat(set.email()).isEqualTo("user@example.com");
         assertThat(set.tokenVersion()).isEqualTo(0L);
         assertThat(set.role()).isEqualTo(Role.USER);
+        verify(chain).doFilter(req, resp);
+    }
+
+    @Test
+    void doFilter_clearsContextWhenUserNotFound() throws Exception {
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal principal = new AuthPrincipal(99L, publicId, "gone@example.com", 0L, Role.USER);
+        String token = testFactory.validAccessToken(principal);
+        when(userRepository.findByPublicId(publicId)).thenReturn(Optional.empty());
+
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse resp = new MockHttpServletResponse();
+
+        filter.doFilter(req, resp, chain);
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(chain).doFilter(req, resp);
     }
 
@@ -131,8 +164,11 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilter_userToken_emitsRoleUserAuthority() throws Exception {
-        AuthPrincipal principal = new AuthPrincipal(10L, UUID.randomUUID(), "u@x.com", 0L, Role.USER);
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal principal = new AuthPrincipal(10L, publicId, "u@x.com", 0L, Role.USER);
         String token = testFactory.validAccessToken(principal);
+        User userStub = stubUser(10L, publicId);
+        when(userRepository.findByPublicId(publicId)).thenReturn(Optional.of(userStub));
 
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer " + token);
@@ -148,8 +184,11 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilter_adminToken_emitsRoleAdminAuthority() throws Exception {
-        AuthPrincipal principal = new AuthPrincipal(11L, UUID.randomUUID(), "a@x.com", 0L, Role.ADMIN);
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal principal = new AuthPrincipal(11L, publicId, "a@x.com", 0L, Role.ADMIN);
         String token = testFactory.validAccessToken(principal);
+        User userStub = stubUser(11L, publicId);
+        when(userRepository.findByPublicId(publicId)).thenReturn(Optional.of(userStub));
 
         MockHttpServletRequest req = new MockHttpServletRequest();
         req.addHeader("Authorization", "Bearer " + token);
