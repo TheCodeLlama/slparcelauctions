@@ -3,6 +3,8 @@ package com.slparcelauctions.backend.wstest;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import java.util.UUID;
 import com.slparcelauctions.backend.wstest.dto.WsTestBroadcastRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -56,8 +58,12 @@ class WsTestIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     private WebSocketStompClient stompClient;
     private BlockingQueue<Map<String, Object>> receivedMessages;
+    private User testUser;
 
     @BeforeEach
     void setUp() {
@@ -66,6 +72,18 @@ class WsTestIntegrationTest {
         stompClient = new WebSocketStompClient(sockJsClient);
         stompClient.setMessageConverter(new MappingJackson2MessageConverter());
         receivedMessages = new LinkedBlockingQueue<>();
+
+        // The JWT auth chain (post-PT14) resolves the principal via
+        // userRepository.findByPublicId(sub). A synthetic UUID with no
+        // backing row is rejected, so seed a real User and issue tokens
+        // against that user's id + publicId.
+        testUser = userRepository.save(User.builder()
+                .email("wstest-" + UUID.randomUUID() + "@example.com")
+                .passwordHash("x")
+                .slAvatarUuid(UUID.randomUUID())
+                .displayName("WsTest")
+                .verified(true)
+                .build());
     }
 
     @AfterEach
@@ -73,10 +91,19 @@ class WsTestIntegrationTest {
         if (stompClient != null) {
             stompClient.stop();
         }
+        if (testUser != null) {
+            try {
+                userRepository.deleteById(testUser.getId());
+            } catch (Exception ignored) {
+                // best-effort
+            }
+        }
     }
 
     private String issueAccessTokenForTestUser() {
-        AuthPrincipal principal = new AuthPrincipal(9999L, UUID.randomUUID(), "wstest@example.com", 1L, Role.USER);
+        AuthPrincipal principal = new AuthPrincipal(
+                testUser.getId(), testUser.getPublicId(),
+                testUser.getEmail(), testUser.getTokenVersion(), Role.USER);
         return jwtService.issueAccessToken(principal);
     }
 
@@ -155,7 +182,7 @@ class WsTestIntegrationTest {
         Map<String, Object> received = receivedMessages.poll(5, TimeUnit.SECONDS);
         assertThat(received).isNotNull();
         assertThat(received.get("message")).isEqualTo("hello from test");
-        assertThat(received.get("senderId")).isEqualTo(9999);
+        assertThat(((Number) received.get("senderId")).longValue()).isEqualTo(testUser.getId());
         assertThat(received.get("timestamp")).isNotNull();
     }
 
