@@ -97,7 +97,7 @@ class ReviewServiceActionTest {
                 .visible(true)
                 .flagCount(0)
                 .build();
-        review.setId(1_001L);
+        setEntityId(review, 1_001L);
     }
 
     // ---------- respondTo ----------
@@ -156,8 +156,8 @@ class ReviewServiceActionTest {
         when(responseRepo.existsByReviewId(1_001L)).thenReturn(false);
         when(responseRepo.save(any(ReviewResponse.class))).thenAnswer(inv -> {
             ReviewResponse r = inv.getArgument(0);
-            r.setId(9_001L);
-            r.setCreatedAt(NOW);
+            setEntityId(r, 9_001L);
+            setEntityCreatedAt(r, NOW);
             return r;
         });
 
@@ -222,7 +222,7 @@ class ReviewServiceActionTest {
         when(flagRepo.existsByReviewIdAndFlaggerId(1_001L, seller.getId())).thenReturn(false);
         when(flagRepo.save(any(ReviewFlag.class))).thenAnswer(inv -> {
             ReviewFlag f = inv.getArgument(0);
-            f.setId(8_001L);
+            setEntityId(f, 8_001L);
             return f;
         });
 
@@ -281,6 +281,15 @@ class ReviewServiceActionTest {
                     com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
             f.setAccessible(true);
             f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    private static void setEntityCreatedAt(Object entity, java.time.OffsetDateTime createdAt) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("createdAt");
+            f.setAccessible(true);
+            f.set(entity, createdAt);
         } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

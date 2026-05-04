@@ -101,7 +101,7 @@ class ReviewServiceRevealTest {
                 .rating(rating)
                 .visible(false)
                 .build();
-        r.setId(id);
+        setEntityId(r, id);
         return r;
     }
 
@@ -212,7 +212,7 @@ class ReviewServiceRevealTest {
                 .thenReturn(Optional.of(sellerPending));
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review saved = inv.getArgument(0);
-            if (saved.getId() == null) saved.setId(201L);
+            if (saved.getId() == null) setEntityId(saved, 201L);
             saved.setSubmittedAt(NOW);
             return saved;
         });
@@ -259,7 +259,7 @@ class ReviewServiceRevealTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review saved = inv.getArgument(0);
-            saved.setId(300L);
+            setEntityId(saved, 300L);
             saved.setSubmittedAt(NOW);
             return saved;
         });
@@ -290,7 +290,7 @@ class ReviewServiceRevealTest {
                 .thenReturn(Optional.of(sellerAlreadyRevealed));
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review saved = inv.getArgument(0);
-            saved.setId(401L);
+            setEntityId(saved, 401L);
             saved.setSubmittedAt(NOW);
             return saved;
         });

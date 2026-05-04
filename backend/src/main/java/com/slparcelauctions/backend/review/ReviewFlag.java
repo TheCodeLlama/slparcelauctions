@@ -1,9 +1,6 @@
 package com.slparcelauctions.backend.review;
 
-import java.time.OffsetDateTime;
-
-import org.hibernate.annotations.CreationTimestamp;
-
+import com.slparcelauctions.backend.common.BaseEntity;
 import com.slparcelauctions.backend.user.User;
 
 import jakarta.persistence.Column;
@@ -11,18 +8,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Per-user flag row against a {@link Review} (Epic 08 sub-spec 1 §3.3).
@@ -45,12 +39,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ReviewFlag {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class ReviewFlag extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "review_id", nullable = false)
@@ -66,8 +56,4 @@ public class ReviewFlag {
 
     @Column(length = 500)
     private String elaboration;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

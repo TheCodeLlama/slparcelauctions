@@ -104,7 +104,7 @@ class ReviewServiceListTest {
                 .rating(rating)
                 .visible(true)
                 .build();
-        r.setId(id);
+        setEntityId(r, id);
         r.setSubmittedAt(NOW.minusDays(10));
         r.setRevealedAt(NOW.minusDays(5));
         return r;
@@ -119,7 +119,7 @@ class ReviewServiceListTest {
                 .rating(rating)
                 .visible(false)
                 .build();
-        r.setId(id);
+        setEntityId(r, id);
         r.setSubmittedAt(NOW.minusHours(2));
         return r;
     }

@@ -200,7 +200,7 @@ class ReviewServiceSubmitTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review r = inv.getArgument(0);
-            r.setId(1_001L);
+            setEntityId(r, 1_001L);
             r.setSubmittedAt(NOW);
             return r;
         });
@@ -238,7 +238,7 @@ class ReviewServiceSubmitTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review r = inv.getArgument(0);
-            r.setId(1_002L);
+            setEntityId(r, 1_002L);
             r.setSubmittedAt(NOW);
             return r;
         });
@@ -274,7 +274,7 @@ class ReviewServiceSubmitTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review r = inv.getArgument(0);
-            r.setId(1_003L);
+            setEntityId(r, 1_003L);
             r.setSubmittedAt(NOW);
             return r;
         });
