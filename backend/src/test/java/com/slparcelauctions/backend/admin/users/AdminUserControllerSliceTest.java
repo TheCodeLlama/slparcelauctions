@@ -115,8 +115,9 @@ class AdminUserControllerSliceTest {
 
     @Test
     void detail_admin_returns200() throws Exception {
+        java.util.UUID userPublicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         AdminUserDetailDto dto = new AdminUserDetailDto(
-            1L, "u@x.com", "User", null, null,
+            userPublicId, "u@x.com", "User", null, null,
             Role.USER, false, null, null,
             0L, 0L, 0L, 0L, 0L, null, false, null);
         when(adminUserService.detail(1L)).thenReturn(dto);
@@ -124,7 +125,7 @@ class AdminUserControllerSliceTest {
         mvc.perform(get("/api/v1/admin/users/1")
             .header("Authorization", "Bearer " + adminToken()))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.id").value(1));
+           .andExpect(jsonPath("$.publicId").value(userPublicId.toString()));
     }
 
     // -------------------------------------------------------------------------

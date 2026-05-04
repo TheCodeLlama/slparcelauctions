@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -49,8 +50,10 @@ class NotificationWsBroadcasterTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private NotificationDto makeDto(long id) {
-        return new NotificationDto(id, NotificationCategory.OUTBID,
+    private static final UUID FIXED_UUID = UUID.fromString("00000000-0000-0000-0000-000000000042");
+
+    private NotificationDto makeDto() {
+        return new NotificationDto(FIXED_UUID, NotificationCategory.OUTBID,
                 NotificationGroup.BIDDING, "title", "body", Map.of(),
                 false, OffsetDateTime.now(), OffsetDateTime.now());
     }
@@ -59,10 +62,10 @@ class NotificationWsBroadcasterTest {
 
     @Test
     void broadcastUpsert_routesToUserQueueNotifications() {
-        var dto = new NotificationDto(42L, NotificationCategory.OUTBID,
+        var dto = new NotificationDto(FIXED_UUID, NotificationCategory.OUTBID,
                 NotificationGroup.BIDDING, "title", "body", Map.of(),
                 false, OffsetDateTime.now(), OffsetDateTime.now());
-        var result = new NotificationDao.UpsertResult(42L, false, OffsetDateTime.now(), OffsetDateTime.now());
+        var result = new NotificationDao.UpsertResult(FIXED_UUID, false, OffsetDateTime.now(), OffsetDateTime.now());
 
         broadcaster.broadcastUpsert(7L, result, dto);
 
@@ -71,13 +74,13 @@ class NotificationWsBroadcasterTest {
         var env = (NotificationUpsertedEnvelope) envelopeCap.getValue();
         assertThat(env.type()).isEqualTo("NOTIFICATION_UPSERTED");
         assertThat(env.isUpdate()).isFalse();
-        assertThat(env.notification().id()).isEqualTo(42L);
+        assertThat(env.notification().publicId()).isEqualTo(FIXED_UUID);
     }
 
     @Test
     void broadcastUpsert_carriesIsUpdateFlag() {
-        var dto = makeDto(42L);
-        var result = new NotificationDao.UpsertResult(42L, true, OffsetDateTime.now(), OffsetDateTime.now());
+        var dto = makeDto();
+        var result = new NotificationDao.UpsertResult(FIXED_UUID, true, OffsetDateTime.now(), OffsetDateTime.now());
 
         broadcaster.broadcastUpsert(7L, result, dto);
 
@@ -100,8 +103,8 @@ class NotificationWsBroadcasterTest {
     void broadcastUpsert_swallowsExceptions() {
         doThrow(new RuntimeException("broker down")).when(template)
                 .convertAndSendToUser(any(), any(), any());
-        var dto = makeDto(42L);
-        var result = new NotificationDao.UpsertResult(42L, false, OffsetDateTime.now(), OffsetDateTime.now());
+        var dto = makeDto();
+        var result = new NotificationDao.UpsertResult(FIXED_UUID, false, OffsetDateTime.now(), OffsetDateTime.now());
 
         // Should NOT throw — broadcaster swallows + logs.
         assertThatCode(() -> broadcaster.broadcastUpsert(7L, result, dto)).doesNotThrowAnyException();

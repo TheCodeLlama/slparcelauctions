@@ -106,7 +106,7 @@ public class MeWalletController {
     private static WalletViewResponse.LedgerEntryDto toDto(LedgerRow row) {
         var e = row.entry();
         return new WalletViewResponse.LedgerEntryDto(
-                e.getId(),
+                e.getPublicId(),
                 e.getEntryType().name(),
                 e.getAmount(),
                 e.getBalanceAfter(),
@@ -176,25 +176,25 @@ public class MeWalletController {
             @Valid @RequestBody WithdrawApiRequest req) {
         WalletService.WithdrawQueuedResult result =
                 walletService.withdrawSiteInitiated(principal.userId(), req.amount(), req.idempotencyKey());
-        Long queueId;
+        java.util.UUID queuePublicId;
         long newBalance;
         long newAvailable;
         String status;
         if (result instanceof WalletService.WithdrawQueuedResult.Ok ok) {
-            queueId = ok.entry().getId();
+            queuePublicId = ok.entry().getPublicId();
             newBalance = ok.user().getBalanceLindens();
             newAvailable = ok.user().availableLindens();
             status = "QUEUED";
         } else {
             // Replay
-            queueId = result.entry().getId();
+            queuePublicId = result.entry().getPublicId();
             User user = userRepository.findById(principal.userId()).orElseThrow();
             newBalance = user.getBalanceLindens();
             newAvailable = user.availableLindens();
             status = "QUEUED_REPLAY";
         }
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(new WithdrawApiResponse(queueId, newBalance, newAvailable, status));
+                .body(new WithdrawApiResponse(queuePublicId, newBalance, newAvailable, status));
     }
 
     /* ============================================================ */

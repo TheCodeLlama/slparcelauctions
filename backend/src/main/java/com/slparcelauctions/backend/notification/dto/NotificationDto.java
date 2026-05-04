@@ -5,9 +5,10 @@ import com.slparcelauctions.backend.notification.NotificationCategory;
 import com.slparcelauctions.backend.notification.NotificationGroup;
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.UUID;
 
 public record NotificationDto(
-        Long id,
+        UUID publicId,
         NotificationCategory category,
         NotificationGroup group,
         String title,
@@ -19,7 +20,7 @@ public record NotificationDto(
 ) {
     public static NotificationDto from(Notification n) {
         return new NotificationDto(
-                n.getId(), n.getCategory(), n.getCategory().getGroup(),
+                n.getPublicId(), n.getCategory(), n.getCategory().getGroup(),
                 n.getTitle(), n.getBody(), n.getData(), n.getRead(),
                 n.getCreatedAt(), n.getUpdatedAt()
         );

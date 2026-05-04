@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -65,6 +66,8 @@ class EscrowControllerSliceTest {
     private static final Long ESCROW_ID = 7L;
     private static final Long SELLER_ID = 100L;
     private static final Long WINNER_ID = 200L;
+    private static final UUID ESCROW_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000007");
+    private static final UUID AUCTION_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000042");
 
     @Autowired MockMvc mockMvc;
     @MockitoBean EscrowService escrowService;
@@ -77,7 +80,7 @@ class EscrowControllerSliceTest {
     private EscrowStatusResponse stubResponse(EscrowState state) {
         OffsetDateTime now = OffsetDateTime.now();
         return new EscrowStatusResponse(
-                ESCROW_ID, AUCTION_ID, state,
+                ESCROW_PUBLIC_ID, AUCTION_PUBLIC_ID, state,
                 5_000L, 250L, 4_750L,
                 now.plusHours(48), null, null, null, null,
                 null, null, null,
@@ -103,8 +106,8 @@ class EscrowControllerSliceTest {
 
         mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.escrowId").value(ESCROW_ID))
-                .andExpect(jsonPath("$.auctionId").value(AUCTION_ID))
+                .andExpect(jsonPath("$.escrowPublicId").value(ESCROW_PUBLIC_ID.toString()))
+                .andExpect(jsonPath("$.auctionPublicId").value(AUCTION_PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.state").value("ESCROW_PENDING"));
     }
 
@@ -116,7 +119,7 @@ class EscrowControllerSliceTest {
 
         mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.escrowId").value(ESCROW_ID));
+                .andExpect(jsonPath("$.escrowPublicId").value(ESCROW_PUBLIC_ID.toString()));
     }
 
     @Test

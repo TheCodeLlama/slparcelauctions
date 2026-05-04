@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.escrow.broadcast;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -19,8 +20,8 @@ import com.slparcelauctions.backend.escrow.EscrowState;
  */
 public record EscrowExpiredEnvelope(
         String type,
-        Long auctionId,
-        Long escrowId,
+        UUID auctionPublicId,
+        UUID escrowPublicId,
         EscrowState state,
         String reason,
         OffsetDateTime serverTime) implements EscrowEnvelope {
@@ -28,8 +29,8 @@ public record EscrowExpiredEnvelope(
     public static EscrowExpiredEnvelope of(Escrow e, String reason, OffsetDateTime serverTime) {
         return new EscrowExpiredEnvelope(
                 "ESCROW_EXPIRED",
-                e.getAuction().getId(),
-                e.getId(),
+                e.getAuction().getPublicId(),
+                e.getPublicId(),
                 e.getState(),
                 reason,
                 serverTime);

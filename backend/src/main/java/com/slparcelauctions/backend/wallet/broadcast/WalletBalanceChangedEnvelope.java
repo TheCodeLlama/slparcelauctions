@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.wallet.broadcast;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.user.User;
 
@@ -16,11 +17,11 @@ public record WalletBalanceChangedEnvelope(
         long penaltyOwed,
         long queuedForWithdrawal,
         String reason,
-        Long ledgerEntryId,
+        UUID ledgerEntryPublicId,
         OffsetDateTime occurredAt
 ) {
     public static WalletBalanceChangedEnvelope of(User u, String reason,
-            Long ledgerEntryId, long queuedForWithdrawal, OffsetDateTime occurredAt) {
+            UUID ledgerEntryPublicId, long queuedForWithdrawal, OffsetDateTime occurredAt) {
         long owed = u.getPenaltyBalanceOwed() == null ? 0L : u.getPenaltyBalanceOwed();
         return new WalletBalanceChangedEnvelope(
                 u.getBalanceLindens(),
@@ -29,7 +30,7 @@ public record WalletBalanceChangedEnvelope(
                 owed,
                 queuedForWithdrawal,
                 reason,
-                ledgerEntryId,
+                ledgerEntryPublicId,
                 occurredAt);
     }
 }

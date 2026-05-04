@@ -124,7 +124,7 @@ public class NotificationService {
 
     private NotificationDto dtoFromUpsert(NotificationEvent event, UpsertResult result) {
         return new NotificationDto(
-                result.id(), event.category(), event.category().getGroup(),
+                result.publicId(), event.category(), event.category().getGroup(),
                 event.title(), event.body(), event.data(), false,
                 result.createdAt(), result.updatedAt()
         );

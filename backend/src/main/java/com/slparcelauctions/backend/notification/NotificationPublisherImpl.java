@@ -483,7 +483,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private NotificationDto dtoFor(
             long userId, UpsertResult result, Map<String, Object> data, String title, String body) {
         return new NotificationDto(
-            result.id(),
+            result.publicId(),
             NotificationCategory.LISTING_CANCELLED_BY_SELLER,
             NotificationGroup.LISTING_STATUS,
             title, body, data, false,

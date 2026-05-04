@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -30,7 +31,7 @@ class WalletBroadcastPublisherTest {
                 .balanceLindens(100L).reservedLindens(20L)
                 .penaltyBalanceOwed(0L).build();
 
-        pub.publish(u, "DEPOSIT", 7L);
+        pub.publish(u, "DEPOSIT", UUID.randomUUID());
 
         verify(tpl).convertAndSendToUser(eq("42"), eq("/queue/wallet"),
                 any(WalletBalanceChangedEnvelope.class));

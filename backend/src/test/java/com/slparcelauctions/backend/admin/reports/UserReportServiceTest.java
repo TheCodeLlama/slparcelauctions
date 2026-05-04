@@ -145,7 +145,7 @@ class UserReportServiceTest {
 
         MyReportResponse resp = service.upsertReport(auctionId, reporterId, req);
 
-        assertThat(resp.id()).isNotNull();
+        assertThat(resp.publicId()).isNotNull();
         assertThat(resp.subject()).isEqualTo("Bad listing");
         assertThat(resp.reason()).isEqualTo(ListingReportReason.INACCURATE_DESCRIPTION);
         assertThat(resp.details()).isEqualTo("The details are wrong.");
@@ -161,7 +161,7 @@ class UserReportServiceTest {
 
         // Manually set status to DISMISSED
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            ListingReport r = reportRepo.findById(first.id()).orElseThrow();
+            ListingReport r = reportRepo.findByPublicId(first.publicId()).orElseThrow();
             r.setStatus(ListingReportStatus.DISMISSED);
             reportRepo.save(r);
         });
@@ -170,7 +170,7 @@ class UserReportServiceTest {
         ReportRequest req2 = new ReportRequest("Updated subject", ListingReportReason.SHILL_BIDDING, "New details.");
         MyReportResponse second = service.upsertReport(auctionId, reporterId, req2);
 
-        assertThat(second.id()).isEqualTo(first.id()); // same row
+        assertThat(second.publicId()).isEqualTo(first.publicId()); // same row
         assertThat(second.subject()).isEqualTo("Updated subject");
         assertThat(second.reason()).isEqualTo(ListingReportReason.SHILL_BIDDING);
         assertThat(second.details()).isEqualTo("New details.");

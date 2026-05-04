@@ -157,10 +157,11 @@ class UserQueueRoutingTest {
         Thread.sleep(200);
 
         // Backend broadcasts to alice's userId only.
-        var dto = new NotificationDto(42L, NotificationCategory.OUTBID,
+        UUID notifPublicId = UUID.randomUUID();
+        var dto = new NotificationDto(notifPublicId, NotificationCategory.OUTBID,
                 NotificationGroup.BIDDING, "title", "body", Map.of(),
                 false, OffsetDateTime.now(), OffsetDateTime.now());
-        var result = new NotificationDao.UpsertResult(42L, false, OffsetDateTime.now(), OffsetDateTime.now());
+        var result = new NotificationDao.UpsertResult(notifPublicId, false, OffsetDateTime.now(), OffsetDateTime.now());
         broadcaster.broadcastUpsert(alice.getId(), result, dto);
 
         // Alice MUST receive within 2s.

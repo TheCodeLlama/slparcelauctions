@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.escrow.dto;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.escrow.EscrowState;
 
@@ -14,8 +15,8 @@ import com.slparcelauctions.backend.escrow.EscrowState;
  * Spec §4 / §8.
  */
 public record EscrowStatusResponse(
-        Long escrowId,
-        Long auctionId,
+        UUID escrowPublicId,
+        UUID auctionPublicId,
         EscrowState state,
         Long finalBidAmount,
         Long commissionAmt,

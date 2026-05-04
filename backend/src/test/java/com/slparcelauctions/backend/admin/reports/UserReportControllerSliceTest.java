@@ -101,8 +101,9 @@ class UserReportControllerSliceTest {
     @Test
     void report_validInput_returns200_withMyReportResponse() throws Exception {
         OffsetDateTime now = OffsetDateTime.now();
+        java.util.UUID reportPublicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000099");
         MyReportResponse resp = new MyReportResponse(
-            99L, "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION,
+            reportPublicId, "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION,
             "Details here.", ListingReportStatus.OPEN, now, now);
         when(service.upsertReport(eq(1L), eq(42L), any())).thenReturn(resp);
 
@@ -111,7 +112,7 @@ class UserReportControllerSliceTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.id").value(99))
+           .andExpect(jsonPath("$.publicId").value(reportPublicId.toString()))
            .andExpect(jsonPath("$.subject").value("Bad listing"))
            .andExpect(jsonPath("$.reason").value("INACCURATE_DESCRIPTION"))
            .andExpect(jsonPath("$.status").value("OPEN"));
@@ -177,15 +178,16 @@ class UserReportControllerSliceTest {
     @Test
     void myReport_withRow_returns200() throws Exception {
         OffsetDateTime now = OffsetDateTime.now();
+        java.util.UUID myReportPublicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000007");
         MyReportResponse resp = new MyReportResponse(
-            7L, "Subject", ListingReportReason.TOS_VIOLATION,
+            myReportPublicId, "Subject", ListingReportReason.TOS_VIOLATION,
             "Details.", ListingReportStatus.REVIEWED, now, now);
         when(service.findMyReport(eq(1L), eq(42L))).thenReturn(Optional.of(resp));
 
         mvc.perform(get("/api/v1/auctions/1/my-report")
             .header("Authorization", "Bearer " + userToken()))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.id").value(7))
+           .andExpect(jsonPath("$.publicId").value(myReportPublicId.toString()))
            .andExpect(jsonPath("$.reason").value("TOS_VIOLATION"))
            .andExpect(jsonPath("$.status").value("REVIEWED"));
     }

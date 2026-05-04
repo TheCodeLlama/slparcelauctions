@@ -41,8 +41,8 @@ public class NotificationWsBroadcaster implements NotificationWsBroadcasterPort 
                 new NotificationUpsertedEnvelope(result.wasUpdate(), dto)
             );
         } catch (Exception ex) {
-            log.warn("WS broadcast NOTIFICATION_UPSERTED failed userId={} notifId={}: {}",
-                     userId, dto.id(), ex.toString());
+            log.warn("WS broadcast NOTIFICATION_UPSERTED failed userId={} notifPublicId={}: {}",
+                     userId, dto.publicId(), ex.toString());
         }
     }
 

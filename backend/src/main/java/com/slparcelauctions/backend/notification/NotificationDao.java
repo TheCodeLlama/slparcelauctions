@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -41,7 +42,7 @@ public class NotificationDao {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public record UpsertResult(
-            long id,
+            UUID publicId,
             boolean wasUpdate,
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt
@@ -72,14 +73,14 @@ public class NotificationDao {
                   body = EXCLUDED.body,
                   data = EXCLUDED.data,
                   updated_at = now()
-                RETURNING id, (xmax != 0) AS was_update, created_at, updated_at
+                RETURNING public_id, (xmax != 0) AS was_update, created_at, updated_at
                 """;
 
         Map<String, Object> row = jdbc.queryForMap(
                 sql, userId, category.name(), title, body, dataJson, coalesceKey);
 
         return new UpsertResult(
-                ((Number) row.get("id")).longValue(),
+                (UUID) row.get("public_id"),
                 (Boolean) row.get("was_update"),
                 ((java.sql.Timestamp) row.get("created_at")).toInstant().atOffset(ZoneOffset.UTC),
                 ((java.sql.Timestamp) row.get("updated_at")).toInstant().atOffset(ZoneOffset.UTC)

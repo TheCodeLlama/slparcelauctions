@@ -96,6 +96,8 @@ class EscrowDisputeIntegrationTest {
     private Long seededEscrowId;
     private Long seededSellerId;
     private Long seededBidderId;
+    private java.util.UUID seededAuctionPublicId;
+    private java.util.UUID seededEscrowPublicId;
 
     @BeforeEach
     void resetCapture() {
@@ -129,6 +131,8 @@ class EscrowDisputeIntegrationTest {
         seededEscrowId = null;
         seededSellerId = null;
         seededBidderId = null;
+        seededAuctionPublicId = null;
+        seededEscrowPublicId = null;
     }
 
     @Test
@@ -162,8 +166,8 @@ class EscrowDisputeIntegrationTest {
         assertThat(capturingEscrowPublisher.disputed).hasSize(1);
         EscrowDisputedEnvelope env = capturingEscrowPublisher.disputed.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_DISPUTED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.DISPUTED);
         assertThat(env.reason()).isEqualTo("SELLER_NOT_RESPONSIVE");
         assertThat(env.serverTime()).isNotNull();
@@ -308,6 +312,8 @@ class EscrowDisputeIntegrationTest {
             seededBidderId = bidder.getId();
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
         });
     }
 }

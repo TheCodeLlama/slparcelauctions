@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.wallet.broadcast;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -23,10 +24,10 @@ public class WalletBroadcastPublisher {
     private final UserLedgerRepository ledgerRepository;
     private final Clock clock;
 
-    public void publish(User user, String reason, Long ledgerEntryId) {
+    public void publish(User user, String reason, UUID ledgerEntryPublicId) {
         long queuedForWithdrawal = ledgerRepository.sumPendingWithdrawals(user.getId());
         WalletBalanceChangedEnvelope envelope = WalletBalanceChangedEnvelope.of(
-                user, reason, ledgerEntryId, queuedForWithdrawal, OffsetDateTime.now(clock));
+                user, reason, ledgerEntryPublicId, queuedForWithdrawal, OffsetDateTime.now(clock));
         Long userId = user.getId();
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
@@ -44,7 +45,7 @@ public class WalletBroadcastPublisher {
     private void doPublish(Long userId, WalletBalanceChangedEnvelope envelope) {
         messagingTemplate.convertAndSendToUser(
                 userId.toString(), "/queue/wallet", envelope);
-        log.debug("WALLET_BALANCE_CHANGED published: userId={}, reason={}, ledgerEntryId={}",
-                userId, envelope.reason(), envelope.ledgerEntryId());
+        log.debug("WALLET_BALANCE_CHANGED published: userId={}, reason={}, ledgerEntryPublicId={}",
+                userId, envelope.reason(), envelope.ledgerEntryPublicId());
     }
 }

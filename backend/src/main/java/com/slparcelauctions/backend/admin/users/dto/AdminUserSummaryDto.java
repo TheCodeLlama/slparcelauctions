@@ -6,7 +6,7 @@ import java.util.UUID;
 import com.slparcelauctions.backend.user.Role;
 
 public record AdminUserSummaryDto(
-    Long id,
+    UUID publicId,
     String email,
     String displayName,
     UUID slAvatarUuid,
