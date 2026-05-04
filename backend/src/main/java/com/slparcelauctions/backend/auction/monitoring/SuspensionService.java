@@ -60,37 +60,40 @@ public class SuspensionService {
             auction.setSuspendedAt(now);
         }
         auction.setLastOwnershipCheckAt(now);
-        auctionRepo.save(auction);
+        // Use the managed entity returned by merge so lazy associations can
+        // be initialized within this transaction even when the caller passed
+        // a detached entity (e.g. from a prior committed TransactionTemplate).
+        Auction managed = auctionRepo.save(auction);
 
         Map<String, Object> ev = new HashMap<>();
-        ev.put("expected_owner", auction.getSeller().getSlAvatarUuid() == null
+        ev.put("expected_owner", managed.getSeller().getSlAvatarUuid() == null
                 ? null
-                : auction.getSeller().getSlAvatarUuid().toString());
+                : managed.getSeller().getSlAvatarUuid().toString());
         ev.put("detected_owner", evidence.ownerUuid() == null
                 ? null
                 : evidence.ownerUuid().toString());
         ev.put("detected_owner_type", evidence.ownerType());
-        ev.put("parcel_uuid", auction.getSlParcelUuid().toString());
+        ev.put("parcel_uuid", managed.getSlParcelUuid().toString());
 
         fraudFlagRepo.save(FraudFlag.builder()
-                .auction(auction)
-                .slParcelUuid(auction.getSlParcelUuid())
+                .auction(managed)
+                .slParcelUuid(managed.getSlParcelUuid())
                 .reason(FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN)
                 .detectedAt(now)
                 .evidenceJson(ev)
                 .resolved(false)
                 .build());
 
-        monitorLifecycle.onAuctionClosed(auction);
+        monitorLifecycle.onAuctionClosed(managed);
 
         notificationPublisher.listingSuspended(
-                auction.getSeller().getId(),
-                auction.getId(),
-                auction.getTitle(),
+                managed.getSeller().getId(),
+                managed.getId(),
+                managed.getTitle(),
                 FraudFlagReason.OWNERSHIP_CHANGED_TO_UNKNOWN.name());
 
         log.warn("Auction {} SUSPENDED for ownership change: expected={}, detected={}",
-                auction.getId(), ev.get("expected_owner"), ev.get("detected_owner"));
+                managed.getId(), ev.get("expected_owner"), ev.get("detected_owner"));
     }
 
     @Transactional
@@ -101,30 +104,30 @@ public class SuspensionService {
             auction.setSuspendedAt(now);
         }
         auction.setLastOwnershipCheckAt(now);
-        auctionRepo.save(auction);
+        Auction managed = auctionRepo.save(auction);
 
         Map<String, Object> ev = new HashMap<>();
-        ev.put("parcel_uuid", auction.getSlParcelUuid().toString());
+        ev.put("parcel_uuid", managed.getSlParcelUuid().toString());
 
         fraudFlagRepo.save(FraudFlag.builder()
-                .auction(auction)
-                .slParcelUuid(auction.getSlParcelUuid())
+                .auction(managed)
+                .slParcelUuid(managed.getSlParcelUuid())
                 .reason(FraudFlagReason.PARCEL_DELETED_OR_MERGED)
                 .detectedAt(now)
                 .evidenceJson(ev)
                 .resolved(false)
                 .build());
 
-        monitorLifecycle.onAuctionClosed(auction);
+        monitorLifecycle.onAuctionClosed(managed);
 
         notificationPublisher.listingSuspended(
-                auction.getSeller().getId(),
-                auction.getId(),
-                auction.getTitle(),
+                managed.getSeller().getId(),
+                managed.getId(),
+                managed.getTitle(),
                 FraudFlagReason.PARCEL_DELETED_OR_MERGED.name());
 
         log.warn("Auction {} SUSPENDED: parcel {} no longer exists in-world",
-                auction.getId(), auction.getSlParcelUuid());
+                managed.getId(), managed.getSlParcelUuid());
     }
 
     /**
