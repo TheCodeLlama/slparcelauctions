@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.review.dto;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.review.Review;
 import com.slparcelauctions.backend.review.ReviewResponse;
@@ -22,14 +23,14 @@ import com.slparcelauctions.backend.review.ReviewedRole;
  * (Q9 blind-on-fact decision in spec §4.2).
  */
 public record ReviewDto(
-        Long id,
-        Long auctionId,
+        UUID publicId,
+        UUID auctionPublicId,
         String auctionTitle,
         String auctionPrimaryPhotoUrl,
-        Long reviewerId,
+        UUID reviewerPublicId,
         String reviewerDisplayName,
         String reviewerAvatarUrl,
-        Long revieweeId,
+        UUID revieweePublicId,
         ReviewedRole reviewedRole,
         Integer rating,
         String text,
@@ -59,14 +60,14 @@ public record ReviewDto(
         boolean pending = !visible && viewerIsReviewer;
         boolean exposeText = visible || viewerIsReviewer;
         return new ReviewDto(
-                r.getId(),
-                r.getAuction().getId(),
+                r.getPublicId(),
+                r.getAuction().getPublicId(),
                 r.getAuction().getTitle(),
                 primaryPhotoUrl,
-                r.getReviewer().getId(),
+                r.getReviewer().getPublicId(),
                 r.getReviewer().getDisplayName(),
                 avatarUrl(r.getReviewer().getId()),
-                r.getReviewee().getId(),
+                r.getReviewee().getPublicId(),
                 r.getReviewedRole(),
                 exposeText ? r.getRating() : null,
                 exposeText ? r.getText() : null,

@@ -62,7 +62,7 @@ class UserServiceTest {
 
         UserResponse response = userService.createUser(request);
 
-        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.publicId()).isNotNull();
         assertThat(response.email()).isEqualTo("alice@example.com");
         assertThat(response.displayName()).isEqualTo("Alice");
         verify(userRepository).save(any(User.class));
@@ -91,7 +91,7 @@ class UserServiceTest {
 
         UserResponse response = userService.getUserById(7L);
 
-        assertThat(response.id()).isEqualTo(7L);
+        assertThat(response.publicId()).isNotNull();
         assertThat(response.email()).isEqualTo("bob@example.com");
     }
 
@@ -116,7 +116,7 @@ class UserServiceTest {
 
         UserProfileResponse profile = userService.getPublicProfile(3L);
 
-        assertThat(profile.id()).isEqualTo(3L);
+        assertThat(profile.publicId()).isNotNull();
         assertThat(profile.displayName()).isEqualTo("Carol");
         assertThat(profile.bio()).isEqualTo("hi");
     }

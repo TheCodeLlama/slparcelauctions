@@ -47,12 +47,19 @@ class UserReviewsControllerTest {
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private JwtService jwtService;
 
+    private static final java.util.UUID REVIEW_PUBLIC_ID =
+            java.util.UUID.fromString("00000000-0000-0000-0000-0000000004d2");
+    private static final java.util.UUID AUCTION_PUBLIC_ID =
+            java.util.UUID.fromString("00000000-0000-0000-0000-00000000022b");
+
     private ReviewDto sampleDto() {
         return new ReviewDto(
-                1_234L, 555L, "Lakefront",
-                "/api/v1/auctions/555/photos/1/bytes",
-                1L, "Viewer", "/api/v1/users/1/avatar/256",
-                10L, ReviewedRole.SELLER,
+                REVIEW_PUBLIC_ID, AUCTION_PUBLIC_ID, "Lakefront",
+                "/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/photos/1/bytes",
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                "Viewer", "/api/v1/users/1/avatar/256",
+                java.util.UUID.fromString("00000000-0000-0000-0000-00000000000a"),
+                ReviewedRole.SELLER,
                 5, "Great", true, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), null);
     }
@@ -67,7 +74,7 @@ class UserReviewsControllerTest {
         mockMvc.perform(get("/api/v1/users/10/reviews?role=SELLER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content[0].id").value(1_234))
+                .andExpect(jsonPath("$.content[0].publicId").value(REVIEW_PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1))
                 .andExpect(jsonPath("$.number").value(0))
@@ -93,10 +100,12 @@ class UserReviewsControllerTest {
         User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
 
+        java.util.UUID pendingAuctionId = java.util.UUID.fromString("00000000-0000-0000-0000-00000000022b");
         PendingReviewDto pending = new PendingReviewDto(
-                555L, "Lakefront",
-                "/api/v1/auctions/555/photos/1/bytes",
-                10L, "Sally", "/api/v1/users/10/avatar/256",
+                pendingAuctionId, "Lakefront",
+                "/api/v1/auctions/" + pendingAuctionId + "/photos/1/bytes",
+                java.util.UUID.fromString("00000000-0000-0000-0000-00000000000a"),
+                "Sally", "/api/v1/users/10/avatar/256",
                 OffsetDateTime.now().minusDays(1),
                 OffsetDateTime.now().plusDays(13),
                 312L,
@@ -107,7 +116,7 @@ class UserReviewsControllerTest {
         mockMvc.perform(get("/api/v1/users/me/pending-reviews"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].auctionId").value(555))
+                .andExpect(jsonPath("$[0].auctionPublicId").value(pendingAuctionId.toString()))
                 .andExpect(jsonPath("$[0].counterpartyDisplayName").value("Sally"))
                 .andExpect(jsonPath("$[0].hoursRemaining").value(312));
     }

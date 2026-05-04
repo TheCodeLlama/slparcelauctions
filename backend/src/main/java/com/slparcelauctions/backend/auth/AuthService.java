@@ -70,9 +70,9 @@ public class AuthService {
         }
 
         // One extra DB read — register is not a hot path.
-        User user = userRepository.findById(created.id())
+        User user = userRepository.findByPublicId(created.publicId())
                 .orElseThrow(() -> new IllegalStateException(
-                        "User disappeared immediately after creation: id=" + created.id()));
+                        "User disappeared immediately after creation: publicId=" + created.publicId()));
 
         return buildResult(user, httpReq);
     }

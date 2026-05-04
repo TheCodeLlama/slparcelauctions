@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.review.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.review.ReviewResponse;
 
@@ -11,11 +12,11 @@ import com.slparcelauctions.backend.review.ReviewResponse;
  * review in Task 3), so no visibility-gate fields are carried here.
  */
 public record ReviewResponseDto(
-        Long id,
+        UUID publicId,
         String text,
         OffsetDateTime createdAt) {
 
     public static ReviewResponseDto of(ReviewResponse r) {
-        return new ReviewResponseDto(r.getId(), r.getText(), r.getCreatedAt());
+        return new ReviewResponseDto(r.getPublicId(), r.getText(), r.getCreatedAt());
     }
 }

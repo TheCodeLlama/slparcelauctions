@@ -55,16 +55,19 @@ class ReviewControllerTest {
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private JwtService jwtService;
 
+    private static final java.util.UUID REVIEW_ID = java.util.UUID.fromString("00000000-0000-0000-0000-0000000004d2");
+    private static final java.util.UUID AUCTION_ID = java.util.UUID.fromString("00000000-0000-0000-0000-00000000022b");
+
     private ReviewDto sampleDto() {
         return new ReviewDto(
-                1_234L,
-                555L,
+                REVIEW_ID,
+                AUCTION_ID,
                 "Lakefront",
-                "/api/v1/auctions/555/photos/1/bytes",
-                1L,
+                "/api/v1/auctions/" + AUCTION_ID + "/photos/1/bytes",
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),
                 "Viewer",
                 "/api/v1/users/1/avatar/256",
-                10L,
+                java.util.UUID.fromString("00000000-0000-0000-0000-00000000000a"),
                 ReviewedRole.SELLER,
                 5,
                 "Great",
@@ -88,8 +91,8 @@ class ReviewControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1_234))
-                .andExpect(jsonPath("$.auctionId").value(555))
+                .andExpect(jsonPath("$.publicId").value(REVIEW_ID.toString()))
+                .andExpect(jsonPath("$.auctionPublicId").value(AUCTION_ID.toString()))
                 .andExpect(jsonPath("$.pending").value(true))
                 .andExpect(jsonPath("$.visible").value(false));
     }
@@ -195,7 +198,7 @@ class ReviewControllerTest {
         mockMvc.perform(get("/api/v1/auctions/555/reviews"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reviews").isArray())
-                .andExpect(jsonPath("$.reviews[0].id").value(1_234))
+                .andExpect(jsonPath("$.reviews[0].publicId").value(REVIEW_ID.toString()))
                 .andExpect(jsonPath("$.myPendingReview").doesNotExist())
                 .andExpect(jsonPath("$.canReview").value(false))
                 .andExpect(jsonPath("$.windowClosesAt").doesNotExist());

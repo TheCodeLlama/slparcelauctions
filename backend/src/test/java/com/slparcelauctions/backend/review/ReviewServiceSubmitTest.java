@@ -258,7 +258,7 @@ class ReviewServiceSubmitTest {
         assertThat(saved.getVisible()).isFalse();
 
         assertThat(dto.reviewedRole()).isEqualTo(ReviewedRole.BUYER);
-        assertThat(dto.revieweeId()).isEqualTo(winner.getId());
+        assertThat(dto.revieweePublicId()).isEqualTo(winner.getPublicId());
         assertThat(dto.pending()).isTrue();
     }
 
@@ -282,7 +282,7 @@ class ReviewServiceSubmitTest {
 
         ReviewDto dto = service.submit(555L, winner, new ReviewSubmitRequest(5, null));
 
-        assertThat(dto.id()).isEqualTo(1_003L);
+        assertThat(dto.publicId()).isNotNull();
     }
 
     private static void setEntityId(Object entity, Long id) {

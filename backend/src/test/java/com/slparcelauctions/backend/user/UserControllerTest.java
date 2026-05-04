@@ -61,8 +61,9 @@ class UserControllerTest {
 
     @Test
     void createUser_returns201() throws Exception {
+        java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse response = new UserResponse(
-                1L, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
+                publicId, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
@@ -74,8 +75,8 @@ class UserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/api/v1/users/1"))
-                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(header().string("Location", "/api/v1/users/" + publicId))
+                .andExpect(jsonPath("$.publicId").value(publicId.toString()))
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
     }
@@ -144,14 +145,15 @@ class UserControllerTest {
 
     @Test
     void getUserProfile_returns200() throws Exception {
+        java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-00000000002a");
         UserProfileResponse profile = new UserProfileResponse(
-                42L, "Bob", "hello", null, null, null, null,
+                publicId, "Bob", "hello", null, null, null, null,
                 false, null, null, 0, 0, 0, null, true, OffsetDateTime.now());
         when(userService.getPublicProfile(42L)).thenReturn(profile);
 
         mockMvc.perform(get("/api/v1/users/42"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(42))
+                .andExpect(jsonPath("$.publicId").value(publicId.toString()))
                 .andExpect(jsonPath("$.displayName").value("Bob"));
     }
 
@@ -167,8 +169,9 @@ class UserControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void getMe_returnsUserDto_whenAuthenticated() throws Exception {
+        java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse expected = new UserResponse(
-                1L, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
+                publicId, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
@@ -176,7 +179,7 @@ class UserControllerTest {
 
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.publicId").value(publicId.toString()))
                 .andExpect(jsonPath("$.email").value(expected.email()));
     }
 

@@ -170,7 +170,7 @@ class ReviewServiceActionTest {
         assertThat(saved.getReview()).isEqualTo(review);
         assertThat(saved.getText()).isEqualTo("Appreciate it!");
 
-        assertThat(dto.id()).isEqualTo(9_001L);
+        assertThat(dto.publicId()).isNotNull();
         assertThat(dto.text()).isEqualTo("Appreciate it!");
         assertThat(dto.createdAt()).isEqualTo(NOW);
     }

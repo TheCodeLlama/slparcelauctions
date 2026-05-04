@@ -32,8 +32,8 @@ public class NoOpReviewBroadcastPublisher {
         return new ReviewBroadcastPublisher() {
             @Override
             public void publishReviewRevealed(ReviewRevealedEnvelope envelope) {
-                log.debug("no-op publishReviewRevealed: auctionId={}, reviewId={}, revealedAt={}",
-                        envelope.auctionId(), envelope.reviewId(), envelope.revealedAt());
+                log.debug("no-op publishReviewRevealed: auctionPublicId={}, reviewPublicId={}, revealedAt={}",
+                        envelope.auctionPublicId(), envelope.reviewPublicId(), envelope.revealedAt());
             }
         };
     }

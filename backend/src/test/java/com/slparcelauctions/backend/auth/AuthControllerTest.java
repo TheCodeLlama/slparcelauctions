@@ -158,7 +158,8 @@ class AuthControllerTest {
 
     private UserResponse stubUser() {
         return new UserResponse(
-            1L, "new@example.com", "Newbie", null, null, null, null, null, null, null, null,
+            java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),
+            "new@example.com", "Newbie", null, null, null, null, null, null, null, null,
             null, null, null, null, null,
             0L, null, false,
             OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);

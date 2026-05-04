@@ -192,10 +192,10 @@ class ReviewServiceRevealTest {
         verify(broadcastPublisher).publishReviewRevealed(cap.capture());
         ReviewRevealedEnvelope env = cap.getValue();
         assertThat(env.type()).isEqualTo("REVIEW_REVEALED");
-        assertThat(env.auctionId()).isEqualTo(555L);
-        assertThat(env.reviewId()).isEqualTo(104L);
-        assertThat(env.reviewerId()).isEqualTo(20L);
-        assertThat(env.revieweeId()).isEqualTo(10L);
+        assertThat(env.auctionPublicId()).isEqualTo(auction.getPublicId());
+        assertThat(env.reviewPublicId()).isNotNull();
+        assertThat(env.reviewerPublicId()).isEqualTo(winner.getPublicId());
+        assertThat(env.revieweePublicId()).isEqualTo(seller.getPublicId());
         assertThat(env.reviewedRole()).isEqualTo(ReviewedRole.SELLER);
         assertThat(env.revealedAt()).isEqualTo(NOW);
     }

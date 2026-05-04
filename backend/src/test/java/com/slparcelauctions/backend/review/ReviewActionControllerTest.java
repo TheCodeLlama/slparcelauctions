@@ -71,7 +71,9 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns201_withDto() throws Exception {
         mockCaller();
-        ReviewResponseDto dto = new ReviewResponseDto(9_001L, "Thanks!",
+        ReviewResponseDto dto = new ReviewResponseDto(
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000002329"),
+                "Thanks!",
                 OffsetDateTime.parse("2026-05-01T10:00:00Z"));
         when(reviewService.respondTo(eq(1_234L), any(User.class),
                 any(ReviewResponseSubmitRequest.class))).thenReturn(dto);
@@ -81,7 +83,7 @@ class ReviewActionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(9_001))
+                .andExpect(jsonPath("$.publicId").value("00000000-0000-0000-0000-000000002329"))
                 .andExpect(jsonPath("$.text").value("Thanks!"));
     }
 
