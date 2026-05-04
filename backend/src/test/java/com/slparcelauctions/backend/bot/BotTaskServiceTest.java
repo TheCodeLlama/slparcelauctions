@@ -160,7 +160,6 @@ class BotTaskServiceTest {
     void createForAuction_doesNotCancelOtherAuctionsTasks() {
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         Auction other = build(AuctionStatus.VERIFICATION_PENDING);
-        other.setId(999L);
         BotTask foreign = botTask(66L, other, BotTaskStatus.PENDING);
         when(botTaskRepo.findByStatusOrderByCreatedAtAsc(BotTaskStatus.PENDING))
                 .thenReturn(List.of(foreign));
@@ -263,7 +262,7 @@ class BotTaskServiceTest {
                 PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
         Auction blocker = build(AuctionStatus.ACTIVE);
-        blocker.setId(999L);
+        setEntityId(blocker, 999L);
         when(auctionRepo.findFirstBySlParcelUuidAndStatusIn(
                 PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));
@@ -528,5 +527,14 @@ class BotTaskServiceTest {
         Field f = target.getClass().getDeclaredField(field);
         f.setAccessible(true);
         f.set(target, value);
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

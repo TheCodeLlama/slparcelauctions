@@ -302,7 +302,7 @@ class AuctionVerificationServiceMethodATest {
                 PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES, AUCTION_ID))
                 .thenReturn(true);
         Auction blocker = build(AuctionStatus.ACTIVE);
-        blocker.setId(77L);
+        setEntityId(blocker, 77L);
         when(auctionRepo.findFirstBySlParcelUuidAndStatusIn(
                 PARCEL_UUID, AuctionStatusConstants.LOCKING_STATUSES))
                 .thenReturn(Optional.of(blocker));
@@ -389,5 +389,14 @@ class AuctionVerificationServiceMethodATest {
                 "Test Parcel", "Coniston",
                 1024, "desc", "http://example.com/snap.jpg", "MODERATE",
                 128.0, 64.0, 22.0);
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

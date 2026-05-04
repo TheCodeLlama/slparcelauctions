@@ -82,7 +82,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         escrow = Escrow.builder()
                 .auction(auction)
@@ -289,7 +289,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auctionOld.setId(100L);
+        setEntityId(auctionOld, 100L);
         Escrow escrowOld = Escrow.builder()
                 .auction(auctionOld)
                 .state(EscrowState.COMPLETED)
@@ -307,7 +307,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auctionMid.setId(200L);
+        setEntityId(auctionMid, 200L);
         Escrow escrowMid = Escrow.builder()
                 .auction(auctionMid)
                 .state(EscrowState.COMPLETED)
@@ -325,7 +325,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auctionNew.setId(300L);
+        setEntityId(auctionNew, 300L);
         Escrow escrowNew = Escrow.builder()
                 .auction(auctionNew)
                 .state(EscrowState.COMPLETED)
@@ -377,5 +377,14 @@ class ReviewServiceListTest {
         assertThat(p.viewerRole()).isEqualTo(ReviewedRole.SELLER);
         assertThat(p.counterpartyId()).isEqualTo(winner.getId());
         assertThat(p.counterpartyDisplayName()).isEqualTo("Willy");
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

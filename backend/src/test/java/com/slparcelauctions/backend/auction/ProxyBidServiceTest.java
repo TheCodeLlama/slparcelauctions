@@ -100,15 +100,14 @@ class ProxyBidServiceTest {
 
         lenient().when(bidRepo.save(any(Bid.class))).thenAnswer(inv -> {
             Bid b = inv.getArgument(0);
-            if (b.getId() == null) b.setId(9000L);
-            if (b.getCreatedAt() == null) b.setCreatedAt(NOW);
+            setBaseEntityField(b, "id", 9000L);
+            setBaseEntityField(b, "createdAt", NOW);
             return b;
         });
         lenient().when(proxyBidRepo.save(any(ProxyBid.class))).thenAnswer(inv -> {
             ProxyBid p = inv.getArgument(0);
-            if (p.getId() == null) p.setId(7000L);
-            if (p.getCreatedAt() == null) p.setCreatedAt(NOW);
-            if (p.getUpdatedAt() == null) p.setUpdatedAt(NOW);
+            setBaseEntityField(p, "id", 7000L);
+            setBaseEntityField(p, "createdAt", NOW);
             return p;
         });
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -446,16 +445,23 @@ class ProxyBidServiceTest {
     // -------------------------------------------------------------------------
 
     private ProxyBid proxyRow(Long id, User owner, long maxAmount, ProxyBidStatus status) {
-        ProxyBid p = ProxyBid.builder()
-                .id(id)
+        return ProxyBid.builder()
                 .auction(activeAuction)
                 .bidder(owner)
                 .maxAmount(maxAmount)
                 .status(status)
+                .createdAt(NOW)
                 .build();
-        p.setCreatedAt(NOW);
-        p.setUpdatedAt(NOW);
-        return p;
+    }
+
+    /** Reflectively sets a field declared on BaseEntity (id, createdAt) which has no public setter. */
+    private static void setBaseEntityField(Object entity, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 
     private <T> T runInTransaction(java.util.function.Supplier<T> body) {

@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.user.User;
 
@@ -20,9 +18,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
@@ -37,6 +32,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "auctions",
@@ -51,12 +47,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Auction {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class Auction extends BaseMutableEntity {
 
     @Column(name = "sl_parcel_uuid", nullable = false)
     private UUID slParcelUuid;
@@ -261,11 +253,4 @@ public class Auction {
     @OneToMany(mappedBy = "auction", fetch = FetchType.LAZY)
     private List<AuctionPhoto> photos = new ArrayList<>();
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 }

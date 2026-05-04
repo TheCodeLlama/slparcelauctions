@@ -1,21 +1,16 @@
 package com.slparcelauctions.backend.parceltag;
 
-import java.time.OffsetDateTime;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "parcel_tags")
@@ -23,12 +18,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ParcelTag {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class ParcelTag extends BaseMutableEntity {
 
     @Column(nullable = false, unique = true, length = 50)
     private String code;
@@ -50,11 +41,4 @@ public class ParcelTag {
     @Column(nullable = false)
     private Boolean active = true;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 }

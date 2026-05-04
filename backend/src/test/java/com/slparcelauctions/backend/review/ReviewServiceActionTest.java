@@ -85,7 +85,7 @@ class ReviewServiceActionTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         review = Review.builder()
                 .auction(auction)
@@ -273,5 +273,14 @@ class ReviewServiceActionTest {
         ArgumentCaptor<Review> reviewCap = ArgumentCaptor.forClass(Review.class);
         verify(reviewRepo).save(reviewCap.capture());
         assertThat(reviewCap.getValue().getFlagCount()).isEqualTo(4);
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

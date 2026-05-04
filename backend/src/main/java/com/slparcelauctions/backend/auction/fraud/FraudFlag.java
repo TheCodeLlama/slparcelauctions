@@ -2,24 +2,20 @@ package com.slparcelauctions.backend.auction.fraud;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.UUID;
 
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import com.slparcelauctions.backend.user.User;
-
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -28,6 +24,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Record of a fraud-related anomaly detected by the ownership monitor. Created
@@ -42,12 +39,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class FraudFlag {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class FraudFlag extends BaseMutableEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "auction_id")
@@ -87,7 +80,4 @@ public class FraudFlag {
     @Column(name = "admin_notes", columnDefinition = "text")
     private String adminNotes;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

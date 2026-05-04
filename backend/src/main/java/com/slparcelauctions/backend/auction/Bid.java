@@ -2,8 +2,7 @@ package com.slparcelauctions.backend.auction;
 
 import java.time.OffsetDateTime;
 
-import org.hibernate.annotations.CreationTimestamp;
-
+import com.slparcelauctions.backend.common.BaseEntity;
 import com.slparcelauctions.backend.user.User;
 
 import jakarta.persistence.Column;
@@ -11,9 +10,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -23,6 +19,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Immutable record of a single bid placed against an auction. Rows are never
@@ -44,12 +41,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Bid {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class Bid extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "auction_id", nullable = false)
@@ -96,7 +89,4 @@ public class Bid {
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

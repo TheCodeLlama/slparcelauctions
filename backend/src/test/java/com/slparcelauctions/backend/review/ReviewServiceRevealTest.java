@@ -79,7 +79,7 @@ class ReviewServiceRevealTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         escrow = Escrow.builder()
                 .auction(auction)
@@ -303,5 +303,14 @@ class ReviewServiceRevealTest {
         assertThat(sellerAlreadyRevealed.getRevealedAt()).isEqualTo(NOW.minusDays(1));
         verify(broadcastPublisher, never())
                 .publishReviewRevealed(any(ReviewRevealedEnvelope.class));
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

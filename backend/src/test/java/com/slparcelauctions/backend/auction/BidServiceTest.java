@@ -94,12 +94,13 @@ class BidServiceTest {
                 .snipeProtect(false)
                 .build();
 
-        // save-bid returns the passed row with an id stamped on. Marked
-        // lenient because early-validation tests never reach save.
+        // save-bid returns the passed row with id/createdAt stamped via reflection
+        // (id and createdAt are @Setter(NONE) in BaseEntity, assigned by DB normally).
+        // Marked lenient because early-validation tests never reach save.
         lenient().when(bidRepo.save(any(Bid.class))).thenAnswer(inv -> {
             Bid b = inv.getArgument(0);
-            if (b.getId() == null) b.setId(9000L);
-            if (b.getCreatedAt() == null) b.setCreatedAt(NOW);
+            setBaseEntityField(b, "id", 9000L);
+            setBaseEntityField(b, "createdAt", NOW);
             return b;
         });
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -337,6 +338,16 @@ class BidServiceTest {
     private <T> T runInTransaction(java.util.function.Supplier<T> body) {
         TransactionTemplate tt = new TransactionTemplate(new FakeTxManager());
         return tt.execute(status -> body.get());
+    }
+
+    /** Reflectively sets a field declared on BaseEntity (id, createdAt) which has no public setter. */
+    private static void setBaseEntityField(Object entity, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 
     /**

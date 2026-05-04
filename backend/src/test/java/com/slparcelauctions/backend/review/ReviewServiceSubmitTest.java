@@ -85,7 +85,7 @@ class ReviewServiceSubmitTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         // Escrow: COMPLETED 1 day ago — well within the 14-day window.
         escrow = Escrow.builder()
@@ -283,5 +283,14 @@ class ReviewServiceSubmitTest {
         ReviewDto dto = service.submit(555L, winner, new ReviewSubmitRequest(5, null));
 
         assertThat(dto.id()).isEqualTo(1_003L);
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }
