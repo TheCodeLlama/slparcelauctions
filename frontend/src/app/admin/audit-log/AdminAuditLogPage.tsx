@@ -26,7 +26,7 @@ export function AdminAuditLogPage() {
       <header>
         <h1 className="text-xl font-semibold">Admin audit log</h1>
         <p className="text-xs opacity-60 mt-1">
-          Every admin action — fraud-flag triage, reports, bans, disputes,
+          Every admin action: fraud-flag triage, reports, bans, disputes,
           withdrawals, secret rotations.
         </p>
       </header>

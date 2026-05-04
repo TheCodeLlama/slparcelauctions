@@ -121,12 +121,12 @@ describe("ListingSummaryRow", () => {
     );
   });
 
-  it("shows the em-dash bid fallback and 0 bids when there is no bid on ACTIVE", () => {
+  it("shows the hyphen bid fallback and 0 bids when there is no bid on ACTIVE", () => {
     renderWithProviders(
       <ListingSummaryRow auction={baseAuction({ currentHighBid: null, bidCount: 0 })} />,
       { auth: "authenticated" },
     );
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("-")).toBeInTheDocument();
     expect(screen.getByText(/0 bids/)).toBeInTheDocument();
   });
 
@@ -199,7 +199,7 @@ describe("ListingSummaryRow", () => {
       { auth: "authenticated" },
     );
     expect(
-      screen.getByText(/Ended — reserve not met \(highest bid/),
+      screen.getByText(/Ended: reserve not met \(highest bid/),
     ).toBeInTheDocument();
     expect(screen.getByText("L$12,000")).toBeInTheDocument();
   });

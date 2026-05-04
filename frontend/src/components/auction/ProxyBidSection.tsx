@@ -187,7 +187,7 @@ export function ProxyBidSection({
         </h3>
         {mode === "create" ? (
           <p className="text-xs text-fg-muted">
-            Set your maximum — we&apos;ll bid for you up to that amount.
+            Set your maximum and we&apos;ll bid for you up to that amount.
           </p>
         ) : null}
         {mode === "active" && existingProxy ? (

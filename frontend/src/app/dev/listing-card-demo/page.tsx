@@ -10,7 +10,7 @@ import type { AuctionSearchResultDto } from "@/types/search";
  */
 const sample: AuctionSearchResultDto = {
   publicId: "00000000-0000-0000-0000-000000000042",
-  title: "Demo — Premium Waterfront",
+  title: "Demo Premium Waterfront",
   status: "ACTIVE",
   endOutcome: null,
   parcel: {

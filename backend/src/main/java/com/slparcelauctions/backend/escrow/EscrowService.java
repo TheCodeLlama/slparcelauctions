@@ -175,7 +175,7 @@ public class EscrowService {
             try {
                 walletService.autoFundEscrow(auction.getId(), winner, finalBid, saved.getId());
             } catch (BidReservationAmountMismatchException e) {
-                log.error("BID-RESERVATION-AMOUNT-MISMATCH for auction {}: reservation=L${} != finalBid=L${} — freezing escrow",
+                log.error("BID-RESERVATION-AMOUNT-MISMATCH for auction {}: reservation=L${} != finalBid=L${}; freezing escrow",
                         auction.getId(), e.getReservationAmount(), e.getFinalBidAmount());
                 saved.setState(EscrowState.FROZEN);
                 saved.setFrozenAt(endedAt);

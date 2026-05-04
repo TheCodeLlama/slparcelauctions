@@ -169,7 +169,7 @@ default {
         // llGetEnv("sim_channel") == "Second Life Server" on main grid.
         // This is distinct from X-SecondLife-Shard ("Production") checked backend-side.
         if (llGetEnv("sim_channel") != "Second Life Server") {
-            llOwnerSay("SLPA Verification Terminal: wrong grid — this script is mainland-only.");
+            llOwnerSay("SLPA Verification Terminal: wrong grid. This script is mainland-only.");
             return;  // halt; do not read notecard, do not set chrome
         }
 
@@ -189,7 +189,7 @@ default {
             }
             if (data == EOF) {
                 if (VERIFY_URL == "") {
-                    llOwnerSay("SLPA Verification Terminal: incomplete config — VERIFY_URL required");
+                    llOwnerSay("SLPA Verification Terminal: incomplete config. VERIFY_URL required.");
                     return;
                 }
                 if (DEBUG_MODE)
@@ -225,7 +225,7 @@ default {
         // If lock is held and not yet expired, bounce the toucher.
         if (lockHolder != NULL_KEY && lockExpiresAt > llGetUnixTime()) {
             llRegionSayTo(toucher, 0,
-                "Terminal busy — currently verifying " + lockHolderName + ".");
+                "Terminal busy: currently verifying " + lockHolderName + ".");
             return;
         }
 
@@ -301,7 +301,7 @@ default {
                     llOwnerSay("SLPA Verification Terminal: verify ok: userId=" + userId);
             } else {
                 llRegionSayTo(lockHolder, 0,
-                    "✗ Verification failed. Code may be expired — generate a new one on slparcels.com.");
+                    "✗ Verification failed. Code may be expired. Generate a new one on slparcels.com.");
                 if (DEBUG_MODE)
                     llOwnerSay("SLPA Verification Terminal: verify denied: not verified");
             }
@@ -328,7 +328,7 @@ default {
         if (timerPhase == TIMER_DATA) {
             // Avatar data (DATA_BORN / DATA_PAYINFO) didn't arrive in time.
             llRegionSayTo(lockHolder, 0,
-                "✗ Couldn't read your avatar data — please try again.");
+                "✗ Couldn't read your avatar data. Please try again.");
             releaseLock();
         } else {
             // TIMER_LOCK — 60s passed with no progress (user walked away, etc.).

@@ -15,7 +15,7 @@ export function EscrowLedgerPanel({ entries }: { entries: EscrowLedgerEntry[] })
               <tr key={i} className="border-b border-border-subtle/40">
                 <td className="py-2 px-3 opacity-60">{new Date(e.at).toLocaleString()}</td>
                 <td className="py-2 px-3 text-brand">{e.type}</td>
-                <td className="py-2 px-3">{e.amount === null ? "—" : `L$ ${e.amount}`}</td>
+                <td className="py-2 px-3">{e.amount === null ? "-" : `L$ ${e.amount}`}</td>
                 <td className="py-2 px-3 opacity-70">{e.detail}</td>
               </tr>
             ))

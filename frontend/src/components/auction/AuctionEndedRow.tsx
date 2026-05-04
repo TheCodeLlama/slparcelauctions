@@ -45,8 +45,8 @@ export function AuctionEndedRow({ auction }: AuctionEndedRowProps) {
   const hasWinner = outcome === "SOLD" || outcome === "BOUGHT_NOW";
 
   const label = hasWinner
-    ? `Auction ended — L$${formatAmount(finalBid)}`
-    : "Ended — no winner";
+    ? `Auction ended at L$${formatAmount(finalBid)}`
+    : "Ended with no winner";
 
   return (
     <div
@@ -62,6 +62,6 @@ export function AuctionEndedRow({ auction }: AuctionEndedRowProps) {
 }
 
 function formatAmount(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  if (value == null || !Number.isFinite(value)) return "-";
   return value.toLocaleString();
 }

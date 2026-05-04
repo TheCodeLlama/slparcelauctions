@@ -100,7 +100,7 @@ function getOrCreateClient(): Client {
         if (e instanceof RefreshFailedError) {
           setState({
             status: "error",
-            detail: "Session expired — please sign in again",
+            detail: "Session expired. Please sign in again.",
           });
         } else {
           setState({

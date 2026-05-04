@@ -220,7 +220,7 @@ function OutcomeBlock({
           className="text-lg font-bold tracking-tight text-fg"
           data-testid="auction-ended-headline"
         >
-          Reserve not met — auction ended without a sale
+          Reserve not met. Auction ended without a sale.
         </h2>
         <p className="text-sm text-fg-muted">
           Highest bid was L${formatAmount(numericHighBid(auction.currentHighBid))}
@@ -411,6 +411,6 @@ function numericHighBid(
 }
 
 function formatAmount(value: number | null): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   return value.toLocaleString();
 }

@@ -15,7 +15,7 @@ const ITEMS: Array<{ icon: ReactNode; title: string; body: string }> = [
   {
     icon: <Gavel className="size-[22px]" aria-hidden />,
     title: "Fair bidding",
-    body: "Anti-snipe extensions, proxy bidding, and transparent bid histories — no last-second rug pulls.",
+    body: "Anti-snipe extensions, proxy bidding, and transparent bid histories prevent last-second rug pulls.",
   },
   {
     icon: <RefreshCw className="size-[22px]" aria-hidden />,

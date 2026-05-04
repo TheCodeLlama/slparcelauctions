@@ -118,7 +118,7 @@ export function VerificationMethodPicker({
             <p className="text-sm font-medium">Your last verification attempt failed</p>
             <p className="text-xs">{lastFailureNotes}</p>
             <p className="text-xs">
-              Pick a method to try again — no additional fee needed.
+              Pick a method to try again. No additional fee needed.
             </p>
           </div>
           <button

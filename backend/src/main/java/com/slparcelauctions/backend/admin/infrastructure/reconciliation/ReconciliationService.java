@@ -58,7 +58,7 @@ public class ReconciliationService {
         long sourceReserved = reservationRepo.sumAllActive();
         if (denormReserved != sourceReserved) {
             long denormDrift = denormReserved - sourceReserved;
-            log.error("Reconciliation aborted: DENORM_DRIFT — "
+            log.error("Reconciliation aborted: DENORM_DRIFT. "
                     + "users.reserved_lindens sum={} vs bid_reservations sum={} (diff={})",
                     denormReserved, sourceReserved, denormDrift);
             ReconciliationRun run = persist(now, 0L, null, denormDrift,
@@ -77,7 +77,7 @@ public class ReconciliationService {
         if (balanceOpt.isEmpty()) {
             persist(now, sumExpected(), null, null,
                     ReconciliationStatus.ERROR,
-                    "Balance data stale — terminal may be offline");
+                    "Balance data stale; terminal may be offline");
             log.error("Reconciliation aborted: balance reading stale (>2h)");
             return;
         }

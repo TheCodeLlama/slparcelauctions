@@ -749,7 +749,7 @@ describe("AuctionDetailClient", () => {
     );
     const row = screen.getByTestId("auction-ended-row");
     expect(row).toHaveAttribute("data-outcome", "SOLD");
-    expect(row).toHaveTextContent("Auction ended — L$2,500");
+    expect(row).toHaveTextContent("Auction ended at L$2,500");
   });
 
   it("surfaces the snipe-extension banner on a snipe-triggering envelope", async () => {

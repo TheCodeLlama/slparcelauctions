@@ -347,9 +347,9 @@ function RightSlot({
 }
 
 function formatBid(value: number | string | null): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   const n = typeof value === "string" ? Number(value) : value;
-  if (!Number.isFinite(n)) return "—";
+  if (!Number.isFinite(n)) return "-";
   return n.toLocaleString();
 }
 
@@ -360,7 +360,7 @@ function numericBid(value: number | string | null): number | null {
 }
 
 function formatAmount(value: number | null): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   return value.toLocaleString();
 }
 

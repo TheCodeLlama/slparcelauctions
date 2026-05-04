@@ -52,7 +52,7 @@ const COPY_MAP: Record<CopyVariant, string> = {
   NO_BIDS:
     "No penalty will apply. Listing fee is non-refundable for already-paid auctions.",
   FIRST_OFFENSE:
-    "This is a cancellation with active bids. Your first such cancellation is recorded as a warning — no L$ penalty.",
+    "This is a cancellation with active bids. Your first such cancellation is recorded as a warning: no L$ penalty.",
   SECOND_OFFENSE:
     "This will be your 2nd cancellation with active bids. You will be suspended from new listings until you pay a L$1000 penalty at any SLPA terminal.",
   THIRD_OFFENSE:

@@ -257,7 +257,7 @@ export function CreateBanModal({ open, onClose, initialSlAvatarUuid, initialIpAd
             </div>
 
             <div className="rounded-lg bg-info-bg/30 border border-info-bg px-4 py-3 text-sm text-fg-muted">
-              On create: token version bumps for any user with this avatar UUID — their session
+              On create: token version bumps for any user with this avatar UUID, so their session
               invalidates on next refresh. Ban cache flushes immediately.
             </div>
 

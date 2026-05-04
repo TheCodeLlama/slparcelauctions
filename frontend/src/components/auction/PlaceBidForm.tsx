@@ -216,7 +216,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
         <ConfirmBidDialog
           isOpen
           title={`Confirm L$${confirm.amount.toLocaleString()}?`}
-          message={`You're about to bid L$${confirm.amount.toLocaleString()}. This is a large bid — please confirm.`}
+          message={`You're about to bid L$${confirm.amount.toLocaleString()}. This is a large bid; please confirm.`}
           confirmLabel="Place bid"
           dontAskAgainKey={LARGE_BID_DISMISS_KEY}
           onConfirm={() => {

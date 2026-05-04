@@ -26,8 +26,8 @@ export function WithdrawalsHistorySection() {
                 w.status === "COMPLETED" ? "text-success" :
                 w.status === "FAILED" ? "text-danger" : "text-info"
               }`}>{w.status}</td>
-              <td className="py-2 opacity-70">{w.completedAt ? new Date(w.completedAt).toLocaleString() : "—"}</td>
-              <td className="py-2 opacity-70">{w.notes ?? "—"}</td>
+              <td className="py-2 opacity-70">{w.completedAt ? new Date(w.completedAt).toLocaleString() : "-"}</td>
+              <td className="py-2 opacity-70">{w.notes ?? "-"}</td>
             </tr>
           ))}
         </tbody>

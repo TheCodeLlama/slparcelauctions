@@ -78,7 +78,7 @@ export function CancellationsTab({ userId }: Props) {
                       {row.penaltyAmountL !== null && ` (L$ ${row.penaltyAmountL.toLocaleString()})`}
                     </span>
                   ) : (
-                    "—"
+                    "-"
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.cancelledAt)}</td>

@@ -103,7 +103,7 @@ default {
             integer lastAt = llList2Integer(givenSessions, slot + 1);
             if (now - lastAt < RATE_LIMIT_SECONDS) {
                 llRegionSayTo(toucher, 0,
-                    "Just gave you one — wait a minute before requesting another.");
+                    "Just gave you one. Wait a minute before requesting another.");
                 return;
             }
             givenSessions = llListReplaceList(givenSessions,
@@ -115,7 +115,7 @@ default {
         // Verify the named inventory item exists
         if (llGetInventoryType(VERIFIER_NAME) == INVENTORY_NONE) {
             llRegionSayTo(toucher, 0,
-                "Sorry — the verifier object is missing. Please contact SLPA support.");
+                "Sorry, the verifier object is missing. Please contact SLPA support.");
             llOwnerSay("CRITICAL: '" + VERIFIER_NAME + "' missing from giver prim inventory.");
             return;
         }

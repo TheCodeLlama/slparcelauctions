@@ -387,7 +387,7 @@ sweepExpiredSlots() {
 addInflightCommand(key txKey, string idempotencyKey, key recipient, integer amount) {
     if (llGetListLength(inflightCmdTxKeys) >= MAX_INFLIGHT_CMDS) {
         llOwnerSay("SLPA Terminal: inflight command cap (" + (string)MAX_INFLIGHT_CMDS
-            + ") hit — refusing command. Backend retry will cover.");
+            + ") hit; refusing command. Backend retry will cover.");
         return;
     }
     // Cast to string at insertion: llListFindList in removeInflightByTxKey
@@ -507,7 +507,7 @@ default {
             // Now request HTTP-in URL.
             urlRequestId = llRequestURL();
         } else {
-            llOwnerSay("CRITICAL: PERMISSION_DEBIT denied — script halted. Owner must re-grant.");
+            llOwnerSay("CRITICAL: PERMISSION_DEBIT denied. Script halted. Owner must re-grant.");
         }
     }
 
@@ -562,7 +562,7 @@ default {
         if (action == "REFUND") {
             // Defensive: refunds are wallet credits in the new model and
             // shouldn't be dispatched to terminals. Log loud and fail.
-            llOwnerSay("CRITICAL: unexpected REFUND HTTP-in command — refunds are now wallet credits. idempotencyKey=" + ikey);
+            llOwnerSay("CRITICAL: unexpected REFUND HTTP-in command; refunds are now wallet credits. idempotencyKey=" + ikey);
             llHTTPResponse(id, 200,
                 "{\"status\":\"FAILED\",\"reason\":\"REFUND_NOT_SUPPORTED\"}");
             return;
@@ -634,7 +634,7 @@ default {
         // immediately and shout. Without this guard, llHTTPRequest("", ...)
         // would silently fail and the L$ would be stranded in the prim.
         if (DEPOSIT_URL == "" || SHARED_SECRET == "" || TERMINAL_ID == "") {
-            llOwnerSay("CRITICAL: deposit received but config incomplete — "
+            llOwnerSay("CRITICAL: deposit received but config incomplete: "
                 + "refunding L$" + (string)amount + " to " + (string)payer
                 + ". Check the 'config' notecard for DEPOSIT_URL, "
                 + "SHARED_SECRET, TERMINAL_ID.");
@@ -672,7 +672,7 @@ default {
         if (msg == "Withdraw") {
             integer slot = acquireOrResetSlot(id);
             if (slot < 0) {
-                llRegionSayTo(id, 0, "Terminal busy — try another nearby.");
+                llRegionSayTo(id, 0, "Terminal busy. Try another nearby.");
                 return;
             }
             llTextBox(id, "Enter L$ amount to withdraw:", mainChan);
@@ -712,7 +712,7 @@ default {
             withdrawTxKey      = (string)llGenerateKey();
             withdrawRetryCount = 0;
             fireWithdrawRequest();
-            llRegionSayTo(id, 0, "Withdrawal queued — L$" + (string)amt
+            llRegionSayTo(id, 0, "Withdrawal queued: L$" + (string)amt
                 + " will arrive shortly.");
         } else {
             llRegionSayTo(id, 0, "Withdrawal cancelled.");

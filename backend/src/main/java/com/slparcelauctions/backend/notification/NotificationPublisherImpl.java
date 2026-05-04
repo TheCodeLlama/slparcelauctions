@@ -218,7 +218,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void escrowPayoutStalled(long sellerUserId, long auctionId, long escrowId, String parcelName) {
         String title = "Payout delayed: " + parcelName;
-        String body = "Your payout is delayed — we're investigating. No action needed from you.";
+        String body = "Your payout is delayed. We're investigating; no action needed from you.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT_STALLED, title, body,
             NotificationDataBuilder.escrowPayoutStalled(auctionId, escrowId, parcelName),
@@ -383,7 +383,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 }
                 yield "winner".equals(role)
                         ? "Dispute dismissed for " + parcelName
-                            + ". Escrow remains funded — please complete payment at the terminal."
+                            + ". Escrow remains funded; please complete payment at the terminal."
                         : "Dispute resolved for " + parcelName + ". Escrow remains funded.";
             }
             case RESUME_TRANSFER -> "Escrow unfrozen for " + parcelName
