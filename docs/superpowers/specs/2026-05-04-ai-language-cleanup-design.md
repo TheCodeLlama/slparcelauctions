@@ -1,8 +1,8 @@
 # AI Language Cleanup — Design
 
 **Date:** 2026-05-04
-**Branch:** `dev`
-**MR target:** `dev`
+**Branch:** `task/language-cleanup` (feature branch off `dev`)
+**MR target:** `dev` (per CLAUDE.md branch policy)
 
 ## Goal
 
