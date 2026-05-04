@@ -37,7 +37,7 @@ triage; not every flagged item must be rewritten.
 | Surface | Files | What's swept |
 |---|---|---|
 | Frontend | `frontend/src/**/*.{tsx,ts}` | JSX text content, string literals used as UI labels, aria-labels, toast/error/modal/heading/status-description copy. Test assertions referencing changed strings updated in lockstep. |
-| Backend Java | `backend/src/main/**/*.java` | `log.{info,warn,error}` message strings (admin reads in CloudWatch), exception detail strings (`new XException("...")`), notification IM/email body literals (e.g. inside `NotificationPublisherImpl.java`). |
+| Backend Java | `backend/src/main/**/*.java` | All `log.*` message strings — `log.trace`, `log.debug`, `log.info`, `log.warn`, `log.error` (admin reads in CloudWatch and may bump levels in dev). Exception detail strings (`new XException("...")`). Notification IM/email body literals (e.g. inside `NotificationPublisherImpl.java`). |
 | LSL | `lsl-scripts/**/*.lsl` | `llSay`, `llRegionSayTo`, `llDialog`, `llInstantMessage` (customer-facing in-world chat) **and** `llOwnerSay` (operator-facing). |
 
 ### Out of scope
@@ -55,14 +55,17 @@ triage; not every flagged item must be rewritten.
 
 ## Em-dash replacement rules
 
-### Rule 1 — Empty-cell glyph
+### Rule 1 — Data-placeholder glyph
 
-Pattern: `{value ?? "—"}` or `{value ? value : "—"}` in admin tables.
+Pattern: `{value ?? "—"}` or `{value ? expr : "—"}` rendered as a
+placeholder for missing data. Surfaces in admin tables (most common)
+and admin cards (e.g.
+`AvailableToWithdrawCard.tsx:12` — `L$ {data?.available?.toLocaleString() ?? "—"}`).
 
-Replacement: `"—"` → `"-"` (ASCII hyphen). Mechanical one-character swap.
-Approximately 12 callsites; ~9 are already swept in the
-in-progress diff against `dev` (pre-existing user edits absorbed by this
-MR).
+Replacement: `"—"` → `"-"` (ASCII hyphen). Mechanical one-character
+swap. The implementer enumerates exact callsites during the pass; some
+are already swept in the in-progress diff against `dev` (pre-existing
+user edits absorbed by this MR).
 
 Known stragglers in the user's in-progress diff that this sweep catches:
 
