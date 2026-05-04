@@ -42,6 +42,6 @@ public class AdminWithdrawalController {
         return new WithdrawalRow(
                 w.getId(), w.getAmount(), w.getRecipientUuid(),
                 w.getAdminUserId(), w.getNotes(), w.getStatus(),
-                w.getRequestedAt(), w.getCompletedAt(), w.getFailureReason());
+                w.getCreatedAt(), w.getCompletedAt(), w.getFailureReason());
     }
 }

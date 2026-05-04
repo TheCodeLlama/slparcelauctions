@@ -3,7 +3,6 @@ package com.slparcelauctions.backend.wallet.me;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -50,8 +49,6 @@ import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 })
 class MeWalletLedgerExportControllerSliceTest {
 
-    private static final OffsetDateTime BASE_TIME = OffsetDateTime.parse("2026-04-15T10:00:00Z");
-
     @Autowired MockMvc mockMvc;
     @Autowired JwtService jwtService;
     @Autowired UserRepository userRepository;
@@ -82,7 +79,6 @@ class MeWalletLedgerExportControllerSliceTest {
                 .amount(100L)
                 .balanceAfter(100L)
                 .reservedAfter(0L)
-                .createdAt(BASE_TIME)
                 .build());
     }
 

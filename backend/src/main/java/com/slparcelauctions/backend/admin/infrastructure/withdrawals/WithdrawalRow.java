@@ -9,7 +9,7 @@ public record WithdrawalRow(
         Long adminUserId,
         String notes,
         WithdrawalStatus status,
-        OffsetDateTime requestedAt,
+        OffsetDateTime createdAt,
         OffsetDateTime completedAt,
         String failureReason) {
 }

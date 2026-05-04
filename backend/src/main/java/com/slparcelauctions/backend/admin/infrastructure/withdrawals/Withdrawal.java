@@ -1,8 +1,9 @@
 package com.slparcelauctions.backend.admin.infrastructure.withdrawals;
 
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+import lombok.experimental.SuperBuilder;
 
 import java.time.OffsetDateTime;
 
@@ -12,12 +13,8 @@ import java.time.OffsetDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Withdrawal {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class Withdrawal extends BaseMutableEntity {
 
     @Column(nullable = false)
     private Long amount;
@@ -37,10 +34,6 @@ public class Withdrawal {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private WithdrawalStatus status;
-
-    @CreationTimestamp
-    @Column(name = "requested_at", nullable = false, updatable = false)
-    private OffsetDateTime requestedAt;
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;

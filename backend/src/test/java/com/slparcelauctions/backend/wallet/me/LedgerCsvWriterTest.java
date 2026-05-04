@@ -28,8 +28,9 @@ class LedgerCsvWriterTest {
 
     private static final OffsetDateTime FIXED_TS = OffsetDateTime.parse("2026-04-30T12:00:00Z");
 
-    private static UserLedgerEntry.UserLedgerEntryBuilder baseBuilder() {
-        return UserLedgerEntry.builder()
+    @SuppressWarnings("unchecked")
+    private static <B extends UserLedgerEntry.UserLedgerEntryBuilder<?, B>> B baseBuilder() {
+        return (B) UserLedgerEntry.builder()
                 .id(1L)
                 .userId(42L)
                 .entryType(UserLedgerEntryType.DEPOSIT)
