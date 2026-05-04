@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -62,18 +63,19 @@ class UserControllerAvatarSliceTest {
                 .get("accessToken").asText();
     }
 
-    private Long userIdFromToken(String token) throws Exception {
+    private UUID userPublicIdFromToken(String token) throws Exception {
         MvcResult me = mockMvc.perform(get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andReturn();
-        return objectMapper.readTree(me.getResponse().getContentAsString()).get("id").asLong();
+        return UUID.fromString(
+                objectMapper.readTree(me.getResponse().getContentAsString()).get("publicId").asText());
     }
 
     @Test
     void get_avatar_publicEndpointNoAuth_returnsPlaceholder() throws Exception {
         String token = registerAndLogin("avatar-noauth@example.com");
-        Long userId = userIdFromToken(token);
+        UUID userId = userPublicIdFromToken(token);
 
         MvcResult result = mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/128"))
                 .andExpect(status().isOk())
@@ -91,7 +93,7 @@ class UserControllerAvatarSliceTest {
     @ValueSource(ints = {64, 128, 256})
     void get_avatar_allThreeSizesSucceed(int size) throws Exception {
         String token = registerAndLogin("avatar-size-" + size + "@example.com");
-        Long userId = userIdFromToken(token);
+        UUID userId = userPublicIdFromToken(token);
 
         MvcResult result = mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/" + size))
                 .andExpect(status().isOk())
@@ -107,7 +109,7 @@ class UserControllerAvatarSliceTest {
     @Test
     void get_avatar_invalidSize_returns400() throws Exception {
         String token = registerAndLogin("avatar-invalid-size@example.com");
-        Long userId = userIdFromToken(token);
+        UUID userId = userPublicIdFromToken(token);
 
         mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/99"))
                 .andExpect(status().isBadRequest())
@@ -117,7 +119,7 @@ class UserControllerAvatarSliceTest {
 
     @Test
     void get_avatar_nonexistentUser_returns404() throws Exception {
-        mockMvc.perform(get("/api/v1/users/999999999/avatar/128"))
+        mockMvc.perform(get("/api/v1/users/00000000-0000-0000-0000-000999999999/avatar/128"))
                 .andExpect(status().isNotFound());
     }
 

@@ -109,7 +109,7 @@ class ProxyBidControllerTest {
     void post_happyPath_returns201() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
 
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":5000}"))
@@ -121,9 +121,9 @@ class ProxyBidControllerTest {
     @Test
     void post_duplicateActiveProxy_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
 
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":6000}"))
@@ -135,7 +135,7 @@ class ProxyBidControllerTest {
     void post_belowStartingBid_returns400() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
 
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":500}"))
@@ -147,7 +147,7 @@ class ProxyBidControllerTest {
     void post_asSeller_returns403() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
 
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":5000}"))
@@ -159,7 +159,7 @@ class ProxyBidControllerTest {
     void post_asUnverified_returns403() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
 
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + unverifiedAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":5000}"))
@@ -169,7 +169,7 @@ class ProxyBidControllerTest {
 
     @Test
     void post_missingAuction_returns404() throws Exception {
-        mockMvc.perform(post("/api/v1/auctions/999999/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/00000000-0000-0000-0000-000000999999/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":5000}"))
@@ -180,7 +180,7 @@ class ProxyBidControllerTest {
     @Test
     void post_unauthenticated_returns401() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":5000}"))
                 .andExpect(status().isUnauthorized());
@@ -189,7 +189,7 @@ class ProxyBidControllerTest {
     @Test
     void post_missingMaxAmount_returns400() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -204,9 +204,9 @@ class ProxyBidControllerTest {
     void put_activeWinning_returns200_silentRaise() throws Exception {
         // Bidder creates proxy (no competitor) → becomes winning at startingBid.
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":8000}"))
@@ -218,7 +218,7 @@ class ProxyBidControllerTest {
     @Test
     void put_onNoProxy_returns404() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":5000}"))
@@ -236,15 +236,15 @@ class ProxyBidControllerTest {
         // in EXHAUSTED via the losing path, then flip it to CANCELLED directly. This test
         // pins the PUT-on-CANCELLED behavior; DELETE-while-winning is exercised separately
         // in delete_whileWinning_returns409.
-        createProxy(otherBidderAccessToken, a.getId(), 10000L);  // other wins
-        createProxy(bidderAccessToken, a.getId(), 5000L);  // bidder exhausted
+        createProxy(otherBidderAccessToken, a.getPublicId(), 10000L);  // other wins
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);  // bidder exhausted
 
         ProxyBid p = proxyBidRepository.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(
                 a.getId(), bidderId).orElseThrow();
         p.setStatus(ProxyBidStatus.CANCELLED);
         proxyBidRepository.save(p);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":7000}"))
@@ -255,10 +255,10 @@ class ProxyBidControllerTest {
     @Test
     void put_activeWinningWithMaxBelowCurrent_returns400() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
         // Bidder is now winning at auction.currentBid = 1000 (startingBid).
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":1000}"))
@@ -273,10 +273,10 @@ class ProxyBidControllerTest {
     @Test
     void delete_whileWinning_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
         // bidder is now winning.
 
-        mockMvc.perform(delete("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(delete("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CANNOT_CANCEL_WINNING_PROXY"));
@@ -293,13 +293,13 @@ class ProxyBidControllerTest {
         // a cancellable proxy by definition is ACTIVE + not winning. Simplest
         // clean case: create proxy, manually move currentBidderId off caller.
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
         // Move currentBidderId off bidder to simulate someone else being on top.
         Auction reloaded = auctionRepository.findById(a.getId()).orElseThrow();
         reloaded.setCurrentBidderId(999999L);
         auctionRepository.save(reloaded);
 
-        mockMvc.perform(delete("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(delete("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isNoContent());
 
@@ -312,7 +312,7 @@ class ProxyBidControllerTest {
     @Test
     void delete_onNoProxy_returns404() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        mockMvc.perform(delete("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(delete("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PROXY_BID_NOT_FOUND"));
@@ -325,7 +325,7 @@ class ProxyBidControllerTest {
     @Test
     void get_noProxy_returns404() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PROXY_BID_NOT_FOUND"));
@@ -334,9 +334,9 @@ class ProxyBidControllerTest {
     @Test
     void get_withActiveProxy_returns200() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
@@ -347,13 +347,13 @@ class ProxyBidControllerTest {
     void get_withCancelledProxy_returns200() throws Exception {
         // GET returns the latest row regardless of status.
         Auction a = seedAuction(AuctionStatus.ACTIVE);
-        createProxy(bidderAccessToken, a.getId(), 5000L);
+        createProxy(bidderAccessToken, a.getPublicId(), 5000L);
         ProxyBid p = proxyBidRepository.findFirstByAuctionIdAndBidderIdOrderByCreatedAtDesc(
                 a.getId(), bidderId).orElseThrow();
         p.setStatus(ProxyBidStatus.CANCELLED);
         proxyBidRepository.save(p);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
@@ -363,8 +363,8 @@ class ProxyBidControllerTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private void createProxy(String accessToken, Long auctionId, long maxAmount) throws Exception {
-        mockMvc.perform(post("/api/v1/auctions/" + auctionId + "/proxy-bid")
+    private void createProxy(String accessToken, UUID auctionPublicId, long maxAmount) throws Exception {
+        mockMvc.perform(post("/api/v1/auctions/" + auctionPublicId + "/proxy-bid")
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":" + maxAmount + "}"))

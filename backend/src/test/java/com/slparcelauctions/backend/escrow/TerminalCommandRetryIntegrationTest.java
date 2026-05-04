@@ -117,6 +117,8 @@ class TerminalCommandRetryIntegrationTest {
     private Long seededCommandId;
     private Long seededSellerId;
     private Long seededBidderId;
+    private java.util.UUID seededAuctionPublicId;
+    private java.util.UUID seededEscrowPublicId;
 
     @BeforeEach
     void resetCapture() {
@@ -202,8 +204,8 @@ class TerminalCommandRetryIntegrationTest {
         assertThat(capturingEscrowPublisher.payoutStalled).hasSize(1);
         EscrowPayoutStalledEnvelope env = capturingEscrowPublisher.payoutStalled.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_PAYOUT_STALLED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.attemptCount()).isEqualTo(4);
         assertThat(env.lastError()).isEqualTo("terminal 5xx");
 
@@ -314,6 +316,8 @@ class TerminalCommandRetryIntegrationTest {
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
             seededCommandId = cmd.getId();
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
         });
     }
 

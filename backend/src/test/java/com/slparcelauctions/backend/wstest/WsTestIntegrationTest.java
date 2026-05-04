@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.wstest;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 import com.slparcelauctions.backend.wstest.dto.WsTestBroadcastRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,7 +76,7 @@ class WsTestIntegrationTest {
     }
 
     private String issueAccessTokenForTestUser() {
-        AuthPrincipal principal = new AuthPrincipal(9999L, "wstest@example.com", 1L, Role.USER);
+        AuthPrincipal principal = new AuthPrincipal(9999L, UUID.randomUUID(), "wstest@example.com", 1L, Role.USER);
         return jwtService.issueAccessToken(principal);
     }
 

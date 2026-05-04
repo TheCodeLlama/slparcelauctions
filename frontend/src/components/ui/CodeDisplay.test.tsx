@@ -14,7 +14,7 @@ if (!navigator.clipboard) {
 
 beforeEach(() => {
   writeTextMock.mockReset();
-  (navigator.clipboard as Record<string, unknown>).writeText = writeTextMock;
+  (navigator.clipboard as unknown as Record<string, unknown>).writeText = writeTextMock;
 });
 
 describe("CodeDisplay", () => {

@@ -48,7 +48,7 @@ class AdminRoleServiceTest {
             .displayName("User" + id)
             .build();
         try {
-            java.lang.reflect.Field f = User.class.getDeclaredField("id");
+            java.lang.reflect.Field f = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
             f.setAccessible(true);
             f.set(u, id);
         } catch (Exception e) {

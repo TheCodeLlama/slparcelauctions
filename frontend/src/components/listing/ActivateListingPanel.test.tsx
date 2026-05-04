@@ -72,7 +72,7 @@ describe("ActivateListingPanel", () => {
 
   it("renders a loading spinner while fee or wallet is pending", () => {
     mockHooks({ feeLoading: true, walletLoading: true });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     expect(screen.getByText(/Loading fee details/i)).toBeInTheDocument();
   });
 
@@ -80,7 +80,7 @@ describe("ActivateListingPanel", () => {
     mockHooks({
       wallet: walletView({ termsAccepted: false, termsAcceptedAt: null }),
     });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     expect(
       screen.getByRole("heading", { name: /Accept wallet terms first/i }),
     ).toBeInTheDocument();
@@ -101,7 +101,7 @@ describe("ActivateListingPanel", () => {
     mockHooks({
       wallet: walletView({ penaltyOwed: 250 }),
     });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     expect(
       screen.getByRole("heading", {
         name: /Pay penalty before activating/i,
@@ -117,7 +117,7 @@ describe("ActivateListingPanel", () => {
       wallet: walletView({ balance: 60, available: 60 }),
       refetch,
     });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     expect(
       screen.getByRole("heading", { name: /Top up your wallet/i }),
     ).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("ActivateListingPanel", () => {
   it("renders the activate button when ready and posts the listing-fee debit on click", async () => {
     let posted = false;
     server.use(
-      http.post("*/api/v1/me/auctions/42/pay-listing-fee", async () => {
+      http.post("*/api/v1/me/auctions/00000000-0000-0000-0000-00000000002a/pay-listing-fee", async () => {
         posted = true;
         return HttpResponse.json({
           newBalance: 900,
@@ -144,7 +144,7 @@ describe("ActivateListingPanel", () => {
       fee: 100,
       wallet: walletView({ balance: 1000, available: 1000 }),
     });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     const button = screen.getByRole("button", { name: /Activate Listing/i });
     await userEvent.click(button);
@@ -153,7 +153,7 @@ describe("ActivateListingPanel", () => {
 
   it("surfaces a generic 500 error inline", async () => {
     server.use(
-      http.post("*/api/v1/me/auctions/42/pay-listing-fee", () =>
+      http.post("*/api/v1/me/auctions/00000000-0000-0000-0000-00000000002a/pay-listing-fee", () =>
         HttpResponse.json(
           {
             status: 500,
@@ -168,7 +168,7 @@ describe("ActivateListingPanel", () => {
       fee: 100,
       wallet: walletView({ balance: 1000, available: 1000 }),
     });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     await userEvent.click(
       screen.getByRole("button", { name: /Activate Listing/i }),
     );
@@ -179,7 +179,7 @@ describe("ActivateListingPanel", () => {
 
   it("does NOT surface inline copy on a coded error (lets fresh wallet data re-render the state)", async () => {
     server.use(
-      http.post("*/api/v1/me/auctions/42/pay-listing-fee", () =>
+      http.post("*/api/v1/me/auctions/00000000-0000-0000-0000-00000000002a/pay-listing-fee", () =>
         HttpResponse.json(
           {
             status: 422,
@@ -195,7 +195,7 @@ describe("ActivateListingPanel", () => {
       fee: 100,
       wallet: walletView({ balance: 1000, available: 1000 }),
     });
-    renderWithProviders(<ActivateListingPanel auctionId={42} />);
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     await userEvent.click(
       screen.getByRole("button", { name: /Activate Listing/i }),
     );

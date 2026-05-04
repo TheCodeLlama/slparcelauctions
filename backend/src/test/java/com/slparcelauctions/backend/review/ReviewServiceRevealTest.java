@@ -69,12 +69,8 @@ class ReviewServiceRevealTest {
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
 
-        seller = User.builder().email("seller@example.com").passwordHash("x").build();
-        seller.setId(10L);
-        seller.setDisplayName("Sally");
-        winner = User.builder().email("winner@example.com").passwordHash("x").build();
-        winner.setId(20L);
-        winner.setDisplayName("Willy");
+        seller = User.builder().id(10L).email("seller@example.com").passwordHash("x").displayName("Sally").build();
+        winner = User.builder().id(20L).email("winner@example.com").passwordHash("x").displayName("Willy").build();
 
         auction = Auction.builder()
                 .title("Lakefront")
@@ -83,7 +79,7 @@ class ReviewServiceRevealTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         escrow = Escrow.builder()
                 .auction(auction)
@@ -105,7 +101,7 @@ class ReviewServiceRevealTest {
                 .rating(rating)
                 .visible(false)
                 .build();
-        r.setId(id);
+        setEntityId(r, id);
         return r;
     }
 
@@ -196,10 +192,10 @@ class ReviewServiceRevealTest {
         verify(broadcastPublisher).publishReviewRevealed(cap.capture());
         ReviewRevealedEnvelope env = cap.getValue();
         assertThat(env.type()).isEqualTo("REVIEW_REVEALED");
-        assertThat(env.auctionId()).isEqualTo(555L);
-        assertThat(env.reviewId()).isEqualTo(104L);
-        assertThat(env.reviewerId()).isEqualTo(20L);
-        assertThat(env.revieweeId()).isEqualTo(10L);
+        assertThat(env.auctionPublicId()).isEqualTo(auction.getPublicId());
+        assertThat(env.reviewPublicId()).isNotNull();
+        assertThat(env.reviewerPublicId()).isEqualTo(winner.getPublicId());
+        assertThat(env.revieweePublicId()).isEqualTo(seller.getPublicId());
         assertThat(env.reviewedRole()).isEqualTo(ReviewedRole.SELLER);
         assertThat(env.revealedAt()).isEqualTo(NOW);
     }
@@ -216,7 +212,7 @@ class ReviewServiceRevealTest {
                 .thenReturn(Optional.of(sellerPending));
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review saved = inv.getArgument(0);
-            if (saved.getId() == null) saved.setId(201L);
+            if (saved.getId() == null) setEntityId(saved, 201L);
             saved.setSubmittedAt(NOW);
             return saved;
         });
@@ -263,7 +259,7 @@ class ReviewServiceRevealTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review saved = inv.getArgument(0);
-            saved.setId(300L);
+            setEntityId(saved, 300L);
             saved.setSubmittedAt(NOW);
             return saved;
         });
@@ -294,7 +290,7 @@ class ReviewServiceRevealTest {
                 .thenReturn(Optional.of(sellerAlreadyRevealed));
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review saved = inv.getArgument(0);
-            saved.setId(401L);
+            setEntityId(saved, 401L);
             saved.setSubmittedAt(NOW);
             return saved;
         });
@@ -307,5 +303,14 @@ class ReviewServiceRevealTest {
         assertThat(sellerAlreadyRevealed.getRevealedAt()).isEqualTo(NOW.minusDays(1));
         verify(broadcastPublisher, never())
                 .publishReviewRevealed(any(ReviewRevealedEnvelope.class));
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

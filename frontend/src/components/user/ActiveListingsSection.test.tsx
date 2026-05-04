@@ -8,11 +8,10 @@ import { ActiveListingsSection } from "./ActiveListingsSection";
 
 function listing(id: number, overrides: Partial<PublicAuctionResponse> = {}): PublicAuctionResponse {
   return {
-    id,
-    sellerId: 100,
+    publicId: `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`,
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id,
       slParcelUuid: `00000000-0000-0000-0000-00000000000${id}`,
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -79,7 +78,7 @@ describe("ActiveListingsSection", () => {
         HttpResponse.json(page([listing(1), listing(2), listing(3)])),
       ),
     );
-    renderWithProviders(<ActiveListingsSection userId={42} />);
+    renderWithProviders(<ActiveListingsSection userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await waitFor(() => {
       expect(screen.getByText("Parcel 1")).toBeInTheDocument();
@@ -97,7 +96,7 @@ describe("ActiveListingsSection", () => {
         return HttpResponse.json(page([]));
       }),
     );
-    renderWithProviders(<ActiveListingsSection userId={42} />);
+    renderWithProviders(<ActiveListingsSection userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await waitFor(() => {
       expect(captured).not.toBeNull();
@@ -112,7 +111,7 @@ describe("ActiveListingsSection", () => {
         HttpResponse.json(page([])),
       ),
     );
-    renderWithProviders(<ActiveListingsSection userId={42} />);
+    renderWithProviders(<ActiveListingsSection userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await waitFor(() => {
       expect(screen.getByText("No active listings")).toBeInTheDocument();
@@ -130,13 +129,13 @@ describe("ActiveListingsSection", () => {
         ),
       ),
     );
-    renderWithProviders(<ActiveListingsSection userId={42} />);
+    renderWithProviders(<ActiveListingsSection userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await waitFor(() => {
       expect(screen.getByText(/View all \(10\)/)).toBeInTheDocument();
     });
     const viewAll = screen.getByRole("link", { name: /View all/ });
-    expect(viewAll).toHaveAttribute("href", "/users/42/listings");
+    expect(viewAll).toHaveAttribute("href", "/users/00000000-0000-0000-0000-00000000002a/listings");
   });
 
   it("hides the 'View all' link when totalElements <= size", async () => {
@@ -145,7 +144,7 @@ describe("ActiveListingsSection", () => {
         HttpResponse.json(page([listing(1), listing(2)])),
       ),
     );
-    renderWithProviders(<ActiveListingsSection userId={42} />);
+    renderWithProviders(<ActiveListingsSection userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await waitFor(() => {
       expect(screen.getByText("Parcel 1")).toBeInTheDocument();
@@ -159,7 +158,7 @@ describe("ActiveListingsSection", () => {
         HttpResponse.json({ title: "Boom" }, { status: 500 }),
       ),
     );
-    renderWithProviders(<ActiveListingsSection userId={42} />);
+    renderWithProviders(<ActiveListingsSection userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await waitFor(() => {
       expect(screen.getByText("Could not load listings")).toBeInTheDocument();

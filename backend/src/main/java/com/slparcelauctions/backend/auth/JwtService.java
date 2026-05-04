@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * Thin facade over JJWT 0.12 for access-token issuance and parsing.
@@ -41,7 +42,7 @@ public class JwtService {
     public String issueAccessToken(AuthPrincipal principal) {
         Instant now = Instant.now();
         return Jwts.builder()
-            .subject(String.valueOf(principal.userId()))
+            .subject(principal.userPublicId().toString())
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
@@ -64,13 +65,16 @@ public class JwtService {
                 throw new TokenInvalidException("Token type claim is not 'access'.");
             }
 
-            Long userId = Long.parseLong(claims.getSubject());
+            UUID userPublicId = UUID.fromString(claims.getSubject());
             String email = (String) claims.get("email");
             Long tokenVersion = ((Number) claims.get("tv")).longValue();
             String roleClaim = (String) claims.get("role");
             Role role = roleClaim == null ? Role.USER : Role.valueOf(roleClaim);
 
-            return new AuthPrincipal(userId, email, tokenVersion, role);
+            // userId (Long) is resolved by JwtAuthenticationFilter via UserRepository.findByPublicId,
+            // not encoded in the JWT itself. Place a sentinel here; the filter overwrites the principal
+            // before it lands in the SecurityContext.
+            return new AuthPrincipal(null, userPublicId, email, tokenVersion, role);
         } catch (ExpiredJwtException e) {
             log.debug("Access token expired");
             throw new TokenExpiredException("Access token has expired.");

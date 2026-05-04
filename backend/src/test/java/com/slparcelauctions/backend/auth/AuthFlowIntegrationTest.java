@@ -131,7 +131,7 @@ class AuthFlowIntegrationTest {
         String registerBody = registerResult.getResponse().getContentAsString();
         String accessTokenA = objectMapper.readTree(registerBody).get("accessToken").asText();
         String cookieA = extractRefreshCookie(registerResult);
-        Long userId = objectMapper.readTree(registerBody).get("user").get("id").asLong();
+        Long userId = userRepository.findByEmail("cascade@example.com").orElseThrow().getId();
         assertThat(cookieA).isNotBlank();
 
         // Step 2: Refresh with cookie A → get cookie B
@@ -231,7 +231,7 @@ class AuthFlowIntegrationTest {
         String registerBody = registerResult.getResponse().getContentAsString();
         String accessToken1 = objectMapper.readTree(registerBody).get("accessToken").asText();
         String cookie1 = extractRefreshCookie(registerResult);
-        Long userId = objectMapper.readTree(registerBody).get("user").get("id").asLong();
+        Long userId = userRepository.findByEmail("logoutall@example.com").orElseThrow().getId();
         assertThat(cookie1).isNotBlank();
 
         // Step 2: Seed a "device 2" refresh token via fixture

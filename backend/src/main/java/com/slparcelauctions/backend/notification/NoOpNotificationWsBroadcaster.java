@@ -19,7 +19,7 @@ public class NoOpNotificationWsBroadcaster implements NotificationWsBroadcasterP
 
     @Override
     public void broadcastUpsert(long userId, UpsertResult result, NotificationDto dto) {
-        log.debug("notification: no-op broadcastUpsert userId={} notifId={}", userId, result.id());
+        log.debug("notification: no-op broadcastUpsert userId={} notifPublicId={}", userId, result.publicId());
     }
 
     @Override

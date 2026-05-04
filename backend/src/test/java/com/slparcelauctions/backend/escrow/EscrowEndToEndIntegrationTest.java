@@ -131,6 +131,8 @@ class EscrowEndToEndIntegrationTest {
     private Long seededSellerId;
     private Long seededBidderId;
     private UUID seededParcelUuid;
+    private UUID seededAuctionPublicId;
+    private UUID seededEscrowPublicId;
     private UUID seededWinnerAvatar;
     private UUID seededSellerAvatar;
     private long seededFinalBid;
@@ -256,8 +258,8 @@ class EscrowEndToEndIntegrationTest {
         assertThat(capturingEscrowPublisher.completed).hasSize(1);
         EscrowCompletedEnvelope env = capturingEscrowPublisher.completed.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_COMPLETED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.COMPLETED);
 
         // Epic 08 sub-spec 1 §3.4 / §6.1: the seller's completedSales
@@ -373,6 +375,8 @@ class EscrowEndToEndIntegrationTest {
             seededEscrowId = escrow.getId();
             seededParcelUuid = parcelUuid;
             seededWinnerAvatar = winnerAvatar;
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
             seededSellerAvatar = sellerAvatar;
             seededFinalBid = finalBid;
             seededPayout = escrow.getPayoutAmt();

@@ -94,9 +94,7 @@ class WalletWithdrawalCallbackHandlerTest {
                 .getBalanceLindens()).isEqualTo(300L);
 
         // 4. Notification dispatched.
-        List<Notification> ns = notificationRepo.findAll().stream()
-                .filter(n -> n.getUser() != null && user.getId().equals(n.getUser().getId()))
-                .toList();
+        List<Notification> ns = notificationRepo.findAllByUserId(user.getId());
         assertThat(ns).extracting(Notification::getCategory)
                 .contains(NotificationCategory.WALLET_WITHDRAWAL_COMPLETED);
     }
@@ -131,9 +129,7 @@ class WalletWithdrawalCallbackHandlerTest {
                 .getBalanceLindens()).isEqualTo(500L);
 
         // Notification dispatched.
-        List<Notification> ns = notificationRepo.findAll().stream()
-                .filter(n -> n.getUser() != null && user.getId().equals(n.getUser().getId()))
-                .toList();
+        List<Notification> ns = notificationRepo.findAllByUserId(user.getId());
         assertThat(ns).extracting(Notification::getCategory)
                 .contains(NotificationCategory.WALLET_WITHDRAWAL_REVERSED);
     }

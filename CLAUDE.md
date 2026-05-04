@@ -110,6 +110,23 @@ Requires real SL credentials in `.env.bot-N`. No mock mode. See `bot/README.md`.
 - **HTTP client**: WebFlux's WebClient (for SL World API calls)
 - **Validation**: Bean Validation (JSR-380)
 
+## BaseEntity convention
+
+Every entity extends `BaseEntity` (immutable / append-only) or `BaseMutableEntity` (mutable lifecycle). Both live in `backend/src/main/java/com/slparcelauctions/backend/common/`.
+
+- `Long id` — internal PK. `@JsonIgnore`-annotated. Used for FK joins, internal admin endpoints, bot/LSL contracts, Postman variables. **Never crosses a public wire.**
+- `UUID publicId` — random UUIDv4, assigned at construction. Used in REST URLs, REST/WebSocket DTOs, frontend types, JWT subject. The only identifier safe in any public surface.
+
+Subclass entities use Lombok `@SuperBuilder`, **not** `@Builder`. Do not redeclare `id`, `publicId`, `createdAt`, `updatedAt`, or `version` — they're inherited. Do not override `equals` or `hashCode` (they're `final`, keyed off `publicId`).
+
+DTO field naming: `publicId: UUID` for public DTOs. Bot / admin-internal DTOs keep `id: Long`. URL paths follow the same split: `/api/v1/auctions/{publicId}` for public, `/api/v1/bot/tasks/{taskId}` (Long) for internal.
+
+JWT subject claim is the user's `publicId` (UUID string). The auth filter resolves `userId` (Long) via `UserRepository.findByPublicId` at request entry; the `AuthPrincipal` carries both.
+
+Two entities are deliberately excluded from the BaseEntity hierarchy because their PK shape is incompatible: `AuctionParcelSnapshot` uses `@MapsId` to share its PK with `auctions(id)`, and `Terminal` uses a String natural key (`terminal_id`) per SL terminal naming. Both keep their existing shape.
+
+Spec: `docs/superpowers/specs/2026-05-03-base-entity-uuid-design.md`. Implementation plan: `docs/superpowers/plans/2026-05-03-base-entity-uuid-implementation.md`.
+
 ## Frontend SSR caveats
 
 Server components and Amplify build-time prerendering have surprised us repeatedly — write defensively:

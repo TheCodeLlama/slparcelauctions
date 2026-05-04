@@ -189,8 +189,7 @@ class EscrowNotificationIntegrationTest {
     }
 
     private List<Notification> notifFor(Long userId, NotificationCategory category) {
-        return notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(userId))
+        return notifRepo.findAllByUserId(userId).stream()
                 .filter(n -> n.getCategory() == category)
                 .toList();
     }

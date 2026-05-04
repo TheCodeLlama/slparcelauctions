@@ -12,7 +12,7 @@ import { RespondModal } from "./RespondModal";
 describe("RespondModal", () => {
   it("does not render when open=false", () => {
     renderWithProviders(
-      <RespondModal reviewId={5} open={false} onClose={() => {}} />,
+      <RespondModal reviewPublicId="00000000-0000-0000-0000-000000000005" open={false} onClose={() => {}} />,
       { auth: "authenticated" },
     );
     expect(screen.queryByTestId("respond-modal")).not.toBeInTheDocument();
@@ -21,7 +21,7 @@ describe("RespondModal", () => {
   it("disables submit until the textarea has non-whitespace content", async () => {
     const user = userEvent.setup();
     renderWithProviders(
-      <RespondModal reviewId={5} open onClose={() => {}} />,
+      <RespondModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={() => {}} />,
       { auth: "authenticated" },
     );
     const submit = screen.getByTestId("respond-modal-submit");
@@ -41,7 +41,7 @@ describe("RespondModal", () => {
   it("shows a live character counter", async () => {
     const user = userEvent.setup();
     renderWithProviders(
-      <RespondModal reviewId={5} open onClose={() => {}} />,
+      <RespondModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={() => {}} />,
       { auth: "authenticated" },
     );
     await user.type(screen.getByTestId("respond-modal-textarea"), "hi");
@@ -62,7 +62,7 @@ describe("RespondModal", () => {
     );
     const user = userEvent.setup();
     renderWithProviders(
-      <RespondModal reviewId={5} open onClose={onClose} />,
+      <RespondModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={onClose} />,
       { auth: "authenticated" },
     );
     await user.type(
@@ -82,7 +82,7 @@ describe("RespondModal", () => {
     );
     const user = userEvent.setup();
     renderWithProviders(
-      <RespondModal reviewId={5} open onClose={onClose} />,
+      <RespondModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={onClose} />,
       { auth: "authenticated" },
     );
     await user.type(

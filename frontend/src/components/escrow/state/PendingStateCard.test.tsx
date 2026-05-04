@@ -24,7 +24,7 @@ describe("PendingStateCard", () => {
         />,
       );
       expect(
-        screen.getByText(/awaiting payment from kira swansong/i),
+        screen.getByText(/awaiting payment from the winner/i),
       ).toBeInTheDocument();
     });
 
@@ -44,12 +44,12 @@ describe("PendingStateCard", () => {
     it("renders a dispute link with correct href", () => {
       renderWithProviders(
         <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING", auctionId: 42 })}
+          escrow={fakeEscrow({ state: "ESCROW_PENDING", auctionPublicId: "00000000-0000-0000-0000-00000000002a" })}
           role="seller"
         />,
       );
       const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/42/escrow/dispute");
+      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
     });
 
     it("does not render 'Find a terminal' or 'Pay L$' copy", () => {
@@ -117,12 +117,12 @@ describe("PendingStateCard", () => {
     it("renders a dispute link with correct href", () => {
       renderWithProviders(
         <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING", auctionId: 42 })}
+          escrow={fakeEscrow({ state: "ESCROW_PENDING", auctionPublicId: "00000000-0000-0000-0000-00000000002a" })}
           role="winner"
         />,
       );
       const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/42/escrow/dispute");
+      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
     });
   });
 });

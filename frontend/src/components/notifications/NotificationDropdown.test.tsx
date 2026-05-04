@@ -59,7 +59,7 @@ vi.mock("@/hooks/notifications/useNotifications", () => ({
 
 function makeNotification(partial: Partial<NotificationDto> = {}): NotificationDto {
   return {
-    id: Math.floor(Math.random() * 10000),
+    publicId: `00000000-0000-0000-0000-${String(Math.floor(Math.random() * 10000)).padStart(12, "0")}`,
     category: "OUTBID",
     group: "bidding",
     title: "You were outbid",
@@ -85,7 +85,7 @@ describe("NotificationDropdown", () => {
 
   it("renders 10 latest notifications after opening", async () => {
     const notifications = Array.from({ length: 10 }, (_, i) =>
-      makeNotification({ id: i + 1, title: `Notification ${i + 1}` })
+      makeNotification({ publicId: `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`, title: `Notification ${i + 1}` })
     );
     notifListData.content = notifications;
 

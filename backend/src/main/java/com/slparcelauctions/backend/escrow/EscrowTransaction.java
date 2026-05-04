@@ -2,9 +2,8 @@ package com.slparcelauctions.backend.escrow;
 
 import java.time.OffsetDateTime;
 
-import org.hibernate.annotations.CreationTimestamp;
-
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import com.slparcelauctions.backend.user.User;
 
 import jakarta.persistence.Column;
@@ -12,18 +11,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "escrow_transactions",
@@ -36,12 +32,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class EscrowTransaction {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class EscrowTransaction extends BaseMutableEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "escrow_id")
@@ -78,10 +70,6 @@ public class EscrowTransaction {
 
     @Column(name = "error_message", length = 500)
     private String errorMessage;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;

@@ -24,7 +24,7 @@ import {
 // --------------------------------------------------------------------------
 
 const partyUser: AuthUser = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   email: "party@example.com",
   displayName: "Party",
   slAvatarUuid: null,
@@ -34,14 +34,14 @@ const partyUser: AuthUser = {
 
 function makeReview(overrides: Partial<ReviewDto> = {}): ReviewDto {
   return {
-    id: 1,
-    auctionId: 7,
+    publicId: "00000000-0000-0000-0000-000000000001",
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
     auctionTitle: "Aurora Parcel",
     auctionPrimaryPhotoUrl: null,
-    reviewerId: 42,
+    reviewerPublicId: "00000000-0000-0000-0000-00000000002a",
     reviewerDisplayName: "Party",
     reviewerAvatarUrl: null,
-    revieweeId: 77,
+    revieweePublicId: "00000000-0000-0000-0000-00000000004d",
     reviewedRole: "SELLER",
     rating: 5,
     text: "Smooth transaction.",
@@ -56,10 +56,10 @@ function makeReview(overrides: Partial<ReviewDto> = {}): ReviewDto {
 
 function stubEnvelope(
   envelope: AuctionReviewsResponse,
-  { auctionId = 7 }: { auctionId?: number } = {},
+  { auctionPublicId = "00000000-0000-0000-0000-000000000007" }: { auctionPublicId?: string } = {},
 ) {
   server.use(
-    http.get(`*/api/v1/auctions/${auctionId}/reviews`, () =>
+    http.get(`*/api/v1/auctions/${auctionPublicId}/reviews`, () =>
       HttpResponse.json(envelope),
     ),
   );
@@ -112,7 +112,7 @@ describe("deriveReviewPanelState", () => {
     expect(
       deriveReviewPanelState(
         {
-          reviews: [makeReview({ id: 1 }), makeReview({ id: 2 })],
+          reviews: [makeReview({ publicId: "00000000-0000-0000-0000-000000000001" }), makeReview({ publicId: "00000000-0000-0000-0000-000000000002" })],
           myPendingReview: null,
           canReview: false,
           windowClosesAt: past,
@@ -181,7 +181,7 @@ describe("ReviewPanel", () => {
       canReview: true,
       windowClosesAt: "2026-05-10T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -196,7 +196,7 @@ describe("ReviewPanel", () => {
       canReview: true,
       windowClosesAt: "2026-05-10T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -216,7 +216,7 @@ describe("ReviewPanel", () => {
       windowClosesAt: "2026-05-10T00:00:00Z",
     });
     const user = userEvent.setup();
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -236,7 +236,7 @@ describe("ReviewPanel", () => {
     });
     const submitSpy = vi.fn();
     server.use(
-      http.post("*/api/v1/auctions/7/reviews", async ({ request }) => {
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/reviews", async ({ request }) => {
         submitSpy(await request.json());
         return HttpResponse.json(
           makeReview({ visible: false, pending: true, rating: 4 }),
@@ -244,7 +244,7 @@ describe("ReviewPanel", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -264,7 +264,7 @@ describe("ReviewPanel", () => {
 
   it("renders the pending state with the viewer's own rating + text", async () => {
     const pending = makeReview({
-      id: 99,
+      publicId: "00000000-0000-0000-0000-000000000063",
       rating: 4,
       text: "Line one.\nLine two.",
       visible: false,
@@ -276,7 +276,7 @@ describe("ReviewPanel", () => {
       canReview: false,
       windowClosesAt: "2026-05-10T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -291,10 +291,10 @@ describe("ReviewPanel", () => {
   it("renders revealed-both when there are two visible reviews", async () => {
     stubEnvelope({
       reviews: [
-        makeReview({ id: 1, reviewerId: 42, reviewerDisplayName: "Party" }),
+        makeReview({ publicId: "00000000-0000-0000-0000-000000000001", reviewerPublicId: "00000000-0000-0000-0000-00000000002a", reviewerDisplayName: "Party" }),
         makeReview({
-          id: 2,
-          reviewerId: 77,
+          publicId: "00000000-0000-0000-0000-000000000002",
+          reviewerPublicId: "00000000-0000-0000-0000-00000000004d",
           reviewerDisplayName: "Other",
           reviewedRole: "BUYER",
         }),
@@ -303,7 +303,7 @@ describe("ReviewPanel", () => {
       canReview: false,
       windowClosesAt: "2026-04-15T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -315,12 +315,12 @@ describe("ReviewPanel", () => {
 
   it("renders revealed-one with the window-closed note when the viewer never submitted", async () => {
     stubEnvelope({
-      reviews: [makeReview({ id: 1, reviewerId: 77 })],
+      reviews: [makeReview({ publicId: "00000000-0000-0000-0000-000000000001", reviewerPublicId: "00000000-0000-0000-0000-00000000004d" })],
       myPendingReview: null,
       canReview: false,
       windowClosesAt: "2026-04-15T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -340,7 +340,7 @@ describe("ReviewPanel", () => {
       canReview: false,
       windowClosesAt: "2020-01-01T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />, {
       auth: "authenticated",
       authUser: partyUser,
     });
@@ -356,7 +356,7 @@ describe("ReviewPanel", () => {
       canReview: false,
       windowClosesAt: "2020-01-01T00:00:00Z",
     });
-    renderWithProviders(<ReviewPanel auctionId={7} isParty={false} />, {
+    renderWithProviders(<ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty={false} />, {
       auth: "anonymous",
     });
     expect(
@@ -371,7 +371,7 @@ describe("ReviewPanel", () => {
     // page reload.
     let callCount = 0;
     server.use(
-      http.get("*/api/v1/auctions/7/reviews", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/reviews", () => {
         callCount += 1;
         if (callCount === 1) {
           return HttpResponse.json({
@@ -383,8 +383,8 @@ describe("ReviewPanel", () => {
         }
         return HttpResponse.json({
           reviews: [
-            makeReview({ id: 1, reviewerId: 42 }),
-            makeReview({ id: 2, reviewerId: 77 }),
+            makeReview({ publicId: "00000000-0000-0000-0000-000000000001", reviewerPublicId: "00000000-0000-0000-0000-00000000002a" }),
+            makeReview({ publicId: "00000000-0000-0000-0000-000000000002", reviewerPublicId: "00000000-0000-0000-0000-00000000004d" }),
           ],
           myPendingReview: null,
           canReview: false,
@@ -393,13 +393,13 @@ describe("ReviewPanel", () => {
       }),
     );
     const { queryClient } = renderWithInspectableClient(
-      <ReviewPanel auctionId={7} isParty />,
+      <ReviewPanel auctionPublicId="00000000-0000-0000-0000-000000000007" isParty />,
       partyUser,
     );
     await screen.findByTestId("review-panel-pending");
     await act(async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["reviews", "auction", "7"],
+        queryKey: ["reviews", "auction", "00000000-0000-0000-0000-000000000007"],
       });
     });
     await waitFor(() => {

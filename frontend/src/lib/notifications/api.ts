@@ -28,8 +28,8 @@ export async function getUnreadCount(breakdown?: "group"): Promise<UnreadCountRe
   return api.get<UnreadCountResponse>(`/api/v1/notifications/unread-count${query}`);
 }
 
-export async function markRead(id: number): Promise<void> {
-  await api.put(`/api/v1/notifications/${id}/read`);
+export async function markRead(publicId: string): Promise<void> {
+  await api.put(`/api/v1/notifications/${publicId}/read`);
 }
 
 export async function markAllRead(group?: NotificationGroup): Promise<{ markedRead: number }> {

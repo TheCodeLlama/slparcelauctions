@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.review;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import jakarta.persistence.LockModeType;
 
@@ -23,6 +24,8 @@ import org.springframework.data.repository.query.Param;
  * file (see plan §Task 2).
  */
 public interface ReviewRepository extends JpaRepository<Review, Long> {
+
+    Optional<Review> findByPublicId(UUID publicId);
 
     Optional<Review> findByAuctionIdAndReviewerId(Long auctionId, Long reviewerId);
 

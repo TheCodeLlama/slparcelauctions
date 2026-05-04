@@ -12,7 +12,7 @@ describe("SellerHeader", () => {
     expect(screen.getByText(/member since/i)).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /view full profile/i }),
-    ).toHaveAttribute("href", `/users/${mockPublicProfile.id}`);
+    ).toHaveAttribute("href", `/users/${mockPublicProfile.publicId}`);
   });
 
   it("shows verified badge for verified users", () => {

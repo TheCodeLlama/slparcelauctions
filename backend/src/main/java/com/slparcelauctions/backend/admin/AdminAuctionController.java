@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.admin;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +16,9 @@ import com.slparcelauctions.backend.admin.audit.AdminActionTargetType;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
 import com.slparcelauctions.backend.admin.dto.AdminAuctionReinstateResponse;
 import com.slparcelauctions.backend.admin.dto.ReinstateAuctionRequest;
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 
 import jakarta.validation.Valid;
@@ -27,16 +31,21 @@ public class AdminAuctionController {
 
     private final AdminAuctionService adminAuctionService;
     private final AdminActionService adminActionService;
+    private final AuctionRepository auctionRepository;
 
-    @PostMapping("/{id}/reinstate")
+    @PostMapping("/{publicId}/reinstate")
     public AdminAuctionReinstateResponse reinstate(
-            @PathVariable("id") Long id,
+            @PathVariable("publicId") UUID publicId,
             @Valid @RequestBody ReinstateAuctionRequest body,
             @AuthenticationPrincipal AuthPrincipal admin) {
 
-        AdminAuctionReinstateResult result = adminAuctionService.reinstate(id, Optional.empty());
+        Long auctionId = auctionRepository.findByPublicId(publicId)
+                .map(Auction::getId)
+                .orElseThrow(() -> new AuctionNotFoundException(publicId));
+
+        AdminAuctionReinstateResult result = adminAuctionService.reinstate(auctionId, Optional.empty());
         adminActionService.record(admin.userId(),
-            AdminActionType.REINSTATE_LISTING, AdminActionTargetType.LISTING, id,
+            AdminActionType.REINSTATE_LISTING, AdminActionTargetType.LISTING, auctionId,
             body.notes(), null);
 
         return new AdminAuctionReinstateResponse(

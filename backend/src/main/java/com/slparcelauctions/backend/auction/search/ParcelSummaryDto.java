@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.search;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Lean parcel projection for each browse / featured-row / search-result
@@ -13,7 +14,7 @@ import java.util.List;
  * because the frontend's TS type already expected {@code string[]}.
  */
 public record ParcelSummaryDto(
-        Long id,
+        UUID auctionPublicId,
         String name,
         String region,
         Integer area,

@@ -6,14 +6,14 @@ import { ReviewCard } from "./ReviewCard";
 
 function makeReview(overrides: Partial<ReviewDto> = {}): ReviewDto {
   return {
-    id: 1,
-    auctionId: 10,
+    publicId: "00000000-0000-0000-0000-000000000001",
+    auctionPublicId: "00000000-0000-0000-0000-00000000000a",
     auctionTitle: "Aurora Parcel",
     auctionPrimaryPhotoUrl: null,
-    reviewerId: 100,
+    reviewerPublicId: "00000000-0000-0000-0000-000000000064",
     reviewerDisplayName: "Alice",
     reviewerAvatarUrl: null,
-    revieweeId: 200,
+    revieweePublicId: "00000000-0000-0000-0000-0000000000c8",
     reviewedRole: "SELLER",
     rating: 5,
     text: "Great seller, would buy again.\nTwo newlines.",
@@ -52,7 +52,7 @@ describe("ReviewCard", () => {
       { auth: "anonymous" },
     );
     const link = screen.getByTestId("review-card-auction-link");
-    expect(link).toHaveAttribute("href", "/auction/10");
+    expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000000a");
     expect(link.textContent).toContain("Aurora Parcel");
     rerender(<ReviewCard review={makeReview()} hideAuctionLink />);
     expect(
@@ -64,7 +64,7 @@ describe("ReviewCard", () => {
     // mockUser.id === 100, which matches reviewerId. The author can't flag
     // themselves.
     renderWithProviders(
-      <ReviewCard review={makeReview({ reviewerId: mockUser.id })} />,
+      <ReviewCard review={makeReview({ reviewerPublicId: mockUser.publicId })} />,
       { auth: "authenticated" },
     );
     expect(screen.queryByTestId("review-card-flag")).not.toBeInTheDocument();
@@ -72,7 +72,7 @@ describe("ReviewCard", () => {
 
   it("shows the flag button for non-authors", () => {
     renderWithProviders(
-      <ReviewCard review={makeReview({ reviewerId: 999, revieweeId: 888 })} />,
+      <ReviewCard review={makeReview({ reviewerPublicId: "00000000-0000-0000-0000-0000000003e7", revieweePublicId: "00000000-0000-0000-0000-000000000378" })} />,
       { auth: "authenticated" },
     );
     expect(screen.getByTestId("review-card-flag")).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe("ReviewCard", () => {
   it("shows the respond button only when viewer is reviewee AND no response exists", () => {
     // Viewer is the reviewee (reviewedRole=SELLER so viewer is the seller)
     // and no response posted yet → button shows.
-    const reviewee = makeReview({ revieweeId: mockUser.id, response: null });
+    const reviewee = makeReview({ revieweePublicId: mockUser.publicId, response: null });
     renderWithProviders(<ReviewCard review={reviewee} />, {
       auth: "authenticated",
     });
@@ -97,9 +97,9 @@ describe("ReviewCard", () => {
 
   it("hides the respond button when a response already exists", () => {
     const reviewed = makeReview({
-      revieweeId: mockUser.id,
+      revieweePublicId: mockUser.publicId,
       response: {
-        id: 99,
+        publicId: "00000000-0000-0000-0000-000000000063",
         text: "Thanks",
         createdAt: "2026-04-19T13:00:00Z",
       },
@@ -116,7 +116,7 @@ describe("ReviewCard", () => {
     const r = makeReview({
       reviewedRole: "SELLER",
       response: {
-        id: 99,
+        publicId: "00000000-0000-0000-0000-000000000063",
         text: "Thanks, enjoy the parcel!",
         createdAt: "2026-04-19T13:00:00Z",
       },
@@ -131,7 +131,7 @@ describe("ReviewCard", () => {
     const r = makeReview({
       reviewedRole: "BUYER",
       response: {
-        id: 99,
+        publicId: "00000000-0000-0000-0000-000000000063",
         text: "Cheers",
         createdAt: "2026-04-19T13:00:00Z",
       },

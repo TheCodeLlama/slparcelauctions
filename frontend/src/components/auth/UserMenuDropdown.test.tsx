@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const mockUserWithDisplayName: AuthUser = {
-  id: 1,
+  publicId: "00000000-0000-0000-0000-000000000001",
   email: "alice@example.com",
   displayName: "Alice Smith",
   slAvatarUuid: null,
@@ -22,7 +22,7 @@ const mockUserWithDisplayName: AuthUser = {
 };
 
 const mockUserNullDisplayName: AuthUser = {
-  id: 2,
+  publicId: "00000000-0000-0000-0000-000000000002",
   email: "alice@example.com",
   displayName: null,
   slAvatarUuid: null,

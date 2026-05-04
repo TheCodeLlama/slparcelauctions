@@ -120,7 +120,7 @@ class BanEnforcementIntegrationTest {
                 .reasonCategory(BanReasonCategory.SHILL_BIDDING)
                 .build());
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -150,7 +150,7 @@ class BanEnforcementIntegrationTest {
                 .reasonCategory(BanReasonCategory.SPAM)
                 .build());
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -227,7 +227,7 @@ class BanEnforcementIntegrationTest {
                 .reasonCategory(BanReasonCategory.FRAUDULENT_SELLER)
                 .build());
 
-        mockMvc.perform(put("/api/v1/auctions/" + auction.getId() + "/cancel")
+        mockMvc.perform(put("/api/v1/auctions/" + auction.getPublicId() + "/cancel")
                         .header("Authorization", "Bearer " + sellerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"change of mind\"}"))
@@ -266,7 +266,7 @@ class BanEnforcementIntegrationTest {
                 .build());
 
         // Bid is blocked by avatar
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -379,12 +379,12 @@ class BanEnforcementIntegrationTest {
      * helpers above, so we search by verified=true and pick the latest.
      */
     private User findUserByToken(String token) throws Exception {
-        // Decode JWT payload to extract sub (userId)
+        // Decode JWT payload to extract sub (userPublicId as UUID string)
         String[] parts = token.split("\\.");
         String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
         JsonNode payloadJson = objectMapper.readTree(payload);
-        long userId = payloadJson.get("sub").asLong();
-        return userRepo.findById(userId).orElseThrow();
+        UUID userPublicId = UUID.fromString(payloadJson.get("sub").asText());
+        return userRepo.findByPublicId(userPublicId).orElseThrow();
     }
 
     private Auction seedActiveAuction(User seller) {

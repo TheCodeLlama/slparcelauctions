@@ -126,7 +126,7 @@ class SnipeAndBuyNowIntegrationTest {
         OffsetDateTime firstEndsAt = auction.getEndsAt();
 
         // Placement 1 — outside window, no extension.
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -143,7 +143,7 @@ class SnipeAndBuyNowIntegrationTest {
 
         // Placement 2 — inside window, should extend. bidder2 takes over
         // (avoids seller/self-outbid edge cases; increment L$1000→L$100).
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder2AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1100}"))
@@ -165,7 +165,7 @@ class SnipeAndBuyNowIntegrationTest {
 
         // Placement 3 — still in window, stacks again. Increment remains
         // L$100 (currentBid=1100 is still in the L$1000-L$9999 tier).
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1200}"))
@@ -197,7 +197,7 @@ class SnipeAndBuyNowIntegrationTest {
                 now.plusHours(1), /* buyNowPrice */ 10_000L);
 
         // First bid hits the buyNowPrice exactly — closes the auction.
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":10000}"))
@@ -213,7 +213,7 @@ class SnipeAndBuyNowIntegrationTest {
 
         // Subsequent bid must be rejected with 409 AUCTION_NOT_ACTIVE — the
         // service hits the status != ACTIVE gate before any other check.
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder2AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":15000}"))
@@ -237,7 +237,7 @@ class SnipeAndBuyNowIntegrationTest {
                 0L, 0, /* snipeProtect */ true, /* snipeWindowMin */ 15,
                 now.plusMinutes(5), /* buyNowPrice */ 10_000L);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":10000}"))

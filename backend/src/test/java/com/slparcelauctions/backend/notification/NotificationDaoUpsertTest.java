@@ -88,7 +88,7 @@ class NotificationDaoUpsertTest {
 
         assertThat(result).isNotNull();
         assertThat(result.wasUpdate()).isFalse();
-        assertThat(result.id()).isPositive();
+        assertThat(result.publicId()).isNotNull();
         assertThat(result.createdAt()).isNotNull();
         assertThat(result.updatedAt()).isNotNull();
     }
@@ -113,14 +113,14 @@ class NotificationDaoUpsertTest {
 
         assertThat(second).isNotNull();
         assertThat(second.wasUpdate()).isTrue();
-        assertThat(second.id()).isEqualTo(first.id());
+        assertThat(second.publicId()).isEqualTo(first.publicId());
         // createdAt must be preserved from the original insert
         assertThat(second.createdAt()).isEqualTo(first.createdAt());
         // updatedAt must have advanced
         assertThat(second.updatedAt()).isAfterOrEqualTo(first.updatedAt());
 
         // Verify body was updated in DB
-        Notification n = notificationRepository.findById(first.id()).orElseThrow();
+        Notification n = notificationRepository.findByPublicId(first.publicId()).orElseThrow();
         assertThat(n.getBody()).isEqualTo("Updated body");
         assertThat(n.getTitle()).isEqualTo("Still outbid");
     }
@@ -133,8 +133,9 @@ class NotificationDaoUpsertTest {
                         "You were outbid", "Body", null, "outbid:auction:3"));
 
         // Mark it read — the row no longer satisfies `WHERE read = false`
+        long firstInternalId = notificationRepository.findByPublicId(first.publicId()).orElseThrow().getId();
         txTemplate.executeWithoutResult(status ->
-                notificationRepository.markRead(first.id(), userId));
+                notificationRepository.markRead(firstInternalId, userId));
 
         // Second upsert with same coalesce key must INSERT fresh (read row doesn't conflict)
         UpsertResult second = txTemplate.execute(status ->
@@ -143,7 +144,7 @@ class NotificationDaoUpsertTest {
 
         assertThat(second).isNotNull();
         assertThat(second.wasUpdate()).isFalse();
-        assertThat(second.id()).isNotEqualTo(first.id());
+        assertThat(second.publicId()).isNotEqualTo(first.publicId());
         assertThat(notificationRepository.countByUserIdAndReadFalse(userId)).isEqualTo(1L);
     }
 
@@ -162,7 +163,7 @@ class NotificationDaoUpsertTest {
         // NULL != NULL → both must INSERT
         assertThat(first.wasUpdate()).isFalse();
         assertThat(second.wasUpdate()).isFalse();
-        assertThat(second.id()).isNotEqualTo(first.id());
+        assertThat(second.publicId()).isNotEqualTo(first.publicId());
         assertThat(notificationRepository.countByUserIdAndReadFalse(userId)).isEqualTo(2L);
     }
 

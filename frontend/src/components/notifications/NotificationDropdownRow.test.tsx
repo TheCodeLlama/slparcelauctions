@@ -21,7 +21,7 @@ vi.mock("@/hooks/notifications/useMarkRead", () => ({
 
 function makeNotification(partial: Partial<NotificationDto> = {}): NotificationDto {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
     category: "OUTBID",
     group: "bidding",
     title: "You were outbid",
@@ -41,7 +41,7 @@ describe("NotificationDropdownRow", () => {
   });
 
   it("clicking the row navigates to the category deeplink and marks the notification read", async () => {
-    const n = makeNotification({ id: 5, read: false, data: { auctionId: 42 } });
+    const n = makeNotification({ publicId: "00000000-0000-0000-0000-000000000005", read: false, data: { auctionId: 42 } });
     const onClose = vi.fn();
     renderWithProviders(<NotificationDropdownRow notification={n} onClose={onClose} />);
 
@@ -50,13 +50,13 @@ describe("NotificationDropdownRow", () => {
 
     // OUTBID deeplink is /auction/{auctionId}
     expect(mockPush).toHaveBeenCalledWith("/auction/42");
-    expect(markReadMutate).toHaveBeenCalledWith(5);
+    expect(markReadMutate).toHaveBeenCalledWith("00000000-0000-0000-0000-000000000005");
     expect(onClose).toHaveBeenCalled();
   });
 
   it("clicking the inline action button uses the action href (not the row deeplink)", async () => {
     // OUTBID action href is /auction/{id}#bid-panel, deeplink is /auction/{id}
-    const n = makeNotification({ id: 7, read: false, data: { auctionId: 99 } });
+    const n = makeNotification({ publicId: "00000000-0000-0000-0000-000000000007", read: false, data: { auctionId: 99 } });
     renderWithProviders(<NotificationDropdownRow notification={n} />);
 
     // The action button text is "Place a new bid →"

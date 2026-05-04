@@ -88,7 +88,7 @@ class DevAuctionControllerTest {
     void pay_onDraft_returns200_andTransitionsToDraftPaid_withDefaults() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT);
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getId() + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getPublicId() + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -112,7 +112,7 @@ class DevAuctionControllerTest {
     void pay_onDraftPaid_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT_PAID);
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getId() + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getPublicId() + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -126,7 +126,7 @@ class DevAuctionControllerTest {
     void pay_onActive_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getId() + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getPublicId() + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -139,7 +139,7 @@ class DevAuctionControllerTest {
     void pay_asNonSeller_returns404() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT);
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getId() + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getPublicId() + "/pay")
                 .header("Authorization", "Bearer " + otherAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -151,7 +151,7 @@ class DevAuctionControllerTest {
     void pay_withCustomBody_persistsExactValues() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT);
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getId() + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getPublicId() + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"amount\":500,\"txnRef\":\"my-ref\"}"))
@@ -173,7 +173,7 @@ class DevAuctionControllerTest {
         // 403 with code=ACCESS_DENIED.
         Auction a = seedAuction(AuctionStatus.DRAFT);
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getId() + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + a.getPublicId() + "/pay")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isForbidden())

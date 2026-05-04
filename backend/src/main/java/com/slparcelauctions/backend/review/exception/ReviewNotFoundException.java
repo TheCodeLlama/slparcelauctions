@@ -10,4 +10,8 @@ public class ReviewNotFoundException extends RuntimeException {
     public ReviewNotFoundException(Long id) {
         super("Review not found: " + id);
     }
+
+    public ReviewNotFoundException(java.util.UUID publicId) {
+        super("Review not found: " + publicId);
+    }
 }

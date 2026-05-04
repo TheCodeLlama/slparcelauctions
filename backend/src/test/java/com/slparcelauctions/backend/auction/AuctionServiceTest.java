@@ -74,7 +74,7 @@ class AuctionServiceTest {
                 .thenReturn(new ParcelLookupResult(response, region));
         lenient().when(auctionRepo.save(any(Auction.class))).thenAnswer(inv -> {
             Auction a = inv.getArgument(0);
-            if (a.getId() == null) a.setId(1L);
+            setBaseEntityField(a, "id", 1L);
             return a;
         });
         // refreshFor is void — Mockito auto-stubs void methods on mocks; no explicit stub needed.
@@ -570,5 +570,14 @@ class AuctionServiceTest {
                 .build();
         a.setParcelSnapshot(snap);
         return a;
+    }
+
+    private static void setBaseEntityField(Object entity, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

@@ -11,12 +11,12 @@ function sampleListing(
   overrides: Partial<AuctionSearchResultDto> = {},
 ): AuctionSearchResultDto {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
     title: "Sample Parcel",
     status: "ACTIVE",
     endOutcome: null,
     parcel: {
-      id: 11,
+      auctionPublicId: "00000000-0000-0000-0000-000000000001",
       name: "Sample Lot",
       region: "Tula",
       area: 1024,
@@ -31,7 +31,7 @@ function sampleListing(
     },
     primaryPhotoUrl: null,
     seller: {
-      id: 7,
+      publicId: "00000000-0000-0000-0000-000000000007",
       displayName: "seller",
       avatarUrl: null,
       averageRating: 4.8,
@@ -93,8 +93,8 @@ describe("Hero", () => {
 
   it("renders featured card stack when listings are provided", () => {
     const listings = [
-      sampleListing({ id: 1, title: "Alpha Parcel" }),
-      sampleListing({ id: 2, title: "Beta Parcel" }),
+      sampleListing({ publicId: "00000000-0000-0000-0000-000000000001", title: "Alpha Parcel" }),
+      sampleListing({ publicId: "00000000-0000-0000-0000-000000000002", title: "Beta Parcel" }),
     ];
     renderWithProviders(<Hero featured={listings} />);
     // Cards render as links to auction detail pages

@@ -34,7 +34,7 @@ class TerminalSecretServiceTest {
     @Test
     void firstRotateInsertsV1() {
         TerminalSecret v1 = service.rotate();
-        assertThat(v1.getVersion()).isEqualTo(1);
+        assertThat(v1.getSecretVersion()).isEqualTo(1);
         assertThat(v1.getRetiredAt()).isNull();
     }
 
@@ -42,8 +42,8 @@ class TerminalSecretServiceTest {
     void secondRotateInsertsV2KeepsV1Active() {
         service.rotate();
         TerminalSecret v2 = service.rotate();
-        assertThat(v2.getVersion()).isEqualTo(2);
-        assertThat(repo.findByRetiredAtIsNullOrderByVersionDesc()).hasSize(2);
+        assertThat(v2.getSecretVersion()).isEqualTo(2);
+        assertThat(repo.findByRetiredAtIsNullOrderBySecretVersionDesc()).hasSize(2);
     }
 
     @Test
@@ -51,10 +51,10 @@ class TerminalSecretServiceTest {
         service.rotate();
         service.rotate();
         service.rotate();
-        List<TerminalSecret> active = repo.findByRetiredAtIsNullOrderByVersionDesc();
+        List<TerminalSecret> active = repo.findByRetiredAtIsNullOrderBySecretVersionDesc();
         assertThat(active).hasSize(2);
-        assertThat(active.get(0).getVersion()).isEqualTo(3);
-        assertThat(active.get(1).getVersion()).isEqualTo(2);
+        assertThat(active.get(0).getSecretVersion()).isEqualTo(3);
+        assertThat(active.get(1).getSecretVersion()).isEqualTo(2);
     }
 
     @Test
@@ -79,6 +79,6 @@ class TerminalSecretServiceTest {
         service.rotate();
         service.rotate();
         TerminalSecret cur = service.current().orElseThrow();
-        assertThat(cur.getVersion()).isEqualTo(2);
+        assertThat(cur.getSecretVersion()).isEqualTo(2);
     }
 }

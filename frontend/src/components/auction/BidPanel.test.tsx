@@ -20,11 +20,10 @@ function publicAuction(
   overrides: Partial<PublicAuctionResponse> = {},
 ): PublicAuctionResponse {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -77,11 +76,11 @@ describe("deriveBidPanelVariant", () => {
     const auction = publicAuction({ status: "ENDED" });
     expect(deriveBidPanelVariant(auction, null)).toBe("ended");
     expect(
-      deriveBidPanelVariant(auction, { id: 1, verified: true }),
+      deriveBidPanelVariant(auction, { publicId: "00000000-0000-0000-0000-000000000001", verified: true }),
     ).toBe("ended");
     // Even a seller-viewer sees the ended panel.
     expect(
-      deriveBidPanelVariant(auction, { id: 100, verified: true }),
+      deriveBidPanelVariant(auction, { publicId: "00000000-0000-0000-0000-000000000064", verified: true }),
     ).toBe("ended");
   });
 
@@ -91,19 +90,19 @@ describe("deriveBidPanelVariant", () => {
 
   it("returns 'unverified' when user is not SL-verified", () => {
     expect(
-      deriveBidPanelVariant(publicAuction(), { id: 1, verified: false }),
+      deriveBidPanelVariant(publicAuction(), { publicId: "00000000-0000-0000-0000-000000000001", verified: false }),
     ).toBe("unverified");
   });
 
   it("returns 'seller' when the viewer owns the auction", () => {
     expect(
-      deriveBidPanelVariant(publicAuction(), { id: 100, verified: true }),
+      deriveBidPanelVariant(publicAuction(), { publicId: "00000000-0000-0000-0000-000000000064", verified: true }),
     ).toBe("seller");
   });
 
   it("returns 'bidder' for any other verified viewer", () => {
     expect(
-      deriveBidPanelVariant(publicAuction(), { id: 1, verified: true }),
+      deriveBidPanelVariant(publicAuction(), { publicId: "00000000-0000-0000-0000-000000000001", verified: true }),
     ).toBe("bidder");
   });
 });
@@ -134,7 +133,7 @@ describe("BidPanel", () => {
     renderWithProviders(
       <BidPanel
         auction={publicAuction()}
-        currentUser={{ id: 1, verified: false }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-000000000001", verified: false }}
         existingProxy={null}
         connectionState={connected}
       />,
@@ -148,8 +147,8 @@ describe("BidPanel", () => {
   it("renders the seller gate when the viewer is the seller", () => {
     renderWithProviders(
       <BidPanel
-        auction={publicAuction({ sellerId: 42 })}
-        currentUser={{ id: 42, verified: true }}
+        auction={publicAuction({ sellerPublicId: "00000000-0000-0000-0000-00000000002a" })}
+        currentUser={{ publicId: "00000000-0000-0000-0000-00000000002a", verified: true }}
         existingProxy={null}
         connectionState={connected}
       />,
@@ -168,13 +167,13 @@ describe("BidPanel", () => {
       ...publicAuction({ status: "ENDED" }),
       endOutcome: "SOLD" as const,
       finalBidAmount: 1500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Winner",
     };
     renderWithProviders(
       <BidPanel
         auction={ended}
-        currentUser={{ id: 1, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-000000000001", verified: true }}
         existingProxy={null}
         connectionState={connected}
       />,
@@ -190,7 +189,7 @@ describe("BidPanel", () => {
     renderWithProviders(
       <BidPanel
         auction={publicAuction()}
-        currentUser={{ id: 1, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-000000000001", verified: true }}
         existingProxy={null}
         connectionState={connected}
       />,
@@ -205,8 +204,8 @@ describe("BidPanel", () => {
 
   it("shows the ACTIVE proxy callout when the user has a live proxy", () => {
     const proxy: ProxyBidResponse = {
-      proxyBidId: 1,
-      auctionId: 7,
+      proxyBidPublicId: "00000000-0000-0000-0000-000000000001",
+      auctionPublicId: "00000000-0000-0000-0000-000000000007",
       maxAmount: 5000,
       status: "ACTIVE",
       createdAt: "",
@@ -215,7 +214,7 @@ describe("BidPanel", () => {
     renderWithProviders(
       <BidPanel
         auction={publicAuction()}
-        currentUser={{ id: 1, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-000000000001", verified: true }}
         existingProxy={proxy}
         connectionState={connected}
       />,
@@ -233,7 +232,7 @@ describe("BidPanel", () => {
     renderWithProviders(
       <BidPanel
         auction={publicAuction({ buyNowPrice: 25_000 })}
-        currentUser={{ id: 1, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-000000000001", verified: true }}
         existingProxy={null}
         connectionState={connected}
       />,

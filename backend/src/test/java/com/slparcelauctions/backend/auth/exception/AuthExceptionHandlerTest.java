@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.user.UserRepository;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -26,6 +27,10 @@ class AuthExceptionHandlerTest {
     @MockitoBean
     @SuppressWarnings("unused")
     private JwtService jwtService;
+
+    @MockitoBean
+    @SuppressWarnings("unused")
+    private UserRepository userRepository;
 
     @RestController
     static class FakeThrowingController {

@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.admin.users;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,9 @@ import com.slparcelauctions.backend.admin.users.dto.AdminUserSummaryDto;
 import com.slparcelauctions.backend.admin.users.dto.UserIpProjection;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserNotFoundException;
+import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.user.deletion.AdminUserDeletionRequest;
 import com.slparcelauctions.backend.user.deletion.UserDeletionService;
 
@@ -43,6 +47,7 @@ public class AdminUserController {
     private final AdminUserService userService;
     private final AdminRoleService roleService;
     private final UserDeletionService userDeletionService;
+    private final UserRepository userRepository;
 
     @GetMapping
     public PagedResponse<AdminUserSummaryDto> search(
@@ -52,94 +57,100 @@ public class AdminUserController {
         return userService.search(search, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}")
-    public AdminUserDetailDto detail(@PathVariable Long id) {
-        return userService.detail(id);
+    @GetMapping("/{publicId}")
+    public AdminUserDetailDto detail(@PathVariable UUID publicId) {
+        return userService.detail(resolveUserId(publicId));
     }
 
-    @GetMapping("/{id}/listings")
+    @GetMapping("/{publicId}/listings")
     public PagedResponse<AdminUserListingRowDto> listings(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return userService.listings(id, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
+        return userService.listings(resolveUserId(publicId), PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}/bids")
+    @GetMapping("/{publicId}/bids")
     public PagedResponse<AdminUserBidRowDto> bids(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return userService.bids(id, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
+        return userService.bids(resolveUserId(publicId), PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}/cancellations")
+    @GetMapping("/{publicId}/cancellations")
     public PagedResponse<AdminUserCancellationRowDto> cancellations(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return userService.cancellations(id, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
+        return userService.cancellations(resolveUserId(publicId), PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}/reports")
+    @GetMapping("/{publicId}/reports")
     public PagedResponse<AdminUserReportRowDto> reports(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return userService.reports(id, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
+        return userService.reports(resolveUserId(publicId), PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}/fraud-flags")
+    @GetMapping("/{publicId}/fraud-flags")
     public PagedResponse<AdminUserFraudFlagRowDto> fraudFlags(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return userService.fraudFlags(id, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
+        return userService.fraudFlags(resolveUserId(publicId), PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}/moderation")
+    @GetMapping("/{publicId}/moderation")
     public PagedResponse<AdminUserModerationRowDto> moderation(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
-        return userService.moderation(id, PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
+        return userService.moderation(resolveUserId(publicId), PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE)));
     }
 
-    @GetMapping("/{id}/ips")
-    public List<UserIpProjection> ips(@PathVariable Long id) {
-        return userService.ips(id);
+    @GetMapping("/{publicId}/ips")
+    public List<UserIpProjection> ips(@PathVariable UUID publicId) {
+        return userService.ips(resolveUserId(publicId));
     }
 
-    @PostMapping("/{id}/promote")
+    @PostMapping("/{publicId}/promote")
     public void promote(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @Valid @RequestBody AdminUserActionRequest body,
             @AuthenticationPrincipal AuthPrincipal admin) {
-        roleService.promote(id, admin.userId(), body.notes());
+        roleService.promote(resolveUserId(publicId), admin.userId(), body.notes());
     }
 
-    @PostMapping("/{id}/demote")
+    @PostMapping("/{publicId}/demote")
     public void demote(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @Valid @RequestBody AdminUserActionRequest body,
             @AuthenticationPrincipal AuthPrincipal admin) {
-        roleService.demote(id, admin.userId(), body.notes());
+        roleService.demote(resolveUserId(publicId), admin.userId(), body.notes());
     }
 
-    @PostMapping("/{id}/reset-frivolous-counter")
+    @PostMapping("/{publicId}/reset-frivolous-counter")
     public void resetCounter(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @Valid @RequestBody AdminUserActionRequest body,
             @AuthenticationPrincipal AuthPrincipal admin) {
-        roleService.resetFrivolousCounter(id, admin.userId(), body.notes());
+        roleService.resetFrivolousCounter(resolveUserId(publicId), admin.userId(), body.notes());
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{publicId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @Valid @RequestBody AdminUserDeletionRequest body,
             @AuthenticationPrincipal AuthPrincipal admin) {
-        userDeletionService.deleteByAdmin(id, admin.userId(), body.adminNote());
+        userDeletionService.deleteByAdmin(resolveUserId(publicId), admin.userId(), body.adminNote());
+    }
+
+    private Long resolveUserId(UUID publicId) {
+        return userRepository.findByPublicId(publicId)
+                .map(User::getId)
+                .orElseThrow(() -> new UserNotFoundException(publicId));
     }
 }

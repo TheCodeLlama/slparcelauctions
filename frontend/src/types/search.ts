@@ -63,7 +63,7 @@ export type AuctionSearchQuery = {
   endingWithin?: number; // hours
   nearRegion?: string;
   distance?: number; // regions
-  sellerId?: number;
+  sellerPublicId?: string;
   sort?: AuctionSort;
   page?: number;
   size?: number;
@@ -72,7 +72,7 @@ export type AuctionSearchQuery = {
 };
 
 export type AuctionSearchResultSeller = {
-  id: number;
+  publicId: string;
   displayName: string;
   avatarUrl: string | null;
   averageRating: number | null;
@@ -80,7 +80,7 @@ export type AuctionSearchResultSeller = {
 };
 
 export type AuctionSearchResultParcel = {
-  id: number;
+  auctionPublicId: string;
   name: string;
   region: string;
   area: number;
@@ -102,7 +102,7 @@ export type AuctionSearchResultParcel = {
  * RESERVE_NOT_MET / NO_BIDS chips.
  */
 export type AuctionSearchResultDto = {
-  id: number;
+  publicId: string;
   title: string;
   status: string;
   endOutcome: AuctionEndOutcome | null;
@@ -144,8 +144,8 @@ export type SearchResponse = {
 
 /**
  * Auth-only response from GET /api/v1/users/me/saved/ids — returns the full
- * set of auction IDs the caller has saved. Used by useSavedAuctions (Task 5)
+ * set of auction publicIds the caller has saved. Used by useSavedAuctions (Task 5)
  * to paint heart-filled state across every ListingCard on the page from a
  * single fetch.
  */
-export type SavedIdsResponse = { ids: number[] };
+export type SavedIdsResponse = { publicIds: string[] };

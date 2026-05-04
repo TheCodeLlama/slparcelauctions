@@ -119,18 +119,18 @@ class AuctionPhotoControllerIntegrationTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.png", "image/png", bytes);
 
-        MvcResult res = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        MvcResult res = mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.publicId").exists())
                 .andExpect(jsonPath("$.contentType").value("image/png"))
                 .andExpect(jsonPath("$.sortOrder").value(1))
                 .andReturn();
 
-        Long photoId = objectMapper.readTree(res.getResponse().getContentAsString())
-                .get("id").asLong();
-        AuctionPhoto saved = photoRepository.findById(photoId).orElseThrow();
+        UUID photoPublicId = UUID.fromString(objectMapper.readTree(res.getResponse().getContentAsString())
+                .get("publicId").asText());
+        AuctionPhoto saved = photoRepository.findByPublicId(photoPublicId).orElseThrow();
         assertThat(saved.getObjectKey()).startsWith("listings/" + a.getId() + "/");
         assertThat(saved.getObjectKey()).endsWith(".png");
     }
@@ -143,7 +143,7 @@ class AuctionPhotoControllerIntegrationTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.bmp", "image/bmp", bytes);
 
-        mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isBadRequest())
@@ -163,7 +163,7 @@ class AuctionPhotoControllerIntegrationTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "big.png", "image/png", bytes);
 
-        mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isPayloadTooLarge());
@@ -186,7 +186,7 @@ class AuctionPhotoControllerIntegrationTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.png", "image/png", bytes);
 
-        mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isPayloadTooLarge())
@@ -199,20 +199,20 @@ class AuctionPhotoControllerIntegrationTest {
         byte[] bytes = Files.readAllBytes(FIXTURES.resolve("avatar-valid.png"));
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.png", "image/png", bytes);
-        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode body = objectMapper.readTree(upload.getResponse().getContentAsString());
-        Long photoId = body.get("id").asLong();
-        AuctionPhoto photo = photoRepository.findById(photoId).orElseThrow();
+        UUID photoPublicId = UUID.fromString(body.get("publicId").asText());
+        AuctionPhoto photo = photoRepository.findByPublicId(photoPublicId).orElseThrow();
 
-        mockMvc.perform(delete("/api/v1/auctions/" + a.getId() + "/photos/" + photoId)
+        mockMvc.perform(delete("/api/v1/auctions/" + a.getPublicId() + "/photos/" + photoPublicId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isNoContent());
 
-        assertThat(photoRepository.findById(photoId)).isEmpty();
+        assertThat(photoRepository.findByPublicId(photoPublicId)).isEmpty();
         assertThat(storage.exists(photo.getObjectKey())).isFalse();
     }
 
@@ -222,18 +222,18 @@ class AuctionPhotoControllerIntegrationTest {
         byte[] bytes = generateSimplePng();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.png", "image/png", bytes);
-        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
                 .andReturn();
-        Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
-                .get("id").asLong();
+        UUID photoPublicId = UUID.fromString(objectMapper.readTree(upload.getResponse().getContentAsString())
+                .get("publicId").asText());
 
         a.setStatus(AuctionStatus.ACTIVE);
         auctionRepository.save(a);
 
-        mockMvc.perform(get("/api/v1/photos/" + photoId))
+        mockMvc.perform(get("/api/v1/photos/" + photoPublicId))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
                 .andExpect(header().string("Cache-Control", "public, max-age=86400"));
@@ -249,15 +249,15 @@ class AuctionPhotoControllerIntegrationTest {
         byte[] bytes = generateSimplePng();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.png", "image/png", bytes);
-        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
                 .andReturn();
-        Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
-                .get("id").asLong();
+        UUID photoPublicId = UUID.fromString(objectMapper.readTree(upload.getResponse().getContentAsString())
+                .get("publicId").asText());
 
-        mockMvc.perform(get("/api/v1/photos/" + photoId))
+        mockMvc.perform(get("/api/v1/photos/" + photoPublicId))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));
     }
@@ -268,15 +268,15 @@ class AuctionPhotoControllerIntegrationTest {
         byte[] bytes = generateSimplePng();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.png", "image/png", bytes);
-        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getId() + "/photos")
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/auctions/" + a.getPublicId() + "/photos")
                 .file(file)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
                 .andReturn();
-        Long photoId = objectMapper.readTree(upload.getResponse().getContentAsString())
-                .get("id").asLong();
+        UUID photoPublicId = UUID.fromString(objectMapper.readTree(upload.getResponse().getContentAsString())
+                .get("publicId").asText());
 
-        mockMvc.perform(get("/api/v1/photos/" + photoId)
+        mockMvc.perform(get("/api/v1/photos/" + photoPublicId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"));

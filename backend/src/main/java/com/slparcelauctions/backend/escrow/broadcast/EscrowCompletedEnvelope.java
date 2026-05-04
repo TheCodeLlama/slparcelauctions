@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.escrow.broadcast;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -20,8 +21,8 @@ import com.slparcelauctions.backend.escrow.EscrowState;
  */
 public record EscrowCompletedEnvelope(
         String type,
-        Long auctionId,
-        Long escrowId,
+        UUID auctionPublicId,
+        UUID escrowPublicId,
         EscrowState state,
         OffsetDateTime completedAt,
         OffsetDateTime serverTime) implements EscrowEnvelope {
@@ -29,8 +30,8 @@ public record EscrowCompletedEnvelope(
     public static EscrowCompletedEnvelope of(Escrow e, OffsetDateTime serverTime) {
         return new EscrowCompletedEnvelope(
                 "ESCROW_COMPLETED",
-                e.getAuction().getId(),
-                e.getId(),
+                e.getAuction().getPublicId(),
+                e.getPublicId(),
                 e.getState(),
                 e.getCompletedAt(),
                 serverTime);

@@ -78,6 +78,7 @@ class FullFlowSmokeTest {
 
     private String sellerAccessToken;
     private Long sellerId;
+    private UUID sellerPublicId;
     private String sellerAvatarUuid;
     private UUID parcelUuid;
 
@@ -86,7 +87,9 @@ class FullFlowSmokeTest {
         sellerAvatarUuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         sellerAccessToken = registerAndVerifyUser(
                 "full-flow-seller@example.com", "FullFlowSeller", sellerAvatarUuid);
-        sellerId = userRepository.findByEmail("full-flow-seller@example.com").orElseThrow().getId();
+        var seller = userRepository.findByEmail("full-flow-seller@example.com").orElseThrow();
+        sellerId = seller.getId();
+        sellerPublicId = seller.getPublicId();
         parcelUuid = seedParcelViaLookup();
     }
 
@@ -97,10 +100,10 @@ class FullFlowSmokeTest {
     @Test
     void methodA_fullFlow_registerVerifyLookupCreatePayVerify_reachesActive() throws Exception {
         // Create a UUID_ENTRY auction
-        Long auctionId = createAuction();
+        UUID auctionPublicId = createAuction();
 
         // Pay the listing fee via the dev stub
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -109,7 +112,7 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.listingFeePaid").value(true));
 
         // Trigger verification — World API mock already returns matching ownership
-        mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -120,7 +123,7 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.endsAt").exists())
                 .andExpect(jsonPath("$.originalEndsAt").exists());
 
-        Auction a = auctionRepository.findById(auctionId).orElseThrow();
+        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(a.getVerificationTier()).isEqualTo(VerificationTier.SCRIPT);
         assertThat(a.getStartsAt()).isNotNull();
@@ -135,15 +138,15 @@ class FullFlowSmokeTest {
 
     @Test
     void methodB_fullFlow_lslCallbackCompletesVerification() throws Exception {
-        Long auctionId = createAuction();
+        UUID auctionPublicId = createAuction();
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isOk());
 
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"REZZABLE\"}"))
@@ -180,7 +183,7 @@ class FullFlowSmokeTest {
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER))
                 .andExpect(status().isNoContent());
 
-        Auction a = auctionRepository.findById(auctionId).orElseThrow();
+        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(a.getVerificationTier()).isEqualTo(VerificationTier.SCRIPT);
         assertThat(a.getVerifiedAt()).isNotNull();
@@ -194,15 +197,15 @@ class FullFlowSmokeTest {
 
     @Test
     void methodC_fullFlow_devBotCompleteReachesActive() throws Exception {
-        Long auctionId = createAuction();
+        UUID auctionPublicId = createAuction();
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isOk());
 
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"SALE_TO_BOT\"}"))
@@ -236,7 +239,7 @@ class FullFlowSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
-        Auction a = auctionRepository.findById(auctionId).orElseThrow();
+        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(a.getVerificationTier()).isEqualTo(VerificationTier.BOT);
         assertThat(a.getVerifiedAt()).isNotNull();
@@ -250,9 +253,9 @@ class FullFlowSmokeTest {
 
     @Test
     void cancel_onDraftPaid_createsPendingRefundRow() throws Exception {
-        Long auctionId = createAuction();
+        UUID auctionPublicId = createAuction();
 
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
+        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -260,18 +263,18 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.status").value("DRAFT_PAID"))
                 .andExpect(jsonPath("$.listingFeeAmt").value(100));
 
-        mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/cancel")
+        mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/cancel")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"reason\":\"changed my mind\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
-        final Long expectedAuctionId = auctionId;
+        final UUID expectedAuctionPublicId = auctionPublicId;
         List<ListingFeeRefund> refunds = refundRepository.findAll();
         assertThat(refunds)
                 .as("cancelling a DRAFT_PAID auction must create a PENDING refund row")
-                .anyMatch(r -> r.getAuction().getId().equals(expectedAuctionId)
+                .anyMatch(r -> r.getAuction().getPublicId().equals(expectedAuctionPublicId)
                         && r.getStatus() == RefundStatus.PENDING
                         && r.getAmount() == 100L);
     }
@@ -288,13 +291,13 @@ class FullFlowSmokeTest {
                 "full-flow-other@example.com", "FullFlowOther",
                 "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
-        Long auctionId = createAuction();
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionId + "/pay")
+        UUID auctionPublicId = createAuction();
+        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
                 .andExpect(status().isOk());
-        mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -302,11 +305,11 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
         // Seller view — full internal state
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.sellerId").value(sellerId))
+                .andExpect(jsonPath("$.sellerPublicId").value(sellerPublicId.toString()))
                 .andExpect(jsonPath("$.verificationMethod").value("UUID_ENTRY"))
                 .andExpect(jsonPath("$.listingFeePaid").value(true))
                 .andExpect(jsonPath("$.listingFeeAmt").exists())
@@ -314,7 +317,7 @@ class FullFlowSmokeTest {
 
         // Non-seller public view — no listing fee, no winnerId, no verificationMethod,
         // no verificationNotes
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                 .header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
@@ -329,7 +332,7 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.pendingVerification").doesNotExist());
 
         // Cancel the auction
-        mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/cancel")
+        mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/cancel")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"reason\":\"no longer available\"}"))
@@ -337,7 +340,7 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
         // Non-seller sees ENDED (the privacy-boundary status collapse)
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                 .header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ENDED"))
@@ -346,7 +349,7 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.listingFeePaid").doesNotExist());
 
         // Seller still sees the true CANCELLED status
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
@@ -362,7 +365,7 @@ class FullFlowSmokeTest {
      * verify trigger (each scenario calls PUT /auctions/{id}/verify with the
      * method it is exercising).
      */
-    private Long createAuction() throws Exception {
+    private UUID createAuction() throws Exception {
         String body = String.format("""
             {
               "slParcelUuid":"%s",
@@ -380,8 +383,8 @@ class FullFlowSmokeTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andReturn();
-        return objectMapper.readTree(res.getResponse().getContentAsString())
-                .get("id").asLong();
+        return UUID.fromString(objectMapper.readTree(res.getResponse().getContentAsString())
+                .get("publicId").asText());
     }
 
     private String registerUser(String email, String displayName) throws Exception {

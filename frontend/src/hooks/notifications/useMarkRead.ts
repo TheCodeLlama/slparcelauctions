@@ -9,8 +9,8 @@ import type { NotificationDto } from "@/lib/notifications/types";
 export function useMarkRead() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => markRead(id),
-    onMutate: async (id) => {
+    mutationFn: (publicId: string) => markRead(publicId),
+    onMutate: async (publicId) => {
       await qc.cancelQueries({ queryKey: notificationKeys.all });
       const prevCount = qc.getQueryData<{ count: number }>(notificationKeys.unreadCount());
       qc.setQueriesData<Page<NotificationDto>>(
@@ -20,7 +20,7 @@ export function useMarkRead() {
             ? {
                 ...data,
                 content: data.content.map((n) =>
-                  n.id === id ? { ...n, read: true } : n
+                  n.publicId === publicId ? { ...n, read: true } : n
                 ),
               }
             : data
@@ -32,7 +32,7 @@ export function useMarkRead() {
       }
       return { prevCount };
     },
-    onError: (_err, _id, ctx) => {
+    onError: (_err, _publicId, ctx) => {
       if (ctx?.prevCount) {
         qc.setQueryData(notificationKeys.unreadCount(), ctx.prevCount);
       }

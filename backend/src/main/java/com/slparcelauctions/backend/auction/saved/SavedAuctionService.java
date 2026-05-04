@@ -6,6 +6,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -100,16 +101,16 @@ public class SavedAuctionService {
     private final AuctionSearchResultMapper mapper;
 
     @Transactional
-    public SavedAuctionDto save(Long userId, Long auctionId) {
-        Auction auction = auctionRepo.findById(auctionId)
-                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+    public SavedAuctionDto save(Long userId, UUID auctionPublicId) {
+        Auction auction = auctionRepo.findByPublicId(auctionPublicId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionPublicId));
 
         if (PRE_ACTIVE.contains(auction.getStatus())) {
-            throw new CannotSavePreActiveException(auctionId, auction.getStatus().name());
+            throw new CannotSavePreActiveException(auctionPublicId, auction.getStatus().name());
         }
 
-        return savedRepo.findByUserIdAndAuctionId(userId, auctionId)
-                .map(existing -> new SavedAuctionDto(auctionId, existing.getSavedAt()))
+        return savedRepo.findByUserIdAndAuctionId(userId, auction.getId())
+                .map(existing -> new SavedAuctionDto(auctionPublicId, existing.getSavedAt()))
                 .orElseGet(() -> insert(userId, auction));
     }
 
@@ -134,7 +135,7 @@ public class SavedAuctionService {
                 .savedAt(now)
                 .build();
         savedRepo.save(row);
-        return new SavedAuctionDto(auction.getId(), now);
+        return new SavedAuctionDto(auction.getPublicId(), now);
     }
 
     @Transactional
@@ -144,8 +145,8 @@ public class SavedAuctionService {
 
     @Transactional(readOnly = true)
     public SavedAuctionIdsResponse listIds(Long userId) {
-        List<Long> ids = savedRepo.findAuctionIdsByUserId(userId);
-        return new SavedAuctionIdsResponse(ids);
+        List<UUID> publicIds = savedRepo.findAuctionPublicIdsByUserId(userId);
+        return new SavedAuctionIdsResponse(publicIds);
     }
 
     /**

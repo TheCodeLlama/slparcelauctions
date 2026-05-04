@@ -215,11 +215,11 @@ export const userHandlers = {
 export const savedHandlers = {
   idsEmpty: () =>
     http.get("*/api/v1/me/saved/ids", () =>
-      HttpResponse.json({ ids: [] as number[] }),
+      HttpResponse.json({ publicIds: [] as string[] }),
     ),
 
-  idsPopulated: (ids: number[]) =>
-    http.get("*/api/v1/me/saved/ids", () => HttpResponse.json({ ids })),
+  idsPopulated: (publicIds: string[]) =>
+    http.get("*/api/v1/me/saved/ids", () => HttpResponse.json({ publicIds })),
 
   auctionsEmpty: () =>
     http.get("*/api/v1/me/saved/auctions", () =>
@@ -234,10 +234,10 @@ export const savedHandlers = {
       }),
     ),
 
-  saveSuccess: (auctionId: number) =>
+  saveSuccess: (auctionPublicId: string) =>
     http.post("*/api/v1/me/saved", () =>
       HttpResponse.json(
-        { auctionId, savedAt: "2026-04-23T00:00:00Z" },
+        { auctionPublicId, savedAt: "2026-04-23T00:00:00Z" },
         { status: 201 },
       ),
     ),
@@ -291,8 +291,8 @@ export const verificationHandlers = {
 };
 
 // In-memory store for notification handler tests.
-const _notifications = new Map<number, NotificationDto>();
-let _nextNotifId = 1;
+const _notifications = new Map<string, NotificationDto>();
+let _nextNotifIdNum = 1;
 
 export const notificationHandlers = [
   http.get("*/api/v1/notifications", () => {
@@ -319,8 +319,8 @@ export const notificationHandlers = [
     }
     return HttpResponse.json({ count });
   }),
-  http.put("*/api/v1/notifications/:id/read", ({ params }) => {
-    const n = _notifications.get(Number(params.id));
+  http.put("*/api/v1/notifications/:publicId/read", ({ params }) => {
+    const n = _notifications.get(String(params.publicId));
     if (!n) return new HttpResponse(null, { status: 404 });
     n.read = true;
     return new HttpResponse(null, { status: 204 });
@@ -339,9 +339,10 @@ export const notificationHandlers = [
 ];
 
 export function seedNotification(partial: Partial<NotificationDto> = {}): NotificationDto {
-  const id = _nextNotifId++;
+  const seq = _nextNotifIdNum++;
+  const publicId = `00000000-0000-0000-0000-${String(seq).padStart(12, "0")}`;
   const n: NotificationDto = {
-    id,
+    publicId,
     category: "OUTBID",
     group: "bidding",
     title: "You were outbid",
@@ -352,13 +353,13 @@ export function seedNotification(partial: Partial<NotificationDto> = {}): Notifi
     updatedAt: new Date().toISOString(),
     ...partial,
   };
-  _notifications.set(id, n);
+  _notifications.set(n.publicId, n);
   return n;
 }
 
 export function clearNotifications(): void {
   _notifications.clear();
-  _nextNotifId = 1;
+  _nextNotifIdNum = 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -732,20 +733,20 @@ export const adminHandlers = {
     );
   },
 
-  submitReportSuccess(auctionId: number, response: MyReportResponse) {
-    return http.post(`*/api/v1/auctions/${auctionId}/report`, () =>
+  submitReportSuccess(auctionPublicId: string, response: MyReportResponse) {
+    return http.post(`*/api/v1/auctions/${auctionPublicId}/report`, () =>
       HttpResponse.json(response)
     );
   },
 
-  myReport204(auctionId: number) {
-    return http.get(`*/api/v1/auctions/${auctionId}/my-report`, () =>
+  myReport204(auctionPublicId: string) {
+    return http.get(`*/api/v1/auctions/${auctionPublicId}/my-report`, () =>
       new HttpResponse(null, { status: 204 })
     );
   },
 
-  myReportSuccess(auctionId: number, response: MyReportResponse) {
-    return http.get(`*/api/v1/auctions/${auctionId}/my-report`, () =>
+  myReportSuccess(auctionPublicId: string, response: MyReportResponse) {
+    return http.get(`*/api/v1/auctions/${auctionPublicId}/my-report`, () =>
       HttpResponse.json(response)
     );
   },

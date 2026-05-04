@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,6 +31,8 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -46,13 +50,28 @@ import com.slparcelauctions.backend.user.Role;
 })
 class AdminFraudFlagControllerWriteSliceTest {
 
+    private static final UUID ADMIN_UUID = UUID.fromString("00000000-0000-aaaa-0002-000000000001");
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean AdminFraudFlagService service;
 
+    private Long adminDbId;
+
+    @BeforeEach
+    void seedUsers() {
+        adminDbId = userRepository.findByPublicId(ADMIN_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(ADMIN_UUID).email("admin-fraud-write@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Admin").role(Role.ADMIN).verified(true).build()))
+            .getId();
+    }
+
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(adminDbId, ADMIN_UUID, "admin-fraud-write@x.com", 1L, Role.ADMIN));
     }
 
     @Test

@@ -71,14 +71,9 @@ class ReviewServiceListTest {
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
 
-        seller = User.builder().email("seller@example.com").passwordHash("x").build();
-        seller.setId(10L);
-        seller.setDisplayName("Sally");
-        winner = User.builder().email("winner@example.com").passwordHash("x").build();
-        winner.setId(20L);
-        winner.setDisplayName("Willy");
-        stranger = User.builder().email("x@example.com").passwordHash("x").build();
-        stranger.setId(99L);
+        seller = User.builder().id(10L).email("seller@example.com").passwordHash("x").displayName("Sally").build();
+        winner = User.builder().id(20L).email("winner@example.com").passwordHash("x").displayName("Willy").build();
+        stranger = User.builder().id(99L).email("x@example.com").passwordHash("x").build();
 
         auction = Auction.builder()
                 .title("Lakefront")
@@ -87,7 +82,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         escrow = Escrow.builder()
                 .auction(auction)
@@ -109,7 +104,7 @@ class ReviewServiceListTest {
                 .rating(rating)
                 .visible(true)
                 .build();
-        r.setId(id);
+        setEntityId(r, id);
         r.setSubmittedAt(NOW.minusDays(10));
         r.setRevealedAt(NOW.minusDays(5));
         return r;
@@ -124,7 +119,7 @@ class ReviewServiceListTest {
                 .rating(rating)
                 .visible(false)
                 .build();
-        r.setId(id);
+        setEntityId(r, id);
         r.setSubmittedAt(NOW.minusHours(2));
         return r;
     }
@@ -147,7 +142,7 @@ class ReviewServiceListTest {
         AuctionReviewsResponse resp = service.listForAuction(555L, null);
 
         assertThat(resp.reviews()).hasSize(1);
-        assertThat(resp.reviews().get(0).id()).isEqualTo(1L);
+        assertThat(resp.reviews().get(0).publicId()).isNotNull();
         assertThat(resp.myPendingReview()).isNull();
         assertThat(resp.canReview()).isFalse();
         assertThat(resp.windowClosesAt()).isNull();
@@ -184,7 +179,7 @@ class ReviewServiceListTest {
 
         assertThat(resp.canReview()).isFalse(); // already submitted
         assertThat(resp.myPendingReview()).isNotNull();
-        assertThat(resp.myPendingReview().id()).isEqualTo(77L);
+        assertThat(resp.myPendingReview().publicId()).isNotNull();
         assertThat(resp.myPendingReview().pending()).isTrue();
     }
 
@@ -243,7 +238,7 @@ class ReviewServiceListTest {
                 ReviewedRole.SELLER, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).id()).isEqualTo(5L);
+        assertThat(result.getContent().get(0).publicId()).isNotNull();
         assertThat(result.getTotalElements()).isEqualTo(1);
     }
 
@@ -258,10 +253,10 @@ class ReviewServiceListTest {
 
         assertThat(result).hasSize(1);
         PendingReviewDto p = result.get(0);
-        assertThat(p.auctionId()).isEqualTo(555L);
+        assertThat(p.auctionPublicId()).isEqualTo(auction.getPublicId());
         assertThat(p.viewerRole()).isEqualTo(ReviewedRole.BUYER);
         // counterparty is the seller for a winner-viewer
-        assertThat(p.counterpartyId()).isEqualTo(seller.getId());
+        assertThat(p.counterpartyPublicId()).isEqualTo(seller.getPublicId());
         assertThat(p.counterpartyDisplayName()).isEqualTo("Sally");
         // window closes escrow.completedAt + 14d; now is 1 day after completion
         // → 13 days remaining → 13*24 = 312 hours.
@@ -294,7 +289,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auctionOld.setId(100L);
+        setEntityId(auctionOld, 100L);
         Escrow escrowOld = Escrow.builder()
                 .auction(auctionOld)
                 .state(EscrowState.COMPLETED)
@@ -312,7 +307,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auctionMid.setId(200L);
+        setEntityId(auctionMid, 200L);
         Escrow escrowMid = Escrow.builder()
                 .auction(auctionMid)
                 .state(EscrowState.COMPLETED)
@@ -330,7 +325,7 @@ class ReviewServiceListTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auctionNew.setId(300L);
+        setEntityId(auctionNew, 300L);
         Escrow escrowNew = Escrow.builder()
                 .auction(auctionNew)
                 .state(EscrowState.COMPLETED)
@@ -355,8 +350,8 @@ class ReviewServiceListTest {
         List<PendingReviewDto> result = service.listPendingForCaller(winner);
 
         assertThat(result).hasSize(3);
-        assertThat(result).extracting(PendingReviewDto::auctionId)
-                .containsExactly(100L, 200L, 300L);
+        assertThat(result).extracting(PendingReviewDto::title)
+                .containsExactly("Oldest", "Middle", "Newest");
         // hoursRemaining strictly ascending rules out any re-ordering;
         // equivalently windowClosesAt is ascending → most-urgent-first.
         assertThat(result.get(0).hoursRemaining())
@@ -380,7 +375,16 @@ class ReviewServiceListTest {
         assertThat(result).hasSize(1);
         PendingReviewDto p = result.get(0);
         assertThat(p.viewerRole()).isEqualTo(ReviewedRole.SELLER);
-        assertThat(p.counterpartyId()).isEqualTo(winner.getId());
+        assertThat(p.counterpartyPublicId()).isEqualTo(winner.getPublicId());
         assertThat(p.counterpartyDisplayName()).isEqualTo("Willy");
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

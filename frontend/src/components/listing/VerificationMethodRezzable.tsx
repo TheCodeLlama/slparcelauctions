@@ -13,7 +13,7 @@ import type {
 import { activateAuctionKey } from "@/hooks/useActivateAuction";
 
 export interface VerificationMethodRezzableProps {
-  auctionId: number | string;
+  auctionPublicId: number | string;
   pending: PendingVerification;
 }
 
@@ -36,14 +36,14 @@ export interface VerificationMethodRezzableProps {
  *     for sellers who realize they're late before the job fires.
  */
 export function VerificationMethodRezzable({
-  auctionId,
+  auctionPublicId,
   pending,
 }: VerificationMethodRezzableProps) {
   const qc = useQueryClient();
   const regen = useMutation<SellerAuctionResponse, Error, void>({
-    mutationFn: () => triggerVerify(auctionId, { method: "REZZABLE" }),
+    mutationFn: () => triggerVerify(auctionPublicId, { method: "REZZABLE" }),
     onSuccess: (auction) =>
-      qc.setQueryData(activateAuctionKey(auctionId), auction),
+      qc.setQueryData(activateAuctionKey(auctionPublicId), auction),
   });
 
   const expiresAt = useMemo(

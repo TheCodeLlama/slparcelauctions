@@ -125,8 +125,8 @@ export function queryFromSearchParams(sp: URLSearchParams): AuctionSearchQuery {
   const distance = parseInt64(sp.get("distance"));
   if (distance !== undefined) q.distance = distance;
 
-  const sellerId = parseInt64(sp.get("seller_id"));
-  if (sellerId !== undefined) q.sellerId = sellerId;
+  const sellerPublicId = sp.get("seller_id");
+  if (sellerPublicId) q.sellerPublicId = sellerPublicId;
 
   const sort = parseEnum(sp.get("sort"), VALID_SORT);
   if (sort) q.sort = sort;
@@ -178,7 +178,7 @@ export function searchParamsFromQuery(q: AuctionSearchQuery): URLSearchParams {
   putIf(sp, "ending_within", q.endingWithin, String);
   putIf(sp, "near_region", q.nearRegion, (v) => v);
   putIf(sp, "distance", q.distance, String);
-  putIf(sp, "seller_id", q.sellerId, String);
+  putIf(sp, "seller_id", q.sellerPublicId, (v) => v);
   if (q.sort && q.sort !== "newest") sp.set("sort", q.sort);
   if (q.page !== undefined && q.page !== defaultAuctionSearchQuery.page)
     sp.set("page", String(q.page));

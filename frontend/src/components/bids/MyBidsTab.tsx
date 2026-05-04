@@ -88,14 +88,14 @@ export function MyBidsTab() {
 
   const rows = useMemo<MyBidSummary[]>(() => {
     if (!data) return [];
-    // Flatten pages and dedupe by auction.id so a page-0 refetch that
+    // Flatten pages and dedupe by auction.publicId so a page-0 refetch that
     // re-emits rows already loaded on page 1 doesn't duplicate them.
-    const seen = new Set<number>();
+    const seen = new Set<string>();
     const out: MyBidSummary[] = [];
     for (const p of data.pages) {
       for (const row of p.content) {
-        if (!seen.has(row.auction.id)) {
-          seen.add(row.auction.id);
+        if (!seen.has(row.auction.publicId)) {
+          seen.add(row.auction.publicId);
           out.push(row);
         }
       }
@@ -164,7 +164,7 @@ export function MyBidsTab() {
         <>
           <ul className="flex flex-col gap-2" aria-label="My bids">
             {rows.map((bid) => (
-              <MyBidSummaryRow key={bid.auction.id} bid={bid} />
+              <MyBidSummaryRow key={bid.auction.publicId} bid={bid} />
             ))}
           </ul>
           {hasNextPage ? (

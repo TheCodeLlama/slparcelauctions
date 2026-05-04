@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 
 export type CurrentUser = {
-  id: number;
+  publicId: string;
   email: string;
   displayName: string | null;
   bio: string | null;
@@ -50,7 +50,7 @@ export type CurrentUser = {
 };
 
 export type PublicUserProfile = {
-  id: number;
+  publicId: string;
   displayName: string | null;
   bio: string | null;
   profilePicUrl: string | null;
@@ -91,8 +91,8 @@ export const userApi = {
     form.append("file", file);
     return api.post<CurrentUser>("/api/v1/users/me/avatar", form);
   },
-  publicProfile: (id: number) =>
-    api.get<PublicUserProfile>(`/api/v1/users/${id}`),
+  publicProfile: (publicId: string) =>
+    api.get<PublicUserProfile>(`/api/v1/users/${publicId}`),
   deleteSelf: (password: string): Promise<void> =>
     api.delete("/api/v1/users/me", { body: { password } }),
 };

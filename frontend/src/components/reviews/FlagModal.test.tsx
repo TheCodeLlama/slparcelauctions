@@ -11,7 +11,7 @@ import { FlagModal } from "./FlagModal";
 
 describe("FlagModal", () => {
   it("renders the 5 reason radios", () => {
-    renderWithProviders(<FlagModal reviewId={5} open onClose={() => {}} />, {
+    renderWithProviders(<FlagModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={() => {}} />, {
       auth: "authenticated",
     });
     for (const code of ["SPAM", "ABUSIVE", "OFF_TOPIC", "FALSE_INFO", "OTHER"]) {
@@ -21,7 +21,7 @@ describe("FlagModal", () => {
 
   it("keeps submit disabled until a reason is picked", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<FlagModal reviewId={5} open onClose={() => {}} />, {
+    renderWithProviders(<FlagModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={() => {}} />, {
       auth: "authenticated",
     });
     expect(screen.getByTestId("flag-modal-submit")).toBeDisabled();
@@ -31,7 +31,7 @@ describe("FlagModal", () => {
 
   it("requires elaboration when reason is OTHER", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<FlagModal reviewId={5} open onClose={() => {}} />, {
+    renderWithProviders(<FlagModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={() => {}} />, {
       auth: "authenticated",
     });
     await user.click(screen.getByTestId("flag-modal-reason-OTHER"));
@@ -53,7 +53,7 @@ describe("FlagModal", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<FlagModal reviewId={5} open onClose={onClose} />, {
+    renderWithProviders(<FlagModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={onClose} />, {
       auth: "authenticated",
     });
     await user.click(screen.getByTestId("flag-modal-reason-SPAM"));
@@ -72,7 +72,7 @@ describe("FlagModal", () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<FlagModal reviewId={5} open onClose={onClose} />, {
+    renderWithProviders(<FlagModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={onClose} />, {
       auth: "authenticated",
     });
     await user.click(screen.getByTestId("flag-modal-reason-OTHER"));
@@ -96,7 +96,7 @@ describe("FlagModal", () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(<FlagModal reviewId={5} open onClose={onClose} />, {
+    renderWithProviders(<FlagModal reviewPublicId="00000000-0000-0000-0000-000000000005" open onClose={onClose} />, {
       auth: "authenticated",
     });
     await user.click(screen.getByTestId("flag-modal-reason-SPAM"));

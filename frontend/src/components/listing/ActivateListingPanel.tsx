@@ -22,7 +22,7 @@ function formatLindens(amount: number): string {
 }
 
 export interface ActivateListingPanelProps {
-  auctionId: number | string;
+  auctionPublicId: number | string;
 }
 
 /**
@@ -39,7 +39,7 @@ export interface ActivateListingPanelProps {
  *   4. available < fee -> "top up at any terminal" + refresh balance
  *   5. ready -> Activate Listing button
  */
-export function ActivateListingPanel({ auctionId }: ActivateListingPanelProps) {
+export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelProps) {
   const qc = useQueryClient();
   const feeQ = useListingFeeConfig();
   const walletQ = useWallet(true);
@@ -47,10 +47,10 @@ export function ActivateListingPanel({ auctionId }: ActivateListingPanelProps) {
   const [termsOpen, setTermsOpen] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: () => payListingFee(auctionId, genIdempotencyKey()),
+    mutationFn: () => payListingFee(auctionPublicId, genIdempotencyKey()),
     onMutate: () => setError(null),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: activateAuctionKey(auctionId) });
+      qc.invalidateQueries({ queryKey: activateAuctionKey(auctionPublicId) });
       qc.invalidateQueries({ queryKey: walletQueryKey });
     },
     onError: (e) => {

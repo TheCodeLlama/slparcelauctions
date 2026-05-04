@@ -55,7 +55,7 @@ public class StompAuctionBroadcastPublisher implements AuctionBroadcastPublisher
 
     @Override
     public void publishSettlement(BidSettlementEnvelope envelope) {
-        String destination = "/topic/auction/" + envelope.auctionId();
+        String destination = "/topic/auction/" + envelope.auctionPublicId();
         log.debug("Publishing BID_SETTLEMENT to {}: currentBid={}, bidCount={}, newBids={}",
                 destination, envelope.currentBid(), envelope.bidCount(),
                 envelope.newBids() == null ? 0 : envelope.newBids().size());
@@ -63,33 +63,33 @@ public class StompAuctionBroadcastPublisher implements AuctionBroadcastPublisher
             messagingTemplate.convertAndSend(destination, envelope);
         } catch (MessagingException e) {
             log.warn("Failed to publish BID_SETTLEMENT for auction {}: {}",
-                    envelope.auctionId(), e.getMessage(), e);
+                    envelope.auctionPublicId(), e.getMessage(), e);
         }
     }
 
     @Override
     public void publishEnded(AuctionEndedEnvelope envelope) {
-        String destination = "/topic/auction/" + envelope.auctionId();
-        log.info("Publishing AUCTION_ENDED to {}: outcome={}, finalBid={}, winnerUserId={}",
-                destination, envelope.endOutcome(), envelope.finalBid(), envelope.winnerUserId());
+        String destination = "/topic/auction/" + envelope.auctionPublicId();
+        log.info("Publishing AUCTION_ENDED to {}: outcome={}, finalBid={}, winnerPublicId={}",
+                destination, envelope.endOutcome(), envelope.finalBid(), envelope.winnerPublicId());
         try {
             messagingTemplate.convertAndSend(destination, envelope);
         } catch (MessagingException e) {
             log.warn("Failed to publish AUCTION_ENDED for auction {}: {}",
-                    envelope.auctionId(), e.getMessage(), e);
+                    envelope.auctionPublicId(), e.getMessage(), e);
         }
     }
 
     @Override
     public void publishCancelled(AuctionCancelledEnvelope envelope) {
-        String destination = "/topic/auction/" + envelope.auctionId();
+        String destination = "/topic/auction/" + envelope.auctionPublicId();
         log.info("Publishing AUCTION_CANCELLED to {}: hadBids={}, cancelledAt={}",
                 destination, envelope.hadBids(), envelope.cancelledAt());
         try {
             messagingTemplate.convertAndSend(destination, envelope);
         } catch (MessagingException e) {
             log.warn("Failed to publish AUCTION_CANCELLED for auction {}: {}",
-                    envelope.auctionId(), e.getMessage(), e);
+                    envelope.auctionPublicId(), e.getMessage(), e);
         }
     }
 }

@@ -108,7 +108,8 @@ class NotificationControllerIntegrationTest {
     @Test
     void list_unreadOnlyTrue_filtersOutReadRows() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
-        txTemplate.executeWithoutResult(status -> repo.markRead(n.id(), aliceId));
+        long notifId = internalId(n.publicId());
+        txTemplate.executeWithoutResult(status -> repo.markRead(notifId, aliceId));
         dao.upsert(aliceId, AUCTION_WON, "t2", "b", java.util.Map.of(), null);
 
         mvc.perform(get("/api/v1/notifications?unreadOnly=true")
@@ -173,7 +174,7 @@ class NotificationControllerIntegrationTest {
     void markRead_returnsNoContent() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
 
-        mvc.perform(put("/api/v1/notifications/" + n.id() + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + aliceJwt))
             .andExpect(status().isNoContent());
     }
@@ -181,11 +182,11 @@ class NotificationControllerIntegrationTest {
     @Test
     void markRead_alreadyRead_returnsNoContent() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
-        mvc.perform(put("/api/v1/notifications/" + n.id() + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + aliceJwt))
             .andExpect(status().isNoContent());
         // Second call — idempotent
-        mvc.perform(put("/api/v1/notifications/" + n.id() + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + aliceJwt))
             .andExpect(status().isNoContent());
     }
@@ -194,7 +195,7 @@ class NotificationControllerIntegrationTest {
     void markRead_crossUser_returns404() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
 
-        mvc.perform(put("/api/v1/notifications/" + n.id() + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + bobJwt))
             .andExpect(status().isNotFound());
     }
@@ -232,6 +233,11 @@ class NotificationControllerIntegrationTest {
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
+
+    /** Resolves the internal Long PK from an UpsertResult's publicId. */
+    private long internalId(UUID publicId) {
+        return repo.findByPublicId(publicId).orElseThrow().getId();
+    }
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(

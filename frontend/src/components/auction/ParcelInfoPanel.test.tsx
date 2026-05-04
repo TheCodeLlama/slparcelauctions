@@ -7,11 +7,10 @@ function publicAuctionFixture(
   overrides: Partial<PublicAuctionResponse> = {},
 ): PublicAuctionResponse {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -217,10 +216,10 @@ describe("ParcelInfoPanel", () => {
     // leak seller fields into the parcel panel.
     renderWithProviders(
       <ParcelInfoPanel
-        auction={publicAuctionFixture({ sellerId: 12345 })}
+        auction={publicAuctionFixture({ sellerPublicId: "00000000-0000-0000-0000-000000003039" })}
       />,
     );
-    expect(screen.queryByText(/12345/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/3039/)).not.toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 

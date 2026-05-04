@@ -7,12 +7,12 @@ function sampleListing(
   overrides: Partial<AuctionSearchResultDto> = {},
 ): AuctionSearchResultDto {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
     title: "Premium Waterfront",
     status: "ACTIVE",
     endOutcome: null,
     parcel: {
-      id: 11,
+      auctionPublicId: "00000000-0000-0000-0000-000000000001",
       name: "Bayside Lot",
       region: "Tula",
       area: 1024,
@@ -27,7 +27,7 @@ function sampleListing(
     },
     primaryPhotoUrl: "/photo.jpg",
     seller: {
-      id: 7,
+      publicId: "00000000-0000-0000-0000-000000000007",
       displayName: "seller",
       avatarUrl: null,
       averageRating: 4.8,
@@ -54,8 +54,8 @@ describe("FeaturedRow", () => {
       status: "fulfilled" as const,
       value: {
         content: [
-          sampleListing({ id: 1, title: "Alpha Parcel" }),
-          sampleListing({ id: 2, title: "Beta Parcel" }),
+          sampleListing({ publicId: "00000000-0000-0000-0000-000000000001", title: "Alpha Parcel" }),
+          sampleListing({ publicId: "00000000-0000-0000-0000-000000000002", title: "Beta Parcel" }),
         ],
       },
     };

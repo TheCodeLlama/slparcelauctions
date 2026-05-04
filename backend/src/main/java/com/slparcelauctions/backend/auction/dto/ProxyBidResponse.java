@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.ProxyBid;
 import com.slparcelauctions.backend.auction.ProxyBidStatus;
@@ -14,8 +15,8 @@ import com.slparcelauctions.backend.auction.ProxyBidStatus;
  * currentBid/endsAt changes the proxy call may have caused.
  */
 public record ProxyBidResponse(
-        Long proxyBidId,
-        Long auctionId,
+        UUID proxyBidPublicId,
+        UUID auctionPublicId,
         Long maxAmount,
         ProxyBidStatus status,
         OffsetDateTime createdAt,
@@ -23,8 +24,8 @@ public record ProxyBidResponse(
 
     public static ProxyBidResponse from(ProxyBid proxy) {
         return new ProxyBidResponse(
-                proxy.getId(),
-                proxy.getAuction().getId(),
+                proxy.getPublicId(),
+                proxy.getAuction().getPublicId(),
                 proxy.getMaxAmount(),
                 proxy.getStatus(),
                 proxy.getCreatedAt(),

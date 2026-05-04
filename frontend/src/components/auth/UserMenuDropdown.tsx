@@ -33,7 +33,7 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
     },
     {
       label: "Profile",
-      onSelect: () => router.push(`/users/${user.id}`),
+      onSelect: () => router.push(`/users/${user.publicId}`),
     },
     ...(user.role === "ADMIN"
       ? [{ label: "Admin", onSelect: () => router.push("/admin") }]

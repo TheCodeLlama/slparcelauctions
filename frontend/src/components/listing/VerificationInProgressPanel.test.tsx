@@ -10,11 +10,10 @@ function makeAuction(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id: 42,
-    sellerId: 1,
+    publicId: "00000000-0000-0000-0000-00000000002a",
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -49,7 +48,7 @@ function makeAuction(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: true,
     snipeWindowMin: 10,

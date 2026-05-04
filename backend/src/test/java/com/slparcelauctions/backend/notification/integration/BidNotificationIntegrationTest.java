@@ -152,8 +152,7 @@ class BidNotificationIntegrationTest {
         // Bob outbids — Alice should receive OUTBID.
         bidService.placeBid(auctionId, bobId, 1100L, null);
 
-        List<Notification> aliceNotifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(aliceId))
+        List<Notification> aliceNotifs = notifRepo.findAllByUserId(aliceId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.OUTBID)
                 .toList();
         assertThat(aliceNotifs).hasSize(1);
@@ -163,8 +162,7 @@ class BidNotificationIntegrationTest {
         assertThat(n.getData()).containsEntry("isProxyOutbid", false);
 
         // Bob should NOT have an OUTBID notification (he is the new high bidder).
-        assertThat(notifRepo.findAll().stream()
-                .filter(nn -> nn.getUser().getId().equals(bobId))
+        assertThat(notifRepo.findAllByUserId(bobId).stream()
                 .filter(nn -> nn.getCategory() == NotificationCategory.OUTBID)
                 .toList()).isEmpty();
     }
@@ -189,8 +187,7 @@ class BidNotificationIntegrationTest {
         bidService.placeBid(auctionId, bobId, 1700L, null);
 
         // Each displacement creates/upserts the coalesced row, so Alice should have exactly 1.
-        long aliceOutbidCount = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(aliceId))
+        long aliceOutbidCount = notifRepo.findAllByUserId(aliceId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.OUTBID)
                 .count();
         assertThat(aliceOutbidCount).isEqualTo(1L);

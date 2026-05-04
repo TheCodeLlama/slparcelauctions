@@ -21,6 +21,7 @@ spring:
         enabled: true
   flyway:
     baseline-on-migrate: true
+    baseline-version: 0  # baseline at 0 so V1 runs on a fresh schema
 
 cors:
   allowed-origin: ${CORS_ALLOWED_ORIGIN}

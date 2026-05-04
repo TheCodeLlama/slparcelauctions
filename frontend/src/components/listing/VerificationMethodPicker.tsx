@@ -40,7 +40,7 @@ const METHODS: readonly MethodCard[] = [
 ];
 
 export interface VerificationMethodPickerProps {
-  auctionId: number | string;
+  auctionPublicId: number | string;
   /**
    * Reason shown in the retry banner when the previous verify attempt
    * failed. Null/undefined hides the banner.
@@ -65,7 +65,7 @@ export interface VerificationMethodPickerProps {
  * method and while the UI waits a beat for the status to flip.
  */
 export function VerificationMethodPicker({
-  auctionId,
+  auctionPublicId,
   lastFailureNotes,
 }: VerificationMethodPickerProps) {
   const qc = useQueryClient();
@@ -77,10 +77,10 @@ export function VerificationMethodPicker({
     unknown,
     VerificationMethod
   >({
-    mutationFn: (method) => triggerVerify(auctionId, { method }),
+    mutationFn: (method) => triggerVerify(auctionPublicId, { method }),
     onMutate: () => setError(null),
     onSuccess: (auction) => {
-      qc.setQueryData(activateAuctionKey(auctionId), auction);
+      qc.setQueryData(activateAuctionKey(auctionPublicId), auction);
     },
     onError: (e) => {
       if (isApiError(e) && e.status === 422) {

@@ -18,8 +18,8 @@ export function HeroFeaturedStack({ featured }: { featured: AuctionSearchResultD
     <div className="relative hidden h-[420px] lg:block">
       {cards.map((listing, i) => (
         <Link
-          key={listing.id}
-          href={`/auction/${listing.id}`}
+          key={listing.publicId}
+          href={`/auction/${listing.publicId}`}
           className={cn(
             "absolute block overflow-hidden rounded-lg border border-border bg-surface-raised shadow-md transition-transform",
             "hover:shadow-lg",

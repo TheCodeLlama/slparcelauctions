@@ -9,7 +9,7 @@ function makeSeller(
   overrides: Partial<SellerProfileCardSeller> = {},
 ): SellerProfileCardSeller {
   return {
-    id: 42,
+    publicId: "00000000-0000-0000-0000-00000000002a",
     displayName: "Carol Seller",
     avatarUrl: null,
     averageRating: 4.6,
@@ -121,13 +121,13 @@ describe("SellerProfileCard", () => {
     ).toBeNull();
   });
 
-  it("links the whole card to /users/{id}", () => {
+  it("links the whole card to /users/{publicId}", () => {
     renderWithProviders(
-      <SellerProfileCard seller={makeSeller({ id: 77 })} />,
+      <SellerProfileCard seller={makeSeller({ publicId: "00000000-0000-0000-0000-00000000004d" })} />,
     );
     expect(screen.getByTestId("seller-profile-card")).toHaveAttribute(
       "href",
-      "/users/77",
+      "/users/00000000-0000-0000-0000-00000000004d",
     );
   });
 

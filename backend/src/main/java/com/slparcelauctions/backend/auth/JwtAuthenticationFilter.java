@@ -2,6 +2,8 @@ package com.slparcelauctions.backend.auth;
 
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,8 +20,9 @@ import java.util.List;
 
 /**
  * Best-effort JWT authentication filter. Extracts a Bearer token from the {@code Authorization}
- * header, parses it via {@link JwtService}, and on success sets an {@link AuthPrincipal} into the
- * Spring {@code SecurityContext}. On any validation failure, clears the context and lets the
+ * header, parses it via {@link JwtService}, resolves the matching {@link User} from the database,
+ * and on success sets a fully-resolved {@link AuthPrincipal} (with non-null {@code userId}) into
+ * the Spring {@code SecurityContext}. On any validation failure, clears the context and lets the
  * request continue — {@code ExceptionTranslationFilter} downstream produces the 401 for
  * protected endpoints via {@link JwtAuthenticationEntryPoint}.
  *
@@ -27,11 +30,12 @@ import java.util.List;
  * <ul>
  *   <li>The filter NEVER throws.</li>
  *   <li>The filter NEVER writes to the response.</li>
- *   <li>No database hit — the principal is built entirely from JWT claims.</li>
+ *   <li>The principal set into the SecurityContext always has a non-null {@code userId}.</li>
  * </ul>
  *
- * <p>User freshness checks happen at write-path service boundaries via the {@code tv} claim,
- * not here. See spec §6.
+ * <p>The DB lookup is a single primary-key-equivalent read on {@code publicId} (indexed unique).
+ * Token-version freshness checks happen at write-path service boundaries; the filter does not
+ * enforce token version — it only ensures the subject UUID maps to a known user. See spec §6.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,6 +43,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -48,7 +53,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
             try {
-                AuthPrincipal principal = jwtService.parseAccessToken(token);
+                AuthPrincipal parsed = jwtService.parseAccessToken(token);
+
+                User user = userRepository.findByPublicId(parsed.userPublicId())
+                    .orElseThrow(() -> new TokenInvalidException("User not found for token subject."));
+
+                AuthPrincipal principal = new AuthPrincipal(
+                    user.getId(),
+                    user.getPublicId(),
+                    parsed.email(),
+                    parsed.tokenVersion(),
+                    parsed.role());
+
                 UsernamePasswordAuthenticationToken auth =
                     new UsernamePasswordAuthenticationToken(
                         principal,

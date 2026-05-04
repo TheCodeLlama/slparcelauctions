@@ -22,7 +22,7 @@ function makeWrapper(unreadCount = 0): {
   });
   const user = { ...mockVerifiedCurrentUser, unreadNotificationCount: unreadCount };
   client.setQueryData(SESSION_QUERY_KEY, {
-    id: user.id, email: user.email, displayName: user.displayName,
+    publicId: user.publicId, email: user.email, displayName: user.displayName,
     slAvatarUuid: user.slAvatarUuid, verified: user.verified,
   });
   client.setQueryData(CURRENT_USER_KEY, user);

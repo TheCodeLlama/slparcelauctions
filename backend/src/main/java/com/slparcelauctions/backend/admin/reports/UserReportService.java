@@ -66,7 +66,7 @@ public class UserReportService {
     }
 
     private MyReportResponse toMyReport(ListingReport r) {
-        return new MyReportResponse(r.getId(), r.getSubject(), r.getReason(), r.getDetails(),
+        return new MyReportResponse(r.getPublicId(), r.getSubject(), r.getReason(), r.getDetails(),
             r.getStatus(), r.getCreatedAt(), r.getUpdatedAt());
     }
 }

@@ -51,6 +51,6 @@ class WalletBroadcastIntegrationTest {
         assertThat(captured.get()).isNotNull();
         assertThat(captured.get().balance()).isEqualTo(500L);
         assertThat(captured.get().reason()).isEqualTo("DEPOSIT");
-        assertThat(captured.get().ledgerEntryId()).isNotNull();
+        assertThat(captured.get().ledgerEntryPublicId()).isNotNull();
     }
 }

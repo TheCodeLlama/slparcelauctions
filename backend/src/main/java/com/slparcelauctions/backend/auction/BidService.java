@@ -200,7 +200,6 @@ public class BidService {
             if (amount > competingProxy.getMaxAmount()) {
                 // Caller strictly exceeds competitor's cap: exhaust + win.
                 competingProxy.setStatus(ProxyBidStatus.EXHAUSTED);
-                competingProxy.setUpdatedAt(OffsetDateTime.now(clock));
                 proxyBidRepo.save(competingProxy);
                 emitted.add(insertManual(auction, bidder, amount, ipAddress));
             } else {

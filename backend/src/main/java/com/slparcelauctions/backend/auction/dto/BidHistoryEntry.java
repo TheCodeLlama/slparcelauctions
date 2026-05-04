@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.Bid;
 import com.slparcelauctions.backend.auction.BidType;
@@ -16,8 +17,8 @@ import com.slparcelauctions.backend.auction.BidType;
  * from {@code PROXY_AUTO} climbs, matching eBay's visible-proxy convention.
  */
 public record BidHistoryEntry(
-        Long bidId,
-        Long userId,
+        UUID bidPublicId,
+        UUID userPublicId,
         String bidderDisplayName,
         Long amount,
         BidType bidType,
@@ -27,8 +28,8 @@ public record BidHistoryEntry(
 
     public static BidHistoryEntry from(Bid bid) {
         return new BidHistoryEntry(
-                bid.getId(),
-                bid.getBidder().getId(),
+                bid.getPublicId(),
+                bid.getBidder().getPublicId(),
                 bid.getBidder().getDisplayName(),
                 bid.getAmount(),
                 bid.getBidType(),

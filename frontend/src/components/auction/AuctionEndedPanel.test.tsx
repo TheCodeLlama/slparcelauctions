@@ -17,7 +17,7 @@ vi.mock("@/lib/ws/client", () => ({
 type EndedExtensions = {
   endOutcome?: AuctionEndOutcome;
   finalBidAmount?: number | null;
-  winnerUserId?: number | null;
+  winnerPublicId?: string | null;
   winnerDisplayName?: string | null;
 };
 
@@ -25,11 +25,10 @@ function endedAuction(
   overrides: Partial<PublicAuctionResponse> & EndedExtensions = {},
 ): PublicAuctionResponse & EndedExtensions {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -82,7 +81,7 @@ describe("AuctionEndedPanel", () => {
     server.use(
       http.get("*/api/v1/users/:id", ({ params }) =>
         HttpResponse.json({
-          id: Number(params.id),
+          publicId: params.id as string,
           displayName: "Winner Name",
           bio: null,
           profilePicUrl: null,
@@ -106,7 +105,7 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
     });
     renderWithProviders(
@@ -118,7 +117,7 @@ describe("AuctionEndedPanel", () => {
       "Sold for L$2,500",
     );
     const winner = screen.getByTestId("auction-ended-winner");
-    expect(winner).toHaveAttribute("href", "/users/42");
+    expect(winner).toHaveAttribute("href", "/users/00000000-0000-0000-0000-00000000002a");
     expect(winner).toHaveTextContent("Alice");
   });
 
@@ -126,7 +125,7 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "BOUGHT_NOW",
       finalBidAmount: 50_000,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
     });
     renderWithProviders(
@@ -141,7 +140,7 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "RESERVE_NOT_MET",
       finalBidAmount: null,
-      winnerUserId: null,
+      winnerPublicId: null,
       winnerDisplayName: null,
       currentHighBid: 1800,
     });
@@ -161,7 +160,7 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "NO_BIDS",
       finalBidAmount: null,
-      winnerUserId: null,
+      winnerPublicId: null,
       startingBid: 750,
       bidCount: 0,
       currentHighBid: null,
@@ -179,11 +178,11 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 42 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-00000000002a" }} />,
     );
     expect(
       screen.getByTestId("auction-ended-winner-overlay"),
@@ -194,11 +193,11 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-000000000064" }} />,
     );
     expect(
       screen.getByTestId("auction-ended-seller-overlay"),
@@ -211,45 +210,45 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
       escrowState: "ESCROW_PENDING",
       transferConfirmedAt: null,
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-000000000064" }} />,
     );
     const banner = screen.getByTestId("auction-ended-escrow-banner");
     expect(banner).toHaveTextContent(/escrow pending/i);
     const link = screen.getByRole("link", { name: /view escrow/i });
-    expect(link).toHaveAttribute("href", "/auction/7/escrow");
+    expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-000000000007/escrow");
   });
 
   it("renders escrow banner for winner overlay with action CTA", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
       escrowState: "ESCROW_PENDING",
       transferConfirmedAt: null,
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 42 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-00000000002a" }} />,
     );
     const banner = screen.getByTestId("auction-ended-escrow-banner");
     expect(banner).toHaveAttribute("data-tone", "action");
     expect(banner).toHaveTextContent(/pay escrow/i);
     expect(
       screen.getByRole("link", { name: /view escrow/i }),
-    ).toHaveAttribute("href", "/auction/7/escrow");
+    ).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-000000000007/escrow");
   });
 
   it("does not render escrow banner for public viewer", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
       escrowState: "ESCROW_PENDING",
     });
@@ -268,13 +267,13 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "NO_BIDS",
       finalBidAmount: null,
-      winnerUserId: null,
+      winnerPublicId: null,
       bidCount: 0,
       currentHighBid: null,
       escrowState: null,
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-000000000064" }} />,
     );
     expect(
       screen.queryByTestId("auction-ended-escrow-banner"),
@@ -288,13 +287,13 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
       // escrowState intentionally omitted — banner should be suppressed
       // until the backend enrichment stamps it on the DTO.
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 100 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-000000000064" }} />,
     );
     expect(
       screen.queryByTestId("auction-ended-escrow-banner"),
@@ -305,11 +304,11 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: "Alice",
     });
     renderWithProviders(
-      <AuctionEndedPanel auction={auction} currentUser={{ id: 99 }} />,
+      <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-000000000063" }} />,
     );
     expect(
       screen.queryByTestId("auction-ended-winner-overlay"),
@@ -323,13 +322,13 @@ describe("AuctionEndedPanel", () => {
     const auction = endedAuction({
       endOutcome: "SOLD",
       finalBidAmount: 2500,
-      winnerUserId: 42,
+      winnerPublicId: "00000000-0000-0000-0000-00000000002a",
       winnerDisplayName: null,
     });
     renderWithProviders(
       <AuctionEndedPanel auction={auction} currentUser={null} />,
     );
-    // Initially falls back to "User 42", then resolves to "Winner Name".
+    // Initially falls back to "Winner", then resolves to "Winner Name".
     await waitFor(() =>
       expect(
         screen.getByTestId("auction-ended-winner"),

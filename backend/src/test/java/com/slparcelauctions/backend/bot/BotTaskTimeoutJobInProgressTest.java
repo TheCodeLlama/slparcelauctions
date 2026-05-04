@@ -203,14 +203,14 @@ class BotTaskTimeoutJobInProgressTest {
     }
 
     /**
-     * {@code @UpdateTimestamp} rewrites {@code last_updated_at} on every
+     * {@code @UpdateTimestamp} rewrites {@code updated_at} on every
      * save, so we backdate it via raw JDBC to simulate a stalled row.
      */
     private void backdateLastUpdated(Long id, OffsetDateTime when) throws Exception {
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
             try (var ps = conn.prepareStatement(
-                    "UPDATE bot_tasks SET last_updated_at = ? WHERE id = ?")) {
+                    "UPDATE bot_tasks SET updated_at = ? WHERE id = ?")) {
                 ps.setTimestamp(1, Timestamp.from(when.toInstant()));
                 ps.setLong(2, id);
                 ps.executeUpdate();

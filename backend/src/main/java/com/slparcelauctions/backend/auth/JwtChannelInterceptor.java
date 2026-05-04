@@ -2,6 +2,8 @@ package com.slparcelauctions.backend.auth;
 
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import java.util.regex.Pattern;
 
 import lombok.RequiredArgsConstructor;
@@ -60,8 +62,9 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
     /**
      * Exact-shape allowlist for destinations a non-authenticated session may
-     * SUBSCRIBE to. Matches {@code /topic/auction/{id}} where {@code id} is a
-     * positive integer (the auction primary key).
+     * SUBSCRIBE to. Matches {@code /topic/auction/{publicId}} where
+     * {@code publicId} is a lowercase UUID
+     * ({@code xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}).
      *
      * <p>Using a strict regex rather than a {@code startsWith} prefix check
      * guards against path-traversal-style escapes if the broker is ever
@@ -69,13 +72,16 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
      * as opaque strings) to a relay like RabbitMQ that normalizes paths. A
      * crafted destination such as {@code /topic/auction/../ws-test} would pass
      * a prefix check but could route to {@code /topic/ws-test} on a
-     * normalizing broker. The regex forces {@code id} to be digits only, so
-     * any traversal or extension segment fails the match.
+     * normalizing broker. The UUID format forces a 36-character hyphenated hex
+     * string, so any traversal attempt, extension segment, or non-UUID value
+     * fails the match.
      */
     private static final Pattern PUBLIC_AUCTION_DESTINATION =
-        Pattern.compile("^/topic/auction/\\d+$");
+        Pattern.compile(
+            "^/topic/auction/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -129,7 +135,18 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
 
         String token = authHeader.substring(7);
         try {
-            AuthPrincipal principal = jwtService.parseAccessToken(token);
+            AuthPrincipal parsed = jwtService.parseAccessToken(token);
+
+            User user = userRepository.findByPublicId(parsed.userPublicId())
+                .orElseThrow(() -> new TokenInvalidException("User not found for token subject."));
+
+            AuthPrincipal principal = new AuthPrincipal(
+                user.getId(),
+                user.getPublicId(),
+                parsed.email(),
+                parsed.tokenVersion(),
+                parsed.role());
+
             accessor.setUser(new StompAuthenticationToken(principal));
             log.debug("STOMP CONNECT authenticated: userId={}", principal.userId());
         } catch (TokenExpiredException | TokenInvalidException e) {

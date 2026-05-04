@@ -44,7 +44,7 @@ export function VerificationInProgressPanel({
     case "REZZABLE":
       return auction.pendingVerification ? (
         <VerificationMethodRezzable
-          auctionId={auction.id}
+          auctionPublicId={auction.publicId}
           pending={auction.pendingVerification}
         />
       ) : (

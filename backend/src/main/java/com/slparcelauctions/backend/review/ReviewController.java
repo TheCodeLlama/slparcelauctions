@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.review;
 
+import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.review.dto.AuctionReviewsResponse;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
@@ -28,6 +32,9 @@ import lombok.RequiredArgsConstructor;
  * reviews, but authenticates a principal when one is present so the
  * response can enrich with the caller's own pending submission +
  * {@code canReview} flag.
+ *
+ * <p>{@code auctionPublicId} is a UUID — internal Long PKs are not exposed
+ * on the web/mobile API surface.
  */
 @RestController
 @RequestMapping("/api/v1/auctions")
@@ -36,6 +43,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
     private final UserRepository userRepository;
+    private final AuctionRepository auctionRepository;
 
     /**
      * Submit a review for an auction. Authenticated; the caller's User
@@ -44,13 +52,14 @@ public class ReviewController {
      * without another round-trip. Eligibility and duplicate-checks live
      * in the service so the controller stays thin.
      */
-    @PostMapping("/{auctionId}/reviews")
+    @PostMapping("/{auctionPublicId}/reviews")
     public ResponseEntity<ReviewDto> submit(
-            @PathVariable Long auctionId,
+            @PathVariable UUID auctionPublicId,
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody ReviewSubmitRequest request) {
         User caller = userRepository.findById(principal.userId())
                 .orElseThrow(() -> new UserNotFoundException(principal.userId()));
+        Long auctionId = resolveAuctionId(auctionPublicId);
         ReviewDto dto = reviewService.submit(auctionId, caller, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
@@ -64,13 +73,20 @@ public class ReviewController {
      * Non-party authenticated callers see the same anon-shape response
      * (no pending / no canReview).
      */
-    @GetMapping("/{auctionId}/reviews")
+    @GetMapping("/{auctionPublicId}/reviews")
     public AuctionReviewsResponse list(
-            @PathVariable Long auctionId,
+            @PathVariable UUID auctionPublicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
         User caller = principal == null
                 ? null
                 : userRepository.findById(principal.userId()).orElse(null);
+        Long auctionId = resolveAuctionId(auctionPublicId);
         return reviewService.listForAuction(auctionId, caller);
+    }
+
+    private Long resolveAuctionId(UUID auctionPublicId) {
+        return auctionRepository.findByPublicId(auctionPublicId)
+                .map(com.slparcelauctions.backend.auction.Auction::getId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionPublicId));
     }
 }

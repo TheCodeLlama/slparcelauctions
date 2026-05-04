@@ -31,6 +31,7 @@ import com.slparcelauctions.backend.auction.exception.AuctionExceptionHandler;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.test.WithMockAuthPrincipal;
 import com.slparcelauctions.backend.common.exception.GlobalExceptionHandler;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link CancellationStatusController}. Filters off (the
@@ -54,6 +55,7 @@ class CancellationStatusControllerTest {
 
     @MockitoBean private CancellationStatusService service;
     @MockitoBean private JwtService jwtService;
+    @MockitoBean private UserRepository userRepository;
 
     @Test
     @WithMockAuthPrincipal(userId = 42L)
@@ -156,8 +158,9 @@ class CancellationStatusControllerTest {
     @WithMockAuthPrincipal(userId = 42L)
     void history_returnsPagedResponse_shape() throws Exception {
         OffsetDateTime cancelledAt = OffsetDateTime.parse("2026-04-20T10:15:00Z");
+        java.util.UUID auctionPublicId = java.util.UUID.fromString("00000000-0000-0000-0000-0000000004d2");
         CancellationHistoryDto row = new CancellationHistoryDto(
-                1234L, "Aurora Parcel", "https://snap.example/1.png",
+                auctionPublicId, "Aurora Parcel", "https://snap.example/1.png",
                 "ACTIVE", true, "Personal reasons.", cancelledAt,
                 new CancellationHistoryDto.PenaltyApplied(
                         CancellationOffenseKind.PENALTY, 1000L));
@@ -168,7 +171,7 @@ class CancellationStatusControllerTest {
         mockMvc.perform(get("/api/v1/users/me/cancellation-history"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content[0].auctionId").value(1234))
+                .andExpect(jsonPath("$.content[0].auctionPublicId").value(auctionPublicId.toString()))
                 .andExpect(jsonPath("$.content[0].auctionTitle").value("Aurora Parcel"))
                 .andExpect(jsonPath("$.content[0].cancelledFromStatus").value("ACTIVE"))
                 .andExpect(jsonPath("$.content[0].hadBids").value(true))
@@ -187,7 +190,7 @@ class CancellationStatusControllerTest {
         // — backend returns null in penaltyApplied so the frontend renders
         // a neutral badge.
         CancellationHistoryDto row = new CancellationHistoryDto(
-                999L, "Cool Parcel", null,
+                java.util.UUID.randomUUID(), "Cool Parcel", null,
                 "DRAFT", false, "Changed my mind", OffsetDateTime.now(),
                 null);
         Page<CancellationHistoryDto> page = new PageImpl<>(

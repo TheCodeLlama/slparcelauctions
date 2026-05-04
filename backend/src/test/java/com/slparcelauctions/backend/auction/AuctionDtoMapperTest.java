@@ -27,7 +27,9 @@ class AuctionDtoMapperTest {
 
     private final AuctionPhotoRepository photoRepo = mock(AuctionPhotoRepository.class);
     private final EscrowRepository escrowRepo = mock(EscrowRepository.class);
-    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo);
+    private final com.slparcelauctions.backend.user.UserRepository userRepo =
+            mock(com.slparcelauctions.backend.user.UserRepository.class);
+    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo);
 
     {
         when(photoRepo.findByAuctionIdOrderBySortOrderAsc(any())).thenReturn(List.of());

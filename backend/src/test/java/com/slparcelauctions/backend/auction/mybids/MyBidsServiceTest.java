@@ -241,11 +241,9 @@ class MyBidsServiceTest {
     }
 
     private static Auction baseAuction(Long id) {
-        User seller = new User();
-        seller.setId(OTHER_USER);
-        seller.setDisplayName("Seller");
+        User seller = User.builder().id(OTHER_USER).displayName("Seller").build();
         Auction a = new Auction();
-        a.setId(id);
+        setEntityId(a, id);
         a.setSlParcelUuid(UUID.fromString(
                 String.format("44444444-4444-4444-4444-%012d", id)));
         a.setSeller(seller);
@@ -301,5 +299,14 @@ class MyBidsServiceTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static ArgumentCaptor<Collection<AuctionStatus>> statusesCaptor() {
         return (ArgumentCaptor) ArgumentCaptor.forClass(Collection.class);
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

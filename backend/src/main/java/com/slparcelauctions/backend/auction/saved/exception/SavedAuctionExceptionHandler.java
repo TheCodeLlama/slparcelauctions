@@ -29,7 +29,9 @@ public class SavedAuctionExceptionHandler {
         pd.setTitle("Cannot Save Pre-Active Auction");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "CANNOT_SAVE_PRE_ACTIVE");
-        pd.setProperty("auctionId", e.getAuctionId());
+        if (e.getAuctionPublicId() != null) {
+            pd.setProperty("auctionPublicId", e.getAuctionPublicId().toString());
+        }
         pd.setProperty("currentStatus", e.getCurrentStatus());
         return pd;
     }

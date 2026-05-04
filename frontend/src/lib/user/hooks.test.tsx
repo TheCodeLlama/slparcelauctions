@@ -24,7 +24,7 @@ describe("user hooks", () => {
         wrapper: makeWrapper({ auth: "authenticated" }),
       });
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
-      expect(result.current.data?.id).toBe(mockVerifiedCurrentUser.id);
+      expect(result.current.data?.publicId).toBe(mockVerifiedCurrentUser.publicId);
       expect(result.current.data?.updatedAt).toBe(mockVerifiedCurrentUser.updatedAt);
     });
 

@@ -27,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.util.UUID;
+
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
@@ -106,7 +108,7 @@ public class MeWalletController {
     private static WalletViewResponse.LedgerEntryDto toDto(LedgerRow row) {
         var e = row.entry();
         return new WalletViewResponse.LedgerEntryDto(
-                e.getId(),
+                e.getPublicId(),
                 e.getEntryType().name(),
                 e.getAmount(),
                 e.getBalanceAfter(),
@@ -176,25 +178,25 @@ public class MeWalletController {
             @Valid @RequestBody WithdrawApiRequest req) {
         WalletService.WithdrawQueuedResult result =
                 walletService.withdrawSiteInitiated(principal.userId(), req.amount(), req.idempotencyKey());
-        Long queueId;
+        java.util.UUID queuePublicId;
         long newBalance;
         long newAvailable;
         String status;
         if (result instanceof WalletService.WithdrawQueuedResult.Ok ok) {
-            queueId = ok.entry().getId();
+            queuePublicId = ok.entry().getPublicId();
             newBalance = ok.user().getBalanceLindens();
             newAvailable = ok.user().availableLindens();
             status = "QUEUED";
         } else {
             // Replay
-            queueId = result.entry().getId();
+            queuePublicId = result.entry().getPublicId();
             User user = userRepository.findById(principal.userId()).orElseThrow();
             newBalance = user.getBalanceLindens();
             newAvailable = user.availableLindens();
             status = "QUEUED_REPLAY";
         }
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(new WithdrawApiResponse(queueId, newBalance, newAvailable, status));
+                .body(new WithdrawApiResponse(queuePublicId, newBalance, newAvailable, status));
     }
 
     /* ============================================================ */
@@ -238,17 +240,17 @@ public class MeWalletController {
     /* POST /me/auctions/{id}/pay-listing-fee                        */
     /* ============================================================ */
 
-    @PostMapping("/auctions/{id}/pay-listing-fee")
+    @PostMapping("/auctions/{publicId}/pay-listing-fee")
     @Transactional
     public PayListingFeeResponse payListingFee(
             @AuthenticationPrincipal AuthPrincipal principal,
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @Valid @RequestBody PayListingFeeRequest req) {
 
-        Auction auction = auctionRepository.findById(id)
-                .orElseThrow(() -> new AuctionNotFoundException(id));
+        Auction auction = auctionRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new AuctionNotFoundException(publicId));
         if (!auction.getSeller().getId().equals(principal.userId())) {
-            throw new AuctionNotFoundException(id);  // hide existence to non-owners
+            throw new AuctionNotFoundException(publicId);  // hide existence to non-owners
         }
         if (auction.getStatus() != AuctionStatus.DRAFT) {
             throw new InvalidAuctionStateException(auction.getId(), auction.getStatus(), "PAY_LISTING_FEE");

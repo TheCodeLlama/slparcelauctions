@@ -58,7 +58,7 @@ function handleNotificationsEnvelope(
       { queryKey: [...notificationKeys.all, "list"] },
       (data) => {
         if (!data) return data;
-        const existingIdx = data.content.findIndex((x) => x.id === n.id);
+        const existingIdx = data.content.findIndex((x) => x.publicId === n.publicId);
         if (existingIdx >= 0) {
           const updated = [...data.content];
           updated[existingIdx] = n;
@@ -82,7 +82,7 @@ function handleNotificationsEnvelope(
       qc.invalidateQueries({ queryKey: notificationKeys.unreadCountBreakdown() });
     }
 
-    toast.upsert(`notif-${n.id}`, config.toastVariant, {
+    toast.upsert(`notif-${n.publicId}`, config.toastVariant, {
       title: n.title,
       description: n.body,
       action: config.action

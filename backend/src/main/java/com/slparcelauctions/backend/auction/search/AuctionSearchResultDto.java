@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction.search;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionStatus;
@@ -32,7 +33,7 @@ import com.slparcelauctions.backend.auction.VerificationTier;
  * to 1 decimal place.
  */
 public record AuctionSearchResultDto(
-        Long id,
+        UUID publicId,
         String title,
         AuctionStatus status,
         AuctionEndOutcome endOutcome,

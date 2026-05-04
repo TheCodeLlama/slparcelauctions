@@ -3,21 +3,21 @@ import Link from "next/link";
 import { ChevronLeft } from "@/components/ui/icons";
 
 export interface EscrowPageLayoutProps {
-  auctionId: number;
+  auctionPublicId: string;
   children: ReactNode;
 }
 
 /**
- * Page container for /auction/[id]/escrow. Holds a "Back to auction" crumb
- * and a constrained content column — the per-state cards and header live
- * inside the {@code space-y-6} stack. Kept role-agnostic so seller and
+ * Page container for /auction/[publicId]/escrow. Holds a "Back to auction"
+ * crumb and a constrained content column — the per-state cards and header
+ * live inside the {@code space-y-6} stack. Kept role-agnostic so seller and
  * winner views share the same frame.
  */
-export function EscrowPageLayout({ auctionId, children }: EscrowPageLayoutProps) {
+export function EscrowPageLayout({ auctionPublicId, children }: EscrowPageLayoutProps) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <Link
-        href={`/auction/${auctionId}`}
+        href={`/auction/${auctionPublicId}`}
         className="inline-flex items-center gap-1 text-xs font-medium text-fg-muted hover:text-fg"
       >
         <ChevronLeft className="size-4" aria-hidden="true" />

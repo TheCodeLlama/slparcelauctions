@@ -1,12 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { EscrowDeadlineBadge } from "@/components/escrow/EscrowDeadlineBadge";
 import type { StateCardProps } from "./types";
-
-const COPIED_DURATION_MS = 2_000;
 
 /**
  * TRANSFER_PENDING (and FUNDED) state card. Splits on `transferConfirmedAt`
@@ -58,18 +55,6 @@ function SellerPreConfirmation({
 }: {
   escrow: StateCardProps["escrow"];
 }) {
-  const [copied, setCopied] = useState(false);
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(escrow.counterparty.slAvatarName);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), COPIED_DURATION_MS);
-    } catch {
-      // Clipboard API can fail in locked-down browsers; silently degrade.
-    }
-  }
-
   return (
     <section
       data-testid="escrow-state-card"
@@ -82,27 +67,18 @@ function SellerPreConfirmation({
         Seller
       </span>
       <h2 className="text-sm font-semibold tracking-tight text-fg">
-        Transfer the parcel to {escrow.counterparty.displayName}
+        Transfer the parcel to the winner
       </h2>
       <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm text-fg-muted">
         <li>Right-click the parcel in-world and open About Land.</li>
         <li>Click Sell Land.</li>
         <li>
-          Set &quot;Sell to:&quot; to{" "}
-          <span className="font-medium text-fg">
-            {escrow.counterparty.slAvatarName}
-          </span>
-          .
+          Set &quot;Sell to:&quot; to the winner&apos;s avatar name.
         </li>
         <li>Set the price to L$ 0 (SLPA has already escrowed payment).</li>
         <li>Confirm the sale in the SL viewer dialog.</li>
       </ol>
 
-      <div className="flex items-center gap-3">
-        <Button variant="secondary" size="sm" onClick={handleCopy}>
-          {copied ? "Copied!" : "Copy winner name"}
-        </Button>
-      </div>
 
       {escrow.transferDeadline ? (
         <div className="flex items-center gap-2 text-sm">
@@ -112,7 +88,7 @@ function SellerPreConfirmation({
       ) : null}
 
       <Link
-        href={`/auction/${escrow.auctionId}/escrow/dispute`}
+        href={`/auction/${escrow.auctionPublicId}/escrow/dispute`}
         className="text-sm font-medium text-brand hover:underline"
       >
         File a dispute
@@ -168,7 +144,7 @@ function WinnerPreConfirmation({
       <div>
         {/* Inert placeholder — direct messaging is outside sub-spec 2 scope. */}
         <Button variant="secondary" size="md" disabled>
-          Message {escrow.counterparty.displayName}
+          Message seller
         </Button>
       </div>
 
@@ -180,7 +156,7 @@ function WinnerPreConfirmation({
       ) : null}
 
       <Link
-        href={`/auction/${escrow.auctionId}/escrow/dispute`}
+        href={`/auction/${escrow.auctionPublicId}/escrow/dispute`}
         className="text-sm font-medium text-brand hover:underline"
       >
         File a dispute

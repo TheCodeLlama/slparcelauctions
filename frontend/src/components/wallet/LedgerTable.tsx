@@ -175,7 +175,7 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
         const { Icon, tone } = entryVisual(e);
         return (
           <li
-            key={e.id}
+            key={e.publicId}
             className={cn(
               "flex justify-between items-start gap-3 px-2 py-2 rounded-md",
               "border-b border-border-subtle last:border-b-0",

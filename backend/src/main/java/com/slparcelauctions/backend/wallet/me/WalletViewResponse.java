@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.wallet.me;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.wallet.WithdrawalStatus;
 
@@ -22,7 +23,7 @@ public record WalletViewResponse(
 ) {
 
     public record LedgerEntryDto(
-            Long id,
+            UUID publicId,
             String entryType,
             long amount,
             long balanceAfter,

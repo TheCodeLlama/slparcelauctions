@@ -53,12 +53,12 @@ export const reviewsKeys = {
  * hydrated.
  */
 export function useAuctionReviews(
-  auctionId: number,
+  auctionPublicId: string,
 ): UseQueryResult<AuctionReviewsResponse> {
   return useQuery<AuctionReviewsResponse>({
-    queryKey: reviewsKeys.auction(auctionId),
-    queryFn: () => getAuctionReviews(auctionId),
-    enabled: Number.isFinite(auctionId) && auctionId > 0,
+    queryKey: reviewsKeys.auction(auctionPublicId),
+    queryFn: () => getAuctionReviews(auctionPublicId),
+    enabled: auctionPublicId.length > 0,
   });
 }
 
@@ -67,14 +67,14 @@ export function useAuctionReviews(
  * the caller (URL-synced in Task 6) so tab switches reset the page cleanly.
  */
 export function useUserReviews(
-  userId: number,
+  userPublicId: string,
   role: ReviewedRole,
   page: number,
 ): UseQueryResult<Page<ReviewDto>> {
   return useQuery<Page<ReviewDto>>({
-    queryKey: reviewsKeys.user(userId, role, page),
-    queryFn: () => getUserReviews(userId, role, { page }),
-    enabled: Number.isFinite(userId) && userId > 0,
+    queryKey: reviewsKeys.user(userPublicId, role, page),
+    queryFn: () => getUserReviews(userPublicId, role, { page }),
+    enabled: userPublicId.length > 0,
   });
 }
 
@@ -97,14 +97,14 @@ export function usePendingReviews(): UseQueryResult<PendingReviewDto[]> {
  * without duplicating copy.
  */
 export function useSubmitReview(
-  auctionId: number,
+  auctionPublicId: string,
 ): UseMutationResult<ReviewDto, unknown, ReviewSubmitRequest> {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation<ReviewDto, unknown, ReviewSubmitRequest>({
-    mutationFn: (body) => submitReview(auctionId, body),
+    mutationFn: (body) => submitReview(auctionPublicId, body),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: reviewsKeys.auction(auctionId) });
+      qc.invalidateQueries({ queryKey: reviewsKeys.auction(auctionPublicId) });
       qc.invalidateQueries({ queryKey: reviewsKeys.pending });
       toast.success({
         title: "Review submitted",
@@ -130,12 +130,12 @@ export function useSubmitReview(
  * the reviewee's profile, or both.
  */
 export function useRespondToReview(
-  reviewId: number,
+  reviewPublicId: string,
 ): UseMutationResult<ReviewResponseDto, unknown, ReviewResponseSubmitRequest> {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation<ReviewResponseDto, unknown, ReviewResponseSubmitRequest>({
-    mutationFn: (body) => respondToReview(reviewId, body),
+    mutationFn: (body) => respondToReview(reviewPublicId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: reviewsKeys.all });
       toast.success({ title: "Response posted" });
@@ -159,11 +159,11 @@ export function useRespondToReview(
  * error.
  */
 export function useFlagReview(
-  reviewId: number,
+  reviewPublicId: string,
 ): UseMutationResult<void, unknown, ReviewFlagRequest> {
   const toast = useToast();
   return useMutation<void, unknown, ReviewFlagRequest>({
-    mutationFn: (body) => flagReview(reviewId, body),
+    mutationFn: (body) => flagReview(reviewPublicId, body),
     onSuccess: () =>
       toast.success({
         title: "Review flagged",

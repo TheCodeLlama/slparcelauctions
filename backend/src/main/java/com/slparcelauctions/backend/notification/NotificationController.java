@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
 
     @GetMapping
     public PagedResponse<NotificationDto> list(
@@ -65,10 +68,14 @@ public class NotificationController {
         return UnreadCountResponse.withBreakdown(total, byGroup);
     }
 
-    @PutMapping("/{id}/read")
+    @PutMapping("/{publicId}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void markRead(@AuthenticationPrincipal AuthPrincipal caller, @PathVariable long id) {
-        notificationService.markRead(caller.userId(), id);
+    public void markRead(
+            @AuthenticationPrincipal AuthPrincipal caller,
+            @PathVariable UUID publicId) {
+        Notification notification = notificationRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new NoSuchElementException("notification not found"));
+        notificationService.markRead(caller.userId(), notification.getId());
     }
 
     @PutMapping("/read-all")

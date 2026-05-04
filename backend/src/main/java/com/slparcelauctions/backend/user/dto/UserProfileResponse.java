@@ -27,7 +27,7 @@ import com.slparcelauctions.backend.user.User;
  * response — only the computed rate surfaces to the wire.
  */
 public record UserProfileResponse(
-        Long id,
+        UUID publicId,
         String displayName,
         String bio,
         String profilePicUrl,
@@ -59,7 +59,7 @@ public record UserProfileResponse(
                 completed, cancelled, expiredUnfulfilled);
         boolean isNewSeller = completed < NEW_SELLER_THRESHOLD;
         return new UserProfileResponse(
-                user.getId(),
+                user.getPublicId(),
                 user.getDisplayName(),
                 user.getBio(),
                 user.getProfilePicUrl(),

@@ -76,6 +76,7 @@ class AuctionControllerIntegrationTest {
     /** Verified seller. */
     private String sellerAccessToken;
     private Long sellerId;
+    private UUID sellerPublicId;
 
     /** Another verified user (for non-seller paths). */
     private String otherAccessToken;
@@ -91,7 +92,9 @@ class AuctionControllerIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "auction-seller@example.com", "Seller",
                 "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        sellerId = userRepository.findByEmail("auction-seller@example.com").orElseThrow().getId();
+        var seller = userRepository.findByEmail("auction-seller@example.com").orElseThrow();
+        sellerId = seller.getId();
+        sellerPublicId = seller.getPublicId();
 
         otherAccessToken = registerAndVerifyUser(
                 "auction-other@example.com", "Other",
@@ -118,7 +121,7 @@ class AuctionControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("DRAFT"))
-                .andExpect(jsonPath("$.sellerId").value(sellerId))
+                .andExpect(jsonPath("$.sellerPublicId").value(sellerPublicId.toString()))
                 .andExpect(jsonPath("$.title").value("Test listing"))
                 .andExpect(jsonPath("$.startingBid").value(1000))
                 .andExpect(jsonPath("$.listingFeePaid").value(false));
@@ -287,7 +290,7 @@ class AuctionControllerIntegrationTest {
         a.setTitle("Seaside cottage — rare find");
         auctionRepository.save(a);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Seaside cottage — rare find"));
@@ -299,8 +302,8 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getAuction_includesPhotosArray() throws Exception {
-        Long auctionId = seedActiveAuctionWithPhotos(3);
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        UUID auctionPublicId = seedActiveAuctionWithPhotos(3);
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.photos").isArray())
@@ -312,28 +315,28 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getAuction_sellerBlockIncludesRatingAndCompletionRate() throws Exception {
-        Long auctionId = seedActiveAuctionWithSellerRating(
+        UUID auctionPublicId = seedActiveAuctionWithSellerRating(
                 new BigDecimal("4.82"), 12, 8, 4);
 
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.seller.id").value(sellerId))
+                .andExpect(jsonPath("$.seller.publicId").value(sellerPublicId.toString()))
                 .andExpect(jsonPath("$.seller.averageRating").value(4.82))
                 .andExpect(jsonPath("$.seller.reviewCount").value(12))
                 .andExpect(jsonPath("$.seller.completedSales").value(8))
                 .andExpect(jsonPath("$.seller.completionRate").value(0.67))
                 .andExpect(jsonPath("$.seller.memberSince").exists())
                 .andExpect(jsonPath("$.seller.avatarUrl").value(
-                        "/api/v1/users/" + sellerId + "/avatar/256"));
+                        "/api/v1/users/" + sellerPublicId + "/avatar/256"));
     }
 
     @Test
     void getAuction_response_doesNotContain_cancelledWithBids() throws Exception {
-        Long auctionId = seedActiveAuctionWithSellerRating(
+        UUID auctionPublicId = seedActiveAuctionWithSellerRating(
                 new BigDecimal("4.5"), 10, 8, 4);
 
-        String body = mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        String body = mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
@@ -343,9 +346,9 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getAuction_completionRate_isNull_forNewSeller() throws Exception {
-        Long auctionId = seedActiveAuctionWithSellerRating(null, 0, 0, 0);
+        UUID auctionPublicId = seedActiveAuctionWithSellerRating(null, 0, 0, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + auctionId)
+        mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.seller.completionRate").doesNotExist())
@@ -361,7 +364,7 @@ class AuctionControllerIntegrationTest {
     void get_asSeller_returnsSellerView() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("DRAFT"))
@@ -373,7 +376,7 @@ class AuctionControllerIntegrationTest {
     void get_preActiveAsNonSeller_returns404() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("AUCTION_NOT_FOUND"));
@@ -383,7 +386,7 @@ class AuctionControllerIntegrationTest {
     void get_activeAsNonSeller_returnsPublicView() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
@@ -402,7 +405,7 @@ class AuctionControllerIntegrationTest {
         // detail endpoint without an Authorization header.
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId()))
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.listingFeePaid").doesNotExist());
@@ -414,7 +417,7 @@ class AuctionControllerIntegrationTest {
         // the same way it does to authenticated non-sellers.
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId()))
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("AUCTION_NOT_FOUND"));
     }
@@ -427,7 +430,7 @@ class AuctionControllerIntegrationTest {
         a.setCommissionAmt(0L);
         auctionRepository.save(a);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
                 // CANCELLED collapses to ENDED in public view — privacy guarantee
@@ -447,7 +450,7 @@ class AuctionControllerIntegrationTest {
         a.setStatus(AuctionStatus.SUSPENDED);
         auctionRepository.save(a);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("AUCTION_NOT_FOUND"));
@@ -466,7 +469,7 @@ class AuctionControllerIntegrationTest {
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].sellerId").value(sellerId));
+                .andExpect(jsonPath("$[0].sellerPublicId").value(sellerPublicId.toString()));
     }
 
     // -------------------------------------------------------------------------
@@ -479,7 +482,7 @@ class AuctionControllerIntegrationTest {
         AuctionUpdateRequest req = new AuctionUpdateRequest(
                 null, null, 2500L, null, null, null, null, null, "updated description", null);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
@@ -494,7 +497,7 @@ class AuctionControllerIntegrationTest {
         AuctionUpdateRequest req = new AuctionUpdateRequest(
                 null, null, 2500L, null, null, null, null, null, null, null);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId())
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
@@ -515,7 +518,7 @@ class AuctionControllerIntegrationTest {
         UUID groupParcelUuid = seedGroupOwnedParcel();
         Auction a = seedAuctionFor(groupParcelUuid, "group", AuctionStatus.DRAFT_PAID, true, 0, null);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -536,7 +539,7 @@ class AuctionControllerIntegrationTest {
         a.setListingFeeAmt(100L);
         auctionRepository.save(a);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/cancel")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/cancel")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new AuctionCancelRequest("no longer available"))))
@@ -553,7 +556,7 @@ class AuctionControllerIntegrationTest {
     void cancel_onCompleted_returns409() throws Exception {
         Auction a = seedAuction(AuctionStatus.COMPLETED, false, 0);
 
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/cancel")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/cancel")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(new AuctionCancelRequest(null))))
@@ -569,18 +572,18 @@ class AuctionControllerIntegrationTest {
     void preview_asSeller_returns200() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/preview")
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId() + "/preview")
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(a.getId()))
-                .andExpect(jsonPath("$.sellerId").value(sellerId));
+                .andExpect(jsonPath("$.publicId").value(a.getPublicId().toString()))
+                .andExpect(jsonPath("$.sellerPublicId").value(sellerPublicId.toString()));
     }
 
     @Test
     void preview_asNonSeller_returns404() throws Exception {
         Auction a = seedAuction(AuctionStatus.DRAFT, false, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + a.getId() + "/preview")
+        mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId() + "/preview")
                 .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("AUCTION_NOT_FOUND"));
@@ -601,7 +604,7 @@ class AuctionControllerIntegrationTest {
         seedAuctionFor(seedExtraParcel(0x74), AuctionStatus.SUSPENDED, false, 0,
                 VerificationMethod.UUID_ENTRY);
 
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
@@ -621,7 +624,7 @@ class AuctionControllerIntegrationTest {
         seedAuctionFor(seedExtraParcel(0x82), AuctionStatus.SUSPENDED, false, 0,
                 VerificationMethod.UUID_ENTRY);
 
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0))
@@ -634,7 +637,7 @@ class AuctionControllerIntegrationTest {
         seedAuctionFor(seedExtraParcel(0x91), AuctionStatus.DRAFT, false, 0,
                 VerificationMethod.UUID_ENTRY);
 
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0))
@@ -650,7 +653,7 @@ class AuctionControllerIntegrationTest {
         seedAuctionFor(seedExtraParcel(0xA3), AuctionStatus.ACTIVE, false, 0,
                 VerificationMethod.UUID_ENTRY);
 
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE")
                 .param("page", "0")
                 .param("size", "2"))
@@ -668,7 +671,7 @@ class AuctionControllerIntegrationTest {
                 VerificationMethod.UUID_ENTRY);
 
         // No Authorization header — spec §14 marks this endpoint public.
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
@@ -676,7 +679,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_rejectsNonActiveStatus() throws Exception {
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ENDED"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
@@ -702,21 +705,21 @@ class AuctionControllerIntegrationTest {
         auctionRepository.save(aMiddle);
         auctionRepository.save(aLater);
 
-        mockMvc.perform(get("/api/v1/users/" + sellerId + "/auctions")
+        mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(3))
-                .andExpect(jsonPath("$.content[0].id").value(aSoonest.getId()))
-                .andExpect(jsonPath("$.content[1].id").value(aMiddle.getId()))
-                .andExpect(jsonPath("$.content[2].id").value(aLater.getId()));
+                .andExpect(jsonPath("$.content[0].publicId").value(aSoonest.getPublicId().toString()))
+                .andExpect(jsonPath("$.content[1].publicId").value(aMiddle.getPublicId().toString()))
+                .andExpect(jsonPath("$.content[2].publicId").value(aLater.getPublicId().toString()));
     }
 
     @Test
     void getUserAuctions_nonexistentUser_returns200EmptyPage() throws Exception {
-        // Endpoint is intentionally permissive about nonexistent userIds to
+        // Endpoint is intentionally permissive about nonexistent user publicIds to
         // avoid leaking user existence on this public surface. A 404 would
         // let callers enumerate valid user IDs by diffing status codes.
-        mockMvc.perform(get("/api/v1/users/99999999/auctions")
+        mockMvc.perform(get("/api/v1/users/00000000-0000-0000-0000-000099999999/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0))
@@ -855,10 +858,10 @@ class AuctionControllerIntegrationTest {
     /**
      * Seeds an ACTIVE auction over the default seller parcel and attaches
      * {@code n} {@link AuctionPhoto} rows with sequential sort orders. Returns
-     * the auction id so callers can assert on the JSON shape of the photos
+     * the auction publicId so callers can assert on the JSON shape of the photos
      * array surfaced by the listing-detail endpoint.
      */
-    private Long seedActiveAuctionWithPhotos(int n) {
+    private UUID seedActiveAuctionWithPhotos(int n) {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
         for (int i = 0; i < n; i++) {
             photoRepository.save(AuctionPhoto.builder()
@@ -869,7 +872,7 @@ class AuctionControllerIntegrationTest {
                     .sortOrder(i)
                     .build());
         }
-        return a.getId();
+        return a.getPublicId();
     }
 
     /**
@@ -878,7 +881,7 @@ class AuctionControllerIntegrationTest {
      * {@code cancelledWithBids} arg is set on the user but must NOT appear in
      * the response — a regression-guard test asserts that explicitly.
      */
-    private Long seedActiveAuctionWithSellerRating(
+    private UUID seedActiveAuctionWithSellerRating(
             BigDecimal avgRating, int reviewCount,
             int completedSales, int cancelledWithBids) {
         User seller = userRepository.findById(sellerId).orElseThrow();
@@ -888,7 +891,7 @@ class AuctionControllerIntegrationTest {
         seller.setCancelledWithBids(cancelledWithBids);
         userRepository.save(seller);
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
-        return a.getId();
+        return a.getPublicId();
     }
 
     /**

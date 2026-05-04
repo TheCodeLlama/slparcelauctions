@@ -104,7 +104,7 @@ class BidPlacementIntegrationTest {
     void placeBid_firstBidAtStartingBid_returns201AndPersists() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -136,7 +136,7 @@ class BidPlacementIntegrationTest {
     void placeBid_belowStartingBid_returns400BidTooLow() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":500}"))
@@ -149,7 +149,7 @@ class BidPlacementIntegrationTest {
     void placeBid_asSeller_returns403SellerCannotBid() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -161,7 +161,7 @@ class BidPlacementIntegrationTest {
     void placeBid_asUnverifiedUser_returns403NotVerified() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + unverifiedAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -174,7 +174,7 @@ class BidPlacementIntegrationTest {
         // status=ENDED triggers AUCTION_NOT_ACTIVE (status != ACTIVE branch).
         Auction auction = seedAuction(AuctionStatus.ENDED, 0L, 0);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -191,7 +191,7 @@ class BidPlacementIntegrationTest {
         auction.setEndsAt(OffsetDateTime.now().minusMinutes(1));
         auctionRepository.save(auction);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -201,7 +201,7 @@ class BidPlacementIntegrationTest {
 
     @Test
     void placeBid_missingAuction_returns404() throws Exception {
-        mockMvc.perform(post("/api/v1/auctions/999999/bids")
+        mockMvc.perform(post("/api/v1/auctions/00000000-0000-0000-0000-000000999999/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -213,7 +213,7 @@ class BidPlacementIntegrationTest {
     void placeBid_missingAmountField_returns400Validation() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        mockMvc.perform(post("/api/v1/auctions/" + auction.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
@@ -229,10 +229,10 @@ class BidPlacementIntegrationTest {
     void bidHistory_returnsCommittedBidsAndIsPublic() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        placeBidAs(bidderAccessToken, auction.getId(), 1000L);
+        placeBidAs(bidderAccessToken, auction.getPublicId(), 1000L);
 
         // Public — no Authorization header.
-        mockMvc.perform(get("/api/v1/auctions/" + auction.getId() + "/bids"))
+        mockMvc.perform(get("/api/v1/auctions/" + auction.getPublicId() + "/bids"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].amount").value(1000))
                 .andExpect(jsonPath("$.content[0].bidType").value("MANUAL"))
@@ -246,7 +246,7 @@ class BidPlacementIntegrationTest {
     void bidHistory_emptyWhenNoBidsYet() throws Exception {
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
 
-        mockMvc.perform(get("/api/v1/auctions/" + auction.getId() + "/bids"))
+        mockMvc.perform(get("/api/v1/auctions/" + auction.getPublicId() + "/bids"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
     }
@@ -255,8 +255,8 @@ class BidPlacementIntegrationTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private void placeBidAs(String accessToken, Long auctionId, long amount) throws Exception {
-        mockMvc.perform(post("/api/v1/auctions/" + auctionId + "/bids")
+    private void placeBidAs(String accessToken, UUID auctionPublicId, long amount) throws Exception {
+        mockMvc.perform(post("/api/v1/auctions/" + auctionPublicId + "/bids")
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":" + amount + "}"))

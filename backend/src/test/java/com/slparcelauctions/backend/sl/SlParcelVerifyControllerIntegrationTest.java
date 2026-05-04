@@ -82,8 +82,8 @@ class SlParcelVerifyControllerIntegrationTest {
     @Test
     void fullFlow_verifyThenLslCallback_transitionsToActive() throws Exception {
         // Seller creates an auction, pays listing fee, then verifies with REZZABLE.
-        Long auctionId = createAndPayAuction();
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        AuctionRefs refs = createAndPayAuction(); Long auctionId = refs.id(); UUID auctionPublicId = refs.publicId();
+        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"REZZABLE\"}"))
@@ -129,8 +129,8 @@ class SlParcelVerifyControllerIntegrationTest {
 
     @Test
     void callbackWithMissingHeaders_returns403() throws Exception {
-        Long auctionId = createAndPayAuction();
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        AuctionRefs refs = createAndPayAuction(); Long auctionId = refs.id(); UUID auctionPublicId = refs.publicId();
+        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"REZZABLE\"}"))
@@ -151,8 +151,8 @@ class SlParcelVerifyControllerIntegrationTest {
 
     @Test
     void callbackWithWrongOwnerUuid_returns400AndAuctionStaysPending() throws Exception {
-        Long auctionId = createAndPayAuction();
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+        AuctionRefs refs = createAndPayAuction(); Long auctionId = refs.id(); UUID auctionPublicId = refs.publicId();
+        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"REZZABLE\"}"))
@@ -196,7 +196,9 @@ class SlParcelVerifyControllerIntegrationTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private Long createAndPayAuction() throws Exception {
+    private record AuctionRefs(Long id, UUID publicId) {}
+
+    private AuctionRefs createAndPayAuction() throws Exception {
         String body = String.format("""
             {
               "slParcelUuid":"%s",
@@ -212,13 +214,14 @@ class SlParcelVerifyControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isCreated()).andReturn();
-        Long auctionId = objectMapper.readTree(res.getResponse().getContentAsString())
-                .get("id").asLong();
+        UUID auctionPublicId = UUID.fromString(objectMapper.readTree(res.getResponse().getContentAsString())
+                .get("publicId").asText());
 
         // Mark the listing fee paid directly — DevAuctionController /pay requires
         // specific pricing validations to be in place. Using the repository
         // keeps this integration test focused on the Method B flow.
-        Auction a = auctionRepository.findById(auctionId).orElseThrow();
+        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
+        Long auctionId = a.getId();
         a.setStatus(AuctionStatus.DRAFT_PAID);
         a.setListingFeePaid(true);
         a.setListingFeeAmt(100L);
@@ -227,7 +230,7 @@ class SlParcelVerifyControllerIntegrationTest {
         a.setCommissionRate(new BigDecimal("0.05"));
         a.setAgentFeeRate(BigDecimal.ZERO);
         auctionRepository.save(a);
-        return auctionId;
+        return new AuctionRefs(auctionId, auctionPublicId);
     }
 
     private String registerUser(String email, String displayName) throws Exception {

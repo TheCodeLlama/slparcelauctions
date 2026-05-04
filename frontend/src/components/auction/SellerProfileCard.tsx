@@ -29,7 +29,7 @@ import { cn } from "@/lib/cn";
  * anywhere on it lands on the full public profile.
  */
 export interface SellerProfileCardSeller {
-  id: number;
+  publicId: string;
   displayName: string;
   avatarUrl?: string | null;
   averageRating?: number | string | null;
@@ -85,7 +85,7 @@ export function SellerProfileCard({ seller, className }: Props) {
 
   return (
     <Link
-      href={`/users/${seller.id}`}
+      href={`/users/${seller.publicId}`}
       className={cn(
         "block rounded-lg bg-surface-raised p-6 transition-colors hover:bg-bg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
         className,

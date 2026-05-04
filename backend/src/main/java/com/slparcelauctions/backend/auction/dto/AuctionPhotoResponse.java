@@ -1,11 +1,12 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.AuctionPhoto;
 
 public record AuctionPhotoResponse(
-        Long id,
+        UUID publicId,
         String url,
         String contentType,
         Long sizeBytes,
@@ -13,8 +14,8 @@ public record AuctionPhotoResponse(
         OffsetDateTime uploadedAt) {
 
     public static AuctionPhotoResponse from(AuctionPhoto p) {
-        String url = "/api/v1/photos/" + p.getId();
-        return new AuctionPhotoResponse(p.getId(), url, p.getContentType(),
+        String url = "/api/v1/photos/" + p.getPublicId();
+        return new AuctionPhotoResponse(p.getPublicId(), url, p.getContentType(),
                 p.getSizeBytes(), p.getSortOrder(), p.getUploadedAt());
     }
 }

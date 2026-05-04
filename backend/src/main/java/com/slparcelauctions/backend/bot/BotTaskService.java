@@ -289,7 +289,7 @@ public class BotTaskService {
     }
 
     /**
-     * IN_PROGRESS tasks whose {@code lastUpdatedAt} is older than
+     * IN_PROGRESS tasks whose {@code updatedAt} is older than
      * {@code threshold}. Used by the IN_PROGRESS timeout sweep. For VERIFY
      * tasks this is a crashed-worker signal; for MONITOR_* tasks it means
      * the worker picked up a due check but never reported back.
@@ -297,7 +297,7 @@ public class BotTaskService {
     @Transactional(readOnly = true)
     public List<BotTask> findInProgressOlderThan(Duration threshold) {
         OffsetDateTime cutoff = OffsetDateTime.now(clock).minus(threshold);
-        return botTaskRepo.findByStatusAndLastUpdatedAtBefore(
+        return botTaskRepo.findByStatusAndUpdatedAtBefore(
                 BotTaskStatus.IN_PROGRESS, cutoff);
     }
 

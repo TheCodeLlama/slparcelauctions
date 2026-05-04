@@ -40,8 +40,8 @@ public class AdminTerminalRotationService {
         }
 
         Map<String, Object> details = new LinkedHashMap<>();
-        details.put("newVersion", next.getVersion());
-        details.put("retiredVersion", oldCurrent != null ? oldCurrent.getVersion() : null);
+        details.put("newVersion", next.getSecretVersion());
+        details.put("retiredVersion", oldCurrent != null ? oldCurrent.getSecretVersion() : null);
         List<Map<String, Object>> resultDetails = new ArrayList<>();
         for (TerminalPushResult r : results) {
             Map<String, Object> rd = new LinkedHashMap<>();
@@ -55,17 +55,17 @@ public class AdminTerminalRotationService {
                 adminUserId,
                 AdminActionType.TERMINAL_SECRET_ROTATED,
                 AdminActionTargetType.TERMINAL_SECRET,
-                (long) next.getVersion(),
+                (long) next.getSecretVersion(),
                 "Terminal secret rotation",
                 details);
 
         log.info("Secret rotated to v{}: pushed to {}/{} terminals",
-                next.getVersion(),
+                next.getSecretVersion(),
                 results.stream().filter(TerminalPushResult::success).count(),
                 results.size());
 
         return new TerminalRotationResponse(
-                next.getVersion(), next.getSecretValue(), results);
+                next.getSecretVersion(), next.getSecretValue(), results);
     }
 
     private TerminalPushResult pushToTerminal(Terminal t, TerminalSecret next, TerminalSecret oldCurrent) {
@@ -73,7 +73,7 @@ public class AdminTerminalRotationService {
             Map<String, Object> body = Map.of(
                     "action", "SECRET_ROTATED",
                     "newSecret", next.getSecretValue(),
-                    "newVersion", next.getVersion());
+                    "newVersion", next.getSecretVersion());
             restClient.post()
                     .uri(t.getHttpInUrl())
                     .header("X-SLPA-Secret", oldCurrent != null ? oldCurrent.getSecretValue() : "")

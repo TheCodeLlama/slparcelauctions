@@ -101,6 +101,7 @@ class EscrowCreateOnBuyNowIntegrationTest {
     private Long seededAuctionId;
     private Long seededSellerId;
     private Long seededBidderId;
+    private java.util.UUID seededAuctionPublicId;
 
     @BeforeEach
     void resetCapture() {
@@ -188,8 +189,8 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(capturingEscrowPublisher.created).hasSize(1);
         EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_CREATED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(escrow.getId());
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(escrow.getPublicId());
         assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
         // Envelope serverTime + 48h = paymentDeadline — both derive from the
         // SAME `now` read so this round-trips exactly (modulo 1μs Postgres
@@ -258,6 +259,7 @@ class EscrowCreateOnBuyNowIntegrationTest {
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();
             seededAuctionId = auction.getId();
+            seededAuctionPublicId = auction.getPublicId();
         });
     }
 }

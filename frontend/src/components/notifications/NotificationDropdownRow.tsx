@@ -20,7 +20,7 @@ export function NotificationDropdownRow({ notification: n, onClose, variant = "d
   const markRead = useMarkRead();
 
   const handleClickRow = () => {
-    if (!n.read) markRead.mutate(n.id);
+    if (!n.read) markRead.mutate(n.publicId);
     const href = config.deeplink(n.data as never);
     router.push(href);
     onClose?.();
@@ -29,7 +29,7 @@ export function NotificationDropdownRow({ notification: n, onClose, variant = "d
   const handleClickAction = (e: MouseEvent) => {
     e.stopPropagation();
     if (!config.action) return;
-    if (!n.read) markRead.mutate(n.id);
+    if (!n.read) markRead.mutate(n.publicId);
     router.push(config.action.href(n.data as never));
     onClose?.();
   };

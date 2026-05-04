@@ -38,7 +38,7 @@ export const adminQueryKeys = {
     page: number;
     size: number;
   }) => [...adminQueryKeys.all, "audit", filters] as const,
-  myReport: (auctionId: number) => ["auction", auctionId, "my-report"] as const,
+  myReport: (auctionPublicId: string) => ["auction", auctionPublicId, "my-report"] as const,
 
   auditLog: () => [...adminQueryKeys.all, "audit-log"] as const,
   auditLogList: (filters: AdminAuditLogFilters) =>

@@ -11,7 +11,7 @@ import com.slparcelauctions.backend.bot.BotTaskType;
  * Bot queue projection returned by the claim endpoint. Exposes monitor
  * fields (escrowId + expected* + positions + nextRunAt) so the worker has
  * everything it needs for a one-shot decision without follow-up lookups.
- * Excludes resultData and lastUpdatedAt — bot workers do not need them.
+ * Excludes resultData and updatedAt — bot workers do not need them.
  */
 public record BotTaskResponse(
         Long id,

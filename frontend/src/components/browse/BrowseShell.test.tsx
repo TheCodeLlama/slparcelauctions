@@ -155,7 +155,7 @@ describe("BrowseShell", () => {
     expect(url).not.toContain("near_region=Tula");
   });
 
-  it("preserves sellerId across sort changes when fixedFilters is set", async () => {
+  it("preserves sellerPublicId across sort changes when fixedFilters is set", async () => {
     stubEmptyTags();
     server.use(
       http.get("*/api/v1/auctions/search", () =>
@@ -164,9 +164,9 @@ describe("BrowseShell", () => {
     );
     renderWithProviders(
       <BrowseShell
-        initialQuery={{ ...defaultAuctionSearchQuery, sellerId: 42 }}
+        initialQuery={{ ...defaultAuctionSearchQuery, sellerPublicId: "00000000-0000-0000-0000-00000000002a" }}
         initialData={emptyResponse}
-        fixedFilters={{ sellerId: 42 }}
+        fixedFilters={{ sellerPublicId: "00000000-0000-0000-0000-00000000002a" }}
         hiddenFilterGroups={["distance"]}
       />,
     );
@@ -176,7 +176,7 @@ describe("BrowseShell", () => {
     );
     expect(replaceMock).toHaveBeenCalled();
     const url = replaceMock.mock.calls[0][0] as string;
-    expect(url).toContain("seller_id=42");
+    expect(url).toContain("seller_id=00000000-0000-0000-0000-00000000002a");
     expect(url).toContain("sort=lowest_price");
   });
 

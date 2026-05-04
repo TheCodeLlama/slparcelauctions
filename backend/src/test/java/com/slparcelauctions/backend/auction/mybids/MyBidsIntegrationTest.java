@@ -87,13 +87,13 @@ class MyBidsIntegrationTest {
     private Long bidderId;
     private Long otherBidderId;
     private java.util.List<UUID> parcelUuids;
-    private Long winningAuctionId;
-    private Long outbidAuctionId;
-    private Long wonAuctionId;
-    private Long lostAuctionId;
-    private Long reserveNotMetAuctionId;
-    private Long cancelledAuctionId;
-    private Long suspendedAuctionId;
+    private UUID winningAuctionPublicId;
+    private UUID outbidAuctionPublicId;
+    private UUID wonAuctionPublicId;
+    private UUID lostAuctionPublicId;
+    private UUID reserveNotMetAuctionPublicId;
+    private UUID cancelledAuctionPublicId;
+    private UUID suspendedAuctionPublicId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -118,13 +118,13 @@ class MyBidsIntegrationTest {
                     String.format("44444444-4444-4444-4444-%012d", 110 + i)));
         }
 
-        winningAuctionId = seedWinning();
-        outbidAuctionId = seedOutbid();
-        wonAuctionId = seedWon();
-        lostAuctionId = seedLost();
-        reserveNotMetAuctionId = seedReserveNotMet();
-        cancelledAuctionId = seedCancelled();
-        suspendedAuctionId = seedSuspended();
+        winningAuctionPublicId = seedWinning();
+        outbidAuctionPublicId = seedOutbid();
+        wonAuctionPublicId = seedWon();
+        lostAuctionPublicId = seedLost();
+        reserveNotMetAuctionPublicId = seedReserveNotMet();
+        cancelledAuctionPublicId = seedCancelled();
+        suspendedAuctionPublicId = seedSuspended();
     }
 
     // -------------------------------------------------------------------------
@@ -142,21 +142,21 @@ class MyBidsIntegrationTest {
 
         JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
         JsonNode content = root.get("content");
-        // Collect by auctionId -> derived status for assertion stability.
-        java.util.Map<Long, String> statusByAuction = new java.util.HashMap<>();
+        // Collect by auctionPublicId -> derived status for assertion stability.
+        java.util.Map<String, String> statusByAuction = new java.util.HashMap<>();
         for (JsonNode row : content) {
-            long id = row.get("auction").get("id").asLong();
+            String pid = row.get("auction").get("publicId").asText();
             String s = row.get("myBidStatus").asText();
-            statusByAuction.put(id, s);
+            statusByAuction.put(pid, s);
         }
         org.assertj.core.api.Assertions.assertThat(statusByAuction).containsOnly(
-                org.assertj.core.api.Assertions.entry(winningAuctionId, "WINNING"),
-                org.assertj.core.api.Assertions.entry(outbidAuctionId, "OUTBID"),
-                org.assertj.core.api.Assertions.entry(wonAuctionId, "WON"),
-                org.assertj.core.api.Assertions.entry(lostAuctionId, "LOST"),
-                org.assertj.core.api.Assertions.entry(reserveNotMetAuctionId, "RESERVE_NOT_MET"),
-                org.assertj.core.api.Assertions.entry(cancelledAuctionId, "CANCELLED"),
-                org.assertj.core.api.Assertions.entry(suspendedAuctionId, "SUSPENDED"));
+                org.assertj.core.api.Assertions.entry(winningAuctionPublicId.toString(), "WINNING"),
+                org.assertj.core.api.Assertions.entry(outbidAuctionPublicId.toString(), "OUTBID"),
+                org.assertj.core.api.Assertions.entry(wonAuctionPublicId.toString(), "WON"),
+                org.assertj.core.api.Assertions.entry(lostAuctionPublicId.toString(), "LOST"),
+                org.assertj.core.api.Assertions.entry(reserveNotMetAuctionPublicId.toString(), "RESERVE_NOT_MET"),
+                org.assertj.core.api.Assertions.entry(cancelledAuctionPublicId.toString(), "CANCELLED"),
+                org.assertj.core.api.Assertions.entry(suspendedAuctionPublicId.toString(), "SUSPENDED"));
     }
 
     // -------------------------------------------------------------------------
@@ -196,8 +196,8 @@ class MyBidsIntegrationTest {
         JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString()).get("content");
         org.assertj.core.api.Assertions.assertThat(content.size()).isEqualTo(1);
         org.assertj.core.api.Assertions.assertThat(content.get(0).get("myBidStatus").asText()).isEqualTo("WON");
-        org.assertj.core.api.Assertions.assertThat(content.get(0).get("auction").get("id").asLong())
-                .isEqualTo(wonAuctionId);
+        org.assertj.core.api.Assertions.assertThat(content.get(0).get("auction").get("publicId").asText())
+                .isEqualTo(wonAuctionPublicId.toString());
     }
 
     // -------------------------------------------------------------------------
@@ -213,17 +213,17 @@ class MyBidsIntegrationTest {
                 .andReturn();
 
         JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString()).get("content");
-        java.util.Map<Long, String> statusByAuction = new java.util.HashMap<>();
+        java.util.Map<String, String> statusByAuction = new java.util.HashMap<>();
         for (JsonNode row : content) {
             statusByAuction.put(
-                    row.get("auction").get("id").asLong(),
+                    row.get("auction").get("publicId").asText(),
                     row.get("myBidStatus").asText());
         }
         org.assertj.core.api.Assertions.assertThat(statusByAuction).containsOnly(
-                org.assertj.core.api.Assertions.entry(lostAuctionId, "LOST"),
-                org.assertj.core.api.Assertions.entry(reserveNotMetAuctionId, "RESERVE_NOT_MET"),
-                org.assertj.core.api.Assertions.entry(cancelledAuctionId, "CANCELLED"),
-                org.assertj.core.api.Assertions.entry(suspendedAuctionId, "SUSPENDED"));
+                org.assertj.core.api.Assertions.entry(lostAuctionPublicId.toString(), "LOST"),
+                org.assertj.core.api.Assertions.entry(reserveNotMetAuctionPublicId.toString(), "RESERVE_NOT_MET"),
+                org.assertj.core.api.Assertions.entry(cancelledAuctionPublicId.toString(), "CANCELLED"),
+                org.assertj.core.api.Assertions.entry(suspendedAuctionPublicId.toString(), "SUSPENDED"));
     }
 
     // -------------------------------------------------------------------------
@@ -243,8 +243,17 @@ class MyBidsIntegrationTest {
         saveBid(auctionA, bidderId, 2500L);
         saveBid(auctionB, bidderId, 2500L);
 
-        Long lowerId = Math.min(auctionA.getId(), auctionB.getId());
-        Long higherId = Math.max(auctionA.getId(), auctionB.getId());
+        // The auction with the lower DB id must appear first (tie-break by id ASC).
+        // Track which publicId belongs to the lower/higher DB id.
+        String lowerPublicId;
+        String higherPublicId;
+        if (auctionA.getId() < auctionB.getId()) {
+            lowerPublicId = auctionA.getPublicId().toString();
+            higherPublicId = auctionB.getPublicId().toString();
+        } else {
+            lowerPublicId = auctionB.getPublicId().toString();
+            higherPublicId = auctionA.getPublicId().toString();
+        }
 
         // Invoke the endpoint twice and assert stable ordering across calls —
         // the two new auctions must appear in id-ascending order both times.
@@ -257,17 +266,17 @@ class MyBidsIntegrationTest {
             JsonNode content = objectMapper.readTree(result.getResponse().getContentAsString())
                     .get("content");
 
-            // Extract the order of our two new auction ids from the content.
-            java.util.List<Long> orderedNew = new java.util.ArrayList<>();
+            // Extract the order of our two new auction publicIds from the content.
+            java.util.List<String> orderedNew = new java.util.ArrayList<>();
             for (JsonNode row : content) {
-                long id = row.get("auction").get("id").asLong();
-                if (id == lowerId || id == higherId) {
-                    orderedNew.add(id);
+                String pid = row.get("auction").get("publicId").asText();
+                if (pid.equals(lowerPublicId) || pid.equals(higherPublicId)) {
+                    orderedNew.add(pid);
                 }
             }
             org.assertj.core.api.Assertions.assertThat(orderedNew)
                     .as("identical endsAt must break ties by auction id ASC on iteration %d", i)
-                    .containsExactly(lowerId, higherId);
+                    .containsExactly(lowerPublicId, higherPublicId);
         }
     }
 
@@ -341,12 +350,14 @@ class MyBidsIntegrationTest {
                 .get("content");
 
         // Walk content in returned order, capturing positions of our two seeded rows.
+        String earlyPublicId = earlyEndsAtAuction.getPublicId().toString();
+        String latePublicId = lateEndsAtAuction.getPublicId().toString();
         int earlyIdx = -1;
         int lateIdx = -1;
         for (int i = 0; i < content.size(); i++) {
-            long id = content.get(i).get("auction").get("id").asLong();
-            if (id == earlyEndsAtAuction.getId()) earlyIdx = i;
-            if (id == lateEndsAtAuction.getId()) lateIdx = i;
+            String pid = content.get(i).get("auction").get("publicId").asText();
+            if (pid.equals(earlyPublicId)) earlyIdx = i;
+            if (pid.equals(latePublicId)) lateIdx = i;
         }
         org.assertj.core.api.Assertions.assertThat(earlyIdx)
                 .as("auction with endedAt=now-1h must appear before auction with endedAt=now-5h")
@@ -448,26 +459,26 @@ class MyBidsIntegrationTest {
     // (CANCELLED, SUSPENDED) that BidService wouldn't let bids through.
     // -------------------------------------------------------------------------
 
-    private Long seedWinning() {
+    private UUID seedWinning() {
         // ACTIVE, caller is currentBidder.
         Auction a = seedAuction(parcelUuids.get(0), AuctionStatus.ACTIVE, 1500L, 1);
         a.setCurrentBidderId(bidderId);
         auctionRepository.save(a);
         saveBid(a, bidderId, 1500L);
-        return a.getId();
+        return a.getPublicId();
     }
 
-    private Long seedOutbid() {
+    private UUID seedOutbid() {
         // ACTIVE, someone else is currentBidder; caller still has a bid on record.
         Auction a = seedAuction(parcelUuids.get(1), AuctionStatus.ACTIVE, 2000L, 2);
         a.setCurrentBidderId(otherBidderId);
         auctionRepository.save(a);
         saveBid(a, bidderId, 1500L);
         saveBid(a, otherBidderId, 2000L);
-        return a.getId();
+        return a.getPublicId();
     }
 
-    private Long seedWon() {
+    private UUID seedWon() {
         // ENDED + SOLD, caller is winner.
         Auction a = seedAuction(parcelUuids.get(2), AuctionStatus.ENDED, 3000L, 1);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
@@ -477,10 +488,10 @@ class MyBidsIntegrationTest {
         a.setEndedAt(OffsetDateTime.now().minusHours(1));
         auctionRepository.save(a);
         saveBid(a, bidderId, 3000L);
-        return a.getId();
+        return a.getPublicId();
     }
 
-    private Long seedLost() {
+    private UUID seedLost() {
         // ENDED + SOLD, someone else is winner; caller bid earlier.
         Auction a = seedAuction(parcelUuids.get(3), AuctionStatus.ENDED, 4000L, 2);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
@@ -491,10 +502,10 @@ class MyBidsIntegrationTest {
         auctionRepository.save(a);
         saveBid(a, bidderId, 2000L);
         saveBid(a, otherBidderId, 4000L);
-        return a.getId();
+        return a.getPublicId();
     }
 
-    private Long seedReserveNotMet() {
+    private UUID seedReserveNotMet() {
         // ENDED + RESERVE_NOT_MET, caller was the high bidder.
         Auction a = seedAuction(parcelUuids.get(4), AuctionStatus.ENDED, 1200L, 1);
         a.setReservePrice(5000L);
@@ -504,25 +515,25 @@ class MyBidsIntegrationTest {
         a.setEndedAt(OffsetDateTime.now().minusHours(3));
         auctionRepository.save(a);
         saveBid(a, bidderId, 1200L);
-        return a.getId();
+        return a.getPublicId();
     }
 
-    private Long seedCancelled() {
+    private UUID seedCancelled() {
         // CANCELLED by seller after caller had already bid.
         Auction a = seedAuction(parcelUuids.get(5), AuctionStatus.CANCELLED, 1000L, 1);
         a.setEndedAt(OffsetDateTime.now().minusHours(4));
         auctionRepository.save(a);
         saveBid(a, bidderId, 1000L);
-        return a.getId();
+        return a.getPublicId();
     }
 
-    private Long seedSuspended() {
+    private UUID seedSuspended() {
         // SUSPENDED via ownership-check path. Caller bid earlier.
         Auction a = seedAuction(parcelUuids.get(6), AuctionStatus.SUSPENDED, 1100L, 1);
         a.setEndedAt(OffsetDateTime.now().minusHours(5));
         auctionRepository.save(a);
         saveBid(a, bidderId, 1100L);
-        return a.getId();
+        return a.getPublicId();
     }
 
     private Auction seedAuction(

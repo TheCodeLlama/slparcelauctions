@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -32,8 +33,8 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
  * and {@code escrowExpiredUnfulfilled} counters never appear in the response.
  */
 public record PublicAuctionResponse(
-        Long id,
-        Long sellerId,
+        UUID publicId,
+        UUID sellerPublicId,
         String title,
         ParcelResponse parcel,
         PublicAuctionStatus status,
@@ -68,7 +69,7 @@ public record PublicAuctionResponse(
      * only counters are intentionally absent from this DTO.
      */
     public record SellerSummary(
-            Long id,
+            UUID publicId,
             String displayName,
             String avatarUrl,
             BigDecimal averageRating,

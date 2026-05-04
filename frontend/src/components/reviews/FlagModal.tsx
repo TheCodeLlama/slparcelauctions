@@ -19,7 +19,7 @@ const REASONS: Array<{ code: ReviewFlagReason; label: string }> = [
 ];
 
 export interface FlagModalProps {
-  reviewId: number;
+  reviewPublicId: string;
   open: boolean;
   onClose: () => void;
 }
@@ -33,10 +33,10 @@ export interface FlagModalProps {
  * fallback). 409 duplicate-flag is handled in {@link useFlagReview} via
  * toast.
  */
-export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
+export function FlagModal({ reviewPublicId, open, onClose }: FlagModalProps) {
   const [reason, setReason] = useState<ReviewFlagReason | null>(null);
   const [elaboration, setElaboration] = useState("");
-  const mutation = useFlagReview(reviewId);
+  const mutation = useFlagReview(reviewPublicId);
 
   // Local state resets on unmount — callers (ReviewCard) mount this modal
   // only when {@code open} is true so a cancel-then-reopen sequence starts
@@ -103,7 +103,7 @@ export function FlagModal({ reviewId, open, onClose }: FlagModalProps) {
               >
                 <input
                   type="radio"
-                  name={`flag-reason-${reviewId}`}
+                  name={`flag-reason-${reviewPublicId}`}
                   value={r.code}
                   checked={reason === r.code}
                   onChange={() => setReason(r.code)}

@@ -7,7 +7,7 @@ import type { CurrentUser, PublicUserProfile } from "@/lib/user/api";
  * custom user to the handler factories in `handlers.ts`.
  */
 export const mockUser: AuthUser = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   email: "test@example.com",
   displayName: null,
   slAvatarUuid: null,
@@ -32,7 +32,7 @@ export function mockAuthResponse(user: AuthUser = mockUser) {
 }
 
 export const mockUnverifiedCurrentUser: CurrentUser = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   email: "unverified@example.com",
   displayName: "Test User",
   bio: null,
@@ -62,7 +62,7 @@ export const mockUnverifiedCurrentUser: CurrentUser = {
 
 export const mockVerifiedCurrentUser: CurrentUser = {
   ...mockUnverifiedCurrentUser,
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   displayName: "Verified Tester",
   bio: "Auction enthusiast",
   profilePicUrl: "/api/v1/users/42/avatar/large",
@@ -78,10 +78,10 @@ export const mockVerifiedCurrentUser: CurrentUser = {
 };
 
 export const mockPublicProfile: PublicUserProfile = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   displayName: "Verified Tester",
   bio: "Auction enthusiast",
-  profilePicUrl: "/api/v1/users/42/avatar/large",
+  profilePicUrl: "/api/v1/users/00000000-0000-0000-0000-00000000002a/avatar/large",
   slAvatarUuid: "11111111-1111-1111-1111-111111111111",
   slAvatarName: "TesterBot Resident",
   slUsername: "testerbot.resident",
@@ -97,7 +97,7 @@ export const mockPublicProfile: PublicUserProfile = {
 
 export const mockNewSellerPublicProfile: PublicUserProfile = {
   ...mockPublicProfile,
-  id: 43,
+  publicId: "00000000-0000-0000-0000-00000000002b",
   displayName: "New Seller",
   avgSellerRating: null,
   totalSellerReviews: 0,
@@ -106,7 +106,7 @@ export const mockNewSellerPublicProfile: PublicUserProfile = {
 
 export const mockUnverifiedPublicProfile: PublicUserProfile = {
   ...mockPublicProfile,
-  id: 44,
+  publicId: "00000000-0000-0000-0000-00000000002c",
   displayName: "Unverified Tester",
   verified: false,
   slAvatarUuid: null,

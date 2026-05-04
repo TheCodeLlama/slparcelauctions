@@ -52,7 +52,7 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
   return (
     <li
       data-testid="bid-history-row"
-      data-bid-id={entry.bidId}
+      data-bid-id={entry.bidPublicId}
       data-animated={isAnimated ? "true" : undefined}
       className={cn(
         "flex items-center gap-3 rounded-lg bg-surface-raised px-3 py-2",
@@ -68,7 +68,7 @@ export function BidHistoryRow({ entry, isAnimated }: BidHistoryRowProps) {
            * and duplicated screen-reader announcements.
            */}
           <Link
-            href={`/users/${entry.userId}`}
+            href={`/users/${entry.userPublicId}`}
             className="flex items-center gap-3 hover:underline underline-offset-2"
             data-testid="bid-history-row-name"
           >

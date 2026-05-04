@@ -9,8 +9,8 @@ import type { ProxyBidResponse } from "@/types/auction";
  * {@code null} is a valid cached value — "no proxy" is semantically meaningful
  * for the BidPanel variant selector, not a gap that should trigger a refetch.
  */
-export function myProxyKey(auctionId: number): readonly unknown[] {
-  return ["auction", auctionId, "my-proxy"] as const;
+export function myProxyKey(auctionPublicId: string): readonly unknown[] {
+  return ["auction", auctionPublicId, "my-proxy"] as const;
 }
 
 /**
@@ -25,12 +25,12 @@ export function myProxyKey(auctionId: number): readonly unknown[] {
  * settlement arrives (a competitor's bid may have exhausted our proxy).
  */
 export function useMyProxy(
-  auctionId: number,
+  auctionPublicId: string,
   options: { enabled?: boolean } = {},
 ) {
   return useQuery<ProxyBidResponse | null>({
-    queryKey: myProxyKey(auctionId),
-    queryFn: () => getMyProxy(auctionId),
+    queryKey: myProxyKey(auctionPublicId),
+    queryFn: () => getMyProxy(auctionPublicId),
     enabled: options.enabled ?? true,
     staleTime: 30_000,
   });

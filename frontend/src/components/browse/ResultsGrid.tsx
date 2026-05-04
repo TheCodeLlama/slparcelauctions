@@ -159,7 +159,7 @@ export function ResultsGrid({
   return (
     <div className={cn(gridClasses, className)}>
       {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} variant={variant} />
+        <ListingCard key={listing.publicId} listing={listing} variant={variant} />
       ))}
     </div>
   );

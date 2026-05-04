@@ -50,7 +50,7 @@ class DevSlSimulateIntegrationTest {
                 .andExpect(status().isCreated()).andReturn();
         String regBody = reg.getResponse().getContentAsString();
         String accessToken = objectMapper.readTree(regBody).get("accessToken").asText();
-        Long userId = objectMapper.readTree(regBody).get("user").get("id").asLong();
+        Long userId = userRepository.findByEmail("sim@example.com").orElseThrow().getId();
 
         MvcResult gen = mockMvc.perform(post("/api/v1/verification/generate")
                 .header("Authorization", "Bearer " + accessToken))

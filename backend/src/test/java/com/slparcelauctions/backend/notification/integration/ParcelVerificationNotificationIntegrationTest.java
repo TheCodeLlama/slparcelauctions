@@ -158,8 +158,7 @@ class ParcelVerificationNotificationIntegrationTest {
                 "VerifRegion", null, null, null, null, null, null);
         slParcelVerifyService.verify(SL_SHARD_PROD, trustedOwnerKey, req);
 
-        var notifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        var notifs = notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_VERIFIED)
                 .toList();
         assertThat(notifs).hasSize(1);

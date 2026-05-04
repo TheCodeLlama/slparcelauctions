@@ -13,12 +13,12 @@ function sampleListing(
   overrides: Partial<AuctionSearchResultDto> = {},
 ): AuctionSearchResultDto {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
     title: "Sample Parcel",
     status: "ACTIVE",
     endOutcome: null,
     parcel: {
-      id: 11,
+      auctionPublicId: "00000000-0000-0000-0000-000000000001",
       name: "Sample Lot",
       region: "Tula",
       area: 1024,
@@ -33,7 +33,7 @@ function sampleListing(
     },
     primaryPhotoUrl: null,
     seller: {
-      id: 7,
+      publicId: "00000000-0000-0000-0000-000000000007",
       displayName: "seller",
       avatarUrl: null,
       averageRating: 4.8,
@@ -66,17 +66,17 @@ describe("HomePage server component", () => {
     server.use(
       http.get("*/api/v1/auctions/featured/ending-soon", () =>
         HttpResponse.json({
-          content: [sampleListing({ id: 101, title: "Ending Parcel" })],
+          content: [sampleListing({ publicId: "00000000-0000-0000-0000-000000000065", title: "Ending Parcel" })],
         }),
       ),
       http.get("*/api/v1/auctions/featured/just-listed", () =>
         HttpResponse.json({
-          content: [sampleListing({ id: 102, title: "Fresh Parcel" })],
+          content: [sampleListing({ publicId: "00000000-0000-0000-0000-000000000066", title: "Fresh Parcel" })],
         }),
       ),
       http.get("*/api/v1/auctions/featured/most-active", () =>
         HttpResponse.json({
-          content: [sampleListing({ id: 103, title: "Busy Parcel" })],
+          content: [sampleListing({ publicId: "00000000-0000-0000-0000-000000000067", title: "Busy Parcel" })],
         }),
       ),
     );
@@ -113,12 +113,12 @@ describe("HomePage server component", () => {
       ),
       http.get("*/api/v1/auctions/featured/just-listed", () =>
         HttpResponse.json({
-          content: [sampleListing({ id: 201, title: "Fresh Parcel" })],
+          content: [sampleListing({ publicId: "00000000-0000-0000-0000-0000000000c9", title: "Fresh Parcel" })],
         }),
       ),
       http.get("*/api/v1/auctions/featured/most-active", () =>
         HttpResponse.json({
-          content: [sampleListing({ id: 202, title: "Busy Parcel" })],
+          content: [sampleListing({ publicId: "00000000-0000-0000-0000-0000000000ca", title: "Busy Parcel" })],
         }),
       ),
     );

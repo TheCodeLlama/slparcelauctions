@@ -9,6 +9,7 @@ import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
 import javax.crypto.SecretKey;
 import java.util.Base64;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -25,7 +26,8 @@ class JwtTestFactoryTest {
     @Test
     void forKey_producesFactoryThatIssuesValidAccessTokens() {
         JwtTestFactory factory = JwtTestFactory.forKey(DEV_SECRET);
-        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L, Role.USER);
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal principal = new AuthPrincipal(1L, publicId, "test@example.com", 0L, Role.USER);
 
         String token = factory.validAccessToken(principal);
 
@@ -34,7 +36,7 @@ class JwtTestFactoryTest {
         Jws<Claims> parsed = Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
         Claims claims = parsed.getPayload();
 
-        assertThat(claims.getSubject()).isEqualTo("1");
+        assertThat(claims.getSubject()).isEqualTo(publicId.toString());
         assertThat(claims.get("email")).isEqualTo("test@example.com");
         assertThat(((Number) claims.get("tv")).longValue()).isEqualTo(0L);
         assertThat(claims.get("type")).isEqualTo("access");
@@ -43,7 +45,7 @@ class JwtTestFactoryTest {
     @Test
     void expiredAccessToken_producesTokenWithPastExpiry() {
         JwtTestFactory factory = JwtTestFactory.forKey(DEV_SECRET);
-        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L, Role.USER);
+        AuthPrincipal principal = new AuthPrincipal(1L, UUID.randomUUID(), "test@example.com", 0L, Role.USER);
 
         String token = factory.expiredAccessToken(principal);
         SecretKey key = JwtKeyFactory.buildKey(DEV_SECRET);
@@ -56,7 +58,7 @@ class JwtTestFactoryTest {
     @Test
     void tokenWithWrongType_hasTypeClaimSetToRefresh() {
         JwtTestFactory factory = JwtTestFactory.forKey(DEV_SECRET);
-        AuthPrincipal principal = new AuthPrincipal(1L, "test@example.com", 0L, Role.USER);
+        AuthPrincipal principal = new AuthPrincipal(1L, UUID.randomUUID(), "test@example.com", 0L, Role.USER);
 
         String token = factory.tokenWithWrongType(principal);
         SecretKey key = JwtKeyFactory.buildKey(DEV_SECRET);

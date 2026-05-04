@@ -40,14 +40,14 @@ export function ReviewCard({
   className,
 }: ReviewCardProps) {
   const { status, user } = useAuth();
-  const viewerId = status === "authenticated" ? user.id : null;
+  const viewerPublicId = status === "authenticated" ? user.publicId : null;
   const [flagOpen, setFlagOpen] = useState(false);
   const [respondOpen, setRespondOpen] = useState(false);
 
-  const viewerIsAuthor = viewerId !== null && viewerId === review.reviewerId;
-  const viewerIsReviewee = viewerId !== null && viewerId === review.revieweeId;
+  const viewerIsAuthor = viewerPublicId !== null && viewerPublicId === review.reviewerPublicId;
+  const viewerIsReviewee = viewerPublicId !== null && viewerPublicId === review.revieweePublicId;
   const canRespond = viewerIsReviewee && review.response === null;
-  const canFlag = viewerId !== null && !viewerIsAuthor;
+  const canFlag = viewerPublicId !== null && !viewerIsAuthor;
 
   const rating = review.rating ?? 0;
   const submittedAt = review.submittedAt ?? review.revealedAt;
@@ -55,7 +55,7 @@ export function ReviewCard({
   return (
     <article
       data-testid="review-card"
-      data-review-id={review.id}
+      data-review-id={review.publicId}
       className={cn(
         "flex flex-col gap-3 rounded-lg bg-bg-subtle p-4 ring-1 ring-border-subtle",
         className,
@@ -117,7 +117,7 @@ export function ReviewCard({
 
       {!hideAuctionLink && (
         <Link
-          href={`/auction/${review.auctionId}`}
+          href={`/auction/${review.auctionPublicId}`}
           className="inline-flex w-fit items-center gap-1 rounded-lg bg-bg-muted px-3 py-1 text-[11px] font-medium text-fg-muted transition-colors hover:text-brand"
           data-testid="review-card-auction-link"
         >
@@ -162,14 +162,14 @@ export function ReviewCard({
 
       {flagOpen && (
         <FlagModal
-          reviewId={review.id}
+          reviewPublicId={review.publicId}
           open={flagOpen}
           onClose={() => setFlagOpen(false)}
         />
       )}
       {respondOpen && (
         <RespondModal
-          reviewId={review.id}
+          reviewPublicId={review.publicId}
           open={respondOpen}
           onClose={() => setRespondOpen(false)}
         />

@@ -7,14 +7,14 @@ import { ReviewList } from "./ReviewList";
 
 function makeReview(id: number, overrides: Partial<ReviewDto> = {}): ReviewDto {
   return {
-    id,
-    auctionId: id * 10,
+    publicId: `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`,
+    auctionPublicId: `00000000-0000-0000-0000-${String(id * 10).padStart(12, "0")}`,
     auctionTitle: `Parcel #${id}`,
     auctionPrimaryPhotoUrl: null,
-    reviewerId: 100 + id,
+    reviewerPublicId: `00000000-0000-0000-0000-${String(100 + id).padStart(12, "0")}`,
     reviewerDisplayName: `Reviewer ${id}`,
     reviewerAvatarUrl: null,
-    revieweeId: 42,
+    revieweePublicId: "00000000-0000-0000-0000-00000000002a",
     reviewedRole: "SELLER",
     rating: 5,
     text: `Review text ${id}`,
@@ -42,7 +42,7 @@ describe("ReviewList", () => {
     );
 
     renderWithProviders(
-      <ReviewList userId={42} role="SELLER" page={0} onPageChange={() => {}} />,
+      <ReviewList userPublicId="00000000-0000-0000-0000-00000000002a" role="SELLER" page={0} onPageChange={() => {}} />,
       { auth: "anonymous" },
     );
 
@@ -65,7 +65,7 @@ describe("ReviewList", () => {
     );
 
     renderWithProviders(
-      <ReviewList userId={42} role="SELLER" page={0} onPageChange={() => {}} />,
+      <ReviewList userPublicId="00000000-0000-0000-0000-00000000002a" role="SELLER" page={0} onPageChange={() => {}} />,
       { auth: "anonymous" },
     );
 
@@ -88,7 +88,7 @@ describe("ReviewList", () => {
     );
 
     renderWithProviders(
-      <ReviewList userId={42} role="BUYER" page={0} onPageChange={() => {}} />,
+      <ReviewList userPublicId="00000000-0000-0000-0000-00000000002a" role="BUYER" page={0} onPageChange={() => {}} />,
       { auth: "anonymous" },
     );
 
@@ -113,7 +113,7 @@ describe("ReviewList", () => {
     const onPageChange = vi.fn();
     renderWithProviders(
       <ReviewList
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         role="SELLER"
         page={0}
         onPageChange={onPageChange}
@@ -140,7 +140,7 @@ describe("ReviewList", () => {
     );
 
     renderWithProviders(
-      <ReviewList userId={42} role="SELLER" page={0} onPageChange={() => {}} />,
+      <ReviewList userPublicId="00000000-0000-0000-0000-00000000002a" role="SELLER" page={0} onPageChange={() => {}} />,
       { auth: "anonymous" },
     );
 
@@ -158,7 +158,7 @@ describe("ReviewList", () => {
     );
 
     renderWithProviders(
-      <ReviewList userId={42} role="SELLER" page={0} onPageChange={() => {}} />,
+      <ReviewList userPublicId="00000000-0000-0000-0000-00000000002a" role="SELLER" page={0} onPageChange={() => {}} />,
       { auth: "anonymous" },
     );
 

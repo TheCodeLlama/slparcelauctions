@@ -62,7 +62,7 @@ function makeWrapper(): {
 
 function makeNotification(partial: Partial<NotificationDto> = {}): NotificationDto {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
     category: "OUTBID",
     group: "bidding",
     title: "You were outbid",
@@ -114,7 +114,7 @@ describe("useNotificationStream", () => {
 
     renderHook(() => useNotificationStream(), { wrapper });
 
-    const n = makeNotification({ id: 5 });
+    const n = makeNotification({ publicId: "00000000-0000-0000-0000-000000000005" });
     const env: NotificationsEnvelope = {
       type: "NOTIFICATION_UPSERTED",
       isUpdate: false,
@@ -124,7 +124,7 @@ describe("useNotificationStream", () => {
     act(() => { subs.get("/user/queue/notifications")?.(env); });
 
     const list = client.getQueryData<Page<NotificationDto>>(listKey);
-    expect(list?.content[0].id).toBe(5);
+    expect(list?.content[0].publicId).toBe("00000000-0000-0000-0000-000000000005");
     expect(list?.totalElements).toBe(1);
 
     const count = client.getQueryData<{ count: number }>(countKey);
@@ -137,7 +137,7 @@ describe("useNotificationStream", () => {
 
     const listKey = notificationKeys.list({});
     const countKey = notificationKeys.unreadCount();
-    const n = makeNotification({ id: 5, title: "Old title" });
+    const n = makeNotification({ publicId: "00000000-0000-0000-0000-000000000005", title: "Old title" });
     const initialList: Page<NotificationDto> = {
       content: [n], totalElements: 1, totalPages: 1, number: 0, size: 20,
     };
@@ -215,7 +215,7 @@ describe("useNotificationStream", () => {
     // We use a spy on the context push mechanism indirectly through mock tracking.
     // Since upsert modifies state, we just verify it doesn't throw and the
     // stream handles the OUTBID category correctly by checking data flows.
-    const n = makeNotification({ id: 7, category: "OUTBID" });
+    const n = makeNotification({ publicId: "00000000-0000-0000-0000-000000000007", category: "OUTBID" });
     const env: NotificationsEnvelope = {
       type: "NOTIFICATION_UPSERTED", isUpdate: false, notification: n,
     };
@@ -237,7 +237,7 @@ describe("useNotificationStream", () => {
 
     // Construct a notification with an unknown category to exercise the fallback.
     const n = {
-      ...makeNotification({ id: 99 }),
+      ...makeNotification({ publicId: "00000000-0000-0000-0000-000000000063" }),
       category: "UNKNOWN_FUTURE_CATEGORY" as never,
     };
     const env: NotificationsEnvelope = {

@@ -24,8 +24,8 @@ function bidHistoryEntry(
   overrides: Partial<BidHistoryEntry> = {},
 ): BidHistoryEntry {
   return {
-    bidId: 1,
-    userId: 42,
+    bidPublicId: "00000000-0000-0000-0000-000000000001",
+    userPublicId: "00000000-0000-0000-0000-00000000002a",
     bidderDisplayName: "Alice",
     amount: 1500,
     bidType: "MANUAL",
@@ -49,8 +49,8 @@ function pageOf<T>(content: T[], overrides: Partial<Page<T>> = {}): Page<T> {
 
 function bidResponse(overrides: Partial<BidResponse> = {}): BidResponse {
   return {
-    bidId: 10,
-    auctionId: 7,
+    bidPublicId: "00000000-0000-0000-0000-00000000000a",
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
     amount: 2000,
     bidType: "MANUAL",
     bidCount: 3,
@@ -67,8 +67,8 @@ function proxyBidResponse(
   overrides: Partial<ProxyBidResponse> = {},
 ): ProxyBidResponse {
   return {
-    proxyBidId: 99,
-    auctionId: 7,
+    proxyBidPublicId: "00000000-0000-0000-0000-000000000063",
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
     maxAmount: 5000,
     status: "ACTIVE",
     createdAt: "2026-04-20T12:00:00Z",
@@ -81,8 +81,8 @@ function publicAuction(
   overrides: Partial<PublicAuctionResponse> = {},
 ): PublicAuctionResponse {
   return {
-    id: 1,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000001",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
       id: 1,
@@ -139,7 +139,13 @@ describe("getBidHistory", () => {
     server.use(
       http.get("*/api/v1/auctions/:id/bids", ({ request }) => {
         captured = new URL(request.url);
-        return HttpResponse.json(pageOf([bidHistoryEntry({ bidId: 1 })]));
+        return HttpResponse.json(
+          pageOf([
+            bidHistoryEntry({
+              bidPublicId: "00000000-0000-0000-0000-000000000001",
+            }),
+          ]),
+        );
       }),
     );
 
@@ -150,7 +156,7 @@ describe("getBidHistory", () => {
     expect(captured!.searchParams.get("page")).toBe("0");
     expect(captured!.searchParams.get("size")).toBe("20");
     expect(page.content).toHaveLength(1);
-    expect(page.content[0].bidId).toBe(1);
+    expect(page.content[0].bidPublicId).toBe("00000000-0000-0000-0000-000000000001");
   });
 
   it("honours explicit page and size overrides", async () => {
