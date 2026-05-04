@@ -85,6 +85,9 @@ class SavedAuctionControllerIntegrationTest {
     private Long activeAuctionId;
     private Long draftAuctionId;
     private Long endedAuctionId;
+    private UUID activeAuctionPublicId;
+    private UUID draftAuctionPublicId;
+    private UUID endedAuctionPublicId;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -97,9 +100,15 @@ class SavedAuctionControllerIntegrationTest {
                 "saved-bidder@example.com", "SavedBidder",
                 "22222222-aaaa-bbbb-cccc-000000000202");
 
-        activeAuctionId = seedAuction(0, AuctionStatus.ACTIVE).getId();
-        draftAuctionId = seedAuction(1, AuctionStatus.DRAFT).getId();
-        endedAuctionId = seedEnded(2);
+        Auction active = seedAuction(0, AuctionStatus.ACTIVE);
+        activeAuctionId = active.getId();
+        activeAuctionPublicId = active.getPublicId();
+        Auction draft = seedAuction(1, AuctionStatus.DRAFT);
+        draftAuctionId = draft.getId();
+        draftAuctionPublicId = draft.getPublicId();
+        Auction ended = seedEndedAuction(2);
+        endedAuctionId = ended.getId();
+        endedAuctionPublicId = ended.getPublicId();
     }
 
     // -------------------------------------------------------------------------
@@ -111,9 +120,9 @@ class SavedAuctionControllerIntegrationTest {
         MvcResult result = mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + activeAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + activeAuctionPublicId + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.auctionId").value(activeAuctionId))
+                .andExpect(jsonPath("$.auctionPublicId").value(activeAuctionPublicId.toString()))
                 .andExpect(jsonPath("$.savedAt").exists())
                 .andReturn();
 
@@ -128,7 +137,7 @@ class SavedAuctionControllerIntegrationTest {
         MvcResult first = mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + activeAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + activeAuctionPublicId + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         String firstSavedAt = objectMapper.readTree(first.getResponse().getContentAsString())
@@ -137,7 +146,7 @@ class SavedAuctionControllerIntegrationTest {
         MvcResult second = mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + activeAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + activeAuctionPublicId + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         String secondSavedAt = objectMapper.readTree(second.getResponse().getContentAsString())
@@ -153,10 +162,10 @@ class SavedAuctionControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + draftAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + draftAuctionPublicId + "\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CANNOT_SAVE_PRE_ACTIVE"))
-                .andExpect(jsonPath("$.auctionId").value(draftAuctionId))
+                .andExpect(jsonPath("$.auctionPublicId").value(draftAuctionPublicId.toString()))
                 .andExpect(jsonPath("$.currentStatus").value("DRAFT"));
     }
 
@@ -167,7 +176,7 @@ class SavedAuctionControllerIntegrationTest {
         // Either is "rejected"; pin both as acceptable.
         mockMvc.perform(post("/api/v1/me/saved")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + activeAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + activeAuctionPublicId + "\"}"))
                 .andExpect(r -> {
                     int s = r.getResponse().getStatus();
                     org.assertj.core.api.Assertions.assertThat(s).isIn(401, 403);
@@ -184,13 +193,13 @@ class SavedAuctionControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + activeAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + activeAuctionPublicId + "\"}"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(delete("/api/v1/me/saved/" + activeAuctionId)
+        mockMvc.perform(delete("/api/v1/me/saved/" + activeAuctionPublicId)
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(delete("/api/v1/me/saved/" + activeAuctionId)
+        mockMvc.perform(delete("/api/v1/me/saved/" + activeAuctionPublicId)
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isNoContent());
     }
@@ -204,8 +213,8 @@ class SavedAuctionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/me/saved/ids")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.ids").isArray())
-                .andExpect(jsonPath("$.ids.length()").value(0));
+                .andExpect(jsonPath("$.publicIds").isArray())
+                .andExpect(jsonPath("$.publicIds.length()").value(0));
     }
 
     @Test
@@ -213,17 +222,17 @@ class SavedAuctionControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + activeAuctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + activeAuctionPublicId + "\"}"))
                 .andExpect(status().isOk());
 
         MvcResult res = mockMvc.perform(get("/api/v1/me/saved/ids")
                         .header("Authorization", "Bearer " + bidderAccessToken))
                 .andExpect(status().isOk())
                 .andReturn();
-        JsonNode idsNode = objectMapper.readTree(res.getResponse().getContentAsString()).get("ids");
+        JsonNode idsNode = objectMapper.readTree(res.getResponse().getContentAsString()).get("publicIds");
         org.assertj.core.api.Assertions.assertThat(idsNode.isArray()).isTrue();
         org.assertj.core.api.Assertions.assertThat(idsNode.size()).isEqualTo(1);
-        org.assertj.core.api.Assertions.assertThat(idsNode.get(0).asLong()).isEqualTo(activeAuctionId);
+        org.assertj.core.api.Assertions.assertThat(idsNode.get(0).asText()).isEqualTo(activeAuctionPublicId.toString());
     }
 
     // -------------------------------------------------------------------------
@@ -233,8 +242,8 @@ class SavedAuctionControllerIntegrationTest {
     @Test
     void auctionsList_activeOnlyDefault_returnsOnlyActiveSaves() throws Exception {
         // Save both an ACTIVE and an ENDED auction.
-        saveByApi(activeAuctionId);
-        saveByApi(endedAuctionId);
+        saveByApi(activeAuctionPublicId);
+        saveByApi(endedAuctionPublicId);
 
         MvcResult res = mockMvc.perform(get("/api/v1/me/saved/auctions")
                         .header("Authorization", "Bearer " + bidderAccessToken))
@@ -248,14 +257,14 @@ class SavedAuctionControllerIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(content.size())
                 .as("ACTIVE_ONLY default surfaces only the active save")
                 .isEqualTo(1);
-        org.assertj.core.api.Assertions.assertThat(content.get(0).get("id").asLong())
-                .isEqualTo(activeAuctionId);
+        org.assertj.core.api.Assertions.assertThat(content.get(0).get("publicId").asText())
+                .isEqualTo(activeAuctionPublicId.toString());
     }
 
     @Test
     void auctionsList_endedOnly_returnsOnlyEndedSaves() throws Exception {
-        saveByApi(activeAuctionId);
-        saveByApi(endedAuctionId);
+        saveByApi(activeAuctionPublicId);
+        saveByApi(endedAuctionPublicId);
 
         MvcResult res = mockMvc.perform(get("/api/v1/me/saved/auctions")
                         .header("Authorization", "Bearer " + bidderAccessToken)
@@ -268,14 +277,14 @@ class SavedAuctionControllerIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(content.size())
                 .as("ENDED_ONLY surfaces only the ended save")
                 .isEqualTo(1);
-        org.assertj.core.api.Assertions.assertThat(content.get(0).get("id").asLong())
-                .isEqualTo(endedAuctionId);
+        org.assertj.core.api.Assertions.assertThat(content.get(0).get("publicId").asText())
+                .isEqualTo(endedAuctionPublicId.toString());
     }
 
     @Test
     void auctionsList_all_returnsBothSaves() throws Exception {
-        saveByApi(activeAuctionId);
-        saveByApi(endedAuctionId);
+        saveByApi(activeAuctionPublicId);
+        saveByApi(endedAuctionPublicId);
 
         MvcResult res = mockMvc.perform(get("/api/v1/me/saved/auctions")
                         .header("Authorization", "Bearer " + bidderAccessToken)
@@ -294,11 +303,11 @@ class SavedAuctionControllerIntegrationTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private void saveByApi(Long auctionId) throws Exception {
+    private void saveByApi(UUID auctionPublicId) throws Exception {
         mockMvc.perform(post("/api/v1/me/saved")
                         .header("Authorization", "Bearer " + bidderAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"auctionId\": " + auctionId + "}"))
+                        .content("{\"auctionPublicId\": \"" + auctionPublicId + "\"}"))
                 .andExpect(status().isOk());
     }
 
@@ -348,11 +357,11 @@ class SavedAuctionControllerIntegrationTest {
         return auctionRepository.save(saved);
     }
 
-    private Long seedEnded(int idx) {
+    private Auction seedEndedAuction(int idx) {
         Auction a = seedAuction(idx, AuctionStatus.ENDED);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setEndedAt(OffsetDateTime.now().minusHours(1));
-        return auctionRepository.save(a).getId();
+        return auctionRepository.save(a);
     }
 
     private String registerUser(String email, String displayName) throws Exception {
