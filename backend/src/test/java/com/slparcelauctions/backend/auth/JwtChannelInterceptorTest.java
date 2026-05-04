@@ -159,10 +159,11 @@ class JwtChannelInterceptorTest {
     // ------------------------------------------------------------------------
 
     @Test
-    @DisplayName("SUBSCRIBE to /topic/auction/** is allowed for anonymous sessions")
+    @DisplayName("SUBSCRIBE to /topic/auction/{uuid} is allowed for anonymous sessions")
     void preSend_subscribe_publicAuctionTopic_anonymousAllowed() {
         Message<byte[]> msg = stompMessage(
-            StompCommand.SUBSCRIBE, null, "/topic/auction/42", null);
+            StompCommand.SUBSCRIBE, null,
+            "/topic/auction/a1b2c3d4-e5f6-7890-abcd-ef1234567890", null);
 
         Message<?> result = interceptor.preSend(msg, channel);
 
@@ -201,7 +202,9 @@ class JwtChannelInterceptorTest {
         // future swap to a STOMP relay (RabbitMQ, etc.) that normalizes paths
         // could let /topic/auction/../ws-test escape the allowlist and land
         // on /topic/ws-test. The strict regex rejects anything that isn't
-        // /topic/auction/{positive-integer}.
+        // /topic/auction/{uuid}.
+        String validUuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
         Message<byte[]> traversalFromRoot = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/auction/../ws-test", null);
         assertThatThrownBy(() -> interceptor.preSend(traversalFromRoot, channel))
@@ -209,20 +212,30 @@ class JwtChannelInterceptorTest {
             .hasMessageContaining("Authentication required");
 
         Message<byte[]> traversalAfterId = stompMessage(
-            StompCommand.SUBSCRIBE, null, "/topic/auction/42/../ws-test", null);
+            StompCommand.SUBSCRIBE, null,
+            "/topic/auction/" + validUuid + "/../ws-test", null);
         assertThatThrownBy(() -> interceptor.preSend(traversalAfterId, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Authentication required");
 
         Message<byte[]> trailingSegment = stompMessage(
-            StompCommand.SUBSCRIBE, null, "/topic/auction/42/extra", null);
+            StompCommand.SUBSCRIBE, null,
+            "/topic/auction/" + validUuid + "/extra", null);
         assertThatThrownBy(() -> interceptor.preSend(trailingSegment, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Authentication required");
 
-        Message<byte[]> nonNumericId = stompMessage(
+        // Numeric (legacy) IDs are no longer in the allowlist — topics now use UUIDs.
+        Message<byte[]> numericId = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42", null);
+        assertThatThrownBy(() -> interceptor.preSend(numericId, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        // Short non-UUID slug is also rejected.
+        Message<byte[]> shortSlug = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/auction/abc", null);
-        assertThatThrownBy(() -> interceptor.preSend(nonNumericId, channel))
+        assertThatThrownBy(() -> interceptor.preSend(shortSlug, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Authentication required");
     }

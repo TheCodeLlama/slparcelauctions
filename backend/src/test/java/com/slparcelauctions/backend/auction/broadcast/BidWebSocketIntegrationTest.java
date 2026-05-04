@@ -49,7 +49,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * End-to-end WebSocket broadcast test — connects a real STOMP client to
- * {@code /ws}, subscribes to {@code /topic/auction/{id}} without
+ * {@code /ws}, subscribes to {@code /topic/auction/{publicId}} without
  * authentication (per sub-spec §4 the topic is public), places a bid via
  * {@link BidService#placeBid}, and asserts the
  * {@link BidSettlementEnvelope} is delivered within 2 seconds of commit.
@@ -95,6 +95,8 @@ class BidWebSocketIntegrationTest {
     private Long sellerId;
     private Long bidderId;
     private Long auctionId;
+    private UUID auctionPublicId;
+    private UUID bidderPublicId;
 
     @AfterEach
     void tearDown() {
@@ -113,7 +115,7 @@ class BidWebSocketIntegrationTest {
 
         BlockingQueue<Map<String, Object>> received = new LinkedBlockingQueue<>();
         session = connectAnonymously();
-        session.subscribe("/topic/auction/" + auctionId, new StompFrameHandler() {
+        session.subscribe("/topic/auction/" + auctionPublicId, new StompFrameHandler() {
             @Override
             public Type getPayloadType(StompHeaders headers) {
                 // Spring's default Jackson converter needs a concrete type
@@ -144,12 +146,12 @@ class BidWebSocketIntegrationTest {
 
         Map<String, Object> envelope = received.poll(5, TimeUnit.SECONDS);
         assertThat(envelope)
-                .as("BidSettlementEnvelope must arrive on /topic/auction/%d within 5s", auctionId)
+                .as("BidSettlementEnvelope must arrive on /topic/auction/%s within 5s", auctionPublicId)
                 .isNotNull();
         assertThat(envelope.get("type")).isEqualTo("BID_SETTLEMENT");
-        assertThat(((Number) envelope.get("auctionId")).longValue()).isEqualTo(auctionId);
+        assertThat(envelope.get("auctionPublicId")).isEqualTo(auctionPublicId.toString());
         assertThat(((Number) envelope.get("currentBid")).longValue()).isEqualTo(1_000L);
-        assertThat(((Number) envelope.get("currentBidderId")).longValue()).isEqualTo(bidderId);
+        assertThat(envelope.get("currentBidderPublicId")).isEqualTo(bidderPublicId.toString());
         assertThat(envelope.get("currentBidderDisplayName")).isEqualTo("WS Bidder");
         assertThat(((Number) envelope.get("bidCount")).intValue()).isEqualTo(1);
 
@@ -260,7 +262,9 @@ class BidWebSocketIntegrationTest {
 
             this.sellerId = seller.getId();
             this.bidderId = bidder.getId();
+            this.bidderPublicId = bidder.getPublicId();
             this.auctionId = auction.getId();
+            this.auctionPublicId = auction.getPublicId();
         });
     }
 
@@ -282,7 +286,9 @@ class BidWebSocketIntegrationTest {
             }
         });
         auctionId = null;
+        auctionPublicId = null;
         bidderId = null;
+        bidderPublicId = null;
         sellerId = null;
     }
 }
