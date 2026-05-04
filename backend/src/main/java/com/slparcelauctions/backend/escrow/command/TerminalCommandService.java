@@ -146,7 +146,7 @@ public class TerminalCommandService {
                 .requiresManualReview(false)
                 .build();
         Integer currentVersion = terminalSecretService.current()
-                .map(s -> s.getVersion()).orElse(null);
+                .map(s -> s.getSecretVersion()).orElse(null);
         if (currentVersion != null) {
             cmd.setSharedSecretVersion(String.valueOf(currentVersion));
         }

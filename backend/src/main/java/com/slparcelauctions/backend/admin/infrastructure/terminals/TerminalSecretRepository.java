@@ -6,6 +6,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TerminalSecretRepository extends JpaRepository<TerminalSecret, Long> {
-    List<TerminalSecret> findByRetiredAtIsNullOrderByVersionDesc();
-    Optional<TerminalSecret> findTopByOrderByVersionDesc();
+    List<TerminalSecret> findByRetiredAtIsNullOrderBySecretVersionDesc();
+    Optional<TerminalSecret> findTopByOrderBySecretVersionDesc();
 }

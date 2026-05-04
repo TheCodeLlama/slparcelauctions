@@ -24,21 +24,21 @@ public class TerminalSecretService {
 
     @Transactional(readOnly = true)
     public Optional<TerminalSecret> current() {
-        return repo.findByRetiredAtIsNullOrderByVersionDesc().stream().findFirst();
+        return repo.findByRetiredAtIsNullOrderBySecretVersionDesc().stream().findFirst();
     }
 
     @Transactional(readOnly = true)
     public boolean accept(String rawSecret) {
-        return repo.findByRetiredAtIsNullOrderByVersionDesc().stream()
+        return repo.findByRetiredAtIsNullOrderBySecretVersionDesc().stream()
                 .anyMatch(s -> s.getSecretValue().equals(rawSecret));
     }
 
     @Transactional
     public TerminalSecret rotate() {
-        int nextVersion = repo.findTopByOrderByVersionDesc()
-                .map(s -> s.getVersion() + 1)
+        int nextVersion = repo.findTopByOrderBySecretVersionDesc()
+                .map(s -> s.getSecretVersion() + 1)
                 .orElse(1);
-        List<TerminalSecret> active = repo.findByRetiredAtIsNullOrderByVersionDesc();
+        List<TerminalSecret> active = repo.findByRetiredAtIsNullOrderBySecretVersionDesc();
         if (active.size() >= 2) {
             TerminalSecret oldest = active.get(active.size() - 1);
             oldest.setRetiredAt(OffsetDateTime.now(clock));
@@ -48,11 +48,11 @@ public class TerminalSecretService {
         RNG.nextBytes(bytes);
         String newValue = HexFormat.of().formatHex(bytes);
         TerminalSecret next = TerminalSecret.builder()
-                .version(nextVersion)
+                .secretVersion(nextVersion)
                 .secretValue(newValue)
                 .build();
         TerminalSecret saved = repo.save(next);
-        log.info("Terminal secret rotated to v{}", nextVersion);
+        log.info("Terminal secret rotated to v{}", saved.getSecretVersion());
         return saved;
     }
 }

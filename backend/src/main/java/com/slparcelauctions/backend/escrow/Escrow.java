@@ -4,11 +4,11 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import com.slparcelauctions.backend.escrow.dispute.EvidenceImage;
 
 import jakarta.persistence.Column;
@@ -16,9 +16,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
@@ -28,6 +25,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Per-auction escrow lifecycle row (spec §3.1, §4). Created synchronously by
@@ -46,12 +44,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Escrow {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class Escrow extends BaseMutableEntity {
 
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "auction_id", nullable = false, unique = true)
@@ -141,8 +135,4 @@ public class Escrow {
     @Builder.Default
     @Column(name = "review_required", nullable = false)
     private Boolean reviewRequired = false;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

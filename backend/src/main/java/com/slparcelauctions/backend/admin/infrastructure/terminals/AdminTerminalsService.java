@@ -22,7 +22,7 @@ public class AdminTerminalsService {
     @Transactional(readOnly = true)
     public List<AdminTerminalRow> list() {
         Integer currentVersion = secretService.current()
-                .map(TerminalSecret::getVersion).orElse(null);
+                .map(TerminalSecret::getSecretVersion).orElse(null);
         return terminalRepo.findAll().stream().map(t -> new AdminTerminalRow(
                 t.getTerminalId(), t.getRegionName(), t.getHttpInUrl(),
                 t.getLastSeenAt(), t.getLastHeartbeatAt(),
