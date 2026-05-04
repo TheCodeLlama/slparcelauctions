@@ -108,6 +108,6 @@ public class AdminWithdrawalService {
 
     @Transactional(readOnly = true)
     public Page<Withdrawal> list(int page, int size) {
-        return withdrawalRepo.findAllByOrderByRequestedAtDesc(PageRequest.of(page, size));
+        return withdrawalRepo.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size));
     }
 }
