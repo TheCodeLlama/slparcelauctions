@@ -77,7 +77,7 @@ public class AuctionSearchResultMapper {
         String photoUrl = primaryPhotoUrl;
 
         ParcelSummaryDto parcelDto = snap == null ? null : new ParcelSummaryDto(
-                a.getId(),
+                a.getPublicId(),
                 // Use regionName as the display name — same as the old Parcel behaviour.
                 snap.getRegionName(),
                 snap.getRegionName(),
@@ -92,7 +92,7 @@ public class AuctionSearchResultMapper {
                 sortedTagsList(tags));
 
         SellerSummaryDto sellerDto = s == null ? null : new SellerSummaryDto(
-                s.getId(),
+                s.getPublicId(),
                 s.getDisplayName(),
                 avatarUrl(s),
                 s.getAvgSellerRating(),
@@ -102,7 +102,7 @@ public class AuctionSearchResultMapper {
         boolean snipeProtect = Boolean.TRUE.equals(a.getSnipeProtect());
 
         return new AuctionSearchResultDto(
-                a.getId(),
+                a.getPublicId(),
                 a.getTitle(),
                 a.getStatus(),
                 a.getEndOutcome(),
@@ -140,6 +140,6 @@ public class AuctionSearchResultMapper {
     }
 
     private String avatarUrl(User u) {
-        return u.getId() == null ? null : "/api/v1/users/" + u.getId() + "/avatar/256";
+        return u.getPublicId() == null ? null : "/api/v1/users/" + u.getPublicId() + "/avatar/256";
     }
 }

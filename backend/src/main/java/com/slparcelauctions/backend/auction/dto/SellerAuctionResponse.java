@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction.dto;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationMethod;
@@ -23,8 +24,8 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
  * pre-ENDED auctions.
  */
 public record SellerAuctionResponse(
-        Long id,
-        Long sellerId,
+        UUID publicId,
+        UUID sellerPublicId,
         String title,
         ParcelResponse parcel,
         AuctionStatus status,
@@ -39,7 +40,7 @@ public record SellerAuctionResponse(
         Integer bidCount,
         BigDecimal currentHighBid,
         Long bidderCount,
-        Long winnerId,
+        UUID winnerPublicId,
         Integer durationHours,
         Boolean snipeProtect,
         Integer snipeWindowMin,

@@ -33,19 +33,19 @@ public class NoOpAuctionBroadcastPublisher {
             @Override
             public void publishSettlement(BidSettlementEnvelope envelope) {
                 log.debug("no-op publishSettlement: auctionId={}, currentBid={}, bidCount={}",
-                        envelope.auctionId(), envelope.currentBid(), envelope.bidCount());
+                        envelope.auctionPublicId(), envelope.currentBid(), envelope.bidCount());
             }
 
             @Override
             public void publishEnded(AuctionEndedEnvelope envelope) {
                 log.debug("no-op publishEnded: auctionId={}, outcome={}",
-                        envelope.auctionId(), envelope.endOutcome());
+                        envelope.auctionPublicId(), envelope.endOutcome());
             }
 
             @Override
             public void publishCancelled(AuctionCancelledEnvelope envelope) {
                 log.debug("no-op publishCancelled: auctionId={}, hadBids={}",
-                        envelope.auctionId(), envelope.hadBids());
+                        envelope.auctionPublicId(), envelope.hadBids());
             }
         };
     }

@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction.broadcast;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.Bid;
@@ -25,10 +26,10 @@ import com.slparcelauctions.backend.user.User;
  */
 public record BidSettlementEnvelope(
         String type,
-        Long auctionId,
+        UUID auctionPublicId,
         OffsetDateTime serverTime,
         Long currentBid,
-        Long currentBidderId,
+        UUID currentBidderPublicId,
         String currentBidderDisplayName,
         Integer bidCount,
         OffsetDateTime endsAt,
@@ -50,10 +51,10 @@ public record BidSettlementEnvelope(
                 .toList();
         return new BidSettlementEnvelope(
                 "BID_SETTLEMENT",
-                auction.getId(),
+                auction.getPublicId(),
                 OffsetDateTime.now(clock),
                 auction.getCurrentBid(),
-                auction.getCurrentBidderId(),
+                currentTopBidder == null ? null : currentTopBidder.getPublicId(),
                 currentTopBidder == null ? null : currentTopBidder.getDisplayName(),
                 auction.getBidCount(),
                 auction.getEndsAt(),

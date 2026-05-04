@@ -306,9 +306,9 @@ class BidServiceTest {
                 ArgumentCaptor.forClass(BidSettlementEnvelope.class);
         verify(publisher, times(1)).publishSettlement(envCap.capture());
         BidSettlementEnvelope env = envCap.getValue();
-        assertThat(env.auctionId()).isEqualTo(500L);
+        assertThat(env.auctionPublicId()).isEqualTo(activeAuction.getPublicId());
         assertThat(env.currentBid()).isEqualTo(1500L);
-        assertThat(env.currentBidderId()).isEqualTo(20L);
+        assertThat(env.currentBidderPublicId()).isEqualTo(bidder.getPublicId());
         assertThat(env.currentBidderDisplayName()).isEqualTo("Bidder");
         assertThat(env.bidCount()).isEqualTo(1);
         assertThat(env.newBids()).hasSize(1);

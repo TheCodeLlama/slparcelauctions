@@ -101,6 +101,7 @@ class AuctionEndIntegrationTest {
     private Long seededAuctionId;
     private Long seededSellerId;
     private Long seededBidderId;
+    private UUID seededBidderPublicId;
 
     /**
      * Tears down seeded fixture rows via JPA repositories rather than raw
@@ -154,6 +155,7 @@ class AuctionEndIntegrationTest {
         seededAuctionId = null;
         seededSellerId = null;
         seededBidderId = null;
+        seededBidderPublicId = null;
     }
 
     @Test
@@ -176,7 +178,7 @@ class AuctionEndIntegrationTest {
 
         assertThat(capturingPublisher.ended).hasSize(1);
         assertThat(capturingPublisher.ended.get(0).endOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
-        assertThat(capturingPublisher.ended.get(0).winnerUserId()).isEqualTo(seededBidderId);
+        assertThat(capturingPublisher.ended.get(0).winnerPublicId()).isEqualTo(seededBidderPublicId);
         assertThat(capturingPublisher.ended.get(0).winnerDisplayName()).isEqualTo("Winner Avatar");
         assertThat(capturingPublisher.ended.get(0).finalBid()).isEqualTo(currentBid);
         // Scheduler path must stamp serverTime from the same OffsetDateTime
@@ -210,7 +212,7 @@ class AuctionEndIntegrationTest {
 
         assertThat(capturingPublisher.ended).hasSize(1);
         assertThat(capturingPublisher.ended.get(0).endOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
-        assertThat(capturingPublisher.ended.get(0).winnerUserId()).isNull();
+        assertThat(capturingPublisher.ended.get(0).winnerPublicId()).isNull();
         assertThat(capturingPublisher.ended.get(0).winnerDisplayName()).isNull();
         assertThat(capturingPublisher.ended.get(0).finalBid()).isNull();
     }
@@ -288,6 +290,7 @@ class AuctionEndIntegrationTest {
             auctionRepo.save(auction);
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();
+            seededBidderPublicId = bidder.getPublicId();
             seededAuctionId = auction.getId();
         });
     }

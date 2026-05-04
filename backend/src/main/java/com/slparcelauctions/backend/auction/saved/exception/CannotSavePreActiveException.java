@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.auction.saved.exception;
 
+import java.util.UUID;
+
 import lombok.Getter;
 
 /**
@@ -17,6 +19,12 @@ public class CannotSavePreActiveException extends RuntimeException {
     public CannotSavePreActiveException(Long auctionId, String currentStatus) {
         super("Cannot save auction in pre-active status: " + currentStatus);
         this.auctionId = auctionId;
+        this.currentStatus = currentStatus;
+    }
+
+    public CannotSavePreActiveException(UUID publicId, String currentStatus) {
+        super("Cannot save auction in pre-active status: " + currentStatus);
+        this.auctionId = null;
         this.currentStatus = currentStatus;
     }
 }

@@ -63,7 +63,7 @@ public class SavedAuctionController {
     public ResponseEntity<SavedAuctionDto> save(
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody SaveAuctionRequest req) {
-        SavedAuctionDto dto = service.save(principal.userId(), req.auctionId());
+        SavedAuctionDto dto = service.save(principal.userId(), req.auctionPublicId());
         return ResponseEntity.ok(dto);
     }
 

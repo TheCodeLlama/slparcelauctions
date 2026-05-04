@@ -21,6 +21,8 @@ import com.slparcelauctions.backend.user.User;
 
 public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpecificationExecutor<Auction> {
 
+    Optional<Auction> findByPublicId(UUID publicId);
+
     /**
      * Eagerly fetches {@code parcel} + {@code tags} so {@code AuctionDtoMapper}
      * calls downstream of a {@code @Transactional} boundary do not trip

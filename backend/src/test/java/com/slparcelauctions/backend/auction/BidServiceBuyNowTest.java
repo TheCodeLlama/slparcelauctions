@@ -179,10 +179,10 @@ class BidServiceBuyNowTest {
 
         AuctionEndedEnvelope env = cap.getValue();
         assertThat(env.type()).isEqualTo("AUCTION_ENDED");
-        assertThat(env.auctionId()).isEqualTo(500L);
+        assertThat(env.auctionPublicId()).isEqualTo(auction.getPublicId());
         assertThat(env.endOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
         assertThat(env.finalBid()).isEqualTo(10_000L);
-        assertThat(env.winnerUserId()).isEqualTo(20L);
+        assertThat(env.winnerPublicId()).isEqualTo(bidder.getPublicId());
         assertThat(env.winnerDisplayName()).isEqualTo("Bidder");
         assertThat(env.bidCount()).isEqualTo(1);
     }

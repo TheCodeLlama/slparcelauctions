@@ -139,10 +139,10 @@ class AuctionEndTaskTest {
                 ArgumentCaptor.forClass(AuctionEndedEnvelope.class);
         verify(publisher).publishEnded(cap.capture());
         AuctionEndedEnvelope env = cap.getValue();
-        assertThat(env.auctionId()).isEqualTo(100L);
+        assertThat(env.auctionPublicId()).isEqualTo(auction.getPublicId());
         assertThat(env.endOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
         assertThat(env.finalBid()).isEqualTo(1500L);
-        assertThat(env.winnerUserId()).isEqualTo(7L);
+        assertThat(env.winnerPublicId()).isEqualTo(winner.getPublicId());
         assertThat(env.winnerDisplayName()).isEqualTo("Top Bidder");
         assertThat(env.bidCount()).isEqualTo(3);
         // Scheduler path must stamp envelope.serverTime from the same
@@ -189,7 +189,7 @@ class AuctionEndTaskTest {
         verify(publisher).publishEnded(cap.capture());
         AuctionEndedEnvelope env = cap.getValue();
         assertThat(env.endOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
-        assertThat(env.winnerUserId()).isNull();
+        assertThat(env.winnerPublicId()).isNull();
         assertThat(env.winnerDisplayName()).isNull();
         assertThat(env.finalBid()).isNull();
     }
@@ -376,7 +376,7 @@ class AuctionEndTaskTest {
         verify(publisher).publishEnded(cap.capture());
         AuctionEndedEnvelope env = cap.getValue();
         assertThat(env.endOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
-        assertThat(env.winnerUserId()).isEqualTo(99L);
+        assertThat(env.winnerPublicId()).isNull();  // winner user not found, so publicId elided
         assertThat(env.winnerDisplayName()).isNull();
     }
 }

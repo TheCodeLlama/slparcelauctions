@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.Bid;
@@ -22,8 +23,8 @@ import com.slparcelauctions.backend.auction.BidType;
  * bid-emission branches land in later tasks.
  */
 public record BidResponse(
-        Long bidId,
-        Long auctionId,
+        UUID bidPublicId,
+        UUID auctionPublicId,
         Long amount,
         BidType bidType,
         Integer bidCount,
@@ -35,8 +36,8 @@ public record BidResponse(
 
     public static BidResponse from(Bid bid, Auction auction, boolean buyNowTriggered) {
         return new BidResponse(
-                bid.getId(),
-                auction.getId(),
+                bid.getPublicId(),
+                auction.getPublicId(),
                 bid.getAmount(),
                 bid.getBidType(),
                 auction.getBidCount(),

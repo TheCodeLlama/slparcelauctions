@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction.saved;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -21,6 +22,9 @@ public interface SavedAuctionRepository extends JpaRepository<SavedAuction, Long
 
     @Query("SELECT s.auction.id FROM SavedAuction s WHERE s.user.id = :userId ORDER BY s.savedAt DESC")
     List<Long> findAuctionIdsByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT s.auction.publicId FROM SavedAuction s WHERE s.user.id = :userId ORDER BY s.savedAt DESC")
+    List<UUID> findAuctionPublicIdsByUserId(@Param("userId") Long userId);
 
     @Query("SELECT COUNT(s) FROM SavedAuction s WHERE s.user.id = :userId")
     long countByUserId(@Param("userId") Long userId);
