@@ -147,7 +147,7 @@ class BotMonitorLifecycleServiceTest {
                 .toList();
         assertThat(cancelled).hasSize(1);
         assertThat(cancelled.get(0).getCompletedAt()).isNotNull();
-        assertThat(cancelled.get(0).getLastUpdatedAt()).isNotNull();
+        assertThat(cancelled.get(0).getUpdatedAt()).isNotNull();
     }
 
     @Test

@@ -160,6 +160,7 @@ class BotTaskServiceTest {
     void createForAuction_doesNotCancelOtherAuctionsTasks() {
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         Auction other = build(AuctionStatus.VERIFICATION_PENDING);
+        setEntityId(other, 999L);
         BotTask foreign = botTask(66L, other, BotTaskStatus.PENDING);
         when(botTaskRepo.findByStatusOrderByCreatedAtAsc(BotTaskStatus.PENDING))
                 .thenReturn(List.of(foreign));

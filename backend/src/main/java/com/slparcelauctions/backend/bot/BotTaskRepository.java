@@ -41,12 +41,12 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
      * IN_PROGRESS rows older than {@code threshold}. Used by the bot-task
      * timeout sweep to detect workers that crashed mid-task.
      */
-    List<BotTask> findByStatusAndLastUpdatedAtBefore(
+    List<BotTask> findByStatusAndUpdatedAtBefore(
             BotTaskStatus status, OffsetDateTime threshold);
 
     /**
      * Bulk-cancels live (PENDING or IN_PROGRESS) monitor rows for an auction
-     * on close / suspend / cancel. {@code lastUpdatedAt = :now} is explicit in
+     * on close / suspend / cancel. {@code updatedAt = :now} is explicit in
      * the SET clause because {@link org.springframework.data.jpa.repository.Modifying}
      * bypasses Hibernate's {@link org.hibernate.annotations.UpdateTimestamp}
      * handler (FOOTGUNS §F.87). Idempotent: returns 0 when no rows match.
@@ -56,7 +56,7 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
             UPDATE BotTask t
                SET t.status = com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED,
                    t.completedAt = :now,
-                   t.lastUpdatedAt = :now
+                   t.updatedAt = :now
              WHERE t.auction.id = :auctionId
                AND t.taskType IN :types
                AND t.status IN (com.slparcelauctions.backend.bot.BotTaskStatus.PENDING,
@@ -69,7 +69,7 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
 
     /**
      * Bulk-cancels live MONITOR_ESCROW rows for an escrow on its terminal
-     * transition. Same {@code lastUpdatedAt} caveat as
+     * transition. Same {@code updatedAt} caveat as
      * {@link #cancelLiveByAuctionIdAndTypes}. Idempotent.
      */
     @Modifying
@@ -77,7 +77,7 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
             UPDATE BotTask t
                SET t.status = com.slparcelauctions.backend.bot.BotTaskStatus.CANCELLED,
                    t.completedAt = :now,
-                   t.lastUpdatedAt = :now
+                   t.updatedAt = :now
              WHERE t.escrow.id = :escrowId
                AND t.taskType = com.slparcelauctions.backend.bot.BotTaskType.MONITOR_ESCROW
                AND t.status IN (com.slparcelauctions.backend.bot.BotTaskStatus.PENDING,

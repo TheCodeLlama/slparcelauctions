@@ -1,10 +1,13 @@
 package com.slparcelauctions.backend.notification.slim;
 
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(
@@ -17,11 +20,9 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class SlImMessage {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@AllArgsConstructor
+@SuperBuilder
+public class SlImMessage extends BaseMutableEntity {
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -38,12 +39,6 @@ public class SlImMessage {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private SlImMessageStatus status;
-
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 
     @Column(name = "delivered_at")
     private OffsetDateTime deliveredAt;

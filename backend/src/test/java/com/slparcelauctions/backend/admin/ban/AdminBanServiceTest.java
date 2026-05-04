@@ -284,10 +284,10 @@ class AdminBanServiceTest {
             .build();
     }
 
-    /** Reflectively set the id field (Lombok @Builder doesn't expose it normally for transient entities). */
+    /** Reflectively set the id field (id is declared in BaseEntity). */
     private void setId(User user, Long id) {
         try {
-            java.lang.reflect.Field f = User.class.getDeclaredField("id");
+            java.lang.reflect.Field f = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
             f.setAccessible(true);
             f.set(user, id);
         } catch (Exception e) {
