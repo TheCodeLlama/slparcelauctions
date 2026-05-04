@@ -83,8 +83,8 @@ class DevBotTaskControllerTest {
 
     @Test
     void devComplete_success_transitionsAuctionToActive() throws Exception {
-        Long auctionId = createAndPayAuction();
-        Long botTaskId = triggerVerify(auctionId);
+        UUID auctionPublicId = createAndPayAuction();
+        Long botTaskId = triggerVerify(auctionPublicId);
 
         String body = String.format("""
             {
@@ -107,7 +107,7 @@ class DevBotTaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
-        Auction updated = auctionRepository.findById(auctionId).orElseThrow();
+        Auction updated = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(updated.getVerificationTier()).isEqualTo(VerificationTier.BOT);
     }
@@ -116,7 +116,7 @@ class DevBotTaskControllerTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private Long createAndPayAuction() throws Exception {
+    private UUID createAndPayAuction() throws Exception {
         String body = String.format("""
             {
               "slParcelUuid":"%s",
@@ -132,10 +132,10 @@ class DevBotTaskControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body))
                 .andExpect(status().isCreated()).andReturn();
-        Long auctionId = objectMapper.readTree(res.getResponse().getContentAsString())
-                .get("id").asLong();
+        UUID auctionPublicId = UUID.fromString(objectMapper.readTree(res.getResponse().getContentAsString())
+                .get("publicId").asText());
 
-        Auction a = auctionRepository.findById(auctionId).orElseThrow();
+        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
         a.setStatus(AuctionStatus.DRAFT_PAID);
         a.setListingFeePaid(true);
         a.setListingFeeAmt(100L);
@@ -144,11 +144,11 @@ class DevBotTaskControllerTest {
         a.setCommissionRate(new BigDecimal("0.05"));
         a.setAgentFeeRate(BigDecimal.ZERO);
         auctionRepository.save(a);
-        return auctionId;
+        return auctionPublicId;
     }
 
-    private Long triggerVerify(Long auctionId) throws Exception {
-        MvcResult res = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+    private Long triggerVerify(UUID auctionPublicId) throws Exception {
+        MvcResult res = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"SALE_TO_BOT\"}"))

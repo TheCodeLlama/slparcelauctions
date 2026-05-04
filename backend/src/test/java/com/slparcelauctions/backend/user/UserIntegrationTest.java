@@ -57,7 +57,7 @@ class UserIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.publicId").exists())
                 .andExpect(jsonPath("$.email").value("integration+create@example.com"))
                 .andExpect(jsonPath("$.displayName").value("Integration User"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
@@ -100,9 +100,9 @@ class UserIntegrationTest {
                 .build());
         userRepository.flush();
 
-        mockMvc.perform(get("/api/v1/users/" + user.getId()))
+        mockMvc.perform(get("/api/v1/users/" + user.getPublicId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(user.getId()))
+                .andExpect(jsonPath("$.publicId").value(user.getPublicId().toString()))
                 .andExpect(jsonPath("$.displayName").value("Profile User"))
                 .andExpect(jsonPath("$.bio").value("about me"))
                 .andExpect(jsonPath("$.email").doesNotExist());
@@ -110,7 +110,7 @@ class UserIntegrationTest {
 
     @Test
     void getUserProfile_unknownId_returns404() throws Exception {
-        mockMvc.perform(get("/api/v1/users/9999999"))
+        mockMvc.perform(get("/api/v1/users/00000000-0000-0000-0000-000099999999"))
                 .andExpect(status().isNotFound());
     }
 

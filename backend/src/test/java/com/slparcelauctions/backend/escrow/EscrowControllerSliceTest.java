@@ -25,6 +25,13 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mockito;
+
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auth.JwtAuthenticationEntryPoint;
 import com.slparcelauctions.backend.auth.JwtAuthenticationFilter;
 import com.slparcelauctions.backend.auth.JwtService;
@@ -71,11 +78,20 @@ class EscrowControllerSliceTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean EscrowService escrowService;
+    @MockitoBean AuctionRepository auctionRepository;
     @MockitoBean JwtService jwtService;
     @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;
+
+    @BeforeEach
+    void stubAuctionLookup() {
+        Auction mockAuction = Mockito.mock(Auction.class);
+        Mockito.when(mockAuction.getId()).thenReturn(AUCTION_ID);
+        Mockito.when(auctionRepository.findByPublicId(AUCTION_PUBLIC_ID))
+                .thenReturn(Optional.of(mockAuction));
+    }
 
     private EscrowStatusResponse stubResponse(EscrowState state) {
         OffsetDateTime now = OffsetDateTime.now();
@@ -104,7 +120,7 @@ class EscrowControllerSliceTest {
         when(escrowService.getStatus(eq(AUCTION_ID), eq(SELLER_ID)))
                 .thenReturn(stubResponse(EscrowState.ESCROW_PENDING));
 
-        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
+        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.escrowPublicId").value(ESCROW_PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.auctionPublicId").value(AUCTION_PUBLIC_ID.toString()))
@@ -117,7 +133,7 @@ class EscrowControllerSliceTest {
         when(escrowService.getStatus(eq(AUCTION_ID), eq(WINNER_ID)))
                 .thenReturn(stubResponse(EscrowState.ESCROW_PENDING));
 
-        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
+        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.escrowPublicId").value(ESCROW_PUBLIC_ID.toString()));
     }
@@ -128,7 +144,7 @@ class EscrowControllerSliceTest {
         when(escrowService.getStatus(eq(AUCTION_ID), eq(999L)))
                 .thenThrow(new EscrowAccessDeniedException());
 
-        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
+        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ESCROW_FORBIDDEN"));
     }
@@ -139,7 +155,7 @@ class EscrowControllerSliceTest {
         when(escrowService.getStatus(eq(AUCTION_ID), anyLong()))
                 .thenThrow(new EscrowNotFoundException(AUCTION_ID));
 
-        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
+        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ESCROW_NOT_FOUND"))
                 .andExpect(jsonPath("$.auctionId").value(AUCTION_ID));
@@ -147,7 +163,7 @@ class EscrowControllerSliceTest {
 
     @Test
     void getStatus_anonymous_returns401() throws Exception {
-        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_ID + "/escrow"))
+        mockMvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -160,7 +176,7 @@ class EscrowControllerSliceTest {
                 eq(SELLER_ID), anyList()))
                 .thenReturn(stubResponse(EscrowState.DISPUTED));
 
-        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/dispute")
                         .file(disputePart("SELLER_NOT_RESPONSIVE",
                                 "Seller has not responded to any messages for 3 days.")))
                 .andExpect(status().isOk())
@@ -172,7 +188,7 @@ class EscrowControllerSliceTest {
     void fileDispute_emptyBodyPart_returns400() throws Exception {
         MockMultipartFile emptyBody = new MockMultipartFile("body", "body",
                 MediaType.APPLICATION_JSON_VALUE, "{}".getBytes());
-        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/dispute")
                         .file(emptyBody))
                 .andExpect(status().isBadRequest());
         Mockito.verifyNoInteractions(escrowService);
@@ -181,7 +197,7 @@ class EscrowControllerSliceTest {
     @Test
     @WithMockAuthPrincipal(userId = 100)
     void fileDispute_descriptionTooShort_returns400() throws Exception {
-        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/dispute")
                         .file(disputePart("OTHER", "short")))
                 .andExpect(status().isBadRequest());
         Mockito.verifyNoInteractions(escrowService);
@@ -194,7 +210,7 @@ class EscrowControllerSliceTest {
                 eq(999L), anyList()))
                 .thenThrow(new EscrowAccessDeniedException());
 
-        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/dispute")
                         .file(disputePart("OTHER",
                                 "Ten characters minimum description here.")))
                 .andExpect(status().isForbidden())
@@ -209,7 +225,7 @@ class EscrowControllerSliceTest {
                 .thenThrow(new IllegalEscrowTransitionException(
                         ESCROW_ID, EscrowState.COMPLETED, EscrowState.DISPUTED));
 
-        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_ID + "/escrow/dispute")
+        mockMvc.perform(multipart("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/dispute")
                         .file(disputePart("OTHER",
                                 "Ten characters minimum description here.")))
                 .andExpect(status().isConflict())

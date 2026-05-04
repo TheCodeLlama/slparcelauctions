@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,8 +57,12 @@ class UserControllerTest {
     private JwtService jwtService;
 
     @MockitoBean
-    @SuppressWarnings("unused")
     private UserRepository userRepository;
+
+    private static final java.util.UUID USER_PUBLIC_ID =
+            java.util.UUID.fromString("00000000-0000-0000-0000-00000000002a");
+    private static final java.util.UUID MISSING_USER_PUBLIC_ID =
+            java.util.UUID.fromString("00000000-0000-0000-0000-000000000063");
 
     @Test
     void createUser_returns201() throws Exception {
@@ -145,25 +150,26 @@ class UserControllerTest {
 
     @Test
     void getUserProfile_returns200() throws Exception {
-        java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-00000000002a");
         UserProfileResponse profile = new UserProfileResponse(
-                publicId, "Bob", "hello", null, null, null, null,
+                USER_PUBLIC_ID, "Bob", "hello", null, null, null, null,
                 false, null, null, 0, 0, 0, null, true, OffsetDateTime.now());
+        User mockUser = org.mockito.Mockito.mock(User.class);
+        when(mockUser.getId()).thenReturn(42L);
+        when(userRepository.findByPublicId(USER_PUBLIC_ID)).thenReturn(Optional.of(mockUser));
         when(userService.getPublicProfile(42L)).thenReturn(profile);
 
-        mockMvc.perform(get("/api/v1/users/42"))
+        mockMvc.perform(get("/api/v1/users/" + USER_PUBLIC_ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.publicId").value(publicId.toString()))
+                .andExpect(jsonPath("$.publicId").value(USER_PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.displayName").value("Bob"));
     }
 
     @Test
     void getUserProfile_notFound_returns404() throws Exception {
-        when(userService.getPublicProfile(99L)).thenThrow(new UserNotFoundException(99L));
-
-        mockMvc.perform(get("/api/v1/users/99"))
+        // MISSING_USER_PUBLIC_ID has no stub → findByPublicId returns empty → 404
+        mockMvc.perform(get("/api/v1/users/" + MISSING_USER_PUBLIC_ID))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.detail").value("User not found: id=99"));
+                .andExpect(jsonPath("$.detail").value("User not found: " + MISSING_USER_PUBLIC_ID));
     }
 
     @Test

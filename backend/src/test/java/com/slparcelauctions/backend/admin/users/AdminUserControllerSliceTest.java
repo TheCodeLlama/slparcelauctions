@@ -13,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,7 +35,8 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.user.Role;
-import java.util.UUID;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -51,18 +54,48 @@ import java.util.UUID;
 })
 class AdminUserControllerSliceTest {
 
+    private static final UUID ADMIN_UUID  = UUID.fromString("00000000-0000-aaaa-0008-000000000001");
+    private static final UUID USER_UUID   = UUID.fromString("00000000-0000-aaaa-0008-000000000002");
+    private static final UUID TARGET_UUID = UUID.fromString("00000000-0000-aaaa-0008-000000000099");
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean AdminUserService adminUserService;
     @MockitoBean AdminRoleService adminRoleService;
 
+    private Long adminDbId;
+    private Long userDbId;
+
+    @BeforeEach
+    void seedUsers() {
+        adminDbId = userRepository.findByPublicId(ADMIN_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(ADMIN_UUID).email("admin-user-ctrl@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Admin").role(Role.ADMIN).verified(true).build()))
+            .getId();
+        userDbId = userRepository.findByPublicId(USER_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(USER_UUID).email("user-user-ctrl@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("User").role(Role.USER).verified(true).build()))
+            .getId();
+        // Seed the target user so resolveUserId(TARGET_UUID) succeeds in the controller.
+        userRepository.findByPublicId(TARGET_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(TARGET_UUID).email("target-user-ctrl@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Target").role(Role.USER).verified(true).build()));
+    }
+
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(1L, UUID.randomUUID(), "admin@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(adminDbId, ADMIN_UUID, "admin-user-ctrl@x.com", 1L, Role.ADMIN));
     }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(2L, UUID.randomUUID(), "user@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(userDbId, USER_UUID, "user-user-ctrl@x.com", 1L, Role.USER));
     }
 
     private static final String NOTES_BODY = "{\"notes\":\"some reason\"}";
@@ -102,30 +135,29 @@ class AdminUserControllerSliceTest {
 
     @Test
     void detail_anon_returns401() throws Exception {
-        mvc.perform(get("/api/v1/admin/users/1"))
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID))
            .andExpect(status().isUnauthorized());
     }
 
     @Test
     void detail_userRole_returns403() throws Exception {
-        mvc.perform(get("/api/v1/admin/users/1")
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID)
             .header("Authorization", "Bearer " + userToken()))
            .andExpect(status().isForbidden());
     }
 
     @Test
     void detail_admin_returns200() throws Exception {
-        java.util.UUID userPublicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         AdminUserDetailDto dto = new AdminUserDetailDto(
-            userPublicId, "u@x.com", "User", null, null,
+            TARGET_UUID, "target-user-ctrl@x.com", "Target", null, null,
             Role.USER, false, null, null,
             0L, 0L, 0L, 0L, 0L, null, false, null);
-        when(adminUserService.detail(1L)).thenReturn(dto);
+        when(adminUserService.detail(anyLong())).thenReturn(dto);
 
-        mvc.perform(get("/api/v1/admin/users/1")
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID)
             .header("Authorization", "Bearer " + adminToken()))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.publicId").value(userPublicId.toString()));
+           .andExpect(jsonPath("$.publicId").value(TARGET_UUID.toString()));
     }
 
     // -------------------------------------------------------------------------
@@ -134,13 +166,13 @@ class AdminUserControllerSliceTest {
 
     @Test
     void listings_anon_returns401() throws Exception {
-        mvc.perform(get("/api/v1/admin/users/1/listings"))
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID + "/listings"))
            .andExpect(status().isUnauthorized());
     }
 
     @Test
     void listings_userRole_returns403() throws Exception {
-        mvc.perform(get("/api/v1/admin/users/1/listings")
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID + "/listings")
             .header("Authorization", "Bearer " + userToken()))
            .andExpect(status().isForbidden());
     }
@@ -151,20 +183,20 @@ class AdminUserControllerSliceTest {
             new PagedResponse<>(Collections.emptyList(), 0L, 0, 0, 25);
         when(adminUserService.listings(anyLong(), any())).thenReturn(empty);
 
-        mvc.perform(get("/api/v1/admin/users/1/listings")
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID + "/listings")
             .header("Authorization", "Bearer " + adminToken()))
            .andExpect(status().isOk());
     }
 
     @Test
     void bids_anon_returns401() throws Exception {
-        mvc.perform(get("/api/v1/admin/users/1/bids"))
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID + "/bids"))
            .andExpect(status().isUnauthorized());
     }
 
     @Test
     void ips_anon_returns401() throws Exception {
-        mvc.perform(get("/api/v1/admin/users/1/ips"))
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID + "/ips"))
            .andExpect(status().isUnauthorized());
     }
 
@@ -172,7 +204,7 @@ class AdminUserControllerSliceTest {
     void ips_admin_returns200() throws Exception {
         when(adminUserService.ips(anyLong())).thenReturn(Collections.emptyList());
 
-        mvc.perform(get("/api/v1/admin/users/1/ips")
+        mvc.perform(get("/api/v1/admin/users/" + TARGET_UUID + "/ips")
             .header("Authorization", "Bearer " + adminToken()))
            .andExpect(status().isOk());
     }
@@ -183,7 +215,7 @@ class AdminUserControllerSliceTest {
 
     @Test
     void promote_anon_returns401() throws Exception {
-        mvc.perform(post("/api/v1/admin/users/2/promote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/promote")
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
            .andExpect(status().isUnauthorized());
@@ -191,7 +223,7 @@ class AdminUserControllerSliceTest {
 
     @Test
     void promote_userRole_returns403() throws Exception {
-        mvc.perform(post("/api/v1/admin/users/2/promote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/promote")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -200,10 +232,10 @@ class AdminUserControllerSliceTest {
 
     @Test
     void promote_alreadyAdmin_returns409_ALREADY_ADMIN() throws Exception {
-        doThrow(new UserAlreadyAdminException(2L))
+        doThrow(new UserAlreadyAdminException(0L))
             .when(adminRoleService).promote(anyLong(), anyLong(), anyString());
 
-        mvc.perform(post("/api/v1/admin/users/2/promote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/promote")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -215,7 +247,7 @@ class AdminUserControllerSliceTest {
     void promote_admin_returns200() throws Exception {
         doNothing().when(adminRoleService).promote(anyLong(), anyLong(), anyString());
 
-        mvc.perform(post("/api/v1/admin/users/2/promote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/promote")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -228,7 +260,7 @@ class AdminUserControllerSliceTest {
 
     @Test
     void demote_anon_returns401() throws Exception {
-        mvc.perform(post("/api/v1/admin/users/2/demote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/demote")
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
            .andExpect(status().isUnauthorized());
@@ -239,7 +271,8 @@ class AdminUserControllerSliceTest {
         doThrow(new SelfDemoteException())
             .when(adminRoleService).demote(anyLong(), anyLong(), anyString());
 
-        mvc.perform(post("/api/v1/admin/users/1/demote")
+        // Use ADMIN_UUID in the path so the service receives the admin's own DB ID.
+        mvc.perform(post("/api/v1/admin/users/" + ADMIN_UUID + "/demote")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -249,10 +282,10 @@ class AdminUserControllerSliceTest {
 
     @Test
     void demote_notAdmin_returns409_NOT_ADMIN() throws Exception {
-        doThrow(new UserNotAdminException(2L))
+        doThrow(new UserNotAdminException(0L))
             .when(adminRoleService).demote(anyLong(), anyLong(), anyString());
 
-        mvc.perform(post("/api/v1/admin/users/2/demote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/demote")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -264,7 +297,7 @@ class AdminUserControllerSliceTest {
     void demote_admin_returns200() throws Exception {
         doNothing().when(adminRoleService).demote(anyLong(), anyLong(), anyString());
 
-        mvc.perform(post("/api/v1/admin/users/2/demote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/demote")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -277,7 +310,7 @@ class AdminUserControllerSliceTest {
 
     @Test
     void resetCounter_anon_returns401() throws Exception {
-        mvc.perform(post("/api/v1/admin/users/2/reset-frivolous-counter")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/reset-frivolous-counter")
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
            .andExpect(status().isUnauthorized());
@@ -287,7 +320,7 @@ class AdminUserControllerSliceTest {
     void resetCounter_admin_returns200() throws Exception {
         doNothing().when(adminRoleService).resetFrivolousCounter(anyLong(), anyLong(), anyString());
 
-        mvc.perform(post("/api/v1/admin/users/2/reset-frivolous-counter")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/reset-frivolous-counter")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(NOTES_BODY))
@@ -300,7 +333,7 @@ class AdminUserControllerSliceTest {
 
     @Test
     void promote_blankNotes_returns400_VALIDATION_FAILED() throws Exception {
-        mvc.perform(post("/api/v1/admin/users/2/promote")
+        mvc.perform(post("/api/v1/admin/users/" + TARGET_UUID + "/promote")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"notes\":\"\"}"))

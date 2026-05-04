@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import javax.imageio.ImageIO;
 
@@ -91,16 +92,18 @@ class AvatarUploadFlowIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode body = objectMapper.readTree(reg.getResponse().getContentAsString());
-        Long userId = body.get("user").get("id").asLong();
+        // Track the internal Long id for S3 cleanup (avatars/{id}/ key prefix).
+        Long userId = userRepository.findByEmail(email).orElseThrow().getId();
         createdUserIds.add(userId);
         return body.get("accessToken").asText();
     }
 
-    private Long userIdFromToken(String token) throws Exception {
+    private UUID userPublicIdFromToken(String token) throws Exception {
         MvcResult me = mockMvc.perform(get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + token))
                 .andReturn();
-        return objectMapper.readTree(me.getResponse().getContentAsString()).get("id").asLong();
+        return UUID.fromString(
+                objectMapper.readTree(me.getResponse().getContentAsString()).get("publicId").asText());
     }
 
     @Test
@@ -117,7 +120,7 @@ class AvatarUploadFlowIntegrationTest {
     @Test
     void fullFlow_registerUploadFetchReadBack() throws Exception {
         String token = registerAndTrack("avatar-roundtrip@example.com");
-        Long userId = userIdFromToken(token);
+        UUID userId = userPublicIdFromToken(token);
 
         byte[] pngBytes = Files.readAllBytes(FIXTURES.resolve("avatar-valid.png"));
         MockMultipartFile file = new MockMultipartFile(
@@ -150,7 +153,7 @@ class AvatarUploadFlowIntegrationTest {
     @Test
     void fullFlow_reuploadOverwritesPriorObject() throws Exception {
         String token = registerAndTrack("avatar-reupload@example.com");
-        Long userId = userIdFromToken(token);
+        UUID userId = userPublicIdFromToken(token);
 
         byte[] firstBytes = Files.readAllBytes(FIXTURES.resolve("avatar-valid.png"));
         byte[] secondBytes = Files.readAllBytes(FIXTURES.resolve("avatar-valid.jpg"));
@@ -183,7 +186,7 @@ class AvatarUploadFlowIntegrationTest {
     @Test
     void fullFlow_uploadedUserHasProfilePicUrlInGetMe() throws Exception {
         String token = registerAndTrack("avatar-getme@example.com");
-        Long userId = userIdFromToken(token);
+        UUID userId = userPublicIdFromToken(token);
 
         byte[] pngBytes = Files.readAllBytes(FIXTURES.resolve("avatar-valid.png"));
         mockMvc.perform(multipart("/api/v1/users/me/avatar")

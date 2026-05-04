@@ -62,7 +62,7 @@ class SlVerificationFlowIntegrationTest {
                 .andExpect(status().isCreated()).andReturn();
         String regBody = reg.getResponse().getContentAsString();
         String accessToken = objectMapper.readTree(regBody).get("accessToken").asText();
-        Long userId = objectMapper.readTree(regBody).get("user").get("id").asLong();
+        Long userId = userRepository.findByEmail("slflow@example.com").orElseThrow().getId();
 
         // Generate verification code
         MvcResult gen = mockMvc.perform(post("/api/v1/verification/generate")

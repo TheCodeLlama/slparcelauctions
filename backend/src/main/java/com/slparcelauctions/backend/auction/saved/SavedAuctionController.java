@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction.saved;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.VerificationTier;
+import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.search.AuctionSearchQuery;
 import com.slparcelauctions.backend.auction.search.AuctionSearchResultDto;
 import com.slparcelauctions.backend.auction.search.AuctionSearchSort;
@@ -58,6 +61,7 @@ public class SavedAuctionController {
 
     private final SavedAuctionService service;
     private final ParcelTagRepository parcelTagRepo;
+    private final AuctionRepository auctionRepository;
 
     @PostMapping
     public ResponseEntity<SavedAuctionDto> save(
@@ -67,10 +71,13 @@ public class SavedAuctionController {
         return ResponseEntity.ok(dto);
     }
 
-    @DeleteMapping("/{auctionId}")
+    @DeleteMapping("/{auctionPublicId}")
     public ResponseEntity<Void> unsave(
             @AuthenticationPrincipal AuthPrincipal principal,
-            @PathVariable Long auctionId) {
+            @PathVariable UUID auctionPublicId) {
+        Long auctionId = auctionRepository.findByPublicId(auctionPublicId)
+                .map(com.slparcelauctions.backend.auction.Auction::getId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionPublicId));
         service.unsave(principal.userId(), auctionId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }

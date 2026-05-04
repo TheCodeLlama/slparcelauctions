@@ -5,6 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,7 +23,8 @@ import com.slparcelauctions.backend.admin.dto.AdminStatsResponse.QueueStats;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
-import java.util.UUID;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -38,10 +42,33 @@ import java.util.UUID;
 })
 class AdminStatsControllerSliceTest {
 
+    private static final UUID ADMIN_UUID = UUID.fromString("00000000-0000-aaaa-0009-000000000001");
+    private static final UUID USER_UUID  = UUID.fromString("00000000-0000-aaaa-0009-000000000002");
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean AdminStatsService statsService;
+
+    private Long adminDbId;
+    private Long userDbId;
+
+    @BeforeEach
+    void seedUsers() {
+        adminDbId = userRepository.findByPublicId(ADMIN_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(ADMIN_UUID).email("admin-stats-ctrl@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Admin").role(Role.ADMIN).verified(true).build()))
+            .getId();
+        userDbId = userRepository.findByPublicId(USER_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(USER_UUID).email("user-stats-ctrl@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("User").role(Role.USER).verified(true).build()))
+            .getId();
+    }
 
     @Test
     void stats_anonymous_returns401() throws Exception {
@@ -52,7 +79,7 @@ class AdminStatsControllerSliceTest {
     @Test
     void stats_userRole_returns403() throws Exception {
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, UUID.randomUUID(), "u@x.com", 1L, Role.USER));
+            new AuthPrincipal(userDbId, USER_UUID, "user-stats-ctrl@x.com", 1L, Role.USER));
         mvc.perform(get("/api/v1/admin/stats")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isForbidden());
@@ -67,7 +94,7 @@ class AdminStatsControllerSliceTest {
         when(statsService.compute()).thenReturn(fixture);
 
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(adminDbId, ADMIN_UUID, "admin-stats-ctrl@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/stats")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isOk())

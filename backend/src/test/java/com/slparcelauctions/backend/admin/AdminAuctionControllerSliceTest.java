@@ -1,9 +1,9 @@
 package com.slparcelauctions.backend.admin;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,12 +32,13 @@ import com.slparcelauctions.backend.admin.audit.AdminActionTargetType;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
 import com.slparcelauctions.backend.admin.exception.AuctionNotSuspendedException;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
-import java.util.UUID;
+import com.slparcelauctions.backend.user.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,23 +56,62 @@ import java.util.UUID;
 })
 class AdminAuctionControllerSliceTest {
 
+    private static final UUID ADMIN_UUID   = UUID.fromString("00000000-0000-aaaa-0000-000000000001");
+    private static final UUID USER_UUID    = UUID.fromString("00000000-0000-aaaa-0000-000000000002");
+    private static final UUID AUCTION_UUID = UUID.fromString("00000000-0000-aaaa-0000-000000000100");
+    private static final Long AUCTION_DB_ID = 100L;
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean AdminAuctionService adminAuctionService;
     @MockitoBean AdminActionService adminActionService;
+    @MockitoBean AuctionRepository auctionRepository;
+
+    private Long adminDbId;
+    private Long userDbId;
+
+    @BeforeEach
+    void setUp() {
+        adminDbId = userRepository.findByPublicId(ADMIN_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(ADMIN_UUID)
+                .email("admin-auction-slice@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Admin")
+                .role(Role.ADMIN)
+                .verified(true)
+                .build()))
+            .getId();
+        userDbId = userRepository.findByPublicId(USER_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(USER_UUID)
+                .email("user-auction-slice@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("User")
+                .role(Role.USER)
+                .verified(true)
+                .build()))
+            .getId();
+
+        // Stub auction lookup used by the controller's resolveAuctionId step.
+        Auction mockAuction = mock(Auction.class);
+        when(mockAuction.getId()).thenReturn(AUCTION_DB_ID);
+        when(auctionRepository.findByPublicId(AUCTION_UUID)).thenReturn(Optional.of(mockAuction));
+    }
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(99L, UUID.randomUUID(), "admin@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(adminDbId, ADMIN_UUID, "admin-auction-slice@x.com", 1L, Role.ADMIN));
     }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(5L, UUID.randomUUID(), "user@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(userDbId, USER_UUID, "user-auction-slice@x.com", 1L, Role.USER));
     }
 
     @Test
     void reinstate_anonymous_returns401() throws Exception {
-        mvc.perform(post("/api/v1/admin/auctions/100/reinstate")
+        mvc.perform(post("/api/v1/admin/auctions/" + AUCTION_UUID + "/reinstate")
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"notes\":\"some notes\"}"))
            .andExpect(status().isUnauthorized());
@@ -77,7 +119,7 @@ class AdminAuctionControllerSliceTest {
 
     @Test
     void reinstate_userRole_returns403() throws Exception {
-        mvc.perform(post("/api/v1/admin/auctions/100/reinstate")
+        mvc.perform(post("/api/v1/admin/auctions/" + AUCTION_UUID + "/reinstate")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"notes\":\"some notes\"}"))
@@ -86,7 +128,7 @@ class AdminAuctionControllerSliceTest {
 
     @Test
     void reinstate_emptyNotes_returns400() throws Exception {
-        mvc.perform(post("/api/v1/admin/auctions/100/reinstate")
+        mvc.perform(post("/api/v1/admin/auctions/" + AUCTION_UUID + "/reinstate")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"notes\":\"\"}"))
@@ -96,10 +138,10 @@ class AdminAuctionControllerSliceTest {
 
     @Test
     void reinstate_notSuspended_returns409() throws Exception {
-        when(adminAuctionService.reinstate(eq(100L), any()))
+        when(adminAuctionService.reinstate(eq(AUCTION_DB_ID), any()))
             .thenThrow(new AuctionNotSuspendedException(AuctionStatus.CANCELLED));
 
-        mvc.perform(post("/api/v1/admin/auctions/100/reinstate")
+        mvc.perform(post("/api/v1/admin/auctions/" + AUCTION_UUID + "/reinstate")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"notes\":\"verified\"}"))
@@ -113,7 +155,7 @@ class AdminAuctionControllerSliceTest {
         OffsetDateTime newEndsAt = OffsetDateTime.now().plusHours(8);
         User seller = User.builder().id(7L).email("seller@x.com").passwordHash("x").displayName("Seller").build();
         Auction auction = Auction.builder()
-            .id(100L)
+            .id(AUCTION_DB_ID)
             .status(AuctionStatus.ACTIVE)
             .endsAt(newEndsAt)
             .title("Test Auction")
@@ -123,22 +165,22 @@ class AdminAuctionControllerSliceTest {
         AdminAuctionReinstateResult mockResult =
             new AdminAuctionReinstateResult(auction, Duration.ofHours(6), newEndsAt);
 
-        when(adminAuctionService.reinstate(eq(100L), eq(Optional.empty()))).thenReturn(mockResult);
+        when(adminAuctionService.reinstate(eq(AUCTION_DB_ID), eq(Optional.empty()))).thenReturn(mockResult);
 
-        mvc.perform(post("/api/v1/admin/auctions/100/reinstate")
+        mvc.perform(post("/api/v1/admin/auctions/" + AUCTION_UUID + "/reinstate")
             .header("Authorization", "Bearer " + adminToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"notes\":\"verified\"}"))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.auctionId").value(100))
+           .andExpect(jsonPath("$.auctionId").value(AUCTION_DB_ID))
            .andExpect(jsonPath("$.status").value("ACTIVE"))
            .andExpect(jsonPath("$.suspensionDurationSeconds").value(21600));
 
         verify(adminActionService).record(
-            eq(99L),
+            eq(adminDbId),
             eq(AdminActionType.REINSTATE_LISTING),
             eq(AdminActionTargetType.LISTING),
-            eq(100L),
+            eq(AUCTION_DB_ID),
             eq("verified"),
             isNull());
     }

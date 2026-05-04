@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,8 @@ class UserReviewsControllerTest {
             java.util.UUID.fromString("00000000-0000-0000-0000-0000000004d2");
     private static final java.util.UUID AUCTION_PUBLIC_ID =
             java.util.UUID.fromString("00000000-0000-0000-0000-00000000022b");
+    private static final UUID USER_10_PUBLIC_ID =
+            UUID.fromString("00000000-0000-0000-0000-00000000000a");
 
     private ReviewDto sampleDto() {
         return new ReviewDto(
@@ -64,14 +67,21 @@ class UserReviewsControllerTest {
                 OffsetDateTime.now(), OffsetDateTime.now(), null);
     }
 
+    private void stubUserLookup() {
+        User mockUser = org.mockito.Mockito.mock(User.class);
+        when(mockUser.getId()).thenReturn(10L);
+        when(userRepository.findByPublicId(USER_10_PUBLIC_ID)).thenReturn(Optional.of(mockUser));
+    }
+
     @Test
     void listForUser_publicGet_returnsPagedResponse_shape() throws Exception {
+        stubUserLookup();
         Page<ReviewDto> pageResult = new PageImpl<>(
                 List.of(sampleDto()), PageRequest.of(0, 10), 1);
         when(reviewService.listForUser(eq(10L), eq(ReviewedRole.SELLER), any(Pageable.class)))
                 .thenReturn(pageResult);
 
-        mockMvc.perform(get("/api/v1/users/10/reviews?role=SELLER"))
+        mockMvc.perform(get("/api/v1/users/" + USER_10_PUBLIC_ID + "/reviews?role=SELLER"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray())
                 .andExpect(jsonPath("$.content[0].publicId").value(REVIEW_PUBLIC_ID.toString()))
@@ -83,13 +93,14 @@ class UserReviewsControllerTest {
 
     @Test
     void listForUser_clampsPageSizeAt50() throws Exception {
+        stubUserLookup();
         Page<ReviewDto> pageResult = new PageImpl<>(
                 List.of(), PageRequest.of(0, 50), 0);
         when(reviewService.listForUser(eq(10L), eq(ReviewedRole.BUYER), any(Pageable.class)))
                 .thenReturn(pageResult);
 
         // Size 9999 request → clamped to 50 (and so forwarded to service).
-        mockMvc.perform(get("/api/v1/users/10/reviews?role=BUYER&size=9999"))
+        mockMvc.perform(get("/api/v1/users/" + USER_10_PUBLIC_ID + "/reviews?role=BUYER&size=9999"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size").value(50));
     }

@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +25,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
-import java.util.UUID;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.user.deletion.exception.ActiveAuctionsException;
 import com.slparcelauctions.backend.user.deletion.exception.InvalidPasswordException;
 import com.slparcelauctions.backend.user.deletion.exception.UserAlreadyDeletedException;
@@ -56,21 +59,51 @@ import com.slparcelauctions.backend.user.deletion.exception.UserAlreadyDeletedEx
 })
 class UserDeletionEndpointTest {
 
+    private static final UUID ADMIN_UUID  = UUID.fromString("00000000-0000-aaaa-0010-000000000001");
+    private static final UUID USER_UUID   = UUID.fromString("00000000-0000-aaaa-0010-000000000002");
+    private static final UUID TARGET_UUID = UUID.fromString("00000000-0000-aaaa-0010-000000000007");
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean UserDeletionService userDeletionService;
+
+    private Long adminDbId;
+    private Long userDbId;
+
+    @BeforeEach
+    void seedUsers() {
+        adminDbId = userRepository.findByPublicId(ADMIN_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(ADMIN_UUID).email("admin-deletion-ep@example.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Admin").role(Role.ADMIN).verified(true).build()))
+            .getId();
+        userDbId = userRepository.findByPublicId(USER_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(USER_UUID).email("user-deletion-ep@example.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("User").role(Role.USER).verified(true).build()))
+            .getId();
+        // Seed the target user so resolveUserId(TARGET_UUID) succeeds in the controller.
+        userRepository.findByPublicId(TARGET_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(TARGET_UUID).email("target-deletion-ep@example.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Target").role(Role.USER).verified(true).build()));
+    }
 
     // ------------------------------------------------------------------ //
     //  Token helpers                                                      //
     // ------------------------------------------------------------------ //
 
-    private String userToken(long userId) {
-        return jwtService.issueAccessToken(new AuthPrincipal(userId, UUID.randomUUID(), "user@example.com", 1L, Role.USER));
+    private String userToken() {
+        return jwtService.issueAccessToken(new AuthPrincipal(userDbId, USER_UUID, "user-deletion-ep@example.com", 1L, Role.USER));
     }
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(99L, UUID.randomUUID(), "admin@example.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(adminDbId, ADMIN_UUID, "admin-deletion-ep@example.com", 1L, Role.ADMIN));
     }
 
     // ================================================================== //
@@ -82,7 +115,7 @@ class UserDeletionEndpointTest {
         doNothing().when(userDeletionService).deleteSelf(anyLong(), anyString());
 
         mvc.perform(delete("/api/v1/users/me")
-                .header("Authorization", "Bearer " + userToken(42L))
+                .header("Authorization", "Bearer " + userToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"password\":\"correct-password\"}"))
                 .andExpect(status().isNoContent());
@@ -94,7 +127,7 @@ class UserDeletionEndpointTest {
                 .when(userDeletionService).deleteSelf(anyLong(), anyString());
 
         mvc.perform(delete("/api/v1/users/me")
-                .header("Authorization", "Bearer " + userToken(42L))
+                .header("Authorization", "Bearer " + userToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"password\":\"wrong\"}"))
                 .andExpect(status().isForbidden())
@@ -107,7 +140,7 @@ class UserDeletionEndpointTest {
                 .when(userDeletionService).deleteSelf(anyLong(), anyString());
 
         mvc.perform(delete("/api/v1/users/me")
-                .header("Authorization", "Bearer " + userToken(42L))
+                .header("Authorization", "Bearer " + userToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"password\":\"any\"}"))
                 .andExpect(status().isGone())
@@ -120,7 +153,7 @@ class UserDeletionEndpointTest {
                 .when(userDeletionService).deleteSelf(anyLong(), anyString());
 
         mvc.perform(delete("/api/v1/users/me")
-                .header("Authorization", "Bearer " + userToken(42L))
+                .header("Authorization", "Bearer " + userToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"password\":\"any\"}"))
                 .andExpect(status().isConflict())
@@ -132,7 +165,7 @@ class UserDeletionEndpointTest {
     @Test
     void deleteSelf_missingPassword_returns400() throws Exception {
         mvc.perform(delete("/api/v1/users/me")
-                .header("Authorization", "Bearer " + userToken(42L))
+                .header("Authorization", "Bearer " + userToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"password\":\"\"}"))
                 .andExpect(status().isBadRequest());
@@ -154,7 +187,7 @@ class UserDeletionEndpointTest {
     void deleteUserAsAdmin_validNote_returns204() throws Exception {
         doNothing().when(userDeletionService).deleteByAdmin(anyLong(), anyLong(), anyString());
 
-        mvc.perform(delete("/api/v1/admin/users/7")
+        mvc.perform(delete("/api/v1/admin/users/" + TARGET_UUID + "")
                 .header("Authorization", "Bearer " + adminToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"adminNote\":\"GDPR request\"}"))
@@ -166,7 +199,7 @@ class UserDeletionEndpointTest {
         doThrow(new UserAlreadyDeletedException(7L))
                 .when(userDeletionService).deleteByAdmin(anyLong(), anyLong(), anyString());
 
-        mvc.perform(delete("/api/v1/admin/users/7")
+        mvc.perform(delete("/api/v1/admin/users/" + TARGET_UUID + "")
                 .header("Authorization", "Bearer " + adminToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"adminNote\":\"GDPR request\"}"))
@@ -179,7 +212,7 @@ class UserDeletionEndpointTest {
         doThrow(new ActiveAuctionsException(List.of(201L)))
                 .when(userDeletionService).deleteByAdmin(anyLong(), anyLong(), anyString());
 
-        mvc.perform(delete("/api/v1/admin/users/7")
+        mvc.perform(delete("/api/v1/admin/users/" + TARGET_UUID + "")
                 .header("Authorization", "Bearer " + adminToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"adminNote\":\"cleanup\"}"))
@@ -190,7 +223,7 @@ class UserDeletionEndpointTest {
 
     @Test
     void deleteUserAsAdmin_emptyNote_returns400() throws Exception {
-        mvc.perform(delete("/api/v1/admin/users/7")
+        mvc.perform(delete("/api/v1/admin/users/" + TARGET_UUID + "")
                 .header("Authorization", "Bearer " + adminToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"adminNote\":\"\"}"))
@@ -199,8 +232,8 @@ class UserDeletionEndpointTest {
 
     @Test
     void deleteUserAsRegularUser_returns403() throws Exception {
-        mvc.perform(delete("/api/v1/admin/users/7")
-                .header("Authorization", "Bearer " + userToken(42L))
+        mvc.perform(delete("/api/v1/admin/users/" + TARGET_UUID + "")
+                .header("Authorization", "Bearer " + userToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"adminNote\":\"Test\"}"))
                 .andExpect(status().isForbidden());
@@ -208,7 +241,7 @@ class UserDeletionEndpointTest {
 
     @Test
     void deleteUserAsAdmin_unauthenticated_returns401() throws Exception {
-        mvc.perform(delete("/api/v1/admin/users/7")
+        mvc.perform(delete("/api/v1/admin/users/" + TARGET_UUID + "")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"adminNote\":\"Test\"}"))
                 .andExpect(status().isUnauthorized());

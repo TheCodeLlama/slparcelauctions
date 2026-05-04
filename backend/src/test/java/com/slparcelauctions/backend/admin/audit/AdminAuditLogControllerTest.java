@@ -3,7 +3,10 @@ package com.slparcelauctions.backend.admin.audit;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,17 +46,40 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 class AdminAuditLogControllerTest {
 
+    private static final UUID ADMIN_UUID = UUID.fromString("00000000-0000-aaaa-0004-000000000001");
+    private static final UUID USER_UUID  = UUID.fromString("00000000-0000-aaaa-0004-000000000002");
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean AdminAuditLogService auditLogService;
 
+    private Long adminDbId;
+    private Long userDbId;
+
+    @BeforeEach
+    void seedUsers() {
+        adminDbId = userRepository.findByPublicId(ADMIN_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(ADMIN_UUID).email("admin-auditlog@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("Admin").role(Role.ADMIN).verified(true).build()))
+            .getId();
+        userDbId = userRepository.findByPublicId(USER_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(USER_UUID).email("user-auditlog@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("User").role(Role.USER).verified(true).build()))
+            .getId();
+    }
+
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(1L, UUID.randomUUID(), "admin@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(adminDbId, ADMIN_UUID, "admin-auditlog@x.com", 1L, Role.ADMIN));
     }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(2L, UUID.randomUUID(), "user@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(userDbId, USER_UUID, "user-auditlog@x.com", 1L, Role.USER));
     }
 
     private AdminAuditLogRow sampleRow() {

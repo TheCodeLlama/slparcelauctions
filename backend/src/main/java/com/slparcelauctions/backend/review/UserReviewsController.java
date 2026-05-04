@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.review;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * Reviews endpoints scoped to a user rather than an auction. Two paths:
  * <ul>
- *   <li>{@code GET /users/{id}/reviews?role=SELLER|BUYER} — public
+ *   <li>{@code GET /users/{publicId}/reviews?role=SELLER|BUYER} — public
  *       paginated list of visible reviews for a user in a specific
  *       role. Backs the profile page's reviews tab.</li>
  *   <li>{@code GET /users/me/pending-reviews} — authenticated; lists
@@ -36,6 +37,9 @@ import lombok.RequiredArgsConstructor;
  * <p>Split out of {@link ReviewController} because the paths are rooted
  * under {@code /users}, not {@code /auctions}, and mirroring the spec
  * layout keeps the SecurityConfig matchers legible.
+ *
+ * <p>{@code publicId} in the path is the user's UUID — internal Long PKs
+ * are not exposed on the web/mobile API surface.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -47,14 +51,17 @@ public class UserReviewsController {
     private final ReviewService reviewService;
     private final UserRepository userRepository;
 
-    @GetMapping("/users/{id}/reviews")
+    @GetMapping("/users/{publicId}/reviews")
     public PagedResponse<ReviewDto> listForUser(
-            @PathVariable("id") Long userId,
+            @PathVariable("publicId") UUID publicId,
             @RequestParam("role") ReviewedRole role,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
         int clampedSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
         int clampedPage = Math.max(page, 0);
+        Long userId = userRepository.findByPublicId(publicId)
+                .map(User::getId)
+                .orElseThrow(() -> new UserNotFoundException(publicId));
         Page<ReviewDto> result = reviewService.listForUser(userId, role,
                 PageRequest.of(clampedPage, clampedSize));
         return PagedResponse.from(result);

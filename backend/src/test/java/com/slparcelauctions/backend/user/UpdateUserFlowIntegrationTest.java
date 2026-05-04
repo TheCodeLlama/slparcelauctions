@@ -76,7 +76,7 @@ class UpdateUserFlowIntegrationTest {
                 .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
                 // Public fields
-                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.publicId").exists())
                 .andExpect(jsonPath("$.displayName").value("Full"))
                 .andExpect(jsonPath("$.verified").value(false))
                 // Private fields (extended in Task 5)
