@@ -57,8 +57,8 @@ function sellerResponse(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id: 7,
-    sellerId: 1,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: "Featured Parcel Listing",
     parcel: sampleParcel,
     status: "DRAFT",
@@ -73,7 +73,7 @@ function sellerResponse(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: true,
     snipeWindowMin: 10,
@@ -102,13 +102,13 @@ function installHappyPathHandlers() {
     ),
     http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
     http.post("*/api/v1/auctions", () =>
-      HttpResponse.json(sellerResponse({ id: 7 }), { status: 201 }),
+      HttpResponse.json(sellerResponse(), { status: 201 }),
     ),
-    http.put("*/api/v1/auctions/7", () =>
-      HttpResponse.json(sellerResponse({ id: 7 })),
+    http.put("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () =>
+      HttpResponse.json(sellerResponse()),
     ),
-    http.get("*/api/v1/auctions/7", () =>
-      HttpResponse.json(sellerResponse({ id: 7 })),
+    http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () =>
+      HttpResponse.json(sellerResponse()),
     ),
   );
 }
@@ -147,7 +147,7 @@ describe("ListingWizardForm (create flow)", () => {
     );
 
     await waitFor(() =>
-      expect(routerPush).toHaveBeenCalledWith("/listings/7/activate"),
+      expect(routerPush).toHaveBeenCalledWith("/listings/00000000-0000-0000-0000-000000000007/activate"),
     );
   });
 
@@ -185,7 +185,7 @@ describe("ListingWizardForm (create flow)", () => {
     // First successful create should replace the URL to /listings/{id}/edit
     // per sub-spec 2 §4.1.4 so a refresh keeps the seller on the same auction.
     await waitFor(() =>
-      expect(routerReplace).toHaveBeenCalledWith("/listings/7/edit"),
+      expect(routerReplace).toHaveBeenCalledWith("/listings/00000000-0000-0000-0000-000000000007/edit"),
     );
   });
 
@@ -280,10 +280,10 @@ describe("ListingWizardForm (create flow)", () => {
 describe("ListingWizardForm (edit flow)", () => {
   it("shows 'Save as Draft' when editing a DRAFT auction", async () => {
     server.use(
-      http.get("*/api/v1/auctions/55", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000037", () =>
         HttpResponse.json(
           sellerResponse({
-            id: 55,
+            publicId: "00000000-0000-0000-0000-000000000037",
             status: "DRAFT",
             startingBid: 2500,
             sellerDesc: "Existing description",
@@ -293,7 +293,7 @@ describe("ListingWizardForm (edit flow)", () => {
       http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
     );
 
-    renderWithProviders(<ListingWizardForm mode="edit" id={55} />);
+    renderWithProviders(<ListingWizardForm mode="edit" id="00000000-0000-0000-0000-000000000037" />);
 
     await screen.findByText("Beachfront retreat");
     expect(
@@ -314,10 +314,10 @@ describe("ListingWizardForm (edit flow)", () => {
 
   it("shows 'Save changes' when editing a DRAFT_PAID auction", async () => {
     server.use(
-      http.get("*/api/v1/auctions/56", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000038", () =>
         HttpResponse.json(
           sellerResponse({
-            id: 56,
+            publicId: "00000000-0000-0000-0000-000000000038",
             status: "DRAFT_PAID",
             startingBid: 2500,
           }),
@@ -326,7 +326,7 @@ describe("ListingWizardForm (edit flow)", () => {
       http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
     );
 
-    renderWithProviders(<ListingWizardForm mode="edit" id={56} />);
+    renderWithProviders(<ListingWizardForm mode="edit" id="00000000-0000-0000-0000-000000000038" />);
 
     await screen.findByText("Beachfront retreat");
 
@@ -341,10 +341,10 @@ describe("ListingWizardForm (edit flow)", () => {
 
   it("redirects to activate when editing an auction past DRAFT_PAID", async () => {
     server.use(
-      http.get("*/api/v1/auctions/77", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000004d", () =>
         HttpResponse.json(
           sellerResponse({
-            id: 77,
+            publicId: "00000000-0000-0000-0000-00000000004d",
             status: "ACTIVE",
             startingBid: 2500,
           }),
@@ -353,10 +353,10 @@ describe("ListingWizardForm (edit flow)", () => {
       http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
     );
 
-    renderWithProviders(<ListingWizardForm mode="edit" id={77} />);
+    renderWithProviders(<ListingWizardForm mode="edit" id="00000000-0000-0000-0000-00000000004d" />);
 
     await waitFor(() =>
-      expect(routerReplace).toHaveBeenCalledWith("/listings/77/activate"),
+      expect(routerReplace).toHaveBeenCalledWith("/listings/00000000-0000-0000-0000-00000000004d/activate"),
     );
   });
 });

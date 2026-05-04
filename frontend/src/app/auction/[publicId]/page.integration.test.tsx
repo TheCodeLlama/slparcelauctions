@@ -85,11 +85,10 @@ function publicAuctionFixture(
   overrides: Partial<PublicAuctionResponse> = {},
 ): PublicAuctionResponse {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -139,8 +138,8 @@ function bidHistoryEntry(
   overrides: Partial<BidHistoryEntry> = {},
 ): BidHistoryEntry {
   return {
-    bidId: 1,
-    userId: 42,
+    bidPublicId: "00000000-0000-0000-0000-000000000001",
+    userPublicId: "00000000-0000-0000-0000-00000000002a",
     bidderDisplayName: "Alice",
     amount: 1500,
     bidType: "MANUAL",
@@ -167,18 +166,18 @@ function bidSettlement(
 ): BidSettlementEnvelope {
   return {
     type: "BID_SETTLEMENT",
-    auctionId: 7,
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
     serverTime: "2026-04-20T12:30:00Z",
     currentBid: 2000,
-    currentBidderId: 55,
+    currentBidderPublicId: "00000000-0000-0000-0000-000000000037",
     currentBidderDisplayName: "Bob",
     bidCount: 4,
     endsAt: "2026-04-22T00:00:00Z",
     originalEndsAt: "2026-04-22T00:00:00Z",
     newBids: [
       bidHistoryEntry({
-        bidId: 2,
-        userId: 55,
+        bidPublicId: "00000000-0000-0000-0000-000000000002",
+        userPublicId: "00000000-0000-0000-0000-000000000037",
         bidderDisplayName: "Bob",
         amount: 2000,
         createdAt: "2026-04-20T12:30:00Z",
@@ -210,18 +209,11 @@ describe("AuctionPage server component", () => {
     vi.restoreAllMocks();
   });
 
-  it("calls notFound for a non-numeric id", async () => {
+  it("calls notFound for an empty publicId", async () => {
     // The mocked notFound throws so control unwinds before any fetch fires,
     // matching Next.js' real behavior.
     await expect(
-      AuctionPage({ params: Promise.resolve({ id: "not-a-number" }) }),
-    ).rejects.toThrow("NEXT_NOT_FOUND");
-    expect(notFoundSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls notFound for a non-positive id", async () => {
-    await expect(
-      AuctionPage({ params: Promise.resolve({ id: "0" }) }),
+      AuctionPage({ params: Promise.resolve({ publicId: "" }) }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundSpy).toHaveBeenCalledTimes(1);
   });
@@ -240,7 +232,7 @@ describe("AuctionPage server component", () => {
     );
 
     await expect(
-      AuctionPage({ params: Promise.resolve({ id: "7" }) }),
+      AuctionPage({ params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }) }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(notFoundSpy).toHaveBeenCalledTimes(1);
   });
@@ -254,7 +246,7 @@ describe("AuctionPage server component", () => {
     );
 
     const element = await AuctionPage({
-      params: Promise.resolve({ id: "7" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }),
     });
 
     // Type-narrow: AuctionPage returns a JSX element (never void) on the
@@ -273,12 +265,12 @@ describe("AuctionPage generateMetadata", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns a generic title for a non-numeric id without fetching", async () => {
+  it("returns a generic title for an empty publicId without fetching", async () => {
     // No MSW handler registered — if a fetch escaped the early-return the
     // test would surface as a request-logging failure in MSW's onUnhandled
-    // mode. generateMetadata must short-circuit on invalid IDs.
+    // mode. generateMetadata must short-circuit on empty publicId.
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "not-a-number" }),
+      params: Promise.resolve({ publicId: "" }),
     });
     expect(meta.title).toBe("Auction · SLPA");
   });
@@ -289,7 +281,7 @@ describe("AuctionPage generateMetadata", () => {
       currentBid: 4200,
       photos: [
         {
-          id: 1,
+          publicId: "00000000-0000-0000-0000-000000000001",
           url: "https://cdn.example/hero.jpg",
           contentType: "image/jpeg",
           sizeBytes: 2048,
@@ -303,7 +295,7 @@ describe("AuctionPage generateMetadata", () => {
     );
 
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "7" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }),
     });
 
     expect(meta.title).toBe("Epic Beachfront Parcel · SLPA");
@@ -330,7 +322,7 @@ describe("AuctionPage generateMetadata", () => {
       http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
     );
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "7" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }),
     });
     expect(meta.openGraph?.images).toEqual(["https://cdn.example/snap.jpg"]);
     expect((meta.twitter as { card: string } | undefined)?.card).toBe(
@@ -344,7 +336,7 @@ describe("AuctionPage generateMetadata", () => {
       http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
     );
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "7" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }),
     });
     expect(meta.openGraph?.images).toEqual([]);
     expect((meta.twitter as { card: string } | undefined)?.card).toBe(
@@ -362,7 +354,7 @@ describe("AuctionPage generateMetadata", () => {
       ),
     );
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "9999" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000002707" }),
     });
     expect(meta.title).toBe("Auction · SLPA");
   });
@@ -375,7 +367,9 @@ describe("AuctionPage generateMetadata", () => {
     // against the same auction id and asserting they succeed with the
     // enriched shape; the literal dedup count is a Next.js runtime
     // concern and is covered by integration environments.
-    const auction = publicAuctionFixture({ id: 4242 });
+    const auction = publicAuctionFixture({
+      publicId: "00000000-0000-0000-0000-000000001092",
+    });
     const bids = pageOf([bidHistoryEntry()]);
     server.use(
       http.get("*/api/v1/auctions/:id", () => HttpResponse.json(auction)),
@@ -383,10 +377,10 @@ describe("AuctionPage generateMetadata", () => {
     );
 
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "4242" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000001092" }),
     });
     const element = await AuctionPage({
-      params: Promise.resolve({ id: "4242" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000001092" }),
     });
 
     expect(meta.title).toContain("·");
@@ -397,14 +391,17 @@ describe("AuctionPage generateMetadata", () => {
 describe("AuctionDetailClient", () => {
   const auction = publicAuctionFixture();
   const initialBids = pageOf([
-    bidHistoryEntry({ bidId: 1, amount: 1500 }),
+    bidHistoryEntry({
+      bidPublicId: "00000000-0000-0000-0000-000000000001",
+      amount: 1500,
+    }),
   ]);
 
   // Verified non-seller user — triggers the BidPanel bidder variant so the
   // current-bid readout renders. Anonymous renders the unauth gate, which
   // deliberately omits the current-bid display (spec §9).
   const verifiedBidder = {
-    id: 999,
+    publicId: "00000000-0000-0000-0000-0000000003e7",
     email: "bidder@example.com",
     displayName: "Bidder",
     slAvatarUuid: "99999999-9999-9999-9999-999999999999",
@@ -438,7 +435,7 @@ describe("AuctionDetailClient", () => {
       // DTO, until then AuctionDetailClient fetches it client-side.
       http.get("*/api/v1/users/:id", () =>
         HttpResponse.json({
-          id: auction.sellerId,
+          publicId: auction.sellerPublicId,
           displayName: "Seller",
           bio: null,
           profilePicUrl: null,
@@ -573,7 +570,7 @@ describe("AuctionDetailClient", () => {
     );
 
     expect(subscribeMock).toHaveBeenCalledTimes(1);
-    expect(subscribeMock.mock.calls[0][0]).toBe(`/topic/auction/${auction.id}`);
+    expect(subscribeMock.mock.calls[0][0]).toBe(`/topic/auction/${auction.publicId}`);
   });
 
   it("merges a BID_SETTLEMENT envelope into the cache", async () => {
@@ -655,14 +652,21 @@ describe("AuctionDetailClient", () => {
     invalidateSpy.mockClear();
 
     act(() => {
-      capturedOnMessage!(fakeEscrowEnvelope("ESCROW_FUNDED", { auctionId: 7 }));
+      capturedOnMessage!(
+        fakeEscrowEnvelope("ESCROW_FUNDED", {
+          auctionPublicId: "00000000-0000-0000-0000-000000000007",
+        }),
+      );
     });
 
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: ["escrow", 7],
+      queryKey: ["escrow", "00000000-0000-0000-0000-000000000007"],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: expect.arrayContaining(["auction", 7]),
+      queryKey: expect.arrayContaining([
+        "auction",
+        "00000000-0000-0000-0000-000000000007",
+      ]),
     });
 
     invalidateSpy.mockRestore();
@@ -691,7 +695,12 @@ describe("AuctionDetailClient", () => {
     act(() => {
       capturedOnMessage!(
         bidSettlement({
-          newBids: [bidHistoryEntry({ bidId: 1, amount: 1500 })],
+          newBids: [
+            bidHistoryEntry({
+              bidPublicId: "00000000-0000-0000-0000-000000000001",
+              amount: 1500,
+            }),
+          ],
         }),
       );
     });
@@ -770,7 +779,7 @@ describe("AuctionDetailClient", () => {
           endsAt: futureEndsAt,
           newBids: [
             bidHistoryEntry({
-              bidId: 99,
+              bidPublicId: "00000000-0000-0000-0000-000000000063",
               amount: 2000,
               bidderDisplayName: "Bob",
               snipeExtensionMinutes: 15,
@@ -853,16 +862,16 @@ describe("AuctionDetailClient", () => {
       { auth: "authenticated", authUser: verifiedBidder },
     );
 
-    // First envelope: some other bidder (id=77) takes the lead.
+    // First envelope: some other bidder takes the lead.
     act(() => {
       capturedOnMessage!(
         bidSettlement({
           currentBid: 1800,
-          currentBidderId: 77,
+          currentBidderPublicId: "00000000-0000-0000-0000-00000000004d",
           newBids: [
             bidHistoryEntry({
-              bidId: 20,
-              userId: 77,
+              bidPublicId: "00000000-0000-0000-0000-000000000014",
+              userPublicId: "00000000-0000-0000-0000-00000000004d",
               amount: 1800,
             }),
           ],
@@ -870,17 +879,17 @@ describe("AuctionDetailClient", () => {
       );
     });
 
-    // Second envelope: a different competitor outbids 77. Our viewer
+    // Second envelope: a different competitor outbids the first. Our viewer
     // was never winning, so no toast should fire.
     act(() => {
       capturedOnMessage!(
         bidSettlement({
           currentBid: 2500,
-          currentBidderId: 55,
+          currentBidderPublicId: "00000000-0000-0000-0000-000000000037",
           newBids: [
             bidHistoryEntry({
-              bidId: 21,
-              userId: 55,
+              bidPublicId: "00000000-0000-0000-0000-000000000015",
+              userPublicId: "00000000-0000-0000-0000-000000000037",
               amount: 2500,
             }),
           ],

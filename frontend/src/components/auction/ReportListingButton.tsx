@@ -5,15 +5,15 @@ import { useMyReport } from "@/hooks/auction/useMyReport";
 import { ReportListingModal } from "./ReportListingModal";
 
 type Props = {
-  auctionId: number;
-  sellerId: number;
+  auctionPublicId: string;
+  sellerPublicId: string;
 };
 
-export function ReportListingButton({ auctionId, sellerId }: Props) {
+export function ReportListingButton({ auctionPublicId, sellerPublicId }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const session = useAuth();
   const myReportQuery = useMyReport(
-    session.status === "authenticated" ? auctionId : null
+    session.status === "authenticated" ? auctionPublicId : null
   );
 
   // Loading state — render nothing to avoid layout flicker.
@@ -23,7 +23,7 @@ export function ReportListingButton({ auctionId, sellerId }: Props) {
   if (session.status === "unauthenticated") return null;
 
   // Seller's own listing — hide button.
-  if (session.user.id === sellerId) return null;
+  if (session.user.publicId === sellerPublicId) return null;
 
   const unverified = !session.user.verified;
 
@@ -56,7 +56,7 @@ export function ReportListingButton({ auctionId, sellerId }: Props) {
 
       {modalOpen && (
         <ReportListingModal
-          auctionId={auctionId}
+          auctionPublicId={auctionPublicId}
           onClose={() => setModalOpen(false)}
         />
       )}

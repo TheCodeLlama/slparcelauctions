@@ -38,19 +38,19 @@ export function fetchSavedAuctions(
  *   - 404 — auction does not exist.
  */
 export function saveAuction(
-  auctionId: number,
-): Promise<{ auctionId: number; savedAt: string }> {
-  return api.post<{ auctionId: number; savedAt: string }>(
+  auctionPublicId: string,
+): Promise<{ auctionPublicId: string; savedAt: string }> {
+  return api.post<{ auctionPublicId: string; savedAt: string }>(
     "/api/v1/me/saved",
-    { auctionId },
+    { auctionPublicId },
   );
 }
 
 /**
- * DELETE /api/v1/me/saved/{auctionId} — idempotent unsave. Server returns
- * 204 on success (and also on "not saved" — no 404 branch for the happy
- * path).
+ * DELETE /api/v1/me/saved/{auctionPublicId} — idempotent unsave. Server
+ * returns 204 on success (and also on "not saved" — no 404 branch for the
+ * happy path).
  */
-export function unsaveAuction(auctionId: number): Promise<void> {
-  return api.delete<void>(`/api/v1/me/saved/${auctionId}`);
+export function unsaveAuction(auctionPublicId: string): Promise<void> {
+  return api.delete<void>(`/api/v1/me/saved/${auctionPublicId}`);
 }

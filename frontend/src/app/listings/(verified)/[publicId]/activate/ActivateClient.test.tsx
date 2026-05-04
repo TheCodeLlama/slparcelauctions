@@ -29,11 +29,10 @@ function auctionBase(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id: 42,
-    sellerId: 1,
+    publicId: "00000000-0000-0000-0000-00000000002a",
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -68,7 +67,7 @@ function auctionBase(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: true,
     snipeWindowMin: 10,
@@ -106,7 +105,7 @@ describe("ActivateClient", () => {
 
   it("DRAFT → renders the listing preview + activate panel", async () => {
     server.use(
-      http.get("*/api/v1/auctions/42", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(auctionBase({ status: "DRAFT" })),
       ),
       http.get("*/api/v1/me/wallet", () =>
@@ -123,7 +122,7 @@ describe("ActivateClient", () => {
         }),
       ),
     );
-    renderWithProviders(<ActivateClient auctionId={42} />, {
+    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
     expect(
@@ -137,7 +136,7 @@ describe("ActivateClient", () => {
   it("DRAFT_PAID → click a method → shows the in-progress panel", async () => {
     let calls = 0;
     server.use(
-      http.get("*/api/v1/auctions/42", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () => {
         calls += 1;
         if (calls < 2) {
           return HttpResponse.json(auctionBase({ status: "DRAFT_PAID" }));
@@ -150,7 +149,7 @@ describe("ActivateClient", () => {
           }),
         );
       }),
-      http.put("*/api/v1/auctions/42/verify", () =>
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () =>
         HttpResponse.json(
           auctionBase({
             status: "VERIFICATION_PENDING",
@@ -160,7 +159,7 @@ describe("ActivateClient", () => {
         ),
       ),
     );
-    renderWithProviders(<ActivateClient auctionId={42} />, {
+    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
 
@@ -178,7 +177,7 @@ describe("ActivateClient", () => {
 
   it("VERIFICATION_FAILED renders the retry banner with the failure notes", async () => {
     server.use(
-      http.get("*/api/v1/auctions/42", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(
           auctionBase({
             status: "VERIFICATION_FAILED",
@@ -190,7 +189,7 @@ describe("ActivateClient", () => {
         ),
       ),
     );
-    renderWithProviders(<ActivateClient auctionId={42} />, {
+    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
     expect(
@@ -203,11 +202,11 @@ describe("ActivateClient", () => {
 
   it("ACTIVE renders the success screen with both actions", async () => {
     server.use(
-      http.get("*/api/v1/auctions/42", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(auctionBase({ status: "ACTIVE" })),
       ),
     );
-    renderWithProviders(<ActivateClient auctionId={42} />, {
+    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
     expect(
@@ -223,11 +222,11 @@ describe("ActivateClient", () => {
 
   it("CANCELLED redirects to the dashboard listings tab", async () => {
     server.use(
-      http.get("*/api/v1/auctions/42", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(auctionBase({ status: "CANCELLED" })),
       ),
     );
-    renderWithProviders(<ActivateClient auctionId={42} />, {
+    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
     await waitFor(() =>

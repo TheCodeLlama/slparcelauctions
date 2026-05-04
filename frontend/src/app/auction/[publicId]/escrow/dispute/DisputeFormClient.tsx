@@ -15,7 +15,7 @@ import type {
 import { useAuth } from "@/lib/auth";
 import { getEscrowStatus } from "@/lib/api/escrow";
 import { api, isApiError } from "@/lib/api";
-import { escrowKey } from "@/app/auction/[id]/escrow/EscrowPageClient";
+import { escrowKey } from "@/app/auction/[publicId]/escrow/EscrowPageClient";
 import { EscrowPageLayout } from "@/components/escrow/EscrowPageLayout";
 import { EscrowPageSkeleton } from "@/components/escrow/EscrowPageSkeleton";
 import { DisputeEvidenceUploader } from "@/components/escrow/DisputeEvidenceUploader";
@@ -84,16 +84,16 @@ const TERMINAL_STATES: ReadonlySet<EscrowState> = new Set<EscrowState>([
 ]);
 
 export interface DisputeFormClientProps {
-  auctionId: number;
+  auctionPublicId: string;
   /**
-   * Seller id sourced from the server-side auction fetch in the RSC shell.
-   * Used with the authenticated user's id to derive the viewer's role —
-   * `seller` when the ids match, `winner` otherwise. The dispute endpoint's
-   * 200/403 gate guarantees only seller and winner reach this client with a
-   * successful escrow fetch; non-party callers see an error surface bubble up
-   * via the escrow {@code useQuery}.
+   * Seller public id sourced from the server-side auction fetch in the RSC
+   * shell. Used with the authenticated user's publicId to derive the viewer's
+   * role — `seller` when the ids match, `winner` otherwise. The dispute
+   * endpoint's 200/403 gate guarantees only seller and winner reach this
+   * client with a successful escrow fetch; non-party callers see an error
+   * surface bubble up via the escrow {@code useQuery}.
    */
-  sellerId: number;
+  sellerPublicId: string;
 }
 
 /**
@@ -116,7 +116,7 @@ export interface DisputeFormClientProps {
  *
  * See sub-spec 2 §6 (dispute flow), §7 (authz), §15 (state matrix).
  */
-export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProps) {
+export function DisputeFormClient({ auctionPublicId, sellerPublicId }: DisputeFormClientProps) {
   const session = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -128,10 +128,10 @@ export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProp
   // lives entirely in the browser.
   useEffect(() => {
     if (session.status === "unauthenticated") {
-      const returnTo = encodeURIComponent(`/auction/${auctionId}/escrow/dispute`);
+      const returnTo = encodeURIComponent(`/auction/${auctionPublicId}/escrow/dispute`);
       router.replace(`/login?next=${returnTo}`);
     }
-  }, [session.status, auctionId, router]);
+  }, [session.status, auctionPublicId, router]);
 
   const isAuthenticated = session.status === "authenticated";
 
@@ -140,8 +140,8 @@ export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProp
     isLoading,
     error,
   } = useQuery({
-    queryKey: escrowKey(auctionId),
-    queryFn: () => getEscrowStatus(auctionId),
+    queryKey: escrowKey(auctionPublicId),
+    queryFn: () => getEscrowStatus(auctionPublicId),
     // Gate the fetch on the authed state so anonymous callers don't fire a
     // 401/403 on the way to being redirected.
     enabled: isAuthenticated,
@@ -159,15 +159,15 @@ export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProp
     return null;
   }
 
-  // Derive the viewer's role from the server-seeded sellerId. Non-seller
+  // Derive the viewer's role from the server-seeded sellerPublicId. Non-seller
   // authenticated callers must be the winner — the dispute endpoint's 403
   // gate rejects everyone else before the POST commits.
   const role: "seller" | "winner" =
-    session.user.id === sellerId ? "seller" : "winner";
+    session.user.publicId === sellerPublicId ? "seller" : "winner";
 
   if (isLoading) {
     return (
-      <EscrowPageLayout auctionId={auctionId}>
+      <EscrowPageLayout auctionPublicId={auctionPublicId}>
         <EscrowPageSkeleton />
       </EscrowPageLayout>
     );
@@ -175,15 +175,15 @@ export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProp
 
   if (error && isApiError(error) && error.status === 404) {
     return (
-      <EscrowPageLayout auctionId={auctionId}>
-        <NoEscrowPanel auctionId={auctionId} />
+      <EscrowPageLayout auctionPublicId={auctionPublicId}>
+        <NoEscrowPanel auctionPublicId={auctionPublicId} />
       </EscrowPageLayout>
     );
   }
 
   if (error || !escrow) {
     return (
-      <EscrowPageLayout auctionId={auctionId}>
+      <EscrowPageLayout auctionPublicId={auctionPublicId}>
         <FormError
           message={
             error instanceof Error
@@ -191,35 +191,35 @@ export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProp
               : "Could not load escrow status."
           }
         />
-        <BackToEscrowLink auctionId={auctionId} />
+        <BackToEscrowLink auctionPublicId={auctionPublicId} />
       </EscrowPageLayout>
     );
   }
 
   if (TERMINAL_STATES.has(escrow.state)) {
     return (
-      <EscrowPageLayout auctionId={auctionId}>
-        <TerminalStatePanel escrow={escrow} auctionId={auctionId} />
+      <EscrowPageLayout auctionPublicId={auctionPublicId}>
+        <TerminalStatePanel escrow={escrow} auctionPublicId={auctionPublicId} />
       </EscrowPageLayout>
     );
   }
 
   return (
-    <EscrowPageLayout auctionId={auctionId}>
+    <EscrowPageLayout auctionPublicId={auctionPublicId}>
       <DisputeFormBody
         escrow={escrow}
-        auctionId={auctionId}
+        auctionPublicId={auctionPublicId}
         role={role}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: escrowKey(auctionId) });
+          queryClient.invalidateQueries({ queryKey: escrowKey(auctionPublicId) });
           toast.success("Dispute filed. SLPA staff will review.");
-          router.push(`/auction/${auctionId}/escrow`);
+          router.push(`/auction/${auctionPublicId}/escrow`);
         }}
         on409={() => {
           toast.error(
             "This escrow's state changed while you were filing. Please review.",
           );
-          router.push(`/auction/${auctionId}/escrow`);
+          router.push(`/auction/${auctionPublicId}/escrow`);
         }}
         onGenericError={(message) =>
           toast.error(`Failed to file dispute: ${message}`)
@@ -229,10 +229,10 @@ export function DisputeFormClient({ auctionId, sellerId }: DisputeFormClientProp
   );
 }
 
-function BackToEscrowLink({ auctionId }: { auctionId: number }) {
+function BackToEscrowLink({ auctionPublicId }: { auctionPublicId: string }) {
   return (
     <Link
-      href={`/auction/${auctionId}/escrow`}
+      href={`/auction/${auctionPublicId}/escrow`}
       className="mt-4 inline-block text-brand hover:underline"
     >
       Back to escrow
@@ -240,13 +240,13 @@ function BackToEscrowLink({ auctionId }: { auctionId: number }) {
   );
 }
 
-function NoEscrowPanel({ auctionId }: { auctionId: number }) {
+function NoEscrowPanel({ auctionPublicId }: { auctionPublicId: string }) {
   return (
     <div className="rounded-lg border border-border-subtle bg-surface-raised p-6 text-center">
       <h2 className="text-sm font-semibold tracking-tight text-fg">
         No escrow exists for this auction
       </h2>
-      <BackToEscrowLink auctionId={auctionId} />
+      <BackToEscrowLink auctionPublicId={auctionPublicId} />
     </div>
   );
 }
@@ -261,10 +261,10 @@ function NoEscrowPanel({ auctionId }: { auctionId: number }) {
  */
 function TerminalStatePanel({
   escrow,
-  auctionId,
+  auctionPublicId,
 }: {
   escrow: EscrowStatusResponse;
-  auctionId: number;
+  auctionPublicId: string;
 }) {
   const messages: Record<string, string> = {
     DISPUTED: `A dispute was filed on ${
@@ -288,7 +288,7 @@ function TerminalStatePanel({
       <p className="mt-2 text-sm text-fg-muted">
         {messages[escrow.state]}
       </p>
-      <BackToEscrowLink auctionId={auctionId} />
+      <BackToEscrowLink auctionPublicId={auctionPublicId} />
     </div>
   );
 }
@@ -302,14 +302,14 @@ function TerminalStatePanel({
  */
 function DisputeFormBody({
   escrow,
-  auctionId,
+  auctionPublicId,
   role,
   onSuccess,
   on409,
   onGenericError,
 }: {
   escrow: EscrowStatusResponse;
-  auctionId: number;
+  auctionPublicId: string;
   role: "seller" | "winner";
   onSuccess: () => void;
   on409: () => void;
@@ -348,7 +348,7 @@ function DisputeFormBody({
       );
       files.forEach((f) => fd.append("files", f));
       return api.post<EscrowStatusResponse>(
-        `/api/v1/auctions/${auctionId}/escrow/dispute`,
+        `/api/v1/auctions/${auctionPublicId}/escrow/dispute`,
         fd,
       );
     },
@@ -381,8 +381,7 @@ function DisputeFormBody({
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div className="rounded-md bg-bg-subtle p-4 text-xs text-fg-muted">
-        You&apos;re disputing escrow for <strong>{escrow.parcelName}</strong> —
-        currently <strong>{escrow.state}</strong>, you are the{" "}
+        Escrow state: <strong>{escrow.state}</strong> — you are the{" "}
         <strong>{role}</strong>.
       </div>
 
@@ -462,7 +461,7 @@ function DisputeFormBody({
 
       <div className="flex items-center justify-between">
         <Link
-          href={`/auction/${auctionId}/escrow`}
+          href={`/auction/${auctionPublicId}/escrow`}
           className="text-sm font-medium text-fg-muted hover:text-fg"
         >
           Cancel

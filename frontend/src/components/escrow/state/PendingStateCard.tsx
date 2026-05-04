@@ -26,7 +26,7 @@ export function PendingStateCard({ escrow, role }: StateCardProps) {
       {role === "seller" ? (
         <>
           <h2 className="text-sm font-semibold tracking-tight text-fg">
-            Awaiting payment from {escrow.counterparty.displayName}
+            Awaiting payment from the winner
           </h2>
           <p className="text-sm text-fg-muted">
             If they don&apos;t pay you&apos;ll be able to re-list once the
@@ -58,7 +58,7 @@ export function PendingStateCard({ escrow, role }: StateCardProps) {
       </div>
 
       <Link
-        href={`/auction/${escrow.auctionId}/escrow/dispute`}
+        href={`/auction/${escrow.auctionPublicId}/escrow/dispute`}
         className="text-sm font-medium text-brand hover:underline"
       >
         File a dispute

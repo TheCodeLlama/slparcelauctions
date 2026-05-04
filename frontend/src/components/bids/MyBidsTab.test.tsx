@@ -19,9 +19,10 @@ function summary(
   id: number,
   overrides: Partial<MyBidSummary> = {},
 ): MyBidSummary {
+  const publicId = `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`;
   return {
     auction: {
-      id,
+      publicId,
       status: "ACTIVE",
       endOutcome: null,
       parcelName: `Parcel ${id}`,
@@ -32,7 +33,7 @@ function summary(
       endedAt: null,
       currentBid: 1000 * id,
       bidderCount: 1,
-      sellerUserId: 7,
+      sellerPublicId: "00000000-0000-0000-0000-000000000007",
       sellerDisplayName: "Seller",
     },
     myHighestBidAmount: 500 * id,

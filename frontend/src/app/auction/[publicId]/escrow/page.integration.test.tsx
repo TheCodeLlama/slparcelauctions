@@ -26,30 +26,18 @@ describe("EscrowStatusPage (RSC shell)", () => {
     expect(metadata.title).toBe("Escrow");
   });
 
-  it("calls notFound() on a non-numeric id", async () => {
+  it("calls notFound() on an empty publicId", async () => {
     // The mocked notFound throws synchronously before any fetch fires,
     // so no MSW handler is needed for the auctions endpoint.
-    const params = Promise.resolve({ id: "not-a-number" });
+    const params = Promise.resolve({ publicId: "" });
     await expect(EscrowStatusPage({ params })).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
   });
 
-  it("calls notFound() on a zero id", async () => {
-    await expect(
-      EscrowStatusPage({ params: Promise.resolve({ id: "0" }) }),
-    ).rejects.toThrow("NEXT_NOT_FOUND");
-  });
-
-  it("calls notFound() on a negative id", async () => {
-    await expect(
-      EscrowStatusPage({ params: Promise.resolve({ id: "-1" }) }),
-    ).rejects.toThrow("NEXT_NOT_FOUND");
-  });
-
   it("calls notFound() when the auction endpoint returns 404", async () => {
     server.use(
-      http.get("*/api/v1/auctions/999", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-0000000003e7", () =>
         HttpResponse.json(
           { status: 404, title: "Not Found", detail: "No such auction" },
           { status: 404 },
@@ -57,38 +45,41 @@ describe("EscrowStatusPage (RSC shell)", () => {
       ),
     );
     await expect(
-      EscrowStatusPage({ params: Promise.resolve({ id: "999" }) }),
+      EscrowStatusPage({ params: Promise.resolve({ publicId: "00000000-0000-0000-0000-0000000003e7" }) }),
     ).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
   it("renders EscrowPageClient with seeded props for a valid id", async () => {
-    const auction = fakePublicAuction({ id: 7, sellerId: 42 });
+    const auction = fakePublicAuction({
+      publicId: "00000000-0000-0000-0000-000000000007",
+      sellerPublicId: "00000000-0000-0000-0000-00000000002a",
+    });
     server.use(
-      http.get("*/api/v1/auctions/7", () => HttpResponse.json(auction)),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () => HttpResponse.json(auction)),
     );
     const element = await EscrowStatusPage({
-      params: Promise.resolve({ id: "7" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }),
     });
 
     // The shell returns a single React element — the EscrowPageClient
-    // with auctionId + sellerId seeded from the auction fetch. We assert
-    // on props rather than rendering because the client relies on the
-    // ws + auth + React Query stack, all of which have their own
+    // with auctionPublicId + sellerPublicId seeded from the auction fetch.
+    // We assert on props rather than rendering because the client relies
+    // on the ws + auth + React Query stack, all of which have their own
     // coverage in EscrowPageClient.test.tsx.
     expect(element).toBeTruthy();
     const props = (
       element as unknown as {
-        props: { auctionId: number; sellerId: number };
+        props: { auctionPublicId: string; sellerPublicId: string };
       }
     ).props;
-    expect(props.auctionId).toBe(7);
-    expect(props.sellerId).toBe(42);
+    expect(props.auctionPublicId).toBe("00000000-0000-0000-0000-000000000007");
+    expect(props.sellerPublicId).toBe("00000000-0000-0000-0000-00000000002a");
   });
 
   it("re-throws non-404 auction fetch errors so Next renders its error boundary", async () => {
     // A 500 must bubble past the RSC — only 404 is converted to notFound.
     server.use(
-      http.get("*/api/v1/auctions/7", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () =>
         HttpResponse.json(
           { status: 500, title: "Internal Server Error" },
           { status: 500 },
@@ -101,7 +92,7 @@ describe("EscrowStatusPage (RSC shell)", () => {
     // convert the error into a notFound.
     let caught: unknown;
     try {
-      await EscrowStatusPage({ params: Promise.resolve({ id: "7" }) });
+      await EscrowStatusPage({ params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }) });
     } catch (e) {
       caught = e;
     }

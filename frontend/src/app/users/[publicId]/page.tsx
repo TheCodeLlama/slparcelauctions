@@ -4,14 +4,14 @@ import { notFound } from "next/navigation";
 import { userApi } from "@/lib/user/api";
 import { PublicProfileView } from "@/components/user/PublicProfileView";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ publicId: string }> };
 
 /**
  * Memoised public-profile fetch so {@link generateMetadata} and the page
  * body share one HTTP round-trip during SSR. Mirrors the pattern used on
- * {@code /auction/[id]}.
+ * {@code /auction/[publicId]}.
  */
-const getPublicProfileCached = cache((id: number) => userApi.publicProfile(id));
+const getPublicProfileCached = cache((publicId: string) => userApi.publicProfile(publicId));
 
 const BIO_DESCRIPTION_LIMIT = 200;
 const DEFAULT_DESCRIPTION = "Second Life parcel seller on SLPA.";
@@ -30,13 +30,10 @@ function truncateBio(bio: string, max: number): string {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const userId = Number(id);
-  if (!Number.isInteger(userId) || userId <= 0) {
-    return { title: "Profile · SLPA" };
-  }
+  const { publicId } = await params;
+  if (!publicId) return { title: "Profile · SLPA" };
   try {
-    const user = await getPublicProfileCached(userId);
+    const user = await getPublicProfileCached(publicId);
     const displayName = user.displayName ?? "SLPA user";
     const description = user.bio
       ? truncateBio(user.bio, BIO_DESCRIPTION_LIMIT)
@@ -62,8 +59,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PublicProfilePage({ params }: Props) {
-  const { id } = await params;
-  const userId = Number(id);
-  if (!Number.isInteger(userId) || userId <= 0) notFound();
-  return <PublicProfileView userId={userId} />;
+  const { publicId } = await params;
+  if (!publicId) notFound();
+  return <PublicProfileView userPublicId={publicId} />;
 }

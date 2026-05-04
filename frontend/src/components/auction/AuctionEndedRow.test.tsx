@@ -15,8 +15,8 @@ function endedAuction(
   overrides: Partial<PublicAuctionResponse> & EndedExtensions = {},
 ): PublicAuctionResponse & EndedExtensions {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
       id: 1,

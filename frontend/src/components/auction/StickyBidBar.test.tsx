@@ -10,7 +10,7 @@ import { StickyBidBar } from "./StickyBidBar";
 type EndedExtensions = {
   endOutcome?: AuctionEndOutcome;
   finalBidAmount?: number | null;
-  winnerUserId?: number | null;
+  winnerPublicId?: string | null;
   winnerDisplayName?: string | null;
 };
 
@@ -22,11 +22,10 @@ function auctionFixture(
   overrides: Partial<PublicAuctionResponse> & EndedExtensions = {},
 ): PublicAuctionResponse & EndedExtensions {
   return {
-    id: 42,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-00000000002a",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -94,7 +93,7 @@ describe("StickyBidBar", () => {
     expect(cta).toHaveTextContent(/Sign in to bid/i);
     expect(cta).toHaveAttribute(
       "href",
-      `/login?next=${encodeURIComponent("/auction/42")}`,
+      `/login?next=${encodeURIComponent("/auction/00000000-0000-0000-0000-00000000002a")}`,
     );
   });
 
@@ -102,7 +101,7 @@ describe("StickyBidBar", () => {
     renderWithProviders(
       <StickyBidBar
         auction={auctionFixture()}
-        currentUser={{ id: 555, verified: false }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-00000000022b", verified: false }}
         connectionState={connected}
         onOpenSheet={vi.fn()}
       />,
@@ -117,8 +116,8 @@ describe("StickyBidBar", () => {
   it("renders the seller variant with 'Your auction' copy and no CTA", () => {
     renderWithProviders(
       <StickyBidBar
-        auction={auctionFixture({ sellerId: 777 })}
-        currentUser={{ id: 777, verified: true }}
+        auction={auctionFixture({ sellerPublicId: "00000000-0000-0000-0000-000000000309" })}
+        currentUser={{ publicId: "00000000-0000-0000-0000-000000000309", verified: true }}
         connectionState={connected}
         onOpenSheet={vi.fn()}
       />,
@@ -134,7 +133,7 @@ describe("StickyBidBar", () => {
     renderWithProviders(
       <StickyBidBar
         auction={auctionFixture()}
-        currentUser={{ id: 555, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-00000000022b", verified: true }}
         connectionState={connected}
         onOpenSheet={onOpenSheet}
       />,
@@ -157,10 +156,10 @@ describe("StickyBidBar", () => {
           bidCount: 3,
           endOutcome: "SOLD",
           finalBidAmount: 2500,
-          winnerUserId: 42,
+          winnerPublicId: "00000000-0000-0000-0000-00000000002a",
           winnerDisplayName: "Alice",
         })}
-        currentUser={{ id: 555, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-00000000022b", verified: true }}
         connectionState={connected}
         onOpenSheet={vi.fn()}
       />,
@@ -204,7 +203,7 @@ describe("StickyBidBar", () => {
     renderWithProviders(
       <StickyBidBar
         auction={auctionFixture()}
-        currentUser={{ id: 555, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-00000000022b", verified: true }}
         connectionState={reconnecting}
         onOpenSheet={onOpenSheet}
       />,
@@ -222,7 +221,7 @@ describe("StickyBidBar", () => {
     renderWithProviders(
       <StickyBidBar
         auction={auctionFixture()}
-        currentUser={{ id: 555, verified: true }}
+        currentUser={{ publicId: "00000000-0000-0000-0000-00000000022b", verified: true }}
         connectionState={{ status: "error", detail: "boom" }}
         onOpenSheet={vi.fn()}
       />,

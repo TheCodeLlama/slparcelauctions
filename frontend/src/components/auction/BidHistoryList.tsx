@@ -10,7 +10,7 @@ import { BidHistoryRow } from "./BidHistoryRow";
 const ANIMATION_MS = 2_000;
 
 export interface BidHistoryListProps {
-  auctionId: number;
+  auctionPublicId: string;
 }
 
 /**
@@ -32,7 +32,7 @@ export interface BidHistoryListProps {
  * Infinite scroll is deferred per spec §19 — "Load more" is sufficient
  * for Phase 1.
  */
-export function BidHistoryList({ auctionId }: BidHistoryListProps) {
+export function BidHistoryList({ auctionPublicId }: BidHistoryListProps) {
   // Track which page the user has loaded up to. Page 0 is always loaded
   // (seeded by the server component); the button bumps this to 1, 2, …
   const [loadedThrough, setLoadedThrough] = useState(0);
@@ -41,7 +41,7 @@ export function BidHistoryList({ auctionId }: BidHistoryListProps) {
   // integration test — the placeholder it replaces exposed the same
   // fact as {@code <span data-testid="bid-history-total">}, and the WS
   // envelope merger updates this value in place.
-  const page0 = useBidHistory(auctionId, 0);
+  const page0 = useBidHistory(auctionPublicId, 0);
   const total =
     page0.data?.totalElements ?? 0;
 
@@ -62,7 +62,7 @@ export function BidHistoryList({ auctionId }: BidHistoryListProps) {
         </span>
       </h3>
       <BidHistoryPagesStack
-        auctionId={auctionId}
+        auctionPublicId={auctionPublicId}
         loadedThrough={loadedThrough}
         onLoadMore={() => setLoadedThrough((prev) => prev + 1)}
       />
@@ -78,11 +78,11 @@ export function BidHistoryList({ auctionId }: BidHistoryListProps) {
  * updates don't invalidate older pages.
  */
 function BidHistoryPagesStack({
-  auctionId,
+  auctionPublicId,
   loadedThrough,
   onLoadMore,
 }: {
-  auctionId: number;
+  auctionPublicId: string;
   loadedThrough: number;
   onLoadMore: () => void;
 }) {
@@ -100,7 +100,7 @@ function BidHistoryPagesStack({
       {pageIndices.map((idx, i) => (
         <BidHistoryPage
           key={idx}
-          auctionId={auctionId}
+          auctionPublicId={auctionPublicId}
           page={idx}
           // The LAST page in the stack owns the "Load more" / empty-state
           // UI — any earlier page is known to be populated.
@@ -123,17 +123,17 @@ function BidHistoryPagesStack({
  * their rows.
  */
 function BidHistoryPage({
-  auctionId,
+  auctionPublicId,
   page,
   isLast,
   onLoadMore,
 }: {
-  auctionId: number;
+  auctionPublicId: string;
   page: number;
   isLast: boolean;
   onLoadMore: () => void;
 }) {
-  const query = useBidHistory(auctionId, page);
+  const query = useBidHistory(auctionPublicId, page);
   const data = query.data;
 
   // Track which bid id, if any, is currently in its ANIMATION_MS "just
@@ -146,9 +146,9 @@ function BidHistoryPage({
   // Both {@code setAnimatedId} calls sit inside the async callback
   // (the scheduled timeout), not the effect body itself, so React's
   // "set-state-in-effect" guard passes.
-  const [animatedId, setAnimatedId] = useState<number | null>(null);
-  const lastFiredRef = useRef<number | null>(null);
-  const topBidId = page === 0 ? (data?.content[0]?.bidId ?? null) : null;
+  const [animatedId, setAnimatedId] = useState<string | null>(null);
+  const lastFiredRef = useRef<string | null>(null);
+  const topBidId = page === 0 ? (data?.content[0]?.bidPublicId ?? null) : null;
 
   useEffect(() => {
     if (topBidId == null) return;
@@ -225,9 +225,9 @@ function BidHistoryPage({
       >
         {rows.map((row: BidHistoryEntry) => (
           <BidHistoryRow
-            key={row.bidId}
+            key={row.bidPublicId}
             entry={row}
-            isAnimated={page === 0 && animatedId === row.bidId}
+            isAnimated={page === 0 && animatedId === row.bidPublicId}
           />
         ))}
       </ul>

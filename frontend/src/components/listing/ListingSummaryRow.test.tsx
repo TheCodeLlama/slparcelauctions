@@ -20,11 +20,10 @@ function baseAuction(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id: 42,
-    sellerId: 1,
+    publicId: "00000000-0000-0000-0000-00000000002a",
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -59,7 +58,7 @@ function baseAuction(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: false,
     snipeWindowMin: null,
@@ -167,7 +166,7 @@ describe("ListingSummaryRow", () => {
             currentHighBid: 48000,
             bidCount: 4,
             reservePrice: 30000,
-            winnerId: 55,
+            winnerPublicId: "00000000-0000-0000-0000-000000000037",
             // winnerDisplayName is on the widened shape; cast so TS accepts.
             ...({
               endOutcome: "SOLD",
@@ -258,7 +257,7 @@ describe("ListingSummaryRow", () => {
             bidCount: 3,
             reservePrice: 1000,
             buyNowPrice: null,
-            winnerId: 99,
+            winnerPublicId: "00000000-0000-0000-0000-000000000063",
             ...({
               endOutcome: "SOLD",
               finalBidAmount: 5000,
@@ -399,7 +398,7 @@ describe("ListingSummaryRow", () => {
     });
     expect(screen.getByText(/awaiting payment/i)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view escrow/i });
-    expect(link).toHaveAttribute("href", `/auction/${auction.id}/escrow`);
+    expect(link).toHaveAttribute("href", `/auction/${auction.publicId}/escrow`);
   });
 
   it("keeps existing view-listing link when escrowState is null", () => {
@@ -413,6 +412,6 @@ describe("ListingSummaryRow", () => {
     });
     expect(screen.queryByText(/awaiting payment/i)).not.toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view listing/i });
-    expect(link).toHaveAttribute("href", `/auction/${auction.id}`);
+    expect(link).toHaveAttribute("href", `/auction/${auction.publicId}`);
   });
 });

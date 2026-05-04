@@ -12,10 +12,10 @@ function makePending(
   overrides: Partial<PendingReviewDto> = {},
 ): PendingReviewDto {
   return {
-    auctionId: 1234,
+    auctionPublicId: "00000000-0000-0000-0000-0000000004d2",
     title: "Aurora Parcel",
     primaryPhotoUrl: null,
-    counterpartyId: 7,
+    counterpartyPublicId: "00000000-0000-0000-0000-000000000007",
     counterpartyDisplayName: "Alice",
     counterpartyAvatarUrl: null,
     escrowCompletedAt: "2026-04-18T00:00:00Z",
@@ -74,9 +74,9 @@ describe("PendingReviewsSection", () => {
     server.use(
       http.get("*/api/v1/users/me/pending-reviews", () =>
         HttpResponse.json([
-          makePending({ auctionId: 1234, hoursRemaining: 72, viewerRole: "SELLER" }),
+          makePending({ auctionPublicId: "00000000-0000-0000-0000-0000000004d2", hoursRemaining: 72, viewerRole: "SELLER" }),
           makePending({
-            auctionId: 5678,
+            auctionPublicId: "00000000-0000-0000-0000-00000000162e",
             title: "Lakeview Shore",
             counterpartyDisplayName: "Bob",
             hoursRemaining: 12,
@@ -110,14 +110,14 @@ describe("PendingReviewsSection", () => {
   it("links each CTA to the escrow page's #review-panel anchor", async () => {
     server.use(
       http.get("*/api/v1/users/me/pending-reviews", () =>
-        HttpResponse.json([makePending({ auctionId: 42 })]),
+        HttpResponse.json([makePending({ auctionPublicId: "00000000-0000-0000-0000-00000000002a" })]),
       ),
     );
 
     renderWithProviders(<PendingReviewsSection />, { auth: "authenticated" });
 
     const cta = await screen.findByTestId("pending-review-cta");
-    expect(cta).toHaveAttribute("href", "/auction/42/escrow#review-panel");
+    expect(cta).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow#review-panel");
   });
 
   it("renders nothing when the request fails", async () => {

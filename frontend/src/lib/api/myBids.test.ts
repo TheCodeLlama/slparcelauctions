@@ -18,7 +18,7 @@ function emptyPage<T>(): Page<T> {
 function mySummary(overrides: Partial<MyBidSummary> = {}): MyBidSummary {
   return {
     auction: {
-      id: 1,
+      publicId: "00000000-0000-0000-0000-000000000001",
       status: "ACTIVE",
       endOutcome: null,
       parcelName: "Heterocera 128/128",
@@ -29,7 +29,7 @@ function mySummary(overrides: Partial<MyBidSummary> = {}): MyBidSummary {
       endedAt: null,
       currentBid: 2500,
       bidderCount: 3,
-      sellerUserId: 100,
+      sellerPublicId: "00000000-0000-0000-0000-000000000064",
       sellerDisplayName: "Seller",
     },
     myHighestBidAmount: 2500,

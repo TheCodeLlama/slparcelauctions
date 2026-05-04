@@ -20,7 +20,7 @@ import { cn } from "@/lib/cn";
  * mount (e.g. a future listing preview).
  */
 export interface StickyBidBarUser {
-  id: number;
+  publicId: string;
   verified: boolean;
 }
 
@@ -66,7 +66,7 @@ function deriveVariant(
   if (auction.status === "ENDED") return "ended";
   if (!currentUser) return "unauth";
   if (!currentUser.verified) return "unverified";
-  if (currentUser.id === auction.sellerId) return "seller";
+  if (currentUser.publicId === auction.sellerPublicId) return "seller";
   return "bidder";
 }
 
@@ -129,7 +129,7 @@ export function StickyBidBar({
 
         <RightSlot
           variant={variant}
-          auctionId={auction.id}
+          auctionPublicId={auction.publicId}
           connected={connected}
           onOpenSheet={onOpenSheet}
         />
@@ -274,12 +274,12 @@ function EndedLeft({
  */
 function RightSlot({
   variant,
-  auctionId,
+  auctionPublicId,
   connected,
   onOpenSheet,
 }: {
   variant: Variant;
-  auctionId: number;
+  auctionPublicId: string;
   connected: boolean;
   onOpenSheet: () => void;
 }) {
@@ -288,7 +288,7 @@ function RightSlot({
   }
 
   if (variant === "unauth") {
-    const next = `?next=${encodeURIComponent(`/auction/${auctionId}`)}`;
+    const next = `?next=${encodeURIComponent(`/auction/${auctionPublicId}`)}`;
     return (
       <Link
         href={`/login${next}`}

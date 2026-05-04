@@ -6,7 +6,7 @@ import { MyBidSummaryRow } from "./MyBidSummaryRow";
 function summary(
   overrides: {
     status?: MyBidStatus;
-    auctionId?: number;
+    auctionPublicId?: string;
     parcelName?: string | null;
     parcelRegion?: string | null;
     myProxyMaxAmount?: number | null;
@@ -19,7 +19,7 @@ function summary(
 ): MyBidSummary {
   return {
     auction: {
-      id: overrides.auctionId ?? 42,
+      publicId: overrides.auctionPublicId ?? "00000000-0000-0000-0000-00000000002a",
       status: overrides.auctionStatus ?? "ACTIVE",
       endOutcome: null,
       parcelName:
@@ -35,7 +35,7 @@ function summary(
       endedAt: null,
       currentBid: "currentBid" in overrides ? overrides.currentBid! : 4200,
       bidderCount: 3,
-      sellerUserId: 7,
+      sellerPublicId: "00000000-0000-0000-0000-000000000007",
       sellerDisplayName: "Seller",
       escrowState:
         "escrowState" in overrides ? overrides.escrowState! : null,
@@ -63,9 +63,9 @@ describe("MyBidSummaryRow", () => {
   });
 
   it("links the row to the public auction page", () => {
-    render(<MyBidSummaryRow bid={summary({ auctionId: 101 })} />);
+    render(<MyBidSummaryRow bid={summary({ auctionPublicId: "00000000-0000-0000-0000-000000000065" })} />);
     const anchor = screen.getByRole("link");
-    expect(anchor).toHaveAttribute("href", "/auction/101");
+    expect(anchor).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-000000000065");
   });
 
   it.each<{ status: MyBidStatus; borderClass: string }>([
@@ -78,7 +78,7 @@ describe("MyBidSummaryRow", () => {
     { status: "SUSPENDED", borderClass: "border-l-danger" },
   ])("applies the $borderClass accent for $status", ({ status, borderClass }) => {
     render(<MyBidSummaryRow bid={summary({ status })} />);
-    const row = screen.getByTestId("my-bid-row-42");
+    const row = screen.getByTestId("my-bid-row-00000000-0000-0000-0000-00000000002a");
     expect(row.className).toContain(borderClass);
   });
 
@@ -130,7 +130,7 @@ describe("MyBidSummaryRow", () => {
 
   it("renders escrow chip + view-escrow link when escrowState is set", () => {
     const bid = summary({
-      auctionId: 101,
+      auctionPublicId: "00000000-0000-0000-0000-000000000065",
       auctionStatus: "ENDED",
       status: "WON",
       escrowState: "ESCROW_PENDING",
@@ -139,14 +139,14 @@ describe("MyBidSummaryRow", () => {
     render(<MyBidSummaryRow bid={bid} />);
     expect(screen.getByText(/pay escrow/i)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view escrow/i });
-    expect(link).toHaveAttribute("href", `/auction/${bid.auction.id}/escrow`);
+    expect(link).toHaveAttribute("href", `/auction/${bid.auction.publicId}/escrow`);
   });
 
   it("keeps existing view-auction link when escrowState is null", () => {
-    const bid = summary({ auctionId: 101, escrowState: null });
+    const bid = summary({ auctionPublicId: "00000000-0000-0000-0000-000000000065", escrowState: null });
     render(<MyBidSummaryRow bid={bid} />);
     expect(screen.queryByText(/pay escrow/i)).not.toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view auction/i });
-    expect(link).toHaveAttribute("href", `/auction/${bid.auction.id}`);
+    expect(link).toHaveAttribute("href", `/auction/${bid.auction.publicId}`);
   });
 });

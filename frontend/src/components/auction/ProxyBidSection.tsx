@@ -77,14 +77,14 @@ export function ProxyBidSection({
   const isConnected = connectionState.status === "connected";
 
   const invalidateMyProxy = () => {
-    queryClient.invalidateQueries({ queryKey: myProxyKey(auction.id) });
+    queryClient.invalidateQueries({ queryKey: myProxyKey(auction.publicId) });
   };
 
   const mutateProxy = useMutation<ProxyBidResponse, unknown, number>({
     mutationFn: (value) =>
       mode === "create"
-        ? createProxy(auction.id, value)
-        : updateProxy(auction.id, value),
+        ? createProxy(auction.publicId, value)
+        : updateProxy(auction.publicId, value),
     onMutate: () => setInlineError(null),
     onSuccess: () => {
       invalidateMyProxy();
@@ -94,7 +94,7 @@ export function ProxyBidSection({
   });
 
   const cancelProxyMut = useMutation<void, unknown, void>({
-    mutationFn: () => cancelProxy(auction.id),
+    mutationFn: () => cancelProxy(auction.publicId),
     onMutate: () => setInlineError(null),
     onSuccess: () => {
       invalidateMyProxy();

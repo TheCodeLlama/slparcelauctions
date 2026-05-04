@@ -35,7 +35,7 @@ function makeRow(
   overrides: Partial<CancellationHistoryDto> = {},
 ): CancellationHistoryDto {
   return {
-    auctionId: 1,
+    auctionPublicId: "00000000-0000-0000-0000-000000000001",
     auctionTitle: "Aurora Parcel",
     primaryPhotoUrl: null,
     cancelledFromStatus: "ACTIVE",
@@ -122,9 +122,9 @@ describe("getCancellationHistory", () => {
 
   it("returns the deserialized Page envelope verbatim", async () => {
     const rows = [
-      makeRow({ auctionId: 1 }),
+      makeRow({ auctionPublicId: "00000000-0000-0000-0000-000000000001" }),
       makeRow({
-        auctionId: 2,
+        auctionPublicId: "00000000-0000-0000-0000-000000000002",
         penaltyApplied: null,
         cancelledFromStatus: "DRAFT_PAID",
         hadBids: false,

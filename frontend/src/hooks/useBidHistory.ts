@@ -12,10 +12,10 @@ import type { Page } from "@/types/page";
  * merger and reconnect-reconcile can target the same key.
  */
 export function bidHistoryKey(
-  auctionId: number,
+  auctionPublicId: string,
   page: number,
 ): readonly unknown[] {
-  return ["auction", auctionId, "bids", page] as const;
+  return ["auction", auctionPublicId, "bids", page] as const;
 }
 
 /**
@@ -27,13 +27,13 @@ export function bidHistoryKey(
  * invalidation on reconnect reconciles together.
  */
 export function useBidHistory(
-  auctionId: number,
+  auctionPublicId: string,
   page: number,
   initialData?: Page<BidHistoryEntry>,
 ) {
   return useQuery<Page<BidHistoryEntry>>({
-    queryKey: bidHistoryKey(auctionId, page),
-    queryFn: () => getBidHistory(auctionId, { page, size: 20 }),
+    queryKey: bidHistoryKey(auctionPublicId, page),
+    queryFn: () => getBidHistory(auctionPublicId, { page, size: 20 }),
     // Only seed page 0 from the server component — pages 1+ are lazy and
     // must fetch on first access so we never hand them a stale snapshot.
     initialData: page === 0 ? initialData : undefined,

@@ -7,7 +7,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { ReportListingModal } from "./ReportListingModal";
 import { adminQueryKeys } from "@/lib/admin/queryKeys";
 
-const AUCTION_ID = 99;
+const AUCTION_ID = "00000000-0000-0000-0000-000000000063";
 const onClose = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -26,7 +26,7 @@ vi.mock("next/navigation", () => ({
 describe("ReportListingModal", () => {
   it("submit button is disabled when fields are empty", () => {
     renderWithProviders(
-      <ReportListingModal auctionId={AUCTION_ID} onClose={onClose} />,
+      <ReportListingModal auctionPublicId={AUCTION_ID} onClose={onClose} />,
       { auth: "authenticated" }
     );
     expect(screen.getByTestId("report-submit-btn")).toBeDisabled();
@@ -35,7 +35,7 @@ describe("ReportListingModal", () => {
   it("closes on ESC", async () => {
     const closeFn = vi.fn();
     renderWithProviders(
-      <ReportListingModal auctionId={AUCTION_ID} onClose={closeFn} />,
+      <ReportListingModal auctionPublicId={AUCTION_ID} onClose={closeFn} />,
       { auth: "authenticated" }
     );
     const user = userEvent.setup();
@@ -63,7 +63,7 @@ describe("ReportListingModal", () => {
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
     const { unmount } = renderWithProviders(
-      <ReportListingModal auctionId={AUCTION_ID} onClose={closeFn} />,
+      <ReportListingModal auctionPublicId={AUCTION_ID} onClose={closeFn} />,
       { auth: "authenticated" }
     );
     // Use the wrapper's qc by re-rendering inside our own wrapper
@@ -72,7 +72,7 @@ describe("ReportListingModal", () => {
     const { getByTestId, getByRole } = renderWithProviders(
       <QueryClientProvider client={qc}>
         <ToastProvider>
-          <ReportListingModal auctionId={AUCTION_ID} onClose={closeFn} />
+          <ReportListingModal auctionPublicId={AUCTION_ID} onClose={closeFn} />
         </ToastProvider>
       </QueryClientProvider>
     );

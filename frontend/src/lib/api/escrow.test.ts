@@ -9,12 +9,17 @@ describe("escrow API client", () => {
     it("returns EscrowStatusResponse on 200", async () => {
       server.use(
         http.get("*/api/v1/auctions/7/escrow", () =>
-          HttpResponse.json(fakeEscrow({ auctionId: 7, escrowId: 1 })),
+          HttpResponse.json(
+            fakeEscrow({
+              auctionPublicId: "00000000-0000-0000-0000-000000000007",
+              escrowPublicId: "00000000-0000-0000-0000-000000000001",
+            }),
+          ),
         ),
       );
       const result = await getEscrowStatus(7);
-      expect(result.escrowId).toBe(1);
-      expect(result.auctionId).toBe(7);
+      expect(result.escrowPublicId).toBe("00000000-0000-0000-0000-000000000001");
+      expect(result.auctionPublicId).toBe("00000000-0000-0000-0000-000000000007");
       expect(result.state).toBe("ESCROW_PENDING");
     });
 
@@ -55,7 +60,7 @@ describe("escrow API client", () => {
           expect(body.description).toBe("Not responding to messages");
           return HttpResponse.json(
             fakeEscrow({
-              auctionId: 7,
+              auctionPublicId: "00000000-0000-0000-0000-000000000007",
               state: "DISPUTED",
               disputedAt: new Date().toISOString(),
               disputeReasonCategory: "SELLER_NOT_RESPONSIVE",

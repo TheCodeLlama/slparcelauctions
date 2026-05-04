@@ -28,16 +28,16 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     prefetch: vi.fn(),
   }),
-  usePathname: vi.fn(() => "/auction/7/escrow/dispute"),
+  usePathname: vi.fn(() => "/auction/00000000-0000-0000-0000-000000000007/escrow/dispute"),
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Winner fixture — id does NOT match the sellerId we pass into the client,
-// so role resolves to `winner`. The winner is the natural dispute filer
-// (seller-not-responsive, wrong-parcel, etc.), which matches the form's
-// primary user flow.
+// Winner fixture — publicId does NOT match the sellerPublicId we pass into
+// the client, so role resolves to `winner`. The winner is the natural
+// dispute filer (seller-not-responsive, wrong-parcel, etc.), which matches
+// the form's primary user flow.
 const winnerUser: AuthUser = {
-  id: 999,
+  publicId: "00000000-0000-0000-0000-0000000003e7",
   email: "winner@example.com",
   displayName: "Winner",
   slAvatarUuid: "99999999-9999-9999-9999-999999999999",
@@ -53,12 +53,12 @@ describe("DisputeFormClient", () => {
 
   it("renders the dispute form for an ESCROW_PENDING escrow", async () => {
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" })),
       ),
     );
 
-    renderWithProviders(<DisputeFormClient auctionId={7} sellerId={42} />, {
+    renderWithProviders(<DisputeFormClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
       authUser: winnerUser,
     });
@@ -77,10 +77,10 @@ describe("DisputeFormClient", () => {
     "shows a non-disputable panel for %s state (no form)",
     async (state) => {
       server.use(
-        http.get("*/api/v1/auctions/7/escrow", () =>
+        http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
           HttpResponse.json(
             fakeEscrow({
-              auctionId: 7,
+              auctionPublicId: "00000000-0000-0000-0000-000000000007",
               state,
               // Stamp the terminal timestamp that matches the state so the
               // panel's copy has a non-dash date where applicable.
@@ -97,7 +97,7 @@ describe("DisputeFormClient", () => {
         ),
       );
 
-      renderWithProviders(<DisputeFormClient auctionId={7} sellerId={42} />, {
+      renderWithProviders(<DisputeFormClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
         auth: "authenticated",
         authUser: winnerUser,
       });
@@ -116,16 +116,16 @@ describe("DisputeFormClient", () => {
   it("surfaces a Zod error when description is shorter than 10 characters", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" })),
       ),
-      http.post("*/api/v1/auctions/7/escrow/dispute", () => {
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow/dispute", () => {
         // Should never be hit — Zod should block the submit.
         throw new Error("Submit should be blocked by client-side validation");
       }),
     );
 
-    renderWithProviders(<DisputeFormClient auctionId={7} sellerId={42} />, {
+    renderWithProviders(<DisputeFormClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
       authUser: winnerUser,
     });
@@ -142,13 +142,13 @@ describe("DisputeFormClient", () => {
   it("routes back to the escrow page and shows a success toast on 2xx", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" })),
       ),
-      http.post("*/api/v1/auctions/7/escrow/dispute", () =>
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow/dispute", () =>
         HttpResponse.json(
           fakeEscrow({
-            auctionId: 7,
+            auctionPublicId: "00000000-0000-0000-0000-000000000007",
             state: "DISPUTED",
             disputedAt: new Date().toISOString(),
             disputeReasonCategory: "SELLER_NOT_RESPONSIVE",
@@ -158,7 +158,7 @@ describe("DisputeFormClient", () => {
       ),
     );
 
-    renderWithProviders(<DisputeFormClient auctionId={7} sellerId={42} />, {
+    renderWithProviders(<DisputeFormClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
       authUser: winnerUser,
     });
@@ -172,7 +172,7 @@ describe("DisputeFormClient", () => {
     await user.click(screen.getByRole("button", { name: /file dispute/i }));
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/auction/7/escrow");
+      expect(pushMock).toHaveBeenCalledWith("/auction/00000000-0000-0000-0000-000000000007/escrow");
     });
     expect(
       await screen.findByText(/dispute filed/i),
@@ -182,10 +182,10 @@ describe("DisputeFormClient", () => {
   it("routes back to the escrow page on 409 ESCROW_INVALID_TRANSITION", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" })),
       ),
-      http.post("*/api/v1/auctions/7/escrow/dispute", () =>
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow/dispute", () =>
         HttpResponse.json(
           {
             status: 409,
@@ -198,7 +198,7 @@ describe("DisputeFormClient", () => {
       ),
     );
 
-    renderWithProviders(<DisputeFormClient auctionId={7} sellerId={42} />, {
+    renderWithProviders(<DisputeFormClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
       authUser: winnerUser,
     });
@@ -210,7 +210,7 @@ describe("DisputeFormClient", () => {
     await user.click(screen.getByRole("button", { name: /file dispute/i }));
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/auction/7/escrow");
+      expect(pushMock).toHaveBeenCalledWith("/auction/00000000-0000-0000-0000-000000000007/escrow");
     });
     // Error toast surfaces alongside the redirect so the user understands
     // why they were bounced back.
@@ -225,18 +225,18 @@ describe("DisputeFormClient", () => {
     // regression (e.g. the gate being removed) surfaces as an unhandled-
     // MSW error rather than a silent fetch.
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7 })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007" })),
       ),
     );
 
-    renderWithProviders(<DisputeFormClient auctionId={7} sellerId={42} />, {
+    renderWithProviders(<DisputeFormClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "anonymous",
     });
 
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith(
-        `/login?next=${encodeURIComponent("/auction/7/escrow/dispute")}`,
+        `/login?next=${encodeURIComponent("/auction/00000000-0000-0000-0000-000000000007/escrow/dispute")}`,
       );
     });
   });

@@ -14,12 +14,12 @@ function row(
   status: AuctionStatus,
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
+  const publicId = `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`;
   return {
-    id,
-    sellerId: 1,
+    publicId,
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: "Featured Parcel Listing",
     parcel: {
-      id,
       slParcelUuid: `00000000-0000-0000-0000-00000000000${id}`,
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -54,7 +54,7 @@ function row(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: false,
     snipeWindowMin: null,
@@ -99,7 +99,10 @@ describe("useMyListings", () => {
       wrapper: makeWrapper({ auth: "authenticated" }),
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.listings.map((a) => a.id).sort()).toEqual([1, 3]);
+    expect(result.current.listings.map((a) => a.publicId).sort()).toEqual([
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000003",
+    ]);
   });
 
   it("collapses all four draft-bucket statuses into the Drafts filter", async () => {
@@ -114,8 +117,11 @@ describe("useMyListings", () => {
       wrapper: makeWrapper({ auth: "authenticated" }),
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.listings.map((a) => a.id).sort()).toEqual([
-      1, 2, 3, 4,
+    expect(result.current.listings.map((a) => a.publicId).sort()).toEqual([
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000002",
+      "00000000-0000-0000-0000-000000000003",
+      "00000000-0000-0000-0000-000000000004",
     ]);
   });
 
@@ -133,8 +139,13 @@ describe("useMyListings", () => {
       wrapper: makeWrapper({ auth: "authenticated" }),
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.listings.map((a) => a.id).sort()).toEqual([
-      1, 2, 3, 4, 5, 6,
+    expect(result.current.listings.map((a) => a.publicId).sort()).toEqual([
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000002",
+      "00000000-0000-0000-0000-000000000003",
+      "00000000-0000-0000-0000-000000000004",
+      "00000000-0000-0000-0000-000000000005",
+      "00000000-0000-0000-0000-000000000006",
     ]);
   });
 
@@ -145,7 +156,9 @@ describe("useMyListings", () => {
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.listings).toHaveLength(1);
-    expect(result.current.listings[0].id).toBe(1);
+    expect(result.current.listings[0].publicId).toBe(
+      "00000000-0000-0000-0000-000000000001",
+    );
   });
 });
 

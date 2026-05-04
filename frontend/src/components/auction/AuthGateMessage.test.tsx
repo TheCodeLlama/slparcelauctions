@@ -4,14 +4,14 @@ import { AuthGateMessage } from "./AuthGateMessage";
 
 describe("AuthGateMessage", () => {
   it("renders unauth copy and a login link with next= for the auction", () => {
-    renderWithProviders(<AuthGateMessage kind="unauth" auctionId={42} />);
+    renderWithProviders(<AuthGateMessage kind="unauth" auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
     const node = screen.getByTestId("auth-gate-message");
     expect(node).toHaveAttribute("data-kind", "unauth");
     expect(node).toHaveTextContent(/Sign in to bid on this auction/i);
     const link = screen.getByRole("link", { name: /sign in/i });
     expect(link).toHaveAttribute(
       "href",
-      `/login?next=${encodeURIComponent("/auction/42")}`,
+      `/login?next=${encodeURIComponent("/auction/00000000-0000-0000-0000-00000000002a")}`,
     );
   });
 

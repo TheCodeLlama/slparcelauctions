@@ -11,28 +11,27 @@ import { AuctionDetailClient } from "./AuctionDetailClient";
  * round-trip during SSR. The wrapper is re-entered on every request; it is
  * NOT a cross-request cache (React's docs call this out explicitly).
  */
-const getAuctionCached = cache((id: number) => getAuction(id));
+const getAuctionCached = cache((publicId: string) => getAuction(publicId));
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ publicId: string }>;
 }
 
 /**
  * OpenGraph + Twitter card metadata for the auction detail page. Runs
  * during SSR before the page body renders — any failure here must not
- * abort the page render, so 404 / non-numeric IDs simply emit the generic
+ * abort the page render, so missing/invalid publicIds simply emit the generic
  * fallback title and let the page body handle the route param validation
  * (which in turn calls {@code notFound}). {@code cache()}-wrapped
  * {@link getAuctionCached} guarantees the body's fetch isn't duplicated.
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const auctionId = Number(id);
-  if (!Number.isInteger(auctionId) || auctionId <= 0) {
+  const { publicId } = await params;
+  if (!publicId) {
     return { title: "Auction · SLPA" };
   }
   try {
-    const a = await getAuctionCached(auctionId);
+    const a = await getAuctionCached(publicId);
     // Prefer a seller-uploaded photo over the region snapshot for OG —
     // the detail DTO doesn't carry a primaryPhotoUrl, so we derive one
     // from photos[0] after sorting by sortOrder. The sort is cheap
@@ -78,9 +77,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * See spec §7 (server / client composition).
  */
 export default async function AuctionPage({ params }: Props) {
-  const { id } = await params;
-  const auctionId = Number(id);
-  if (!Number.isInteger(auctionId) || auctionId <= 0) notFound();
+  const { publicId } = await params;
+  if (!publicId) notFound();
 
   // Dual-fetch with 404 normalization. Treat any 404 from either endpoint
   // as "auction does not exist" — the two endpoints share the same
@@ -95,8 +93,8 @@ export default async function AuctionPage({ params }: Props) {
   let firstBidPage;
   try {
     [auction, firstBidPage] = await Promise.all([
-      getAuctionCached(auctionId),
-      getBidHistory(auctionId, { page: 0, size: 20 }),
+      getAuctionCached(publicId),
+      getBidHistory(publicId, { page: 0, size: 20 }),
     ]);
   } catch (err) {
     if (isApiError(err) && err.status === 404) notFound();

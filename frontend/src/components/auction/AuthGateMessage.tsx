@@ -14,7 +14,7 @@ export interface AuthGateMessageProps {
    * {@code RequireAuth}, {@code lib/api.ts}); we match that here rather
    * than the {@code /sign-in?returnTo=} shape in the spec draft.
    */
-  auctionId?: number;
+  auctionPublicId?: string;
 }
 
 /**
@@ -30,11 +30,11 @@ export interface AuthGateMessageProps {
  *   <li>{@code seller}     — viewer owns this auction</li>
  * </ul>
  */
-export function AuthGateMessage({ kind, auctionId }: AuthGateMessageProps) {
+export function AuthGateMessage({ kind, auctionPublicId }: AuthGateMessageProps) {
   if (kind === "unauth") {
     const next =
-      auctionId != null
-        ? `?next=${encodeURIComponent(`/auction/${auctionId}`)}`
+      auctionPublicId != null
+        ? `?next=${encodeURIComponent(`/auction/${auctionPublicId}`)}`
         : "";
     return (
       <div

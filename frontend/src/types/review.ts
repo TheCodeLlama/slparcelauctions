@@ -31,7 +31,7 @@ export type ReviewFlagReason =
  * entitled (flag target, self-response, …).
  */
 export interface ReviewResponseDto {
-  id: number;
+  publicId: string;
   text: string;
   createdAt: string;
 }
@@ -44,14 +44,14 @@ export interface ReviewResponseDto {
  * author and the counterparty hasn't submitted yet.
  */
 export interface ReviewDto {
-  id: number;
-  auctionId: number;
+  publicId: string;
+  auctionPublicId: string;
   auctionTitle: string;
   auctionPrimaryPhotoUrl: string | null;
-  reviewerId: number;
+  reviewerPublicId: string;
   reviewerDisplayName: string;
   reviewerAvatarUrl: string | null;
-  revieweeId: number;
+  revieweePublicId: string;
   reviewedRole: ReviewedRole;
   rating: number | null;
   text: string | null;
@@ -82,10 +82,10 @@ export interface AuctionReviewsResponse {
  * client-side sort (see backend commit {@code 2c7e125}).
  */
 export interface PendingReviewDto {
-  auctionId: number;
+  auctionPublicId: string;
   title: string;
   primaryPhotoUrl: string | null;
-  counterpartyId: number;
+  counterpartyPublicId: string;
   counterpartyDisplayName: string;
   counterpartyAvatarUrl: string | null;
   escrowCompletedAt: string;

@@ -61,10 +61,10 @@ describe("AuctionDetailClient — AUCTION_CANCELLED envelope", () => {
 
   it("invalidates the auction + bid history queries when AUCTION_CANCELLED arrives", async () => {
     const initialAuction = fakePublicAuction({
-      id: 7,
+      publicId: "00000000-0000-0000-0000-000000000007",
       status: "ACTIVE",
       seller: {
-        id: 42,
+        publicId: "00000000-0000-0000-0000-00000000002a",
         displayName: "Seller",
         avatarUrl: null,
         averageRating: null,
@@ -78,7 +78,7 @@ describe("AuctionDetailClient — AUCTION_CANCELLED envelope", () => {
     let auctionFetchCount = 0;
     let bidHistoryFetchCount = 0;
     server.use(
-      http.get("*/api/v1/auctions/7", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () => {
         auctionFetchCount += 1;
         // Keep the auction ACTIVE on the refetch so the page does not
         // mount AuctionEndedPanel — the public DTO collapses CANCELLED
@@ -88,7 +88,7 @@ describe("AuctionDetailClient — AUCTION_CANCELLED envelope", () => {
         // counter incrementing.
         return HttpResponse.json(initialAuction);
       }),
-      http.get("*/api/v1/auctions/7/bids", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/bids", () => {
         bidHistoryFetchCount += 1;
         return HttpResponse.json(emptyBidPage);
       }),

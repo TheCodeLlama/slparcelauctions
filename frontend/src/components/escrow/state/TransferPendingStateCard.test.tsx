@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderWithProviders, screen, userEvent } from "@/test/render";
+import { renderWithProviders, screen } from "@/test/render";
 import { TransferPendingStateCard } from "./TransferPendingStateCard";
 import { fakeEscrow } from "@/test/fixtures/escrow";
 
@@ -21,20 +21,12 @@ describe("TransferPendingStateCard", () => {
             fundedAt: "2026-04-30T12:00:00Z",
             transferConfirmedAt: null,
             transferDeadline: "2026-05-03T12:00:00Z",
-            counterparty: {
-              userId: 42,
-              displayName: "Kira Swansong",
-              slAvatarName: "kira.swansong",
-              slAvatarUuid: "a0b1c2d3-0000-4000-8000-000000000001",
-            },
           })}
           role="seller"
         />,
       );
       expect(screen.getByText(/about land/i)).toBeInTheDocument();
       expect(screen.getByText(/sell land/i)).toBeInTheDocument();
-      // slAvatarName appears in the recipe step (in-world avatar key).
-      expect(screen.getByText("kira.swansong")).toBeInTheDocument();
       expect(screen.getByText(/l\$\s*0/i)).toBeInTheDocument();
       expect(screen.getByText(/confirm the sale/i)).toBeInTheDocument();
     });
@@ -54,45 +46,12 @@ describe("TransferPendingStateCard", () => {
       expect(screen.getByText(/left$/i)).toBeInTheDocument();
     });
 
-    it("copies the winner slAvatarName to clipboard on button click", async () => {
-      vi.useRealTimers();
-      const user = userEvent.setup();
-      const writeText = vi.fn().mockResolvedValue(undefined);
-      // `navigator.clipboard` is read-only in JSDOM; redefine via
-      // defineProperty so writes succeed for the duration of the test.
-      Object.defineProperty(navigator, "clipboard", {
-        configurable: true,
-        value: { writeText },
-      });
-
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-            counterparty: {
-              userId: 42,
-              displayName: "Kira Swansong",
-              slAvatarName: "kira.swansong",
-              slAvatarUuid: "a0b1c2d3-0000-4000-8000-000000000001",
-            },
-          })}
-          role="seller"
-        />,
-      );
-      const btn = screen.getByRole("button", { name: /copy winner name/i });
-      await user.click(btn);
-      expect(writeText).toHaveBeenCalledWith("kira.swansong");
-    });
-
     it("renders a dispute link", () => {
       renderWithProviders(
         <TransferPendingStateCard
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
-            auctionId: 42,
+            auctionPublicId: "00000000-0000-0000-0000-00000000002a",
             fundedAt: "2026-04-30T12:00:00Z",
             transferConfirmedAt: null,
             transferDeadline: "2026-05-03T12:00:00Z",
@@ -101,7 +60,7 @@ describe("TransferPendingStateCard", () => {
         />,
       );
       const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/42/escrow/dispute");
+      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
     });
   });
 
@@ -145,11 +104,11 @@ describe("TransferPendingStateCard", () => {
       );
       // Guidance list header + three bullet labels
       expect(screen.getByText(/what you can do/i)).toBeInTheDocument();
-      expect(screen.getByText(/message seller/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/message seller/i).length).toBeGreaterThan(0);
       expect(screen.getByText(/> 48 hours/i)).toBeInTheDocument();
     });
 
-    it("renders a disabled 'Message {name}' button (inert placeholder)", () => {
+    it("renders a disabled 'Message seller' button (inert placeholder)", () => {
       renderWithProviders(
         <TransferPendingStateCard
           escrow={fakeEscrow({
@@ -161,7 +120,7 @@ describe("TransferPendingStateCard", () => {
           role="winner"
         />,
       );
-      const btn = screen.getByRole("button", { name: /message kira swansong/i });
+      const btn = screen.getByRole("button", { name: /message seller/i });
       expect(btn).toBeDisabled();
     });
 
@@ -170,7 +129,7 @@ describe("TransferPendingStateCard", () => {
         <TransferPendingStateCard
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
-            auctionId: 42,
+            auctionPublicId: "00000000-0000-0000-0000-00000000002a",
             fundedAt: "2026-04-30T12:00:00Z",
             transferConfirmedAt: null,
             transferDeadline: "2026-05-03T12:00:00Z",
@@ -180,7 +139,7 @@ describe("TransferPendingStateCard", () => {
       );
       expect(screen.getByText(/left$/i)).toBeInTheDocument();
       const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/42/escrow/dispute");
+      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
     });
   });
 

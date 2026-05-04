@@ -26,16 +26,16 @@ export default async function SellerListingsPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ publicId: string }>;
   searchParams: Promise<SP>;
 }) {
-  const { id } = await params;
-  const sellerId = Number(id);
-  if (!Number.isInteger(sellerId) || sellerId <= 0) notFound();
+  const { publicId } = await params;
+  if (!publicId) notFound();
+  const sellerPublicId = publicId;
 
   const spData = await searchParams;
   const urlQuery = queryFromSearchParams(toSearchParams(spData));
-  const query = { ...urlQuery, sellerId };
+  const query = { ...urlQuery, sellerPublicId };
 
   // Both calls are independent — parallelize them. A 404 on the profile
   // fetch means "no such seller" and must trigger notFound(); a 404 on
@@ -45,7 +45,7 @@ export default async function SellerListingsPage({
   let initialData;
   try {
     [user, initialData] = await Promise.all([
-      userApi.publicProfile(sellerId),
+      userApi.publicProfile(sellerPublicId),
       searchAuctions(query),
     ]);
   } catch (e) {
@@ -59,7 +59,7 @@ export default async function SellerListingsPage({
       <BrowseShell
         initialQuery={query}
         initialData={initialData}
-        fixedFilters={{ sellerId }}
+        fixedFilters={{ sellerPublicId }}
         hiddenFilterGroups={["distance"]}
         title={`${user.displayName ?? "Seller"}'s listings`}
       />

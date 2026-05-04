@@ -8,7 +8,7 @@ function photo(
   overrides: Partial<AuctionPhotoDto> = {},
 ): AuctionPhotoDto {
   return {
-    id,
+    publicId: `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`,
     url: `https://cdn.example/${id}.jpg`,
     contentType: "image/jpeg",
     sizeBytes: 1024,

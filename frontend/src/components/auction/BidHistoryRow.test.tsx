@@ -5,8 +5,8 @@ import type { BidHistoryEntry } from "@/types/auction";
 
 function entry(overrides: Partial<BidHistoryEntry> = {}): BidHistoryEntry {
   return {
-    bidId: 1,
-    userId: 42,
+    bidPublicId: "00000000-0000-0000-0000-000000000001",
+    userPublicId: "00000000-0000-0000-0000-00000000002a",
     bidderDisplayName: "Alice",
     amount: 1500,
     bidType: "MANUAL",
@@ -25,7 +25,10 @@ describe("BidHistoryRow", () => {
       </ul>,
     );
     const row = screen.getByTestId("bid-history-row");
-    expect(row).toHaveAttribute("data-bid-id", "1");
+    expect(row).toHaveAttribute(
+      "data-bid-id",
+      "00000000-0000-0000-0000-000000000001",
+    );
     expect(screen.getByTestId("bid-history-row-name")).toHaveTextContent(
       "Alice",
     );
@@ -35,7 +38,9 @@ describe("BidHistoryRow", () => {
     // Name link targets the bidder's public profile.
     const links = screen.getAllByRole("link");
     const profileLinks = links.filter((l) =>
-      (l.getAttribute("href") ?? "").startsWith("/users/42"),
+      (l.getAttribute("href") ?? "").startsWith(
+        "/users/00000000-0000-0000-0000-00000000002a",
+      ),
     );
     expect(profileLinks.length).toBeGreaterThan(0);
   });

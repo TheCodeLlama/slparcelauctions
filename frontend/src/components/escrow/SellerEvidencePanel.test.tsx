@@ -9,7 +9,7 @@ import { SellerEvidencePanel } from "./SellerEvidencePanel";
 describe("SellerEvidencePanel", () => {
   it("disables submit when text under 10 chars", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<SellerEvidencePanel auctionId={100} />, {
+    renderWithProviders(<SellerEvidencePanel auctionPublicId="00000000-0000-0000-0000-000000000064" />, {
       auth: "authenticated",
     });
     const button = screen.getByRole("button", { name: /submit evidence/i });
@@ -33,14 +33,14 @@ describe("SellerEvidencePanel", () => {
     let received = false;
     server.use(
       http.post(
-        "*/api/v1/auctions/100/escrow/dispute/seller-evidence",
+        "*/api/v1/auctions/00000000-0000-0000-0000-000000000064/escrow/dispute/seller-evidence",
         async () => {
           received = true;
           return HttpResponse.json({});
         },
       ),
     );
-    renderWithProviders(<SellerEvidencePanel auctionId={100} />, {
+    renderWithProviders(<SellerEvidencePanel auctionPublicId="00000000-0000-0000-0000-000000000064" />, {
       auth: "authenticated",
     });
     await user.type(
@@ -57,7 +57,7 @@ describe("SellerEvidencePanel", () => {
     const user = userEvent.setup();
     server.use(
       http.post(
-        "*/api/v1/auctions/100/escrow/dispute/seller-evidence",
+        "*/api/v1/auctions/00000000-0000-0000-0000-000000000064/escrow/dispute/seller-evidence",
         async () => {
           return HttpResponse.json(
             { status: 500, title: "Internal Server Error" },
@@ -66,7 +66,7 @@ describe("SellerEvidencePanel", () => {
         },
       ),
     );
-    renderWithProviders(<SellerEvidencePanel auctionId={100} />, {
+    renderWithProviders(<SellerEvidencePanel auctionPublicId="00000000-0000-0000-0000-000000000064" />, {
       auth: "authenticated",
     });
     await user.type(
@@ -78,7 +78,7 @@ describe("SellerEvidencePanel", () => {
   });
 
   it("renders the upload area and character counter", () => {
-    renderWithProviders(<SellerEvidencePanel auctionId={100} />, {
+    renderWithProviders(<SellerEvidencePanel auctionPublicId="00000000-0000-0000-0000-000000000064" />, {
       auth: "authenticated",
     });
     expect(screen.getByText(/0 \/ 2000/i)).toBeInTheDocument();

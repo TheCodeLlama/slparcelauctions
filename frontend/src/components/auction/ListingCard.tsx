@@ -108,7 +108,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
       data-variant={variant}
     >
       <Link
-        href={`/auction/${listing.id}`}
+        href={`/auction/${listing.publicId}`}
         className="flex flex-col gap-3 focus-visible:ring-2 focus-visible:ring-brand rounded-lg"
         aria-label={`${listing.title} in ${listing.parcel.region}, current bid L$${listing.currentBid.toLocaleString()}, ${relativeTimeTo(listing.endsAt)}`}
       >
@@ -202,7 +202,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
         </div>
       </Link>
       {showHeart && (
-        <HeartOverlay auctionId={listing.id} title={listing.title} />
+        <HeartOverlay auctionPublicId={listing.publicId} title={listing.title} />
       )}
     </article>
   );
@@ -216,15 +216,15 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
  * rollback, and error toasts.
  */
 function HeartOverlay({
-  auctionId,
+  auctionPublicId,
   title,
 }: {
-  auctionId: number;
+  auctionPublicId: string;
   title: string;
 }) {
   const { isSaved } = useSavedIds();
   const { toggle } = useToggleSaved();
-  const saved = isSaved(auctionId);
+  const saved = isSaved(auctionPublicId);
   return (
     <button
       type="button"
@@ -233,7 +233,7 @@ function HeartOverlay({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        void toggle(auctionId);
+        void toggle(auctionPublicId);
       }}
       className="absolute top-2 right-2 rounded-full bg-bg/85 backdrop-blur p-2 hover:bg-bg focus-visible:ring-2 focus-visible:ring-brand"
     >

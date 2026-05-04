@@ -7,7 +7,7 @@ import { EscrowPageClient } from "./EscrowPageClient";
 export const metadata: Metadata = { title: "Escrow" };
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ publicId: string }>;
 }
 
 /**
@@ -31,16 +31,15 @@ interface Props {
  * See sub-spec 2 §5 (composition) and §7.1 (authz gate).
  */
 export default async function EscrowStatusPage({ params }: Props) {
-  const { id } = await params;
-  const auctionId = Number(id);
-  if (!Number.isInteger(auctionId) || auctionId <= 0) notFound();
+  const { publicId } = await params;
+  if (!publicId) notFound();
 
   // Fetch the auction so a stale link / wrong id surfaces as a proper
   // 404 before the client mounts. Other errors propagate to the Next.js
   // error boundary.
   let auction;
   try {
-    auction = await getAuction(auctionId);
+    auction = await getAuction(publicId);
   } catch (err) {
     if (isApiError(err) && err.status === 404) notFound();
     throw err;
@@ -48,6 +47,6 @@ export default async function EscrowStatusPage({ params }: Props) {
   if (!auction) notFound();
 
   return (
-    <EscrowPageClient auctionId={auctionId} sellerId={auction.sellerId} />
+    <EscrowPageClient auctionPublicId={auction.publicId} sellerPublicId={auction.sellerPublicId} />
   );
 }

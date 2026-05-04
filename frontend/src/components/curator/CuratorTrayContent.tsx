@@ -88,7 +88,7 @@ export function CuratorTrayContent({
     query.endingWithin === undefined &&
     !query.nearRegion &&
     query.distance === undefined &&
-    query.sellerId === undefined;
+    query.sellerPublicId === undefined;
   const showEmpty =
     !result.isLoading &&
     !result.isError &&

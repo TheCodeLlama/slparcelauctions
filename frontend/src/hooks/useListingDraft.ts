@@ -54,7 +54,7 @@ import type { ParcelDto } from "@/types/parcel";
  *     subsequent edits land in edit mode where persistence is on.
  */
 export interface DraftState {
-  auctionId: number | null;
+  auctionPublicId: string | null;
   status: AuctionStatus | null;
   /**
    * Seller-authored display title. `null` represents "seller hasn't typed
@@ -75,12 +75,12 @@ export interface DraftState {
   tags: string[];
   stagedPhotos: StagedPhoto[];
   uploadedPhotos: AuctionPhotoDto[];
-  removedPhotoIds: number[];
+  removedPhotoIds: string[];
   dirty: boolean;
 }
 
 const EMPTY: DraftState = {
-  auctionId: null,
+  auctionPublicId: null,
   status: null,
   title: null,
   parcel: null,
@@ -104,13 +104,13 @@ const EMPTY: DraftState = {
  */
 type PersistedDraft = Omit<DraftState, "stagedPhotos">;
 
-function storageKey(id: number | string | null): string {
+function storageKey(id: string | null): string {
   return `slpa:draft:${id ?? "new"}`;
 }
 
 function hydrateFromServer(a: SellerAuctionResponse): DraftState {
   return {
-    auctionId: a.id,
+    auctionPublicId: a.publicId,
     status: a.status,
     title: a.title,
     parcel: a.parcel,
@@ -131,8 +131,8 @@ function hydrateFromServer(a: SellerAuctionResponse): DraftState {
 }
 
 export interface UseListingDraftOptions {
-  /** Existing auction id when editing an auction; undefined for create. */
-  id?: number | string;
+  /** Existing auction publicId when editing an auction; undefined for create. */
+  id?: string;
 }
 
 export interface UseListingDraftResult {
@@ -147,7 +147,7 @@ export interface UseListingDraftResult {
   setTitle: (value: string) => void;
   update: <K extends keyof DraftState>(key: K, value: DraftState[K]) => void;
   addStagedPhotos: (next: StagedPhoto[]) => void;
-  removeUploadedPhoto: (id: number) => void;
+  removeUploadedPhoto: (publicId: string) => void;
   save: () => Promise<SellerAuctionResponse>;
   isLoadingExisting: boolean;
 }
@@ -169,7 +169,7 @@ interface DraftContainer {
   hydrated: boolean;
 }
 
-function initialStateFrom(id: number | string | undefined): DraftContainer {
+function initialStateFrom(id: string | undefined): DraftContainer {
   if (typeof window === "undefined") return { state: EMPTY, hydrated: false };
   // Create mode: ignore any sessionStorage entry under "new" and start blank.
   // The persistence-on-write side (below) also skips writes in create mode,
@@ -248,7 +248,7 @@ export function useListingDraft(
   // flush the most recent snapshot.
   const pendingWriteRef = useRef<{
     state: DraftState;
-    id: number | string | undefined;
+    id: string | undefined;
     hydrated: boolean;
   } | null>(null);
 
@@ -260,7 +260,7 @@ export function useListingDraft(
   // 150ms so a rapid keystroke burst turns into a single sessionStorage
   // write at the end.
   const isCreateMode =
-    (options.id === undefined || options.id === null) && state.auctionId === null;
+    (options.id === undefined || options.id === null) && state.auctionPublicId === null;
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!hydrated) return;
@@ -269,7 +269,7 @@ export function useListingDraft(
     const timerId = setTimeout(() => {
       const { stagedPhotos: _staged, ...persisted } = state;
       void _staged;
-      const key = storageKey(state.auctionId ?? options.id ?? null);
+      const key = storageKey(state.auctionPublicId ?? options.id ?? null);
       try {
         window.sessionStorage.setItem(key, JSON.stringify(persisted));
       } catch {
@@ -292,7 +292,7 @@ export function useListingDraft(
       if (!pending || !pending.hydrated) return;
       const { stagedPhotos: _staged, ...persisted } = pending.state;
       void _staged;
-      const key = storageKey(pending.state.auctionId ?? pending.id ?? null);
+      const key = storageKey(pending.state.auctionPublicId ?? pending.id ?? null);
       try {
         window.sessionStorage.setItem(key, JSON.stringify(persisted));
       } catch {
@@ -343,13 +343,13 @@ export function useListingDraft(
   );
 
   const removeUploadedPhoto = useCallback(
-    (id: number) => {
+    (publicId: string) => {
       setState((s) => ({
         ...s,
-        uploadedPhotos: s.uploadedPhotos.filter((p) => p.id !== id),
-        removedPhotoIds: s.removedPhotoIds.includes(id)
+        uploadedPhotos: s.uploadedPhotos.filter((p) => p.publicId !== publicId),
+        removedPhotoIds: s.removedPhotoIds.includes(publicId)
           ? s.removedPhotoIds
-          : [...s.removedPhotoIds, id],
+          : [...s.removedPhotoIds, publicId],
         dirty: true,
       }));
     },
@@ -383,13 +383,13 @@ export function useListingDraft(
       tags: s.tags,
     };
 
-    const wasCreate = s.auctionId == null;
+    const wasCreate = s.auctionPublicId == null;
     let auction: SellerAuctionResponse;
-    if (s.auctionId != null) {
+    if (s.auctionPublicId != null) {
       const { slParcelUuid: _slParcelUuid, ...updateBody } = createBody;
       void _slParcelUuid;
       auction = await updateAuction(
-        s.auctionId,
+        s.auctionPublicId,
         updateBody as AuctionUpdateRequest,
       );
     } else {
@@ -410,7 +410,7 @@ export function useListingDraft(
 
     // Flush photo deletes queued from previous removeUploadedPhoto calls.
     await Promise.all(
-      s.removedPhotoIds.map((id) => deletePhoto(auction.id, id)),
+      s.removedPhotoIds.map((photoPublicId) => deletePhoto(auction.publicId, photoPublicId)),
     );
 
     // Upload any staged photos. Errors are kept attached to their staged
@@ -423,7 +423,7 @@ export function useListingDraft(
         continue;
       }
       try {
-        await uploadPhoto(auction.id, p.file);
+        await uploadPhoto(auction.publicId, p.file);
         revokeStagedPhoto(p);
       } catch (e: unknown) {
         stagedAfter.push({
@@ -437,10 +437,10 @@ export function useListingDraft(
     }
 
     // Refetch to get the canonical server view (includes freshly uploaded
-    // photos with real URLs + ids). The save flow is seller-only so the
+    // photos with real URLs + publicIds). The save flow is seller-only so the
     // response is always the seller shape — narrow the union accordingly.
-    const refreshed = (await getAuction(auction.id)) as SellerAuctionResponse;
-    qc.setQueryData(["auction", refreshed.id], refreshed);
+    const refreshed = (await getAuction(auction.publicId)) as SellerAuctionResponse;
+    qc.setQueryData(["auction", refreshed.publicId], refreshed);
 
     setState({
       ...hydrateFromServer(refreshed),

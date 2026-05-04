@@ -14,16 +14,9 @@ describe("PublicProfilePage generateMetadata", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns a generic title for a non-numeric id", async () => {
+  it("returns a generic title for an empty publicId", async () => {
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "nope" }),
-    });
-    expect(meta.title).toBe("Profile · SLPA");
-  });
-
-  it("returns a generic title for a non-positive id", async () => {
-    const meta = await generateMetadata({
-      params: Promise.resolve({ id: "0" }),
+      params: Promise.resolve({ publicId: "" }),
     });
     expect(meta.title).toBe("Profile · SLPA");
   });
@@ -52,7 +45,7 @@ describe("PublicProfilePage generateMetadata", () => {
     );
 
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "42" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-00000000002a" }),
     });
     expect(meta.title).toBe("Carol Seller · SLPA");
     expect(meta.description).toContain("Lifelong landscape architect");
@@ -87,7 +80,7 @@ describe("PublicProfilePage generateMetadata", () => {
     );
 
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "42" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-00000000002a" }),
     });
     expect(meta.description).toBe("Second Life parcel seller on SLPA.");
     expect((meta.twitter as { card: string } | undefined)?.card).toBe("summary");
@@ -121,7 +114,7 @@ describe("PublicProfilePage generateMetadata", () => {
     );
 
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "42" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-00000000002a" }),
     });
     expect(meta.description?.length ?? 0).toBeLessThanOrEqual(200);
     expect(meta.description?.endsWith("…")).toBe(true);
@@ -137,7 +130,7 @@ describe("PublicProfilePage generateMetadata", () => {
       ),
     );
     const meta = await generateMetadata({
-      params: Promise.resolve({ id: "9999" }),
+      params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000002707" }),
     });
     expect(meta.title).toBe("Profile · SLPA");
   });

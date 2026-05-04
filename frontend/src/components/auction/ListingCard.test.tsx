@@ -6,12 +6,12 @@ import { ListingCard } from "./ListingCard";
 import type { AuctionSearchResultDto } from "@/types/search";
 
 const sample: AuctionSearchResultDto = {
-  id: 1,
+  publicId: "00000000-0000-0000-0000-000000000001",
   title: "Premium Waterfront",
   status: "ACTIVE",
   endOutcome: null,
   parcel: {
-    id: 11,
+    auctionPublicId: "00000000-0000-0000-0000-000000000001",
     name: "Bayside Lot",
     region: "Tula",
     area: 1024,
@@ -26,7 +26,7 @@ const sample: AuctionSearchResultDto = {
   },
   primaryPhotoUrl: "/photo.jpg",
   seller: {
-    id: 7,
+    publicId: "00000000-0000-0000-0000-000000000007",
     displayName: "seller",
     avatarUrl: null,
     averageRating: 4.8,
@@ -72,7 +72,7 @@ describe("ListingCard", () => {
   it("card links to detail route", () => {
     renderWithProviders(<ListingCard listing={sample} variant="default" />);
     const link = screen.getByRole("link", { name: /premium waterfront/i });
-    expect(link).toHaveAttribute("href", "/auction/1");
+    expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-000000000001");
   });
 
   it("compact variant shows fewer tag pills (2) than default (3)", () => {
@@ -154,16 +154,16 @@ describe("ListingCard", () => {
   it("authenticated heart click toggles the saved state (optimistic)", async () => {
     // Stateful handler so the onSettled invalidation refetch returns the
     // new state rather than clobbering the optimistic update.
-    const saved = new Set<number>();
+    const saved = new Set<string>();
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: Array.from(saved) }),
+        HttpResponse.json({ publicIds: Array.from(saved) }),
       ),
       http.post("*/api/v1/me/saved", async ({ request }) => {
-        const body = (await request.json()) as { auctionId: number };
-        saved.add(body.auctionId);
+        const body = (await request.json()) as { auctionPublicId: string };
+        saved.add(body.auctionPublicId);
         return HttpResponse.json(
-          { auctionId: body.auctionId, savedAt: "2026-04-23T00:00:00Z" },
+          { auctionPublicId: body.auctionPublicId, savedAt: "2026-04-23T00:00:00Z" },
           { status: 201 },
         );
       }),

@@ -60,7 +60,7 @@ describe("useMarkRead", () => {
 
     const { result } = renderHook(() => useMarkRead(), { wrapper });
 
-    act(() => { result.current.mutate(n.id); });
+    act(() => { result.current.mutate(n.publicId); });
 
     // Optimistic update fires synchronously inside mutate.
     await waitFor(() => {
@@ -96,7 +96,7 @@ describe("useMarkRead", () => {
 
     const { result } = renderHook(() => useMarkRead(), { wrapper });
 
-    act(() => { result.current.mutate(n.id); });
+    act(() => { result.current.mutate(n.publicId); });
 
     await waitFor(() => result.current.isError);
 

@@ -10,7 +10,7 @@ import { useRespondToReview } from "@/hooks/useReviews";
 const MAX_LEN = 500;
 
 export interface RespondModalProps {
-  reviewId: number;
+  reviewPublicId: string;
   open: boolean;
   onClose: () => void;
 }
@@ -23,9 +23,9 @@ export interface RespondModalProps {
  * hook (via toast); we still close the modal here so the stale local state
  * does not linger.
  */
-export function RespondModal({ reviewId, open, onClose }: RespondModalProps) {
+export function RespondModal({ reviewPublicId, open, onClose }: RespondModalProps) {
   const [text, setText] = useState("");
-  const mutation = useRespondToReview(reviewId);
+  const mutation = useRespondToReview(reviewPublicId);
 
   // Local state resets automatically when the modal unmounts — callers
   // (ReviewCard, ReviewPanel) should mount us only when {@code open} is

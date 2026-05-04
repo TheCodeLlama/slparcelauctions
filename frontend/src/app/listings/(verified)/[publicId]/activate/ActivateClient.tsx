@@ -18,7 +18,7 @@ import { useActivateAuction } from "@/hooks/useActivateAuction";
 import { isApiError } from "@/lib/api";
 
 export interface ActivateClientProps {
-  auctionId: number;
+  auctionPublicId: string;
 }
 
 const TERMINAL_REDIRECT_STATUSES = new Set([
@@ -48,11 +48,11 @@ const TERMINAL_REDIRECT_STATUSES = new Set([
  * phase is a React 19 concurrent-rendering footgun (the old "can't update
  * component while rendering another" warning, amplified under Next 16).
  */
-export function ActivateClient({ auctionId }: ActivateClientProps) {
+export function ActivateClient({ auctionPublicId }: ActivateClientProps) {
   const router = useRouter();
   const toast = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
-  const { data: auction, isLoading, error } = useActivateAuction(auctionId);
+  const { data: auction, isLoading, error } = useActivateAuction(auctionPublicId);
   const status = auction?.status;
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
           >
             Back to My Listings
           </Button>
-          <Link href={`/auction/${auction.id}`}>
+          <Link href={`/auction/${auction.publicId}`}>
             <Button>View public listing</Button>
           </Link>
         </div>
@@ -132,13 +132,13 @@ export function ActivateClient({ auctionId }: ActivateClientProps) {
       {auction.status === "DRAFT" && (
         <>
           <ListingPreviewCard auction={auction} isPreview />
-          <ActivateListingPanel auctionId={auction.id} />
+          <ActivateListingPanel auctionPublicId={auction.publicId} />
         </>
       )}
       {(auction.status === "DRAFT_PAID" ||
         auction.status === "VERIFICATION_FAILED") && (
         <VerificationMethodPicker
-          auctionId={auction.id}
+          auctionPublicId={auction.publicId}
           lastFailureNotes={
             auction.status === "VERIFICATION_FAILED"
               ? auction.verificationNotes

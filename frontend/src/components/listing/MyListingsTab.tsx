@@ -167,7 +167,7 @@ export function MyListingsTab() {
       ) : (
         <ul className="flex flex-col gap-2">
           {listings.map((a) => (
-            <ListingSummaryRow key={a.id} auction={a} />
+            <ListingSummaryRow key={a.publicId} auction={a} />
           ))}
         </ul>
       )}

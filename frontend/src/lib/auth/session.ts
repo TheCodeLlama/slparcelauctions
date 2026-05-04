@@ -27,7 +27,7 @@ export function setAccessToken(token: string | null): void {
  * available on `response.user` if a future component needs them.
  */
 export type AuthUser = {
-  id: number;
+  publicId: string;
   email: string;
   displayName: string | null;
   slAvatarUuid: string | null;

@@ -59,11 +59,11 @@ interface Props {
 /**
  * Widened cache shape. The WS envelope merger may write fields that live on
  * {@link SellerAuctionResponse} but not {@link PublicAuctionResponse} (e.g.
- * {@code endOutcome}, {@code finalBidAmount}, {@code winnerUserId}) so the
+ * {@code endOutcome}, {@code finalBidAmount}, {@code winnerPublicId}) so the
  * cache needs a type that admits both. TypeScript narrows back to each DTO
  * at consumer sites via discriminators like {@code status}.
  *
- * {@code currentBidderId} is persisted from every {@link BidSettlementEnvelope}
+ * {@code currentBidderPublicId} is persisted from every {@link BidSettlementEnvelope}
  * so {@code currentUserIsWinning} can be derived without a separate query.
  * Neither DTO carries this field today — the initial server fetch leaves it
  * {@code undefined}, which is indistinguishable from "no one has bid yet"
@@ -74,35 +74,35 @@ type AuctionCacheEntry = (
   | SellerAuctionResponse
   | (PublicAuctionResponse & Partial<SellerAuctionResponse>)
 ) & {
-  currentBidderId?: number | null;
+  currentBidderPublicId?: string | null;
 };
 
 export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   const queryClient = useQueryClient();
   const session = useAuth();
-  const currentUserId =
-    session.status === "authenticated" ? session.user.id : null;
-  const { id } = initialAuction;
+  const currentUserPublicId =
+    session.status === "authenticated" ? session.user.publicId : null;
+  const { publicId } = initialAuction;
   const isSellerViewer =
-    currentUserId != null && currentUserId === initialAuction.sellerId;
+    currentUserPublicId != null && currentUserPublicId === initialAuction.sellerPublicId;
 
-  const auctionQuery = useAuction(id, initialAuction);
-  const bidHistoryQuery = useBidHistory(id, 0, initialBidPage);
-  const myProxyQuery = useMyProxy(id, {
-    enabled: currentUserId != null && !isSellerViewer,
+  const auctionQuery = useAuction(publicId, initialAuction);
+  const bidHistoryQuery = useBidHistory(publicId, 0, initialBidPage);
+  const myProxyQuery = useMyProxy(publicId, {
+    enabled: currentUserPublicId != null && !isSellerViewer,
   });
 
   // Seller enrichment. Epic 07 sub-spec 1 Task 2 added an inline
   // {@code seller} block to {@code PublicAuctionResponse} — prefer that
-  // when present, falling back to the {@code /api/v1/users/{id}} fetch so
-  // legacy server builds / fixtures that predate the DTO widening still
+  // when present, falling back to the {@code /api/v1/users/{publicId}} fetch
+  // so legacy server builds / fixtures that predate the DTO widening still
   // render a complete card. The client query is only enabled when the
   // inline block is absent, so the normal request path is a single SSR
   // fetch.
   const sellerEnriched = initialAuction.seller ?? null;
   const sellerQuery = useQuery<PublicUserProfile>({
-    queryKey: ["publicProfile", initialAuction.sellerId],
-    queryFn: () => userApi.publicProfile(initialAuction.sellerId),
+    queryKey: ["publicProfile", initialAuction.sellerPublicId],
+    queryFn: () => userApi.publicProfile(initialAuction.sellerPublicId),
     staleTime: 60_000,
     enabled: sellerEnriched == null,
   });
@@ -161,7 +161,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
       // used by {@code EscrowPageClient}.
       if (env.type === "REVIEW_REVEALED") {
         queryClient.invalidateQueries({
-          queryKey: ["reviews", "auction", String(id)],
+          queryKey: ["reviews", "auction", publicId],
         });
         return;
       }
@@ -175,9 +175,9 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
       // myProxyKey} is also invalidated so any active proxy bid surfaces
       // its cancelled state.
       if (env.type === "AUCTION_CANCELLED") {
-        queryClient.invalidateQueries({ queryKey: auctionKey(id) });
-        queryClient.invalidateQueries({ queryKey: bidHistoryKey(id, 0) });
-        queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
+        queryClient.invalidateQueries({ queryKey: auctionKey(publicId) });
+        queryClient.invalidateQueries({ queryKey: bidHistoryKey(publicId, 0) });
+        queryClient.invalidateQueries({ queryKey: myProxyKey(publicId) });
         return;
       }
 
@@ -192,27 +192,27 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
       // transitioned (e.g. endOutcome changed on a frozen escrow) so the
       // auction cache is also invalidated here.
       if (env.type.startsWith("ESCROW_")) {
-        queryClient.invalidateQueries({ queryKey: ["escrow", id] });
-        queryClient.invalidateQueries({ queryKey: auctionKey(id) });
+        queryClient.invalidateQueries({ queryKey: ["escrow", publicId] });
+        queryClient.invalidateQueries({ queryKey: auctionKey(publicId) });
         return;
       }
 
       queryClient.setQueryData<AuctionCacheEntry>(
-        auctionKey(id),
+        auctionKey(publicId),
         (prev) => {
           if (!prev) return prev;
           if (env.type === "BID_SETTLEMENT") {
             return {
               ...prev,
               currentHighBid: env.currentBid,
-              currentBidderId: env.currentBidderId,
+              currentBidderPublicId: env.currentBidderPublicId,
               bidderCount: env.bidCount,
               endsAt: env.endsAt,
               originalEndsAt: env.originalEndsAt,
             };
           }
           // AUCTION_ENDED — transition to terminal state. `endOutcome`,
-          // `finalBidAmount`, `winnerUserId` live only on the
+          // `finalBidAmount`, `winnerPublicId` live only on the
           // SellerAuctionResponse shape; the cache is typed wide enough to
           // admit them on the public shape too. Task 6's AuctionEndedPanel
           // reads them back. The explicit {@code type === "AUCTION_ENDED"}
@@ -226,7 +226,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
               endsAt: env.endsAt,
               endOutcome: env.endOutcome,
               finalBidAmount: env.finalBid,
-              winnerUserId: env.winnerUserId,
+              winnerPublicId: env.winnerPublicId,
               bidderCount: env.bidCount,
             };
           }
@@ -246,7 +246,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         // refetch. `totalElements` grows by the delta so the pager math
         // stays honest.
         queryClient.setQueryData<Page<BidHistoryEntry>>(
-          bidHistoryKey(id, 0),
+          bidHistoryKey(publicId, 0),
           (prev) => {
             if (!prev) return prev;
             const merged = dedupeByBidId([
@@ -260,7 +260,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             };
           },
         );
-        queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
+        queryClient.invalidateQueries({ queryKey: myProxyKey(publicId) });
 
         // Snipe-extension banner trigger. If any newBid in the envelope
         // stamped a {@code snipeExtensionMinutes}, surface the transient
@@ -285,14 +285,14 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
       }
 
       if (env.type === "AUCTION_ENDED") {
-        queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
+        queryClient.invalidateQueries({ queryKey: myProxyKey(publicId) });
       }
     },
-    [queryClient, id],
+    [queryClient, publicId],
   );
 
   useStompSubscription<AuctionTopicEnvelope>(
-    `/topic/auction/${id}`,
+    `/topic/auction/${publicId}`,
     handleEnvelope,
   );
 
@@ -304,15 +304,15 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   useEffect(() => {
     const status = connectionState.status;
     if (status === "connected" && wasReconnectingRef.current) {
-      queryClient.invalidateQueries({ queryKey: auctionKey(id) });
-      queryClient.invalidateQueries({ queryKey: bidHistoryKey(id, 0) });
-      queryClient.invalidateQueries({ queryKey: myProxyKey(id) });
+      queryClient.invalidateQueries({ queryKey: auctionKey(publicId) });
+      queryClient.invalidateQueries({ queryKey: bidHistoryKey(publicId, 0) });
+      queryClient.invalidateQueries({ queryKey: myProxyKey(publicId) });
       wasReconnectingRef.current = false;
     }
     if (status === "reconnecting" || status === "error") {
       wasReconnectingRef.current = true;
     }
-  }, [connectionState.status, queryClient, id]);
+  }, [connectionState.status, queryClient, publicId]);
 
   // bidHistoryQuery is still subscribed here so the query stays warm and
   // the shell knows whether page 0 has been hydrated. The concrete list
@@ -330,7 +330,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   // calculate" and New Seller copy gracefully).
   const sellerCardData: SellerProfileCardSeller = sellerEnriched
     ? {
-        id: sellerEnriched.id,
+        publicId: sellerEnriched.publicId,
         displayName: sellerEnriched.displayName,
         avatarUrl: sellerEnriched.avatarUrl,
         averageRating: sellerEnriched.averageRating,
@@ -341,7 +341,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
       }
     : sellerQuery.data
       ? {
-          id: sellerQuery.data.id,
+          publicId: sellerQuery.data.publicId,
           displayName: sellerQuery.data.displayName ?? "Seller",
           avatarUrl: sellerQuery.data.profilePicUrl,
           averageRating: sellerQuery.data.avgSellerRating,
@@ -351,7 +351,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           memberSince: sellerQuery.data.createdAt,
         }
       : {
-          id: auction.sellerId,
+          publicId: auction.sellerPublicId,
           displayName: "Seller",
           completedSales: 0,
         };
@@ -362,11 +362,11 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
   // session shape per call-site.
   const bidPanelUser =
     session.status === "authenticated"
-      ? { id: session.user.id, verified: session.user.verified }
+      ? { publicId: session.user.publicId, verified: session.user.verified }
       : null;
   const viewerIsWinning =
-    currentUserId != null &&
-    (auction as AuctionCacheEntry).currentBidderId === currentUserId;
+    currentUserPublicId != null &&
+    (auction as AuctionCacheEntry).currentBidderPublicId === currentUserPublicId;
 
   return (
     <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-24 pb-24 lg:pb-12">
@@ -385,8 +385,8 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             auction={auction}
             reportButton={
               <ReportListingButton
-                auctionId={id}
-                sellerId={auction.sellerId}
+                auctionPublicId={publicId}
+                sellerPublicId={auction.sellerPublicId}
               />
             }
           />
@@ -400,7 +400,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             <AuctionEndedRow auction={auction} />
           ) : null}
           <ParcelLayoutMapPlaceholder />
-          <BidHistoryList auctionId={id} />
+          <BidHistoryList auctionPublicId={publicId} />
           <SellerProfileCard seller={sellerCardData} />
         </div>
         <aside className="hidden lg:block lg:col-span-4">
@@ -450,19 +450,19 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
 }
 
 /**
- * O(n) dedupe of bid-history entries keyed by {@code bidId}, preserving the
- * first occurrence. Used when merging {@code BidSettlementEnvelope.newBids}
+ * O(n) dedupe of bid-history entries keyed by {@code bidPublicId}, preserving
+ * the first occurrence. Used when merging {@code BidSettlementEnvelope.newBids}
  * into cached page 0 — the envelope can overlap with the REST response on
  * the boundary (e.g. a bid committed during the initial fetch) and we
  * cannot trust that the two code paths produce a bit-identical row even
  * for the same id, so keep the first (newer, from WS).
  */
 function dedupeByBidId(bids: BidHistoryEntry[]): BidHistoryEntry[] {
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   const out: BidHistoryEntry[] = [];
   for (const b of bids) {
-    if (seen.has(b.bidId)) continue;
-    seen.add(b.bidId);
+    if (seen.has(b.bidPublicId)) continue;
+    seen.add(b.bidPublicId);
     out.push(b);
   }
   return out;

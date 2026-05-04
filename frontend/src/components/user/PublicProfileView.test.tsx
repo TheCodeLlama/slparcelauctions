@@ -48,7 +48,7 @@ describe("PublicProfileView", () => {
       mockEmptyUserReviews(),
     );
 
-    renderWithProviders(<PublicProfileView userId={42} />);
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     expect(await screen.findByText("Verified Tester")).toBeInTheDocument();
     expect(screen.getByText("Verified")).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("PublicProfileView", () => {
       mockEmptyUserReviews(),
     );
 
-    renderWithProviders(<PublicProfileView userId={44} />);
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002c" />);
 
     expect(await screen.findByText("Unverified Tester")).toBeInTheDocument();
     expect(screen.getByText("Unverified")).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe("PublicProfileView", () => {
   it("calls notFound on 404", async () => {
     server.use(userHandlers.publicProfileNotFound());
 
-    renderWithProviders(<PublicProfileView userId={999} />);
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-000000000999" />);
 
     await waitFor(() => {
       expect(mockNotFound).toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe("PublicProfileView", () => {
       mockEmptyUserReviews(),
     );
 
-    renderWithProviders(<PublicProfileView userId={43} />);
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002b" />);
 
     // Wait for the profile to load (displayName is also "New Seller")
     await screen.findByRole("heading", { level: 1, name: "New Seller" });
@@ -100,7 +100,7 @@ describe("PublicProfileView", () => {
       mockEmptyUserReviews(),
     );
 
-    renderWithProviders(<PublicProfileView userId={42} />);
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     expect(await screen.findByText("Verified Tester")).toBeInTheDocument();
     expect(screen.queryByText("New Seller")).not.toBeInTheDocument();
@@ -112,7 +112,7 @@ describe("PublicProfileView", () => {
       mockEmptyUserReviews(),
     );
 
-    renderWithProviders(<PublicProfileView userId={42} />);
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
 
     await screen.findByText("Verified Tester");
     expect(

@@ -32,25 +32,11 @@ export type EscrowFreezeReason =
   | "WORLD_API_PERSISTENT_FAILURE";
 
 /**
- * The counterparty — seller sees the winner, winner sees the seller.
- * Fields mirror the backend's `CounterpartyDto` projection on the escrow
- * status response.
- */
-export interface EscrowCounterparty {
-  userId: number;
-  displayName: string;
-  slAvatarName: string;
-  slAvatarUuid: string;
-}
-
-/**
- * Full response shape from `GET /api/v1/auctions/{id}/escrow`.
+ * Full response shape from `GET /api/v1/auctions/{publicId}/escrow`.
  */
 export interface EscrowStatusResponse {
-  escrowId: number;
-  auctionId: number;
-  parcelName: string;
-  region: string;
+  escrowPublicId: string;
+  auctionPublicId: string;
   state: EscrowState;
   finalBidAmount: number;
   commissionAmt: number;
@@ -72,8 +58,6 @@ export interface EscrowStatusResponse {
   disputeReasonCategory: EscrowDisputeReasonCategory | null;
   disputeDescription: string | null;
   freezeReason: EscrowFreezeReason | null;
-
-  counterparty: EscrowCounterparty;
 }
 
 /** Body shape for `POST /api/v1/auctions/{id}/escrow/dispute`. */
@@ -101,8 +85,8 @@ export type EscrowEnvelopeType =
 
 export interface EscrowEnvelopeBase {
   type: EscrowEnvelopeType;
-  auctionId: number;
-  escrowId: number;
+  auctionPublicId: string;
+  escrowPublicId: string;
   state: EscrowState;
   serverTime: string;
 }

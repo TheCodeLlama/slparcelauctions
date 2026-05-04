@@ -55,15 +55,15 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     prefetch: vi.fn(),
   }),
-  usePathname: vi.fn(() => "/auction/7/escrow"),
+  usePathname: vi.fn(() => "/auction/00000000-0000-0000-0000-000000000007/escrow"),
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Winner fixture — id does NOT match sellerId so the client resolves
-// the viewer role to `winner`. renderWithProviders seeds the session
-// cache directly, so the session.user.id drives role derivation.
+// Winner fixture — publicId does NOT match sellerPublicId so the client
+// resolves the viewer role to `winner`. renderWithProviders seeds the
+// session cache directly, so session.user.publicId drives role derivation.
 const winnerUser: AuthUser = {
-  id: 999,
+  publicId: "00000000-0000-0000-0000-0000000003e7",
   email: "winner@example.com",
   displayName: "Winner",
   slAvatarUuid: "99999999-9999-9999-9999-999999999999",
@@ -71,9 +71,9 @@ const winnerUser: AuthUser = {
   role: "USER",
 };
 
-// Seller fixture with an id that matches the fixture sellerId (42).
+// Seller fixture with a publicId that matches the fixture sellerPublicId.
 const sellerUser: AuthUser = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   email: "seller@example.com",
   displayName: "Seller",
   slAvatarUuid: "42424242-4242-4242-4242-424242424242",
@@ -97,29 +97,29 @@ describe("EscrowPageClient", () => {
 
   it("renders pending state for winner", async () => {
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" })),
       ),
     );
     renderWithProviders(
-      <EscrowPageClient auctionId={7} sellerId={42} />,
+      <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated", authUser: winnerUser },
     );
     // PendingStateCard winner headline is "Pay L$ 5,000" — match the
     // "Pay L$" prefix case-insensitively so the locale-formatted amount
     // doesn't break the assertion.
     expect(await screen.findByText(/pay l\$/i)).toBeInTheDocument();
-    // Header renders the role label — confirms sellerId-vs-user.id
+    // Header renders the role label — confirms sellerPublicId-vs-user.publicId
     // resolution picked `winner`.
     expect(screen.getByText(/escrow · winner/i)).toBeInTheDocument();
   });
 
   it("invalidates the reviews query on REVIEW_REVEALED envelope", async () => {
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
         HttpResponse.json(
           fakeEscrow({
-            auctionId: 7,
+            auctionPublicId: "00000000-0000-0000-0000-000000000007",
             state: "COMPLETED",
             completedAt: "2026-04-18T12:00:00Z",
           }),
@@ -128,7 +128,7 @@ describe("EscrowPageClient", () => {
     );
     let reviewsFetchCount = 0;
     server.use(
-      http.get("*/api/v1/auctions/7/reviews", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/reviews", () => {
         reviewsFetchCount += 1;
         return HttpResponse.json({
           reviews: [],
@@ -140,7 +140,7 @@ describe("EscrowPageClient", () => {
     );
 
     renderWithProviders(
-      <EscrowPageClient auctionId={7} sellerId={42} />,
+      <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated", authUser: winnerUser },
     );
 
@@ -173,16 +173,16 @@ describe("EscrowPageClient", () => {
   it("invalidates cache on ESCROW_FUNDED envelope and refetches", async () => {
     let callCount = 0;
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () => {
         callCount += 1;
         if (callCount === 1) {
           return HttpResponse.json(
-            fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" }),
+            fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" }),
           );
         }
         return HttpResponse.json(
           fakeEscrow({
-            auctionId: 7,
+            auctionPublicId: "00000000-0000-0000-0000-000000000007",
             state: "TRANSFER_PENDING",
             fundedAt: new Date().toISOString(),
             transferDeadline: new Date(
@@ -194,7 +194,7 @@ describe("EscrowPageClient", () => {
     );
 
     renderWithProviders(
-      <EscrowPageClient auctionId={7} sellerId={42} />,
+      <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated", authUser: winnerUser },
     );
 
@@ -207,7 +207,7 @@ describe("EscrowPageClient", () => {
     expect(firstCall).toBeDefined();
     const handler = firstCall[1] as (env: unknown) => void;
     act(() => {
-      handler(fakeEscrowEnvelope("ESCROW_FUNDED", { auctionId: 7 }));
+      handler(fakeEscrowEnvelope("ESCROW_FUNDED", { auctionPublicId: "00000000-0000-0000-0000-000000000007" }));
     });
 
     // The invalidation triggers the second MSW response (TRANSFER_PENDING
@@ -222,7 +222,7 @@ describe("EscrowPageClient", () => {
 
   it("shows empty state on 404", async () => {
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
         HttpResponse.json(
           { status: 404, code: "ESCROW_NOT_FOUND", title: "Not Found" },
           { status: 404 },
@@ -230,7 +230,7 @@ describe("EscrowPageClient", () => {
       ),
     );
     renderWithProviders(
-      <EscrowPageClient auctionId={7} sellerId={42} />,
+      <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated", authUser: winnerUser },
     );
     expect(
@@ -240,7 +240,7 @@ describe("EscrowPageClient", () => {
 
   it("shows error state on 403", async () => {
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
         HttpResponse.json(
           {
             status: 403,
@@ -253,7 +253,7 @@ describe("EscrowPageClient", () => {
       ),
     );
     renderWithProviders(
-      <EscrowPageClient auctionId={7} sellerId={42} />,
+      <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated", authUser: winnerUser },
     );
     expect(
@@ -261,14 +261,14 @@ describe("EscrowPageClient", () => {
     ).toBeInTheDocument();
   });
 
-  it("resolves role=seller when user.id matches sellerId", async () => {
+  it("resolves role=seller when user.publicId matches sellerPublicId", async () => {
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7, state: "ESCROW_PENDING" })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007", state: "ESCROW_PENDING" })),
       ),
     );
     renderWithProviders(
-      <EscrowPageClient auctionId={7} sellerId={sellerUser.id} />,
+      <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId={sellerUser.publicId} />,
       { auth: "authenticated", authUser: sellerUser },
     );
     // Seller variant of the PendingStateCard headline.
@@ -284,12 +284,12 @@ describe("EscrowPageClient", () => {
     // regression (e.g. the gate being removed) surfaces as a handler-not-
     // found MSW error rather than a silent fetch.
     server.use(
-      http.get("*/api/v1/auctions/7/escrow", () =>
-        HttpResponse.json(fakeEscrow({ auctionId: 7 })),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/escrow", () =>
+        HttpResponse.json(fakeEscrow({ auctionPublicId: "00000000-0000-0000-0000-000000000007" })),
       ),
     );
 
-    renderWithProviders(<EscrowPageClient auctionId={7} sellerId={42} />, {
+    renderWithProviders(<EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "anonymous",
     });
 
@@ -301,7 +301,7 @@ describe("EscrowPageClient", () => {
     // The returnTo is the URL-encoded path back to this page so the
     // post-login hop lands the viewer where they started.
     expect(replaceMock).toHaveBeenCalledWith(
-      `/login?next=${encodeURIComponent("/auction/7/escrow")}`,
+      `/login?next=${encodeURIComponent("/auction/00000000-0000-0000-0000-000000000007/escrow")}`,
     );
   });
 });

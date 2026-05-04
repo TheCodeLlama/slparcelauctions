@@ -25,17 +25,18 @@ import { ReconnectingBanner } from "@/components/auction/ReconnectingBanner";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 export interface EscrowPageClientProps {
-  auctionId: number;
+  auctionPublicId: string;
   /**
-   * Seller id sourced from the server-side auction fetch in the RSC shell.
-   * Used with the authenticated user's id to derive the viewer's role —
-   * `seller` when the ids match, `winner` otherwise (the escrow endpoint's
-   * 200/403 gate guarantees only seller and winner reach this client).
+   * Seller public id sourced from the server-side auction fetch in the RSC
+   * shell. Used with the authenticated user's publicId to derive the viewer's
+   * role — `seller` when the ids match, `winner` otherwise (the escrow
+   * endpoint's 200/403 gate guarantees only seller and winner reach this
+   * client).
    */
-  sellerId: number;
+  sellerPublicId: string;
 }
 
-export const escrowKey = (id: number) => ["escrow", id] as const;
+export const escrowKey = (publicId: string) => ["escrow", publicId] as const;
 
 /**
  * Client shell for the escrow page.
@@ -57,7 +58,7 @@ export const escrowKey = (id: number) => ["escrow", id] as const;
  * non-winner callers with 403; the role derivation here is purely a UI
  * concern.
  */
-export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps) {
+export function EscrowPageClient({ auctionPublicId, sellerPublicId }: EscrowPageClientProps) {
   const queryClient = useQueryClient();
   const connectionState = useConnectionState();
   const session = useAuth();
@@ -70,16 +71,16 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
   // auth stack lives entirely in the browser.
   useEffect(() => {
     if (session.status === "unauthenticated") {
-      const returnTo = encodeURIComponent(`/auction/${auctionId}/escrow`);
+      const returnTo = encodeURIComponent(`/auction/${auctionPublicId}/escrow`);
       router.replace(`/login?next=${returnTo}`);
     }
-  }, [session.status, auctionId, router]);
+  }, [session.status, auctionPublicId, router]);
 
   const isAuthenticated = session.status === "authenticated";
 
   const { data: escrow, isLoading, error } = useQuery({
-    queryKey: escrowKey(auctionId),
-    queryFn: () => getEscrowStatus(auctionId),
+    queryKey: escrowKey(auctionPublicId),
+    queryFn: () => getEscrowStatus(auctionPublicId),
     // Gate the fetch on the authed state so anonymous callers don't fire a
     // 401/403 on the way to being redirected.
     enabled: isAuthenticated,
@@ -89,25 +90,25 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
   });
 
   useStompSubscription<AuctionTopicEnvelope>(
-    `/topic/auction/${auctionId}`,
+    `/topic/auction/${auctionPublicId}`,
     useCallback(
       (env) => {
         // Escrow envelopes are coarse cache-invalidation signals; the
         // payload fields aren't read. A REST refetch reconstructs the
         // authoritative state.
         if (env.type.startsWith("ESCROW_")) {
-          queryClient.invalidateQueries({ queryKey: escrowKey(auctionId) });
+          queryClient.invalidateQueries({ queryKey: escrowKey(auctionPublicId) });
         } else if (env.type === "REVIEW_REVEALED") {
           // Epic 08 sub-spec 1 §7.2: refresh the {@code useAuctionReviews}
           // envelope so the ReviewPanel transitions from pending → revealed
           // (or revealed-one → revealed-both) without a page reload. The
           // query key mirrors {@code reviewsKeys.auction} in useReviews.ts.
           queryClient.invalidateQueries({
-            queryKey: ["reviews", "auction", String(auctionId)],
+            queryKey: ["reviews", "auction", auctionPublicId],
           });
         }
       },
-      [auctionId, queryClient],
+      [auctionPublicId, queryClient],
     ),
   );
 
@@ -119,13 +120,13 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
   useEffect(() => {
     const status = connectionState.status;
     if (status === "connected" && wasReconnectingRef.current) {
-      queryClient.invalidateQueries({ queryKey: escrowKey(auctionId) });
+      queryClient.invalidateQueries({ queryKey: escrowKey(auctionPublicId) });
       wasReconnectingRef.current = false;
     }
     if (status === "reconnecting" || status === "error") {
       wasReconnectingRef.current = true;
     }
-  }, [connectionState.status, queryClient, auctionId]);
+  }, [connectionState.status, queryClient, auctionPublicId]);
 
   // Loading and redirect-in-flight states.
   if (session.status === "loading") {
@@ -137,18 +138,18 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
     return null;
   }
 
-  // Derive the viewer's role from the server-seeded sellerId. Non-seller
+  // Derive the viewer's role from the server-seeded sellerPublicId. Non-seller
   // authenticated callers must be the winner — the escrow endpoint's 403
   // gate rejects everyone else before this branch runs (the 403 lands in
   // `error` below and surfaces via EscrowPageError).
   const role: EscrowChipRole =
-    session.user.id === sellerId ? "seller" : "winner";
+    session.user.publicId === sellerPublicId ? "seller" : "winner";
 
   return (
-    <EscrowPageLayout auctionId={auctionId}>
+    <EscrowPageLayout auctionPublicId={auctionPublicId}>
       {isLoading && <EscrowPageSkeleton />}
       {error && isApiError(error) && error.status === 404 && (
-        <EscrowPageEmpty auctionId={auctionId} />
+        <EscrowPageEmpty auctionPublicId={auctionPublicId} />
       )}
       {error && !(isApiError(error) && error.status === 404) && (
         <EscrowPageError error={error as Error} />
@@ -159,10 +160,10 @@ export function EscrowPageClient({ auctionId, sellerId }: EscrowPageClientProps)
           <EscrowStepper escrow={escrow} />
           <EscrowStepCard escrow={escrow} role={role} />
           {escrow.state === "DISPUTED" && role === "seller" && (
-            <SellerEvidencePanel auctionId={auctionId} />
+            <SellerEvidencePanel auctionPublicId={auctionPublicId} />
           )}
           {escrow.state === "COMPLETED" && (
-            <ReviewPanel auctionId={auctionId} isParty />
+            <ReviewPanel auctionPublicId={auctionPublicId} isParty />
           )}
         </>
       )}

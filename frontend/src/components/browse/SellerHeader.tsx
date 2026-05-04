@@ -47,7 +47,7 @@ export function SellerHeader({ user, className }: SellerHeaderProps) {
           Member since {memberSince}
           <span aria-hidden="true"> · </span>
           <Link
-            href={`/users/${user.id}`}
+            href={`/users/${user.publicId}`}
             className="text-brand hover:underline"
           >
             View full profile

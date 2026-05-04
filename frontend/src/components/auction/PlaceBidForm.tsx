@@ -66,7 +66,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
   const isConnected = connectionState.status === "connected";
 
   const mutation = useMutation<BidResponse, unknown, number>({
-    mutationFn: (value) => placeBid(auction.id, value),
+    mutationFn: (value) => placeBid(auction.publicId, value),
     onMutate: () => {
       setInlineError(null);
     },
@@ -91,7 +91,7 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
       if (code === "AUCTION_NOT_ACTIVE" || code === "AUCTION_ALREADY_ENDED") {
         // Page is out of date — let the refetch drive the correct panel
         // variant (bidder → ended) or an explanatory status.
-        queryClient.invalidateQueries({ queryKey: auctionKey(auction.id) });
+        queryClient.invalidateQueries({ queryKey: auctionKey(auction.publicId) });
         toast.error("This auction is no longer accepting bids.");
         return;
       }
