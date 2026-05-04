@@ -173,9 +173,8 @@ class NotificationControllerIntegrationTest {
     @Test
     void markRead_returnsNoContent() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
-        long notifId = internalId(n.publicId());
 
-        mvc.perform(put("/api/v1/notifications/" + notifId + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + aliceJwt))
             .andExpect(status().isNoContent());
     }
@@ -183,12 +182,11 @@ class NotificationControllerIntegrationTest {
     @Test
     void markRead_alreadyRead_returnsNoContent() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
-        long notifId = internalId(n.publicId());
-        mvc.perform(put("/api/v1/notifications/" + notifId + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + aliceJwt))
             .andExpect(status().isNoContent());
         // Second call — idempotent
-        mvc.perform(put("/api/v1/notifications/" + notifId + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + aliceJwt))
             .andExpect(status().isNoContent());
     }
@@ -196,9 +194,8 @@ class NotificationControllerIntegrationTest {
     @Test
     void markRead_crossUser_returns404() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
-        long notifId = internalId(n.publicId());
 
-        mvc.perform(put("/api/v1/notifications/" + notifId + "/read")
+        mvc.perform(put("/api/v1/notifications/" + n.publicId() + "/read")
                 .header("Authorization", "Bearer " + bobJwt))
             .andExpect(status().isNotFound());
     }
