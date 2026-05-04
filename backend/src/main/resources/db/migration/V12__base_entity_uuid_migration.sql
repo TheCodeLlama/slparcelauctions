@@ -919,7 +919,7 @@ CREATE TABLE sl_im_message (
     updated_at    timestamptz NOT NULL DEFAULT now(),
     version       bigint NOT NULL DEFAULT 0,
 
-    user_id       bigint NOT NULL REFERENCES users(id),
+    user_id       bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     avatar_uuid   varchar(36) NOT NULL,
     coalesce_key  varchar(128),
     message_text  varchar(1024) NOT NULL,

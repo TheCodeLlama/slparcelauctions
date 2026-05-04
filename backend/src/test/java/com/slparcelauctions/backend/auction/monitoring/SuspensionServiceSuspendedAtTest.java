@@ -144,10 +144,12 @@ class SuspensionServiceSuspendedAtTest {
     @Test
     void suspendForOwnershipChange_doesNotMoveSuspendedAt_onSecondCall() {
         suspensionService.suspendForOwnershipChange(savedAuction, evidenceFor(savedAuction));
-        OffsetDateTime firstSuspendedAt = auctionRepo.findById(auctionId).orElseThrow().getSuspendedAt();
+        // Reload to pick up the version increment from the first suspension
+        Auction afterFirst = auctionRepo.findById(auctionId).orElseThrow();
+        OffsetDateTime firstSuspendedAt = afterFirst.getSuspendedAt();
 
-        // Call again with the same (now-SUSPENDED) entity — suspendedAt must not move
-        suspensionService.suspendForOwnershipChange(savedAuction, evidenceFor(savedAuction));
+        // Call again with the freshly-loaded (now-SUSPENDED) entity — suspendedAt must not move
+        suspensionService.suspendForOwnershipChange(afterFirst, evidenceFor(afterFirst));
 
         OffsetDateTime secondSuspendedAt = auctionRepo.findById(auctionId).orElseThrow().getSuspendedAt();
         assertThat(secondSuspendedAt).isEqualTo(firstSuspendedAt);

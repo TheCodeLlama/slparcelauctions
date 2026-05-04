@@ -146,8 +146,7 @@ class SuspensionNotificationIntegrationTest {
                 null, null, null, null, null, null, null);
         suspensionService.suspendForOwnershipChange(a, evidence);
 
-        var notifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        var notifs = notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_SUSPENDED)
                 .toList();
         assertThat(notifs).hasSize(1);
@@ -160,8 +159,7 @@ class SuspensionNotificationIntegrationTest {
 
         suspensionService.suspendForDeletedParcel(a);
 
-        var notifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        var notifs = notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_SUSPENDED)
                 .toList();
         assertThat(notifs).hasSize(1);
@@ -175,8 +173,7 @@ class SuspensionNotificationIntegrationTest {
         suspensionService.suspendForBotObservation(
                 a, FraudFlagReason.BOT_PRICE_DRIFT, Map.of("sentinel", "mismatch"));
 
-        var notifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        var notifs = notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_SUSPENDED)
                 .toList();
         assertThat(notifs).hasSize(1);

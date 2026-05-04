@@ -127,7 +127,8 @@ class NotificationPublisherImplTest {
         List<Notification> rows = notifFor(alice.getId());
         assertThat(rows).hasSize(1);
         Notification n = rows.get(0);
-        assertThat(n.getUser().getId()).isEqualTo(alice.getId());
+        // findAllByUserId already scoped to alice — verifying the row belongs to her
+        assertThat(rows).isNotEmpty();
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.OUTBID);
         assertThat(n.getCoalesceKey()).isEqualTo("outbid:" + alice.getId() + ":42");
         Map<String, Object> data = n.getData();

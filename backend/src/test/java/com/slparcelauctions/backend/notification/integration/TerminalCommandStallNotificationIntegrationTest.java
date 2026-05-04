@@ -190,15 +190,13 @@ class TerminalCommandStallNotificationIntegrationTest {
         PayoutResultRequest req = new PayoutResultRequest(ikey, false, null, "terminal error", "test-terminal", "dev-escrow-secret-do-not-use-in-prod");
         terminalCommandService.applyCallback(req);
 
-        var notifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        var notifs = notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.ESCROW_PAYOUT_STALLED)
                 .toList();
         assertThat(notifs).hasSize(1);
 
         // Winner should NOT get ESCROW_PAYOUT_STALLED
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(winnerId))
+        assertThat(notifRepo.findAllByUserId(winnerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.ESCROW_PAYOUT_STALLED)
                 .toList()).isEmpty();
     }
@@ -263,8 +261,7 @@ class TerminalCommandStallNotificationIntegrationTest {
         terminalCommandService.applyCallback(req);
 
         // Refund stall should NOT publish ESCROW_PAYOUT_STALLED
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        assertThat(notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.ESCROW_PAYOUT_STALLED)
                 .toList()).isEmpty();
     }
