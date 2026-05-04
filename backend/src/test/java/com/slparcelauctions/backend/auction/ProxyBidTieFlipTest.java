@@ -105,7 +105,7 @@ class ProxyBidTieFlipTest {
         // Step 1 — A creates proxy max=1000. Auction startingBid=500.
         // A opens at 500 and is winning.
         Auction a = seedAuction();
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":1000}"))
@@ -119,7 +119,7 @@ class ProxyBidTieFlipTest {
         // Step 2 — B places a manual bid at exactly 1000 (== A.proxy.max).
         // Strict-> semantics: proxy is NOT exhausted; counter fires.
         // counterAmount = min(1000 + 100, 1000) = 1000. Both rows emitted.
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1000}"))
@@ -157,14 +157,14 @@ class ProxyBidTieFlipTest {
     void manualBidStrictlyAboveProxyMax_exhaustsProxyAndWins() throws Exception {
         // Sanity flip: amount > P_max should exhaust the proxy.
         Auction a = seedAuction();
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":1000}"))
                 .andExpect(status().isCreated());
 
         // B places 1050 — strictly greater than A's cap of 1000.
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":1050}"))

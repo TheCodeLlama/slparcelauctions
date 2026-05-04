@@ -33,7 +33,7 @@ export type UserLedgerEntryType =
 export type WithdrawalStatus = "PENDING" | "COMPLETED" | "REVERSED";
 
 export interface LedgerEntry {
-  id: number;
+  publicId: string;
   entryType: UserLedgerEntryType;
   amount: number;
   balanceAfter: number;
@@ -82,7 +82,7 @@ export interface WithdrawRequest {
 }
 
 export interface WithdrawResponse {
-  queueId: number;
+  queuePublicId: string;
   newBalance: number;
   newAvailable: number;
   status: string;

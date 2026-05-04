@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.bot.exception.BotEscrowTerminalException;
 import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
 import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
@@ -55,6 +56,10 @@ class BotTaskControllerMonitorSliceTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    @SuppressWarnings("unused")
+    private UserRepository userRepository;
 
     @Test
     void monitor_success_returns200() throws Exception {

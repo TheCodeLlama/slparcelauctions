@@ -73,7 +73,7 @@ function FeaturedRowBody({ title, result, emptyMessage, columns }: Pick<Featured
   return (
     <div className={gridClass} data-testid="featured-row-grid">
       {content.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} variant="default" />
+        <ListingCard key={listing.publicId} listing={listing} variant="default" />
       ))}
     </div>
   );

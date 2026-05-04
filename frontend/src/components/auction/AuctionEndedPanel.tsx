@@ -22,20 +22,20 @@ import { cn } from "@/lib/cn";
 
 export interface AuctionEndedPanelProps {
   auction: PublicAuctionResponse | SellerAuctionResponse;
-  currentUser: { id: number } | null;
+  currentUser: { publicId: string } | null;
 }
 
 /**
  * Cache-widened view of the auction object. The envelope handler in
  * {@code AuctionDetailClient} writes {@code endOutcome}, {@code finalBidAmount},
- * {@code winnerUserId}, and {@code winnerDisplayName} on the auction cache
+ * {@code winnerPublicId}, and {@code winnerDisplayName} on the auction cache
  * even when the incoming shape is {@link PublicAuctionResponse}, so the
  * panel needs to read them defensively rather than via the DTO type alone.
  */
 type EndedAuctionFields = {
   endOutcome?: AuctionEndOutcome | null;
   finalBidAmount?: number | null;
-  winnerUserId?: number | null;
+  winnerPublicId?: string | null;
   winnerDisplayName?: string | null;
   endsAt?: string | null;
 };
@@ -65,30 +65,30 @@ export function AuctionEndedPanel({
   // over it with a heuristic.
   if (ended.endOutcome == null) {
     throw new Error(
-      `AuctionEndedPanel rendered for auction ${auction.id} with null endOutcome — ` +
+      `AuctionEndedPanel rendered for auction ${auction.publicId} with null endOutcome — ` +
         "backend enrichment invariant violated (Epic 05 sub-spec 1).",
     );
   }
   const outcome: AuctionEndOutcome = ended.endOutcome;
   const finalBid = ended.finalBidAmount ?? numericHighBid(auction.currentHighBid);
-  const winnerId = ended.winnerUserId ?? null;
+  const winnerPublicId = ended.winnerPublicId ?? null;
 
   // Viewer-specific flags. We derive before fetching so the overlay copy
   // renders immediately even while the winner profile is loading.
   const viewerWon =
-    currentUser != null && winnerId != null && currentUser.id === winnerId;
+    currentUser != null && winnerPublicId != null && currentUser.publicId === winnerPublicId;
   const viewerIsSeller =
-    currentUser != null && currentUser.id === auction.sellerId;
+    currentUser != null && currentUser.publicId === auction.sellerPublicId;
 
   // Task 9 ships server-side enrichment for {@code winnerDisplayName}.
-  // Until then, fall back to a profile fetch when we have a winnerId but
+  // Until then, fall back to a profile fetch when we have a winnerPublicId but
   // no display name. {@code enabled} gates the fetch so unsold outcomes
   // never query {@code /api/v1/users/null}.
   const winnerQuery = useQuery<PublicUserProfile>({
-    queryKey: ["publicProfile", winnerId],
-    queryFn: () => userApi.publicProfile(winnerId as number),
+    queryKey: ["publicProfile", winnerPublicId],
+    queryFn: () => userApi.publicProfile(winnerPublicId as string),
     enabled:
-      winnerId != null &&
+      winnerPublicId != null &&
       (ended.winnerDisplayName == null || ended.winnerDisplayName === ""),
     staleTime: 60_000,
   });
@@ -96,7 +96,7 @@ export function AuctionEndedPanel({
   const winnerDisplayName =
     ended.winnerDisplayName ??
     winnerQuery.data?.displayName ??
-    (winnerId != null ? `User ${winnerId}` : null);
+    (winnerPublicId != null ? "Winner" : null);
   const winnerAvatarUrl = winnerQuery.data?.profilePicUrl ?? undefined;
   const winnerSlName = winnerQuery.data?.slAvatarName ?? null;
 
@@ -116,7 +116,7 @@ export function AuctionEndedPanel({
         auction={auction}
         outcome={outcome}
         finalBid={finalBid}
-        winnerId={winnerId}
+        winnerPublicId={winnerPublicId}
         winnerDisplayName={winnerDisplayName}
         winnerAvatarUrl={winnerAvatarUrl}
         winnerSlName={winnerSlName}
@@ -133,14 +133,14 @@ export function AuctionEndedPanel({
 
       {viewerWon ? (
         <WinnerOverlay
-          auctionId={auction.id}
+          auctionPublicId={auction.publicId}
           outcome={outcome}
           escrowState={auction.escrowState ?? null}
           transferConfirmedAt={auction.transferConfirmedAt ?? null}
         />
       ) : viewerIsSeller ? (
         <SellerOverlay
-          auctionId={auction.id}
+          auctionPublicId={auction.publicId}
           outcome={outcome}
           escrowState={auction.escrowState ?? null}
           transferConfirmedAt={auction.transferConfirmedAt ?? null}
@@ -159,7 +159,7 @@ function OutcomeBlock({
   auction,
   outcome,
   finalBid,
-  winnerId,
+  winnerPublicId,
   winnerDisplayName,
   winnerAvatarUrl,
   winnerSlName,
@@ -167,7 +167,7 @@ function OutcomeBlock({
   auction: PublicAuctionResponse | SellerAuctionResponse;
   outcome: AuctionEndOutcome;
   finalBid: number | null;
-  winnerId: number | null;
+  winnerPublicId: string | null;
   winnerDisplayName: string | null;
   winnerAvatarUrl: string | undefined;
   winnerSlName: string | null;
@@ -185,9 +185,9 @@ function OutcomeBlock({
         >
           {headline}
         </h2>
-        {winnerId != null ? (
+        {winnerPublicId != null ? (
           <Link
-            href={`/users/${winnerId}`}
+            href={`/users/${winnerPublicId}`}
             className="flex items-center gap-3 rounded-lg bg-bg-subtle p-3 hover:bg-bg-hover"
             data-testid="auction-ended-winner"
           >
@@ -199,7 +199,7 @@ function OutcomeBlock({
             />
             <div className="flex min-w-0 flex-col">
               <span className="text-sm font-semibold text-fg truncate">
-                {winnerDisplayName ?? `User ${winnerId}`}
+                {winnerDisplayName ?? "Winner"}
               </span>
               {winnerSlName ? (
                 <span className="text-[11px] font-medium text-fg-muted truncate">
@@ -251,12 +251,12 @@ function OutcomeBlock({
  * on the auction DTO (SOLD / BOUGHT_NOW only).
  */
 function WinnerOverlay({
-  auctionId,
+  auctionPublicId,
   outcome,
   escrowState,
   transferConfirmedAt,
 }: {
-  auctionId: number;
+  auctionPublicId: string;
   outcome: AuctionEndOutcome;
   escrowState: EscrowState | null;
   transferConfirmedAt: string | null;
@@ -279,7 +279,7 @@ function WinnerOverlay({
       {escrowState != null &&
       (outcome === "SOLD" || outcome === "BOUGHT_NOW") ? (
         <EscrowBannerForPanel
-          auctionId={auctionId}
+          auctionPublicId={auctionPublicId}
           escrowState={escrowState}
           transferConfirmedAt={transferConfirmedAt}
           role="winner"
@@ -296,12 +296,12 @@ function WinnerOverlay({
  * in {@link escrowBannerCopy}.
  */
 function SellerOverlay({
-  auctionId,
+  auctionPublicId,
   outcome,
   escrowState,
   transferConfirmedAt,
 }: {
-  auctionId: number;
+  auctionPublicId: string;
   outcome: AuctionEndOutcome;
   escrowState: EscrowState | null;
   transferConfirmedAt: string | null;
@@ -328,7 +328,7 @@ function SellerOverlay({
       <p className="text-xs">{fallbackMessage}</p>
       {showEscrowBanner ? (
         <EscrowBannerForPanel
-          auctionId={auctionId}
+          auctionPublicId={auctionPublicId}
           escrowState={escrowState}
           transferConfirmedAt={transferConfirmedAt}
           role="seller"
@@ -347,7 +347,7 @@ const bannerToneClasses: Record<BannerTone, string> = {
 };
 
 interface EscrowBannerForPanelProps {
-  auctionId: number;
+  auctionPublicId: string;
   escrowState: EscrowState;
   transferConfirmedAt: string | null;
   role: EscrowChipRole;
@@ -362,7 +362,7 @@ interface EscrowBannerForPanelProps {
  * pre/post-fund refund split.
  */
 function EscrowBannerForPanel({
-  auctionId,
+  auctionPublicId,
   escrowState,
   transferConfirmedAt,
   role,
@@ -388,7 +388,7 @@ function EscrowBannerForPanel({
         {detail ? <> {detail}</> : null}
       </span>
       <Link
-        href={`/auction/${auctionId}/escrow`}
+        href={`/auction/${auctionPublicId}/escrow`}
         className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-white"
       >
         View escrow

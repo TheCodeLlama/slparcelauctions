@@ -108,7 +108,7 @@ export function AuctionHero({
   const secondaries = rest.slice(0, 2);
   const remainingCount = Math.max(0, sorted.length - 3);
   const lightboxImages = sorted.map((p) => ({
-    id: p.id,
+    id: p.publicId,
     url: apiUrl(p.url) ?? p.url,
   }));
 
@@ -173,7 +173,7 @@ export function AuctionHero({
             return (
               <button
                 type="button"
-                key={photo.id}
+                key={photo.publicId}
                 onClick={() => setLightboxIndex(photoIndex)}
                 aria-label={`Open photo ${photoIndex + 1}`}
                 className="rounded-lg overflow-hidden relative focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
@@ -227,7 +227,7 @@ export function AuctionHero({
                 const photoIndex = i + 1;
                 return (
                   <li
-                    key={photo.id}
+                    key={photo.publicId}
                     className="shrink-0 w-24 h-24 rounded-lg overflow-hidden"
                   >
                     <button

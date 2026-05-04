@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.admin.reports;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,10 +28,14 @@ import com.slparcelauctions.backend.admin.reports.dto.MyReportResponse;
 import com.slparcelauctions.backend.admin.reports.exception.AuctionNotReportableException;
 import com.slparcelauctions.backend.admin.reports.exception.CannotReportOwnListingException;
 import com.slparcelauctions.backend.admin.reports.exception.MustBeVerifiedToReportException;
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -46,13 +53,39 @@ import com.slparcelauctions.backend.user.Role;
 })
 class UserReportControllerSliceTest {
 
+    private static final UUID USER_UUID = UUID.fromString("00000000-0000-aaaa-0007-000000000001");
+    private static final UUID AUCTION_PUBLIC_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final long AUCTION_LONG_ID = 1L;
+
     @Autowired MockMvc mvc;
     @Autowired JwtService jwtService;
+    @Autowired UserRepository userRepository;
 
     @MockitoBean UserReportService service;
+    @MockitoBean AuctionRepository auctionRepository;
+
+    private Long userDbId;
+
+    @BeforeEach
+    void seedUsers() {
+        userDbId = userRepository.findByPublicId(USER_UUID)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .publicId(USER_UUID).email("user-report-user@x.com")
+                .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+                .displayName("User").role(Role.USER).verified(true).build()))
+            .getId();
+    }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(42L, "u@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(userDbId, USER_UUID, "user-report-user@x.com", 1L, Role.USER));
+    }
+
+    private void stubAuctionLookup() {
+        Auction mockAuction = org.mockito.Mockito.mock(Auction.class);
+        when(mockAuction.getId()).thenReturn(AUCTION_LONG_ID);
+        when(auctionRepository.findByPublicId(AUCTION_PUBLIC_ID))
+                .thenReturn(Optional.of(mockAuction));
     }
 
     private static final String VALID_BODY = """
@@ -65,7 +98,7 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_anonymous_returns401() throws Exception {
-        mvc.perform(post("/api/v1/auctions/1/report")
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
            .andExpect(status().isUnauthorized());
@@ -77,7 +110,8 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_emptySubject_returns400() throws Exception {
-        mvc.perform(post("/api/v1/auctions/1/report")
+        stubAuctionLookup();
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"subject\":\"\",\"reason\":\"OTHER\",\"details\":\"some details\"}"))
@@ -86,7 +120,8 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_blankDetails_returns400() throws Exception {
-        mvc.perform(post("/api/v1/auctions/1/report")
+        stubAuctionLookup();
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"subject\":\"A subject\",\"reason\":\"OTHER\",\"details\":\"   \"}"))
@@ -99,18 +134,20 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_validInput_returns200_withMyReportResponse() throws Exception {
+        stubAuctionLookup();
         OffsetDateTime now = OffsetDateTime.now();
+        UUID reportPublicId = UUID.fromString("00000000-0000-0000-0000-000000000099");
         MyReportResponse resp = new MyReportResponse(
-            99L, "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION,
+            reportPublicId, "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION,
             "Details here.", ListingReportStatus.OPEN, now, now);
-        when(service.upsertReport(eq(1L), eq(42L), any())).thenReturn(resp);
+        when(service.upsertReport(eq(AUCTION_LONG_ID), anyLong(), any())).thenReturn(resp);
 
-        mvc.perform(post("/api/v1/auctions/1/report")
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.id").value(99))
+           .andExpect(jsonPath("$.publicId").value(reportPublicId.toString()))
            .andExpect(jsonPath("$.subject").value("Bad listing"))
            .andExpect(jsonPath("$.reason").value("INACCURATE_DESCRIPTION"))
            .andExpect(jsonPath("$.status").value("OPEN"));
@@ -122,10 +159,11 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_unverifiedReporter_returns403_VERIFICATION_REQUIRED() throws Exception {
+        stubAuctionLookup();
         when(service.upsertReport(any(), any(), any()))
             .thenThrow(new MustBeVerifiedToReportException());
 
-        mvc.perform(post("/api/v1/auctions/1/report")
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
@@ -135,10 +173,11 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_ownListing_returns409_CANNOT_REPORT_OWN_LISTING() throws Exception {
+        stubAuctionLookup();
         when(service.upsertReport(any(), any(), any()))
             .thenThrow(new CannotReportOwnListingException());
 
-        mvc.perform(post("/api/v1/auctions/1/report")
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
@@ -148,10 +187,11 @@ class UserReportControllerSliceTest {
 
     @Test
     void report_nonActiveAuction_returns409_AUCTION_NOT_REPORTABLE() throws Exception {
+        stubAuctionLookup();
         when(service.upsertReport(any(), any(), any()))
             .thenThrow(new AuctionNotReportableException(AuctionStatus.CANCELLED));
 
-        mvc.perform(post("/api/v1/auctions/1/report")
+        mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
             .header("Authorization", "Bearer " + userToken())
             .contentType(MediaType.APPLICATION_JSON)
             .content(VALID_BODY))
@@ -166,25 +206,28 @@ class UserReportControllerSliceTest {
 
     @Test
     void myReport_noRow_returns204() throws Exception {
-        when(service.findMyReport(eq(1L), eq(42L))).thenReturn(Optional.empty());
+        stubAuctionLookup();
+        when(service.findMyReport(eq(AUCTION_LONG_ID), anyLong())).thenReturn(Optional.empty());
 
-        mvc.perform(get("/api/v1/auctions/1/my-report")
+        mvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/my-report")
             .header("Authorization", "Bearer " + userToken()))
            .andExpect(status().isNoContent());
     }
 
     @Test
     void myReport_withRow_returns200() throws Exception {
+        stubAuctionLookup();
         OffsetDateTime now = OffsetDateTime.now();
+        UUID myReportPublicId = UUID.fromString("00000000-0000-0000-0000-000000000007");
         MyReportResponse resp = new MyReportResponse(
-            7L, "Subject", ListingReportReason.TOS_VIOLATION,
+            myReportPublicId, "Subject", ListingReportReason.TOS_VIOLATION,
             "Details.", ListingReportStatus.REVIEWED, now, now);
-        when(service.findMyReport(eq(1L), eq(42L))).thenReturn(Optional.of(resp));
+        when(service.findMyReport(eq(AUCTION_LONG_ID), anyLong())).thenReturn(Optional.of(resp));
 
-        mvc.perform(get("/api/v1/auctions/1/my-report")
+        mvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/my-report")
             .header("Authorization", "Bearer " + userToken()))
            .andExpect(status().isOk())
-           .andExpect(jsonPath("$.id").value(7))
+           .andExpect(jsonPath("$.publicId").value(myReportPublicId.toString()))
            .andExpect(jsonPath("$.reason").value("TOS_VIOLATION"))
            .andExpect(jsonPath("$.status").value("REVIEWED"));
     }

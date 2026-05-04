@@ -90,14 +90,20 @@ describe("useSavedIds", () => {
     const { wrapper } = makeAnonWrapper();
     const { result } = renderHook(() => useSavedIds(), { wrapper });
     expect(result.current.ids.size).toBe(0);
-    expect(result.current.isSaved(42)).toBe(false);
+    expect(result.current.isSaved("00000000-0000-0000-0000-00000000002a")).toBe(false);
     expect(result.current.isLoading).toBe(false);
   });
 
   it("hydrates from GET /me/saved/ids when authenticated", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [1, 7, 42] }),
+        HttpResponse.json({
+          publicIds: [
+            "00000000-0000-0000-0000-000000000001",
+            "00000000-0000-0000-0000-000000000007",
+            "00000000-0000-0000-0000-00000000002a",
+          ],
+        }),
       ),
     );
     const { wrapper } = makeAuthedWrapper();
@@ -106,8 +112,8 @@ describe("useSavedIds", () => {
     await waitFor(() => {
       expect(result.current.ids.size).toBe(3);
     });
-    expect(result.current.isSaved(7)).toBe(true);
-    expect(result.current.isSaved(99)).toBe(false);
+    expect(result.current.isSaved("00000000-0000-0000-0000-000000000007")).toBe(true);
+    expect(result.current.isSaved("00000000-0000-0000-0000-000000000063")).toBe(false);
   });
 });
 
@@ -118,7 +124,10 @@ describe("useToggleSaved", () => {
       http.post("*/api/v1/me/saved", () => {
         posted = true;
         return HttpResponse.json(
-          { auctionId: 1, savedAt: "2026-04-23T00:00:00Z" },
+          {
+            auctionPublicId: "00000000-0000-0000-0000-000000000001",
+            savedAt: "2026-04-23T00:00:00Z",
+          },
           { status: 201 },
         );
       }),
@@ -127,7 +136,7 @@ describe("useToggleSaved", () => {
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
 
     await act(async () => {
-      await result.current.toggle(1);
+      await result.current.toggle("00000000-0000-0000-0000-000000000001");
     });
 
     await waitFor(() => {
@@ -141,34 +150,37 @@ describe("useToggleSaved", () => {
   it("authenticated save → optimistically adds id", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
       http.post("*/api/v1/me/saved", () =>
         HttpResponse.json(
-          { auctionId: 7, savedAt: "2026-04-23T00:00:00Z" },
+          {
+            auctionPublicId: "00000000-0000-0000-0000-000000000007",
+            savedAt: "2026-04-23T00:00:00Z",
+          },
           { status: 201 },
         ),
       ),
     );
     const { client, wrapper } = makeAuthedWrapper();
-    client.setQueryData(SAVED_IDS_KEY, { ids: [] });
+    client.setQueryData(SAVED_IDS_KEY, { publicIds: [] });
 
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
 
     await act(async () => {
-      await result.current.toggle(7);
+      await result.current.toggle("00000000-0000-0000-0000-000000000007");
     });
 
     await waitFor(() => {
-      const next = client.getQueryData<{ ids: number[] }>(SAVED_IDS_KEY);
-      expect(next?.ids).toContain(7);
+      const next = client.getQueryData<{ publicIds: string[] }>(SAVED_IDS_KEY);
+      expect(next?.publicIds).toContain("00000000-0000-0000-0000-000000000007");
     });
   });
 
   it("rolls back the optimistic update when the POST fails", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
       http.post("*/api/v1/me/saved", () =>
         HttpResponse.json(
@@ -178,24 +190,26 @@ describe("useToggleSaved", () => {
       ),
     );
     const { client, wrapper } = makeAuthedWrapper();
-    client.setQueryData(SAVED_IDS_KEY, { ids: [] });
+    client.setQueryData(SAVED_IDS_KEY, { publicIds: [] });
 
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
 
     await act(async () => {
-      await result.current.toggle(7);
+      await result.current.toggle("00000000-0000-0000-0000-000000000007");
     });
 
     await waitFor(() => {
-      const next = client.getQueryData<{ ids: number[] }>(SAVED_IDS_KEY);
-      expect(next?.ids ?? []).not.toContain(7);
+      const next = client.getQueryData<{ publicIds: string[] }>(SAVED_IDS_KEY);
+      expect(next?.publicIds ?? []).not.toContain(
+        "00000000-0000-0000-0000-000000000007",
+      );
     });
   });
 
   it("surfaces the SAVED_LIMIT_REACHED copy on 409", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
       http.post("*/api/v1/me/saved", () =>
         HttpResponse.json(
@@ -209,12 +223,12 @@ describe("useToggleSaved", () => {
       ),
     );
     const { client, wrapper } = makeAuthedWrapper();
-    client.setQueryData(SAVED_IDS_KEY, { ids: [] });
+    client.setQueryData(SAVED_IDS_KEY, { publicIds: [] });
 
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
 
     await act(async () => {
-      await result.current.toggle(7);
+      await result.current.toggle("00000000-0000-0000-0000-000000000007");
     });
 
     await waitFor(() => {
@@ -227,7 +241,7 @@ describe("useToggleSaved", () => {
   it("surfaces the CANNOT_SAVE_PRE_ACTIVE copy on 403", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
       http.post("*/api/v1/me/saved", () =>
         HttpResponse.json(
@@ -241,12 +255,12 @@ describe("useToggleSaved", () => {
       ),
     );
     const { client, wrapper } = makeAuthedWrapper();
-    client.setQueryData(SAVED_IDS_KEY, { ids: [] });
+    client.setQueryData(SAVED_IDS_KEY, { publicIds: [] });
 
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
 
     await act(async () => {
-      await result.current.toggle(7);
+      await result.current.toggle("00000000-0000-0000-0000-000000000007");
     });
 
     await waitFor(() => {
@@ -257,27 +271,31 @@ describe("useToggleSaved", () => {
   });
 
   it("unsave path: DELETE when id is already saved", async () => {
-    let deletedId = 0;
+    let deletedId = "";
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [7] }),
+        HttpResponse.json({
+          publicIds: ["00000000-0000-0000-0000-000000000007"],
+        }),
       ),
       http.delete("*/api/v1/me/saved/:id", ({ params }) => {
-        deletedId = Number(params.id);
+        deletedId = String(params.id);
         return new HttpResponse(null, { status: 204 });
       }),
     );
     const { client, wrapper } = makeAuthedWrapper();
-    client.setQueryData(SAVED_IDS_KEY, { ids: [7] });
+    client.setQueryData(SAVED_IDS_KEY, {
+      publicIds: ["00000000-0000-0000-0000-000000000007"],
+    });
 
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
 
     await act(async () => {
-      await result.current.toggle(7);
+      await result.current.toggle("00000000-0000-0000-0000-000000000007");
     });
 
     await waitFor(() => {
-      expect(deletedId).toBe(7);
+      expect(deletedId).toBe("00000000-0000-0000-0000-000000000007");
     });
   });
 });
@@ -335,17 +353,20 @@ describe("useToggleSaved invalidation — refetchType: active", () => {
   it("does NOT refetch inactive saved-auctions query observers after a toggle", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
       http.post("*/api/v1/me/saved", () =>
         HttpResponse.json(
-          { auctionId: 1, savedAt: "2026-04-23T00:00:00Z" },
+          {
+            auctionPublicId: "00000000-0000-0000-0000-000000000001",
+            savedAt: "2026-04-23T00:00:00Z",
+          },
           { status: 201 },
         ),
       ),
     );
     const { client, wrapper } = makeAuthedWrapper();
-    client.setQueryData(SAVED_IDS_KEY, { ids: [] });
+    client.setQueryData(SAVED_IDS_KEY, { publicIds: [] });
 
     const inactiveKey = savedAuctionsQueryKey({ sort: "newest" });
     client.setQueryData(inactiveKey, emptySearch);
@@ -359,7 +380,7 @@ describe("useToggleSaved invalidation — refetchType: active", () => {
 
     const { result } = renderHook(() => useToggleSaved(), { wrapper });
     await act(async () => {
-      await result.current.toggle(1);
+      await result.current.toggle("00000000-0000-0000-0000-000000000001");
     });
 
     await new Promise((r) => setTimeout(r, 25));

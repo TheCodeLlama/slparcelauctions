@@ -12,20 +12,20 @@ import type {
  * reconnect reconcile, cancel-proxy mutation) can invalidate / read / write
  * the same entry without duplicating the string literal.
  */
-export function auctionKey(id: number): readonly unknown[] {
-  return ["auction", id] as const;
+export function auctionKey(publicId: string): readonly unknown[] {
+  return ["auction", publicId] as const;
 }
 
 /**
- * Union type returned by {@code GET /api/v1/auctions/{id}} — the backend picks
- * the DTO based on viewer identity (seller → full, anyone else → public). See
- * {@link getAuction} for the contract and {@link PublicAuctionResponse} /
+ * Union type returned by {@code GET /api/v1/auctions/{publicId}} — the backend
+ * picks the DTO based on viewer identity (seller → full, anyone else → public).
+ * See {@link getAuction} for the contract and {@link PublicAuctionResponse} /
  * {@link SellerAuctionResponse} for the field-level differences.
  */
 export type AuctionData = PublicAuctionResponse | SellerAuctionResponse;
 
 /**
- * React Query hook that wraps {@code GET /api/v1/auctions/{id}}.
+ * React Query hook that wraps {@code GET /api/v1/auctions/{publicId}}.
  *
  * Seeded from the server component via {@code initialData} so the first paint
  * renders without a loading flash. The WebSocket envelope handler in
@@ -33,10 +33,10 @@ export type AuctionData = PublicAuctionResponse | SellerAuctionResponse;
  * reconnect-reconcile and window focus, but not on an interval (spec §5: "WS-
  * first with REST reconcile on reconnect. No polling.").
  */
-export function useAuction(id: number, initialData?: AuctionData) {
+export function useAuction(publicId: string, initialData?: AuctionData) {
   return useQuery<AuctionData>({
-    queryKey: auctionKey(id),
-    queryFn: () => getAuction(id),
+    queryKey: auctionKey(publicId),
+    queryFn: () => getAuction(publicId),
     initialData,
     staleTime: 30_000,
   });

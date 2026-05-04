@@ -2,15 +2,12 @@ package com.slparcelauctions.backend.escrow.command;
 
 import java.time.OffsetDateTime;
 
-import org.hibernate.annotations.CreationTimestamp;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -19,6 +16,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Outbound command row for the terminal dispatcher (spec §7.2, §7.3). Each
@@ -59,12 +57,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class TerminalCommand {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class TerminalCommand extends BaseMutableEntity {
 
     /** Non-null for {@code AUCTION_ESCROW} rows; null for listing-fee refunds. */
     @Column(name = "escrow_id")
@@ -118,10 +112,6 @@ public class TerminalCommand {
     @Column(name = "requires_manual_review", nullable = false,
             columnDefinition = "boolean not null default false")
     private Boolean requiresManualReview = false;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;

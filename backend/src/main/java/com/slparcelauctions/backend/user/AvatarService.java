@@ -68,7 +68,7 @@ public class AvatarService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        user.setProfilePicUrl("/api/v1/users/" + userId + "/avatar/256");
+        user.setProfilePicUrl("/api/v1/users/" + user.getPublicId() + "/avatar/256");
         // JPA dirty checking flushes the setProfilePicUrl on transaction commit.
         return UserResponse.from(user);
     }

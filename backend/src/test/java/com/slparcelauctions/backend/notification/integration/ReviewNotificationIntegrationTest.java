@@ -180,16 +180,14 @@ class ReviewNotificationIntegrationTest {
 
         reviewService.reveal(reviewId);
 
-        var notifs = notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId)) // seller is the reviewee
+        var notifs = notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.REVIEW_RECEIVED)
                 .toList();
         assertThat(notifs).hasSize(1);
         assertThat(notifs.get(0).getData().get("rating")).isNotNull();
 
         // Winner (reviewer) should NOT get REVIEW_RECEIVED
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(winnerId))
+        assertThat(notifRepo.findAllByUserId(winnerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.REVIEW_RECEIVED)
                 .toList()).isEmpty();
     }

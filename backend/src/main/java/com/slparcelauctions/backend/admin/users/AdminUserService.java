@@ -80,7 +80,7 @@ public class AdminUserService {
             }
         }
         return new AdminUserDetailDto(
-            u.getId(), u.getEmail(), u.getDisplayName(),
+            u.getPublicId(), u.getEmail(), u.getDisplayName(),
             u.getSlAvatarUuid(), u.getSlDisplayName(),
             u.getRole(), Boolean.TRUE.equals(u.getVerified()), u.getVerifiedAt(),
             u.getCreatedAt(),
@@ -160,7 +160,7 @@ public class AdminUserService {
         boolean banned = u.getSlAvatarUuid() != null
             && !banRepo.findActiveByAvatar(u.getSlAvatarUuid(), now).isEmpty();
         return new AdminUserSummaryDto(
-            u.getId(), u.getEmail(), u.getDisplayName(),
+            u.getPublicId(), u.getEmail(), u.getDisplayName(),
             u.getSlAvatarUuid(), u.getSlDisplayName(),
             u.getRole(), Boolean.TRUE.equals(u.getVerified()), banned,
             u.getCompletedSales(), u.getCancelledWithBids(),

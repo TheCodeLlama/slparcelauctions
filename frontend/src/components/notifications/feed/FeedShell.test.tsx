@@ -45,7 +45,7 @@ vi.mock("next/navigation", () => ({
 
 function makeNotification(partial: Partial<NotificationDto> = {}): NotificationDto {
   return {
-    id: Math.floor(Math.random() * 10000),
+    publicId: `00000000-0000-0000-0000-${String(Math.floor(Math.random() * 10000)).padStart(12, "0")}`,
     category: "OUTBID",
     group: "bidding",
     title: "You were outbid",

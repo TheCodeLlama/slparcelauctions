@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.escrow.broadcast;
 
+import java.util.UUID;
+
 import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -35,57 +37,57 @@ public class StompEscrowBroadcastPublisher implements EscrowBroadcastPublisher {
 
     @Override
     public void publishCreated(EscrowCreatedEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_CREATED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_CREATED");
     }
 
     @Override
     public void publishDisputed(EscrowDisputedEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_DISPUTED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_DISPUTED");
     }
 
     @Override
     public void publishFunded(EscrowFundedEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_FUNDED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_FUNDED");
     }
 
     @Override
     public void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_TRANSFER_CONFIRMED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_TRANSFER_CONFIRMED");
     }
 
     @Override
     public void publishFrozen(EscrowFrozenEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_FROZEN");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_FROZEN");
     }
 
     @Override
     public void publishCompleted(EscrowCompletedEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_COMPLETED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_COMPLETED");
     }
 
     @Override
     public void publishRefundCompleted(EscrowRefundCompletedEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_REFUND_COMPLETED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_REFUND_COMPLETED");
     }
 
     @Override
     public void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_PAYOUT_STALLED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_PAYOUT_STALLED");
     }
 
     @Override
     public void publishExpired(EscrowExpiredEnvelope envelope) {
-        publish(envelope, envelope.auctionId(), "ESCROW_EXPIRED");
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_EXPIRED");
     }
 
-    void publish(EscrowEnvelope envelope, Long auctionId, String logLabel) {
-        String destination = "/topic/auction/" + auctionId;
-        log.info("Publishing {} to {}: escrowId={}", logLabel, destination, envelope.escrowId());
+    void publish(EscrowEnvelope envelope, UUID auctionPublicId, String logLabel) {
+        String destination = "/topic/auction/" + auctionPublicId;
+        log.info("Publishing {} to {}: escrowPublicId={}", logLabel, destination, envelope.escrowPublicId());
         try {
             messagingTemplate.convertAndSend(destination, envelope);
         } catch (MessagingException e) {
             log.warn("Failed to publish {} for auction {}: {}",
-                    logLabel, auctionId, e.getMessage(), e);
+                    logLabel, auctionPublicId, e.getMessage(), e);
         }
     }
 }

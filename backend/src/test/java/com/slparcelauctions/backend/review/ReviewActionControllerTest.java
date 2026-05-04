@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,32 +58,47 @@ class ReviewActionControllerTest {
 
     @MockitoBean private ReviewService reviewService;
     @MockitoBean private UserRepository userRepository;
+    @MockitoBean private ReviewRepository reviewRepository;
     @MockitoBean private JwtService jwtService;
 
+    private static final UUID REVIEW_PUBLIC_ID =
+            UUID.fromString("00000000-0000-0000-0000-0000000004d2");
+    private static final long REVIEW_LONG_ID = 1_234L;
+
     private User mockCaller() {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         return caller;
     }
 
-    // ---------- POST /reviews/{id}/respond ----------
+    /** Stubs ReviewRepository to resolve REVIEW_PUBLIC_ID → REVIEW_LONG_ID. */
+    private void stubReviewLookup() {
+        Review mockReview = org.mockito.Mockito.mock(Review.class);
+        when(mockReview.getId()).thenReturn(REVIEW_LONG_ID);
+        when(reviewRepository.findByPublicId(REVIEW_PUBLIC_ID))
+                .thenReturn(Optional.of(mockReview));
+    }
+
+    // ---------- POST /reviews/{publicId}/respond ----------
 
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns201_withDto() throws Exception {
         mockCaller();
-        ReviewResponseDto dto = new ReviewResponseDto(9_001L, "Thanks!",
+        stubReviewLookup();
+        ReviewResponseDto dto = new ReviewResponseDto(
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000002329"),
+                "Thanks!",
                 OffsetDateTime.parse("2026-05-01T10:00:00Z"));
-        when(reviewService.respondTo(eq(1_234L), any(User.class),
+        when(reviewService.respondTo(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewResponseSubmitRequest.class))).thenReturn(dto);
 
         ReviewResponseSubmitRequest req = new ReviewResponseSubmitRequest("Thanks!");
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(9_001))
+                .andExpect(jsonPath("$.publicId").value("00000000-0000-0000-0000-000000002329"))
                 .andExpect(jsonPath("$.text").value("Thanks!"));
     }
 
@@ -90,7 +106,7 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns400_whenTextBlank() throws Exception {
         ReviewResponseSubmitRequest req = new ReviewResponseSubmitRequest("   ");
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -101,7 +117,7 @@ class ReviewActionControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns400_whenTextMissing() throws Exception {
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -114,7 +130,7 @@ class ReviewActionControllerTest {
     void respond_returns400_whenTextTooLong() throws Exception {
         String tooLong = "a".repeat(501);
         ReviewResponseSubmitRequest req = new ReviewResponseSubmitRequest(tooLong);
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -126,12 +142,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns403_whenNotReviewee() throws Exception {
         mockCaller();
-        when(reviewService.respondTo(eq(1_234L), any(User.class),
+        stubReviewLookup();
+        when(reviewService.respondTo(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewResponseSubmitRequest.class)))
                 .thenThrow(new AccessDeniedException("Only the reviewee can respond to a review."));
 
         ReviewResponseSubmitRequest req = new ReviewResponseSubmitRequest("Hi");
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isForbidden());
@@ -141,12 +158,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns404_whenReviewMissing() throws Exception {
         mockCaller();
-        when(reviewService.respondTo(eq(1_234L), any(User.class),
+        stubReviewLookup();
+        when(reviewService.respondTo(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewResponseSubmitRequest.class)))
-                .thenThrow(new ReviewNotFoundException(1_234L));
+                .thenThrow(new ReviewNotFoundException(REVIEW_LONG_ID));
 
         ReviewResponseSubmitRequest req = new ReviewResponseSubmitRequest("Hi");
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNotFound())
@@ -157,12 +175,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void respond_returns409_whenDuplicate() throws Exception {
         mockCaller();
-        when(reviewService.respondTo(eq(1_234L), any(User.class),
+        stubReviewLookup();
+        when(reviewService.respondTo(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewResponseSubmitRequest.class)))
                 .thenThrow(new ReviewResponseAlreadyExistsException(1_234L));
 
         ReviewResponseSubmitRequest req = new ReviewResponseSubmitRequest("Thanks!");
-        mockMvc.perform(post("/api/v1/reviews/1234/respond")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/respond")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
@@ -175,23 +194,24 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns204_onFirstFlag() throws Exception {
         mockCaller();
-        doNothing().when(reviewService).flag(eq(1_234L), any(User.class),
+        stubReviewLookup();
+        doNothing().when(reviewService).flag(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewFlagRequest.class));
 
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.SPAM, null);
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNoContent());
 
-        verify(reviewService).flag(eq(1_234L), any(User.class),
+        verify(reviewService).flag(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewFlagRequest.class));
     }
 
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns400_whenReasonMissing() throws Exception {
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -203,7 +223,7 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns400_whenOtherWithoutElaboration() throws Exception {
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.OTHER, null);
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -215,7 +235,7 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns400_whenOtherWithBlankElaboration() throws Exception {
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.OTHER, "   ");
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -228,7 +248,7 @@ class ReviewActionControllerTest {
     void flag_returns400_whenElaborationTooLong() throws Exception {
         String tooLong = "a".repeat(501);
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.OTHER, tooLong);
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isBadRequest())
@@ -240,12 +260,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns204_whenOtherWithElaboration() throws Exception {
         mockCaller();
-        doNothing().when(reviewService).flag(eq(1_234L), any(User.class),
+        stubReviewLookup();
+        doNothing().when(reviewService).flag(eq(REVIEW_LONG_ID), any(User.class),
                 any(ReviewFlagRequest.class));
 
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.OTHER,
                 "Contains a scam link");
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNoContent());
@@ -255,12 +276,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns403_whenCallerIsReviewer() throws Exception {
         mockCaller();
+        stubReviewLookup();
         doThrow(new AccessDeniedException("You cannot flag your own review."))
-                .when(reviewService).flag(eq(1_234L), any(User.class),
+                .when(reviewService).flag(eq(REVIEW_LONG_ID), any(User.class),
                         any(ReviewFlagRequest.class));
 
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.SPAM, null);
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isForbidden());
@@ -270,12 +292,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns404_whenReviewMissing() throws Exception {
         mockCaller();
-        doThrow(new ReviewNotFoundException(1_234L))
-                .when(reviewService).flag(eq(1_234L), any(User.class),
+        stubReviewLookup();
+        doThrow(new ReviewNotFoundException(REVIEW_LONG_ID))
+                .when(reviewService).flag(eq(REVIEW_LONG_ID), any(User.class),
                         any(ReviewFlagRequest.class));
 
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.SPAM, null);
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNotFound())
@@ -286,12 +309,13 @@ class ReviewActionControllerTest {
     @WithMockAuthPrincipal(userId = 1L)
     void flag_returns409_whenDuplicate() throws Exception {
         mockCaller();
+        stubReviewLookup();
         doThrow(new ReviewFlagAlreadyExistsException(1_234L))
-                .when(reviewService).flag(eq(1_234L), any(User.class),
+                .when(reviewService).flag(eq(REVIEW_LONG_ID), any(User.class),
                         any(ReviewFlagRequest.class));
 
         ReviewFlagRequest req = new ReviewFlagRequest(ReviewFlagReason.SPAM, null);
-        mockMvc.perform(post("/api/v1/reviews/1234/flag")
+        mockMvc.perform(post("/api/v1/reviews/" + REVIEW_PUBLIC_ID + "/flag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())

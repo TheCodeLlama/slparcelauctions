@@ -33,6 +33,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true   # safety net for any existing dev DB someone forgets to wipe; first prod deploy starts empty
+    baseline-version: 0         # baseline at 0 so V1 runs on a fresh schema (default is 1, which would skip V1)
   servlet:
     multipart:
       max-file-size: 2MB

@@ -93,7 +93,7 @@ class MeWalletPayListingFeeTest {
         creditUser(sellerId, 1000L);
         Auction draft = seedDraftAuction();
 
-        mockMvc.perform(post("/api/v1/me/auctions/" + draft.getId() + "/pay-listing-fee")
+        mockMvc.perform(post("/api/v1/me/auctions/" + draft.getPublicId() + "/pay-listing-fee")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"idempotencyKey\":\"" + UUID.randomUUID() + "\"}"))
@@ -108,7 +108,7 @@ class MeWalletPayListingFeeTest {
         creditUser(sellerId, 500L);
         Auction draft = seedDraftAuction();
 
-        mockMvc.perform(post("/api/v1/me/auctions/" + draft.getId() + "/pay-listing-fee")
+        mockMvc.perform(post("/api/v1/me/auctions/" + draft.getPublicId() + "/pay-listing-fee")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"idempotencyKey\":\"" + UUID.randomUUID() + "\"}"))
@@ -155,7 +155,6 @@ class MeWalletPayListingFeeTest {
                 .commissionRate(new BigDecimal("0.05"))
                 .agentFeeRate(BigDecimal.ZERO)
                 .build();
-        auctionRepository.save(a);
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(sellerParcelUuid)
                 .ownerUuid(UUID.fromString("44444444-4444-4444-4444-444444444444"))

@@ -207,7 +207,7 @@ class AuctionVerificationServiceMethodCTest {
     void buildPendingVerification_saleToBot_ignoresTasksForOtherAuctions() {
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         Auction otherAuction = build(AuctionStatus.VERIFICATION_PENDING);
-        otherAuction.setId(999L);
+        setEntityId(otherAuction, 999L);
         BotTask foreign = botTask(1L, otherAuction, BotTaskStatus.PENDING,
                 OffsetDateTime.now(fixed));
         when(botTaskRepo.findByStatusOrderByCreatedAtAsc(BotTaskStatus.PENDING))
@@ -268,5 +268,16 @@ class AuctionVerificationServiceMethodCTest {
                 .sentinelPrice(SENTINEL_PRICE)
                 .createdAt(createdAt)
                 .build();
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -71,8 +71,8 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
   const currentBid = auction.currentBid;
   const hasEscrow = auction.escrowState != null;
   const href = hasEscrow
-    ? `/auction/${auction.id}/escrow`
-    : `/auction/${auction.id}`;
+    ? `/auction/${auction.publicId}/escrow`
+    : `/auction/${auction.publicId}`;
   const linkLabel = hasEscrow ? "View escrow" : "View auction";
 
   return (
@@ -83,7 +83,7 @@ export function MyBidSummaryRow({ bid, className }: MyBidSummaryRowProps) {
         BORDER_CLASS_BY_STATUS[myBidStatus],
         className,
       )}
-      data-testid={`my-bid-row-${auction.id}`}
+      data-testid={`my-bid-row-${auction.publicId}`}
     >
       <Link
         href={href}

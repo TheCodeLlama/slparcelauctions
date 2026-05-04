@@ -31,11 +31,10 @@ function row(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id,
-    sellerId: 1,
+    publicId: `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`,
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: `Parcel ${id}`,
     parcel: {
-      id,
       slParcelUuid: `00000000-0000-0000-0000-00000000000${id}`,
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -70,7 +69,7 @@ function row(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: false,
     snipeWindowMin: null,

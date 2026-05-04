@@ -85,21 +85,23 @@ class NotificationCleanupJobTest {
 
         // Seed: 91-day-read (deletable), 89-day-read (stays), 91-day-unread (stays)
         var oldRead = dao.upsert(userId, OUTBID, "old", "b", Map.of(), "k-old");
-        txTemplate.executeWithoutResult(s -> repo.markRead(oldRead.id(), userId));
-        forceUpdatedAt(oldRead.id(), "2026-01-24T00:00:00Z"); // 91 days ago
+        long oldReadId = internalId(oldRead.publicId());
+        txTemplate.executeWithoutResult(s -> repo.markRead(oldReadId, userId));
+        forceUpdatedAt(oldRead.publicId(), "2026-01-24T00:00:00Z"); // 91 days ago
 
         var midRead = dao.upsert(userId, OUTBID, "mid", "b", Map.of(), "k-mid");
-        txTemplate.executeWithoutResult(s -> repo.markRead(midRead.id(), userId));
-        forceUpdatedAt(midRead.id(), "2026-01-26T00:00:00Z"); // 89 days ago
+        long midReadId = internalId(midRead.publicId());
+        txTemplate.executeWithoutResult(s -> repo.markRead(midReadId, userId));
+        forceUpdatedAt(midRead.publicId(), "2026-01-26T00:00:00Z"); // 89 days ago
 
         var oldUnread = dao.upsert(userId, OUTBID, "unread", "b", Map.of(), "k-unread");
-        forceUpdatedAt(oldUnread.id(), "2026-01-24T00:00:00Z"); // 91 days ago, unread
+        forceUpdatedAt(oldUnread.publicId(), "2026-01-24T00:00:00Z"); // 91 days ago, unread
 
         job.run();
 
-        assertThat(repo.findById(oldRead.id())).isEmpty();
-        assertThat(repo.findById(midRead.id())).isPresent();
-        assertThat(repo.findById(oldUnread.id())).isPresent();
+        assertThat(repo.findByPublicId(oldRead.publicId())).isEmpty();
+        assertThat(repo.findByPublicId(midRead.publicId())).isPresent();
+        assertThat(repo.findByPublicId(oldUnread.publicId())).isPresent();
     }
 
     @Test
@@ -113,8 +115,9 @@ class NotificationCleanupJobTest {
         // exercising the do-while loop exits cleanly when deleted < batchSize).
         for (int i = 0; i < 25; i++) {
             var n = dao.upsert(userId, OUTBID, "bulk-" + i, "b", Map.of(), null);
-            txTemplate.executeWithoutResult(s -> repo.markRead(n.id(), userId));
-            forceUpdatedAt(n.id(), "2026-01-24T00:00:00Z"); // 91 days ago
+            long nId = internalId(n.publicId());
+            txTemplate.executeWithoutResult(s -> repo.markRead(nId, userId));
+            forceUpdatedAt(n.publicId(), "2026-01-24T00:00:00Z"); // 91 days ago
         }
 
         job.run();
@@ -139,8 +142,12 @@ class NotificationCleanupJobTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private void forceUpdatedAt(long notificationId, String iso) {
-        jdbc.update("UPDATE notification SET updated_at = ? WHERE id = ?",
-            OffsetDateTime.parse(iso), notificationId);
+    private long internalId(UUID publicId) {
+        return repo.findByPublicId(publicId).orElseThrow().getId();
+    }
+
+    private void forceUpdatedAt(UUID publicId, String iso) {
+        jdbc.update("UPDATE notification SET updated_at = ? WHERE public_id = ?",
+            OffsetDateTime.parse(iso), publicId);
     }
 }

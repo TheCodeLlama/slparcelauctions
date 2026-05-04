@@ -9,10 +9,8 @@ export function fakeEscrow(
   overrides: Partial<EscrowStatusResponse> = {},
 ): EscrowStatusResponse {
   const base: EscrowStatusResponse = {
-    escrowId: 1,
-    auctionId: 7,
-    parcelName: "Obsidian Ridge Estate",
-    region: "Sansara",
+    escrowPublicId: "00000000-0000-0000-0000-000000000001",
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
     state: "ESCROW_PENDING",
     finalBidAmount: 5000,
     commissionAmt: 250,
@@ -28,12 +26,6 @@ export function fakeEscrow(
     disputeReasonCategory: null,
     disputeDescription: null,
     freezeReason: null,
-    counterparty: {
-      userId: 99,
-      displayName: "Kira Swansong",
-      slAvatarName: "Kira Swansong",
-      slAvatarUuid: "a0b1c2d3-0000-4000-8000-000000000001",
-    },
   };
   return { ...base, ...overrides };
 }
@@ -43,8 +35,8 @@ export function fakeEscrowEnvelope<T extends EscrowEnvelopeType>(
   overrides: Partial<EscrowEnvelope> = {},
 ): EscrowEnvelope {
   const baseCommon = {
-    auctionId: 7,
-    escrowId: 1,
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
+    escrowPublicId: "00000000-0000-0000-0000-000000000001",
     serverTime: new Date().toISOString(),
   };
 

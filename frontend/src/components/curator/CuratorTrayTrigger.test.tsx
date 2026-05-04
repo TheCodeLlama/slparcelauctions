@@ -18,7 +18,7 @@ describe("CuratorTrayTrigger", () => {
   it("renders the heart + literal count when authenticated", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [1, 2, 3, 4] }),
+        HttpResponse.json({ publicIds: ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004"] }),
       ),
     );
     renderWithProviders(<CuratorTrayTrigger onOpen={() => {}} />, {
@@ -30,10 +30,12 @@ describe("CuratorTrayTrigger", () => {
   });
 
   it("collapses to 99+ when the count is at or above 100", async () => {
-    const ids = Array.from({ length: 123 }, (_, i) => i + 1);
+    const publicIds = Array.from({ length: 123 }, (_, i) =>
+      `00000000-0000-0000-0000-${String(i + 1).padStart(12, "0")}`,
+    );
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids }),
+        HttpResponse.json({ publicIds }),
       ),
     );
     renderWithProviders(<CuratorTrayTrigger onOpen={() => {}} />, {
@@ -50,7 +52,7 @@ describe("CuratorTrayTrigger", () => {
     const onOpen = vi.fn();
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
     );
     renderWithProviders(<CuratorTrayTrigger onOpen={onOpen} />, {
@@ -66,7 +68,7 @@ describe("CuratorTrayTrigger", () => {
   it("renders in dark mode without visual regression", async () => {
     server.use(
       http.get("*/api/v1/me/saved/ids", () =>
-        HttpResponse.json({ ids: [] }),
+        HttpResponse.json({ publicIds: [] }),
       ),
     );
     renderWithProviders(<CuratorTrayTrigger onOpen={() => {}} />, {

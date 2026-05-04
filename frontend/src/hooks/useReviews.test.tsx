@@ -28,9 +28,10 @@ describe("useAuctionReviews", () => {
       ),
     );
 
-    const { result } = renderHook(() => useAuctionReviews(10), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useAuctionReviews("00000000-0000-0000-0000-00000000000a"),
+      { wrapper: makeWrapper() },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.canReview).toBe(true);
@@ -45,7 +46,7 @@ describe("useAuctionReviews", () => {
       }),
     );
 
-    const { result } = renderHook(() => useAuctionReviews(0), {
+    const { result } = renderHook(() => useAuctionReviews(""), {
       wrapper: makeWrapper(),
     });
 
@@ -72,9 +73,10 @@ describe("useUserReviews", () => {
       }),
     );
 
-    const { result } = renderHook(() => useUserReviews(7, "SELLER", 1), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useUserReviews("00000000-0000-0000-0000-000000000007", "SELLER", 1),
+      { wrapper: makeWrapper() },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(captured!.searchParams.get("role")).toBe("SELLER");
@@ -107,14 +109,14 @@ describe("useSubmitReview", () => {
       http.post("*/api/v1/auctions/:id/reviews", () =>
         HttpResponse.json(
           {
-            id: 1,
-            auctionId: 10,
+            publicId: "00000000-0000-0000-0000-000000000001",
+            auctionPublicId: "00000000-0000-0000-0000-00000000000a",
             auctionTitle: "t",
             auctionPrimaryPhotoUrl: null,
-            reviewerId: 42,
+            reviewerPublicId: "00000000-0000-0000-0000-00000000002a",
             reviewerDisplayName: "A",
             reviewerAvatarUrl: null,
-            revieweeId: 7,
+            revieweePublicId: "00000000-0000-0000-0000-000000000007",
             reviewedRole: "SELLER",
             rating: 5,
             text: "ok",
@@ -130,7 +132,10 @@ describe("useSubmitReview", () => {
     );
 
     const wrapper = makeWrapper();
-    const { result } = renderHook(() => useSubmitReview(10), { wrapper });
+    const { result } = renderHook(
+      () => useSubmitReview("00000000-0000-0000-0000-00000000000a"),
+      { wrapper },
+    );
 
     await act(async () => {
       await result.current.mutateAsync({ rating: 5, text: "ok" });
@@ -146,9 +151,10 @@ describe("useSubmitReview", () => {
       ),
     );
 
-    const { result } = renderHook(() => useSubmitReview(10), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useSubmitReview("00000000-0000-0000-0000-00000000000a"),
+      { wrapper: makeWrapper() },
+    );
 
     await act(async () => {
       await result.current
@@ -167,15 +173,20 @@ describe("useRespondToReview", () => {
     server.use(
       http.post("*/api/v1/reviews/:id/respond", () =>
         HttpResponse.json(
-          { id: 99, text: "Thanks!", createdAt: "2026-04-22T00:00:00Z" },
+          {
+            publicId: "00000000-0000-0000-0000-000000000063",
+            text: "Thanks!",
+            createdAt: "2026-04-22T00:00:00Z",
+          },
           { status: 201 },
         ),
       ),
     );
 
-    const { result } = renderHook(() => useRespondToReview(5), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRespondToReview("00000000-0000-0000-0000-000000000005"),
+      { wrapper: makeWrapper() },
+    );
 
     let response;
     await act(async () => {
@@ -183,7 +194,7 @@ describe("useRespondToReview", () => {
     });
 
     expect(response).toEqual({
-      id: 99,
+      publicId: "00000000-0000-0000-0000-000000000063",
       text: "Thanks!",
       createdAt: "2026-04-22T00:00:00Z",
     });
@@ -196,9 +207,10 @@ describe("useRespondToReview", () => {
       ),
     );
 
-    const { result } = renderHook(() => useRespondToReview(5), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useRespondToReview("00000000-0000-0000-0000-000000000005"),
+      { wrapper: makeWrapper() },
+    );
 
     await act(async () => {
       await result.current
@@ -220,9 +232,10 @@ describe("useFlagReview", () => {
       ),
     );
 
-    const { result } = renderHook(() => useFlagReview(5), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useFlagReview("00000000-0000-0000-0000-000000000005"),
+      { wrapper: makeWrapper() },
+    );
 
     await act(async () => {
       await result.current.mutateAsync({ reason: "SPAM" });
@@ -238,9 +251,10 @@ describe("useFlagReview", () => {
       ),
     );
 
-    const { result } = renderHook(() => useFlagReview(5), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useFlagReview("00000000-0000-0000-0000-000000000005"),
+      { wrapper: makeWrapper() },
+    );
 
     await act(async () => {
       await result.current

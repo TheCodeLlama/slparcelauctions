@@ -20,11 +20,10 @@ function auctionFixture(
   overrides: Partial<PublicAuctionResponse> = {},
 ): PublicAuctionResponse {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -101,7 +100,7 @@ describe("PlaceBidForm", () => {
   it("posts a valid bid and clears the input on success", async () => {
     let received: { amount: number } | null = null;
     server.use(
-      http.post("*/api/v1/auctions/7/bids", async ({ request }) => {
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/bids", async ({ request }) => {
         received = (await request.json()) as { amount: number };
         return HttpResponse.json({
           bidId: 100,
@@ -137,7 +136,7 @@ describe("PlaceBidForm", () => {
 
   it("surfaces BID_TOO_LOW inline and auto-fills the input with server min", async () => {
     server.use(
-      http.post("*/api/v1/auctions/7/bids", () =>
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/bids", () =>
         HttpResponse.json(
           {
             status: 400,
@@ -167,7 +166,7 @@ describe("PlaceBidForm", () => {
 
   it("inline error clears when user edits the input", async () => {
     server.use(
-      http.post("*/api/v1/auctions/7/bids", () =>
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/bids", () =>
         HttpResponse.json(
           {
             status: 400,
@@ -256,7 +255,7 @@ describe("PlaceBidForm", () => {
 
     let calls = 0;
     server.use(
-      http.post("*/api/v1/auctions/7/bids", async () => {
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/bids", async () => {
         calls += 1;
         return HttpResponse.json({
           bidId: 100,

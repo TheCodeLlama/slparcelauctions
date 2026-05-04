@@ -23,11 +23,10 @@ function auctionFixture(
   overrides: Partial<PublicAuctionResponse> = {},
 ): PublicAuctionResponse {
   return {
-    id: 7,
-    sellerId: 100,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-000000000064",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -77,8 +76,8 @@ function proxy(
   overrides: Partial<ProxyBidResponse> = {},
 ): ProxyBidResponse {
   return {
-    proxyBidId: 1,
-    auctionId: 7,
+    proxyBidPublicId: "00000000-0000-0000-0000-000000000001",
+    auctionPublicId: "00000000-0000-0000-0000-000000000007",
     maxAmount: 3000,
     status: "ACTIVE",
     createdAt: "2026-04-20T00:00:00Z",
@@ -188,7 +187,7 @@ describe("ProxyBidSection", () => {
   it("posts createProxy on successful submit and clears the input", async () => {
     let received: { maxAmount: number } | null = null;
     server.use(
-      http.post("*/api/v1/auctions/7/proxy-bid", async ({ request }) => {
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/proxy-bid", async ({ request }) => {
         received = (await request.json()) as { maxAmount: number };
         return HttpResponse.json({
           proxyBidId: 1,
@@ -225,7 +224,7 @@ describe("ProxyBidSection", () => {
 
   it("surfaces INVALID_PROXY_MAX with the server-provided reason inline", async () => {
     server.use(
-      http.post("*/api/v1/auctions/7/proxy-bid", () =>
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/proxy-bid", () =>
         HttpResponse.json(
           {
             status: 400,
@@ -258,7 +257,7 @@ describe("ProxyBidSection", () => {
 
   it("inline error clears when user edits the input", async () => {
     server.use(
-      http.post("*/api/v1/auctions/7/proxy-bid", () =>
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/proxy-bid", () =>
         HttpResponse.json(
           {
             status: 400,

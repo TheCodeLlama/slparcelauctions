@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.mybids;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
@@ -21,7 +22,7 @@ import com.slparcelauctions.backend.escrow.EscrowState;
  * dashboard uses them to render the {@code EscrowChip} primitive on each row.
  */
 public record AuctionSummaryForMyBids(
-        Long id,
+        UUID publicId,
         AuctionStatus status,
         AuctionEndOutcome endOutcome,
         String parcelName,
@@ -32,7 +33,7 @@ public record AuctionSummaryForMyBids(
         OffsetDateTime endedAt,
         Long currentBid,
         Long bidderCount,
-        Long sellerUserId,
+        UUID sellerPublicId,
         String sellerDisplayName,
         EscrowState escrowState,
         OffsetDateTime transferConfirmedAt) {
@@ -61,7 +62,7 @@ public record AuctionSummaryForMyBids(
     public static AuctionSummaryForMyBids from(Auction a, Escrow escrow) {
         Integer bidCount = a.getBidCount();
         return new AuctionSummaryForMyBids(
-                a.getId(),
+                a.getPublicId(),
                 a.getStatus(),
                 a.getEndOutcome(),
                 a.getParcelSnapshot() == null ? null : a.getParcelSnapshot().getParcelName(),
@@ -72,7 +73,7 @@ public record AuctionSummaryForMyBids(
                 a.getEndedAt(),
                 a.getCurrentBid(),
                 bidCount == null ? 0L : bidCount.longValue(),
-                a.getSeller() == null ? null : a.getSeller().getId(),
+                a.getSeller() == null ? null : a.getSeller().getPublicId(),
                 a.getSeller() == null ? null : a.getSeller().getDisplayName(),
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt());

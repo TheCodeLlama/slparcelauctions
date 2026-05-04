@@ -166,7 +166,6 @@ public class ProxyBidService {
                             "Max must exceed current winning bid");
                 }
                 proxy.setMaxAmount(newMax);
-                proxy.setUpdatedAt(OffsetDateTime.now(clock));
                 proxyBidRepo.save(proxy);
                 log.info("Proxy max raised (winning silent): proxyId={}, newMax={}",
                         proxy.getId(), newMax);
@@ -195,7 +194,6 @@ public class ProxyBidService {
             }
             proxy.setStatus(ProxyBidStatus.ACTIVE);
             proxy.setMaxAmount(newMax);
-            proxy.setUpdatedAt(OffsetDateTime.now(clock));
             proxyBidRepo.save(proxy);
             emitted = resolveProxyResolution(auction, proxy);
         }
@@ -240,7 +238,6 @@ public class ProxyBidService {
         }
 
         proxy.setStatus(ProxyBidStatus.CANCELLED);
-        proxy.setUpdatedAt(OffsetDateTime.now(clock));
         proxyBidRepo.save(proxy);
         log.info("Proxy cancelled: proxyId={}, auctionId={}, bidderId={}",
                 proxy.getId(), auctionId, bidderId);
@@ -304,7 +301,6 @@ public class ProxyBidService {
                     existing.getMaxAmount() + BidIncrementTable.minIncrement(existing.getMaxAmount()),
                     proxy.getMaxAmount());
             existing.setStatus(ProxyBidStatus.EXHAUSTED);
-            existing.setUpdatedAt(OffsetDateTime.now(clock));
             proxyBidRepo.save(existing);
             emitted.add(insertProxyAuto(auction, proxy.getBidder(), settleAmount, proxy.getId()));
         } else if (proxy.getMaxAmount() < existing.getMaxAmount()) {
@@ -315,7 +311,6 @@ public class ProxyBidService {
                     proxy.getMaxAmount() + BidIncrementTable.minIncrement(proxy.getMaxAmount()),
                     existing.getMaxAmount());
             proxy.setStatus(ProxyBidStatus.EXHAUSTED);
-            proxy.setUpdatedAt(OffsetDateTime.now(clock));
             proxyBidRepo.save(proxy);
             emitted.add(insertProxyAuto(auction, proxy.getBidder(), proxy.getMaxAmount(), proxy.getId()));
             emitted.add(insertProxyAuto(auction, existing.getBidder(), settleAmount, existing.getId()));
@@ -328,7 +323,6 @@ public class ProxyBidService {
                 // Existing is earlier — existing wins. New proxy gets a flush
                 // row at its own max, existing keeps ACTIVE at its max.
                 proxy.setStatus(ProxyBidStatus.EXHAUSTED);
-                proxy.setUpdatedAt(OffsetDateTime.now(clock));
                 proxyBidRepo.save(proxy);
                 emitted.add(insertProxyAuto(auction, proxy.getBidder(), proxy.getMaxAmount(), proxy.getId()));
                 emitted.add(insertProxyAuto(auction, existing.getBidder(), existing.getMaxAmount(), existing.getId()));
@@ -337,7 +331,6 @@ public class ProxyBidService {
                 // pre-existing EXHAUSTED row whose createdAt predates the
                 // existing ACTIVE row). Proxy wins; existing flips to EXHAUSTED.
                 existing.setStatus(ProxyBidStatus.EXHAUSTED);
-                existing.setUpdatedAt(OffsetDateTime.now(clock));
                 proxyBidRepo.save(existing);
                 emitted.add(insertProxyAuto(auction, proxy.getBidder(), proxy.getMaxAmount(), proxy.getId()));
             }

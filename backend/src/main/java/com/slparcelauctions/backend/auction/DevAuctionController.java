@@ -57,10 +57,10 @@ public class DevAuctionController {
     @Value("${slpa.listing-fee.amount-lindens:100}")
     private Long defaultListingFee;
 
-    @PostMapping("/{id}/pay")
+    @PostMapping("/{publicId}/pay")
     @Transactional
     public SellerAuctionResponse pay(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @Valid @RequestBody(required = false) DevPayRequest body,
             @AuthenticationPrincipal AuthPrincipal principal) {
         if (principal == null) {
@@ -72,6 +72,9 @@ public class DevAuctionController {
                     "Authentication required to simulate listing-fee payment.");
         }
         Long userId = principal.userId();
+        Long id = auctionRepo.findByPublicId(publicId)
+                .map(Auction::getId)
+                .orElseThrow(() -> new com.slparcelauctions.backend.auction.exception.AuctionNotFoundException(publicId));
         Auction a = auctionService.loadForSeller(id, userId);
         if (a.getStatus() != AuctionStatus.DRAFT) {
             throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "DEV_PAY");

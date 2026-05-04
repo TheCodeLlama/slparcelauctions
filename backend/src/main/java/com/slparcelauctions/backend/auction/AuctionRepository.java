@@ -21,6 +21,8 @@ import com.slparcelauctions.backend.user.User;
 
 public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpecificationExecutor<Auction> {
 
+    Optional<Auction> findByPublicId(UUID publicId);
+
     /**
      * Eagerly fetches {@code parcel} + {@code tags} so {@code AuctionDtoMapper}
      * calls downstream of a {@code @Transactional} boundary do not trip
@@ -69,6 +71,14 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     Optional<Auction> findById(Long id);
 
     /**
+     * UUID-keyed seller-scoped load. Used by the public controller path
+     * {@code PUT /api/v1/auctions/{publicId}} so sellers can update via
+     * their auction's public UUID without a separate Long→entity resolution step.
+     */
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "tags"})
+    Optional<Auction> findByPublicIdAndSellerId(UUID publicId, Long sellerId);
+
+    /**
      * Single-row hydration for {@code GET /api/v1/auctions/{id}}. Fetches
      * {@code parcel}, {@code seller}, {@code photos}, and {@code tags} in one
      * LEFT JOIN so the listing-detail mapper builds the seller card + photo
@@ -81,6 +91,14 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "seller", "photos", "tags"})
     @Query("SELECT a FROM Auction a WHERE a.id = :id")
     Optional<Auction> findByIdForDetail(@Param("id") Long id);
+
+    /**
+     * UUID-keyed variant of {@link #findByIdForDetail} for the public controller
+     * path {@code GET /api/v1/auctions/{publicId}}.
+     */
+    @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "seller", "photos", "tags"})
+    @Query("SELECT a FROM Auction a WHERE a.publicId = :publicId")
+    Optional<Auction> findByPublicIdForDetail(@Param("publicId") UUID publicId);
 
     /**
      * Returns the IDs of auctions due for an ownership check. Two paths share

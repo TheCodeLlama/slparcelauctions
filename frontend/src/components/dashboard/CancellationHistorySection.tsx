@@ -25,13 +25,13 @@ function formatCancelledAt(iso: string): string {
 function CancellationHistoryRow({ row }: { row: CancellationHistoryDto }) {
   const [expanded, setExpanded] = useState(false);
   const hasReason = row.reason != null && row.reason.trim().length > 0;
-  const reasonId = `cancellation-reason-${row.auctionId}`;
+  const reasonId = `cancellation-reason-${row.auctionPublicId}`;
 
   return (
     <li
       className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4 ring-1 ring-border-subtle"
       data-testid="cancellation-history-row"
-      data-auction-id={row.auctionId}
+      data-auction-id={row.auctionPublicId}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-lg bg-bg-muted sm:w-28">
@@ -147,7 +147,7 @@ export function CancellationHistorySection({
       <Card.Body>
         <ul className="flex flex-col gap-3">
           {data.content.map((row) => (
-            <CancellationHistoryRow key={row.auctionId} row={row} />
+            <CancellationHistoryRow key={row.auctionPublicId} row={row} />
           ))}
         </ul>
       </Card.Body>

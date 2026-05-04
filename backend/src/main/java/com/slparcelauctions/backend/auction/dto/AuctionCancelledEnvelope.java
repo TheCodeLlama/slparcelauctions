@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.Auction;
 
@@ -19,14 +20,14 @@ import com.slparcelauctions.backend.auction.Auction;
  */
 public record AuctionCancelledEnvelope(
         String type,
-        Long auctionId,
+        UUID auctionPublicId,
         OffsetDateTime cancelledAt,
         Boolean hadBids) {
 
     public static AuctionCancelledEnvelope of(Auction auction, boolean hadBids, OffsetDateTime cancelledAt) {
         return new AuctionCancelledEnvelope(
                 "AUCTION_CANCELLED",
-                auction.getId(),
+                auction.getPublicId(),
                 cancelledAt,
                 hadBids);
     }

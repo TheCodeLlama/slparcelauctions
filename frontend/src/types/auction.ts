@@ -1,9 +1,9 @@
 // Mirrors backend SellerAuctionResponse (com.slparcelauctions.backend.
 // auction.dto.SellerAuctionResponse) and its sibling request DTOs.
 // Key quirks vs. the plan skeleton:
-//   - Numeric IDs, Long money fields (not BigDecimal-as-string), except
-//     currentHighBid which is BigDecimal (serialized as number or string).
-//   - sellerId is a Long — the backend DTO does not embed a
+//   - publicId: string (UUID), Long money fields (not BigDecimal-as-string),
+//     except currentHighBid which is BigDecimal (serialized as number or string).
+//   - sellerPublicId is a UUID string — the backend DTO does not embed a
 //     UserPublicProfile, so the frontend fetches it separately when needed.
 //   - photos[].url (not bytesUrl) + contentType + sizeBytes + uploadedAt.
 //   - bidCount: Integer, bidderCount: Long (both are `number` in TS).
@@ -50,7 +50,7 @@ export interface PendingVerification {
 }
 
 export interface AuctionPhotoDto {
-  id: number;
+  publicId: string;
   url: string;
   contentType: string;
   sizeBytes: number;
@@ -64,13 +64,12 @@ export interface AuctionPhotoDto {
  * sub-spec 1 Task 2 extended the DTO). {@code averageRating} and
  * {@code completionRate} are {@code null} for sellers without enough data
  * points; consumers render "New Seller" / "Too new to calculate" copy in
- * that case. {@code avatarUrl} points at
- * {@code /api/v1/users/{id}/avatar/256} which already serves cached +
- * placeholder avatars, so the UI never needs to fall back to initials for
- * a valid server response.
+ * that case. {@code avatarUrl} points at the user avatar endpoint which
+ * already serves cached + placeholder avatars, so the UI never needs to
+ * fall back to initials for a valid server response.
  */
 export interface AuctionSellerSummaryDto {
-  id: number;
+  publicId: string;
   displayName: string;
   avatarUrl: string | null;
   averageRating: number | string | null;
@@ -81,8 +80,8 @@ export interface AuctionSellerSummaryDto {
 }
 
 export interface SellerAuctionResponse {
-  id: number;
-  sellerId: number;
+  publicId: string;
+  sellerPublicId: string;
   /**
    * Seller-authored display title for the listing. Required by the backend
    * (Epic 07 sub-spec 1 Task 2 added {@code title NOT NULL} to the auction
@@ -107,7 +106,7 @@ export interface SellerAuctionResponse {
   // JSON number by default, but tolerate string too for safety.
   currentHighBid: number | string | null;
   bidderCount: number;
-  winnerId: number | null;
+  winnerPublicId: string | null;
   durationHours: number;
   snipeProtect: boolean;
   snipeWindowMin: number | null;
@@ -183,15 +182,16 @@ export interface AuctionCancelRequest {
 export type PublicAuctionStatus = "ACTIVE" | "ENDED";
 
 /**
- * Public auction view returned by GET /api/v1/auctions/{id} to non-sellers and
- * by the user-scoped active-listings endpoint. Deliberately excludes winnerId,
- * reservePrice (exposes only hasReserve + reserveMet), listing-fee + commission
- * fields, verification notes, pendingVerification, and seller-only verification
- * metadata — mirrors {@code PublicAuctionResponse} server-side.
+ * Public auction view returned by GET /api/v1/auctions/{publicId} to non-sellers
+ * and by the user-scoped active-listings endpoint. Deliberately excludes
+ * winnerPublicId, reservePrice (exposes only hasReserve + reserveMet),
+ * listing-fee + commission fields, verification notes, pendingVerification,
+ * and seller-only verification metadata — mirrors
+ * {@code PublicAuctionResponse} server-side.
  */
 export interface PublicAuctionResponse {
-  id: number;
-  sellerId: number;
+  publicId: string;
+  sellerPublicId: string;
   /**
    * Seller-authored display title. See {@link SellerAuctionResponse#title} —
    * the public DTO mirrors the same field so browse cards and the public
@@ -223,7 +223,7 @@ export interface PublicAuctionResponse {
   /**
    * Enriched seller block added by Epic 07 sub-spec 1 Task 2. Optional for
    * forward/back compatibility — older server builds or fixtures without
-   * this field keep {@code sellerId} as the sole seller signal and the
+   * this field keep {@code sellerPublicId} as the sole seller signal and the
    * detail-page card falls back accordingly.
    */
   seller?: AuctionSellerSummaryDto | null;
@@ -274,8 +274,8 @@ export type MyBidStatus =
  * on the bid row that triggered a snipe-protection extension (null otherwise).
  */
 export interface BidHistoryEntry {
-  bidId: number;
-  userId: number;
+  bidPublicId: string;
+  userPublicId: string;
   bidderDisplayName: string;
   amount: number;
   bidType: BidType;
@@ -293,10 +293,10 @@ export interface BidHistoryEntry {
  */
 export interface BidSettlementEnvelope {
   type: "BID_SETTLEMENT";
-  auctionId: number;
+  auctionPublicId: string;
   serverTime: string;
   currentBid: number;
-  currentBidderId: number;
+  currentBidderPublicId: string;
   currentBidderDisplayName: string;
   bidCount: number;
   endsAt: string;
@@ -311,12 +311,12 @@ export interface BidSettlementEnvelope {
  */
 export interface AuctionEndedEnvelope {
   type: "AUCTION_ENDED";
-  auctionId: number;
+  auctionPublicId: string;
   serverTime: string;
   endsAt: string;
   endOutcome: AuctionEndOutcome;
   finalBid: number | null;
-  winnerUserId: number | null;
+  winnerPublicId: string | null;
   winnerDisplayName: string | null;
   bidCount: number;
 }
@@ -340,10 +340,10 @@ export type AuctionEnvelope = BidSettlementEnvelope | AuctionEndedEnvelope;
  */
 export interface ReviewRevealedEnvelope {
   type: "REVIEW_REVEALED";
-  auctionId: number;
-  reviewId: number;
-  reviewerId: number;
-  revieweeId: number;
+  auctionPublicId: string;
+  reviewPublicId: string;
+  reviewerPublicId: string;
+  revieweePublicId: string;
   reviewedRole: "SELLER" | "BUYER";
   revealedAt: string;
 }
@@ -359,7 +359,7 @@ export interface ReviewRevealedEnvelope {
  */
 export interface AuctionCancelledEnvelope {
   type: "AUCTION_CANCELLED";
-  auctionId: number;
+  auctionPublicId: string;
   cancelledAt: string;
   hadBids: boolean;
 }
@@ -390,8 +390,8 @@ export type AuctionTopicEnvelope =
  * amount crossed the buy-it-now threshold and the auction closed inline.
  */
 export interface BidResponse {
-  bidId: number;
-  auctionId: number;
+  bidPublicId: string;
+  auctionPublicId: string;
   amount: number;
   bidType: BidType;
   bidCount: number;
@@ -409,8 +409,8 @@ export interface BidResponse {
  * WS envelope covers currentBid/endsAt changes triggered by the proxy call.
  */
 export interface ProxyBidResponse {
-  proxyBidId: number;
-  auctionId: number;
+  proxyBidPublicId: string;
+  auctionPublicId: string;
   maxAmount: number;
   status: "ACTIVE" | "EXHAUSTED" | "CANCELLED";
   createdAt: string;
@@ -426,7 +426,7 @@ export interface ProxyBidResponse {
  * auction.bidCount.longValue() per backend comments.
  */
 export interface AuctionSummaryForMyBids {
-  id: number;
+  publicId: string;
   status: AuctionStatus;
   endOutcome: AuctionEndOutcome | null;
   parcelName: string | null;
@@ -437,7 +437,7 @@ export interface AuctionSummaryForMyBids {
   endedAt: string | null;
   currentBid: number | null;
   bidderCount: number;
-  sellerUserId: number | null;
+  sellerPublicId: string | null;
   sellerDisplayName: string | null;
   // Sub-spec 2: escrow enrichment. Populated once the auction reaches ENDED
   // and an escrow row exists; null otherwise.

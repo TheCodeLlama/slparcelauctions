@@ -9,7 +9,7 @@ import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 
 public record UserResponse(
-        Long id,
+        UUID publicId,
         String email,
         String displayName,
         String bio,
@@ -46,7 +46,7 @@ public record UserResponse(
 
     public static UserResponse from(User user, long unreadNotificationCount) {
         return new UserResponse(
-                user.getId(),
+                user.getPublicId(),
                 user.getEmail(),
                 user.getDisplayName(),
                 user.getBio(),

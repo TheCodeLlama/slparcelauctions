@@ -74,14 +74,9 @@ class ReviewServiceSubmitTest {
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
 
-        seller = User.builder().email("seller@example.com").passwordHash("x").build();
-        seller.setId(10L);
-        seller.setDisplayName("Sally");
-        winner = User.builder().email("winner@example.com").passwordHash("x").build();
-        winner.setId(20L);
-        winner.setDisplayName("Willy");
-        stranger = User.builder().email("stranger@example.com").passwordHash("x").build();
-        stranger.setId(99L);
+        seller = User.builder().id(10L).email("seller@example.com").passwordHash("x").displayName("Sally").build();
+        winner = User.builder().id(20L).email("winner@example.com").passwordHash("x").displayName("Willy").build();
+        stranger = User.builder().id(99L).email("stranger@example.com").passwordHash("x").build();
 
         auction = Auction.builder()
                 .title("Lakefront")
@@ -90,7 +85,7 @@ class ReviewServiceSubmitTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         // Escrow: COMPLETED 1 day ago — well within the 14-day window.
         escrow = Escrow.builder()
@@ -205,7 +200,7 @@ class ReviewServiceSubmitTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review r = inv.getArgument(0);
-            r.setId(1_001L);
+            setEntityId(r, 1_001L);
             r.setSubmittedAt(NOW);
             return r;
         });
@@ -243,7 +238,7 @@ class ReviewServiceSubmitTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review r = inv.getArgument(0);
-            r.setId(1_002L);
+            setEntityId(r, 1_002L);
             r.setSubmittedAt(NOW);
             return r;
         });
@@ -263,7 +258,7 @@ class ReviewServiceSubmitTest {
         assertThat(saved.getVisible()).isFalse();
 
         assertThat(dto.reviewedRole()).isEqualTo(ReviewedRole.BUYER);
-        assertThat(dto.revieweeId()).isEqualTo(winner.getId());
+        assertThat(dto.revieweePublicId()).isEqualTo(winner.getPublicId());
         assertThat(dto.pending()).isTrue();
     }
 
@@ -279,7 +274,7 @@ class ReviewServiceSubmitTest {
                 .thenReturn(Optional.empty());
         when(reviewRepo.save(any(Review.class))).thenAnswer(inv -> {
             Review r = inv.getArgument(0);
-            r.setId(1_003L);
+            setEntityId(r, 1_003L);
             r.setSubmittedAt(NOW);
             return r;
         });
@@ -287,6 +282,15 @@ class ReviewServiceSubmitTest {
 
         ReviewDto dto = service.submit(555L, winner, new ReviewSubmitRequest(5, null));
 
-        assertThat(dto.id()).isEqualTo(1_003L);
+        assertThat(dto.publicId()).isNotNull();
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

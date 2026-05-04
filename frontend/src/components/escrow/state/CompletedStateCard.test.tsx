@@ -35,21 +35,18 @@ describe("CompletedStateCard", () => {
   });
 
   describe("winner view", () => {
-    it("renders parcel-transferred copy with parcelName + region", () => {
+    it("renders parcel-transferred copy with completion timestamp", () => {
       renderWithProviders(
         <CompletedStateCard
           escrow={fakeEscrow({
             state: "COMPLETED",
-            parcelName: "Obsidian Ridge Estate",
-            region: "Sansara",
             completedAt: "2026-05-02T10:00:05Z",
           })}
           role="winner"
         />,
       );
       expect(screen.getByText(/parcel transferred/i)).toBeInTheDocument();
-      expect(screen.getByText(/obsidian ridge estate/i)).toBeInTheDocument();
-      expect(screen.getByText(/sansara/i)).toBeInTheDocument();
+      expect(screen.getByText(/has been transferred to you/i)).toBeInTheDocument();
     });
 
     it("does not render seller payout copy", () => {

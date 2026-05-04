@@ -124,6 +124,8 @@ class EscrowTimeoutIntegrationTest {
     private Long seededEscrowId;
     private Long seededSellerId;
     private Long seededBidderId;
+    private java.util.UUID seededAuctionPublicId;
+    private java.util.UUID seededEscrowPublicId;
 
     @BeforeEach
     void resetCapture() {
@@ -190,8 +192,8 @@ class EscrowTimeoutIntegrationTest {
         assertThat(capturingEscrowPublisher.expired).hasSize(1);
         EscrowExpiredEnvelope env = capturingEscrowPublisher.expired.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_EXPIRED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.EXPIRED);
         assertThat(env.reason()).isEqualTo("PAYMENT_TIMEOUT");
 
@@ -352,6 +354,8 @@ class EscrowTimeoutIntegrationTest {
             seededBidderId = bidder.getId();
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
         });
     }
 
@@ -416,6 +420,8 @@ class EscrowTimeoutIntegrationTest {
             seededBidderId = bidder.getId();
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
         });
     }
 

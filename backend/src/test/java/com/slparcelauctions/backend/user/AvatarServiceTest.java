@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,8 +43,9 @@ class AvatarServiceTest {
 
     @Test
     void upload_happyPath_putsThreeObjectsAndUpdatesUser() {
+        UUID userPublicId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         User user = User.builder()
-                .id(1L).email("a@b.c").passwordHash("x").verified(false).build();
+                .id(1L).publicId(userPublicId).email("a@b.c").passwordHash("x").verified(false).build();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "avatar.png", "image/png", new byte[]{1, 2, 3});
         Map<Integer, byte[]> resized = Map.of(
@@ -58,8 +60,9 @@ class AvatarServiceTest {
         verify(storage).put(eq("avatars/1/64.png"), any(byte[].class), eq("image/png"));
         verify(storage).put(eq("avatars/1/128.png"), any(byte[].class), eq("image/png"));
         verify(storage).put(eq("avatars/1/256.png"), any(byte[].class), eq("image/png"));
-        assertThat(user.getProfilePicUrl()).isEqualTo("/api/v1/users/1/avatar/256");
-        assertThat(resp.profilePicUrl()).isEqualTo("/api/v1/users/1/avatar/256");
+        String expectedUrl = "/api/v1/users/" + userPublicId + "/avatar/256";
+        assertThat(user.getProfilePicUrl()).isEqualTo(expectedUrl);
+        assertThat(resp.profilePicUrl()).isEqualTo(expectedUrl);
     }
 
     @Test

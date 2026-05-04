@@ -280,12 +280,12 @@ export const adminApi = {
 };
 
 export const userReportsApi = {
-  submit(auctionId: number, body: ReportRequest): Promise<MyReportResponse> {
-    return api.post(`/api/v1/auctions/${auctionId}/report`, body);
+  submit(auctionPublicId: string, body: ReportRequest): Promise<MyReportResponse> {
+    return api.post(`/api/v1/auctions/${auctionPublicId}/report`, body);
   },
-  async myReport(auctionId: number): Promise<MyReportResponse | null> {
+  async myReport(auctionPublicId: string): Promise<MyReportResponse | null> {
     const result = await api.get<MyReportResponse | undefined>(
-      `/api/v1/auctions/${auctionId}/my-report`
+      `/api/v1/auctions/${auctionPublicId}/my-report`
     );
     return result ?? null;
   },

@@ -79,7 +79,7 @@ class AuthServiceTest {
         UserResponse userResponse = UserResponse.from(user);
 
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(userResponse);
-        when(userRepository.findById(42L)).thenReturn(Optional.of(user));
+        when(userRepository.findByPublicId(any())).thenReturn(Optional.of(user));
         when(jwtService.issueAccessToken(any(AuthPrincipal.class))).thenReturn("access-token");
         when(refreshTokenService.issueForUser(eq(42L), anyString(), anyString()))
                 .thenReturn(new RefreshTokenService.IssuedRefreshToken(
@@ -91,10 +91,10 @@ class AuthServiceTest {
 
         assertThat(result.accessToken()).isEqualTo("access-token");
         assertThat(result.refreshToken()).isEqualTo("raw-refresh-token");
-        assertThat(result.user().id()).isEqualTo(42L);
+        assertThat(result.user().publicId()).isNotNull();
 
         verify(userService).createUser(any(CreateUserRequest.class));
-        verify(userRepository).findById(42L);
+        verify(userRepository).findByPublicId(any());
         verify(jwtService).issueAccessToken(any(AuthPrincipal.class));
         verify(refreshTokenService).issueForUser(eq(42L), anyString(), anyString());
     }
@@ -120,7 +120,7 @@ class AuthServiceTest {
 
         assertThat(result.accessToken()).isEqualTo("access-token");
         assertThat(result.refreshToken()).isEqualTo("raw-refresh-token");
-        assertThat(result.user().id()).isEqualTo(7L);
+        assertThat(result.user().publicId()).isNotNull();
 
         verify(userRepository).findByEmail("bob@example.com");
         verify(passwordEncoder).matches("secret123!", user.getPasswordHash());

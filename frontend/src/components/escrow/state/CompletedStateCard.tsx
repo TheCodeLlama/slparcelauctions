@@ -33,13 +33,7 @@ export function CompletedStateCard({ escrow, role }: StateCardProps) {
         <>
           <h2 className="text-sm font-semibold tracking-tight text-fg">Parcel transferred</h2>
           <p className="text-sm text-fg-muted">
-            You&apos;re the owner of{" "}
-            <span className="font-medium text-fg">
-              {escrow.parcelName}
-            </span>{" "}
-            in{" "}
-            <span className="font-medium text-fg">{escrow.region}</span>
-            .
+            The parcel has been transferred to you.
             {escrow.completedAt
               ? ` Completed ${formatTimestamp(escrow.completedAt)}.`
               : ""}

@@ -64,7 +64,7 @@ export function deriveReviewPanelState(
 }
 
 export interface ReviewPanelProps {
-  auctionId: number;
+  auctionPublicId: string;
   /**
    * When {@code true}, the viewer is the seller or the winner on this
    * auction — the escrow-page client enforces this upstream via the
@@ -88,11 +88,11 @@ export interface ReviewPanelProps {
  * hash-scroll lands on the panel.
  */
 export function ReviewPanel({
-  auctionId,
+  auctionPublicId,
   isParty,
   className,
 }: ReviewPanelProps) {
-  const { data: envelope, isLoading } = useAuctionReviews(auctionId);
+  const { data: envelope, isLoading } = useAuctionReviews(auctionPublicId);
   const session = useAuth();
   const isPartyAuthed = isParty && session.status === "authenticated";
 
@@ -140,7 +140,7 @@ export function ReviewPanel({
       )}
 
       {state === "submit" && envelope && (
-        <SubmitState auctionId={auctionId} envelope={envelope} />
+        <SubmitState auctionPublicId={auctionPublicId} envelope={envelope} />
       )}
 
       {state === "pending" && envelope?.myPendingReview && (
@@ -153,8 +153,8 @@ export function ReviewPanel({
       {(state === "revealed-both" || state === "revealed-one") && envelope && (
         <RevealedState
           envelope={envelope}
-          viewerId={
-            session.status === "authenticated" ? session.user.id : null
+          viewerPublicId={
+            session.status === "authenticated" ? session.user.publicId : null
           }
         />
       )}
@@ -187,13 +187,13 @@ export function ReviewPanel({
 // --------------------------------------------------------------------------
 
 function SubmitState({
-  auctionId,
+  auctionPublicId,
   envelope,
 }: {
-  auctionId: number;
+  auctionPublicId: string;
   envelope: AuctionReviewsResponse;
 }) {
-  const mutation = useSubmitReview(auctionId);
+  const mutation = useSubmitReview(auctionPublicId);
   const [rating, setRating] = useState<number | null>(null);
   const [text, setText] = useState("");
 
@@ -347,20 +347,20 @@ function PendingState({
 
 function RevealedState({
   envelope,
-  viewerId,
+  viewerPublicId,
 }: {
   envelope: AuctionReviewsResponse;
-  viewerId: number | null;
+  viewerPublicId: string | null;
 }) {
   const reviews = envelope.reviews;
   // Spec §8.1 notes: on revealed-one, if the viewer never submitted a
   // review, show a subtle "your review window closed" note. Detect that
   // by the absence of a row authored by the viewer in {@code reviews}.
   const viewerAuthored =
-    viewerId !== null &&
-    reviews.some((r) => r.reviewerId === viewerId);
+    viewerPublicId !== null &&
+    reviews.some((r) => r.reviewerPublicId === viewerPublicId);
   const showWindowClosedNote =
-    reviews.length === 1 && viewerId !== null && !viewerAuthored;
+    reviews.length === 1 && viewerPublicId !== null && !viewerAuthored;
 
   return (
     <div
@@ -368,7 +368,7 @@ function RevealedState({
       className="flex flex-col gap-4 md:grid md:grid-cols-2"
     >
       {reviews.map((r) => (
-        <ReviewCard key={r.id} review={r} hideAuctionLink />
+        <ReviewCard key={r.publicId} review={r} hideAuctionLink />
       ))}
       {showWindowClosedNote && (
         <p

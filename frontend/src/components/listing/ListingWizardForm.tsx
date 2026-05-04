@@ -55,8 +55,8 @@ const titleSchema = z
 
 export interface ListingWizardFormProps {
   mode: "create" | "edit";
-  /** Auction id — required when mode='edit'. */
-  id?: number | string;
+  /** Auction publicId — required when mode='edit'. */
+  id?: string;
 }
 
 /**
@@ -104,9 +104,9 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     const s = draft.state.status;
     if (s == null) return;
     if (s !== "DRAFT" && s !== "DRAFT_PAID") {
-      router.replace(`/listings/${draft.state.auctionId}/activate`);
+      router.replace(`/listings/${draft.state.auctionPublicId}/activate`);
     }
-  }, [isEdit, draft.state.status, draft.state.auctionId, router]);
+  }, [isEdit, draft.state.status, draft.state.auctionPublicId, router]);
 
   // Ref-guarded one-shot: after the first successful create, replace the
   // URL to /listings/{id}/edit so the seller lands on a durable URL that
@@ -144,7 +144,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       return null;
     }
     setTitleError(null);
-    const previousAuctionId = draft.state.auctionId;
+    const previousAuctionPublicId = draft.state.auctionPublicId;
     try {
       const saved = await draft.save();
       // First save in create mode — replace the URL so a refresh lands
@@ -154,12 +154,12 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
       // before navigation completes.
       if (
         !isEdit &&
-        previousAuctionId == null &&
-        saved.id != null &&
+        previousAuctionPublicId == null &&
+        saved.publicId != null &&
         !createRedirectedRef.current
       ) {
         createRedirectedRef.current = true;
-        router.replace(`/listings/${saved.id}/edit`);
+        router.replace(`/listings/${saved.publicId}/edit`);
       }
       return saved;
     } catch (e: unknown) {
@@ -202,7 +202,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     setSubmitting(true);
     try {
       const saved = await runSave();
-      if (saved) router.push(`/listings/${saved.id}/activate`);
+      if (saved) router.push(`/listings/${saved.publicId}/activate`);
     } finally {
       setSubmitting(false);
     }

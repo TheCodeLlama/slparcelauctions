@@ -5,12 +5,12 @@ import { defaultAuctionSearchQuery } from "@/lib/search/url-codec";
 import type { AuctionSearchResultDto } from "@/types/search";
 
 const sampleListing: AuctionSearchResultDto = {
-  id: 1,
+  publicId: "00000000-0000-0000-0000-000000000001",
   title: "Sample Lot",
   status: "ACTIVE",
   endOutcome: null,
   parcel: {
-    id: 10,
+    auctionPublicId: "00000000-0000-0000-0000-000000000001",
     name: "Lot",
     region: "Tula",
     area: 512,
@@ -25,7 +25,7 @@ const sampleListing: AuctionSearchResultDto = {
   },
   primaryPhotoUrl: null,
   seller: {
-    id: 7,
+    publicId: "00000000-0000-0000-0000-000000000007",
     displayName: "seller",
     avatarUrl: null,
     averageRating: null,
@@ -126,8 +126,8 @@ describe("ResultsGrid", () => {
         listings={[]}
         isLoading={false}
         isError={false}
-        query={{ ...defaultAuctionSearchQuery, sellerId: 42 }}
-        fixedFilters={{ sellerId: 42 }}
+        query={{ ...defaultAuctionSearchQuery, sellerPublicId: "00000000-0000-0000-0000-00000000002a" }}
+        fixedFilters={{ sellerPublicId: "00000000-0000-0000-0000-00000000002a" }}
         onClearFilters={() => {}}
       />,
     );

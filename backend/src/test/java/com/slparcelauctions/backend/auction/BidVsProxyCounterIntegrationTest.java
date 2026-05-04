@@ -107,7 +107,7 @@ class BidVsProxyCounterIntegrationTest {
         Auction a = seedAuction();
 
         // Step 1 — A creates proxy max=1000 → opens at startingBid=500.
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":1000}"))
@@ -131,7 +131,7 @@ class BidVsProxyCounterIntegrationTest {
         // (500+100 would be wrong because increment at currentBid=500 is L$50,
         // not L$100). The bidCount goes from 1 → 3 (opening + manual + counter).
 
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/bids")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"amount\":550}"))

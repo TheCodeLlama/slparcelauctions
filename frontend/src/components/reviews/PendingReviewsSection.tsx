@@ -38,12 +38,12 @@ function roleLabel(role: PendingReviewDto["viewerRole"]): string {
 }
 
 function PendingReviewRow({ item }: { item: PendingReviewDto }) {
-  const href = `/auction/${item.auctionId}/escrow#review-panel`;
+  const href = `/auction/${item.auctionPublicId}/escrow#review-panel`;
   return (
     <li
       className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4 ring-1 ring-border-subtle sm:flex-row sm:items-center"
       data-testid="pending-review-row"
-      data-auction-id={item.auctionId}
+      data-auction-id={item.auctionPublicId}
     >
       <div
         className={cn(
@@ -124,7 +124,7 @@ export function PendingReviewsSection({ className }: { className?: string } = {}
       <Card.Body>
         <ul className="flex flex-col gap-3">
           {data.map((item) => (
-            <PendingReviewRow key={item.auctionId} item={item} />
+            <PendingReviewRow key={item.auctionPublicId} item={item} />
           ))}
         </ul>
       </Card.Body>

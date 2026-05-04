@@ -37,11 +37,10 @@ function baseAuction(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id: 42,
-    sellerId: 1,
+    publicId: "00000000-0000-0000-0000-00000000002a",
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
     title: "Featured Parcel Listing",
     parcel: {
-      id: 1,
       slParcelUuid: "00000000-0000-0000-0000-000000000001",
       ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
       ownerType: "agent",
@@ -76,7 +75,7 @@ function baseAuction(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: true,
     snipeWindowMin: 10,
@@ -359,7 +358,7 @@ describe("CancelListingModal", () => {
     seedHandlers(makeMe(), makeStatus(0));
     let received: { reason?: string } | null = null;
     server.use(
-      http.put("*/api/v1/auctions/42/cancel", async ({ request }) => {
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/cancel", async ({ request }) => {
         received = (await request.json()) as { reason?: string };
         return HttpResponse.json(baseAuction({ status: "CANCELLED" }));
       }),

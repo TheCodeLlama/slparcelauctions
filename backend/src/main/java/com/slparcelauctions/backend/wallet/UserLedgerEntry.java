@@ -1,20 +1,16 @@
 package com.slparcelauctions.backend.wallet;
 
-import java.time.OffsetDateTime;
-
+import com.slparcelauctions.backend.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Append-only per-user wallet ledger entry.
@@ -44,12 +40,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class UserLedgerEntry {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class UserLedgerEntry extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -87,9 +79,6 @@ public class UserLedgerEntry {
 
     @Column(length = 500)
     private String description;
-
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
 
     @Column(name = "created_by_admin_id")
     private Long createdByAdminId;

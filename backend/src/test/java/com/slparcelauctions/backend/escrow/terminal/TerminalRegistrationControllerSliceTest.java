@@ -33,6 +33,7 @@ import com.slparcelauctions.backend.escrow.exception.TerminalAuthException;
 import com.slparcelauctions.backend.escrow.terminal.dto.TerminalRegisterRequest;
 import com.slparcelauctions.backend.sl.SlHeaderValidator;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link TerminalRegistrationController}. Stubs the service and
@@ -64,6 +65,7 @@ class TerminalRegistrationControllerSliceTest {
     @MockitoBean TerminalService terminalService;
     @MockitoBean SlHeaderValidator headerValidator;
     @MockitoBean JwtService jwtService;
+    @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;

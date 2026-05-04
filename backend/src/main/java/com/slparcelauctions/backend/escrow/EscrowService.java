@@ -446,7 +446,7 @@ public class EscrowService {
     private EscrowStatusResponse toStatusResponse(Escrow escrow) {
         List<EscrowTimelineEntry> timeline = buildTimeline(escrow);
         return new EscrowStatusResponse(
-                escrow.getId(), escrow.getAuction().getId(), escrow.getState(),
+                escrow.getPublicId(), escrow.getAuction().getPublicId(), escrow.getState(),
                 escrow.getFinalBidAmount(), escrow.getCommissionAmt(), escrow.getPayoutAmt(),
                 escrow.getPaymentDeadline(), escrow.getTransferDeadline(),
                 escrow.getFundedAt(), escrow.getTransferConfirmedAt(), escrow.getCompletedAt(),

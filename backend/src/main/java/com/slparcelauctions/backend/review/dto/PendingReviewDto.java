@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.review.dto;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.AuctionPhoto;
 import com.slparcelauctions.backend.escrow.Escrow;
@@ -28,10 +29,10 @@ import com.slparcelauctions.backend.user.User;
  * buyer's behaviour.
  */
 public record PendingReviewDto(
-        Long auctionId,
+        UUID auctionPublicId,
         String title,
         String primaryPhotoUrl,
-        Long counterpartyId,
+        UUID counterpartyPublicId,
         String counterpartyDisplayName,
         String counterpartyAvatarUrl,
         OffsetDateTime escrowCompletedAt,
@@ -61,10 +62,10 @@ public record PendingReviewDto(
                 .orElse(null);
 
         return new PendingReviewDto(
-                e.getAuction().getId(),
+                e.getAuction().getPublicId(),
                 e.getAuction().getTitle(),
                 photo,
-                counterparty == null ? null : counterparty.getId(),
+                counterparty == null ? null : counterparty.getPublicId(),
                 counterparty == null ? null : counterparty.getDisplayName(),
                 counterparty == null ? null : avatarUrl(counterparty.getId()),
                 e.getCompletedAt(),

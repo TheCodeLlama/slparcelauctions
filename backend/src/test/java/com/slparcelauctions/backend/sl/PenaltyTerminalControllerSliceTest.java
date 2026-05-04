@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.sl.dto.PenaltyPaymentResponse;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.sl.exception.PenaltyOverpaymentException;
 import com.slparcelauctions.backend.user.UserNotFoundException;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link PenaltyTerminalController}. Stubs
@@ -68,6 +69,7 @@ class PenaltyTerminalControllerSliceTest {
     @MockitoBean PenaltyTerminalService service;
     @MockitoBean SlHeaderValidator headerValidator;
     @MockitoBean JwtService jwtService;
+    @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;

@@ -25,8 +25,8 @@ vi.mock("@/lib/ws/client", () => ({
 
 function entry(overrides: Partial<BidHistoryEntry> = {}): BidHistoryEntry {
   return {
-    bidId: 1,
-    userId: 42,
+    bidPublicId: "00000000-0000-0000-0000-000000000001",
+    userPublicId: "00000000-0000-0000-0000-00000000002a",
     bidderDisplayName: "Alice",
     amount: 1500,
     bidType: "MANUAL",
@@ -57,7 +57,7 @@ function pageOf(
  * ours so page 0 can render synchronously.
  */
 function renderWithSeed(
-  auctionId: number,
+  auctionPublicId: string,
   seed: Page<BidHistoryEntry>,
   client?: QueryClient,
 ) {
@@ -66,11 +66,11 @@ function renderWithSeed(
     new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-  qc.setQueryData(bidHistoryKey(auctionId, 0), seed);
+  qc.setQueryData(bidHistoryKey(auctionPublicId, 0), seed);
   function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
   }
-  const utils = renderWithProviders(<BidHistoryList auctionId={auctionId} />, {
+  const utils = renderWithProviders(<BidHistoryList auctionPublicId={auctionPublicId} />, {
     // @ts-expect-error -- renderWithProviders uses its own wrapper; we
     // wrap externally to inject the specific client. The outer
     // ThemeProvider + ToastProvider still get applied via the default
@@ -88,7 +88,7 @@ describe("BidHistoryList", () => {
         const page = Number(url.searchParams.get("page") ?? "0");
         if (page === 0) {
           return HttpResponse.json(
-            pageOf([entry({ bidId: 1, amount: 1500 })], {
+            pageOf([entry({ bidPublicId: "00000000-0000-0000-0000-000000000001", amount: 1500 })], {
               totalElements: 1,
               totalPages: 1,
             }),
@@ -104,13 +104,13 @@ describe("BidHistoryList", () => {
   it("renders an empty state when the seed is empty", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      bidHistoryKey(7, 0),
+      bidHistoryKey("00000000-0000-0000-0000-000000000007", 0),
       pageOf([], { totalElements: 0, totalPages: 1 }),
     );
     function Wrapper({ children }: { children: ReactNode }) {
       return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
     }
-    renderWithProviders(<BidHistoryList auctionId={7} />, {
+    renderWithProviders(<BidHistoryList auctionPublicId="00000000-0000-0000-0000-000000000007" />, {
       // @ts-expect-error -- external wrapper override
       wrapper: Wrapper,
     });
@@ -122,21 +122,21 @@ describe("BidHistoryList", () => {
   it("renders seeded bid rows without hitting the network", () => {
     const seed = pageOf(
       [
-        entry({ bidId: 2, amount: 2000, bidderDisplayName: "Bob" }),
-        entry({ bidId: 1, amount: 1500, bidderDisplayName: "Alice" }),
+        entry({ bidPublicId: "00000000-0000-0000-0000-000000000002", amount: 2000, bidderDisplayName: "Bob" }),
+        entry({ bidPublicId: "00000000-0000-0000-0000-000000000001", amount: 1500, bidderDisplayName: "Alice" }),
       ],
       { totalElements: 2, totalPages: 1 },
     );
-    renderWithSeed(7, seed);
+    renderWithSeed("00000000-0000-0000-0000-000000000007", seed);
     const rows = screen.getAllByTestId("bid-history-row");
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveAttribute("data-bid-id", "2");
-    expect(rows[1]).toHaveAttribute("data-bid-id", "1");
+    expect(rows[0]).toHaveAttribute("data-bid-id", "00000000-0000-0000-0000-000000000002");
+    expect(rows[1]).toHaveAttribute("data-bid-id", "00000000-0000-0000-0000-000000000001");
   });
 
   it("shows a 'Load more' button when more pages are available", async () => {
     const seed = pageOf(
-      [entry({ bidId: 20, amount: 2000 })],
+      [entry({ bidPublicId: "00000000-0000-0000-0000-000000000014", amount: 2000 })],
       { totalElements: 40, totalPages: 2, size: 20 },
     );
     server.use(
@@ -146,7 +146,7 @@ describe("BidHistoryList", () => {
         if (page === 1) {
           return HttpResponse.json(
             pageOf(
-              [entry({ bidId: 10, amount: 1000, bidderDisplayName: "Zoe" })],
+              [entry({ bidPublicId: "00000000-0000-0000-0000-00000000000a", amount: 1000, bidderDisplayName: "Zoe" })],
               { totalElements: 40, totalPages: 2, number: 1, size: 20 },
             ),
           );
@@ -154,7 +154,7 @@ describe("BidHistoryList", () => {
         return HttpResponse.json(seed);
       }),
     );
-    renderWithSeed(7, seed);
+    renderWithSeed("00000000-0000-0000-0000-000000000007", seed);
 
     const btn = screen.getByTestId("bid-history-load-more");
     await userEvent.click(btn);
@@ -170,8 +170,8 @@ describe("BidHistoryList", () => {
   it("reflects a cache merge on page 0 without refetching", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(
-      bidHistoryKey(7, 0),
-      pageOf([entry({ bidId: 1, amount: 1500 })], {
+      bidHistoryKey("00000000-0000-0000-0000-000000000007", 0),
+      pageOf([entry({ bidPublicId: "00000000-0000-0000-0000-000000000001", amount: 1500 })], {
         totalElements: 1,
         totalPages: 1,
       }),
@@ -179,7 +179,7 @@ describe("BidHistoryList", () => {
     function Wrapper({ children }: { children: ReactNode }) {
       return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
     }
-    renderWithProviders(<BidHistoryList auctionId={7} />, {
+    renderWithProviders(<BidHistoryList auctionPublicId="00000000-0000-0000-0000-000000000007" />, {
       // @ts-expect-error -- external wrapper override
       wrapper: Wrapper,
     });
@@ -189,15 +189,15 @@ describe("BidHistoryList", () => {
     // Simulate the AuctionDetailClient envelope merger writing page 0.
     act(() => {
       qc.setQueryData(
-        bidHistoryKey(7, 0),
+        bidHistoryKey("00000000-0000-0000-0000-000000000007", 0),
         pageOf(
           [
             entry({
-              bidId: 2,
+              bidPublicId: "00000000-0000-0000-0000-000000000002",
               amount: 2000,
               bidderDisplayName: "Bob",
             }),
-            entry({ bidId: 1, amount: 1500 }),
+            entry({ bidPublicId: "00000000-0000-0000-0000-000000000001", amount: 1500 }),
           ],
           { totalElements: 2, totalPages: 1 },
         ),

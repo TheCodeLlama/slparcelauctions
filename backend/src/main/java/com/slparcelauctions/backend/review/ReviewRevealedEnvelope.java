@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.review;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * WebSocket envelope broadcast on {@code /topic/auction/{auctionId}} the
@@ -22,20 +23,20 @@ import java.time.OffsetDateTime;
  */
 public record ReviewRevealedEnvelope(
         String type,
-        Long auctionId,
-        Long reviewId,
-        Long reviewerId,
-        Long revieweeId,
+        UUID auctionPublicId,
+        UUID reviewPublicId,
+        UUID reviewerPublicId,
+        UUID revieweePublicId,
         ReviewedRole reviewedRole,
         OffsetDateTime revealedAt) {
 
     public static ReviewRevealedEnvelope of(Review r) {
         return new ReviewRevealedEnvelope(
                 "REVIEW_REVEALED",
-                r.getAuction().getId(),
-                r.getId(),
-                r.getReviewer().getId(),
-                r.getReviewee().getId(),
+                r.getAuction().getPublicId(),
+                r.getPublicId(),
+                r.getReviewer().getPublicId(),
+                r.getReviewee().getPublicId(),
                 r.getReviewedRole(),
                 r.getRevealedAt());
     }

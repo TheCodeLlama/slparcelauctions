@@ -41,7 +41,7 @@ export function FeedList({ group, unreadOnly }: FeedListProps) {
             {unreadOnly ? "No unread notifications in this view." : "No notifications yet."}
           </div>
         ) : (
-          list.data?.content.map((n) => <FeedRow key={n.id} notification={n} />)
+          list.data?.content.map((n) => <FeedRow key={n.publicId} notification={n} />)
         )}
       </div>
 

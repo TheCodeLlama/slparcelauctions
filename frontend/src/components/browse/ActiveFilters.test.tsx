@@ -75,19 +75,19 @@ describe("ActiveFilters", () => {
     const q: AuctionSearchQuery = {
       ...defaultAuctionSearchQuery,
       region: "Tula",
-      sellerId: 42,
+      sellerPublicId: "00000000-0000-0000-0000-00000000002a",
     };
     renderWithProviders(
       <ActiveFilters
         query={q}
         onChange={onChange}
-        fixedFilters={{ sellerId: 42 }}
+        fixedFilters={{ sellerPublicId: "00000000-0000-0000-0000-00000000002a" }}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /clear all/i }));
     expect(onChange).toHaveBeenCalledWith({
       ...defaultAuctionSearchQuery,
-      sellerId: 42,
+      sellerPublicId: "00000000-0000-0000-0000-00000000002a",
     });
   });
 });

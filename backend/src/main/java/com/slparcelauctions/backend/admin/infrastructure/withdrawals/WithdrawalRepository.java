@@ -14,5 +14,5 @@ public interface WithdrawalRepository extends JpaRepository<Withdrawal, Long> {
 
     Optional<Withdrawal> findByTerminalCommandId(Long terminalCommandId);
 
-    Page<Withdrawal> findAllByOrderByRequestedAtDesc(Pageable pageable);
+    Page<Withdrawal> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }

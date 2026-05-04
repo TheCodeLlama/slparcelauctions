@@ -6,14 +6,14 @@ import { useToast } from "@/components/ui/Toast/useToast";
 import { isApiError } from "@/lib/api";
 import type { ReportRequest } from "@/lib/admin/types";
 
-export function useSubmitReport(auctionId: number) {
+export function useSubmitReport(auctionPublicId: string) {
   const qc = useQueryClient();
   const toast = useToast();
 
   return useMutation({
-    mutationFn: (body: ReportRequest) => userReportsApi.submit(auctionId, body),
+    mutationFn: (body: ReportRequest) => userReportsApi.submit(auctionPublicId, body),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: adminQueryKeys.myReport(auctionId) });
+      qc.invalidateQueries({ queryKey: adminQueryKeys.myReport(auctionPublicId) });
       toast.success("Report submitted. Our team will review it.");
     },
     onError: (err) => {

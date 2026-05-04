@@ -249,7 +249,7 @@ class CancellationServiceLadderTest {
         verify(broadcastPublisher).publishCancelled(cap.capture());
         AuctionCancelledEnvelope env = cap.getValue();
         assertThat(env.type()).isEqualTo("AUCTION_CANCELLED");
-        assertThat(env.auctionId()).isEqualTo(a.getId());
+        assertThat(env.auctionPublicId()).isEqualTo(a.getPublicId());
         assertThat(env.hadBids()).isTrue();
         assertThat(env.cancelledAt()).isEqualTo(now);
     }

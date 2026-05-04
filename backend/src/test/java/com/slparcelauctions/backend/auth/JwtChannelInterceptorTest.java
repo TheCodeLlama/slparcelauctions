@@ -3,6 +3,8 @@ package com.slparcelauctions.backend.auth;
 import com.slparcelauctions.backend.auth.exception.TokenExpiredException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
 import com.slparcelauctions.backend.user.Role;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,23 +17,36 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 
 import java.security.Principal;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class JwtChannelInterceptorTest {
 
     private JwtService jwtService;
+    private UserRepository userRepository;
     private JwtChannelInterceptor interceptor;
     private MessageChannel channel;
 
     @BeforeEach
     void setUp() {
         jwtService = Mockito.mock(JwtService.class);
-        interceptor = new JwtChannelInterceptor(jwtService);
+        userRepository = Mockito.mock(UserRepository.class);
+        interceptor = new JwtChannelInterceptor(jwtService, userRepository);
         channel = Mockito.mock(MessageChannel.class);
+    }
+
+    /** Builds a Mockito-backed User stub whose getId / getPublicId return the supplied values. */
+    private User stubUser(Long id, UUID publicId) {
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(id);
+        when(user.getPublicId()).thenReturn(publicId);
+        return user;
     }
 
     private Message<byte[]> stompMessage(StompCommand command, String authHeader) {
@@ -91,8 +106,11 @@ class JwtChannelInterceptorTest {
     @Test
     @DisplayName("CONNECT with valid token attaches StompAuthenticationToken principal")
     void preSend_connectFrame_validToken_attachesPrincipal() {
-        AuthPrincipal authPrincipal = new AuthPrincipal(42L, "test@example.com", 1L, Role.USER);
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal authPrincipal = new AuthPrincipal(42L, publicId, "test@example.com", 1L, Role.USER);
         when(jwtService.parseAccessToken("valid-jwt")).thenReturn(authPrincipal);
+        User userStub = stubUser(42L, publicId);
+        when(userRepository.findByPublicId(publicId)).thenReturn(Optional.of(userStub));
 
         Message<byte[]> msg = stompMessage(StompCommand.CONNECT, "Bearer valid-jwt");
 
@@ -141,10 +159,11 @@ class JwtChannelInterceptorTest {
     // ------------------------------------------------------------------------
 
     @Test
-    @DisplayName("SUBSCRIBE to /topic/auction/** is allowed for anonymous sessions")
+    @DisplayName("SUBSCRIBE to /topic/auction/{uuid} is allowed for anonymous sessions")
     void preSend_subscribe_publicAuctionTopic_anonymousAllowed() {
         Message<byte[]> msg = stompMessage(
-            StompCommand.SUBSCRIBE, null, "/topic/auction/42", null);
+            StompCommand.SUBSCRIBE, null,
+            "/topic/auction/a1b2c3d4-e5f6-7890-abcd-ef1234567890", null);
 
         Message<?> result = interceptor.preSend(msg, channel);
 
@@ -166,7 +185,7 @@ class JwtChannelInterceptorTest {
     @DisplayName("SUBSCRIBE from an authenticated session is allowed regardless of destination")
     void preSend_subscribe_authedSession_allowed() {
         Principal principal = new StompAuthenticationToken(
-            new AuthPrincipal(42L, "u@e.com", 1L, Role.USER));
+            new AuthPrincipal(42L, UUID.randomUUID(), "u@e.com", 1L, Role.USER));
         Message<byte[]> msg = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/ws-test", principal);
 
@@ -183,7 +202,9 @@ class JwtChannelInterceptorTest {
         // future swap to a STOMP relay (RabbitMQ, etc.) that normalizes paths
         // could let /topic/auction/../ws-test escape the allowlist and land
         // on /topic/ws-test. The strict regex rejects anything that isn't
-        // /topic/auction/{positive-integer}.
+        // /topic/auction/{uuid}.
+        String validUuid = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
         Message<byte[]> traversalFromRoot = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/auction/../ws-test", null);
         assertThatThrownBy(() -> interceptor.preSend(traversalFromRoot, channel))
@@ -191,20 +212,30 @@ class JwtChannelInterceptorTest {
             .hasMessageContaining("Authentication required");
 
         Message<byte[]> traversalAfterId = stompMessage(
-            StompCommand.SUBSCRIBE, null, "/topic/auction/42/../ws-test", null);
+            StompCommand.SUBSCRIBE, null,
+            "/topic/auction/" + validUuid + "/../ws-test", null);
         assertThatThrownBy(() -> interceptor.preSend(traversalAfterId, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Authentication required");
 
         Message<byte[]> trailingSegment = stompMessage(
-            StompCommand.SUBSCRIBE, null, "/topic/auction/42/extra", null);
+            StompCommand.SUBSCRIBE, null,
+            "/topic/auction/" + validUuid + "/extra", null);
         assertThatThrownBy(() -> interceptor.preSend(trailingSegment, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Authentication required");
 
-        Message<byte[]> nonNumericId = stompMessage(
+        // Numeric (legacy) IDs are no longer in the allowlist — topics now use UUIDs.
+        Message<byte[]> numericId = stompMessage(
+            StompCommand.SUBSCRIBE, null, "/topic/auction/42", null);
+        assertThatThrownBy(() -> interceptor.preSend(numericId, channel))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("Authentication required");
+
+        // Short non-UUID slug is also rejected.
+        Message<byte[]> shortSlug = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/auction/abc", null);
-        assertThatThrownBy(() -> interceptor.preSend(nonNumericId, channel))
+        assertThatThrownBy(() -> interceptor.preSend(shortSlug, channel))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("Authentication required");
     }
@@ -239,7 +270,7 @@ class JwtChannelInterceptorTest {
     @DisplayName("SEND from authenticated session passes through")
     void preSend_send_authed_passesThrough() {
         Principal principal = new StompAuthenticationToken(
-            new AuthPrincipal(42L, "u@e.com", 1L, Role.USER));
+            new AuthPrincipal(42L, UUID.randomUUID(), "u@e.com", 1L, Role.USER));
         Message<byte[]> msg = stompMessage(
             StompCommand.SEND, null, "/app/bid", principal);
 

@@ -78,8 +78,8 @@ class ProxyBidResolutionTest {
 
         lenient().when(bidRepo.save(any(Bid.class))).thenAnswer(inv -> {
             Bid b = inv.getArgument(0);
-            if (b.getId() == null) b.setId(9000L);
-            if (b.getCreatedAt() == null) b.setCreatedAt(NOW);
+            setBaseEntityField(b, "id", 9000L);
+            setBaseEntityField(b, "createdAt", NOW);
             return b;
         });
         lenient().when(proxyBidRepo.save(any(ProxyBid.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -245,15 +245,22 @@ class ProxyBidResolutionTest {
     // -------------------------------------------------------------------------
 
     private ProxyBid proxy(Long id, User owner, long maxAmount, OffsetDateTime createdAt) {
-        ProxyBid p = ProxyBid.builder()
-                .id(id)
+        return ProxyBid.builder()
                 .auction(auction)
                 .bidder(owner)
                 .maxAmount(maxAmount)
                 .status(ProxyBidStatus.ACTIVE)
+                .createdAt(createdAt)
                 .build();
-        p.setCreatedAt(createdAt);
-        p.setUpdatedAt(createdAt);
-        return p;
+    }
+
+    /** Reflectively sets a field declared on BaseEntity (id, createdAt) which has no public setter. */
+    private static void setBaseEntityField(Object entity, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

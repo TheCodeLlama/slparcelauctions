@@ -8,6 +8,10 @@ public class UserNotFoundException extends ResourceNotFoundException {
         super("User not found: id=" + id);
     }
 
+    public UserNotFoundException(java.util.UUID publicId) {
+        super("User not found: " + publicId);
+    }
+
     /**
      * Free-form message constructor used by avatar-keyed lookups
      * (e.g. {@code PenaltyTerminalService} resolving by SL avatar UUID).

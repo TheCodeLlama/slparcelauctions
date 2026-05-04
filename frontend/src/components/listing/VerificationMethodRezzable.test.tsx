@@ -24,7 +24,7 @@ function pendingBase(overrides: Partial<PendingVerification> = {}): PendingVerif
 describe("VerificationMethodRezzable", () => {
   it("renders the code and a live countdown when unexpired", () => {
     renderWithProviders(
-      <VerificationMethodRezzable auctionId={42} pending={pendingBase()} />,
+      <VerificationMethodRezzable auctionPublicId="00000000-0000-0000-0000-00000000002a" pending={pendingBase()} />,
     );
     expect(screen.getByText("PARCEL-7K3A9X")).toBeInTheDocument();
     expect(screen.getByText(/Expires in/i)).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe("VerificationMethodRezzable", () => {
   it("exposes a Regenerate button once the code has expired", async () => {
     let called = false;
     server.use(
-      http.put("*/api/v1/auctions/42/verify", () => {
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () => {
         called = true;
         return HttpResponse.json({
           id: 42,
@@ -46,7 +46,7 @@ describe("VerificationMethodRezzable", () => {
     );
     renderWithProviders(
       <VerificationMethodRezzable
-        auctionId={42}
+        auctionPublicId="00000000-0000-0000-0000-00000000002a"
         pending={pendingBase({
           codeExpiresAt: new Date(Date.now() - 60_000).toISOString(),
         })}

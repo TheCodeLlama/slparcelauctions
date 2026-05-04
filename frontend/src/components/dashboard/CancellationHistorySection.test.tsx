@@ -15,7 +15,7 @@ function makeRow(
   overrides: Partial<CancellationHistoryDto> = {},
 ): CancellationHistoryDto {
   return {
-    auctionId: 1,
+    auctionPublicId: "00000000-0000-0000-0000-000000000001",
     auctionTitle: "Aurora Parcel",
     primaryPhotoUrl: null,
     cancelledFromStatus: "ACTIVE",
@@ -74,17 +74,17 @@ describe("CancellationHistorySection", () => {
   it("renders a row per cancellation with badge mapped from the kind", async () => {
     const rows = [
       makeRow({
-        auctionId: 1,
+        auctionPublicId: "00000000-0000-0000-0000-000000000001",
         auctionTitle: "Aurora Parcel",
         penaltyApplied: { kind: "WARNING", amountL: null },
       }),
       makeRow({
-        auctionId: 2,
+        auctionPublicId: "00000000-0000-0000-0000-000000000002",
         auctionTitle: "Lakeview Shore",
         penaltyApplied: { kind: "PENALTY_AND_30D", amountL: 2500 },
       }),
       makeRow({
-        auctionId: 3,
+        auctionPublicId: "00000000-0000-0000-0000-000000000003",
         auctionTitle: "Skyhigh Plot",
         penaltyApplied: null,
       }),
@@ -157,11 +157,11 @@ describe("CancellationHistorySection", () => {
 
   it("paginates and refetches when the user clicks a different page", async () => {
     const pageZero = makePage(
-      [makeRow({ auctionId: 1, auctionTitle: "Page 0 row" })],
+      [makeRow({ auctionPublicId: "00000000-0000-0000-0000-000000000001", auctionTitle: "Page 0 row" })],
       { totalElements: 12, totalPages: 2, number: 0, size: 10 },
     );
     const pageOne = makePage(
-      [makeRow({ auctionId: 99, auctionTitle: "Page 1 row" })],
+      [makeRow({ auctionPublicId: "00000000-0000-0000-0000-000000000063", auctionTitle: "Page 1 row" })],
       { totalElements: 12, totalPages: 2, number: 1, size: 10 },
     );
     server.use(

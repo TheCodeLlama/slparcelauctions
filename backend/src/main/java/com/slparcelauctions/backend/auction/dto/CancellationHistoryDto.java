@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.dto;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.CancellationLog;
 import com.slparcelauctions.backend.auction.CancellationOffenseKind;
@@ -15,7 +16,7 @@ import com.slparcelauctions.backend.auction.CancellationOffenseKind;
  * renders a "No penalty" badge in that case.
  */
 public record CancellationHistoryDto(
-        Long auctionId,
+        UUID auctionPublicId,
         String auctionTitle,
         String primaryPhotoUrl,
         String cancelledFromStatus,
@@ -40,7 +41,7 @@ public record CancellationHistoryDto(
                 ? null
                 : new PenaltyApplied(log.getPenaltyKind(), log.getPenaltyAmountL());
         return new CancellationHistoryDto(
-                log.getAuction().getId(),
+                log.getAuction().getPublicId(),
                 log.getAuction().getTitle(),
                 primaryPhotoUrl,
                 log.getCancelledFromStatus(),

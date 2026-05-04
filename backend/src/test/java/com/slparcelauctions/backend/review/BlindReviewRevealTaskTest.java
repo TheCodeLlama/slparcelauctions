@@ -51,8 +51,17 @@ class BlindReviewRevealTaskTest {
 
     private Review pending(Long id) {
         Review r = new Review();
-        r.setId(id);
+        setEntityId(r, id);
         return r;
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 
     @Test

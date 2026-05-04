@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.escrow.broadcast;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -20,8 +21,8 @@ import com.slparcelauctions.backend.escrow.command.TerminalCommand;
  */
 public record EscrowPayoutStalledEnvelope(
         String type,
-        Long auctionId,
-        Long escrowId,
+        UUID auctionPublicId,
+        UUID escrowPublicId,
         EscrowState state,
         Integer attemptCount,
         String lastError,
@@ -31,8 +32,8 @@ public record EscrowPayoutStalledEnvelope(
             OffsetDateTime serverTime) {
         return new EscrowPayoutStalledEnvelope(
                 "ESCROW_PAYOUT_STALLED",
-                escrow.getAuction().getId(),
-                escrow.getId(),
+                escrow.getAuction().getPublicId(),
+                escrow.getPublicId(),
                 escrow.getState(),
                 cmd.getAttemptCount(),
                 cmd.getLastError(),

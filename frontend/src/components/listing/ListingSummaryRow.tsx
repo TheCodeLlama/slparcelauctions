@@ -100,7 +100,7 @@ export function ListingSummaryRow({
         "flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-raised p-3",
         className,
       )}
-      data-testid={`listing-row-${auction.id}`}
+      data-testid={`listing-row-${auction.publicId}`}
     >
       <div className="flex items-start gap-3">
         <Thumbnail src={thumb} alt="" />
@@ -262,7 +262,7 @@ function EndedBidSummary({
   // over it with a heuristic.
   if (auction.endOutcome == null) {
     throw new Error(
-      `ListingSummaryRow rendered ENDED auction ${auction.id} with null endOutcome — ` +
+      `ListingSummaryRow rendered ENDED auction ${auction.publicId} with null endOutcome — ` +
         "backend enrichment invariant violated (Epic 05 sub-spec 1).",
     );
   }
@@ -271,21 +271,21 @@ function EndedBidSummary({
   // Winner display-name fallback mirrors AuctionEndedPanel. The query runs
   // only when we have a winnerId but no inline display name. Same cache key
   // as AuctionEndedPanel so the two share any pre-fetched profile data.
-  const winnerId = auction.winnerId;
+  const winnerPublicId = auction.winnerPublicId;
   const needWinnerFetch =
     (outcome === "SOLD" || outcome === "BOUGHT_NOW") &&
-    winnerId != null &&
+    winnerPublicId != null &&
     (auction.winnerDisplayName == null || auction.winnerDisplayName === "");
   const winnerQuery = useQuery<PublicUserProfile>({
-    queryKey: ["publicProfile", winnerId],
-    queryFn: () => userApi.publicProfile(winnerId as number),
+    queryKey: ["publicProfile", winnerPublicId],
+    queryFn: () => userApi.publicProfile(winnerPublicId as string),
     enabled: needWinnerFetch,
     staleTime: 60_000,
   });
   const winnerDisplayName =
     auction.winnerDisplayName ??
     winnerQuery.data?.displayName ??
-    (winnerId != null ? `User ${winnerId}` : null);
+    (winnerPublicId != null ? `User ${winnerPublicId.slice(0, 8)}` : null);
 
   if (outcome === "SOLD" || outcome === "BOUGHT_NOW") {
     const finalAmount = auction.finalBidAmount ?? highBid;
@@ -344,7 +344,7 @@ function PrimaryActions({
   auction: ListingRowAuction;
   onOpenCancel: () => void;
 }) {
-  const id = auction.id;
+  const id = auction.publicId;
   const publicHref = `/auction/${id}`;
   const escrowHref = `/auction/${id}/escrow`;
   const editHref = `/listings/${id}/edit`;

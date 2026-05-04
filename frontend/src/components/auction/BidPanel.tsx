@@ -16,7 +16,7 @@ import { SnipeExtensionBanner } from "./SnipeExtensionBanner";
 import { SnipeProtectionBadge } from "./SnipeProtectionBadge";
 
 export interface BidPanelUser {
-  id: number;
+  publicId: string;
   verified: boolean;
 }
 
@@ -78,7 +78,7 @@ export function deriveBidPanelVariant(
   if (auction.status === "ENDED") return "ended";
   if (!currentUser) return "unauth";
   if (!currentUser.verified) return "unverified";
-  if (currentUser.id === auction.sellerId) return "seller";
+  if (currentUser.publicId === auction.sellerPublicId) return "seller";
   return "bidder";
 }
 
@@ -237,7 +237,7 @@ export function BidPanel({
 
   switch (variant) {
     case "unauth":
-      return <AuthGateMessage kind="unauth" auctionId={auction.id} />;
+      return <AuthGateMessage kind="unauth" auctionPublicId={auction.publicId} />;
     case "unverified":
       return <AuthGateMessage kind="unverified" />;
     case "seller":
@@ -246,7 +246,7 @@ export function BidPanel({
       return (
         <AuctionEndedPanel
           auction={auction}
-          currentUser={currentUser ? { id: currentUser.id } : null}
+          currentUser={currentUser ? { publicId: currentUser.publicId } : null}
         />
       );
     case "bidder":

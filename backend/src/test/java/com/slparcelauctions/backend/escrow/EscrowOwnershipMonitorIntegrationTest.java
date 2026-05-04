@@ -136,6 +136,8 @@ class EscrowOwnershipMonitorIntegrationTest {
     private Long seededSellerId;
     private Long seededBidderId;
     private UUID seededParcelUuid;
+    private UUID seededAuctionPublicId;
+    private UUID seededEscrowPublicId;
     private UUID seededSellerAvatar;
     private UUID seededWinnerAvatar;
 
@@ -197,8 +199,8 @@ class EscrowOwnershipMonitorIntegrationTest {
         assertThat(capturingEscrowPublisher.transferConfirmed).hasSize(1);
         EscrowTransferConfirmedEnvelope env = capturingEscrowPublisher.transferConfirmed.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_TRANSFER_CONFIRMED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.TRANSFER_PENDING);
 
         assertThat(capturingEscrowPublisher.frozen).isEmpty();
@@ -234,8 +236,8 @@ class EscrowOwnershipMonitorIntegrationTest {
         assertThat(capturingEscrowPublisher.frozen).hasSize(1);
         EscrowFrozenEnvelope env = capturingEscrowPublisher.frozen.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_FROZEN");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.FROZEN);
         assertThat(env.reason()).isEqualTo("UNKNOWN_OWNER");
 
@@ -346,6 +348,8 @@ class EscrowOwnershipMonitorIntegrationTest {
             seededEscrowId = escrow.getId();
             seededParcelUuid = parcelUuid;
             seededSellerAvatar = sellerAvatar;
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
             seededWinnerAvatar = winnerAvatar;
         });
     }

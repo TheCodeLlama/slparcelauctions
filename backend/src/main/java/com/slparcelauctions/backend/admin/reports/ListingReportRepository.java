@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.admin.reports;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +13,8 @@ import org.springframework.data.repository.query.Param;
 import com.slparcelauctions.backend.admin.reports.dto.AdminReportListingRowDto;
 
 public interface ListingReportRepository extends JpaRepository<ListingReport, Long> {
+
+    Optional<ListingReport> findByPublicId(UUID publicId);
 
     Optional<ListingReport> findByAuctionIdAndReporterId(Long auctionId, Long reporterId);
 

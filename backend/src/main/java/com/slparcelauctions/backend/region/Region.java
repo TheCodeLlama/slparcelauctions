@@ -1,22 +1,18 @@
 package com.slparcelauctions.backend.region;
 
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import org.hibernate.annotations.CreationTimestamp;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * SL region row. Persisted on first sight (or refreshed in place) every time
@@ -39,12 +35,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Region {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class Region extends BaseMutableEntity {
 
     @Column(name = "sl_uuid", nullable = false, unique = true)
     private UUID slUuid;
@@ -60,8 +52,4 @@ public class Region {
 
     @Column(name = "maturity_rating", nullable = false, length = 10)
     private String maturityRating;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

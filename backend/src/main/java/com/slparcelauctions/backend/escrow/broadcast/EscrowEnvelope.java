@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.escrow.broadcast;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * Sealed hierarchy of escrow broadcast envelopes published on
@@ -30,7 +31,7 @@ public sealed interface EscrowEnvelope
                 EscrowExpiredEnvelope {
 
     String type();
-    Long auctionId();
-    Long escrowId();
+    UUID auctionPublicId();
+    UUID escrowPublicId();
     OffsetDateTime serverTime();
 }

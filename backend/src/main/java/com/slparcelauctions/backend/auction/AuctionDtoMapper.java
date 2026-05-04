@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -18,6 +19,7 @@ import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
 import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -48,6 +50,7 @@ public class AuctionDtoMapper {
 
     private final AuctionPhotoRepository photoRepo;
     private final EscrowRepository escrowRepo;
+    private final UserRepository userRepo;
 
     public PublicAuctionStatus toPublicStatus(AuctionStatus internal) {
         return switch (internal) {
@@ -75,8 +78,8 @@ public class AuctionDtoMapper {
         boolean reserveMet = hasReserve && a.getCurrentBid() != null
                 && a.getCurrentBid() >= a.getReservePrice();
         return new PublicAuctionResponse(
-                a.getId(),
-                a.getSeller().getId(),
+                a.getPublicId(),
+                a.getSeller().getPublicId(),
                 a.getTitle(),
                 ParcelResponse.from(a.getParcelSnapshot()),
                 toPublicStatus(a.getStatus()),
@@ -114,8 +117,8 @@ public class AuctionDtoMapper {
      */
     public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending, Escrow escrow) {
         return new SellerAuctionResponse(
-                a.getId(),
-                a.getSeller().getId(),
+                a.getPublicId(),
+                a.getSeller().getPublicId(),
                 a.getTitle(),
                 ParcelResponse.from(a.getParcelSnapshot()),
                 a.getStatus(),
@@ -130,7 +133,7 @@ public class AuctionDtoMapper {
                 a.getBidCount(),
                 currentHighBid(a),
                 bidderCount(a),
-                a.getWinnerId(),
+                resolveWinnerPublicId(a),
                 a.getDurationHours(),
                 a.getSnipeProtect(),
                 a.getSnipeWindowMin(),
@@ -213,14 +216,30 @@ public class AuctionDtoMapper {
         int cancelledInt = cancelled == null ? 0 : cancelled;
         int expiredUnfulfilledInt = expiredUnfulfilled == null ? 0 : expiredUnfulfilled;
         return new SellerSummary(
-                s.getId(),
+                s.getPublicId(),
                 s.getDisplayName(),
-                s.getId() == null ? null : "/api/v1/users/" + s.getId() + "/avatar/256",
+                s.getPublicId() == null ? null : "/api/v1/users/" + s.getPublicId() + "/avatar/256",
                 s.getAvgSellerRating(),
                 s.getTotalSellerReviews(),
                 completed,
                 SellerCompletionRateMapper.compute(completedInt, cancelledInt, expiredUnfulfilledInt),
                 s.getCreatedAt() == null ? null : s.getCreatedAt().toLocalDate());
+    }
+
+    /**
+     * Resolves the auction's soft-FK {@code winnerId} column (internal Long)
+     * to the winner's {@code publicId} (UUID) for outbound DTO emission.
+     * Returns null when the auction has no winner yet (pre-ENDED states).
+     * Uses a simple {@code findById} lookup; correctness over performance
+     * per task spec.
+     */
+    private UUID resolveWinnerPublicId(Auction auction) {
+        if (auction.getWinnerId() == null) {
+            return null;
+        }
+        return userRepo.findById(auction.getWinnerId())
+                .map(User::getPublicId)
+                .orElse(null);
     }
 
     /**

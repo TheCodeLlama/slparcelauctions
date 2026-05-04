@@ -2,21 +2,19 @@ package com.slparcelauctions.backend.verification;
 
 import java.time.OffsetDateTime;
 
-import org.hibernate.annotations.CreationTimestamp;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * 6-digit verification code row. Maps the existing {@code verification_codes} table
@@ -32,12 +30,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class VerificationCode {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class VerificationCode extends BaseMutableEntity {
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -58,8 +52,4 @@ public class VerificationCode {
     @Builder.Default
     @Column(nullable = false)
     private boolean used = false;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

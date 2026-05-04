@@ -20,16 +20,16 @@ const SUBJECT_MAX = 100;
 const DETAILS_MAX = 2000;
 
 type Props = {
-  auctionId: number;
+  auctionPublicId: string;
   onClose: () => void;
 };
 
-export function ReportListingModal({ auctionId, onClose }: Props) {
+export function ReportListingModal({ auctionPublicId, onClose }: Props) {
   const [subject, setSubject] = useState("");
   const [reason, setReason] = useState<ListingReportReason | "">("");
   const [details, setDetails] = useState("");
 
-  const submit = useSubmitReport(auctionId);
+  const submit = useSubmitReport(auctionPublicId);
 
   // ESC closes the modal.
   useEffect(() => {

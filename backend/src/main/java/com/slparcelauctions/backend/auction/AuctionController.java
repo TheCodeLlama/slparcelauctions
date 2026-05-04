@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -46,6 +47,9 @@ import lombok.RequiredArgsConstructor;
  * ({@link PublicAuctionResponse}) is available to any authenticated user, and statuses
  * that must stay private to the seller (pre-ACTIVE drafts plus SUSPENDED listings —
  * spec §6.4) 404 to non-sellers to avoid leaking existence.
+ *
+ * <p>All entity-id path variables use the public UUID ({@code publicId}) — internal
+ * Long PKs are never exposed on the web/mobile API surface.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -71,20 +75,20 @@ public class AuctionController {
         return mapper.toSellerResponse(created, null);
     }
 
-    @GetMapping("/auctions/{id}")
+    @GetMapping("/auctions/{publicId}")
     public Object get(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
-        // loadForDetail eagerly hydrates parcel + seller + photos + tags so
+        // loadForDetailByPublicId eagerly hydrates parcel + seller + photos + tags so
         // the public/seller mappers downstream can render the seller card +
         // photo carousel off a single LEFT JOIN. Single-row fetch — no
         // HHH90003004 risk from the multiple to-many entity-graph branches.
-        Auction a = auctionService.loadForDetail(id);
+        Auction a = auctionService.loadForDetailByPublicId(publicId);
         Long userId = principal == null ? null : principal.userId();
         boolean isSeller = userId != null && a.getSeller().getId().equals(userId);
         if (!isSeller) {
             if (isHiddenFromPublic(a.getStatus())) {
-                throw new AuctionNotFoundException(id); // hide existence
+                throw new AuctionNotFoundException(publicId); // hide existence
             }
             return mapper.toPublicResponse(a);
         }
@@ -101,34 +105,36 @@ public class AuctionController {
                 .toList();
     }
 
-    @PutMapping("/auctions/{id}")
+    @PutMapping("/auctions/{publicId}")
     @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse update(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody AuctionUpdateRequest req) {
         requireVerified(principal.userId());
-        Auction updated = auctionService.update(id, principal.userId(), req);
+        Auction existing = auctionService.loadForSellerByPublicId(publicId, principal.userId());
+        Auction updated = auctionService.update(existing.getId(), principal.userId(), req);
         return mapper.toSellerResponse(updated, null);
     }
 
-    @PutMapping("/auctions/{id}/verify")
+    @PutMapping("/auctions/{publicId}/verify")
     @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse verify(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody AuctionVerifyRequest body) {
         Long userId = principal.userId();
         requireVerified(userId);
-        Auction a = verificationService.triggerVerification(id, body.method(), userId);
+        Auction existing = auctionService.loadForSellerByPublicId(publicId, userId);
+        Auction a = verificationService.triggerVerification(existing.getId(), body.method(), userId);
         PendingVerification pending = verificationService.buildPendingVerification(a);
         return mapper.toSellerResponse(a, pending);
     }
 
-    @PutMapping("/auctions/{id}/cancel")
+    @PutMapping("/auctions/{publicId}/cancel")
     @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse cancel(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody AuctionCancelRequest req,
             HttpServletRequest httpRequest) {
@@ -136,17 +142,17 @@ public class AuctionController {
         // Non-locking load authorises the seller; the service re-fetches under
         // a pessimistic write lock for the state transition so cancellation
         // races with bid placement / auction end serialise on the row lock.
-        auctionService.loadForSeller(id, principal.userId());
+        Auction existing = auctionService.loadForSellerByPublicId(publicId, principal.userId());
         String ip = httpRequest.getRemoteAddr();
-        Auction cancelled = cancellationService.cancel(id, req.reason(), ip);
+        Auction cancelled = cancellationService.cancel(existing.getId(), req.reason(), ip);
         return mapper.toSellerResponse(cancelled, null);
     }
 
-    @GetMapping("/auctions/{id}/preview")
+    @GetMapping("/auctions/{publicId}/preview")
     public SellerAuctionResponse preview(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
-        Auction a = auctionService.loadForSeller(id, principal.userId());
+        Auction a = auctionService.loadForSellerByPublicId(publicId, principal.userId());
         return mapper.toSellerResponse(a, null);
     }
 
@@ -163,15 +169,15 @@ public class AuctionController {
      * {@code ActiveListingsSection} grid on the public profile page — callers
      * can override with {@code size=...}.
      *
-     * <p><strong>Permissive on unknown {@code userId}:</strong> a nonexistent
-     * {@code userId} resolves to an empty page (200), not a 404. This is a
+     * <p><strong>Permissive on unknown {@code userPublicId}:</strong> a nonexistent
+     * {@code userPublicId} resolves to an empty page (200), not a 404. This is a
      * deliberate privacy choice — returning 404 for missing users would let
      * callers enumerate valid user IDs by diffing status codes against this
      * public surface.
      */
-    @GetMapping("/users/{userId}/auctions")
+    @GetMapping("/users/{userPublicId}/auctions")
     public PagedResponse<PublicAuctionResponse> getUserAuctions(
-            @PathVariable Long userId,
+            @PathVariable UUID userPublicId,
             @RequestParam(name = "status") String status,
             @PageableDefault(size = 6) Pageable pageable) {
         if (!"ACTIVE".equals(status)) {
@@ -179,11 +185,17 @@ public class AuctionController {
                     "Unsupported status filter: '" + status
                             + "'. Only 'ACTIVE' is supported.");
         }
+        // Resolve user publicId to internal Long id.
+        // Returns empty page for unknown users (privacy: don't distinguish missing vs has-no-auctions).
+        Long sellerId = userRepository.findByPublicId(userPublicId)
+                .map(User::getId)
+                .orElse(-1L); // sentinel — findActiveBySellerIdIds returns empty for unknown seller
+
         // ACTIVE-only filter today means no escrow rows exist for this page,
         // but we still batch-load so the response shape stays consistent when
         // status filtering expands (Epic 07). One query per page beats one
         // per row once ENDED variants become reachable here.
-        var page = auctionService.loadActiveBySeller(userId, pageable);
+        var page = auctionService.loadActiveBySeller(sellerId, pageable);
         Map<Long, Escrow> escrows = loadEscrowsFor(page.getContent());
         return PagedResponse.from(page.map(a ->
                 mapper.toPublicResponse(a, escrows.get(a.getId()))));

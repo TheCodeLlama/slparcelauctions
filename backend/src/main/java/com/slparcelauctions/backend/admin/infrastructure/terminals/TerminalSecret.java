@@ -1,29 +1,34 @@
 package com.slparcelauctions.backend.admin.infrastructure.terminals;
 
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.OffsetDateTime;
+
+import com.slparcelauctions.backend.common.BaseMutableEntity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "terminal_secrets",
-       uniqueConstraints = @UniqueConstraint(columnNames = "version"))
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class TerminalSecret {
+       uniqueConstraints = @UniqueConstraint(columnNames = "secret_version"))
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+public class TerminalSecret extends BaseMutableEntity {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false)
-    private Integer version;
+    @Column(name = "secret_version", nullable = false)
+    private Integer secretVersion;
 
     @Column(name = "secret_value", nullable = false, length = 64)
     private String secretValue;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 
     @Column(name = "retired_at")
     private OffsetDateTime retiredAt;

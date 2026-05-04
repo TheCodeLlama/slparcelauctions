@@ -1,7 +1,9 @@
 package com.slparcelauctions.backend.wallet.me;
 
+import java.util.UUID;
+
 public record WithdrawApiResponse(
-        long queueId,
+        UUID queuePublicId,
         long newBalance,
         long newAvailable,
         String status

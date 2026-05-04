@@ -41,7 +41,7 @@ public class AdminBotPoolService {
         if (json == null) {
             return new BotPoolHealthRow(
                     w.getId(), w.getName(), w.getSlUuid(),
-                    w.getFirstSeenAt(), w.getLastSeenAt(),
+                    w.getCreatedAt(), w.getLastSeenAt(),
                     null, null, null, null, false);
         }
         try {
@@ -49,7 +49,7 @@ public class AdminBotPoolService {
                     new TypeReference<Map<String, Object>>() {});
             return new BotPoolHealthRow(
                     w.getId(), w.getName(), w.getSlUuid(),
-                    w.getFirstSeenAt(), w.getLastSeenAt(),
+                    w.getCreatedAt(), w.getLastSeenAt(),
                     (String) state.get("sessionState"),
                     (String) state.get("currentRegion"),
                     (String) state.get("currentTaskKey"),
@@ -59,7 +59,7 @@ public class AdminBotPoolService {
             log.warn("Failed to parse bot heartbeat JSON for {}: {}", w.getSlUuid(), e.getMessage());
             return new BotPoolHealthRow(
                     w.getId(), w.getName(), w.getSlUuid(),
-                    w.getFirstSeenAt(), w.getLastSeenAt(),
+                    w.getCreatedAt(), w.getLastSeenAt(),
                     null, null, null, null, false);
         }
     }

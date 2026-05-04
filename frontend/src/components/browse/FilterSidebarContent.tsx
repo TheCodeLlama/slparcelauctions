@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { TagSelector } from "@/components/listing/TagSelector";
 import { FilterSection } from "./FilterSection";
@@ -83,14 +83,18 @@ export function FilterSidebarContent({
   errorCode,
 }: FilterSidebarContentProps) {
   const [local, setLocal] = useState<AuctionSearchQuery>(query);
+  const [storedQuery, setStoredQuery] = useState<AuctionSearchQuery>(query);
 
   // In immediate mode, keep local state in sync with the parent's query
   // (e.g. when the URL changes via back/forward). Staged mode also syncs
   // so that the remount-on-open trick seeds fresh state from the current
-  // URL-derived query each time.
-  useEffect(() => {
+  // URL-derived query each time. Uses React's recommended derived-state
+  // pattern (set during render guarded by reference equality) instead of
+  // useEffect+setState, which trips react-hooks/set-state-in-effect.
+  if (query !== storedQuery) {
+    setStoredQuery(query);
     setLocal(query);
-  }, [query]);
+  }
 
   const update = (partial: Partial<AuctionSearchQuery>) => {
     const next: AuctionSearchQuery = { ...local, ...partial, page: 0 };

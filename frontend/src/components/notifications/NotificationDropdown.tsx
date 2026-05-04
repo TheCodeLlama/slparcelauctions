@@ -57,7 +57,7 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
           </div>
         ) : (
           list.data?.content.map((n) => (
-            <NotificationDropdownRow key={n.id} notification={n} onClose={onClose} />
+            <NotificationDropdownRow key={n.publicId} notification={n} onClose={onClose} />
           ))
         )}
       </div>

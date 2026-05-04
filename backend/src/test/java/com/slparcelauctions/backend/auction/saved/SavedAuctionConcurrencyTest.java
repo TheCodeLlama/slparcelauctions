@@ -137,7 +137,7 @@ class SavedAuctionConcurrencyTest {
             Runnable task1 = () -> {
                 try {
                     start.await();
-                    service.save(seededUserId, a1.getId());
+                    service.save(seededUserId, a1.getPublicId());
                     successes.incrementAndGet();
                 } catch (SavedLimitReachedException e) {
                     limitFailures.incrementAndGet();
@@ -150,7 +150,7 @@ class SavedAuctionConcurrencyTest {
             Runnable task2 = () -> {
                 try {
                     start.await();
-                    service.save(seededUserId, a2.getId());
+                    service.save(seededUserId, a2.getPublicId());
                     successes.incrementAndGet();
                 } catch (SavedLimitReachedException e) {
                     limitFailures.incrementAndGet();

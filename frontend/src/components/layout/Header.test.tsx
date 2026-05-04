@@ -46,7 +46,7 @@ describe("Header", () => {
     mockedUseAuth.mockReturnValue({
       status: "authenticated",
       user: {
-        id: 1,
+        publicId: "00000000-0000-0000-0000-000000000001",
         email: "heath@example.com",
         displayName: "Heath Barcus",
         slAvatarUuid: null,

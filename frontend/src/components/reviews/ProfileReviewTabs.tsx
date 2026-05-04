@@ -39,7 +39,7 @@ function parsePage(raw: string | null): number {
 }
 
 export interface ProfileReviewTabsProps {
-  userId: number;
+  userPublicId: string;
   avgSellerRating: number | null;
   avgBuyerRating: number | null;
   totalSellerReviews: number;
@@ -48,7 +48,7 @@ export interface ProfileReviewTabsProps {
 }
 
 function ProfileReviewTabsContent({
-  userId,
+  userPublicId,
   avgSellerRating,
   avgBuyerRating,
   totalSellerReviews,
@@ -156,7 +156,7 @@ function ProfileReviewTabsContent({
             size="md"
           />
           <ReviewList
-            userId={userId}
+            userPublicId={userPublicId}
             role="SELLER"
             page={sellerPage}
             onPageChange={handleSellerPageChange}
@@ -172,7 +172,7 @@ function ProfileReviewTabsContent({
             size="md"
           />
           <ReviewList
-            userId={userId}
+            userPublicId={userPublicId}
             role="BUYER"
             page={buyerPage}
             onPageChange={handleBuyerPageChange}

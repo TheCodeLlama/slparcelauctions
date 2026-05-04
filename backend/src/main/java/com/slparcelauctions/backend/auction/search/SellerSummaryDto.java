@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.search;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * Seller card embedded in each {@link AuctionSearchResultDto}. Epic 08
@@ -14,7 +15,7 @@ import java.math.BigDecimal;
  * cards do not render it today.
  */
 public record SellerSummaryDto(
-        Long id,
+        UUID publicId,
         String displayName,
         String avatarUrl,
         BigDecimal averageRating,

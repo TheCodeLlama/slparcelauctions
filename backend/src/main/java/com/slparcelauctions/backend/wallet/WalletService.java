@@ -96,10 +96,9 @@ public class WalletService {
                 .balanceAfter(newBalance)
                 .reservedAfter(user.getReservedLindens())
                 .slTransactionId(slTransactionKey)
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
 
-        walletBroadcastPublisher.publish(user, UserLedgerEntryType.DEPOSIT.name(), entry.getId());
+        walletBroadcastPublisher.publish(user, UserLedgerEntryType.DEPOSIT.name(), entry.getPublicId());
 
         log.info("deposit ok: userId={}, amount={}, balanceAfter={}, slTxKey={}",
                 user.getId(), amount, newBalance, slTransactionKey);
@@ -166,10 +165,9 @@ public class WalletService {
                 .reservedAfter(user.getReservedLindens())
                 .idempotencyKey(idempotencyKey)
                 .slTransactionId(slTransactionKey)
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
 
-        walletBroadcastPublisher.publish(user, UserLedgerEntryType.WITHDRAW_QUEUED.name(), entry.getId());
+        walletBroadcastPublisher.publish(user, UserLedgerEntryType.WITHDRAW_QUEUED.name(), entry.getPublicId());
 
         TerminalCommand cmd = terminalCommandRepository.save(TerminalCommand.builder()
                 .action(TerminalCommandAction.WITHDRAW)
@@ -228,10 +226,9 @@ public class WalletService {
                 .reservedAfter(user.getReservedLindens())
                 .idempotencyKey(idempotencyKey)
                 .refType("PENALTY")
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
 
-        walletBroadcastPublisher.publish(user, UserLedgerEntryType.PENALTY_DEBIT.name(), entry.getId());
+        walletBroadcastPublisher.publish(user, UserLedgerEntryType.PENALTY_DEBIT.name(), entry.getPublicId());
 
         log.info("penalty debit: userId={}, amount={}, newOwed={}, ledgerId={}",
                 userId, amount, newOwed, entry.getId());
@@ -276,10 +273,9 @@ public class WalletService {
                     .reservedAfter(priorUser.getReservedLindens())
                     .refType("BID")
                     .refId(priorReservation.getBidId())
-                    .createdAt(now)
                     .build());
             walletBroadcastPublisher.publish(priorUser,
-                    UserLedgerEntryType.BID_RELEASED.name(), priorEntry.getId());
+                    UserLedgerEntryType.BID_RELEASED.name(), priorEntry.getPublicId());
         }
 
         BidReservation newRes = reservationRepository.save(BidReservation.builder()
@@ -299,10 +295,9 @@ public class WalletService {
                 .reservedAfter(newBidder.getReservedLindens())
                 .refType("BID")
                 .refId(newBidId)
-                .createdAt(now)
                 .build());
         walletBroadcastPublisher.publish(newBidder,
-                UserLedgerEntryType.BID_RESERVED.name(), newEntry.getId());
+                UserLedgerEntryType.BID_RESERVED.name(), newEntry.getPublicId());
 
         return new ReservationSwapResult(newRes, priorReservation);
     }
@@ -351,7 +346,6 @@ public class WalletService {
                 .reservedAfter(reservedAfter)
                 .refType("BID")
                 .refId(reservation.getBidId())
-                .createdAt(now)
                 .build());
         UserLedgerEntry escrowEntry = ledgerRepository.save(UserLedgerEntry.builder()
                 .userId(winner.getId())
@@ -361,11 +355,10 @@ public class WalletService {
                 .reservedAfter(reservedAfter)
                 .refType("ESCROW")
                 .refId(escrowId)
-                .createdAt(now)
                 .build());
 
         walletBroadcastPublisher.publish(winner,
-                UserLedgerEntryType.ESCROW_DEBIT.name(), escrowEntry.getId());
+                UserLedgerEntryType.ESCROW_DEBIT.name(), escrowEntry.getPublicId());
 
         log.info("auto-fund escrow: winnerId={}, escrowId={}, amount={}, balanceAfter={}",
                 winner.getId(), escrowId, finalBidAmount, balanceAfter);
@@ -380,7 +373,7 @@ public class WalletService {
         UserLedgerEntry entry = creditCommon(user, amount,
                 UserLedgerEntryType.ESCROW_REFUND, "ESCROW", escrowId);
         walletBroadcastPublisher.publish(user,
-                UserLedgerEntryType.ESCROW_REFUND.name(), entry.getId());
+                UserLedgerEntryType.ESCROW_REFUND.name(), entry.getPublicId());
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -389,7 +382,7 @@ public class WalletService {
                 UserLedgerEntryType.LISTING_FEE_REFUND,
                 "LISTING_FEE_REFUND", listingFeeRefundId);
         walletBroadcastPublisher.publish(user,
-                UserLedgerEntryType.LISTING_FEE_REFUND.name(), entry.getId());
+                UserLedgerEntryType.LISTING_FEE_REFUND.name(), entry.getPublicId());
     }
 
     private UserLedgerEntry creditCommon(User user, long amount, UserLedgerEntryType type,
@@ -408,7 +401,6 @@ public class WalletService {
                 .reservedAfter(user.getReservedLindens())
                 .refType(refType)
                 .refId(refId)
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
         log.info("credit {}: userId={}, amount={}, balanceAfter={}, refId={}",
                 type, user.getId(), amount, newBalance, refId);
@@ -443,10 +435,9 @@ public class WalletService {
                 .reservedAfter(user.getReservedLindens())
                 .refType("AUCTION")
                 .refId(auctionId)
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
         walletBroadcastPublisher.publish(user,
-                UserLedgerEntryType.LISTING_FEE_DEBIT.name(), entry.getId());
+                UserLedgerEntryType.LISTING_FEE_DEBIT.name(), entry.getPublicId());
         log.info("listing fee debit: userId={}, amount={}, auctionId={}, balanceAfter={}",
                 user.getId(), amount, auctionId, newBalance);
     }
@@ -475,10 +466,9 @@ public class WalletService {
                     .refType("BID")
                     .refId(r.getBidId())
                     .description("released by auction event: " + reason.name())
-                    .createdAt(now)
                     .build());
             walletBroadcastPublisher.publish(u,
-                    UserLedgerEntryType.BID_RELEASED.name(), entry.getId());
+                    UserLedgerEntryType.BID_RELEASED.name(), entry.getPublicId());
         }
         log.info("released {} reservations for auctionId={}, reason={}",
                 active.size(), auctionId, reason);
@@ -504,10 +494,9 @@ public class WalletService {
                     .refType("BID")
                     .refId(r.getBidId())
                     .description("released by user event: " + reason.name())
-                    .createdAt(now)
                     .build());
             walletBroadcastPublisher.publish(u,
-                    UserLedgerEntryType.BID_RELEASED.name(), entry.getId());
+                    UserLedgerEntryType.BID_RELEASED.name(), entry.getPublicId());
         }
         userRepository.save(u);
         log.info("released {} reservations for userId={}, reason={}",
@@ -537,11 +526,10 @@ public class WalletService {
                 .refType("USER_LEDGER")
                 .refId(queuedRow.getId())
                 .slTransactionId(slTransactionKey)
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
         User user = userRepository.findById(queuedRow.getUserId()).orElseThrow();
         walletBroadcastPublisher.publish(user,
-                UserLedgerEntryType.WITHDRAW_COMPLETED.name(), entry.getId());
+                UserLedgerEntryType.WITHDRAW_COMPLETED.name(), entry.getPublicId());
         log.info("withdraw completed: userId={}, queuedRowId={}, slTxKey={}",
                 queuedRow.getUserId(), queuedRow.getId(), slTransactionKey);
     }
@@ -568,10 +556,9 @@ public class WalletService {
                 .refType("USER_LEDGER")
                 .refId(queuedRow.getId())
                 .description("withdrawal reversed: " + reason)
-                .createdAt(OffsetDateTime.now(clock))
                 .build());
         walletBroadcastPublisher.publish(user,
-                UserLedgerEntryType.WITHDRAW_REVERSED.name(), entry.getId());
+                UserLedgerEntryType.WITHDRAW_REVERSED.name(), entry.getPublicId());
         log.warn("withdraw reversed: userId={}, queuedRowId={}, reason={}",
                 user.getId(), queuedRow.getId(), reason);
     }

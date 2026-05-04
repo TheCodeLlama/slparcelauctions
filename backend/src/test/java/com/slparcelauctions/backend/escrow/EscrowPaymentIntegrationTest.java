@@ -114,6 +114,8 @@ class EscrowPaymentIntegrationTest {
     private Long seededSellerId;
     private Long seededBidderId;
     private UUID seededWinnerSlUuid;
+    private UUID seededAuctionPublicId;
+    private UUID seededEscrowPublicId;
     private long seededFinalBid;
 
     @BeforeEach
@@ -196,8 +198,8 @@ class EscrowPaymentIntegrationTest {
         assertThat(capturingEscrowPublisher.funded).hasSize(1);
         EscrowFundedEnvelope env = capturingEscrowPublisher.funded.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_FUNDED");
-        assertThat(env.auctionId()).isEqualTo(seededAuctionId);
-        assertThat(env.escrowId()).isEqualTo(seededEscrowId);
+        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
+        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.TRANSFER_PENDING);
         assertThat(env.transferDeadline())
                 .isCloseTo(persisted.getTransferDeadline(), within(1, ChronoUnit.MICROS));
@@ -364,6 +366,8 @@ class EscrowPaymentIntegrationTest {
             seededAuctionId = auction.getId();
             seededEscrowId = escrow.getId();
             seededWinnerSlUuid = winnerUuid;
+            seededAuctionPublicId = auction.getPublicId();
+            seededEscrowPublicId = escrow.getPublicId();
             seededFinalBid = finalBid;
         });
     }

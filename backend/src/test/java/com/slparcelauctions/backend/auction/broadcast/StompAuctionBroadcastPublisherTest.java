@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,17 +41,22 @@ class StompAuctionBroadcastPublisherTest {
     @InjectMocks
     StompAuctionBroadcastPublisher publisher;
 
+    private static final UUID AUCTION_PUBLIC_ID =
+            UUID.fromString("00000000-0000-0000-0000-00000000002a");
+    private static final UUID BIDDER_PUBLIC_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000014");
+
     @Test
     void publishSettlement_sendsEnvelopeToAuctionTopic() {
         OffsetDateTime now = OffsetDateTime.parse("2026-04-20T12:00:00Z");
         BidHistoryEntry entry = new BidHistoryEntry(
-                10L, 20L, "Alice", 500L, BidType.MANUAL, null, null, now);
+                UUID.randomUUID(), UUID.randomUUID(), "Alice", 500L, BidType.MANUAL, null, null, now);
         BidSettlementEnvelope envelope = new BidSettlementEnvelope(
                 "BID_SETTLEMENT",
-                42L,
+                AUCTION_PUBLIC_ID,
                 now,
                 500L,
-                20L,
+                BIDDER_PUBLIC_ID,
                 "Alice",
                 1,
                 now.plusDays(1),
@@ -62,7 +68,7 @@ class StompAuctionBroadcastPublisherTest {
         ArgumentCaptor<String> destCap = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object> payloadCap = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(destCap.capture(), payloadCap.capture());
-        assertThat(destCap.getValue()).isEqualTo("/topic/auction/42");
+        assertThat(destCap.getValue()).isEqualTo("/topic/auction/" + AUCTION_PUBLIC_ID);
         assertThat(payloadCap.getValue()).isSameAs(envelope);
         verifyNoMoreInteractions(messagingTemplate);
     }
@@ -70,20 +76,22 @@ class StompAuctionBroadcastPublisherTest {
     @Test
     void publishEnded_sendsEnvelopeToAuctionTopic() {
         OffsetDateTime now = OffsetDateTime.parse("2026-04-20T12:00:00Z");
+        UUID winnerPublicId = UUID.fromString("00000000-0000-0000-0000-000000000021");
         AuctionEndedEnvelope envelope = new AuctionEndedEnvelope(
                 "AUCTION_ENDED",
-                77L,
+                AUCTION_PUBLIC_ID,
                 now,
                 now,
                 AuctionEndOutcome.SOLD,
                 1_500L,
-                33L,
+                winnerPublicId,
                 "Bob",
                 4);
 
         publisher.publishEnded(envelope);
 
-        verify(messagingTemplate).convertAndSend(eq("/topic/auction/77"), (Object) eq(envelope));
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/auction/" + AUCTION_PUBLIC_ID), (Object) eq(envelope));
         verifyNoMoreInteractions(messagingTemplate);
     }
 
@@ -96,7 +104,7 @@ class StompAuctionBroadcastPublisherTest {
         // best-effort degradation, not data loss.
         OffsetDateTime now = OffsetDateTime.parse("2026-04-20T12:00:00Z");
         BidSettlementEnvelope envelope = new BidSettlementEnvelope(
-                "BID_SETTLEMENT", 42L, now, 500L, 20L, "Alice", 1,
+                "BID_SETTLEMENT", AUCTION_PUBLIC_ID, now, 500L, BIDDER_PUBLIC_ID, "Alice", 1,
                 now.plusDays(1), now.plusDays(1), List.of());
         doThrow(new MessagingException("broker down"))
                 .when(messagingTemplate).convertAndSend(anyString(), any(Object.class));
@@ -104,41 +112,46 @@ class StompAuctionBroadcastPublisherTest {
         assertThatCode(() -> publisher.publishSettlement(envelope))
                 .doesNotThrowAnyException();
 
-        verify(messagingTemplate).convertAndSend(eq("/topic/auction/42"), (Object) eq(envelope));
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/auction/" + AUCTION_PUBLIC_ID), (Object) eq(envelope));
         verifyNoMoreInteractions(messagingTemplate);
     }
 
     @Test
     void publishEnded_swallowsMessagingException() {
         OffsetDateTime now = OffsetDateTime.parse("2026-04-20T12:00:00Z");
+        UUID winnerPublicId = UUID.fromString("00000000-0000-0000-0000-000000000021");
         AuctionEndedEnvelope envelope = new AuctionEndedEnvelope(
-                "AUCTION_ENDED", 77L, now, now, AuctionEndOutcome.SOLD,
-                1_500L, 33L, "Bob", 4);
+                "AUCTION_ENDED", AUCTION_PUBLIC_ID, now, now, AuctionEndOutcome.SOLD,
+                1_500L, winnerPublicId, "Bob", 4);
         doThrow(new MessagingException("serialization failed"))
                 .when(messagingTemplate).convertAndSend(anyString(), any(Object.class));
 
         assertThatCode(() -> publisher.publishEnded(envelope))
                 .doesNotThrowAnyException();
 
-        verify(messagingTemplate).convertAndSend(eq("/topic/auction/77"), (Object) eq(envelope));
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/auction/" + AUCTION_PUBLIC_ID), (Object) eq(envelope));
         verifyNoMoreInteractions(messagingTemplate);
     }
 
     @Test
-    void publishSettlement_usesAuctionIdFromEnvelope() {
-        // Topic must be derived from envelope.auctionId(), never a captured
+    void publishSettlement_usesAuctionPublicIdFromEnvelope() {
+        // Topic must be derived from envelope.auctionPublicId(), never a captured
         // field — guards against a future refactor that introduces a second
         // id field (e.g. parcelId) and accidentally routes the publish to it.
+        UUID differentAuctionId = UUID.fromString("00000000-0000-0000-0000-000000002329");
         BidSettlementEnvelope envelope = new BidSettlementEnvelope(
-                "BID_SETTLEMENT", 9_001L,
+                "BID_SETTLEMENT", differentAuctionId,
                 OffsetDateTime.parse("2026-04-20T12:00:00Z"),
-                100L, 1L, "Carol", 1,
+                100L, UUID.randomUUID(), "Carol", 1,
                 OffsetDateTime.parse("2026-04-21T12:00:00Z"),
                 OffsetDateTime.parse("2026-04-21T12:00:00Z"),
                 List.of());
 
         publisher.publishSettlement(envelope);
 
-        verify(messagingTemplate).convertAndSend(eq("/topic/auction/9001"), (Object) eq(envelope));
+        verify(messagingTemplate).convertAndSend(
+                eq("/topic/auction/" + differentAuctionId), (Object) eq(envelope));
     }
 }

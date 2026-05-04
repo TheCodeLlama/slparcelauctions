@@ -7,7 +7,7 @@ import com.slparcelauctions.backend.admin.ban.BanType;
 import com.slparcelauctions.backend.user.Role;
 
 public record AdminUserDetailDto(
-    Long id,
+    UUID publicId,
     String email,
     String displayName,
     UUID slAvatarUuid,

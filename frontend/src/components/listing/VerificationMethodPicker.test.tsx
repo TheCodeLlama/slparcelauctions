@@ -19,7 +19,7 @@ describe("VerificationMethodPicker", () => {
   it("triggers verify with the clicked method", async () => {
     let received: string | null = null;
     server.use(
-      http.put("*/api/v1/auctions/42/verify", async ({ request }) => {
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", async ({ request }) => {
         const body = (await request.json()) as { method: string };
         received = body.method;
         return HttpResponse.json({
@@ -31,7 +31,7 @@ describe("VerificationMethodPicker", () => {
         });
       }),
     );
-    renderWithProviders(<VerificationMethodPicker auctionId={42} />, {
+    renderWithProviders(<VerificationMethodPicker auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
     const buttons = await screen.findAllByRole("button", {
@@ -44,7 +44,7 @@ describe("VerificationMethodPicker", () => {
   it("shows the failure banner with the notes when provided", () => {
     renderWithProviders(
       <VerificationMethodPicker
-        auctionId={42}
+        auctionPublicId="00000000-0000-0000-0000-00000000002a"
         lastFailureNotes="Ownership check failed: SL API returned a different owner."
       />,
       { auth: "authenticated" },
@@ -59,7 +59,7 @@ describe("VerificationMethodPicker", () => {
 
   it("remaps a 422 error to the group-owned prescriptive message", async () => {
     server.use(
-      http.put("*/api/v1/auctions/42/verify", () =>
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () =>
         HttpResponse.json(
           {
             status: 422,
@@ -70,7 +70,7 @@ describe("VerificationMethodPicker", () => {
         ),
       ),
     );
-    renderWithProviders(<VerificationMethodPicker auctionId={42} />, {
+    renderWithProviders(<VerificationMethodPicker auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
       auth: "authenticated",
     });
     const buttons = await screen.findAllByRole("button", {

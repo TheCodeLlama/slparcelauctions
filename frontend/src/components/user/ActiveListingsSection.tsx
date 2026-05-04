@@ -13,7 +13,7 @@ import { useActiveListings } from "@/hooks/useActiveListings";
 const PAGE_SIZE = 6;
 
 export interface ActiveListingsSectionProps {
-  userId: number;
+  userPublicId: string;
   className?: string;
 }
 
@@ -32,10 +32,10 @@ export interface ActiveListingsSectionProps {
  * DEFERRED_WORK.md}).
  */
 export function ActiveListingsSection({
-  userId,
+  userPublicId,
   className,
 }: ActiveListingsSectionProps) {
-  const { data, isPending, isError } = useActiveListings(userId, {
+  const { data, isPending, isError } = useActiveListings(userPublicId, {
     size: PAGE_SIZE,
   });
 
@@ -76,13 +76,13 @@ export function ActiveListingsSection({
         aria-label="Active listings"
       >
         {listings.map((auction) => (
-          <ActiveListingCard key={auction.id} auction={auction} />
+          <ActiveListingCard key={auction.publicId} auction={auction} />
         ))}
       </ul>
       {data.totalElements > PAGE_SIZE ? (
         <div className="flex justify-end">
           <Link
-            href={`/users/${userId}/listings`}
+            href={`/users/${userPublicId}/listings`}
             className="text-sm font-medium text-brand underline-offset-4 hover:underline"
           >
             View all ({data.totalElements})
@@ -103,7 +103,7 @@ function ActiveListingCard({ auction }: { auction: PublicAuctionResponse }) {
   return (
     <li className="rounded-lg border border-border-subtle bg-surface-raised">
       <Link
-        href={`/auction/${auction.id}`}
+        href={`/auction/${auction.publicId}`}
         className="flex flex-col gap-2 p-3 hover:bg-bg-subtle focus-visible:bg-bg-subtle focus-visible:outline-none"
       >
         <Thumbnail src={thumb} alt="" />

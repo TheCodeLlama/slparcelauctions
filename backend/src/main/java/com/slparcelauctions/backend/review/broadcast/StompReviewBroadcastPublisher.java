@@ -33,14 +33,14 @@ public class StompReviewBroadcastPublisher implements ReviewBroadcastPublisher {
 
     @Override
     public void publishReviewRevealed(ReviewRevealedEnvelope envelope) {
-        String destination = "/topic/auction/" + envelope.auctionId();
-        log.debug("Publishing REVIEW_REVEALED to {}: reviewId={}",
-                destination, envelope.reviewId());
+        String destination = "/topic/auction/" + envelope.auctionPublicId();
+        log.debug("Publishing REVIEW_REVEALED to {}: reviewPublicId={}",
+                destination, envelope.reviewPublicId());
         try {
             messagingTemplate.convertAndSend(destination, envelope);
         } catch (MessagingException e) {
             log.warn("Failed to publish REVIEW_REVEALED for auction {}: {}",
-                    envelope.auctionId(), e.getMessage(), e);
+                    envelope.auctionPublicId(), e.getMessage(), e);
         }
     }
 }

@@ -9,7 +9,7 @@ import type { ReviewedRole } from "@/types/review";
 import { ReviewCard } from "./ReviewCard";
 
 export interface ReviewListProps {
-  userId: number;
+  userPublicId: string;
   role: ReviewedRole;
   /** 0-indexed current page. */
   page: number;
@@ -23,8 +23,8 @@ export interface ReviewListProps {
  * the caller (URL-synced) so switching tabs preserves each tab's
  * independent pagination.
  */
-export function ReviewList({ userId, role, page, onPageChange }: ReviewListProps) {
-  const { data, isPending, isError } = useUserReviews(userId, role, page);
+export function ReviewList({ userPublicId, role, page, onPageChange }: ReviewListProps) {
+  const { data, isPending, isError } = useUserReviews(userPublicId, role, page);
 
   if (isPending) {
     return (
@@ -61,7 +61,7 @@ export function ReviewList({ userId, role, page, onPageChange }: ReviewListProps
     <div className="flex flex-col gap-4" data-testid={`review-list-${role.toLowerCase()}`}>
       <ul className="flex flex-col gap-3">
         {data.content.map((review) => (
-          <li key={review.id}>
+          <li key={review.publicId}>
             <ReviewCard review={review} />
           </li>
         ))}

@@ -2,19 +2,19 @@ package com.slparcelauctions.backend.wallet;
 
 import java.time.OffsetDateTime;
 
+import com.slparcelauctions.backend.common.BaseMutableEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Active bid reservation for the wallet model's hard-reservation flow.
@@ -38,12 +38,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class BidReservation {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class BidReservation extends BaseMutableEntity {
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -56,9 +52,6 @@ public class BidReservation {
 
     @Column(nullable = false)
     private Long amount;
-
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
 
     /**
      * NULL while the reservation is active. Set to {@code now} at the

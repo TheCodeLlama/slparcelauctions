@@ -5,12 +5,12 @@ import { adminHandlers } from "@/test/msw/handlers";
 import { ReportListingButton } from "./ReportListingButton";
 import type { AuthUser } from "@/lib/auth/session";
 
-const AUCTION_ID = 99;
-const SELLER_ID = 7;
+const AUCTION_ID = "00000000-0000-0000-0000-000000000063";
+const SELLER_ID = "00000000-0000-0000-0000-000000000007";
 
 // Verified user — different from seller
 const verifiedUser: AuthUser = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-00000000002a",
   email: "user@example.com",
   displayName: "Buyer",
   slAvatarUuid: "some-uuid",
@@ -27,7 +27,7 @@ const unverifiedUser: AuthUser = {
 // Seller themselves
 const sellerUser: AuthUser = {
   ...verifiedUser,
-  id: SELLER_ID,
+  publicId: SELLER_ID,
 };
 
 vi.mock("next/navigation", () => ({
@@ -46,7 +46,7 @@ vi.mock("next/navigation", () => ({
 describe("ReportListingButton state machine", () => {
   it("renders nothing for anonymous user", () => {
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "anonymous" }
     );
     expect(screen.queryByTestId("report-listing-btn")).not.toBeInTheDocument();
@@ -55,7 +55,7 @@ describe("ReportListingButton state machine", () => {
   it("renders nothing for seller viewing own listing", () => {
     server.use(adminHandlers.myReport204(AUCTION_ID));
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "authenticated", authUser: sellerUser }
     );
     expect(screen.queryByTestId("report-listing-btn")).not.toBeInTheDocument();
@@ -64,7 +64,7 @@ describe("ReportListingButton state machine", () => {
   it("renders disabled button with tooltip for unverified user", async () => {
     server.use(adminHandlers.myReport204(AUCTION_ID));
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "authenticated", authUser: unverifiedUser }
     );
     await waitFor(() =>
@@ -78,7 +78,7 @@ describe("ReportListingButton state machine", () => {
   it("renders enabled 'Report' button when no existing report (204)", async () => {
     server.use(adminHandlers.myReport204(AUCTION_ID));
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "authenticated", authUser: verifiedUser }
     );
     await waitFor(() =>
@@ -102,7 +102,7 @@ describe("ReportListingButton state machine", () => {
       })
     );
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "authenticated", authUser: verifiedUser }
     );
     await waitFor(() =>
@@ -126,7 +126,7 @@ describe("ReportListingButton state machine", () => {
       })
     );
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "authenticated", authUser: verifiedUser }
     );
     await waitFor(() => {
@@ -149,7 +149,7 @@ describe("ReportListingButton state machine", () => {
       })
     );
     renderWithProviders(
-      <ReportListingButton auctionId={AUCTION_ID} sellerId={SELLER_ID} />,
+      <ReportListingButton auctionPublicId={AUCTION_ID} sellerPublicId={SELLER_ID} />,
       { auth: "authenticated", authUser: verifiedUser }
     );
     await waitFor(() => {

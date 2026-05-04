@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.escrow.exception.TerminalAuthException;
 import com.slparcelauctions.backend.escrow.terminal.TerminalService;
 import com.slparcelauctions.backend.sl.SlHeaderValidator;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice tests for {@link PayoutResultController}. Stubs
@@ -63,6 +64,7 @@ class PayoutResultControllerSliceTest {
     @MockitoBean TerminalService terminalService;
     @MockitoBean SlHeaderValidator headerValidator;
     @MockitoBean JwtService jwtService;
+    @MockitoBean UserRepository userRepository;
     @MockitoBean JwtConfig jwtConfig;
     // SecurityConfig depends on BotSharedSecretAuthorizer (Epic 06 Task 3).
     @MockitoBean BotSharedSecretAuthorizer botSharedSecretAuthorizer;

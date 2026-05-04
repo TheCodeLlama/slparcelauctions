@@ -159,8 +159,7 @@ class AuctionEndNotificationIntegrationTest {
     }
 
     private List<Notification> notifForUser(Long userId, NotificationCategory category) {
-        return notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(userId))
+        return notifRepo.findAllByUserId(userId).stream()
                 .filter(n -> n.getCategory() == category)
                 .toList();
     }
@@ -221,8 +220,7 @@ class AuctionEndNotificationIntegrationTest {
 
         assertThat(notifForUser(sellerId, NotificationCategory.AUCTION_ENDED_NO_BIDS)).hasSize(1);
         // No other notification categories for the seller
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        assertThat(notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() != NotificationCategory.AUCTION_ENDED_NO_BIDS)
                 .toList()).isEmpty();
     }

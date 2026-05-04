@@ -4,12 +4,11 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import com.slparcelauctions.backend.escrow.Escrow;
 
 import jakarta.persistence.Column;
@@ -17,17 +16,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "bot_tasks")
@@ -35,12 +31,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class BotTask {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@SuperBuilder
+public class BotTask extends BaseMutableEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "task_type", nullable = false, length = 20)
@@ -128,15 +120,7 @@ public class BotTask {
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
     /** Set on terminal states only (COMPLETED / FAILED / CANCELLED). */
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
-
-    @UpdateTimestamp
-    @Column(name = "last_updated_at", nullable = false)
-    private OffsetDateTime lastUpdatedAt;
 }

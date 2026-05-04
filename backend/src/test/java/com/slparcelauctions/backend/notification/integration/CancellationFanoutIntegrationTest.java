@@ -168,17 +168,14 @@ class CancellationFanoutIntegrationTest {
         cancellationService.cancel(auctionId, "changed mind", null);
 
         // Both bidders should have LISTING_CANCELLED_BY_SELLER
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(bidder1Id))
+        assertThat(notifRepo.findAllByUserId(bidder1Id).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_CANCELLED_BY_SELLER)
                 .count()).isEqualTo(1L);
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(bidder2Id))
+        assertThat(notifRepo.findAllByUserId(bidder2Id).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_CANCELLED_BY_SELLER)
                 .count()).isEqualTo(1L);
         // Seller should NOT get LISTING_CANCELLED_BY_SELLER
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        assertThat(notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_CANCELLED_BY_SELLER)
                 .count()).isEqualTo(0L);
     }
@@ -194,8 +191,7 @@ class CancellationFanoutIntegrationTest {
         // Check specifically: no notification for the seller and no other recipients
         // (we can't assert the total table since other tests may leave rows).
         // We verify there's no notification for the seller (who doesn't get this category anyway).
-        assertThat(notifRepo.findAll().stream()
-                .filter(n -> n.getUser().getId().equals(sellerId))
+        assertThat(notifRepo.findAllByUserId(sellerId).stream()
                 .filter(n -> n.getCategory() == NotificationCategory.LISTING_CANCELLED_BY_SELLER)
                 .count()).isEqualTo(0L);
         // And the total for this category should be 0 for this run

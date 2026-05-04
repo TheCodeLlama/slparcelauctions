@@ -74,15 +74,9 @@ class ReviewServiceActionTest {
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
 
-        seller = User.builder().email("seller@example.com").passwordHash("x").build();
-        seller.setId(10L);
-        seller.setDisplayName("Sally");
-        winner = User.builder().email("winner@example.com").passwordHash("x").build();
-        winner.setId(20L);
-        winner.setDisplayName("Willy");
-        stranger = User.builder().email("stranger@example.com").passwordHash("x").build();
-        stranger.setId(99L);
-        stranger.setDisplayName("Sam");
+        seller = User.builder().id(10L).email("seller@example.com").passwordHash("x").displayName("Sally").build();
+        winner = User.builder().id(20L).email("winner@example.com").passwordHash("x").displayName("Willy").build();
+        stranger = User.builder().id(99L).email("stranger@example.com").passwordHash("x").displayName("Sam").build();
 
         auction = Auction.builder()
                 .title("Lakefront")
@@ -91,7 +85,7 @@ class ReviewServiceActionTest {
                 .winnerUserId(winner.getId())
                 .photos(List.of())
                 .build();
-        auction.setId(555L);
+        setEntityId(auction, 555L);
 
         review = Review.builder()
                 .auction(auction)
@@ -103,7 +97,7 @@ class ReviewServiceActionTest {
                 .visible(true)
                 .flagCount(0)
                 .build();
-        review.setId(1_001L);
+        setEntityId(review, 1_001L);
     }
 
     // ---------- respondTo ----------
@@ -162,8 +156,8 @@ class ReviewServiceActionTest {
         when(responseRepo.existsByReviewId(1_001L)).thenReturn(false);
         when(responseRepo.save(any(ReviewResponse.class))).thenAnswer(inv -> {
             ReviewResponse r = inv.getArgument(0);
-            r.setId(9_001L);
-            r.setCreatedAt(NOW);
+            setEntityId(r, 9_001L);
+            setEntityCreatedAt(r, NOW);
             return r;
         });
 
@@ -176,7 +170,7 @@ class ReviewServiceActionTest {
         assertThat(saved.getReview()).isEqualTo(review);
         assertThat(saved.getText()).isEqualTo("Appreciate it!");
 
-        assertThat(dto.id()).isEqualTo(9_001L);
+        assertThat(dto.publicId()).isNotNull();
         assertThat(dto.text()).isEqualTo("Appreciate it!");
         assertThat(dto.createdAt()).isEqualTo(NOW);
     }
@@ -228,7 +222,7 @@ class ReviewServiceActionTest {
         when(flagRepo.existsByReviewIdAndFlaggerId(1_001L, seller.getId())).thenReturn(false);
         when(flagRepo.save(any(ReviewFlag.class))).thenAnswer(inv -> {
             ReviewFlag f = inv.getArgument(0);
-            f.setId(8_001L);
+            setEntityId(f, 8_001L);
             return f;
         });
 
@@ -279,5 +273,23 @@ class ReviewServiceActionTest {
         ArgumentCaptor<Review> reviewCap = ArgumentCaptor.forClass(Review.class);
         verify(reviewRepo).save(reviewCap.capture());
         assertThat(reviewCap.getValue().getFlagCount()).isEqualTo(4);
+    }
+
+    private static void setEntityId(Object entity, Long id) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+            f.setAccessible(true);
+            f.set(entity, id);
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    private static void setEntityCreatedAt(Object entity, java.time.OffsetDateTime createdAt) {
+        try {
+            java.lang.reflect.Field f =
+                    com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("createdAt");
+            f.setAccessible(true);
+            f.set(entity, createdAt);
+        } catch (Exception e) { throw new RuntimeException(e); }
     }
 }

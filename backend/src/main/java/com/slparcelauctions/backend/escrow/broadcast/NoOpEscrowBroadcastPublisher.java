@@ -31,61 +31,61 @@ public class NoOpEscrowBroadcastPublisher {
             @Override
             public void publishCreated(EscrowCreatedEnvelope envelope) {
                 log.debug("no-op publishCreated: auctionId={}, escrowId={}, state={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state());
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state());
             }
 
             @Override
             public void publishDisputed(EscrowDisputedEnvelope envelope) {
                 log.debug("no-op publishDisputed: auctionId={}, escrowId={}, reason={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.reason());
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.reason());
             }
 
             @Override
             public void publishFunded(EscrowFundedEnvelope envelope) {
                 log.debug("no-op publishFunded: auctionId={}, escrowId={}, state={}, transferDeadline={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
                         envelope.transferDeadline());
             }
 
             @Override
             public void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope) {
                 log.debug("no-op publishTransferConfirmed: auctionId={}, escrowId={}, state={}, transferConfirmedAt={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
                         envelope.transferConfirmedAt());
             }
 
             @Override
             public void publishFrozen(EscrowFrozenEnvelope envelope) {
                 log.debug("no-op publishFrozen: auctionId={}, escrowId={}, state={}, reason={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
                         envelope.reason());
             }
 
             @Override
             public void publishCompleted(EscrowCompletedEnvelope envelope) {
                 log.debug("no-op publishCompleted: auctionId={}, escrowId={}, state={}, completedAt={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
                         envelope.completedAt());
             }
 
             @Override
             public void publishRefundCompleted(EscrowRefundCompletedEnvelope envelope) {
                 log.debug("no-op publishRefundCompleted: auctionId={}, escrowId={}, state={}, refundAmount={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
                         envelope.refundAmount());
             }
 
             @Override
             public void publishPayoutStalled(EscrowPayoutStalledEnvelope envelope) {
                 log.debug("no-op publishPayoutStalled: auctionId={}, escrowId={}, attemptCount={}, lastError={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.attemptCount(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.attemptCount(),
                         envelope.lastError());
             }
 
             @Override
             public void publishExpired(EscrowExpiredEnvelope envelope) {
                 log.debug("no-op publishExpired: auctionId={}, escrowId={}, state={}, reason={}",
-                        envelope.auctionId(), envelope.escrowId(), envelope.state(),
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
                         envelope.reason());
             }
         };

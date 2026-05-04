@@ -17,13 +17,13 @@ import { NewSellerBadge } from "./NewSellerBadge";
 import { VerifiedIdentityCard } from "./VerifiedIdentityCard";
 
 type PublicProfileViewProps = {
-  userId: number;
+  userPublicId: string;
 };
 
-export function PublicProfileView({ userId }: PublicProfileViewProps) {
+export function PublicProfileView({ userPublicId }: PublicProfileViewProps) {
   const { data: profile, isPending, isError, error } = useQuery({
-    queryKey: ["publicProfile", userId],
-    queryFn: () => userApi.publicProfile(userId),
+    queryKey: ["publicProfile", userPublicId],
+    queryFn: () => userApi.publicProfile(userPublicId),
     retry: (failureCount, err) => {
       if (isApiError(err) && err.status === 404) return false;
       return failureCount < 2;
@@ -119,7 +119,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
         </Card.Header>
         <Card.Body>
           <ProfileReviewTabs
-            userId={profile.id}
+            userPublicId={profile.publicId}
             avgSellerRating={profile.avgSellerRating}
             avgBuyerRating={profile.avgBuyerRating}
             totalSellerReviews={profile.totalSellerReviews}
@@ -134,7 +134,7 @@ export function PublicProfileView({ userId }: PublicProfileViewProps) {
           <h2 className="text-sm font-semibold tracking-tight">Active listings</h2>
         </Card.Header>
         <Card.Body>
-          <ActiveListingsSection userId={profile.id} />
+          <ActiveListingsSection userPublicId={profile.publicId} />
         </Card.Body>
       </Card>
     </div>

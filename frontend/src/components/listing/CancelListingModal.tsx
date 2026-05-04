@@ -140,13 +140,13 @@ export function CancelListingModal({
 
   const mutation = useMutation<SellerAuctionResponse, unknown, void>({
     mutationFn: () =>
-      cancelAuction(auction.id, {
+      cancelAuction(auction.publicId, {
         reason: reason.trim() || undefined,
       }),
     onMutate: () => setError(null),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-listings"] });
-      qc.invalidateQueries({ queryKey: ["auction", String(auction.id)] });
+      qc.invalidateQueries({ queryKey: ["auction", auction.publicId] });
       // The status preview depends on the seller's offense history; a
       // successful cancel-with-bids changes priorOffensesWithBids and
       // possibly the suspension state, so invalidate both the status

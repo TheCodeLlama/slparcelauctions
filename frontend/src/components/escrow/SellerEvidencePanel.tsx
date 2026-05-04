@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DisputeEvidenceUploader } from "./DisputeEvidenceUploader";
 import { api } from "@/lib/api";
-import { escrowKey } from "@/app/auction/[id]/escrow/EscrowPageClient";
+import { escrowKey } from "@/app/auction/[publicId]/escrow/EscrowPageClient";
 
-type Props = { auctionId: number };
+type Props = { auctionPublicId: string };
 
-export function SellerEvidencePanel({ auctionId }: Props) {
+export function SellerEvidencePanel({ auctionPublicId }: Props) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const qc = useQueryClient();
@@ -22,12 +22,12 @@ export function SellerEvidencePanel({ auctionId }: Props) {
       );
       files.forEach((f) => fd.append("files", f));
       return api.post(
-        `/api/v1/auctions/${auctionId}/escrow/dispute/seller-evidence`,
+        `/api/v1/auctions/${auctionPublicId}/escrow/dispute/seller-evidence`,
         fd,
       );
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: escrowKey(auctionId) });
+      qc.invalidateQueries({ queryKey: escrowKey(auctionPublicId) });
     },
   });
 

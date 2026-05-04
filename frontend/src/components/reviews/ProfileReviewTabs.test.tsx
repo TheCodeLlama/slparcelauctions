@@ -31,14 +31,14 @@ vi.mock("next/navigation", () => ({
 
 function makeReview(id: number, role: ReviewedRole): ReviewDto {
   return {
-    id,
-    auctionId: id * 10,
+    publicId: `00000000-0000-0000-0000-${String(id).padStart(12, "0")}`,
+    auctionPublicId: `00000000-0000-0000-0000-${String(id * 10).padStart(12, "0")}`,
     auctionTitle: `Parcel #${id}`,
     auctionPrimaryPhotoUrl: null,
-    reviewerId: 100 + id,
+    reviewerPublicId: `00000000-0000-0000-0000-${String(100 + id).padStart(12, "0")}`,
     reviewerDisplayName: `Reviewer ${id}`,
     reviewerAvatarUrl: null,
-    revieweeId: 42,
+    revieweePublicId: "00000000-0000-0000-0000-00000000002a",
     reviewedRole: role,
     rating: 5,
     text: `Review ${id} for role ${role}`,
@@ -102,7 +102,7 @@ describe("ProfileReviewTabs", () => {
 
     renderWithProviders(
       <ProfileReviewTabs
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         avgSellerRating={4.5}
         avgBuyerRating={4.8}
         totalSellerReviews={3}
@@ -129,7 +129,7 @@ describe("ProfileReviewTabs", () => {
 
     renderWithProviders(
       <ProfileReviewTabs
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         avgSellerRating={4.5}
         avgBuyerRating={4.8}
         totalSellerReviews={3}
@@ -154,7 +154,7 @@ describe("ProfileReviewTabs", () => {
 
     renderWithProviders(
       <ProfileReviewTabs
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         avgSellerRating={4.5}
         avgBuyerRating={4.8}
         totalSellerReviews={3}
@@ -178,7 +178,7 @@ describe("ProfileReviewTabs", () => {
 
     renderWithProviders(
       <ProfileReviewTabs
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         avgSellerRating={4.5}
         avgBuyerRating={4.8}
         totalSellerReviews={30}
@@ -207,7 +207,7 @@ describe("ProfileReviewTabs", () => {
 
     renderWithProviders(
       <ProfileReviewTabs
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         avgSellerRating={null}
         avgBuyerRating={null}
         totalSellerReviews={0}
@@ -228,7 +228,7 @@ describe("ProfileReviewTabs", () => {
 
     renderWithProviders(
       <ProfileReviewTabs
-        userId={42}
+        userPublicId="00000000-0000-0000-0000-00000000002a"
         avgSellerRating={4.7}
         avgBuyerRating={4.8}
         totalSellerReviews={23}

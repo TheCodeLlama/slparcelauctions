@@ -40,10 +40,10 @@ export function savedAuctionsQueryKey(
   return [...SAVED_AUCTIONS_BASE_KEY, canonicalKey(query)] as const;
 }
 
-const EMPTY_IDS: SavedIdsResponse = { ids: [] };
+const EMPTY_IDS: SavedIdsResponse = { publicIds: [] };
 
 /**
- * Returns the full set of saved auction IDs for the current user.
+ * Returns the full set of saved auction public IDs for the current user.
  *
  * <p>When the caller is unauthenticated, returns {@code { ids: empty Set,
  * isSaved: () => false, isLoading: false }} synchronously — no network
@@ -55,8 +55,8 @@ const EMPTY_IDS: SavedIdsResponse = { ids: [] };
  * the next read via optimistic update or {@code onSettled} invalidation.
  */
 export function useSavedIds(): {
-  ids: Set<number>;
-  isSaved: (id: number) => boolean;
+  ids: Set<string>;
+  isSaved: (publicId: string) => boolean;
   isLoading: boolean;
 } {
   const session = useAuth();
@@ -76,11 +76,11 @@ export function useSavedIds(): {
   // avoids rebuilding the Set on every ListingCard render (up to 500 saves
   // x every mounted card) when nothing changed upstream.
   const data = query.data ?? EMPTY_IDS;
-  const ids = useMemo(() => new Set<number>(data.ids), [data]);
+  const ids = useMemo(() => new Set<string>(data.publicIds), [data]);
 
   if (!authed) {
     return {
-      ids: new Set<number>(),
+      ids: new Set<string>(),
       isSaved: () => false,
       isLoading: false,
     };
@@ -88,7 +88,7 @@ export function useSavedIds(): {
 
   return {
     ids,
-    isSaved: (id: number) => ids.has(id),
+    isSaved: (publicId: string) => ids.has(publicId),
     isLoading: query.isLoading,
   };
 }
@@ -112,7 +112,7 @@ export function useSavedIds(): {
  * every heart toggle.
  */
 export function useToggleSaved(): {
-  toggle: (id: number) => Promise<void>;
+  toggle: (publicId: string) => Promise<void>;
   isPending: boolean;
 } {
   const session = useAuth();
@@ -122,10 +122,10 @@ export function useToggleSaved(): {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  type ToggleVariables = { id: number; wasSaved: boolean };
+  type ToggleVariables = { publicId: string; wasSaved: boolean };
 
   const mutation = useMutation<
-    { op: "save" | "unsave"; id: number },
+    { op: "save" | "unsave"; publicId: string },
     unknown,
     ToggleVariables,
     { previous?: SavedIdsResponse }
@@ -134,26 +134,26 @@ export function useToggleSaved(): {
     // below (inside the {@code wasSaved} flag on the variables payload) —
     // {@code onMutate} runs BEFORE {@code mutationFn}, so reading the cache
     // here would always see the already-flipped optimistic state.
-    mutationFn: async ({ id, wasSaved }) => {
+    mutationFn: async ({ publicId, wasSaved }) => {
       if (wasSaved) {
-        await unsaveAuction(id);
-        return { op: "unsave", id };
+        await unsaveAuction(publicId);
+        return { op: "unsave", publicId };
       }
-      await saveAuction(id);
-      return { op: "save", id };
+      await saveAuction(publicId);
+      return { op: "save", publicId };
     },
-    onMutate: async ({ id, wasSaved }) => {
+    onMutate: async ({ publicId, wasSaved }) => {
       await queryClient.cancelQueries({ queryKey: SAVED_IDS_KEY });
       const previous =
         queryClient.getQueryData<SavedIdsResponse>(SAVED_IDS_KEY);
-      const currentIds = previous?.ids ?? [];
+      const currentIds = previous?.publicIds ?? [];
       const nextIds = wasSaved
-        ? currentIds.filter((x) => x !== id)
-        : currentIds.includes(id)
+        ? currentIds.filter((x) => x !== publicId)
+        : currentIds.includes(publicId)
           ? currentIds
-          : [...currentIds, id];
+          : [...currentIds, publicId];
       queryClient.setQueryData<SavedIdsResponse>(SAVED_IDS_KEY, {
-        ids: nextIds,
+        publicIds: nextIds,
       });
       return { previous };
     },
@@ -209,7 +209,7 @@ export function useToggleSaved(): {
     },
   });
 
-  const toggle = async (id: number): Promise<void> => {
+  const toggle = async (publicId: string): Promise<void> => {
     if (!authed) {
       const next =
         typeof window !== "undefined"
@@ -236,8 +236,8 @@ export function useToggleSaved(): {
     // Snapshot BEFORE onMutate flips the cache so mutationFn can decide
     // save vs. unsave from the authoritative pre-mutation state.
     const snapshot = queryClient.getQueryData<SavedIdsResponse>(SAVED_IDS_KEY);
-    const wasSaved = (snapshot?.ids ?? []).includes(id);
-    await mutation.mutateAsync({ id, wasSaved }).catch(() => {
+    const wasSaved = (snapshot?.publicIds ?? []).includes(publicId);
+    await mutation.mutateAsync({ publicId, wasSaved }).catch(() => {
       // Errors are surfaced via the onError toast path; swallow the
       // rejection here so consumers (ListingCard heart onClick) don't
       // have to wrap every call in a try/catch.

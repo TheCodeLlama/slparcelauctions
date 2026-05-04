@@ -197,6 +197,12 @@ public class AuctionService {
     }
 
     @Transactional(readOnly = true)
+    public Auction loadForSellerByPublicId(java.util.UUID publicId, Long sellerId) {
+        return auctionRepo.findByPublicIdAndSellerId(publicId, sellerId)
+                .orElseThrow(() -> new AuctionNotFoundException(publicId));
+    }
+
+    @Transactional(readOnly = true)
     public Auction load(Long auctionId) {
         return auctionRepo.findById(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
@@ -213,6 +219,16 @@ public class AuctionService {
     public Auction loadForDetail(Long auctionId) {
         return auctionRepo.findByIdForDetail(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+    }
+
+    /**
+     * UUID-keyed variant of {@link #loadForDetail} for the public controller
+     * path {@code GET /api/v1/auctions/{publicId}}.
+     */
+    @Transactional(readOnly = true)
+    public Auction loadForDetailByPublicId(java.util.UUID publicId) {
+        return auctionRepo.findByPublicIdForDetail(publicId)
+                .orElseThrow(() -> new AuctionNotFoundException(publicId));
     }
 
     @Transactional(readOnly = true)

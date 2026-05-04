@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Slice coverage for {@code POST /api/v1/bot/tasks/claim}. Verifies the HTTP
@@ -40,6 +41,10 @@ class BotTaskControllerClaimSliceTest {
 
     @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    @SuppressWarnings("unused")
+    private UserRepository userRepository;
 
     @Test
     void claim_withPendingTask_returns200WithTaskPayload() throws Exception {

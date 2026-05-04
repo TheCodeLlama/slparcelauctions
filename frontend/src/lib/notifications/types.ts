@@ -56,11 +56,16 @@ export type NotificationDataMap = {
   REVIEW_RECEIVED: { auctionId: number; parcelName: string; reviewId: number; rating: number };
   SYSTEM_ANNOUNCEMENT: Record<string, unknown>;
 };
+// NOTE: The notification `data` blob keys (auctionId, escrowId, reviewId) are
+// stored as numeric Long values by NotificationDataBuilder on the backend and
+// have NOT been migrated to publicId UUIDs in this branch. The categoryMap
+// deeplinks (/auction/${d.auctionId}) will need to be updated once the backend
+// migrates these data keys — tracked as a follow-up item.
 
 export type NotificationData = NotificationDataMap[NotificationCategory];
 
 export interface NotificationDto {
-  id: number;
+  publicId: string;
   category: NotificationCategory;
   group: NotificationGroup;
   title: string;

@@ -130,11 +130,11 @@ class ParcelLockingRaceIntegrationTest {
     @Test
     void sequentialVerify_secondAuctionOnSameParcel_returns409() throws Exception {
         stubWorldApiOwnership(sellerAvatar, "agent");
-        Long a1Id = seedDraftPaidAuction();
-        Long a2Id = seedDraftPaidAuction();
+        AuctionRef a1 = seedDraftPaidAuction();
+        AuctionRef a2 = seedDraftPaidAuction();
 
         // A1 verifies -> ACTIVE
-        mockMvc.perform(put("/api/v1/auctions/" + a1Id + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + a1.publicId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -142,14 +142,14 @@ class ParcelLockingRaceIntegrationTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
         // A2 verify -> 409 ParcelAlreadyListed, identifying A1 as the blocker.
-        mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + a2.publicId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("PARCEL_ALREADY_LISTED"))
-                .andExpect(jsonPath("$.parcelId").value(a2Id))
-                .andExpect(jsonPath("$.blockingAuctionId").value(a1Id));
+                .andExpect(jsonPath("$.parcelId").value(a2.id()))
+                .andExpect(jsonPath("$.blockingAuctionId").value(a1.id()));
     }
 
     // -------------------------------------------------------------------------
@@ -159,18 +159,18 @@ class ParcelLockingRaceIntegrationTest {
     @Test
     void cancelledAuctionUnblocks_retryVerifySucceeds() throws Exception {
         stubWorldApiOwnership(sellerAvatar, "agent");
-        Long a1Id = seedDraftPaidAuction();
-        Long a2Id = seedDraftPaidAuction();
+        AuctionRef a1 = seedDraftPaidAuction();
+        AuctionRef a2 = seedDraftPaidAuction();
 
         // A1 -> ACTIVE
-        mockMvc.perform(put("/api/v1/auctions/" + a1Id + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + a1.publicId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
                 .andExpect(status().isOk());
 
         // A2 blocked
-        mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + a2.publicId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -183,12 +183,12 @@ class ParcelLockingRaceIntegrationTest {
         // this task; the lock-release semantics we care about are owned by the service.
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(ts -> {
-            cancellationService.cancel(a1Id, "switching", null);
+            cancellationService.cancel(a1.id(), "switching", null);
         });
 
         // After the failed verify above, @Transactional rolled back the VERIFICATION_PENDING
         // save, so A2 is back in DRAFT_PAID. It can retry via /verify now that A1 is CANCELLED.
-        mockMvc.perform(put("/api/v1/auctions/" + a2Id + "/verify")
+        mockMvc.perform(put("/api/v1/auctions/" + a2.publicId() + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -203,13 +203,13 @@ class ParcelLockingRaceIntegrationTest {
     @Test
     void concurrentVerify_onlyOneWins() throws Exception {
         stubWorldApiOwnership(sellerAvatar, "agent");
-        Long a1Id = seedDraftPaidAuction();
-        Long a2Id = seedDraftPaidAuction();
+        AuctionRef a1 = seedDraftPaidAuction();
+        AuctionRef a2 = seedDraftPaidAuction();
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            CompletableFuture<Integer> f1 = submitVerify(pool, a1Id);
-            CompletableFuture<Integer> f2 = submitVerify(pool, a2Id);
+            CompletableFuture<Integer> f1 = submitVerify(pool, a1.publicId());
+            CompletableFuture<Integer> f2 = submitVerify(pool, a2.publicId());
 
             int s1 = f1.get(30, TimeUnit.SECONDS);
             int s2 = f2.get(30, TimeUnit.SECONDS);
@@ -236,10 +236,10 @@ class ParcelLockingRaceIntegrationTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private CompletableFuture<Integer> submitVerify(ExecutorService pool, Long auctionId) {
+    private CompletableFuture<Integer> submitVerify(ExecutorService pool, UUID auctionPublicId) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                MvcResult r = mockMvc.perform(put("/api/v1/auctions/" + auctionId + "/verify")
+                MvcResult r = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                         .header("Authorization", "Bearer " + sellerAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"method\":\"UUID_ENTRY\"}"))
@@ -276,7 +276,11 @@ class ParcelLockingRaceIntegrationTest {
                 22.0), regionUuid)));
     }
 
-    private Long seedDraftPaidAuction() {
+    /** Holds both the internal numeric id (for service-layer calls) and the
+     *  public UUID (for HTTP path segments after the PT18 publicId migration). */
+    private record AuctionRef(Long id, UUID publicId) {}
+
+    private AuctionRef seedDraftPaidAuction() {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         return tx.execute(ts -> {
             User seller = userRepository.findById(sellerId).orElseThrow();
@@ -308,7 +312,8 @@ class ParcelLockingRaceIntegrationTest {
                     .areaSqm(1024)
                     .positionX(128.0).positionY(64.0).positionZ(22.0)
                     .build());
-            return auctionRepository.save(a).getId();
+            Auction saved = auctionRepository.save(a);
+            return new AuctionRef(saved.getId(), saved.getPublicId());
         });
     }
 

@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.user;
 
 import java.net.URI;
+import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -39,17 +40,19 @@ public class UserController {
     private final UserService userService;
     private final AvatarService avatarService;
     private final UserDeletionService userDeletionService;
+    private final UserRepository userRepository;
 
     @PostMapping
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse created = userService.createUser(request);
         return ResponseEntity
-                .created(URI.create("/api/v1/users/" + created.id()))
+                .created(URI.create("/api/v1/users/" + created.publicId()))
                 .body(created);
     }
 
-    @GetMapping("/{id}")
-    public UserProfileResponse getUserProfile(@PathVariable Long id) {
+    @GetMapping("/{publicId}")
+    public UserProfileResponse getUserProfile(@PathVariable UUID publicId) {
+        Long id = resolveUserId(publicId);
         return userService.getPublicProfile(id);
     }
 
@@ -72,10 +75,11 @@ public class UserController {
         return avatarService.upload(principal.userId(), file);
     }
 
-    @GetMapping("/{id}/avatar/{size}")
+    @GetMapping("/{publicId}/avatar/{size}")
     public ResponseEntity<byte[]> getAvatar(
-            @PathVariable Long id,
+            @PathVariable UUID publicId,
             @PathVariable int size) {
+        Long id = resolveUserId(publicId);
         StoredObject obj = avatarService.fetch(id, size);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, obj.contentType())
@@ -90,5 +94,11 @@ public class UserController {
             @Valid @RequestBody UserDeletionRequest body,
             @AuthenticationPrincipal AuthPrincipal principal) {
         userDeletionService.deleteSelf(principal.userId(), body.password());
+    }
+
+    private Long resolveUserId(UUID publicId) {
+        return userRepository.findByPublicId(publicId)
+                .map(User::getId)
+                .orElseThrow(() -> new UserNotFoundException(publicId));
     }
 }

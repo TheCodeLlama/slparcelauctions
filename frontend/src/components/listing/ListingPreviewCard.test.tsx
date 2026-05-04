@@ -96,7 +96,7 @@ describe("ListingPreviewCard", () => {
           ],
           photos: [
             {
-              id: 1,
+              publicId: "00000000-0000-0000-0000-000000000001",
               url: "/api/v1/auctions/1/photos/1/bytes",
               contentType: "image/png",
               sizeBytes: 100,

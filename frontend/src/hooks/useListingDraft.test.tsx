@@ -10,7 +10,6 @@ import { useListingDraft } from "./useListingDraft";
 const VALID_UUID = "00000000-0000-0000-0000-000000000001";
 
 const sampleParcel: ParcelDto = {
-  id: 42,
   slParcelUuid: VALID_UUID,
   ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
   ownerType: "agent",
@@ -38,8 +37,8 @@ function sellerResponse(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
   return {
-    id: 7,
-    sellerId: 42,
+    publicId: "00000000-0000-0000-0000-000000000007",
+    sellerPublicId: "00000000-0000-0000-0000-00000000002a",
     title: "Featured Parcel Listing",
     parcel: sampleParcel,
     status: "DRAFT",
@@ -54,7 +53,7 @@ function sellerResponse(
     bidCount: 0,
     currentHighBid: null,
     bidderCount: 0,
-    winnerId: null,
+    winnerPublicId: null,
     durationHours: 72,
     snipeProtect: true,
     snipeWindowMin: 10,
@@ -97,21 +96,21 @@ describe("useListingDraft", () => {
         created += 1;
         postBody = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
-          sellerResponse({ id: 7, startingBid: 500 }),
+          sellerResponse({ publicId: "00000000-0000-0000-0000-000000000007", startingBid: 500 }),
           { status: 201 },
         );
       }),
-      http.put("*/api/v1/auctions/7", async ({ request }) => {
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", async ({ request }) => {
         updated += 1;
         putBody = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
-          sellerResponse({ id: 7, startingBid: 750 }),
+          sellerResponse({ publicId: "00000000-0000-0000-0000-000000000007", startingBid: 750 }),
         );
       }),
-      http.get("*/api/v1/auctions/7", () => {
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () => {
         refetched += 1;
         return HttpResponse.json(
-          sellerResponse({ id: 7, startingBid: refetched === 1 ? 500 : 750 }),
+          sellerResponse({ publicId: "00000000-0000-0000-0000-000000000007", startingBid: refetched === 1 ? 500 : 750 }),
         );
       }),
     );
@@ -127,7 +126,7 @@ describe("useListingDraft", () => {
       await result.current.save();
     });
     expect(created).toBe(1);
-    expect(result.current.state.auctionId).toBe(7);
+    expect(result.current.state.auctionPublicId).toBe("00000000-0000-0000-0000-000000000007");
     expect(result.current.state.dirty).toBe(false);
 
     // Post body pins the public API: verificationMethod was moved to the
@@ -159,11 +158,12 @@ describe("useListingDraft", () => {
   });
 
   it("hydrates from an existing auction when an id is supplied", async () => {
+    const AID_99 = "00000000-0000-0000-0000-000000000063";
     server.use(
-      http.get("*/api/v1/auctions/99", () =>
+      http.get(`*/api/v1/auctions/${AID_99}`, () =>
         HttpResponse.json(
           sellerResponse({
-            id: 99,
+            publicId: AID_99,
             startingBid: 2000,
             sellerDesc: "Lovely coast",
           }),
@@ -172,16 +172,16 @@ describe("useListingDraft", () => {
     );
 
     const { result } = renderHook(
-      () => useListingDraft({ id: 99 }),
+      () => useListingDraft({ id: AID_99 }),
       { wrapper: makeWrapper() },
     );
 
     await waitFor(() =>
-      expect(result.current.state.auctionId).toBe(99),
+      expect(result.current.state.auctionPublicId).toBe(AID_99),
     );
     expect(result.current.state.startingBid).toBe(2000);
     expect(result.current.state.sellerDesc).toBe("Lovely coast");
-    expect(result.current.state.parcel?.id).toBe(sampleParcel.id);
+    expect(result.current.state.parcel?.slParcelUuid).toBe(sampleParcel.slParcelUuid);
   });
 
   it("does NOT persist create-mode draft state across remounts", async () => {
@@ -211,23 +211,24 @@ describe("useListingDraft", () => {
   it("persists edit-mode draft state to sessionStorage across remounts", async () => {
     // Edit mode keeps the recovery behavior — sellers editing a saved
     // auction shouldn't lose unsaved tweaks if a tab closes.
+    const AID_77 = "00000000-0000-0000-0000-00000000004d";
     server.use(
-      http.get("*/api/v1/auctions/77", () =>
+      http.get(`*/api/v1/auctions/${AID_77}`, () =>
         HttpResponse.json(
-          sellerResponse({ id: 77, sellerDesc: "From server" }),
+          sellerResponse({ publicId: AID_77, sellerDesc: "From server" }),
         ),
       ),
     );
 
-    const { result, unmount } = renderHook(() => useListingDraft({ id: 77 }), {
+    const { result, unmount } = renderHook(() => useListingDraft({ id: AID_77 }), {
       wrapper: makeWrapper(),
     });
-    await waitFor(() => expect(result.current.state.auctionId).toBe(77));
+    await waitFor(() => expect(result.current.state.auctionPublicId).toBe(AID_77));
     act(() => result.current.update("sellerDesc", "Locally edited"));
     act(() => result.current.update("startingBid", 1234));
     unmount();
 
-    const { result: result2 } = renderHook(() => useListingDraft({ id: 77 }), {
+    const { result: result2 } = renderHook(() => useListingDraft({ id: AID_77 }), {
       wrapper: makeWrapper(),
     });
 
@@ -238,16 +239,18 @@ describe("useListingDraft", () => {
   });
 
   it("queues removed uploaded photos for DELETE on next save", async () => {
-    const deleted: number[] = [];
+    const AID_11 = "00000000-0000-0000-0000-00000000000b";
+    const PHOTO_PID = "00000000-0000-0000-0000-000000000065";
+    const deleted: string[] = [];
     server.use(
-      http.get("*/api/v1/auctions/11", () =>
+      http.get(`*/api/v1/auctions/${AID_11}`, () =>
         HttpResponse.json(
           sellerResponse({
-            id: 11,
+            publicId: AID_11,
             photos: [
               {
-                id: 101,
-                url: "http://api.example/photos/101",
+                publicId: PHOTO_PID,
+                url: `http://api.example/photos/${PHOTO_PID}`,
                 contentType: "image/jpeg",
                 sizeBytes: 1234,
                 sortOrder: 0,
@@ -257,35 +260,35 @@ describe("useListingDraft", () => {
           }),
         ),
       ),
-      http.put("*/api/v1/auctions/11", () =>
-        HttpResponse.json(sellerResponse({ id: 11, photos: [] })),
+      http.put(`*/api/v1/auctions/${AID_11}`, () =>
+        HttpResponse.json(sellerResponse({ publicId: AID_11, photos: [] })),
       ),
-      http.delete("*/api/v1/auctions/11/photos/:photoId", ({ params }) => {
-        deleted.push(Number(params.photoId));
+      http.delete(`*/api/v1/auctions/${AID_11}/photos/:photoPublicId`, ({ params }) => {
+        deleted.push(String(params.photoPublicId));
         return new HttpResponse(null, { status: 204 });
       }),
     );
 
     const { result } = renderHook(
-      () => useListingDraft({ id: 11 }),
+      () => useListingDraft({ id: AID_11 }),
       { wrapper: makeWrapper() },
     );
 
     await waitFor(() =>
-      expect(result.current.state.uploadedPhotos.map((p) => p.id)).toEqual([
-        101,
+      expect(result.current.state.uploadedPhotos.map((p) => p.publicId)).toEqual([
+        PHOTO_PID,
       ]),
     );
 
-    act(() => result.current.removeUploadedPhoto(101));
-    expect(result.current.state.removedPhotoIds).toEqual([101]);
+    act(() => result.current.removeUploadedPhoto(PHOTO_PID));
+    expect(result.current.state.removedPhotoIds).toEqual([PHOTO_PID]);
     expect(result.current.state.uploadedPhotos).toEqual([]);
 
     await act(async () => {
       await result.current.save();
     });
 
-    expect(deleted).toEqual([101]);
+    expect(deleted).toEqual([PHOTO_PID]);
     expect(result.current.state.removedPhotoIds).toEqual([]);
   });
 

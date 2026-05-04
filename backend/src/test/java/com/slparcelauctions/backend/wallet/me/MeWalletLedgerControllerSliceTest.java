@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.UserLedgerEntry;
 import com.slparcelauctions.backend.wallet.UserLedgerEntryType;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Slice-style coverage for {@code GET /api/v1/me/wallet/ledger}. Seeds a user
@@ -64,6 +65,7 @@ class MeWalletLedgerControllerSliceTest {
     @Autowired JwtService jwtService;
     @Autowired UserRepository userRepository;
     @Autowired UserLedgerRepository ledgerRepository;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -85,7 +87,7 @@ class MeWalletLedgerControllerSliceTest {
                 .build());
         userId = user.getId();
         accessToken = jwtService.issueAccessToken(
-                new AuthPrincipal(userId, user.getEmail(), 0L, Role.USER));
+                new AuthPrincipal(userId, user.getPublicId(), user.getEmail(), 0L, Role.USER));
     }
 
     /* ------------------------------------------------------------------ */
@@ -94,14 +96,20 @@ class MeWalletLedgerControllerSliceTest {
 
     private UserLedgerEntry seedEntry(
             UserLedgerEntryType type, long amount, long balanceAfter, OffsetDateTime createdAt) {
-        return ledgerRepository.save(UserLedgerEntry.builder()
+        UserLedgerEntry entry = ledgerRepository.save(UserLedgerEntry.builder()
                 .userId(userId)
                 .entryType(type)
                 .amount(amount)
                 .balanceAfter(balanceAfter)
                 .reservedAfter(0L)
-                .createdAt(createdAt)
                 .build());
+        // created_at has updatable=false so Hibernate won't UPDATE it; use JDBC
+        // to stamp the controlled timestamp that sort-order assertions depend on.
+        jdbcTemplate.update(
+                "UPDATE user_ledger SET created_at = ? WHERE id = ?",
+                java.sql.Timestamp.from(createdAt.toInstant()), entry.getId());
+        ledgerRepository.flush();
+        return ledgerRepository.findById(entry.getId()).orElseThrow();
     }
 
     private String authHeader() {

@@ -59,7 +59,7 @@ public class JwtTestFactory {
     public String validAccessTokenWithLifetime(AuthPrincipal principal, Duration lifetime) {
         Instant now = Instant.now();
         return Jwts.builder()
-            .subject(String.valueOf(principal.userId()))
+            .subject(principal.userPublicId().toString())
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
@@ -73,7 +73,7 @@ public class JwtTestFactory {
     public String expiredAccessToken(AuthPrincipal principal) {
         Instant now = Instant.now();
         return Jwts.builder()
-            .subject(String.valueOf(principal.userId()))
+            .subject(principal.userPublicId().toString())
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
@@ -87,7 +87,7 @@ public class JwtTestFactory {
     public String tokenWithWrongType(AuthPrincipal principal) {
         Instant now = Instant.now();
         return Jwts.builder()
-            .subject(String.valueOf(principal.userId()))
+            .subject(principal.userPublicId().toString())
             .claim("email", principal.email())
             .claim("tv", principal.tokenVersion())
             .claim("type", "refresh") // wrong — access token parser should reject

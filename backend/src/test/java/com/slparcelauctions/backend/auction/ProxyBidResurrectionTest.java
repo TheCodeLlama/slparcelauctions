@@ -109,7 +109,7 @@ class ProxyBidResurrectionTest {
         Auction a = seedAuction(500L);
 
         // Step 1 — A creates proxy max=600 → opens at 500, A winning.
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":600}"))
@@ -120,7 +120,7 @@ class ProxyBidResurrectionTest {
         assertThat(afterA.getCurrentBidderId()).isEqualTo(aId);
 
         // Step 2 — B creates proxy max=1000. A exhausted, B wins at 650.
-        mockMvc.perform(post("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":1000}"))
@@ -135,7 +135,7 @@ class ProxyBidResurrectionTest {
 
         // Step 3 — A PUTs max=2000 → resurrects. A's new max (2000) > B's (1000).
         // settleAmount = min(1000 + 100, 2000) = 1100. A wins at 1100.
-        mockMvc.perform(put("/api/v1/auctions/" + a.getId() + "/proxy-bid")
+        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"maxAmount\":2000}"))

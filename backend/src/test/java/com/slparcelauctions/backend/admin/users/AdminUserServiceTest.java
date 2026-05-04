@@ -78,7 +78,7 @@ class AdminUserServiceTest {
             .displayName("User" + id)
             .build();
         try {
-            java.lang.reflect.Field f = User.class.getDeclaredField("id");
+            java.lang.reflect.Field f = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
             f.setAccessible(true);
             f.set(u, id);
         } catch (Exception e) {
@@ -157,7 +157,7 @@ class AdminUserServiceTest {
 
         AdminUserDetailDto dto = service.detail(5L);
 
-        assertThat(dto.id()).isEqualTo(5L);
+        assertThat(dto.publicId()).isEqualTo(user.getPublicId());
         assertThat(dto.activeBan()).isNull();
     }
 
@@ -186,7 +186,7 @@ class AdminUserServiceTest {
                 .positionX(128.0).positionY(64.0).positionZ(22.0)
                 .build());
         try {
-            java.lang.reflect.Field f = Auction.class.getDeclaredField("id");
+            java.lang.reflect.Field f = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
             f.setAccessible(true);
             f.set(auction, 10L);
         } catch (Exception e) {

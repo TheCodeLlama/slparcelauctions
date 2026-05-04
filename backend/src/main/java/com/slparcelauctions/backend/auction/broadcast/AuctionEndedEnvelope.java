@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction.broadcast;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
@@ -22,12 +23,12 @@ import com.slparcelauctions.backend.user.User;
  */
 public record AuctionEndedEnvelope(
         String type,
-        Long auctionId,
+        UUID auctionPublicId,
         OffsetDateTime serverTime,
         OffsetDateTime endsAt,
         AuctionEndOutcome endOutcome,
         Long finalBid,
-        Long winnerUserId,
+        UUID winnerPublicId,
         String winnerDisplayName,
         Integer bidCount) {
 
@@ -62,12 +63,12 @@ public record AuctionEndedEnvelope(
     public static AuctionEndedEnvelope of(Auction auction, User winner, OffsetDateTime serverTime) {
         return new AuctionEndedEnvelope(
                 "AUCTION_ENDED",
-                auction.getId(),
+                auction.getPublicId(),
                 serverTime,
                 auction.getEndsAt(),
                 auction.getEndOutcome(),
                 auction.getFinalBidAmount(),
-                auction.getWinnerUserId(),
+                winner == null ? null : winner.getPublicId(),
                 winner == null ? null : winner.getDisplayName(),
                 auction.getBidCount());
     }

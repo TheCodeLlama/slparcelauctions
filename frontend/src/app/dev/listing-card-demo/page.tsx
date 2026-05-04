@@ -9,12 +9,12 @@ import type { AuctionSearchResultDto } from "@/types/search";
  * dropped in production via the existing {@code /dev/*} route convention.
  */
 const sample: AuctionSearchResultDto = {
-  id: 42,
+  publicId: "00000000-0000-0000-0000-000000000042",
   title: "Demo — Premium Waterfront",
   status: "ACTIVE",
   endOutcome: null,
   parcel: {
-    id: 11,
+    auctionPublicId: "00000000-0000-0000-0000-000000000042",
     name: "Bayside Lot",
     region: "Tula",
     area: 1024,
@@ -29,7 +29,7 @@ const sample: AuctionSearchResultDto = {
   },
   primaryPhotoUrl: null,
   seller: {
-    id: 7,
+    publicId: "00000000-0000-0000-0000-000000000007",
     displayName: "seller.one",
     avatarUrl: null,
     averageRating: 4.8,

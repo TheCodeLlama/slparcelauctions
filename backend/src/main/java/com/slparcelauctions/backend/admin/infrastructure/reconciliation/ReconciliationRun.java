@@ -1,18 +1,16 @@
 package com.slparcelauctions.backend.admin.infrastructure.reconciliation;
 
+import com.slparcelauctions.backend.common.BaseMutableEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "reconciliation_runs")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class ReconciliationRun {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @SuperBuilder
+public class ReconciliationRun extends BaseMutableEntity {
 
     @Column(name = "ran_at", nullable = false)
     private OffsetDateTime ranAt;

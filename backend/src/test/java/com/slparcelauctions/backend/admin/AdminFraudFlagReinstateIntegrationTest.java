@@ -192,8 +192,7 @@ class AdminFraudFlagReinstateIntegrationTest {
         assertThat(monitorTasks).hasSize(1);
 
         // Notification: LISTING_REINSTATED for seller
-        List<Notification> notifications = notificationRepo.findAll().stream()
-            .filter(n -> n.getUser().getId().equals(sellerId))
+        List<Notification> notifications = notificationRepo.findAllByUserId(sellerId).stream()
             .filter(n -> n.getCategory() == NotificationCategory.LISTING_REINSTATED)
             .toList();
         assertThat(notifications).hasSize(1);

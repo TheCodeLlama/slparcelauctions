@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.escrow.broadcast;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -21,8 +22,8 @@ import com.slparcelauctions.backend.escrow.EscrowState;
  */
 public record EscrowFundedEnvelope(
         String type,
-        Long auctionId,
-        Long escrowId,
+        UUID auctionPublicId,
+        UUID escrowPublicId,
         EscrowState state,
         OffsetDateTime transferDeadline,
         OffsetDateTime serverTime) implements EscrowEnvelope {
@@ -30,8 +31,8 @@ public record EscrowFundedEnvelope(
     public static EscrowFundedEnvelope of(Escrow e, OffsetDateTime serverTime) {
         return new EscrowFundedEnvelope(
                 "ESCROW_FUNDED",
-                e.getAuction().getId(),
-                e.getId(),
+                e.getAuction().getPublicId(),
+                e.getPublicId(),
                 e.getState(),
                 e.getTransferDeadline(),
                 serverTime);

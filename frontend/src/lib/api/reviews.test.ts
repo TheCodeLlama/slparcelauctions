@@ -21,14 +21,14 @@ import {
 
 function reviewDto(overrides: Partial<ReviewDto> = {}): ReviewDto {
   return {
-    id: 1,
-    auctionId: 10,
+    publicId: "00000000-0000-0000-0000-000000000001",
+    auctionPublicId: "00000000-0000-0000-0000-00000000000a",
     auctionTitle: "Aurora Parcel",
     auctionPrimaryPhotoUrl: "/api/v1/auctions/10/photos/1/bytes",
-    reviewerId: 42,
+    reviewerPublicId: "00000000-0000-0000-0000-00000000002a",
     reviewerDisplayName: "Alice",
     reviewerAvatarUrl: "/api/v1/users/42/avatar/256",
-    revieweeId: 7,
+    revieweePublicId: "00000000-0000-0000-0000-000000000007",
     reviewedRole: "SELLER",
     rating: 5,
     text: "Great seller",
@@ -45,10 +45,10 @@ function pendingReviewDto(
   overrides: Partial<PendingReviewDto> = {},
 ): PendingReviewDto {
   return {
-    auctionId: 10,
+    auctionPublicId: "00000000-0000-0000-0000-00000000000a",
     title: "Aurora Parcel",
     primaryPhotoUrl: null,
-    counterpartyId: 7,
+    counterpartyPublicId: "00000000-0000-0000-0000-000000000007",
     counterpartyDisplayName: "Bob",
     counterpartyAvatarUrl: null,
     escrowCompletedAt: "2026-04-10T00:00:00Z",
@@ -172,7 +172,7 @@ describe("getPendingReviews", () => {
     const result = await getPendingReviews();
 
     expect(result).toHaveLength(1);
-    expect(result[0].auctionId).toBe(10);
+    expect(result[0].auctionPublicId).toBe("00000000-0000-0000-0000-00000000000a");
   });
 });
 
@@ -182,7 +182,7 @@ describe("respondToReview", () => {
   it("POSTs { text } and returns the created ReviewResponseDto", async () => {
     let capturedBody: unknown = null;
     const response: ReviewResponseDto = {
-      id: 99,
+      publicId: "00000000-0000-0000-0000-000000000063",
       text: "Thanks!",
       createdAt: "2026-04-22T00:00:00Z",
     };
@@ -196,7 +196,7 @@ describe("respondToReview", () => {
     const result = await respondToReview(5, { text: "Thanks!" });
 
     expect(capturedBody).toEqual({ text: "Thanks!" });
-    expect(result.id).toBe(99);
+    expect(result.publicId).toBe("00000000-0000-0000-0000-000000000063");
   });
 });
 

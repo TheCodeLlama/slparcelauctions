@@ -103,7 +103,7 @@ export interface CancellationHistoryPenalty {
  * rows reflect what the seller saw at the time of cancellation.
  */
 export interface CancellationHistoryDto {
-  auctionId: number;
+  auctionPublicId: string;
   auctionTitle: string;
   primaryPhotoUrl: string | null;
   cancelledFromStatus: string;
