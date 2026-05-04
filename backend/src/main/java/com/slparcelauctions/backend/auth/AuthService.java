@@ -138,7 +138,7 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalStateException(
                         "User disappeared during token refresh: id=" + rotation.userId()));
 
-        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion(), user.getRole());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getEmail(), user.getTokenVersion(), user.getRole());
         String newAccessToken = jwtService.issueAccessToken(principal);
 
         return new AuthResult(newAccessToken, rotation.rawToken(), UserResponse.from(user));
@@ -185,7 +185,7 @@ public class AuthService {
         String userAgent = httpReq.getHeader("User-Agent");
         String ipAddress = httpReq.getRemoteAddr();
 
-        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion(), user.getRole());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getEmail(), user.getTokenVersion(), user.getRole());
         String accessToken = jwtService.issueAccessToken(principal);
 
         RefreshTokenService.IssuedRefreshToken issued =

@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -43,12 +44,15 @@ class JwtServiceTest {
 
     @Test
     void issueAccessToken_producesTokenWithCorrectClaims() {
-        AuthPrincipal input = new AuthPrincipal(42L, "user@example.com", 3L, Role.USER);
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal input = new AuthPrincipal(42L, publicId, "user@example.com", 3L, Role.USER);
 
         String token = jwtService.issueAccessToken(input);
         AuthPrincipal parsed = jwtService.parseAccessToken(token);
 
-        assertThat(parsed.userId()).isEqualTo(42L);
+        // userId is a sentinel null after parse — resolved by JwtAuthenticationFilter
+        assertThat(parsed.userId()).isNull();
+        assertThat(parsed.userPublicId()).isEqualTo(publicId);
         assertThat(parsed.email()).isEqualTo("user@example.com");
         assertThat(parsed.tokenVersion()).isEqualTo(3L);
         assertThat(parsed.role()).isEqualTo(Role.USER);
@@ -56,7 +60,7 @@ class JwtServiceTest {
 
     @Test
     void roleClaim_roundTrips_forAdminRole() {
-        AuthPrincipal adminPrincipal = new AuthPrincipal(7L, "admin@example.com", 0L, Role.ADMIN);
+        AuthPrincipal adminPrincipal = new AuthPrincipal(7L, UUID.randomUUID(), "admin@example.com", 0L, Role.ADMIN);
 
         String token = jwtService.issueAccessToken(adminPrincipal);
         AuthPrincipal parsed = jwtService.parseAccessToken(token);
@@ -66,7 +70,7 @@ class JwtServiceTest {
 
     @Test
     void roleClaim_roundTrips_forUserRole() {
-        AuthPrincipal userPrincipal = new AuthPrincipal(8L, "user2@example.com", 0L, Role.USER);
+        AuthPrincipal userPrincipal = new AuthPrincipal(8L, UUID.randomUUID(), "user2@example.com", 0L, Role.USER);
 
         String token = jwtService.issueAccessToken(userPrincipal);
         AuthPrincipal parsed = jwtService.parseAccessToken(token);
@@ -78,8 +82,9 @@ class JwtServiceTest {
     void parseAccessToken_missingRoleClaim_defaultsToUser() {
         SecretKey key = JwtKeyFactory.buildKey(SECRET);
         Instant now = Instant.now();
+        // Use a valid UUID as subject to match new token shape
         String legacyToken = Jwts.builder()
-            .subject("99")
+            .subject(UUID.randomUUID().toString())
             .claim("email", "legacy@example.com")
             .claim("tv", 0L)
             .claim("type", "access")
@@ -95,15 +100,22 @@ class JwtServiceTest {
 
     @Test
     void parseAccessToken_returnsPrincipalOnValidToken() {
-        AuthPrincipal expected = new AuthPrincipal(1L, "a@b.com", 0L, Role.USER);
-        String token = testFactory.validAccessToken(expected);
+        UUID publicId = UUID.randomUUID();
+        // After parse, userId is null (filter resolves it); publicId round-trips via sub claim
+        AuthPrincipal input = new AuthPrincipal(1L, publicId, "a@b.com", 0L, Role.USER);
+        String token = testFactory.validAccessToken(input);
+        AuthPrincipal parsed = jwtService.parseAccessToken(token);
 
-        assertThat(jwtService.parseAccessToken(token)).isEqualTo(expected);
+        assertThat(parsed.userPublicId()).isEqualTo(publicId);
+        assertThat(parsed.email()).isEqualTo("a@b.com");
+        assertThat(parsed.tokenVersion()).isEqualTo(0L);
+        assertThat(parsed.role()).isEqualTo(Role.USER);
+        assertThat(parsed.userId()).isNull();
     }
 
     @Test
     void parseAccessToken_throwsExpiredOnExpiredToken() {
-        AuthPrincipal p = new AuthPrincipal(1L, "a@b.com", 0L, Role.USER);
+        AuthPrincipal p = new AuthPrincipal(1L, UUID.randomUUID(), "a@b.com", 0L, Role.USER);
         String token = testFactory.expiredAccessToken(p);
 
         assertThatThrownBy(() -> jwtService.parseAccessToken(token))
@@ -120,7 +132,7 @@ class JwtServiceTest {
 
     @Test
     void parseAccessToken_throwsInvalidOnWrongType() {
-        AuthPrincipal p = new AuthPrincipal(1L, "a@b.com", 0L, Role.USER);
+        AuthPrincipal p = new AuthPrincipal(1L, UUID.randomUUID(), "a@b.com", 0L, Role.USER);
         String token = testFactory.tokenWithWrongType(p);
 
         assertThatThrownBy(() -> jwtService.parseAccessToken(token))

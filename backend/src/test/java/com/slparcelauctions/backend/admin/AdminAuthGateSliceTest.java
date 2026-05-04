@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 
 /**
  * Smoke test the admin gate: /api/v1/admin/** must be 401 anon, 403 USER, 404 ADMIN
@@ -47,7 +48,7 @@ class AdminAuthGateSliceTest {
     @Test
     void userRole_returns403() throws Exception {
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "u@x.com", 1L, Role.USER));
+            new AuthPrincipal(1L, UUID.randomUUID(), "u@x.com", 1L, Role.USER));
         mvc.perform(get("/api/v1/admin/probe-task-1")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isForbidden());
@@ -56,7 +57,7 @@ class AdminAuthGateSliceTest {
     @Test
     void adminRole_returns404_pathDoesNotExistButGatePassed() throws Exception {
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/probe-task-1")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isNotFound());

@@ -314,7 +314,7 @@ class UserQueueRoutingTest {
 
     private String issueJwt(User user) {
         return jwtService.issueAccessToken(
-                new AuthPrincipal(user.getId(), user.getEmail(), user.getTokenVersion(), Role.USER));
+                new AuthPrincipal(user.getId(), user.getPublicId(), user.getEmail(), user.getTokenVersion(), Role.USER));
     }
 
     private static void disconnectQuietly(StompSession session) {

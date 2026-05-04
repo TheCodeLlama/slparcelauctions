@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 import com.slparcelauctions.backend.user.deletion.exception.ActiveAuctionsException;
 import com.slparcelauctions.backend.user.deletion.exception.InvalidPasswordException;
 import com.slparcelauctions.backend.user.deletion.exception.UserAlreadyDeletedException;
@@ -65,11 +66,11 @@ class UserDeletionEndpointTest {
     // ------------------------------------------------------------------ //
 
     private String userToken(long userId) {
-        return jwtService.issueAccessToken(new AuthPrincipal(userId, "user@example.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(userId, UUID.randomUUID(), "user@example.com", 1L, Role.USER));
     }
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(99L, "admin@example.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(99L, UUID.randomUUID(), "admin@example.com", 1L, Role.ADMIN));
     }
 
     // ================================================================== //

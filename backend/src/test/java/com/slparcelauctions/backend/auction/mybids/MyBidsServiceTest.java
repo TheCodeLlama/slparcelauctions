@@ -241,9 +241,7 @@ class MyBidsServiceTest {
     }
 
     private static Auction baseAuction(Long id) {
-        User seller = new User();
-        seller.setId(OTHER_USER);
-        seller.setDisplayName("Seller");
+        User seller = User.builder().id(OTHER_USER).displayName("Seller").build();
         Auction a = new Auction();
         a.setId(id);
         a.setSlParcelUuid(UUID.fromString(

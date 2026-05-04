@@ -73,7 +73,7 @@ class MeWalletLedgerExportControllerSliceTest {
                 .build());
         userId = user.getId();
         accessToken = jwtService.issueAccessToken(
-                new AuthPrincipal(userId, user.getEmail(), 0L, Role.USER));
+                new AuthPrincipal(userId, user.getPublicId(), user.getEmail(), 0L, Role.USER));
 
         // Seed one ledger row so happy-path test has something to stream.
         ledgerRepository.save(UserLedgerEntry.builder()

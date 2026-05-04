@@ -64,9 +64,9 @@ class NotificationPreferencesControllerTest {
             .passwordHash("hash").build());
 
         aliceJwt = jwt.issueAccessToken(new AuthPrincipal(
-            alice.getId(), alice.getEmail(), alice.getTokenVersion(), Role.USER));
+            alice.getId(), alice.getPublicId(), alice.getEmail(), alice.getTokenVersion(), Role.USER));
         bobJwt = jwt.issueAccessToken(new AuthPrincipal(
-            bob.getId(), bob.getEmail(), bob.getTokenVersion(), Role.USER));
+            bob.getId(), bob.getPublicId(), bob.getEmail(), bob.getTokenVersion(), Role.USER));
     }
 
     @Test

@@ -85,7 +85,7 @@ class MeWalletLedgerControllerSliceTest {
                 .build());
         userId = user.getId();
         accessToken = jwtService.issueAccessToken(
-                new AuthPrincipal(userId, user.getEmail(), 0L, Role.USER));
+                new AuthPrincipal(userId, user.getPublicId(), user.getEmail(), 0L, Role.USER));
     }
 
     /* ------------------------------------------------------------------ */

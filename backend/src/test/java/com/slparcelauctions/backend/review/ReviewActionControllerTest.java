@@ -60,8 +60,7 @@ class ReviewActionControllerTest {
     @MockitoBean private JwtService jwtService;
 
     private User mockCaller() {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         return caller;
     }

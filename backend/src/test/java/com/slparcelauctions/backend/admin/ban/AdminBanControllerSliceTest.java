@@ -54,11 +54,11 @@ class AdminBanControllerSliceTest {
     @MockitoBean AdminBanService adminBanService;
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(1L, "admin@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(1L, UUID.randomUUID(), "admin@x.com", 1L, Role.ADMIN));
     }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(2L, "user@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(2L, UUID.randomUUID(), "user@x.com", 1L, Role.USER));
     }
 
     private AdminBanRowDto sampleRow() {

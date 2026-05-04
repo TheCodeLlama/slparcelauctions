@@ -15,6 +15,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 
 import java.security.Principal;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -91,7 +92,7 @@ class JwtChannelInterceptorTest {
     @Test
     @DisplayName("CONNECT with valid token attaches StompAuthenticationToken principal")
     void preSend_connectFrame_validToken_attachesPrincipal() {
-        AuthPrincipal authPrincipal = new AuthPrincipal(42L, "test@example.com", 1L, Role.USER);
+        AuthPrincipal authPrincipal = new AuthPrincipal(42L, UUID.randomUUID(), "test@example.com", 1L, Role.USER);
         when(jwtService.parseAccessToken("valid-jwt")).thenReturn(authPrincipal);
 
         Message<byte[]> msg = stompMessage(StompCommand.CONNECT, "Bearer valid-jwt");
@@ -166,7 +167,7 @@ class JwtChannelInterceptorTest {
     @DisplayName("SUBSCRIBE from an authenticated session is allowed regardless of destination")
     void preSend_subscribe_authedSession_allowed() {
         Principal principal = new StompAuthenticationToken(
-            new AuthPrincipal(42L, "u@e.com", 1L, Role.USER));
+            new AuthPrincipal(42L, UUID.randomUUID(), "u@e.com", 1L, Role.USER));
         Message<byte[]> msg = stompMessage(
             StompCommand.SUBSCRIBE, null, "/topic/ws-test", principal);
 
@@ -239,7 +240,7 @@ class JwtChannelInterceptorTest {
     @DisplayName("SEND from authenticated session passes through")
     void preSend_send_authed_passesThrough() {
         Principal principal = new StompAuthenticationToken(
-            new AuthPrincipal(42L, "u@e.com", 1L, Role.USER));
+            new AuthPrincipal(42L, UUID.randomUUID(), "u@e.com", 1L, Role.USER));
         Message<byte[]> msg = stompMessage(
             StompCommand.SEND, null, "/app/bid", principal);
 

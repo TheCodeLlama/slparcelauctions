@@ -29,6 +29,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -52,7 +53,7 @@ class UserReportControllerSliceTest {
     @MockitoBean UserReportService service;
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(42L, "u@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(42L, UUID.randomUUID(), "u@x.com", 1L, Role.USER));
     }
 
     private static final String VALID_BODY = """

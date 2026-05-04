@@ -35,6 +35,7 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -59,11 +60,11 @@ class AdminAuctionControllerSliceTest {
     @MockitoBean AdminActionService adminActionService;
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(99L, "admin@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(99L, UUID.randomUUID(), "admin@x.com", 1L, Role.ADMIN));
     }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(5L, "user@x.com", 1L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(5L, UUID.randomUUID(), "user@x.com", 1L, Role.USER));
     }
 
     @Test

@@ -46,10 +46,18 @@ class UserServiceTest {
         when(userRepository.existsByEmail("alice@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User u = invocation.getArgument(0);
-            u.setId(1L);
-            u.setCreatedAt(OffsetDateTime.now());
-            return u;
+            // id and createdAt are assigned by the DB / Hibernate; use reflection to simulate
+            // their assignment in unit tests since @Setter(NONE) blocks direct mutation.
+            User saved = invocation.getArgument(0);
+            try {
+                java.lang.reflect.Field idField = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
+                idField.setAccessible(true);
+                idField.set(saved, 1L);
+                java.lang.reflect.Field createdAtField = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("createdAt");
+                createdAtField.setAccessible(true);
+                createdAtField.set(saved, java.time.OffsetDateTime.now());
+            } catch (Exception e) { throw new RuntimeException(e); }
+            return saved;
         });
 
         UserResponse response = userService.createUser(request);

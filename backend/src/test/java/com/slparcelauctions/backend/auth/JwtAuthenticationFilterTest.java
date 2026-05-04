@@ -17,6 +17,7 @@ import javax.crypto.SecretKey;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -56,7 +57,8 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilter_setsPrincipalOnValidToken() throws Exception {
-        AuthPrincipal principal = new AuthPrincipal(42L, "user@example.com", 0L, Role.USER);
+        UUID publicId = UUID.randomUUID();
+        AuthPrincipal principal = new AuthPrincipal(42L, publicId, "user@example.com", 0L, Role.USER);
         String token = testFactory.validAccessToken(principal);
 
         MockHttpServletRequest req = new MockHttpServletRequest();
@@ -67,13 +69,17 @@ class JwtAuthenticationFilterTest {
 
         AuthPrincipal set = (AuthPrincipal) SecurityContextHolder.getContext()
             .getAuthentication().getPrincipal();
-        assertThat(set).isEqualTo(principal);
+        // userId is null after parse (resolved by filter in PT14); publicId and email round-trip
+        assertThat(set.userPublicId()).isEqualTo(publicId);
+        assertThat(set.email()).isEqualTo("user@example.com");
+        assertThat(set.tokenVersion()).isEqualTo(0L);
+        assertThat(set.role()).isEqualTo(Role.USER);
         verify(chain).doFilter(req, resp);
     }
 
     @Test
     void doFilter_clearsContextOnExpiredToken() throws Exception {
-        AuthPrincipal p = new AuthPrincipal(1L, "a@b.com", 0L, Role.USER);
+        AuthPrincipal p = new AuthPrincipal(1L, UUID.randomUUID(), "a@b.com", 0L, Role.USER);
         String token = testFactory.expiredAccessToken(p);
 
         MockHttpServletRequest req = new MockHttpServletRequest();
@@ -125,7 +131,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilter_userToken_emitsRoleUserAuthority() throws Exception {
-        AuthPrincipal principal = new AuthPrincipal(10L, "u@x.com", 0L, Role.USER);
+        AuthPrincipal principal = new AuthPrincipal(10L, UUID.randomUUID(), "u@x.com", 0L, Role.USER);
         String token = testFactory.validAccessToken(principal);
 
         MockHttpServletRequest req = new MockHttpServletRequest();
@@ -142,7 +148,7 @@ class JwtAuthenticationFilterTest {
 
     @Test
     void doFilter_adminToken_emitsRoleAdminAuthority() throws Exception {
-        AuthPrincipal principal = new AuthPrincipal(11L, "a@x.com", 0L, Role.ADMIN);
+        AuthPrincipal principal = new AuthPrincipal(11L, UUID.randomUUID(), "a@x.com", 0L, Role.ADMIN);
         String token = testFactory.validAccessToken(principal);
 
         MockHttpServletRequest req = new MockHttpServletRequest();

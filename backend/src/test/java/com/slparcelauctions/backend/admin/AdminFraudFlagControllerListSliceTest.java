@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -67,7 +68,7 @@ class AdminFraudFlagControllerListSliceTest {
     @Test
     void list_userRole_returns403() throws Exception {
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "u@x.com", 1L, Role.USER));
+            new AuthPrincipal(1L, UUID.randomUUID(), "u@x.com", 1L, Role.USER));
         mvc.perform(get("/api/v1/admin/fraud-flags")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isForbidden());
@@ -99,7 +100,7 @@ class AdminFraudFlagControllerListSliceTest {
         when(service.list(eq("open"), any(), any())).thenReturn(page);
 
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/fraud-flags")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isOk())
@@ -118,7 +119,7 @@ class AdminFraudFlagControllerListSliceTest {
         when(service.list(any(), any(), any())).thenReturn(page);
 
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/fraud-flags?size=999")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isOk())
@@ -152,7 +153,7 @@ class AdminFraudFlagControllerListSliceTest {
         when(service.detail(42L)).thenReturn(detail);
 
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/fraud-flags/42")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isOk())
@@ -168,7 +169,7 @@ class AdminFraudFlagControllerListSliceTest {
         when(service.detail(999L)).thenThrow(new FraudFlagNotFoundException(999L));
 
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/fraud-flags/999")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isNotFound())

@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -55,11 +56,11 @@ class AdminReportControllerSliceTest {
     @MockitoBean AdminReportService service;
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
     }
 
     private String userToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(2L, "u@x.com", 2L, Role.USER));
+        return jwtService.issueAccessToken(new AuthPrincipal(2L, UUID.randomUUID(), "u@x.com", 2L, Role.USER));
     }
 
     private static final String VALID_NOTES = "{\"notes\":\"Some admin notes\"}";

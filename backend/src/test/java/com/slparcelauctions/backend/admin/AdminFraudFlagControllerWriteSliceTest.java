@@ -29,6 +29,7 @@ import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -52,7 +53,7 @@ class AdminFraudFlagControllerWriteSliceTest {
     @MockitoBean AdminFraudFlagService service;
 
     private String adminToken() {
-        return jwtService.issueAccessToken(new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+        return jwtService.issueAccessToken(new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
     }
 
     @Test

@@ -78,8 +78,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_returns201_withDto() throws Exception {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
                 .thenReturn(sampleDto());
@@ -142,8 +141,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_ineligible_returns422_REVIEW_INELIGIBLE() throws Exception {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
                 .thenThrow(new ReviewIneligibleException("Reviews are only accepted once the escrow has completed."));
@@ -159,8 +157,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_windowClosed_returns422_REVIEW_WINDOW_CLOSED() throws Exception {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
                 .thenThrow(new ReviewWindowClosedException("Window closed"));
@@ -176,8 +173,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_duplicate_returns409_REVIEW_ALREADY_SUBMITTED() throws Exception {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         when(reviewService.submit(eq(555L), any(User.class), any(ReviewSubmitRequest.class)))
                 .thenThrow(new ReviewAlreadySubmittedException("Already submitted"));
@@ -208,8 +204,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void listReviews_authenticatedParty_returns200_withEnrichedShape() throws Exception {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         OffsetDateTime windowCloses = OffsetDateTime.now().plusDays(13);
         when(reviewService.listForAuction(eq(555L), any(User.class)))

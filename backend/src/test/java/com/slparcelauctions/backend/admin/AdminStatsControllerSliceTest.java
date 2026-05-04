@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.admin.dto.AdminStatsResponse.QueueStats;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
 import com.slparcelauctions.backend.user.Role;
+import java.util.UUID;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -51,7 +52,7 @@ class AdminStatsControllerSliceTest {
     @Test
     void stats_userRole_returns403() throws Exception {
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "u@x.com", 1L, Role.USER));
+            new AuthPrincipal(1L, UUID.randomUUID(), "u@x.com", 1L, Role.USER));
         mvc.perform(get("/api/v1/admin/stats")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isForbidden());
@@ -66,7 +67,7 @@ class AdminStatsControllerSliceTest {
         when(statsService.compute()).thenReturn(fixture);
 
         String token = jwtService.issueAccessToken(
-            new AuthPrincipal(1L, "a@x.com", 1L, Role.ADMIN));
+            new AuthPrincipal(1L, UUID.randomUUID(), "a@x.com", 1L, Role.ADMIN));
         mvc.perform(get("/api/v1/admin/stats")
             .header("Authorization", "Bearer " + token))
            .andExpect(status().isOk())

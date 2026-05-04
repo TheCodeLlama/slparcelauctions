@@ -8,6 +8,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithSecurityContextFactory;
 import java.util.List;
+import java.util.UUID;
 
 public class WithMockAuthPrincipalSecurityContextFactory
         implements WithSecurityContextFactory<WithMockAuthPrincipal> {
@@ -16,6 +17,7 @@ public class WithMockAuthPrincipalSecurityContextFactory
     public SecurityContext createSecurityContext(WithMockAuthPrincipal annotation) {
         AuthPrincipal principal = new AuthPrincipal(
             annotation.userId(),
+            UUID.randomUUID(),
             annotation.email(),
             annotation.tokenVersion(),
             Role.USER

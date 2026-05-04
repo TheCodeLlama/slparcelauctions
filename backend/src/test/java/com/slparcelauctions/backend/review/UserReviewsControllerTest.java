@@ -90,8 +90,7 @@ class UserReviewsControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void listPending_returnsListOfPendingReviewDto() throws Exception {
-        User caller = User.builder().email("test@example.com").passwordHash("x").build();
-        caller.setId(1L);
+        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
 
         PendingReviewDto pending = new PendingReviewDto(
