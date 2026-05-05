@@ -1,0 +1,317 @@
+.env.example:2:# SLPA local development environment
+.superpowers/brainstorm/36004-1776090020/content/overview-v2.html:9:      <div class="mock-nav">SLPA · Browse · Dashboard · Create Listing · · · Theme · Bell · Sign in / Register (or User menu)</div>
+.superpowers/brainstorm/36004-1776090020/content/overview-v2.html:76:      <p style="margin-top:0.5rem; opacity:0.85">Join thousands of curators building their digital footprint on SLPA.</p>
+.superpowers/brainstorm/36004-1776090020/content/overview.html:9:      <div class="mock-nav">SLPA · Browse · Dashboard · Create Listing · · · Theme · Bell · <em>Sign in / Register</em> (or <em>User menu</em>)</div>
+.superpowers/brainstorm/36004-1776090020/content/overview.html:90:      <p style="margin-top:0.5rem; opacity:0.85">Join thousands of curators building their digital footprint on SLPA.</p>
+CLAUDE.md:7:SLPA (Second Life Parcel Auctions) is a player-to-player land auction platform for Second Life. It bridges web-based auctions with the Second Life virtual world through verification terminals, escrow objects, and bot services. Phase 1 supports Mainland parcels only.
+CLAUDE.md:142:Once L$ has reached an SLPA Terminal script (the `money()` event has fired), every non-OK backend response **must** bounce the L$ back via `llTransferLindenDollars`. The earlier "ERROR could be an attacker probing, owner-say only" rationale was wrong — SL header + shared-secret pre-flight rejects bad senders before any L$-bearing path runs, so a real ERROR reaching the deposit response handler is a legitimate-but-failed deposit, not an attack. Backend `/sl/wallet/deposit` returns REFUND (not ERROR) for any failure after L$ is in hand; the LSL script also refunds on ERROR responses defensively. Withdraw-side errors are different — no L$ has moved, ERROR is fine there.
+CLAUDE.md:187:The `SLPA` Postman collection (collection id `8070328-cf3e1190-cb71-4af3-8e2e-70c82dfee288` in the `SLPA` workspace at `https://scatr-devs.postman.co`) is the canonical manual-test surface for the backend. New endpoints must be mirrored into the collection in the same task — variable-chaining test scripts thread `accessToken`, `refreshToken`, `userId`, `verificationCode`, `auctionId`, `botTaskId`, etc. via the `SLPA Dev` environment.
+FULL_TESTING_PROCEDURES.md:1:# SLPA Full Testing Procedures
+FULL_TESTING_PROCEDURES.md:3:End-to-end testing playbook for the SLPA dev environment. Covers automated test suites, the canonical local stack, manual API surfaces, and the per-flow scripts you should run before opening a PR.
+FULL_TESTING_PROCEDURES.md:18:| Manual API                                     | Postman collection (canonical)                          | `SLPA` workspace at `https://scatr-devs.postman.co`                            | Postman desktop or CLI runner        |
+FULL_TESTING_PROCEDURES.md:287:The `SLPA` Postman collection is the canonical manual-test surface for the backend.
+FULL_TESTING_PROCEDURES.md:289:- Workspace: `https://scatr-devs.postman.co` (workspace `SLPA`)
+FULL_TESTING_PROCEDURES.md:291:- Environment: `SLPA Dev`
+FULL_TESTING_PROCEDURES.md:307:Variable-chaining test scripts thread `accessToken`, `refreshToken`, `userId`, `verificationCode`, `parcelVerificationCode`, `auctionId`, `botTaskId`, `photoId`, `avatarSize` through subsequent requests via the `SLPA Dev` environment, so a folder runs as a flow.
+FULL_TESTING_PROCEDURES.md:455:| Missing endpoint in Postman after PR      | Manual-test gap                          | The same task that adds the endpoint must mirror it into the `SLPA` collection                          |
+FULL_TESTING_PROCEDURES.md:484:If you're adding a new endpoint, mirror it into the Postman `SLPA` collection in the same commit.
+PREP.md:1:# SLPA AWS Deployment — Pre-flight Setup
+PREP.md:32:**If you already have an AWS account you'll use for SLPA:** skip to Step 2. Make sure a payment method is on file (the launch-lite SLPA bill will be ~$130-180/mo).
+PREP.md:39:4. Account type: **Personal** (or Business, doesn't materially matter for SLPA).
+PREP.md:68:   - **Region:** choose **`US East (N. Virginia) — us-east-1`** to match the SLPA stack region.
+PREP.md:176:| (account selection)                                    | If you have one account, it auto-selects. Otherwise pick the SLPA account. |
+PREP.md:302:**Cost: ~$0.20/mo for the bucket + DynamoDB.** Pay-per-request DynamoDB is essentially free at SLPA's lock-acquisition rate.
+README.md:1:# SLPA — Second Life Parcel Auctions
+README.md:122:All HTTP routes above are mirrored in the `SLPA` Postman collection (collection id `8070328-cf3e1190-cb71-4af3-8e2e-70c82dfee288` in the `SLPA` workspace at `https://scatr-devs.postman.co`) with `Auth/`, `Users/`, `Verification/`, `SL/`, `Parcel & Listings/`, `Bot/`, `Tags/`, `Photos/`, and `Dev/` folders, saved example responses, and variable-chaining test scripts that thread `accessToken`, `refreshToken`, `userId`, `verificationCode`, `auctionId`, `parcelVerificationCode`, `botTaskId`, `photoId`, and `avatarSize` between requests via the `SLPA Dev` environment. The `Users/` folder holds `Create user`, `Get current user`, `Get user by id`, `Update current user` (PUT /me), `Upload avatar` (multipart — pick a local file from the Body tab before firing), and `Get user avatar` (tweak `avatarSize` to `64` / `128` / `256` to flip sizes). `Tags/` holds `List`, and `Photos/` holds `Upload` (multipart), `Delete`, and `Get bytes` (public, no auth). The collection is the canonical manual-test surface for the backend; if you add a new endpoint, add it to the collection in the same task.
+backend/Dockerfile:3:# Production multi-stage build for the SLPA backend (Spring Boot 4 / Java 26).
+backend/src/main/java/com/slparcelauctions/backend/admin/infrastructure/reconciliation/ReconciliationService.java:136:     * Total L$ the SLPA service avatar is expected to hold:
+backend/src/main/java/com/slparcelauctions/backend/admin/infrastructure/terminals/AdminTerminalRotationService.java:79:                    .header("X-SLPA-Secret", oldCurrent != null ? oldCurrent.getSecretValue() : "")
+backend/src/main/java/com/slparcelauctions/backend/auction/exception/AuctionExceptionHandler.java:258:                    "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.";
+backend/src/main/java/com/slparcelauctions/backend/auction/monitoring/SuspensionService.java:246:            auction.getTitle(), "Suspended by SLPA staff");
+backend/src/main/java/com/slparcelauctions/backend/bot/BotStartupValidator.java:23: *   <li>Bot half of "Primary escrow UUID + SLPA trusted-owner-keys
+backend/src/main/java/com/slparcelauctions/backend/bot/BotTaskService.java:175:                    "authBuyerId must equal the SLPA primary escrow UUID");
+backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowTransactionType.java:11:     * Penalty payment from a seller at a SLPA terminal, paying down their
+backend/src/main/java/com/slparcelauctions/backend/escrow/command/TerminalCommandService.java:286:        // COMMISSION rows intentionally omit a payee — the SLPA platform itself is the
+backend/src/main/java/com/slparcelauctions/backend/escrow/scheduler/ListingFeeRefundProcessorJob.java:37: * is already held at the SLPA avatar account) and the idempotency guard
+backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisherImpl.java:266:        String body = "Your listing has been removed by SLPA staff. Reason: " + reason + ".";
+backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisherImpl.java:434:        String body = "L$ " + amountL + " has been transferred to your SL avatar from your SLPA wallet.";
+backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisherImpl.java:444:        String body = "Your L$ " + amountL + " withdrawal could not be completed and was credited back to your SLPA wallet. Reason: " + reason;
+backend/src/main/java/com/slparcelauctions/backend/notification/slim/SlImMessageBuilder.java:10: * <p>The deeplink, the {@code [SLPA] } prefix, and the title are non-negotiable
+backend/src/main/java/com/slparcelauctions/backend/notification/slim/SlImMessageBuilder.java:27:    private static final String PREFIX = "[SLPA] ";
+backend/src/main/java/com/slparcelauctions/backend/parcel/MaturityRating.java:9: * Canonical SLPA maturity rating values used in {@code regions.maturity_rating}
+backend/src/main/java/com/slparcelauctions/backend/parcel/MaturityRating.java:31:     * {@code world.secondlife.com/region/{uuid}} to a canonical SLPA value.
+backend/src/main/java/com/slparcelauctions/backend/region/dto/RegionPageData.java:12: * "M_NOT", "AO_NOT"). Translation to canonical SLPA values
+backend/src/main/java/com/slparcelauctions/backend/sl/PenaltyTerminalService.java:109:                        "No SLPA user found for avatar " + req.slAvatarUuid()));
+backend/src/main/java/com/slparcelauctions/backend/sl/SlExceptionHandler.java:65:                HttpStatus.CONFLICT, "This SL avatar is already linked to another SLPA account.");
+backend/src/main/java/com/slparcelauctions/backend/sl/SlWorldApiClientConfig.java:38:                .defaultHeader(HttpHeaders.USER_AGENT, "SLPA-Backend/1.0")
+backend/src/main/java/com/slparcelauctions/backend/sl/exception/AvatarAlreadyLinkedException.java:8: * Thrown when an SL avatar UUID is already linked to a different SLPA account.
+backend/src/main/java/com/slparcelauctions/backend/user/User.java:136:     * new listings; payment at any SLPA terminal pays it down to zero, at which
+backend/src/main/java/com/slparcelauctions/backend/user/UserRepository.java:98:     * expected SLPA service avatar balance against the wallet pool.
+backend/src/main/java/com/slparcelauctions/backend/wallet/UserLedgerEntryType.java:11:     * Resident-initiated L$ deposit via the in-world SLPA Terminal's
+backend/src/main/java/com/slparcelauctions/backend/wallet/WalletService.java:59:     * SLPA Terminal's {@code money()} handler fires.
+backend/src/main/java/com/slparcelauctions/backend/wallet/WalletService.java:64:     * @throws UserNotLinkedException     if no SLPA user has the given
+backend/src/main/java/com/slparcelauctions/backend/wallet/exception/UserNotLinkedException.java:7: * the terminal does not match a verified SLPA user. The terminal-side
+backend/src/main/java/com/slparcelauctions/backend/wallet/exception/UserNotLinkedException.java:15:        super("no SLPA user linked to SL avatar UUID " + payerUuid);
+backend/src/main/java/com/slparcelauctions/backend/wallet/sl/SlWalletController.java:24: * SL-headers-gated wallet endpoints called by the in-world SLPA Terminal.
+backend/src/main/java/com/slparcelauctions/backend/wallet/sl/SlWalletController.java:88:                    "no SLPA account linked to this avatar");
+backend/src/main/java/com/slparcelauctions/backend/wallet/sl/SlWalletController.java:131:                    "no SLPA account linked to this avatar");
+backend/src/main/java/com/slparcelauctions/backend/wallet/sl/SlWalletDepositRequest.java:9: * SLPA Terminal's {@code money()} handler.
+backend/src/main/java/com/slparcelauctions/backend/wallet/sl/SlWalletWithdrawRequest.java:9: * SLPA Terminal after the touch-confirmed withdraw flow. Recipient is
+backend/src/main/resources/db/migration/V5__reconciliation_extension.sql:7:-- FROZEN states) against the SLPA service avatar's observed L\$ balance.
+backend/src/test/java/com/slparcelauctions/backend/auction/exception/SellerSuspendedExceptionHandlerTest.java:40:                .contains("SLPA terminal");
+backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md:3:This package ships the shared test helpers that every protected-endpoint test in the SLPA backend
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImChannelDispatcherTest.java:89:        assertThat(row.getMessageText()).startsWith("[SLPA] You've been outbid on Hampton");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:66:        var stalePending = dao.upsert(u.getId(), avatar, "[SLPA] stale", "k1");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:70:        var freshPending = dao.upsert(u.getId(), avatar, "[SLPA] fresh", "k2");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:74:        var oldDelivered = dao.upsert(u.getId(), avatar, "[SLPA] old-d", "k3");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:78:        var oldFailed = dao.upsert(u.getId(), avatar, "[SLPA] old-f", "k4");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:82:        var oldExpired = dao.upsert(u.getId(), avatar, "[SLPA] old-e", "k5");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:86:        var newishDelivered = dao.upsert(u.getId(), avatar, "[SLPA] newish", "k6");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:115:        var p = dao.upsert(u.getId(), avatar, "[SLPA] stale", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImCleanupJobTest.java:153:            var r = dao.upsert(u.getId(), avatar, "[SLPA] msg-" + i, "k" + i);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageBuilderTest.java:20:            "[SLPA] You've been outbid on Hampton Hills\n\n" +
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageBuilderTest.java:60:        assertThat(result).startsWith("[SLPA] Hampton Hills update");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageBuilderTest.java:83:        assertThat(result).isEqualTo("[SLPA] Title\n\n\n\nhttps://slpa.example.com/x");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:54:        var result = dao.upsert(u.getId(), avatar, "[SLPA] outbid msg", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:62:        assertThat(row.getMessageText()).isEqualTo("[SLPA] outbid msg");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:73:        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:74:        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:80:        assertThat(row.getMessageText()).isEqualTo("[SLPA] second");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:90:        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:97:        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:109:        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:115:        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:125:        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:131:        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:141:        var first = dao.upsert(u.getId(), avatar, "[SLPA] one", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:142:        var second = dao.upsert(u.getId(), avatar, "[SLPA] two", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:157:        var rA = dao.upsert(a.getId(), avatarA, "[SLPA] A", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageDaoTest.java:158:        var rB = dao.upsert(b.getId(), avatarB, "[SLPA] B", "outbid:1:42");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:56:        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:58:        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:60:        var third = dao.upsert(u.getId(), avatar, "[SLPA] third", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:75:            dao.upsert(u.getId(), avatar, "[SLPA] " + i, null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:87:        var pending = dao.upsert(u.getId(), avatar, "[SLPA] pending", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:88:        var delivered = dao.upsert(u.getId(), avatar, "[SLPA] delivered", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:89:        var expired = dao.upsert(u.getId(), avatar, "[SLPA] expired", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:90:        var failed = dao.upsert(u.getId(), avatar, "[SLPA] failed", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:112:        var p1 = dao.upsert(u.getId(), avatar, "[SLPA] p1", "k1");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:113:        var p2 = dao.upsert(u.getId(), avatar, "[SLPA] p2", "k2");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/SlImMessageRepositoryTest.java:114:        var d = dao.upsert(u.getId(), avatar, "[SLPA] d", "k3");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/integration/CancellationFanoutImIntegrationTest.java:142:        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLPA] Auction cancelled"));
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/integration/OutbidImIntegrationTest.java:113:            .contains("[SLPA] You've been outbid")
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/integration/SystemBypassImIntegrationTest.java:89:        assertThat(rows.get(0).getMessageText()).contains("[SLPA] All systems normal");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:68:        var first = dao.upsert(user.getId(), avatar, "[SLPA] first", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:70:        var second = dao.upsert(user.getId(), avatar, "[SLPA] second", "key2");
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:77:            .andExpect(jsonPath("$.messages[0].messageText").value("[SLPA] first"))
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:109:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:122:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:141:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:152:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:169:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:178:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:191:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:200:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/notification/slim/internal/SlImInternalControllerTest.java:211:        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+backend/src/test/java/com/slparcelauctions/backend/sl/PenaltyTerminalControllerSliceTest.java:244:                        "No SLPA user found for avatar " + AVATAR_UUID));
+bot/README.md:1:# SLPA Bot Service
+bot/README.md:4:services tasks from the SLPA backend (Method C verification, BOT-tier
+bot/README.md:62:- A running SLPA backend with matching `slpa.bot.shared-secret`
+docs/final-design/slparcels-website/project/admin-shell.jsx:88:    summary: ['Banned avatar for confirmed shill bidding','Marked report rp7001 reviewed','Resolved dispute d4001 — refund to winner','Resolved fraud flag f9001 — false positive','Suspended listing a3 — covenant violation','Lifted ban b3009','Dismissed report — insufficient evidence','Froze escrow d4002 pending evidence','Rotated SLPA-bot signing secret','Approved withdrawal of L$ 28,400','Reinstated listing a7 after appeal','Force-verified avatar after manual check','Banned IP for multi-account abuse','Overrode 7-day cancellation cooldown','Marked report rp7003 reviewed','Resolved dispute d4003 — release to seller','Resolved fraud flag f9003 — confirmed action','Banned avatar — repeated dispute fraud','Cancelled listing a5','Deleted user account per request','Marked report rp7005 reviewed','Froze escrow d4005','Lifted ban b3010','Resolved fraud flag f9004','Suspended listing a9','Rotated escrow signing secret','Approved withdrawal of L$ 14,200','Dismissed report — duplicate','Banned avatar — botted bidding','Resolved dispute d4006 — partial refund'][i],
+docs/final-design/slparcels-website/project/page-dashboard.jsx:74:                Suspension lifts on <span className="bold">Apr 22, 2026</span>. Outstanding penalty: <span className="bold">L$500</span> — visit any in-world SLPA terminal to clear it.
+docs/final-design/slparcels-website/project/page-dashboard.jsx:620:              ['Visit a verification terminal', <span>In-world, find any <span className="mono" style={{ background: 'var(--bg-muted)', padding: '1px 6px', borderRadius: 4 }}>SLPA Verifier</span> object — they’re at every major hub.</span>],
+docs/final-design/slparcels-website/project/page-listing-flow.jsx:204:            Visit any SLPA terminal in-world and pay the listing fee. We'll detect the payment automatically.
+docs/final-design/slparcels-website/project/page-listing-flow.jsx:209:            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span className="muted">Memo</span><span className="mono">SLPA-LST-7421</span></div>
+docs/final-design/slparcels-website/project/page-listing-flow.jsx:225:            ['terminal', 'Visit terminal', 'Bring a code from your dashboard to any SLPA terminal in-world.'],
+docs/final-design/slparcels-website/project/page-static.jsx:56:    { name: 'SLPA Verifier Network', kind: 'Verification', desc: 'In-world terminals at every major hub for avatar and parcel verification.' },
+docs/implementation/CLEANED_FROM_DEFERRED.md:98:  - Admin can pull the SLPA terminal ledger via the reconciliation read surface (item #23) and the disputant's `slTransactionKey` from the dispute detail (item #24), satisfying the "reconcile against the backend's `EscrowTransaction` ledger before any refund" workflow the deferral required
+docs/implementation/CLEANED_FROM_DEFERRED.md:157:| 10 | SLPA trusted-owner-keys production config | OPS-PENDING | `backend/src/main/resources/application-prod.yml:22` — `trusted-owner-keys: []` with comment "deploy pipeline injects the real UUIDs via env"; `SlStartupValidator` is the forcing function |
+docs/implementation/DEFERRED_WORK.md:66:### SLPA trusted-owner-keys production config
+docs/implementation/FOOTGUNS.md:570:**Caught at review time in Task 26.** The reviewer prompt summarized the eleven placeholder pages in a table and added an inferred rule: "the metadata `title` matches the page's displayed title (the only exception being `/auction/[id]`)." That rule wasn't in the canonical spec — the canonical actually has `metadata.title = "About"` but `<PageHeader title="About SLPA" />`, and `metadata.title = "Terms"` but `<PageHeader title="Terms of Service" />`. The implementer copied the canonical correctly. The reviewer flagged two false-positive failures because it was matching against the controller's paraphrase instead of the canonical. No fix was applied; the controller had to override the FAIL.
+docs/implementation/FOOTGUNS.md:703:the SLPA codebase yields `null` at runtime because `JwtAuthenticationFilter` sets an
+docs/implementation/FOOTGUNS.md:754:**Why:** Spring Security matches `requestMatchers` rules in declaration order. The current SLPA
+docs/implementation/FOOTGUNS.md:1408:**Why:** All L$ held at the SLPA avatar account level, not per-terminal. Any registered terminal can execute any command (Task 4's registration pool + Task 7's `findAnyLive` selection in `TerminalCommandDispatcherTask`). This is by design — it keeps the queue simple, avoids region-affinity hotspots, and lets terminals fail without stranding L$ that was "paid to them." The flipside is that the terminal that received a listing-fee payment is almost never the one that executes the refund; the terminal that received escrow funding is almost never the one that executes the payout.
+docs/implementation/FOOTGUNS.md:1446:**How to apply:** the paranoid default is deliberate — a seller who is actively defrauding SLPA could (via some plausibly complex path) disrupt World API lookups for their specific parcel; freezing on a small unbroken run protects the winner's L$ while an admin investigates. If you lower the threshold to 3, be prepared for false-positive freezes under real-world Linden Lab API flakiness. If you raise it to 10, accept that an escrow with 9 consecutive failures and an attacker who flips the parcel owner to a third party on the 10th check window squeaks through. Changing this value is not a drive-by tweak — reason about the worst case first.
+docs/implementation/FOOTGUNS.md:1616:error, no warning, no return value — and the deeplink in SLPA's IM template
+docs/implementation/PHASES.md:1:# SLPA - Implementation Phases
+docs/postman-publicid-migration-checklist.md:3:After the BaseEntity + public UUID refactor (branch `task/base-entity-uuid`), the SLPA Postman
+docs/postman-publicid-migration-checklist.md:7:**Collection:** SLPA (`8070328-cf3e1190-cb71-4af3-8e2e-70c82dfee288`)
+docs/postman-publicid-migration-checklist.md:11:## 1. SLPA Dev environment — variable renames
+docs/postman-publicid-migration-checklist.md:221:1. Set environment to `SLPA Dev`.
+docs/testing/EPIC_6_TESTING.md:37:| Postman (optional) | Desktop 10.x                            | `SLPA` collection covers every endpoint (see §11)            |
+docs/testing/EPIC_6_TESTING.md:663:The repo's Postman collection (shared via workspace) has an `SLPA` collection with folders for every endpoint. Epic 06 additions:
+docs/testing/EPIC_6_TESTING.md:910:- **DESIGN.md**: `docs/initial-design/DESIGN.md` §5.4 (SLPA Verification Bot Pool architecture)
+frontend/src/app/about/page.tsx:7:  return <PageHeader title="About SLPA" subtitle="The story behind the auctions." />;
+frontend/src/app/admin/infrastructure/ReconciliationSection.tsx:13:          <p className="text-[10px] opacity-55">Sum of pending escrow vs SLPA SL account · runs 03:00 UTC daily</p>
+frontend/src/app/auction/[publicId]/escrow/dispute/DisputeFormClient.tsx:215:          toast.success("Dispute filed. SLPA staff will review.");
+frontend/src/app/auction/[publicId]/escrow/dispute/DisputeFormClient.tsx:274:    }. SLPA is reviewing.`,
+frontend/src/app/auction/[publicId]/page.integration.test.tsx:275:    expect(meta.title).toBe("Auction · SLPA");
+frontend/src/app/auction/[publicId]/page.integration.test.tsx:301:    expect(meta.title).toBe("Epic Beachfront Parcel · SLPA");
+frontend/src/app/auction/[publicId]/page.integration.test.tsx:359:    expect(meta.title).toBe("Auction · SLPA");
+frontend/src/app/auction/[publicId]/page.tsx:31:    return { title: "Auction · SLPA" };
+frontend/src/app/auction/[publicId]/page.tsx:46:      title: `${a.title} · SLPA`,
+frontend/src/app/auction/[publicId]/page.tsx:59:    return { title: "Auction · SLPA" };
+frontend/src/app/browse/page.tsx:7:  title: "Browse Auctions · SLPA",
+frontend/src/app/contact/page.tsx:7:  return <PageHeader title="Contact" subtitle="Get in touch with the SLPA team." />;
+frontend/src/app/layout.tsx:23:    default: "SLPA: Second Life Parcel Auctions",
+frontend/src/app/layout.tsx:24:    template: "%s · SLPA",
+frontend/src/app/login/page.tsx:11:      <AuthCard.Subtitle>Sign in to your SLPA account.</AuthCard.Subtitle>
+frontend/src/app/saved/page.tsx:7:  title: "Saved Parcels · SLPA",
+frontend/src/app/users/[publicId]/listings/page.tsx:22:  title: "Seller listings · SLPA",
+frontend/src/app/users/[publicId]/page.test.tsx:21:    expect(meta.title).toBe("Profile · SLPA");
+frontend/src/app/users/[publicId]/page.test.tsx:50:    expect(meta.title).toBe("Carol Seller · SLPA");
+frontend/src/app/users/[publicId]/page.test.tsx:85:    expect(meta.description).toBe("Second Life parcel seller on SLPA.");
+frontend/src/app/users/[publicId]/page.test.tsx:135:    expect(meta.title).toBe("Profile · SLPA");
+frontend/src/app/users/[publicId]/page.tsx:17:const DEFAULT_DESCRIPTION = "Second Life parcel seller on SLPA.";
+frontend/src/app/users/[publicId]/page.tsx:34:  if (!publicId) return { title: "Profile · SLPA" };
+frontend/src/app/users/[publicId]/page.tsx:37:    const displayName = user.displayName ?? "SLPA user";
+frontend/src/app/users/[publicId]/page.tsx:43:      title: `${displayName} · SLPA`,
+frontend/src/app/users/[publicId]/page.tsx:57:    return { title: "Profile · SLPA" };
+frontend/src/app/wallet/page.tsx:26:          Deposit, withdraw, and view your SLPA wallet activity.
+frontend/src/components/admin/fraud-flags/FraudFlagEvidence.tsx:33:        title={`${value} (not a registered SLPA user)`}
+frontend/src/components/auth/AuthCard.test.tsx:7:  it("always renders the SLPA brand header and tagline", () => {
+frontend/src/components/auth/AuthCard.test.tsx:13:    expect(screen.getByText("SLPA")).toBeInTheDocument();
+frontend/src/components/auth/AuthCard.tsx:10: * with the SLPA brand header always rendered at the top.
+frontend/src/components/auth/AuthCard.tsx:34:          SLPA
+frontend/src/components/dashboard/SuspensionBanner.tsx:44: * model only; payment happens at any SLPA terminal in-world.
+frontend/src/components/dashboard/SuspensionBanner.tsx:93:            . Visit any SLPA terminal to pay.
+frontend/src/components/dashboard/SuspensionBanner.tsx:131:            in cancellation penalties. Visit any SLPA terminal to pay and
+frontend/src/components/escrow/escrowBannerCopy.ts:42:          detail: "at an SLPA terminal in-world.",
+frontend/src/components/escrow/escrowBannerCopy.ts:80:        detail: "SLPA staff is reviewing.",
+frontend/src/components/escrow/escrowBannerCopy.ts:87:        detail: "SLPA staff is investigating.",
+frontend/src/components/escrow/state/DisputedStateCard.tsx:14: * dispute and the escrow is awaiting manual SLPA review (admin tooling
+frontend/src/components/escrow/state/DisputedStateCard.tsx:46:        SLPA is reviewing this transaction. Expect a response within 48 hours.
+frontend/src/components/escrow/state/FrozenStateCard.tsx:42:          a transient issue and SLPA will re-check manually.
+frontend/src/components/escrow/state/FrozenStateCard.tsx:46:          Your L$ will be refunded automatically. SLPA has flagged this
+frontend/src/components/escrow/state/PendingStateCard.tsx:42:            Pay at an SLPA terminal in-world. Your winning bid needs to land
+frontend/src/components/escrow/state/TransferPendingStateCard.tsx:78:        <li>Set the price to L$ 0 (SLPA has already escrowed payment).</li>
+frontend/src/components/layout/AppShell.test.tsx:18:    expect(screen.getByText(/SLPA · Independent marketplace/)).toBeInTheDocument();    // Footer
+frontend/src/components/layout/Footer.test.tsx:25:    expect(screen.getByText(/© 2026 SLPA/)).toBeInTheDocument();
+frontend/src/components/layout/Footer.tsx:18:            © {new Date().getFullYear()} SLPA · Independent marketplace, not affiliated with Linden Lab.
+frontend/src/components/listing/ActivateListingPanel.test.tsx:96:      screen.getByRole("heading", { name: /SLPA Wallet Terms of Use/i }),
+frontend/src/components/listing/ActivateListingPanel.tsx:29: * DRAFT-state listing-fee gate. The seller funds their SLPA wallet at any
+frontend/src/components/listing/ActivateListingPanel.tsx:103:            Listing fees are paid from your SLPA wallet. Accept the wallet
+frontend/src/components/listing/ActivateListingPanel.tsx:159:          you need <strong>{formatLindens(short)}</strong> more. Pay any SLPA
+frontend/src/components/listing/ActivateListingPanel.tsx:183:        your SLPA wallet. Available balance:{" "}
+frontend/src/components/listing/CancelListingModal.tsx:57:    "This will be your 2nd cancellation with active bids. You will be suspended from new listings until you pay a L$1000 penalty at any SLPA terminal.",
+frontend/src/components/listing/MyListingsTab.tsx:39:    return "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.";
+frontend/src/components/listing/SuspensionErrorModal.test.tsx:21:    expect(modal).toHaveTextContent(/SLPA terminal/i);
+frontend/src/components/listing/SuspensionErrorModal.tsx:31:    body: "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.",
+frontend/src/components/listing/VerificationMethodPicker.tsx:32:      "We give you a one-time code. Rez an SLPA parcel terminal on your land and it verifies ownership on your behalf. Works for individually-owned land.",
+frontend/src/components/listing/VerificationMethodRezzable.tsx:22: * the seller to paste into an SLPA Parcel Terminal object they rez
+frontend/src/components/listing/VerificationMethodRezzable.tsx:109:          Open your SL inventory and find the &quot;SLPA Parcel Terminal&quot;
+frontend/src/components/marketing/Hero.tsx:32:            is protected by SLPA Escrow, so you don&apos;t lose L$ to bad-faith sellers.
+frontend/src/components/user/UnverifiedVerifyFlow.tsx:24:          link your Second Life avatar to your SLPA account. This is a one-time
+frontend/src/components/user/UnverifiedVerifyFlow.tsx:36:          <li>Go to any SLPA Verification Terminal in Second Life</li>
+frontend/src/components/user/VerificationCodeDisplay.tsx:27:          You&apos;ll have 15 minutes to enter it at any SLPA Verification
+frontend/src/components/user/VerificationCodeDisplay.tsx:49:        label="Enter this code at any SLPA Verification Terminal"
+frontend/src/components/wallet/LedgerTable.tsx:157:          Visit any SLPA Terminal in-world to make your first deposit.
+frontend/src/components/wallet/LedgerTable.tsx:158:          Locations: SLPA HQ and partner auction venues.
+frontend/src/components/wallet/WalletPanel.tsx:335:          <li>Visit any SLPA Terminal in-world (SLPA HQ or an auction venue).</li>
+frontend/src/components/wallet/WalletPanel.tsx:341:          &mdash; every payment to the terminal is a deposit to your SLPA wallet.
+frontend/src/components/wallet/WalletPanel.tsx:425:        Funds will be sent to your verified SL avatar via the in-world SLPA
+frontend/src/components/wallet/WalletTermsModal.test.tsx:22:      screen.getByText(/SLPA Wallet Terms of Use/i),
+frontend/src/components/wallet/WalletTermsModal.test.tsx:35:      screen.queryByText(/SLPA Wallet Terms of Use/i),
+frontend/src/components/wallet/WalletTermsModal.tsx:70:      title="SLPA Wallet Terms of Use"
+frontend/src/components/wallet/WalletTermsModal.tsx:88:      <p>By using the SLPA wallet, you acknowledge:</p>
+frontend/src/components/wallet/WalletTermsModal.tsx:96:          not currency. SLPA holds L$ on your behalf as a transactional convenience.
+frontend/src/components/wallet/WalletTermsModal.tsx:99:          <strong>No L$&harr;USD conversion.</strong> SLPA does not exchange L$
+frontend/src/components/wallet/WalletTermsModal.tsx:103:          <strong>Recoverable on shutdown.</strong> If SLPA ceases operations,
+frontend/src/components/wallet/WalletTermsModal.tsx:107:          <strong>Freezable for fraud.</strong> SLPA may freeze a wallet balance
+frontend/src/lib/api.ts:23: * `errors` is a SLPA extension for validation failures —
+frontend/src/lib/user/api.ts:24:   * any SLPA terminal — there is no "Pay now" button on the web side.
+infra/cicd/main.tf:2:# SLPA — CI/CD module (spec §4.10)
+infra/compute/alb.tf:21:  # idle_timeout default 60s is fine for SLPA's request shape.
+infra/compute/ecs_backend.tf:99:        # Spring Boot 4 + Java 26 + the SLPA bean graph takes ~150-180s to
+infra/data/elasticache.tf:47:  description          = "SLPA ${var.environment} Redis - sessions, bid rate-limit counters, auction countdown timers, bot heartbeat state."
+infra/data/s3.tf:9:# cost is small at SLPA scale). Two prefix-scoped lifecycle rules:
+infra/dns/route53.tf:19:  comment = "SLPA frontend apex - Amplify-fronted, NS-delegated from Namecheap."
+infra/dns/route53.tf:29:  comment = "SLPA backend apex - ALB ALIAS, NS-delegated from Namecheap."
+infra/main.tf:2:# SLPA — Terraform root module
+infra/main.tf:4:# Deploys the SLPA production stack on AWS. See:
+infra/networking/security_groups.tf:15:  description = "Public ingress to the SLPA ALB (80/443 from world). Egress to backend tasks only."
+infra/observability/main.tf:2:# SLPA — Observability module (spec §4.12 + §4.13)
+infra/outputs.tf:2:# SLPA — Terraform outputs
+infra/terraform.tfvars.example:2:# SLPA — Terraform variable overrides (example)
+infra/variables.tf:2:# SLPA — Terraform variables
+infra/variables.tf:16:  description = "Primary AWS region for the SLPA stack. Spec §4.1 + Q12."
+lsl-scripts/README.md:3:In-world Linden Scripting Language (LSL) code that consumes SLPA's backend APIs.
+lsl-scripts/README.md:29:  kiosk. Players touch and enter their 6-digit SLPA code; the script POSTs
+lsl-scripts/README.md:35:  Distributed via Marketplace + given out by the SLPA Parcel Verifier Giver.
+lsl-scripts/README.md:37:  hands out a copy of the SLPA Parcel Verifier inventory item. Free, no L$,
+lsl-scripts/README.md:38:  no shared secret. Per-avatar 60s rate-limit. Deployed at SLPA HQ + auction
+lsl-scripts/README.md:46:  wallet credits, never dispatched). SLPA-team-deployed; holds shared
+lsl-scripts/README.md:48:- [`sl-im-dispatcher/`](sl-im-dispatcher/) — Polls SLPA backend for pending
+lsl-scripts/README.md:49:  SL IM notifications and delivers them via `llInstantMessage`. SLPA-team-deployed
+lsl-scripts/parcel-verifier/README.md:1:# SLPA Parcel Verifier (rezzable)
+lsl-scripts/parcel-verifier/README.md:24:   modify-NO setting prevents accidental edits that would void SLPA service
+lsl-scripts/parcel-verifier/README.md:26:2. **SLPA Terminal "Get Parcel Verifier" menu** — `llGiveInventory` from a
+lsl-scripts/parcel-verifier/README.md:27:   deployed SLPA Terminal. Sellers who don't have a Marketplace copy can
+lsl-scripts/parcel-verifier/README.md:35:4. Set permissions: transfer YES, copy YES, modify NO. Owner: SLPA service
+lsl-scripts/parcel-verifier/README.md:57:- `✗ Timed out reaching SLPA.` (30s with no HTTP response)
+lsl-scripts/parcel-verifier/README.md:81:- Object owner must be an SLPA service avatar listed in
+lsl-scripts/parcel-verifier/config.notecard.example:1:# config notecard for SLPA Parcel Verifier (rezzable)
+lsl-scripts/sl-im-dispatcher/README.md:3:In-world component of the SLPA SL IM notification channel. Polls the SLPA
+lsl-scripts/sl-im-dispatcher/README.md:19:This is a **SLPA-team-deployed object**, one per environment. Not user-deployed.
+lsl-scripts/sl-im-dispatcher/README.md:29:Object ownership and modify permissions should be tightly scoped to SLPA-team
+lsl-scripts/sl-im-dispatcher/README.md:48:2. Restart the SLPA backend so it picks up the new secret.
+lsl-scripts/sl-im-dispatcher/README.md:109:dispatcher prim's ownership and modify permissions should be SLPA-team-only.
+lsl-scripts/slpa-terminal/README.md:1:# SLPA Terminal (wallet model)
+lsl-scripts/slpa-terminal/README.md:3:In-world wallet kiosk for SLPA. Two touch-menu options (Deposit-instructions,
+lsl-scripts/slpa-terminal/README.md:53:**SLPA-team-deployed only.** This script holds a shared secret and PERMISSION_DEBIT.
+lsl-scripts/slpa-terminal/README.md:56:1. Rez a generic prim at SLPA HQ or an auction venue. Land must permit
+lsl-scripts/slpa-terminal/README.md:61:4. Set the prim's owner to the SLPA service avatar (so
+lsl-scripts/slpa-terminal/README.md:65:   - `SLPA Terminal: registered (terminal_id=..., url=...)` startup ping.
+lsl-scripts/slpa-terminal/README.md:66:   - Floating text "SLPA Terminal\nRight-click → Pay to deposit\nTouch for menu" appears.
+lsl-scripts/slpa-terminal/README.md:72:The new SLPA Parcel Verifier Giver prim (separate; see
+lsl-scripts/slpa-terminal/README.md:93:2. Restart the SLPA backend so it picks up the new secret.
+lsl-scripts/slpa-terminal/README.md:94:3. On every deployed SLPA Terminal: edit the `config` notecard with the new
+lsl-scripts/slpa-terminal/README.md:102:- `SLPA Terminal: registered (terminal_id=..., url=...)` — startup confirmation.
+lsl-scripts/slpa-terminal/README.md:103:- `SLPA Terminal: deposit ok L$<amount> from <payer>` — successful deposit POST.
+lsl-scripts/slpa-terminal/README.md:104:- `SLPA Terminal: deposit refunded (UNKNOWN_PAYER) L$<amount> to <payer>` —
+lsl-scripts/slpa-terminal/README.md:106:- `SLPA Terminal: deposit refunded on ERROR (<reason>) L$<amount> to <payer>` —
+lsl-scripts/slpa-terminal/README.md:109:- `SLPA Terminal: deposit retry N/5: status=...` — transient, retrying.
+lsl-scripts/slpa-terminal/README.md:110:- `SLPA Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
+lsl-scripts/slpa-terminal/README.md:111:- `SLPA Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
+lsl-scripts/slpa-terminal/README.md:113:- `SLPA Terminal: payout-result acknowledged.` — backend received our async result.
+lsl-scripts/slpa-terminal/README.md:114:- `SLPA Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
+lsl-scripts/slpa-terminal/README.md:115:- `SLPA Terminal: heartbeat failed status=...` — heartbeat POST failed; will
+lsl-scripts/slpa-terminal/README.md:117:- `CRITICAL: SLPA Terminal: deposit ... not acknowledged after 5 retries` —
+lsl-scripts/slpa-terminal/README.md:135:| Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLPA's traffic level.) |
+lsl-scripts/slpa-terminal/README.md:150:  deploy multiple SLPA Terminals — backend's dispatcher picks any active
+lsl-scripts/slpa-terminal/README.md:160:- The terminal must be owned by an SLPA service avatar listed in
+lsl-scripts/slpa-terminal/README.md:163:  the prim — keep ownership and modify permissions SLPA-team-only.
+lsl-scripts/slpa-terminal/config.notecard.example:1:# config notecard for SLPA Terminal (wallet model)
+lsl-scripts/slpa-verifier-giver/README.md:1:# SLPA Parcel Verifier Giver
+lsl-scripts/slpa-verifier-giver/README.md:3:Single-purpose in-world prim that hands out a copy of the SLPA Parcel
+lsl-scripts/slpa-verifier-giver/README.md:11:  `llGiveInventory(toucher, "SLPA Parcel Verifier")` → owner-say → IDLE.
+lsl-scripts/slpa-verifier-giver/README.md:18:Previously the SLPA Terminal had a "Get Parcel Verifier" menu option that
+lsl-scripts/slpa-verifier-giver/README.md:21:SLPA Terminal's inventory — a two-place rule that was easy to forget.
+lsl-scripts/slpa-verifier-giver/README.md:24:update step to just the verifier-giver instances. SLPA Terminal no longer
+lsl-scripts/slpa-verifier-giver/README.md:25:carries an SLPA Parcel Verifier in its inventory.
+lsl-scripts/slpa-verifier-giver/README.md:29:1. Rez a generic prim at SLPA HQ, an auction venue, or Marketplace.
+lsl-scripts/slpa-verifier-giver/README.md:31:3. Drop a `SLPA Parcel Verifier` object copy into the prim's contents.
+lsl-scripts/slpa-verifier-giver/README.md:35:5. Reset the script. Confirm the floating text "SLPA Parcel Verifier — Free
+lsl-scripts/slpa-verifier-giver/README.md:44:| `VERIFIER_NAME` | Name of the inventory item to give. Default `SLPA Parcel Verifier`. |
+lsl-scripts/slpa-verifier-giver/README.md:54:   `SLPA Parcel Verifier` object into the prim's contents, replacing the
+lsl-scripts/slpa-verifier-giver/README.md:57:This is now the only place to update verifiers — SLPA Terminals no longer
+lsl-scripts/slpa-verifier-giver/README.md:67:- `SLPA Verifier Giver: config loaded (rate_limit=60s).` — startup.
+lsl-scripts/slpa-verifier-giver/README.md:68:- `SLPA Verifier Giver: gave verifier to <name>` — successful touch.
+lsl-scripts/slpa-verifier-giver/README.md:69:- `CRITICAL: 'SLPA Parcel Verifier' missing from giver prim inventory.` —
+lsl-scripts/slpa-verifier-giver/README.md:76:  rate-limit makes hitting this implausible at SLPA's traffic level.
+lsl-scripts/slpa-verifier-giver/config.notecard.example:1:# config notecard for SLPA Parcel Verifier Giver
+lsl-scripts/slpa-verifier-giver/config.notecard.example:5:# Inventory item name to give. Must match the name of an SLPA Parcel
+lsl-scripts/slpa-verifier-giver/config.notecard.example:7:VERIFIER_NAME=SLPA Parcel Verifier
+lsl-scripts/verification-terminal/README.md:1:# SLPA Verification Terminal
+lsl-scripts/verification-terminal/README.md:4:SLPA code, and the script POSTs their avatar metadata to the backend to link
+lsl-scripts/verification-terminal/README.md:10:  No shared secret. The terminal must be owned by an SLPA service avatar listed
+lsl-scripts/verification-terminal/README.md:20:User-facing kiosk distributed via Marketplace + SLPA HQ + allied venues.
+lsl-scripts/verification-terminal/README.md:27:4. Set the prim's owner to the SLPA service avatar (so `X-SecondLife-Owner-Key`
+lsl-scripts/verification-terminal/README.md:30:6. Confirm idle floating text appears: "SLPA Verification Terminal\nTouch to
+lsl-scripts/verification-terminal/README.md:49:- `SLPA Verification Terminal: ready (verify=...)` — startup ping.
+lsl-scripts/verification-terminal/README.md:50:- `SLPA Verification Terminal: touch from <name>` — when a user touches.
+lsl-scripts/verification-terminal/README.md:51:- `SLPA Verification Terminal: verify ok: userId=<n>` — successful link.
+lsl-scripts/verification-terminal/README.md:52:- `SLPA Verification Terminal: verify denied: <reason>` — backend rejected.
+lsl-scripts/verification-terminal/README.md:64:| `403` responses | `X-SecondLife-Owner-Key` not in trusted set, or wrong shard. Confirm owner is an SLPA service avatar. |
+lsl-scripts/verification-terminal/README.md:78:- The terminal must be owned by an SLPA service avatar listed in
+lsl-scripts/verification-terminal/config.notecard.example:1:# config notecard for SLPA Verification Terminal
