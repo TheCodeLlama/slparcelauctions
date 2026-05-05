@@ -63,7 +63,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Epic 10 (Admin & Moderation) — fraud flags
 - **Notes:** Metric would be "count of PARCEL codes generated per seller over last N days where no successful callback occurred." Likely lives as a `fraud_signals` table or similar, feeding admin dashboards.
 
-### SLPA trusted-owner-keys production config
+### SLParcels trusted-owner-keys production config
 - **From:** Epic 03 sub-spec 1 (SL header trust)
 - **Why:** `slpa.sl.trusted-owner-keys` is empty in `application.yml` (dev
   override in `application-dev.yml`). Production must override via env

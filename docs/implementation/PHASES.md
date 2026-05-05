@@ -1,4 +1,4 @@
-# SLPA - Implementation Phases
+# SLParcels - Implementation Phases
 
 _Reference: docs/initial-design/DESIGN.md for full specifications_
 _Conventions: [CONVENTIONS.md](./CONVENTIONS.md) - **read this before starting any task**_

@@ -567,7 +567,7 @@ This is a controller-side discipline rule, not an implementer-side one. The impl
 
 **Why:** When a controller writes a spec-compliance reviewer prompt, the natural urge is to summarize the spec into a compact table or checklist. That summary is itself an embed of the canonical, and any drift between the summary and the source becomes a fake "rule" the reviewer enforces. The implementer (who copied the canonical exactly) gets flagged for a violation that doesn't exist, and the controller wastes a dispatch chasing a phantom fix — or worse, lets the reviewer "correct" code that was already right.
 
-**Caught at review time in Task 26.** The reviewer prompt summarized the eleven placeholder pages in a table and added an inferred rule: "the metadata `title` matches the page's displayed title (the only exception being `/auction/[id]`)." That rule wasn't in the canonical spec — the canonical actually has `metadata.title = "About"` but `<PageHeader title="About SLPA" />`, and `metadata.title = "Terms"` but `<PageHeader title="Terms of Service" />`. The implementer copied the canonical correctly. The reviewer flagged two false-positive failures because it was matching against the controller's paraphrase instead of the canonical. No fix was applied; the controller had to override the FAIL.
+**Caught at review time in Task 26.** The reviewer prompt summarized the eleven placeholder pages in a table and added an inferred rule: "the metadata `title` matches the page's displayed title (the only exception being `/auction/[id]`)." That rule wasn't in the canonical spec — the canonical actually has `metadata.title = "About"` but `<PageHeader title="About SLParcels" />`, and `metadata.title = "Terms"` but `<PageHeader title="Terms of Service" />`. The implementer copied the canonical correctly. The reviewer flagged two false-positive failures because it was matching against the controller's paraphrase instead of the canonical. No fix was applied; the controller had to override the FAIL.
 
 **How to apply:**
 - **Reviewer prompts get the same byte-exact discipline as implementer prompts.** If you tell the implementer "copy from canonical §X verbatim," tell the reviewer "compare against canonical §X verbatim." Don't paraphrase the spec into a table for the reviewer's convenience.
@@ -700,7 +700,7 @@ frontend-domain sections (`§1`–`§6`) so search stays clean.
 ### B.1 `@AuthenticationPrincipal AuthPrincipal principal`, never `UserDetails`
 
 **Why:** Spring Security's tutorial-default principal type is `UserDetails`. Reaching for it in
-the SLPA codebase yields `null` at runtime because `JwtAuthenticationFilter` sets an
+the SLParcels codebase yields `null` at runtime because `JwtAuthenticationFilter` sets an
 `AuthPrincipal` record into the `SecurityContext`, not a Spring `UserDetails`.
 
 **How to apply:**
@@ -751,7 +751,7 @@ unless the profile inherits or re-declares `jwt.secret`.
 
 ### B.5 `SecurityConfig` matcher ordering
 
-**Why:** Spring Security matches `requestMatchers` rules in declaration order. The current SLPA
+**Why:** Spring Security matches `requestMatchers` rules in declaration order. The current SLParcels
 ordering is safe because every rule is exact-match (no prefix wildcards). Adding a prefix matcher
 like `/api/auth/**` without understanding the consequences will break the explicit
 `/api/auth/logout-all authenticated()` rule — the prefix rule would swallow it unless declared
@@ -1405,7 +1405,7 @@ The `lib/ws/client.ts` `onConnect` sweep iterates `entries.values()` directly, N
 
 ### F.75 Pool-not-sticky terminal model — any terminal can execute any command
 
-**Why:** All L$ held at the SLPA avatar account level, not per-terminal. Any registered terminal can execute any command (Task 4's registration pool + Task 7's `findAnyLive` selection in `TerminalCommandDispatcherTask`). This is by design — it keeps the queue simple, avoids region-affinity hotspots, and lets terminals fail without stranding L$ that was "paid to them." The flipside is that the terminal that received a listing-fee payment is almost never the one that executes the refund; the terminal that received escrow funding is almost never the one that executes the payout.
+**Why:** All L$ held at the SLParcels avatar account level, not per-terminal. Any registered terminal can execute any command (Task 4's registration pool + Task 7's `findAnyLive` selection in `TerminalCommandDispatcherTask`). This is by design — it keeps the queue simple, avoids region-affinity hotspots, and lets terminals fail without stranding L$ that was "paid to them." The flipside is that the terminal that received a listing-fee payment is almost never the one that executes the refund; the terminal that received escrow funding is almost never the one that executes the payout.
 
 **How to apply:** when debugging a commands-vs-terminals mismatch, don't chase "which terminal did this command originate from." The answer is "whichever one the dispatcher picked at the moment of `findAnyLive`." `TerminalCommand.terminalId` is stamped at dispatch time, not at queue time — the queued row has `terminalId=null`. If you ever feel the need to add "sticky" routing (same terminal that received payment executes refund), re-read spec §7.4 first; the current model is not an oversight.
 
@@ -1443,7 +1443,7 @@ The `lib/ws/client.ts` `onConnect` sweep iterates `entries.values()` directly, N
 
 **Why:** `Escrow.consecutiveWorldApiFailures` counts the number of World API calls for an ownership check that returned a transient failure (5xx, timeout, connection refused) in a row. Default threshold is 5 (`slpa.escrow.ownership-api-failure-threshold`). At 5 consecutive failures, `EscrowOwnershipCheckTask` freezes the escrow with `FreezeReason=WORLD_API_PERSISTENT_FAILURE`. Any successful check resets the counter to 0 via `EscrowService.confirmTransfer` / `stampChecked` — meaning the threshold means "5 failures in an unbroken run" not "5 failures ever."
 
-**How to apply:** the paranoid default is deliberate — a seller who is actively defrauding SLPA could (via some plausibly complex path) disrupt World API lookups for their specific parcel; freezing on a small unbroken run protects the winner's L$ while an admin investigates. If you lower the threshold to 3, be prepared for false-positive freezes under real-world Linden Lab API flakiness. If you raise it to 10, accept that an escrow with 9 consecutive failures and an attacker who flips the parcel owner to a third party on the 10th check window squeaks through. Changing this value is not a drive-by tweak — reason about the worst case first.
+**How to apply:** the paranoid default is deliberate — a seller who is actively defrauding SLParcels could (via some plausibly complex path) disrupt World API lookups for their specific parcel; freezing on a small unbroken run protects the winner's L$ while an admin investigates. If you lower the threshold to 3, be prepared for false-positive freezes under real-world Linden Lab API flakiness. If you raise it to 10, accept that an escrow with 9 consecutive failures and an attacker who flips the parcel owner to a third party on the 10th check window squeaks through. Changing this value is not a drive-by tweak — reason about the worst case first.
 
 ### F.82 Escrow WS envelopes are invalidation-only
 
@@ -1613,7 +1613,7 @@ The natural Java `String.length()` measures UTF-16 code units; SL's
 `llInstantMessage` truncates the IM at 1024 **bytes** in UTF-8 encoding.
 Multi-byte UTF-8 characters (CJK, emoji, accented Latin) push the byte count
 above the char count. SL silently truncates from the end of the string — no
-error, no warning, no return value — and the deeplink in SLPA's IM template
+error, no warning, no return value — and the deeplink in SLParcels's IM template
 lives at the end of the assembled message. A 1023-character string with
 multi-byte content can occupy 1500+ bytes; the deeplink gets cleanly cut off.
 
