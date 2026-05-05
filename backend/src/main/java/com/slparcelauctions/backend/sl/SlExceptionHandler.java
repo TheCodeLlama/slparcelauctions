@@ -62,7 +62,7 @@ public class SlExceptionHandler {
     public ProblemDetail handleAvatarLinked(AvatarAlreadyLinkedException e, HttpServletRequest req) {
         log.warn("SL verify rejected: avatar already linked (avatarUuid={})", e.getAvatarUuid());
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-                HttpStatus.CONFLICT, "This SL avatar is already linked to another SLPA account.");
+                HttpStatus.CONFLICT, "This SL avatar is already linked to another SLParcels account.");
         pd.setType(URI.create("https://slpa.example/problems/sl/avatar-already-linked"));
         pd.setTitle("Avatar already linked");
         pd.setInstance(URI.create(req.getRequestURI()));

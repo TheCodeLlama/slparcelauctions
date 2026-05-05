@@ -263,7 +263,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason) {
         String title = "Listing removed: " + parcelName;
-        String body = "Your listing has been removed by SLPA staff. Reason: " + reason + ".";
+        String body = "Your listing has been removed by SLParcels staff. Reason: " + reason + ".";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_REMOVED_BY_ADMIN, title, body,
             NotificationDataBuilder.listingRemovedByAdmin(auctionId, parcelName, reason),
@@ -431,7 +431,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void walletWithdrawalCompleted(long userId, long amountL, Long ledgerEntryId) {
         String title = String.format("Withdrawal completed: L$%,d", amountL);
-        String body = "L$ " + amountL + " has been transferred to your SL avatar from your SLPA wallet.";
+        String body = "L$ " + amountL + " has been transferred to your SL avatar from your SLParcels wallet.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.WALLET_WITHDRAWAL_COMPLETED, title, body,
             NotificationDataBuilder.walletWithdrawalCompleted(amountL, ledgerEntryId),
@@ -441,7 +441,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void walletWithdrawalReversed(long userId, long amountL, Long ledgerEntryId, String reason) {
         String title = String.format("Withdrawal reversed: L$%,d", amountL);
-        String body = "Your L$ " + amountL + " withdrawal could not be completed and was credited back to your SLPA wallet. Reason: " + reason;
+        String body = "Your L$ " + amountL + " withdrawal could not be completed and was credited back to your SLParcels wallet. Reason: " + reason;
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.WALLET_WITHDRAWAL_REVERSED, title, body,
             NotificationDataBuilder.walletWithdrawalReversed(amountL, ledgerEntryId, reason),

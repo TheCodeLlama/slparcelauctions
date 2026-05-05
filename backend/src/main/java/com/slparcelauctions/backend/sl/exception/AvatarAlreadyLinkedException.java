@@ -5,7 +5,7 @@ import java.util.UUID;
 import lombok.Getter;
 
 /**
- * Thrown when an SL avatar UUID is already linked to a different SLPA account.
+ * Thrown when an SL avatar UUID is already linked to a different SLParcels account.
  * Maps to HTTP 409 in {@link com.slparcelauctions.backend.sl.SlExceptionHandler}.
  *
  * <p>Two construction paths: the pre-check inside
