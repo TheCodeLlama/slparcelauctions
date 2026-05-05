@@ -19,7 +19,7 @@ describe("WalletTermsModal", () => {
       <WalletTermsModal open={true} onClose={vi.fn()} />,
     );
     expect(
-      screen.getByText(/SLPA Wallet Terms of Use/i),
+      screen.getByText(/SLParcels Wallet Terms of Use/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/Non-interest-bearing/i)).toBeInTheDocument();
     expect(
@@ -32,7 +32,7 @@ describe("WalletTermsModal", () => {
       <WalletTermsModal open={false} onClose={vi.fn()} />,
     );
     expect(
-      screen.queryByText(/SLPA Wallet Terms of Use/i),
+      screen.queryByText(/SLParcels Wallet Terms of Use/i),
     ).not.toBeInTheDocument();
   });
 

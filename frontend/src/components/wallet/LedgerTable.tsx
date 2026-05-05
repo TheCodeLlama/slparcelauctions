@@ -154,8 +154,8 @@ export function LedgerTable({ entries, isLoading = false }: LedgerTableProps) {
         <Wallet className="h-12 w-12 text-fg-muted/40" />
         <h3 className="font-medium text-fg">No activity yet</h3>
         <p className="text-sm text-fg-muted max-w-sm">
-          Visit any SLPA Terminal in-world to make your first deposit.
-          Locations: SLPA HQ and partner auction venues.
+          Visit any SLParcels Terminal in-world to make your first deposit.
+          Locations: SLParcels HQ and partner auction venues.
         </p>
       </div>
     );
