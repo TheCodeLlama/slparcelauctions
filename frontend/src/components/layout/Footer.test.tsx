@@ -22,6 +22,6 @@ describe("Footer", () => {
 
   it("renders the current year in the copyright text", () => {
     renderWithProviders(<Footer />);
-    expect(screen.getByText(/© 2026 SLPA/)).toBeInTheDocument();
+    expect(screen.getByText(/© 2026 SLParcels/)).toBeInTheDocument();
   });
 });

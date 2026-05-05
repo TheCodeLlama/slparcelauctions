@@ -15,7 +15,7 @@ export function Footer() {
             SL
           </span>
           <span className="text-xs text-fg-subtle">
-            © {new Date().getFullYear()} SLPA · Independent marketplace, not affiliated with Linden Lab.
+            © {new Date().getFullYear()} SLParcels · Independent marketplace, not affiliated with Linden Lab.
           </span>
         </div>
         <nav className="flex flex-wrap gap-6">
