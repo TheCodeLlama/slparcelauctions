@@ -10,7 +10,7 @@ export function ReconciliationSection() {
       <header className="flex justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold">Daily balance reconciliation</h2>
-          <p className="text-[10px] opacity-55">Sum of pending escrow vs SLPA SL account · runs 03:00 UTC daily</p>
+          <p className="text-[10px] opacity-55">Sum of pending escrow vs SLParcels SL account · runs 03:00 UTC daily</p>
         </div>
         {latest && (
           <span className={`px-2.5 py-1 rounded-full text-[10px] ${badgeFor(latest.status)}`}>

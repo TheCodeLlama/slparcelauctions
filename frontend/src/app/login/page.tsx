@@ -8,7 +8,7 @@ export default function LoginPage() {
   return (
     <AuthCard>
       <AuthCard.Title>Welcome Back</AuthCard.Title>
-      <AuthCard.Subtitle>Sign in to your SLPA account.</AuthCard.Subtitle>
+      <AuthCard.Subtitle>Sign in to your SLParcels account.</AuthCard.Subtitle>
       <AuthCard.Body>
         <Suspense>
           <LoginForm />

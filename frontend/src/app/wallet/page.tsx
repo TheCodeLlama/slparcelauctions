@@ -23,7 +23,7 @@ export default function WalletPage() {
       <div>
         <h1 className="text-xl font-bold tracking-tight font-display">Wallet</h1>
         <p className="text-sm text-fg-muted mt-1">
-          Deposit, withdraw, and view your SLPA wallet activity.
+          Deposit, withdraw, and view your SLParcels wallet activity.
         </p>
       </div>
       <WalletPanel />

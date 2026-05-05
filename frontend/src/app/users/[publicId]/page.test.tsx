@@ -18,7 +18,7 @@ describe("PublicProfilePage generateMetadata", () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ publicId: "" }),
     });
-    expect(meta.title).toBe("Profile · SLPA");
+    expect(meta.title).toBe("Profile · SLParcels");
   });
 
   it("emits displayName and bio-derived description", async () => {
@@ -47,7 +47,7 @@ describe("PublicProfilePage generateMetadata", () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ publicId: "00000000-0000-0000-0000-00000000002a" }),
     });
-    expect(meta.title).toBe("Carol Seller · SLPA");
+    expect(meta.title).toBe("Carol Seller · SLParcels");
     expect(meta.description).toContain("Lifelong landscape architect");
     expect(meta.openGraph?.images).toEqual(["https://cdn.example/avatar.jpg"]);
     expect((meta.twitter as { card: string } | undefined)?.card).toBe(
@@ -82,7 +82,7 @@ describe("PublicProfilePage generateMetadata", () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ publicId: "00000000-0000-0000-0000-00000000002a" }),
     });
-    expect(meta.description).toBe("Second Life parcel seller on SLPA.");
+    expect(meta.description).toBe("Second Life parcel seller on SLParcels.");
     expect((meta.twitter as { card: string } | undefined)?.card).toBe("summary");
     expect(meta.openGraph?.images).toEqual([]);
   });
@@ -132,6 +132,6 @@ describe("PublicProfilePage generateMetadata", () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000002707" }),
     });
-    expect(meta.title).toBe("Profile · SLPA");
+    expect(meta.title).toBe("Profile · SLParcels");
   });
 });

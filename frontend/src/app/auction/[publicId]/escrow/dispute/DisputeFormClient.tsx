@@ -212,7 +212,7 @@ export function DisputeFormClient({ auctionPublicId, sellerPublicId }: DisputeFo
         role={role}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: escrowKey(auctionPublicId) });
-          toast.success("Dispute filed. SLPA staff will review.");
+          toast.success("Dispute filed. SLParcels staff will review.");
           router.push(`/auction/${auctionPublicId}/escrow`);
         }}
         on409={() => {
@@ -271,7 +271,7 @@ function TerminalStatePanel({
       escrow.disputedAt
         ? new Date(escrow.disputedAt).toLocaleString()
         : "-"
-    }. SLPA is reviewing.`,
+    }. SLParcels is reviewing.`,
     COMPLETED: `Escrow completed on ${
       escrow.completedAt
         ? new Date(escrow.completedAt).toLocaleString()

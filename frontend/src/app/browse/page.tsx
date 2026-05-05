@@ -4,7 +4,7 @@ import { searchAuctions } from "@/lib/api/auctions-search";
 import { queryFromSearchParams } from "@/lib/search/url-codec";
 
 export const metadata: Metadata = {
-  title: "Browse Auctions · SLPA",
+  title: "Browse Auctions · SLParcels",
   description: "Discover active land auctions across the grid.",
 };
 
