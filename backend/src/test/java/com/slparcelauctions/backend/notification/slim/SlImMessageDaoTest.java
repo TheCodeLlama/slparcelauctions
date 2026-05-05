@@ -51,7 +51,7 @@ class SlImMessageDaoTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var result = dao.upsert(u.getId(), avatar, "[SLPA] outbid msg", "outbid:1:42");
+        var result = dao.upsert(u.getId(), avatar, "[SLParcels] outbid msg", "outbid:1:42");
 
         assertThat(result.wasUpdate()).isFalse();
         assertThat(result.id()).isPositive();
@@ -59,7 +59,7 @@ class SlImMessageDaoTest {
         SlImMessage row = repo.findById(result.id()).orElseThrow();
         assertThat(row.getUserId()).isEqualTo(u.getId());
         assertThat(row.getAvatarUuid()).isEqualTo(avatar);
-        assertThat(row.getMessageText()).isEqualTo("[SLPA] outbid msg");
+        assertThat(row.getMessageText()).isEqualTo("[SLParcels] outbid msg");
         assertThat(row.getCoalesceKey()).isEqualTo("outbid:1:42");
         assertThat(row.getStatus()).isEqualTo(SlImMessageStatus.PENDING);
         assertThat(row.getAttempts()).isZero();
@@ -70,14 +70,14 @@ class SlImMessageDaoTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
-        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+        var first = dao.upsert(u.getId(), avatar, "[SLParcels] first", "outbid:1:42");
+        var second = dao.upsert(u.getId(), avatar, "[SLParcels] second", "outbid:1:42");
 
         assertThat(second.wasUpdate()).isTrue();
         assertThat(second.id()).isEqualTo(first.id());
 
         SlImMessage row = repo.findById(first.id()).orElseThrow();
-        assertThat(row.getMessageText()).isEqualTo("[SLPA] second");
+        assertThat(row.getMessageText()).isEqualTo("[SLParcels] second");
         // updated_at bumped past created_at
         assertThat(row.getUpdatedAt()).isAfterOrEqualTo(row.getCreatedAt());
     }
@@ -87,14 +87,14 @@ class SlImMessageDaoTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+        var first = dao.upsert(u.getId(), avatar, "[SLParcels] first", "outbid:1:42");
 
         // Mark first row DELIVERED via direct repo write (real path is Task 4 controller)
         SlImMessage delivered = repo.findById(first.id()).orElseThrow();
         delivered.setStatus(SlImMessageStatus.DELIVERED);
         repo.save(delivered);
 
-        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+        var second = dao.upsert(u.getId(), avatar, "[SLParcels] second", "outbid:1:42");
         assertThat(second.wasUpdate()).isFalse();
         assertThat(second.id()).isNotEqualTo(first.id());
         // Both rows persist; partial index excludes the DELIVERED one from the predicate.
@@ -106,13 +106,13 @@ class SlImMessageDaoTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+        var first = dao.upsert(u.getId(), avatar, "[SLParcels] first", "outbid:1:42");
 
         SlImMessage expired = repo.findById(first.id()).orElseThrow();
         expired.setStatus(SlImMessageStatus.EXPIRED);
         repo.save(expired);
 
-        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+        var second = dao.upsert(u.getId(), avatar, "[SLParcels] second", "outbid:1:42");
         assertThat(second.wasUpdate()).isFalse();
         assertThat(second.id()).isNotEqualTo(first.id());
     }
@@ -122,13 +122,13 @@ class SlImMessageDaoTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", "outbid:1:42");
+        var first = dao.upsert(u.getId(), avatar, "[SLParcels] first", "outbid:1:42");
 
         SlImMessage failed = repo.findById(first.id()).orElseThrow();
         failed.setStatus(SlImMessageStatus.FAILED);
         repo.save(failed);
 
-        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", "outbid:1:42");
+        var second = dao.upsert(u.getId(), avatar, "[SLParcels] second", "outbid:1:42");
         assertThat(second.wasUpdate()).isFalse();
         assertThat(second.id()).isNotEqualTo(first.id());
     }
@@ -138,8 +138,8 @@ class SlImMessageDaoTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var first = dao.upsert(u.getId(), avatar, "[SLPA] one", null);
-        var second = dao.upsert(u.getId(), avatar, "[SLPA] two", null);
+        var first = dao.upsert(u.getId(), avatar, "[SLParcels] one", null);
+        var second = dao.upsert(u.getId(), avatar, "[SLParcels] two", null);
 
         assertThat(first.wasUpdate()).isFalse();
         assertThat(second.wasUpdate()).isFalse();
@@ -154,8 +154,8 @@ class SlImMessageDaoTest {
         String avatarA = UUID.randomUUID().toString();
         String avatarB = UUID.randomUUID().toString();
 
-        var rA = dao.upsert(a.getId(), avatarA, "[SLPA] A", "outbid:1:42");
-        var rB = dao.upsert(b.getId(), avatarB, "[SLPA] B", "outbid:1:42");
+        var rA = dao.upsert(a.getId(), avatarA, "[SLParcels] A", "outbid:1:42");
+        var rB = dao.upsert(b.getId(), avatarB, "[SLParcels] B", "outbid:1:42");
 
         assertThat(rA.wasUpdate()).isFalse();
         assertThat(rB.wasUpdate()).isFalse();
@@ -163,7 +163,7 @@ class SlImMessageDaoTest {
     }
 
     private User testUser() {
-        return User.builder()
+        return User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash")
             .build();

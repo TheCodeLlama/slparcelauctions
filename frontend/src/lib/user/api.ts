@@ -21,7 +21,7 @@ export type CurrentUser = {
    * Outstanding L$ penalty balance owed by this seller (Epic 08 sub-spec 2
    * §7.2). Sourced from {@code User.penaltyBalanceOwed}; defaults to 0 for
    * sellers with no offenses on the ladder. Cleared by walk-in payment at
-   * any SLPA terminal — there is no "Pay now" button on the web side.
+   * any SLParcels terminal — there is no "Pay now" button on the web side.
    */
   penaltyBalanceOwed: number;
   /**

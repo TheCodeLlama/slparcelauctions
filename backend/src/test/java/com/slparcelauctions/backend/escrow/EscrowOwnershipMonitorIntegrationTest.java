@@ -277,14 +277,14 @@ class EscrowOwnershipMonitorIntegrationTest {
             UUID winnerAvatar = UUID.randomUUID();
             UUID parcelUuid = UUID.randomUUID();
 
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("escrow-monitor-seller-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Escrow Monitor Seller")
                     .slAvatarUuid(sellerAvatar)
                     .verified(true)
                     .build());
-            User bidder = userRepo.save(User.builder()
+            User bidder = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("escrow-monitor-bidder-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Escrow Monitor Bidder")

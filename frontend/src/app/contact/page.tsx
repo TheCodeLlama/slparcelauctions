@@ -4,5 +4,5 @@ import { PageHeader } from "@/components/layout/PageHeader";
 export const metadata: Metadata = { title: "Contact" };
 
 export default function ContactPage() {
-  return <PageHeader title="Contact" subtitle="Get in touch with the SLPA team." />;
+  return <PageHeader title="Contact" subtitle="Get in touch with the SLParcels team." />;
 }

@@ -67,9 +67,9 @@ class BidServiceSnipeTest {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
         service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), mock(BanCheckService.class), mock(com.slparcelauctions.backend.wallet.WalletService.class), mock(com.slparcelauctions.backend.wallet.BidReservationRepository.class));
 
-        seller = User.builder().id(10L).email("seller@example.com")
+        seller = User.builder().id(10L).email("seller@example.com").username("seller")
                 .displayName("Seller").verified(true).build();
-        bidder = User.builder().id(20L).email("bidder@example.com")
+        bidder = User.builder().id(20L).email("bidder@example.com").username("bidder")
                 .displayName("Bidder").verified(true).build();
 
         auction = Auction.builder()

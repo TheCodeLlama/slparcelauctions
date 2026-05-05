@@ -110,7 +110,7 @@ class OutbidImIntegrationTest {
             .toList();
         assertThat(aliceRows).hasSize(1);
         assertThat(aliceRows.get(0).getMessageText())
-            .contains("[SLPA] You've been outbid")
+            .contains("[SLParcels] You've been outbid")
             .contains("L$2,000")
             .endsWith("/auction/" + a.getId());
 
@@ -186,7 +186,7 @@ class OutbidImIntegrationTest {
     // --- Fixture helpers (pattern from BidNotificationIntegrationTest) ---
 
     private User saveUser(boolean hasAvatar, boolean groupPrefsOn) {
-        User u = User.builder()
+        User u = User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash")
             .displayName("TestUser")

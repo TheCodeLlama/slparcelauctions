@@ -38,7 +38,7 @@ export function SellerEvidencePanel({ auctionPublicId }: Props) {
       <h3 className="text-sm font-semibold">Submit your evidence</h3>
       <p className="text-[11px] opacity-65">
         A winner has disputed this sale. Submit your side of the story for admin
-        review. Submit-once — you cannot append later.
+        review. Submit-once: you cannot append later.
       </p>
       <textarea
         value={text}

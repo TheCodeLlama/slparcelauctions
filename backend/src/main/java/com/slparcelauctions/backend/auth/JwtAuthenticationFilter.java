@@ -61,7 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 AuthPrincipal principal = new AuthPrincipal(
                     user.getId(),
                     user.getPublicId(),
-                    parsed.email(),
+                    parsed.username(),
                     parsed.tokenVersion(),
                     parsed.role());
 

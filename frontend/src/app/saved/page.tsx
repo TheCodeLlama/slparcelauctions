@@ -4,7 +4,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { SavedPageContent } from "./SavedPageContent";
 
 export const metadata: Metadata = {
-  title: "Saved Parcels · SLPA",
+  title: "Saved Parcels · SLParcels",
   robots: { index: false, follow: false },
 };
 

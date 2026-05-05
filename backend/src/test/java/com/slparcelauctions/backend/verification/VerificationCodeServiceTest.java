@@ -46,7 +46,7 @@ class VerificationCodeServiceTest {
 
     @Test
     void generate_happyPath_insertsRowAndReturnsCode() {
-        User user = User.builder().id(1L).email("a@b.c").passwordHash("x").verified(false).build();
+        User user = User.builder().id(1L).email("a@b.c").username("a").passwordHash("x").verified(false).build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(repository.findByUserIdAndTypeAndUsedFalse(1L, VerificationCodeType.PLAYER))
                 .thenReturn(List.of());
@@ -65,7 +65,7 @@ class VerificationCodeServiceTest {
 
     @Test
     void generate_voidsPriorActiveCode() {
-        User user = User.builder().id(1L).verified(false).email("a@b.c").passwordHash("x").build();
+        User user = User.builder().id(1L).verified(false).email("a@b.c").username("a").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         VerificationCode prior = VerificationCode.builder()
                 .id(99L).userId(1L).code("111111").type(VerificationCodeType.PLAYER)
@@ -82,7 +82,7 @@ class VerificationCodeServiceTest {
 
     @Test
     void generate_rejectsAlreadyVerifiedUser() {
-        User user = User.builder().id(1L).verified(true).email("a@b.c").passwordHash("x").build();
+        User user = User.builder().id(1L).verified(true).email("a@b.c").username("a").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> service.generate(1L, VerificationCodeType.PLAYER))

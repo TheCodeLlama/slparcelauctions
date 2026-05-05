@@ -37,7 +37,7 @@ class SellerSuspendedExceptionHandlerTest {
                 .isEqualTo("https://slpa.example/problems/seller-suspended");
         assertThat(pd.getDetail())
                 .contains("outstanding penalty balance")
-                .contains("SLPA terminal");
+                .contains("SLParcels terminal");
     }
 
     @Test

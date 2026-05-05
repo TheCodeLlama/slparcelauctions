@@ -39,7 +39,7 @@ class UpdateUserFlowIntegrationTest {
         // Register
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"update-flow@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Original\"}"))
+                .content("{\"username\":\"update-flow@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         String accessToken = objectMapper.readTree(reg.getResponse().getContentAsString())
@@ -66,7 +66,7 @@ class UpdateUserFlowIntegrationTest {
     void getMe_returnsAllPrivateFields() throws Exception {
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"full-fields@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Full\"}"))
+                .content("{\"username\":\"full-fields@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         String accessToken = objectMapper.readTree(reg.getResponse().getContentAsString())
@@ -77,10 +77,11 @@ class UpdateUserFlowIntegrationTest {
                 .andExpect(status().isOk())
                 // Public fields
                 .andExpect(jsonPath("$.publicId").exists())
-                .andExpect(jsonPath("$.displayName").value("Full"))
+                .andExpect(jsonPath("$.username").value("full-fields@example.com"))
+                .andExpect(jsonPath("$.displayName").value(nullValue()))
                 .andExpect(jsonPath("$.verified").value(false))
                 // Private fields (extended in Task 5)
-                .andExpect(jsonPath("$.email").value("full-fields@example.com"))
+                .andExpect(jsonPath("$.email").value(nullValue()))
                 .andExpect(jsonPath("$.emailVerified").exists())
                 .andExpect(jsonPath("$.notifyEmail").exists())
                 .andExpect(jsonPath("$.notifySlIm").exists())

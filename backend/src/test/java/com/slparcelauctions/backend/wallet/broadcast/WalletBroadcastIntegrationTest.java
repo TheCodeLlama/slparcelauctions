@@ -29,7 +29,7 @@ class WalletBroadcastIntegrationTest {
 
     @Test
     void deposit_publishesAfterCommit() {
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("test+wallet-broadcast-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

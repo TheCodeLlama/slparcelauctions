@@ -141,7 +141,7 @@ class AdminAuditLogServiceTest {
 
     private Long seedAdminUser(String email) {
         User admin = userRepository.save(User.builder()
-                .email(email)
+                .email(email).username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                 .passwordHash("x")
                 .role(Role.ADMIN)
                 .tokenVersion(1L)

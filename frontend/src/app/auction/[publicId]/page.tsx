@@ -28,7 +28,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { publicId } = await params;
   if (!publicId) {
-    return { title: "Auction · SLPA" };
+    return { title: "Auction · SLParcels" };
   }
   try {
     const a = await getAuctionCached(publicId);
@@ -41,9 +41,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       [...a.photos].sort((p, q) => p.sortOrder - q.sortOrder)[0]?.url ?? null;
     const og = primaryPhoto ?? a.parcel.snapshotUrl ?? undefined;
     const currentBidDisplay =
-      typeof a.currentBid === "number" ? a.currentBid.toLocaleString() : "—";
+      typeof a.currentBid === "number" ? a.currentBid.toLocaleString() : "-";
     return {
-      title: `${a.title} · SLPA`,
+      title: `${a.title} · SLParcels`,
       description: `${a.parcel.regionName} · ${a.parcel.areaSqm} sqm · L$ ${currentBidDisplay}`,
       openGraph: {
         title: a.title,
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch {
-    return { title: "Auction · SLPA" };
+    return { title: "Auction · SLParcels" };
   }
 }
 

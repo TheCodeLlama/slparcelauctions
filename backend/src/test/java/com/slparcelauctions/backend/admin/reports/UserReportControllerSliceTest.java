@@ -71,7 +71,7 @@ class UserReportControllerSliceTest {
     void seedUsers() {
         userDbId = userRepository.findByPublicId(USER_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(USER_UUID).email("user-report-user@x.com")
+                .publicId(USER_UUID).email("user-report-user@x.com").username("user-report-user")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("User").role(Role.USER).verified(true).build()))
             .getId();

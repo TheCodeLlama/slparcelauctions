@@ -38,7 +38,7 @@ public class AuthExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail handleInvalidCredentials(InvalidCredentialsException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
-            HttpStatus.UNAUTHORIZED, "Email or password is incorrect.");
+            HttpStatus.UNAUTHORIZED, "Username or password is incorrect.");
         pd.setType(URI.create("https://slpa.example/problems/auth/invalid-credentials"));
         pd.setTitle("Invalid credentials");
         pd.setInstance(URI.create(req.getRequestURI()));
@@ -46,14 +46,14 @@ public class AuthExceptionHandler {
         return pd;
     }
 
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ProblemDetail handleEmailExists(EmailAlreadyExistsException e, HttpServletRequest req) {
+    @ExceptionHandler(UsernameAlreadyExistsException.class)
+    public ProblemDetail handleUsernameExists(UsernameAlreadyExistsException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
             HttpStatus.CONFLICT, e.getMessage());
-        pd.setType(URI.create("https://slpa.example/problems/auth/email-exists"));
-        pd.setTitle("Email already registered");
+        pd.setType(URI.create("https://slpa.example/problems/auth/username-exists"));
+        pd.setTitle("Username already taken");
         pd.setInstance(URI.create(req.getRequestURI()));
-        pd.setProperty("code", "AUTH_EMAIL_EXISTS");
+        pd.setProperty("code", "AUTH_USERNAME_EXISTS");
         return pd;
     }
 

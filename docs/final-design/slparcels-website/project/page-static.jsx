@@ -53,7 +53,7 @@ function ContactPage({ setPage }) {
 
 function PartnersPage({ setPage }) {
   const partners = [
-    { name: 'SLPA Verifier Network', kind: 'Verification', desc: 'In-world terminals at every major hub for avatar and parcel verification.' },
+    { name: 'SLParcels Verifier Network', kind: 'Verification', desc: 'In-world terminals at every major hub for avatar and parcel verification.' },
     { name: 'EstateBot 3', kind: 'Bot service', desc: 'Automated parcel transfer and covenant enforcement.' },
     { name: 'Linden Trust', kind: 'Verification', desc: 'Third-party identity and ownership attestation.' },
     { name: 'GridPay', kind: 'Payments', desc: 'L$ payment processing and bank withdrawals.' },

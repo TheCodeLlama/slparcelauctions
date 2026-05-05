@@ -15,7 +15,7 @@ import { registerSchema, type RegisterFormValues } from "@/lib/auth/schemas";
 import { mapProblemDetailToForm } from "@/lib/auth/errors";
 import { getSafeRedirect } from "@/lib/auth/redirects";
 
-const KNOWN_FIELDS = ["email", "password", "confirmPassword", "terms"] as const;
+const KNOWN_FIELDS = ["username", "password", "confirmPassword", "terms"] as const;
 
 export function RegisterForm() {
   const router = useRouter();
@@ -27,7 +27,7 @@ export function RegisterForm() {
     mode: "onBlur",
     reValidateMode: "onChange",
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
       confirmPassword: "",
       terms: false as unknown as true,
@@ -41,9 +41,8 @@ export function RegisterForm() {
   const onSubmit = form.handleSubmit((values) => {
     register.mutate(
       {
-        email: values.email,
+        username: values.username,
         password: values.password,
-        displayName: null,
       },
       {
         onSuccess: () => {
@@ -65,11 +64,11 @@ export function RegisterForm() {
       <FormError message={rootError} />
 
       <Input
-        label="Email"
-        type="email"
-        autoComplete="email"
-        {...form.register("email")}
-        error={form.formState.errors.email?.message}
+        label="Username"
+        type="text"
+        autoComplete="username"
+        {...form.register("username")}
+        error={form.formState.errors.username?.message}
       />
 
       <div>

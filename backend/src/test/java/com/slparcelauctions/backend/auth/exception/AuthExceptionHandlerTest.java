@@ -38,7 +38,7 @@ class AuthExceptionHandlerTest {
         void invalidCredentials() { throw new InvalidCredentialsException(); }
 
         @GetMapping("/test/email-exists")
-        void emailExists() { throw new EmailAlreadyExistsException("user@example.com"); }
+        void emailExists() { throw new UsernameAlreadyExistsException("user@example.com"); }
 
         @GetMapping("/test/token-expired")
         void tokenExpired() { throw new TokenExpiredException("expired"); }
@@ -66,7 +66,7 @@ class AuthExceptionHandlerTest {
     void emailExists_mapsTo409WithAuthEmailExistsCode() throws Exception {
         mockMvc.perform(get("/test/email-exists"))
             .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value("AUTH_EMAIL_EXISTS"));
+            .andExpect(jsonPath("$.code").value("AUTH_USERNAME_EXISTS"));
     }
 
     @Test

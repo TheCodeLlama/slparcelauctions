@@ -15,7 +15,7 @@ class UserEntityTest {
     @Test
     void escrowExpiredUnfulfilledDefaultsToZero() {
         User u = User.builder()
-                .email("a@b.com")
+                .email("a@b.com").username("a")
                 .passwordHash("x")
                 .build();
         assertThat(u.getEscrowExpiredUnfulfilled()).isEqualTo(0);
@@ -27,7 +27,7 @@ class UserEntityTest {
         // on any of the three completion-rate denominator counters trips
         // the test file.
         User u = User.builder()
-                .email("a@b.com")
+                .email("a@b.com").username("a")
                 .passwordHash("x")
                 .build();
         assertThat(u.getCompletedSales()).isEqualTo(0);

@@ -11,7 +11,7 @@ export function SiblingFlagWarning({ count }: Props) {
     >
       This auction has <span className="font-medium">{count}</span> other open flag
       {count === 1 ? "" : "s"}. Resolving this one alone doesn&apos;t address{" "}
-      {count === 1 ? "it" : "them"} — {count === 1 ? "it needs" : "they need"} separate review.
+      {count === 1 ? "it" : "them"}; {count === 1 ? "it needs" : "they need"} separate review.
     </div>
   );
 }

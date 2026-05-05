@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 /**
  * Body of {@code POST /api/v1/sl/wallet/withdraw-request}. Posted by the
- * SLPA Terminal after the touch-confirmed withdraw flow. Recipient is
+ * SLParcels Terminal after the touch-confirmed withdraw flow. Recipient is
  * identified by {@code payerUuid} (the toucher) and the actual recipient
  * UUID for the {@code TerminalCommand} is always
  * {@code user.slAvatarUuid} (locked at verification, never client-supplied).

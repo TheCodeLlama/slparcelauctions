@@ -907,7 +907,7 @@ SELECT id, task_type, auction_id, next_run_at,
 - **Project conventions**: `docs/implementation/CONVENTIONS.md`
 - **Deferred work ledger**: `docs/implementation/DEFERRED_WORK.md` (Epic 06 entries near the bottom)
 - **FOOTGUNS**: `docs/implementation/FOOTGUNS.md` §F.86–F.89 (Epic 06 additions)
-- **DESIGN.md**: `docs/initial-design/DESIGN.md` §5.4 (SLPA Verification Bot Pool architecture)
+- **DESIGN.md**: `docs/initial-design/DESIGN.md` §5.4 (SLParcels Verification Bot Pool architecture)
 - **PR**: https://github.com/TheCodeLlama/slparcelauctions/pull/23
 
 ---

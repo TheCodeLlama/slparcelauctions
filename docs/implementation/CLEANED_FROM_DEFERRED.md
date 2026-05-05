@@ -95,7 +95,7 @@ The remaining entries in `DEFERRED_WORK.md` are still genuinely deferred (Phase 
 - **Implementation:**
   - `backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java:199-204` — service-layer guard: `slTransactionKey` is required when `reasonCategory == PAYMENT_NOT_CREDITED` (else `IllegalArgumentException`)
   - `AdminDisputeAction.RECOGNIZE_PAYMENT` (DISPUTED → TRANSFER_PENDING) is the admin reconciliation action that closes a `PAYMENT_NOT_CREDITED` dispute after manual ledger reconciliation
-  - Admin can pull the SLPA terminal ledger via the reconciliation read surface (item #23) and the disputant's `slTransactionKey` from the dispute detail (item #24), satisfying the "reconcile against the backend's `EscrowTransaction` ledger before any refund" workflow the deferral required
+  - Admin can pull the SLParcels terminal ledger via the reconciliation read surface (item #23) and the disputant's `slTransactionKey` from the dispute detail (item #24), satisfying the "reconcile against the backend's `EscrowTransaction` ledger before any refund" workflow the deferral required
 - **Notes:** The deferral was specifically about the admin reconciliation tooling, not a per-category code path. With the resolve action available and the evidence/transaction-key plumbing in place, the workflow is operable end-to-end.
 
 ---
@@ -154,7 +154,7 @@ The remaining entries in `DEFERRED_WORK.md` are still genuinely deferred (Phase 
 | 7 | Follow/unfollow from public profile | NOT_DONE | Same file — no follow button or `useFollow` hook anywhere |
 | 8 | Drag-drop animation polish | PARTIAL | `frontend/src/components/user/ProfilePictureUploader.tsx:140-144` — has `transition-colors` only; no scale animation as the deferral describes |
 | 9 | PARCEL code generation rate tracking (fraud signal) | NOT_DONE | `backend/src/main/java/com/slparcelauctions/backend/auction/fraud/FraudFlagReason.java` — 12 reasons, none for parcel-code burn rate |
-| 10 | SLPA trusted-owner-keys production config | OPS-PENDING | `backend/src/main/resources/application-prod.yml:22` — `trusted-owner-keys: []` with comment "deploy pipeline injects the real UUIDs via env"; `SlStartupValidator` is the forcing function |
+| 10 | SLParcels trusted-owner-keys production config | OPS-PENDING | `backend/src/main/resources/application-prod.yml:22` — `trusted-owner-keys: []` with comment "deploy pipeline injects the real UUIDs via env"; `SlStartupValidator` is the forcing function |
 | 12 | Destructive-variant copy polish | NOT_DONE (cosmetic) | Indefinite — no second destructive use case to trigger the upgrade |
 | 13 | Region autocomplete for DistanceSearchBlock | NOT_DONE | `frontend/src/components/browse/DistanceSearchBlock.tsx:36-38` — explicit deferral comment in the file's docstring |
 | 14 | Infinite-scroll on browse grid | NOT_DONE | `frontend/src/components/browse/BrowseShell.tsx:5` imports `Pagination`, not `useInfiniteQuery` |

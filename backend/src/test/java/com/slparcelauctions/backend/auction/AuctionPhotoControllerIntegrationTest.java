@@ -88,7 +88,7 @@ class AuctionPhotoControllerIntegrationTest {
         String uniqueEmail = "photo-seller-" + UUID.randomUUID() + "@example.com";
         sellerAccessToken = registerAndVerify(uniqueEmail, "PhotoSeller",
                 UUID.randomUUID().toString());
-        sellerId = userRepository.findByEmail(uniqueEmail).orElseThrow().getId();
+        sellerId = userRepository.findByUsername(uniqueEmail).orElseThrow().getId();
         sellerParcelUuid = seedParcel();
     }
 
@@ -296,7 +296,7 @@ class AuctionPhotoControllerIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

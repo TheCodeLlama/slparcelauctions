@@ -57,33 +57,33 @@ class SlImCleanupJobTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-04-26T08:30:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
 
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         String avatar = UUID.randomUUID().toString();
 
         // 49h-old PENDING — should expire
-        var stalePending = dao.upsert(u.getId(), avatar, "[SLPA] stale", "k1");
+        var stalePending = dao.upsert(u.getId(), avatar, "[SLParcels] stale", "k1");
         forceCreatedAt(stalePending.id(), "2026-04-24T07:00:00Z");
 
         // 47h-old PENDING — should stay
-        var freshPending = dao.upsert(u.getId(), avatar, "[SLPA] fresh", "k2");
+        var freshPending = dao.upsert(u.getId(), avatar, "[SLParcels] fresh", "k2");
         forceCreatedAt(freshPending.id(), "2026-04-24T10:00:00Z");
 
         // 31d-old DELIVERED — should be deleted
-        var oldDelivered = dao.upsert(u.getId(), avatar, "[SLPA] old-d", "k3");
+        var oldDelivered = dao.upsert(u.getId(), avatar, "[SLParcels] old-d", "k3");
         forceStatusAndUpdatedAt(oldDelivered.id(), "DELIVERED", "2026-03-25T08:30:00Z");
 
         // 31d-old FAILED — should be deleted
-        var oldFailed = dao.upsert(u.getId(), avatar, "[SLPA] old-f", "k4");
+        var oldFailed = dao.upsert(u.getId(), avatar, "[SLParcels] old-f", "k4");
         forceStatusAndUpdatedAt(oldFailed.id(), "FAILED", "2026-03-25T08:30:00Z");
 
         // 31d-old EXPIRED — should be deleted
-        var oldExpired = dao.upsert(u.getId(), avatar, "[SLPA] old-e", "k5");
+        var oldExpired = dao.upsert(u.getId(), avatar, "[SLParcels] old-e", "k5");
         forceStatusAndUpdatedAt(oldExpired.id(), "EXPIRED", "2026-03-25T08:30:00Z");
 
         // 29d-old DELIVERED — should stay
-        var newishDelivered = dao.upsert(u.getId(), avatar, "[SLPA] newish", "k6");
+        var newishDelivered = dao.upsert(u.getId(), avatar, "[SLParcels] newish", "k6");
         forceStatusAndUpdatedAt(newishDelivered.id(), "DELIVERED", "2026-03-29T08:30:00Z");
 
         job.run();
@@ -107,12 +107,12 @@ class SlImCleanupJobTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-04-26T08:30:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
 
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         String avatar = UUID.randomUUID().toString();
 
-        var p = dao.upsert(u.getId(), avatar, "[SLPA] stale", null);
+        var p = dao.upsert(u.getId(), avatar, "[SLParcels] stale", null);
         forceCreatedAt(p.id(), "2026-04-24T07:00:00Z");
 
         Logger logger = (Logger) LoggerFactory.getLogger(SlImCleanupJob.class);
@@ -142,7 +142,7 @@ class SlImCleanupJobTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-04-26T08:30:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
 
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         String avatar = UUID.randomUUID().toString();
@@ -150,7 +150,7 @@ class SlImCleanupJobTest {
         // Seed 25 deletable DELIVERED rows; with batch=1000 (default), the loop
         // runs once and clears all 25, exercising the do-while exit condition.
         for (int i = 0; i < 25; i++) {
-            var r = dao.upsert(u.getId(), avatar, "[SLPA] msg-" + i, "k" + i);
+            var r = dao.upsert(u.getId(), avatar, "[SLParcels] msg-" + i, "k" + i);
             forceStatusAndUpdatedAt(r.id(), "DELIVERED", "2026-03-20T00:00:00Z");
         }
 

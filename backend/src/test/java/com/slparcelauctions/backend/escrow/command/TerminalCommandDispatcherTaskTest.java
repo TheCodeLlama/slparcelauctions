@@ -381,7 +381,7 @@ class TerminalCommandDispatcherTaskTest {
     }
 
     private Escrow buildEscrow() {
-        User seller = User.builder().id(1L).email("s@e.com")
+        User seller = User.builder().id(1L).email("s@e.com").username("s")
                 .slAvatarUuid(UUID.randomUUID()).verified(true).build();
         UUID parcelUuid = UUID.randomUUID();
         Auction auction = Auction.builder()

@@ -1,7 +1,7 @@
-// SLPA Verification Terminal
+// SLParcels Verification Terminal
 //
 // Touch-driven account-linking kiosk. Players touch this terminal, type their
-// 6-digit SLPA verification code, and the script POSTs avatar metadata to the
+// 6-digit SLParcels verification code, and the script POSTs avatar metadata to the
 // backend to link the SL account to a website account.
 //
 // Configuration is loaded from a notecard named "config" in the same prim.
@@ -77,13 +77,13 @@ parseConfigLine(string line) {
 }
 
 setBusyChrome() {
-    llSetText("SLPA Verification Terminal\n<In Use>", <1.0, 0.2, 0.2>, 1.0);
-    llSetObjectName("SLPA Verification Terminal <In Use>");
+    llSetText("SLParcels Verification Terminal\n<In Use>", <1.0, 0.2, 0.2>, 1.0);
+    llSetObjectName("SLParcels Verification Terminal <In Use>");
 }
 
 setIdleChrome() {
-    llSetText("SLPA Verification Terminal\nTouch to link your account", <1.0, 1.0, 1.0>, 1.0);
-    llSetObjectName("SLPA Verification Terminal");
+    llSetText("SLParcels Verification Terminal\nTouch to link your account", <1.0, 1.0, 1.0>, 1.0);
+    llSetObjectName("SLParcels Verification Terminal");
 }
 
 releaseLock() {
@@ -169,7 +169,7 @@ default {
         // llGetEnv("sim_channel") == "Second Life Server" on main grid.
         // This is distinct from X-SecondLife-Shard ("Production") checked backend-side.
         if (llGetEnv("sim_channel") != "Second Life Server") {
-            llOwnerSay("SLPA Verification Terminal: wrong grid — this script is mainland-only.");
+            llOwnerSay("SLParcels Verification Terminal: wrong grid. This script is mainland-only.");
             return;  // halt; do not read notecard, do not set chrome
         }
 
@@ -184,16 +184,16 @@ default {
         // --- Notecard read ---
         if (requested == notecardLineRequest) {
             if (data == NAK) {
-                llOwnerSay("SLPA Verification Terminal: notecard 'config' missing or unreadable");
+                llOwnerSay("SLParcels Verification Terminal: notecard 'config' missing or unreadable");
                 return;
             }
             if (data == EOF) {
                 if (VERIFY_URL == "") {
-                    llOwnerSay("SLPA Verification Terminal: incomplete config — VERIFY_URL required");
+                    llOwnerSay("SLParcels Verification Terminal: incomplete config. VERIFY_URL required.");
                     return;
                 }
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Verification Terminal: ready (verify=" + VERIFY_URL + ")");
+                    llOwnerSay("SLParcels Verification Terminal: ready (verify=" + VERIFY_URL + ")");
                 return;
             }
             parseConfigLine(data);
@@ -225,7 +225,7 @@ default {
         // If lock is held and not yet expired, bounce the toucher.
         if (lockHolder != NULL_KEY && lockExpiresAt > llGetUnixTime()) {
             llRegionSayTo(toucher, 0,
-                "Terminal busy — currently verifying " + lockHolderName + ".");
+                "Terminal already in use, please use another terminal or try again later.");
             return;
         }
 
@@ -243,10 +243,10 @@ default {
         setBusyChrome();
 
         if (DEBUG_MODE)
-            llOwnerSay("SLPA Verification Terminal: touch from " + toucherName);
+            llOwnerSay("SLParcels Verification Terminal: touch from " + toucherName);
 
         listenHandle = llListen(menuChan, "", lockHolder, "");
-        llTextBox(lockHolder, "Enter your 6-digit SLPA code:", menuChan);
+        llTextBox(lockHolder, "Enter your 6-digit SLParcels code:", menuChan);
 
         // Start lock-TTL timer (60s). Replaced by 30s data timer after code entry.
         timerPhase = TIMER_LOCK;
@@ -262,7 +262,7 @@ default {
         listenHandle = -1;
 
         if (!isSixDigitCode(message)) {
-            llRegionSayTo(lockHolder, 0, "✗ Code must be 6 digits.");
+            llDialog(lockHolder, "Your verification code must be 6 digits. Please try again.", ["OK"], menuChan);
             releaseLock();
             return;
         }
@@ -295,30 +295,33 @@ default {
             // branch even on a successful verify response. Always compare
             // boolean JSON values against JSON_TRUE / JSON_FALSE.
             if (verified == JSON_TRUE) {
-                llRegionSayTo(lockHolder, 0,
-                    "✓ Linked SLPA #" + userId + " to " + slAvatarName + ".");
+                llDialog(lockHolder,
+                    "Your avatar has been linked to your SLParcels account",
+                    ["OK"], menuChan);
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Verification Terminal: verify ok: userId=" + userId);
+                    llOwnerSay("SLParcels Verification Terminal: verify ok: userId=" + userId);
             } else {
-                llRegionSayTo(lockHolder, 0,
-                    "✗ Verification failed. Code may be expired — generate a new one on slparcels.com.");
+                llDialog(lockHolder,
+                    "Verification failed. Your code may be expired. Generate a new one at slparcels.com",
+                    ["OK"], menuChan);
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Verification Terminal: verify denied: not verified");
+                    llOwnerSay("SLParcels Verification Terminal: verify denied: not verified");
             }
         } else if (status >= 400 && status < 500) {
-            string title  = llJsonGetValue(body, ["title"]);
-            string detail = llJsonGetValue(body, ["detail"]);
+            string title = llJsonGetValue(body, ["title"]);
             if (title == JSON_INVALID || title == "") title = "Error";
-            if (detail == JSON_INVALID || detail == "") detail = "status " + (string)status;
-            llRegionSayTo(lockHolder, 0, "✗ " + title + ": " + detail);
+            llDialog(lockHolder,
+                "There was a problem with SLParcels. Please try again.",
+                ["OK"], menuChan);
             if (DEBUG_MODE)
-                llOwnerSay("SLPA Verification Terminal: verify denied: " + title);
+                llOwnerSay("SLParcels Verification Terminal: verify denied: " + title);
         } else {
             // 5xx or 0 (HTTP timeout / network failure)
-            llRegionSayTo(lockHolder, 0,
-                "✗ Backend unreachable. Try again in a moment.");
+            llDialog(lockHolder,
+                "There was a problem with SLParcels. Please try again. (500/0)",
+                ["OK"], menuChan);
             if (DEBUG_MODE)
-                llOwnerSay("SLPA Verification Terminal: http error: status=" + (string)status);
+                llOwnerSay("SLParcels Verification Terminal: http error: status=" + (string)status);
         }
 
         releaseLock();
@@ -327,8 +330,9 @@ default {
     timer() {
         if (timerPhase == TIMER_DATA) {
             // Avatar data (DATA_BORN / DATA_PAYINFO) didn't arrive in time.
-            llRegionSayTo(lockHolder, 0,
-                "✗ Couldn't read your avatar data — please try again.");
+            llDialog(lockHolder,
+                "We couldn't read your avatar data. Please try again.",
+                ["OK"], menuChan);
             releaseLock();
         } else {
             // TIMER_LOCK — 60s passed with no progress (user walked away, etc.).

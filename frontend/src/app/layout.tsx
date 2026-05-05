@@ -20,8 +20,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "SLPA — Second Life Parcel Auctions",
-    template: "%s · SLPA",
+    default: "SLParcels",
+    template: "%s · SLParcels",
   },
   description: "Player-to-player land auctions for Second Life.",
 };

@@ -8,7 +8,7 @@ public enum EscrowTransactionType {
     LISTING_FEE_PAYMENT,
     LISTING_FEE_REFUND,
     /**
-     * Penalty payment from a seller at a SLPA terminal, paying down their
+     * Penalty payment from a seller at a SLParcels terminal, paying down their
      * {@code User.penaltyBalanceOwed} debt accrued from cancelled-with-bids
      * offenses (Epic 08 sub-spec 2 §4.6).
      */

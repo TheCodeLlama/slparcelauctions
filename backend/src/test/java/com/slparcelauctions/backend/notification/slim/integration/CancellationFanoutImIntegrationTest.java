@@ -139,7 +139,7 @@ class CancellationFanoutImIntegrationTest {
         assertThat(rows).hasSize(3);
         assertThat(rows.stream().map(SlImMessage::getUserId).toList())
             .containsExactlyInAnyOrder(a.getId(), b.getId(), c.getId());
-        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLPA] Auction cancelled"));
+        assertThat(rows).allMatch(m -> m.getMessageText().contains("[SLParcels] Auction cancelled"));
         assertThat(rows).allMatch(m -> m.getMessageText().contains("ownership lost"));
     }
 
@@ -191,7 +191,7 @@ class CancellationFanoutImIntegrationTest {
     // --- Fixture helpers (pattern from CancellationFanoutIntegrationTest) ---
 
     private User saveUser(boolean hasAvatar) {
-        User u = User.builder()
+        User u = User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash")
             .displayName("TestUser")

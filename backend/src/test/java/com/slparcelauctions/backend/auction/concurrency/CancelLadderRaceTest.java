@@ -193,7 +193,7 @@ class CancelLadderRaceTest {
     }
 
     private void setup() {
-        User seller = userRepository.save(User.builder()
+        User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("cancel-ladder-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Cancel Ladder Seller")

@@ -20,7 +20,7 @@ function EvidenceValue({ value, linkedUsers }: EvidenceValueProps) {
       return (
         <Link
           href={`/users/${linked.userId}`}
-          title={`${value} — ${linked.displayName ?? "(no display name)"}`}
+          title={`${value} (${linked.displayName ?? "no display name"})`}
           className="font-mono text-brand underline underline-offset-2"
         >
           {truncateUuid(value)}
@@ -30,7 +30,7 @@ function EvidenceValue({ value, linkedUsers }: EvidenceValueProps) {
     return (
       <span
         className="font-mono"
-        title={`${value} — (not a registered SLPA user)`}
+        title={`${value} (not a registered SLParcels user)`}
       >
         {truncateUuid(value)}
       </span>

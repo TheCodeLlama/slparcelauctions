@@ -218,7 +218,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void escrowPayoutStalled(long sellerUserId, long auctionId, long escrowId, String parcelName) {
         String title = "Payout delayed: " + parcelName;
-        String body = "Your payout is delayed — we're investigating. No action needed from you.";
+        String body = "Your payout is delayed. We're investigating; no action needed from you.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT_STALLED, title, body,
             NotificationDataBuilder.escrowPayoutStalled(auctionId, escrowId, parcelName),
@@ -263,7 +263,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason) {
         String title = "Listing removed: " + parcelName;
-        String body = "Your listing has been removed by SLPA staff. Reason: " + reason + ".";
+        String body = "Your listing has been removed by SLParcels staff. Reason: " + reason + ".";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_REMOVED_BY_ADMIN, title, body,
             NotificationDataBuilder.listingRemovedByAdmin(auctionId, parcelName, reason),
@@ -383,7 +383,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 }
                 yield "winner".equals(role)
                         ? "Dispute dismissed for " + parcelName
-                            + ". Escrow remains funded — please complete payment at the terminal."
+                            + ". Escrow remains funded; please complete payment at the terminal."
                         : "Dispute resolved for " + parcelName + ". Escrow remains funded.";
             }
             case RESUME_TRANSFER -> "Escrow unfrozen for " + parcelName
@@ -431,7 +431,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void walletWithdrawalCompleted(long userId, long amountL, Long ledgerEntryId) {
         String title = String.format("Withdrawal completed: L$%,d", amountL);
-        String body = "L$ " + amountL + " has been transferred to your SL avatar from your SLPA wallet.";
+        String body = "L$ " + amountL + " has been transferred to your SL avatar from your SLParcels wallet.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.WALLET_WITHDRAWAL_COMPLETED, title, body,
             NotificationDataBuilder.walletWithdrawalCompleted(amountL, ledgerEntryId),
@@ -441,7 +441,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void walletWithdrawalReversed(long userId, long amountL, Long ledgerEntryId, String reason) {
         String title = String.format("Withdrawal reversed: L$%,d", amountL);
-        String body = "Your L$ " + amountL + " withdrawal could not be completed and was credited back to your SLPA wallet. Reason: " + reason;
+        String body = "Your L$ " + amountL + " withdrawal could not be completed and was credited back to your SLParcels wallet. Reason: " + reason;
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.WALLET_WITHDRAWAL_REVERSED, title, body,
             NotificationDataBuilder.walletWithdrawalReversed(amountL, ledgerEntryId, reason),

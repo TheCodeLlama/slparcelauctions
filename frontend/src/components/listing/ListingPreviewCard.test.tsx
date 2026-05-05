@@ -66,7 +66,7 @@ describe("ListingPreviewCard", () => {
   it("renders the preview banner when isPreview is set", () => {
     renderWithProviders(<ListingPreviewCard auction={base()} isPreview />);
     expect(
-      screen.getByText(/Preview — this is how your listing will appear/),
+      screen.getByText(/Preview: this is how your listing will appear/),
     ).toBeInTheDocument();
   });
 

@@ -43,7 +43,7 @@ class AdminRoleServiceTest {
 
     private User buildUser(Long id, Role role) {
         User u = User.builder()
-            .email("user" + id + "@x.com")
+            .email("user" + id + "@x.com").username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
             .passwordHash("x")
             .displayName("User" + id)
             .build();

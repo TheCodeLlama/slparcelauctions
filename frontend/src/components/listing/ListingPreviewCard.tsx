@@ -27,7 +27,7 @@ export type ListingPreviewAuction = Pick<
 
 export interface ListingPreviewCardProps {
   auction: ListingPreviewAuction;
-  /** When true, renders the "Preview — this is how buyers will see it" banner. */
+  /** When true, renders the "Preview: this is how buyers will see it" banner. */
   isPreview?: boolean;
   className?: string;
 }
@@ -67,7 +67,7 @@ export function ListingPreviewCard({
     >
       {isPreview && (
         <div className="rounded-lg bg-brand-soft px-3 py-2 text-xs text-brand">
-          Preview — this is how your listing will appear to buyers.
+          Preview: this is how your listing will appear to buyers.
         </div>
       )}
       {cover ? (

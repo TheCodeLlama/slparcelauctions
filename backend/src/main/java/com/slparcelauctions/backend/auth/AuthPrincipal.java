@@ -22,4 +22,4 @@ import java.util.UUID;
  * it against the freshly-loaded {@code user.getTokenVersion()} at the integrity boundary to detect
  * stale sessions within the 15-minute access-token window.
  */
-public record AuthPrincipal(Long userId, UUID userPublicId, String email, Long tokenVersion, Role role) {}
+public record AuthPrincipal(Long userId, UUID userPublicId, String username, Long tokenVersion, Role role) {}

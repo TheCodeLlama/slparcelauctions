@@ -12,7 +12,7 @@ import { loginSchema, type LoginFormValues } from "@/lib/auth/schemas";
 import { mapProblemDetailToForm } from "@/lib/auth/errors";
 import { getSafeRedirect } from "@/lib/auth/redirects";
 
-const KNOWN_FIELDS = ["email", "password"] as const;
+const KNOWN_FIELDS = ["username", "password"] as const;
 
 export function LoginForm() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema),
     mode: "onBlur",
     reValidateMode: "onChange",
-    defaultValues: { email: "", password: "" },
+    defaultValues: { username: "", password: "" },
   });
 
   const onSubmit = form.handleSubmit((values) => {
@@ -46,11 +46,11 @@ export function LoginForm() {
       <FormError message={rootError} />
 
       <Input
-        label="Email"
-        type="email"
-        autoComplete="email"
-        {...form.register("email")}
-        error={form.formState.errors.email?.message}
+        label="Username"
+        type="text"
+        autoComplete="username"
+        {...form.register("username")}
+        error={form.formState.errors.username?.message}
       />
 
       <Input

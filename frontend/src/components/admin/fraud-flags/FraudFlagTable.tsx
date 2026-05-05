@@ -81,7 +81,7 @@ export function FraudFlagTable({ rows, selectedId, onSelect }: Props) {
                   )}
                 </td>
                 <td className={cn("px-3 py-2.5 text-right", statusClass)}>
-                  {row.auctionStatus ?? "—"}
+                  {row.auctionStatus ?? "-"}
                 </td>
               </tr>
             );

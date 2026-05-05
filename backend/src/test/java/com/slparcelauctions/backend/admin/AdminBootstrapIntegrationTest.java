@@ -26,9 +26,9 @@ import com.slparcelauctions.backend.user.UserRepository;
     "slpa.review.scheduler.enabled=false",
     "slpa.notifications.cleanup.enabled=false",
     "slpa.notifications.sl-im.cleanup.enabled=false",
-    "slpa.admin.bootstrap-emails[0]=present-user@bootstrap.test",
-    "slpa.admin.bootstrap-emails[1]=present-admin@bootstrap.test",
-    "slpa.admin.bootstrap-emails[2]=absent@bootstrap.test"
+    "slpa.admin.bootstrap-usernames[0]=present-user",
+    "slpa.admin.bootstrap-usernames[1]=present-admin",
+    "slpa.admin.bootstrap-usernames[2]=absent"
 })
 class AdminBootstrapIntegrationTest {
 
@@ -40,14 +40,14 @@ class AdminBootstrapIntegrationTest {
     @BeforeEach
     void seed() {
         presentUserId = userRepository.save(User.builder()
-            .email("present-user@bootstrap.test")
+            .email("present-user@bootstrap.test").username("present-user")
             .passwordHash("x")
             .role(Role.USER)
             .tokenVersion(1L)
             .build()).getId();
 
         presentAdminId = userRepository.save(User.builder()
-            .email("present-admin@bootstrap.test")
+            .email("present-admin@bootstrap.test").username("present-admin")
             .passwordHash("x")
             .role(Role.ADMIN)
             .tokenVersion(1L)

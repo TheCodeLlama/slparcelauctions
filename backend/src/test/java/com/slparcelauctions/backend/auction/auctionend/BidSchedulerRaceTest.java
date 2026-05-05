@@ -234,14 +234,14 @@ class BidSchedulerRaceTest {
     }
 
     private void setup(int snipeMinutes) {
-        User seller = userRepository.save(User.builder()
+        User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-end-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Race End Seller")
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
                 .build());
-        User bidder = userRepository.save(User.builder()
+        User bidder = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-end-bidder-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Race End Bidder")

@@ -1,7 +1,7 @@
-# SLPA Bot Service
+# SLParcels Bot Service
 
 C#/.NET 8 worker that logs into Second Life as an `SLPABot*` account and
-services tasks from the SLPA backend (Method C verification, BOT-tier
+services tasks from the SLParcels backend (Method C verification, BOT-tier
 auction monitoring, BOT-tier escrow monitoring).
 
 ## Environment
@@ -59,4 +59,4 @@ tests never touch `GridClient` directly.
 
 - .NET 8 SDK (or 9+ SDK that can target `net8.0`)
 - A valid Second Life `SLPABot*` account (real credentials — no mock mode)
-- A running SLPA backend with matching `slpa.bot.shared-secret`
+- A running SLParcels backend with matching `slpa.bot.shared-secret`

@@ -75,7 +75,7 @@ class DevAuctionControllerTest {
         sellerAccessToken = registerAndVerifyUser(
                 "dev-pay-seller@example.com", "Seller",
                 "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        sellerId = userRepository.findByEmail("dev-pay-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("dev-pay-seller@example.com").orElseThrow().getId();
 
         otherAccessToken = registerAndVerifyUser(
                 "dev-pay-other@example.com", "Other",
@@ -186,7 +186,7 @@ class DevAuctionControllerTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

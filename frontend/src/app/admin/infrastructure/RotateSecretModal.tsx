@@ -10,7 +10,7 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
   if (rotate.data) {
     return (
       <Backdrop onClose={() => {}}>
-        <h2 className="text-sm font-semibold mb-2">New secret — save it now</h2>
+        <h2 className="text-sm font-semibold mb-2">New secret. Save it now.</h2>
         <p className="text-[11px] opacity-70 mb-3">
           This value will <strong>not</strong> be shown again. Copy it before closing.
         </p>
@@ -27,7 +27,7 @@ export function RotateSecretModal({ onClose }: { onClose: () => void }) {
           {rotate.data.terminalPushResults.map((r) => (
             <li key={r.terminalId} className={r.success ? "text-success" : "text-danger"}>
               {r.success ? "✓" : "✗"} {r.terminalName}
-              {r.errorMessage && <span className="opacity-70"> — {r.errorMessage}</span>}
+              {r.errorMessage && <span className="opacity-70">: {r.errorMessage}</span>}
             </li>
           ))}
         </ul>

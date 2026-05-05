@@ -233,14 +233,14 @@ class EscrowDisputeIntegrationTest {
     private void seedEndedAuctionWithEscrow(EscrowState startingState, boolean funded) {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("escrow-dispute-seller-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Escrow Dispute Seller")
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
                     .build());
-            User bidder = userRepo.save(User.builder()
+            User bidder = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("escrow-dispute-bidder-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Escrow Dispute Bidder")

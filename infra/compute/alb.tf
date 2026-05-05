@@ -18,7 +18,7 @@ resource "aws_lb" "main" {
 
   enable_deletion_protection = true
 
-  # idle_timeout default 60s is fine for SLPA's request shape.
+  # idle_timeout default 60s is fine for SLParcels' request shape.
   drop_invalid_header_fields = true
 
   tags = {

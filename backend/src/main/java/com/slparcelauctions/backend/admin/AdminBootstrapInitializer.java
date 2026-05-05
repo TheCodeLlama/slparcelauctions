@@ -1,5 +1,8 @@
 package com.slparcelauctions.backend.admin;
 
+import java.util.List;
+import java.util.Locale;
+
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -11,11 +14,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * On startup, promotes any user whose email matches the configured
- * bootstrap-emails list AND whose current role is USER. The
+ * On startup, promotes any user whose username matches the configured
+ * bootstrap-usernames list AND whose current role is USER. The
  * promote-only-currently-USER guard is a forward push at startup, not a
- * configurable opt-out — a deliberately-demoted bootstrap email will be
+ * configurable opt-out — a deliberately-demoted bootstrap username will be
  * re-promoted on the next restart unless removed from the config list.
+ * Matching is case-insensitive (the JPQL lowercases both sides).
  * See spec §10.6 for the full lifecycle.
  */
 @Component
@@ -29,12 +33,15 @@ public class AdminBootstrapInitializer {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void promoteBootstrapAdmins() {
-        if (properties.getBootstrapEmails().isEmpty()) {
-            log.info("Admin bootstrap: no bootstrap-emails configured, skipping.");
+        if (properties.getBootstrapUsernames().isEmpty()) {
+            log.info("Admin bootstrap: no bootstrap-usernames configured, skipping.");
             return;
         }
-        int promoted = userRepository.bulkPromoteByEmailIfUser(properties.getBootstrapEmails());
-        log.info("Admin bootstrap: promoted {} of {} configured emails to ADMIN.",
-                promoted, properties.getBootstrapEmails().size());
+        List<String> lowercased = properties.getBootstrapUsernames().stream()
+                .map(s -> s.toLowerCase(Locale.ROOT))
+                .toList();
+        int promoted = userRepository.bulkPromoteByUsernameIfUser(lowercased);
+        log.info("Admin bootstrap: promoted {} of {} configured usernames to ADMIN.",
+                promoted, properties.getBootstrapUsernames().size());
     }
 }

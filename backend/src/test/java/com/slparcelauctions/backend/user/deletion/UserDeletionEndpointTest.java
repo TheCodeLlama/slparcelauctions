@@ -76,20 +76,20 @@ class UserDeletionEndpointTest {
     void seedUsers() {
         adminDbId = userRepository.findByPublicId(ADMIN_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(ADMIN_UUID).email("admin-deletion-ep@example.com")
+                .publicId(ADMIN_UUID).email("admin-deletion-ep@example.com").username("admin-deletion-ep")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Admin").role(Role.ADMIN).verified(true).build()))
             .getId();
         userDbId = userRepository.findByPublicId(USER_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(USER_UUID).email("user-deletion-ep@example.com")
+                .publicId(USER_UUID).email("user-deletion-ep@example.com").username("user-deletion-ep")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("User").role(Role.USER).verified(true).build()))
             .getId();
         // Seed the target user so resolveUserId(TARGET_UUID) succeeds in the controller.
         userRepository.findByPublicId(TARGET_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(TARGET_UUID).email("target-deletion-ep@example.com")
+                .publicId(TARGET_UUID).email("target-deletion-ep@example.com").username("target-deletion-ep")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Target").role(Role.USER).verified(true).build()));
     }

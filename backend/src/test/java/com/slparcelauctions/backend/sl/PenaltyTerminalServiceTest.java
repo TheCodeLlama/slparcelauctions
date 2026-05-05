@@ -64,7 +64,7 @@ class PenaltyTerminalServiceTest {
     private static User userWithBalance(Long id, String displayName, Long balance) {
         return User.builder()
                 .id(id)
-                .email("seller-" + id + "@example.test")
+                .email("seller-" + id + "@example.test").username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                 .passwordHash("x")
                 .displayName(displayName)
                 .slAvatarUuid(AVATAR)

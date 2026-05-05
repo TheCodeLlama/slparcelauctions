@@ -81,7 +81,7 @@ describe("SuspensionBanner", () => {
     expect(banner.className).toMatch(/info-bg/);
     expect(banner).toHaveTextContent(/listing suspended until/i);
     expect(banner).toHaveTextContent(/L\$2,500/);
-    expect(banner).toHaveTextContent(/visit any slpa terminal/i);
+    expect(banner).toHaveTextContent(/visit any slparcels terminal/i);
   });
 
   it("renders the timed-only variant when only the suspension is active", async () => {
@@ -119,7 +119,7 @@ describe("SuspensionBanner", () => {
     const banner = await screen.findByTestId("suspension-banner");
     expect(banner.dataset.variant).toBe("debt-only");
     expect(banner).toHaveTextContent(/L\$1,000 in cancellation penalties/i);
-    expect(banner).toHaveTextContent(/visit any slpa terminal/i);
+    expect(banner).toHaveTextContent(/visit any slparcels terminal/i);
   });
 
   it("treats an expired listingSuspensionUntil as no timed suspension", async () => {

@@ -69,8 +69,8 @@ class ReviewServiceRevealTest {
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
 
-        seller = User.builder().id(10L).email("seller@example.com").passwordHash("x").displayName("Sally").build();
-        winner = User.builder().id(20L).email("winner@example.com").passwordHash("x").displayName("Willy").build();
+        seller = User.builder().id(10L).email("seller@example.com").username("seller").passwordHash("x").displayName("Sally").build();
+        winner = User.builder().id(20L).email("winner@example.com").username("winner").passwordHash("x").displayName("Willy").build();
 
         auction = Auction.builder()
                 .title("Lakefront")

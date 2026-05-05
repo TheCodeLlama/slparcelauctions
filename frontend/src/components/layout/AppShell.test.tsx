@@ -15,6 +15,6 @@ describe("AppShell", () => {
     );
     expect(screen.getByRole("link", { name: /Parcels/i })).toBeInTheDocument(); // Header
     expect(screen.getByTestId("page-content")).toBeInTheDocument();          // children inside main
-    expect(screen.getByText(/SLPA · Independent marketplace/)).toBeInTheDocument();    // Footer
+    expect(screen.getByText(/SLParcels · Independent marketplace/)).toBeInTheDocument();    // Footer
   });
 });

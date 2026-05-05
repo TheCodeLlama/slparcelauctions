@@ -38,7 +38,7 @@ class VerificationFlowIntegrationTest {
         // Register a user
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"verif@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Verif\"}"))
+                .content("{\"username\":\"verif@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated())
                 .andReturn();
         String accessToken = objectMapper.readTree(reg.getResponse().getContentAsString())

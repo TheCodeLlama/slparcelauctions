@@ -23,7 +23,7 @@ export function ResultsEmpty({ reason, onClearFilters }: ResultsEmptyProps) {
       <EmptyState
         icon={Search}
         headline="No active auctions yet"
-        description="Check back soon — new parcels are listed throughout the day."
+        description="Check back soon. New parcels are listed throughout the day."
       />
     );
   }

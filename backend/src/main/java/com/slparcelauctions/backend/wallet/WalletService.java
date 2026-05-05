@@ -56,12 +56,12 @@ public class WalletService {
     /**
      * Credit the wallet of the user identified by their SL avatar UUID.
      * Called from {@code POST /api/v1/sl/wallet/deposit} when the in-world
-     * SLPA Terminal's {@code money()} handler fires.
+     * SLParcels Terminal's {@code money()} handler fires.
      *
      * <p>Idempotent: a duplicate {@code slTransactionKey} returns the
      * original ledger entry without re-crediting.
      *
-     * @throws UserNotLinkedException     if no SLPA user has the given
+     * @throws UserNotLinkedException     if no SLParcels user has the given
      *                                    {@code payerUuid} as their verified
      *                                    SL avatar — terminal bounces the L$
      * @throws UserStatusBlockedException if the user is banned or frozen —

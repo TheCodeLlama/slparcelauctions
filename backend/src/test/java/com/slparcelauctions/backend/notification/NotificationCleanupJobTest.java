@@ -59,7 +59,7 @@ class NotificationCleanupJobTest {
 
     @BeforeEach
     void createUser() {
-        userId = userRepo.save(User.builder()
+        userId = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("cleanup-job-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash").build()).getId();
     }

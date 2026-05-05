@@ -155,7 +155,7 @@ class AuctionDtoMapperTest {
     }
 
     private Auction buildAuction(AuctionStatus status) {
-        User seller = User.builder().id(42L).email("s@example.com").build();
+        User seller = User.builder().id(42L).email("s@example.com").username("s").build();
         UUID parcelUuid = UUID.randomUUID();
         Auction a = Auction.builder()
                 .title("Test listing")

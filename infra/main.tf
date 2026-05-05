@@ -1,7 +1,7 @@
 ################################################################################
-# SLPA — Terraform root module
+# SLParcels — Terraform root module
 #
-# Deploys the SLPA production stack on AWS. See:
+# Deploys the SLParcels production stack on AWS. See:
 #   docs/superpowers/specs/2026-04-29-aws-deployment-design.md  (architecture)
 #   AWS_CALCULATION.md                                           (cost estimates)
 #   PREP.md                                                      (one-time setup)

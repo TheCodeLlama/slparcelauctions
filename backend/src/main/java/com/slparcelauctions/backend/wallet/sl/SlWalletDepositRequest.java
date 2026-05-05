@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 /**
  * Body of {@code POST /api/v1/sl/wallet/deposit}. Posted by the in-world
- * SLPA Terminal's {@code money()} handler.
+ * SLParcels Terminal's {@code money()} handler.
  *
  * <p>{@code slTransactionKey} is the LSL {@code llGenerateKey()} value
  * generated once per {@code money()} event and reused across retries —

@@ -332,13 +332,13 @@ export function WalletPanel() {
         }
       >
         <ol className="list-decimal pl-5 space-y-2">
-          <li>Visit any SLPA Terminal in-world (SLPA HQ or an auction venue).</li>
+          <li>Visit any SLParcels Terminal in-world (SLParcels HQ or an auction venue).</li>
           <li>Right-click the terminal &rarr; Pay &rarr; enter the L$ amount.</li>
           <li>Funds will be credited to this wallet within seconds.</li>
         </ol>
         <p className="text-xs text-fg-muted">
           Multiple users can deposit simultaneously. There&apos;s no menu choice
-          &mdash; every payment to the terminal is a deposit to your SLPA wallet.
+          &mdash; every payment to the terminal is a deposit to your SLParcels wallet.
         </p>
       </Modal>
 
@@ -422,7 +422,7 @@ function WithdrawDialog({
         Available: <strong>{formatLindens(available)}</strong>
       </p>
       <p className="text-xs text-fg-muted">
-        Funds will be sent to your verified SL avatar via the in-world SLPA
+        Funds will be sent to your verified SL avatar via the in-world SLParcels
         terminal pool.
       </p>
       <Input

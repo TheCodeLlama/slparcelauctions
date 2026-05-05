@@ -89,7 +89,7 @@ class BotTaskControllerIntegrationTest {
         sellerAvatarUuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         sellerAccessToken = registerAndVerifyUser(
                 "method-c-seller@example.com", "MethodCSeller", sellerAvatarUuid);
-        sellerId = userRepository.findByEmail("method-c-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("method-c-seller@example.com").orElseThrow().getId();
         sellerParcelUuid = seedParcel();
     }
 
@@ -292,7 +292,7 @@ class BotTaskControllerIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

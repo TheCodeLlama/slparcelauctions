@@ -41,7 +41,7 @@ function formatPenalty(amountL: number): string {
  * <p>Returns {@code null} when the seller can create listings (no ban,
  * no active timed suspension, no outstanding L$ debt). The banner does
  * NOT include a "Pay now" button — sub-spec 2 ships the walk-in payment
- * model only; payment happens at any SLPA terminal in-world.
+ * model only; payment happens at any SLParcels terminal in-world.
  *
  * <p>Banner state freshness depends on the existing window-focus refetch
  * on {@code useCurrentUser} plus a 60s {@code staleTime} on the {@code /me}
@@ -90,7 +90,7 @@ export function SuspensionBanner() {
             <strong className="font-bold">
               {formatPenalty(user.penaltyBalanceOwed)}
             </strong>
-            . Visit any SLPA terminal to pay.
+            . Visit any SLParcels terminal to pay.
           </p>
         </Card.Body>
       </Card>
@@ -128,7 +128,7 @@ export function SuspensionBanner() {
             <strong className="font-bold">
               {formatPenalty(user.penaltyBalanceOwed)}
             </strong>{" "}
-            in cancellation penalties. Visit any SLPA terminal to pay and
+            in cancellation penalties. Visit any SLParcels terminal to pay and
             resume listing.
           </p>
         </Card.Body>

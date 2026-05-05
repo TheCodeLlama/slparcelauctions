@@ -212,7 +212,7 @@ export function DisputeFormClient({ auctionPublicId, sellerPublicId }: DisputeFo
         role={role}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: escrowKey(auctionPublicId) });
-          toast.success("Dispute filed. SLPA staff will review.");
+          toast.success("Dispute filed. SLParcels staff will review.");
           router.push(`/auction/${auctionPublicId}/escrow`);
         }}
         on409={() => {
@@ -271,7 +271,7 @@ function TerminalStatePanel({
       escrow.disputedAt
         ? new Date(escrow.disputedAt).toLocaleString()
         : "-"
-    }. SLPA is reviewing.`,
+    }. SLParcels is reviewing.`,
     COMPLETED: `Escrow completed on ${
       escrow.completedAt
         ? new Date(escrow.completedAt).toLocaleString()
@@ -381,7 +381,7 @@ function DisputeFormBody({
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       <div className="rounded-md bg-bg-subtle p-4 text-xs text-fg-muted">
-        Escrow state: <strong>{escrow.state}</strong> — you are the{" "}
+        Escrow state: <strong>{escrow.state}</strong>. You are the{" "}
         <strong>{role}</strong>.
       </div>
 

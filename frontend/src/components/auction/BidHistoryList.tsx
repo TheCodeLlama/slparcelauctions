@@ -211,7 +211,7 @@ function BidHistoryPage({
         data-testid="bid-history-empty"
         className="rounded-lg bg-surface-raised px-4 py-6 text-sm text-fg-muted"
       >
-        No bids yet — be the first to bid.
+        No bids yet. Be the first to bid.
       </p>
     );
   }

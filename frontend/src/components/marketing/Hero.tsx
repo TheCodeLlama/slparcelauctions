@@ -29,7 +29,7 @@ export function Hero({ featured }: HeroProps) {
           </h1>
           <p className="mt-4 max-w-[540px] text-base leading-[1.5] text-fg-muted md:text-lg">
             Find premium Second Life parcels at fair prices. Every transaction
-            is protected by SLPA Escrow — no more lost L$ to bad-faith sellers.
+            is protected by SLParcels Escrow, so you don&apos;t lose L$ to bad-faith sellers.
           </p>
           <div className="mt-7 flex flex-wrap gap-2.5">
             <Link href="/browse">

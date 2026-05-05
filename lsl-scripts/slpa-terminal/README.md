@@ -1,6 +1,6 @@
-# SLPA Terminal (wallet model)
+# SLParcels Terminal (wallet model)
 
-In-world wallet kiosk for SLPA. Two touch-menu options (Deposit-instructions,
+In-world wallet kiosk for SLParcels. Two touch-menu options (Deposit-instructions,
 Withdraw) plus a lockless `money()` deposit handler. Also accepts
 backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
 
@@ -50,26 +50,26 @@ backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
 
 ## Deployment
 
-**SLPA-team-deployed only.** This script holds a shared secret and PERMISSION_DEBIT.
+**SLParcels-team-deployed only.** This script holds a shared secret and PERMISSION_DEBIT.
 Never publish on Marketplace.
 
-1. Rez a generic prim at SLPA HQ or an auction venue. Land must permit
+1. Rez a generic prim at SLParcels HQ or an auction venue. Land must permit
    outbound HTTP and `llRequestURL`.
 2. Drop `slpa-terminal.lsl` into the prim.
 3. Drop a copy of `config.notecard.example` renamed to **`config`** (no
    extension). Edit all four URLs and `SHARED_SECRET`.
-4. Set the prim's owner to the SLPA service avatar (so
+4. Set the prim's owner to the SLParcels service avatar (so
    `X-SecondLife-Owner-Key` matches `slpa.sl.trusted-owner-keys`).
 5. Reset the script. The script will request `PERMISSION_DEBIT` from the
    owner — accept the dialog. Confirm:
-   - `SLPA Terminal: registered (terminal_id=..., url=...)` startup ping.
-   - Floating text "SLPA Terminal\nRight-click → Pay to deposit\nTouch for menu" appears.
+   - `SLParcels Terminal: registered (terminal_id=..., url=...)` startup ping.
+   - Floating text "SLParcels Terminal\nRight-click → Pay to deposit\nTouch for menu" appears.
 6. Smoke-test:
    - Right-click the prim → Pay → L$10. Confirm `deposit ok L$10 from <name>`.
    - Touch → Withdraw → enter L$5 → Yes. Confirm withdrawal arrives in your
      SL avatar within ~30s.
 
-The new SLPA Parcel Verifier Giver prim (separate; see
+The new SLParcels Parcel Verifier Giver prim (separate; see
 `lsl-scripts/slpa-verifier-giver/`) handles parcel-verifier give-out — it is
 **not** built into this terminal anymore.
 
@@ -90,8 +90,8 @@ The new SLPA Parcel Verifier Giver prim (separate; see
 ### Rotating the shared secret
 
 1. Update `slpa.escrow.terminal-shared-secret` in the deployment's secret store.
-2. Restart the SLPA backend so it picks up the new secret.
-3. On every deployed SLPA Terminal: edit the `config` notecard with the new
+2. Restart the SLParcels backend so it picks up the new secret.
+3. On every deployed SLParcels Terminal: edit the `config` notecard with the new
    `SHARED_SECRET` value. `CHANGED_INVENTORY` auto-resets the script and
    re-registers with the new secret.
 
@@ -99,22 +99,22 @@ The new SLPA Parcel Verifier Giver prim (separate; see
 
 In steady state with `DEBUG_MODE=true`:
 
-- `SLPA Terminal: registered (terminal_id=..., url=...)` — startup confirmation.
-- `SLPA Terminal: deposit ok L$<amount> from <payer>` — successful deposit POST.
-- `SLPA Terminal: deposit refunded (UNKNOWN_PAYER) L$<amount> to <payer>` —
+- `SLParcels Terminal: registered (terminal_id=..., url=...)` — startup confirmation.
+- `SLParcels Terminal: deposit ok L$<amount> from <payer>` — successful deposit POST.
+- `SLParcels Terminal: deposit refunded (UNKNOWN_PAYER) L$<amount> to <payer>` —
   bounced an unknown-payer deposit.
-- `SLPA Terminal: deposit refunded on ERROR (<reason>) L$<amount> to <payer>` —
+- `SLParcels Terminal: deposit refunded on ERROR (<reason>) L$<amount> to <payer>` —
   backend returned a non-REFUND error code (e.g. UNKNOWN_TERMINAL); the
   script bounces the L$ regardless so the payer is never out money.
-- `SLPA Terminal: deposit retry N/5: status=...` — transient, retrying.
-- `SLPA Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
-- `SLPA Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
+- `SLParcels Terminal: deposit retry N/5: status=...` — transient, retrying.
+- `SLParcels Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
+- `SLParcels Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
   dispatched a wallet-withdrawal fulfillment to this terminal.
-- `SLPA Terminal: payout-result acknowledged.` — backend received our async result.
-- `SLPA Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
-- `SLPA Terminal: heartbeat failed status=...` — heartbeat POST failed; will
+- `SLParcels Terminal: payout-result acknowledged.` — backend received our async result.
+- `SLParcels Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
+- `SLParcels Terminal: heartbeat failed status=...` — heartbeat POST failed; will
   retry on the next interval. Not critical unless it persists.
-- `CRITICAL: SLPA Terminal: deposit ... not acknowledged after 5 retries` —
+- `CRITICAL: SLParcels Terminal: deposit ... not acknowledged after 5 retries` —
   deposit recovery failed; manual reconciliation required.
 - `CRITICAL: unexpected REFUND HTTP-in command` — the backend dispatched a
   REFUND action; refunds should be wallet credits in the new model. Investigate.
@@ -132,7 +132,7 @@ In steady state with `DEBUG_MODE=true`:
 | Periodic `register retry N/5` | Backend unreachable or rejecting registration. Check `slpa.sl.trusted-owner-keys` includes this terminal's owner. |
 | `deposit retry N/5` repeatedly | Backend transient or network issue. Self-recovers in most cases. |
 | `CRITICAL: deposit not acknowledged` | Backend POST never succeeded after 5 retries. Manual reconciliation required. |
-| Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLPA's traffic level.) |
+| Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLParcels's traffic level.) |
 | Backend command dispatcher logs 403 | Shared secret mismatch. Update notecard, reset. |
 | `CRITICAL: unexpected REFUND HTTP-in command` | Stale code path or migration issue — refunds should be wallet credits. Investigate. |
 
@@ -147,7 +147,7 @@ In steady state with `DEBUG_MODE=true`:
 - `llTransferLindenDollars` rate limit: 30 payments per 30 seconds per owner per
   region. Phase 1 traffic is well under this; alert if approached.
 - 4 concurrent withdraw sessions max per terminal. For high-volume venues,
-  deploy multiple SLPA Terminals — backend's dispatcher picks any active
+  deploy multiple SLParcels Terminals — backend's dispatcher picks any active
   one for commands.
 - Inflight HTTP-in commands cap at 16 concurrent. New commands beyond that
   return 503; backend retry budget handles.
@@ -157,10 +157,10 @@ In steady state with `DEBUG_MODE=true`:
 
 ## Security
 
-- The terminal must be owned by an SLPA service avatar listed in
+- The terminal must be owned by an SLParcels service avatar listed in
   `slpa.sl.trusted-owner-keys`. Backend rejects header mismatch.
 - The shared secret in the notecard is visible to anyone with edit-rights on
-  the prim — keep ownership and modify permissions SLPA-team-only.
+  the prim — keep ownership and modify permissions SLParcels-team-only.
 - A leaked shared secret means an attacker can call `/payout-result` with
   forged "success" outcomes (debiting the wallet ledger without actually
   paying anyone) — rotate immediately if compromise is suspected.

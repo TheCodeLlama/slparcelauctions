@@ -14,7 +14,7 @@ type Props = { params: Promise<{ publicId: string }> };
 const getPublicProfileCached = cache((publicId: string) => userApi.publicProfile(publicId));
 
 const BIO_DESCRIPTION_LIMIT = 200;
-const DEFAULT_DESCRIPTION = "Second Life parcel seller on SLPA.";
+const DEFAULT_DESCRIPTION = "Second Life parcel seller on SLParcels.";
 
 /**
  * Truncate-at-word-boundary-with-ellipsis for the OG description. Clamps at
@@ -31,16 +31,16 @@ function truncateBio(bio: string, max: number): string {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { publicId } = await params;
-  if (!publicId) return { title: "Profile · SLPA" };
+  if (!publicId) return { title: "Profile · SLParcels" };
   try {
     const user = await getPublicProfileCached(publicId);
-    const displayName = user.displayName ?? "SLPA user";
+    const displayName = user.displayName ?? "SLParcels user";
     const description = user.bio
       ? truncateBio(user.bio, BIO_DESCRIPTION_LIMIT)
       : DEFAULT_DESCRIPTION;
     const avatar = user.profilePicUrl ?? undefined;
     return {
-      title: `${displayName} · SLPA`,
+      title: `${displayName} · SLParcels`,
       description,
       robots: { index: true, follow: true },
       openGraph: {
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch {
-    return { title: "Profile · SLPA" };
+    return { title: "Profile · SLParcels" };
   }
 }
 

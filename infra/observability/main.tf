@@ -1,5 +1,5 @@
 ################################################################################
-# SLPA — Observability module (spec §4.12 + §4.13)
+# SLParcels — Observability module (spec §4.12 + §4.13)
 #
 # Owns:
 #   - SNS topic + email subscription (slpa-${env}-alerts)

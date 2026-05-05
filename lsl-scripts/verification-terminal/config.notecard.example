@@ -1,4 +1,4 @@
-# config notecard for SLPA Verification Terminal
+# config notecard for SLParcels Verification Terminal
 # Place this file (renamed to "config", no extension) in the prim's contents.
 # After editing, the script auto-resets via CHANGED_INVENTORY.
 

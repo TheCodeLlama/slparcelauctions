@@ -1,10 +1,10 @@
-# config notecard for SLPA Parcel Verifier Giver
+# config notecard for SLParcels Parcel Verifier Giver
 # Place this file (renamed to "config", no extension) in the prim's contents.
 # After editing, the script auto-resets via CHANGED_INVENTORY.
 
-# Inventory item name to give. Must match the name of an SLPA Parcel
+# Inventory item name to give. Must match the name of an SLParcels Parcel
 # Verifier object in the prim's contents.
-VERIFIER_NAME=SLPA Parcel Verifier
+VERIFIER_NAME=SLParcels Parcel Verifier
 
 # Per-avatar rate-limit (seconds). A second touch from the same avatar
 # within this window is refused with a "wait a minute" message. Default 60.

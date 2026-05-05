@@ -404,7 +404,7 @@ function DescriptionField({
         maxLength={MAX_DESC}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Describe what makes this parcel special — location, views, build history, etc."
+        placeholder="Describe what makes this parcel special: location, views, build history, etc."
         className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-transparent transition-all focus:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       />
       <span

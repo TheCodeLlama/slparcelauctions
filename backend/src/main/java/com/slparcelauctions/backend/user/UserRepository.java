@@ -22,13 +22,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPublicId(UUID publicId);
 
+    @Query("SELECT u FROM User u WHERE LOWER(u.username) = LOWER(:username)")
+    Optional<User> findByUsername(@Param("username") String username);
+
     Optional<User> findByEmail(String email);
 
     Optional<User> findBySlAvatarUuid(UUID slAvatarUuid);
 
     List<User> findAllBySlAvatarUuidIn(Set<UUID> uuids);
 
-    boolean existsByEmail(String email);
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE LOWER(u.username) = LOWER(:username)")
+    boolean existsByUsername(@Param("username") String username);
 
     boolean existsBySlAvatarUuid(UUID slAvatarUuid);
 
@@ -62,8 +66,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Modifying
     @Transactional
     @Query("UPDATE User u SET u.role = com.slparcelauctions.backend.user.Role.ADMIN " +
-           "WHERE u.email IN :emails AND u.role = com.slparcelauctions.backend.user.Role.USER")
-    int bulkPromoteByEmailIfUser(@Param("emails") List<String> emails);
+           "WHERE LOWER(u.username) IN :usernames AND u.role = com.slparcelauctions.backend.user.Role.USER")
+    int bulkPromoteByUsernameIfUser(@Param("usernames") List<String> lowercaseUsernames);
 
     /**
      * Atomically increments {@code tokenVersion} for the given user, invalidating
@@ -85,7 +89,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         SELECT u FROM User u
         WHERE (:uuid IS NOT NULL AND u.slAvatarUuid = :uuid)
            OR (:uuid IS NULL AND :search IS NOT NULL AND
-               (LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+               (LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%'))
                 OR LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
                 OR LOWER(COALESCE(u.slDisplayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))))
            OR (:search IS NULL AND :uuid IS NULL)
@@ -95,7 +99,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Sum of all wallet balances. Used by ReconciliationService to compute the
-     * expected SLPA service avatar balance against the wallet pool.
+     * expected SLParcels service avatar balance against the wallet pool.
      */
     @Query("SELECT COALESCE(SUM(u.balanceLindens), 0) FROM User u")
     long sumWalletBalances();

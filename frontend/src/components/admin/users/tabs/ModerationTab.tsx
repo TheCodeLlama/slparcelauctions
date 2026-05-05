@@ -63,7 +63,7 @@ export function ModerationTab({ userId }: Props) {
                   {row.adminDisplayName ?? "System"}
                 </td>
                 <td className="px-3 py-2.5 text-fg-muted max-w-xs">
-                  <span className="line-clamp-2">{row.notes ?? "—"}</span>
+                  <span className="line-clamp-2">{row.notes ?? "-"}</span>
                 </td>
                 <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.createdAt)}</td>
               </tr>

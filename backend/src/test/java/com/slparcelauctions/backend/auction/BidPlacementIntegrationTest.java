@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -84,12 +85,12 @@ class BidPlacementIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "bid-seller@example.com", "BidSeller",
                 "11111111-aaaa-bbbb-cccc-000000000001");
-        sellerId = userRepository.findByEmail("bid-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("bid-seller@example.com").orElseThrow().getId();
 
         bidderAccessToken = registerAndVerifyUser(
                 "bid-bidder@example.com", "BidBidder",
                 "22222222-aaaa-bbbb-cccc-000000000002");
-        bidderId = userRepository.findByEmail("bid-bidder@example.com").orElseThrow().getId();
+        bidderId = userRepository.findByUsername("bid-bidder@example.com").orElseThrow().getId();
 
         unverifiedAccessToken = registerUser("bid-unverified@example.com", "BidUnverified");
 
@@ -265,14 +266,24 @@ class BidPlacementIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
-                email, displayName);
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
+                email);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated()).andReturn();
         JsonNode json = objectMapper.readTree(reg.getResponse().getContentAsString());
-        return json.get("accessToken").asText();
+        String token = json.get("accessToken").asText();
+        // Registration no longer accepts displayName; set it via PUT /me so
+        // downstream tests that assert on displayName keep working.
+        if (displayName != null) {
+            mockMvc.perform(put("/api/v1/users/me")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(String.format("{\"displayName\":\"%s\"}", displayName)))
+                    .andExpect(status().isOk());
+        }
+        return token;
     }
 
     private String registerAndVerifyUser(String email, String displayName, String avatarUuid)

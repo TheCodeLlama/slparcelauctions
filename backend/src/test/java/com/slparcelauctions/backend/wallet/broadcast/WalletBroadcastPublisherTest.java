@@ -27,7 +27,7 @@ class WalletBroadcastPublisherTest {
         Clock clock = Clock.fixed(Instant.parse("2026-05-01T12:00:00Z"), ZoneOffset.UTC);
         WalletBroadcastPublisher pub = new WalletBroadcastPublisher(tpl, ledgerRepo, clock);
 
-        User u = User.builder().id(42L)
+        User u = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(42L)
                 .balanceLindens(100L).reservedLindens(20L)
                 .penaltyBalanceOwed(0L).build();
 

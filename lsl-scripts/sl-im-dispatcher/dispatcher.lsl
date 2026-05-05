@@ -1,6 +1,6 @@
-// SLPA SL IM Dispatcher
+// SLParcels SL IM Dispatcher
 //
-// Polls SLPA backend for pending notification IMs and delivers them via
+// Polls SLParcels backend for pending notification IMs and delivers them via
 // llInstantMessage. Single state machine with two cadences:
 //   - 60-second poll interval when idle
 //   - 2-second per-IM tick when delivering a batch
@@ -118,7 +118,7 @@ default {
         if (data == EOF) {
             // Notecard fully read; validate config.
             if (POLL_URL == "" || CONFIRM_URL_BASE == "" || SHARED_SECRET == "") {
-                llOwnerSay("SL IM dispatcher: incomplete config — POLL_URL / CONFIRM_URL_BASE / SHARED_SECRET required");
+                llOwnerSay("SL IM dispatcher: incomplete config. POLL_URL / CONFIRM_URL_BASE / SHARED_SECRET required.");
                 return;
             }
             if (DEBUG_MODE) llOwnerSay("SL IM dispatcher: ready (poll=" + POLL_URL + ")");

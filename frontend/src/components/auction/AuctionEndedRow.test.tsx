@@ -66,7 +66,7 @@ function endedAuction(
 }
 
 describe("AuctionEndedRow", () => {
-  it("renders 'Auction ended — L$N' for SOLD", () => {
+  it("renders 'Auction ended at L$N' for SOLD", () => {
     renderWithProviders(
       <AuctionEndedRow
         auction={endedAuction({ endOutcome: "SOLD", finalBidAmount: 2500 })}
@@ -74,10 +74,10 @@ describe("AuctionEndedRow", () => {
     );
     const row = screen.getByTestId("auction-ended-row");
     expect(row).toHaveAttribute("data-outcome", "SOLD");
-    expect(row).toHaveTextContent("Auction ended — L$2,500");
+    expect(row).toHaveTextContent("Auction ended at L$2,500");
   });
 
-  it("renders 'Auction ended — L$N' for BOUGHT_NOW", () => {
+  it("renders 'Auction ended at L$N' for BOUGHT_NOW", () => {
     renderWithProviders(
       <AuctionEndedRow
         auction={endedAuction({
@@ -87,11 +87,11 @@ describe("AuctionEndedRow", () => {
       />,
     );
     expect(screen.getByTestId("auction-ended-row")).toHaveTextContent(
-      "Auction ended — L$50,000",
+      "Auction ended at L$50,000",
     );
   });
 
-  it("renders 'Ended — no winner' for RESERVE_NOT_MET", () => {
+  it("renders 'Ended with no winner' for RESERVE_NOT_MET", () => {
     renderWithProviders(
       <AuctionEndedRow
         auction={endedAuction({
@@ -101,11 +101,11 @@ describe("AuctionEndedRow", () => {
       />,
     );
     expect(screen.getByTestId("auction-ended-row")).toHaveTextContent(
-      "Ended — no winner",
+      "Ended with no winner",
     );
   });
 
-  it("renders 'Ended — no winner' for NO_BIDS", () => {
+  it("renders 'Ended with no winner' for NO_BIDS", () => {
     renderWithProviders(
       <AuctionEndedRow
         auction={endedAuction({
@@ -115,7 +115,7 @@ describe("AuctionEndedRow", () => {
       />,
     );
     expect(screen.getByTestId("auction-ended-row")).toHaveTextContent(
-      "Ended — no winner",
+      "Ended with no winner",
     );
   });
 });

@@ -1,8 +1,8 @@
-// SLPA Terminal (wallet model)
+// SLParcels Terminal (wallet model)
 //
-// Single-object payment kiosk for SLPA. Two touch-menu options:
+// Single-object payment kiosk for SLParcels. Two touch-menu options:
 //   1. Deposit  — instructs user to right-click and pay any amount
-//   2. Withdraw — touch-confirmed withdrawal from the user's SLPA wallet
+//   2. Withdraw — touch-confirmed withdrawal from the user's SLParcels wallet
 //
 // The terminal accepts deposits via the natural SL pay flow:
 //   * Right-click → Pay → enter amount → money() event fires
@@ -167,14 +167,13 @@ debugSayUser(key who, string label, integer status, string body) {
             msg += " body[" + (string)blen + "]=" + llGetSubString(body, 0, cap - 1);
         }
     }
-    if (who != NULL_KEY) llRegionSayTo(who, 0, msg);
-    llOwnerSay("SLPA Terminal: " + msg);
+    llOwnerSay("SLParcels Terminal: " + msg);
 }
 
 setIdleChrome() {
-    llSetText("SLPA Terminal\nRight-click → Pay to deposit\nTouch for menu",
+    llSetText("SLParcels Terminal\nRight-click → Pay to deposit\nTouch for menu",
         <1.0, 1.0, 1.0>, 1.0);
-    llSetObjectName("SLPA Terminal");
+    llSetObjectName("SLParcels Terminal");
     llSetPayPrice(PAY_DEFAULT, [100, 500, 1000, 5000]);
 }
 
@@ -243,7 +242,7 @@ firePayment() {
 
 schedulePaymentRetry() {
     if (paymentRetryCount >= 5) {
-        llOwnerSay("CRITICAL: SLPA Terminal: deposit from "
+        llOwnerSay("CRITICAL: SLParcels Terminal: deposit from "
             + (string)paymentPayer
             + " L$" + (string)paymentAmount
             + " key " + paymentTxKey
@@ -286,7 +285,7 @@ fireWithdrawRequest() {
 
 scheduleWithdrawRetry() {
     if (withdrawRetryCount >= 5) {
-        llOwnerSay("CRITICAL: SLPA Terminal: withdraw-request from "
+        llOwnerSay("CRITICAL: SLParcels Terminal: withdraw-request from "
             + (string)withdrawPayer
             + " L$" + (string)withdrawAmount
             + " key " + withdrawTxKey
@@ -386,8 +385,8 @@ sweepExpiredSlots() {
 
 addInflightCommand(key txKey, string idempotencyKey, key recipient, integer amount) {
     if (llGetListLength(inflightCmdTxKeys) >= MAX_INFLIGHT_CMDS) {
-        llOwnerSay("SLPA Terminal: inflight command cap (" + (string)MAX_INFLIGHT_CMDS
-            + ") hit — refusing command. Backend retry will cover.");
+        llOwnerSay("SLParcels Terminal: inflight command cap (" + (string)MAX_INFLIGHT_CMDS
+            + ") hit; refusing command. Backend retry will cover.");
         return;
     }
     // Cast to string at insertion: llListFindList in removeInflightByTxKey
@@ -507,7 +506,7 @@ default {
             // Now request HTTP-in URL.
             urlRequestId = llRequestURL();
         } else {
-            llOwnerSay("CRITICAL: PERMISSION_DEBIT denied — script halted. Owner must re-grant.");
+            llOwnerSay("CRITICAL: PERMISSION_DEBIT denied. Script halted. Owner must re-grant.");
         }
     }
 
@@ -520,7 +519,7 @@ default {
                     llOwnerSay("CRITICAL: incomplete config notecard.");
                     return;
                 }
-                if (DEBUG_MODE) llOwnerSay("SLPA Terminal: config loaded.");
+                if (DEBUG_MODE) llOwnerSay("SLParcels Terminal: config loaded.");
                 return;
             }
             parseConfigLine(data);
@@ -532,7 +531,7 @@ default {
         if (id == urlRequestId) {
             if (method == URL_REQUEST_GRANTED) {
                 httpInUrl = body;
-                if (DEBUG_MODE) llOwnerSay("SLPA Terminal: HTTP-in URL granted: " + httpInUrl);
+                if (DEBUG_MODE) llOwnerSay("SLParcels Terminal: HTTP-in URL granted: " + httpInUrl);
                 if (REGISTER_URL != "") {
                     registerAttempt = 1;
                     postRegister();
@@ -562,7 +561,7 @@ default {
         if (action == "REFUND") {
             // Defensive: refunds are wallet credits in the new model and
             // shouldn't be dispatched to terminals. Log loud and fail.
-            llOwnerSay("CRITICAL: unexpected REFUND HTTP-in command — refunds are now wallet credits. idempotencyKey=" + ikey);
+            llOwnerSay("CRITICAL: unexpected REFUND HTTP-in command; refunds are now wallet credits. idempotencyKey=" + ikey);
             llHTTPResponse(id, 200,
                 "{\"status\":\"FAILED\",\"reason\":\"REFUND_NOT_SUPPORTED\"}");
             return;
@@ -583,7 +582,7 @@ default {
         key txKey = llTransferLindenDollars((key)recipient, amount);
         addInflightCommand(txKey, ikey, (key)recipient, amount);
         if (DEBUG_MODE) {
-            llOwnerSay("SLPA Terminal: HTTP-in " + action + " to "
+            llOwnerSay("SLParcels Terminal: HTTP-in " + action + " to "
                 + recipient + " L$" + (string)amount + " ikey=" + ikey);
         }
     }
@@ -624,7 +623,7 @@ default {
             body);
 
         if (DEBUG_MODE) {
-            llOwnerSay("SLPA Terminal: transfer to " + recip + " L$"
+            llOwnerSay("SLParcels Terminal: transfer to " + recip + " L$"
                 + (string)amount + " success=" + successStr);
         }
     }
@@ -634,7 +633,7 @@ default {
         // immediately and shout. Without this guard, llHTTPRequest("", ...)
         // would silently fail and the L$ would be stranded in the prim.
         if (DEPOSIT_URL == "" || SHARED_SECRET == "" || TERMINAL_ID == "") {
-            llOwnerSay("CRITICAL: deposit received but config incomplete — "
+            llOwnerSay("CRITICAL: deposit received but config incomplete: "
                 + "refunding L$" + (string)amount + " to " + (string)payer
                 + ". Check the 'config' notecard for DEPOSIT_URL, "
                 + "SHARED_SECRET, TERMINAL_ID.");
@@ -664,15 +663,16 @@ default {
 
         // Top-level menu responses (Deposit / Withdraw)
         if (msg == "Deposit") {
-            llRegionSayTo(id, 0,
-                "To deposit: right-click this terminal \xe2\x86\x92 Pay \xe2\x86\x92 enter any L$ amount. "
-                + "Funds will be credited to your SLPA wallet.");
+            llDialog(id,
+                "To deposit: right-click this terminal → Pay → enter any L$ amount. "
+                + "Funds will be credited to your SLParcels wallet.",
+                ["OK"], mainChan);
             return;
         }
         if (msg == "Withdraw") {
             integer slot = acquireOrResetSlot(id);
             if (slot < 0) {
-                llRegionSayTo(id, 0, "Terminal busy — try another nearby.");
+                llDialog(id, "Terminal already in use, please use another terminal or try again later.", ["OK"], mainChan);
                 return;
             }
             llTextBox(id, "Enter L$ amount to withdraw:", mainChan);
@@ -686,22 +686,23 @@ default {
         if (amt == -1) {
             // Awaiting amount
             if (!isPositiveInteger(msg)) {
-                llRegionSayTo(id, 0, "Amount must be a positive integer.");
+                llDialog(id, "Amount must be a positive integer.", ["OK"], mainChan);
                 releaseSlot(id);
                 return;
             }
             integer reqAmt = (integer)msg;
             setSlotAmount(slotIdx, reqAmt);
             extendSlot(slotIdx);
-            llDialog(id, "Withdraw L$" + msg + " from your SLPA wallet?",
+            llDialog(id, "Withdraw L$" + msg + " from your SLParcels wallet?",
                 ["Yes", "No"], mainChan);
             return;
         }
         // Awaiting confirm
         if (msg == "Yes") {
             if (WITHDRAW_REQUEST_URL == "" || SHARED_SECRET == "" || TERMINAL_ID == "") {
-                llRegionSayTo(id, 0,
-                    "Withdraw unavailable: terminal config incomplete. Contact ops.");
+                llDialog(id,
+                    "Withdraw unavailable: terminal config incomplete. Contact Heath Onyx.",
+                    ["OK"], mainChan);
                 llOwnerSay("CRITICAL: withdraw attempt but WITHDRAW_REQUEST_URL "
                     + "or SHARED_SECRET or TERMINAL_ID is empty. Check 'config' notecard.");
                 releaseSlot(id);
@@ -712,10 +713,11 @@ default {
             withdrawTxKey      = (string)llGenerateKey();
             withdrawRetryCount = 0;
             fireWithdrawRequest();
-            llRegionSayTo(id, 0, "Withdrawal queued — L$" + (string)amt
-                + " will arrive shortly.");
+            llDialog(id, "Withdrawal queued: L$" + (string)amt
+                + " will arrive shortly.",
+                ["OK"], mainChan);
         } else {
-            llRegionSayTo(id, 0, "Withdrawal cancelled.");
+            llDialog(id, "Withdrawal cancelled.", ["OK"], mainChan);
         }
         releaseSlot(id);
     }
@@ -728,7 +730,7 @@ default {
                 registered = TRUE;
                 registerAttempt = 0;
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Terminal: registered (terminal_id="
+                    llOwnerSay("SLParcels Terminal: registered (terminal_id="
                         + TERMINAL_ID + ", url=" + httpInUrl + ")");
                 return;
             }
@@ -738,7 +740,7 @@ default {
                 return;
             }
             if (DEBUG_MODE)
-                llOwnerSay("SLPA Terminal: register retry "
+                llOwnerSay("SLParcels Terminal: register retry "
                     + (string)registerAttempt + "/5: status=" + (string)status);
             scheduleRegisterRetry();
             return;
@@ -751,13 +753,13 @@ default {
                 string s = llJsonGetValue(body, ["status"]);
                 if (s == "OK") {
                     if (DEBUG_MODE)
-                        llOwnerSay("SLPA Terminal: deposit ok L$"
+                        llOwnerSay("SLParcels Terminal: deposit ok L$"
                             + (string)paymentAmount + " from " + (string)paymentPayer);
                 } else if (s == "REFUND") {
                     string reason = llJsonGetValue(body, ["reason"]);
                     llTransferLindenDollars(paymentPayer, paymentAmount);
                     if (DEBUG_MODE)
-                        llOwnerSay("SLPA Terminal: deposit refunded ("
+                        llOwnerSay("SLParcels Terminal: deposit refunded ("
                             + reason + ") L$" + (string)paymentAmount
                             + " to " + (string)paymentPayer);
                 } else if (s == "ERROR") {
@@ -772,7 +774,7 @@ default {
                     string reason = llJsonGetValue(body, ["reason"]);
                     llTransferLindenDollars(paymentPayer, paymentAmount);
                     if (DEBUG_MODE)
-                        llOwnerSay("SLPA Terminal: deposit refunded on ERROR ("
+                        llOwnerSay("SLParcels Terminal: deposit refunded on ERROR ("
                             + reason + ") L$" + (string)paymentAmount
                             + " to " + (string)paymentPayer);
                 }
@@ -785,7 +787,7 @@ default {
             // Transient: schedule retry
             ++paymentRetryCount;
             if (DEBUG_MODE)
-                llOwnerSay("SLPA Terminal: deposit retry "
+                llOwnerSay("SLParcels Terminal: deposit retry "
                     + (string)paymentRetryCount + "/5: status=" + (string)status);
             debugSayUser(paymentPayer, "deposit", status, body);
             schedulePaymentRetry();
@@ -799,7 +801,7 @@ default {
                 string s = llJsonGetValue(body, ["status"]);
                 if (s == "OK") {
                     if (DEBUG_MODE)
-                        llOwnerSay("SLPA Terminal: withdraw queued L$"
+                        llOwnerSay("SLParcels Terminal: withdraw queued L$"
                             + (string)withdrawAmount + " for " + (string)withdrawPayer);
                 } else if (s == "REFUND_BLOCKED") {
                     string reason = llJsonGetValue(body, ["reason"]);
@@ -808,10 +810,10 @@ default {
                     if (message != JSON_INVALID && message != "") {
                         msg += " (" + message + ")";
                     }
-                    llRegionSayTo(withdrawPayer, 0, msg);
+                    llDialog(withdrawPayer, msg, ["OK"], mainChan);
                 } else if (s == "ERROR") {
                     string reason = llJsonGetValue(body, ["reason"]);
-                    llOwnerSay("SLPA Terminal: withdraw-request ERROR ("
+                    llOwnerSay("SLParcels Terminal: withdraw-request ERROR ("
                         + reason + ") for " + (string)withdrawPayer);
                 }
                 withdrawPayer = NULL_KEY;
@@ -822,7 +824,7 @@ default {
             }
             ++withdrawRetryCount;
             if (DEBUG_MODE)
-                llOwnerSay("SLPA Terminal: withdraw retry "
+                llOwnerSay("SLParcels Terminal: withdraw retry "
                     + (string)withdrawRetryCount + "/5: status=" + (string)status);
             debugSayUser(withdrawPayer, "withdraw-request", status, body);
             scheduleWithdrawRetry();
@@ -834,7 +836,7 @@ default {
             payoutResultReqId = NULL_KEY;
             if (status >= 200 && status < 300) {
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Terminal: payout-result acknowledged.");
+                    llOwnerSay("SLParcels Terminal: payout-result acknowledged.");
             } else {
                 llOwnerSay("CRITICAL: /payout-result POST failed status="
                     + (string)status);
@@ -847,12 +849,12 @@ default {
             heartbeatReqId = NULL_KEY;
             if (status >= 200 && status < 300) {
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Terminal: heartbeat ok.");
+                    llOwnerSay("SLParcels Terminal: heartbeat ok.");
             } else {
                 // Heartbeats are best-effort: log and move on. Next interval
                 // will retry naturally.
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Terminal: heartbeat failed status="
+                    llOwnerSay("SLParcels Terminal: heartbeat failed status="
                         + (string)status + " (will retry on next interval)");
             }
             return;

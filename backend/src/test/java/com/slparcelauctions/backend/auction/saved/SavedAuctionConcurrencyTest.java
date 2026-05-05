@@ -67,7 +67,7 @@ class SavedAuctionConcurrencyTest {
 
     @BeforeEach
     void seed() {
-        user = userRepo.save(User.builder()
+        user = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("cap-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -76,18 +76,61 @@ class SavedAuctionConcurrencyTest {
                 .build());
         seededUserId = user.getId();
 
-        // 499 ACTIVE auctions, then bulk insert their saves.
+        // Seed 499 ACTIVE auctions via a single bulk JDBC insert. The previous
+        // pattern called `auctionRepo.save(...)` 499×2 in a tight loop, each
+        // grabbing+releasing a Hikari connection. Background scheduler threads
+        // in the boot context routinely starve the pool when this runs late
+        // in the surefire fork, causing seed to time out at 30s+ per save and
+        // the whole test to wall-clock past 13 minutes. A single COPY-style
+        // batch holds one connection for ~30ms total. No snapshot rows —
+        // SavedAuctionService.save doesn't reach for the snapshot.
         OffsetDateTime now = OffsetDateTime.now();
-        List<Object[]> savedRows = new ArrayList<>(499);
+        Timestamp createdAt = Timestamp.from(now.toInstant());
+        List<Object[]> auctionRows = new ArrayList<>(499);
         for (int i = 0; i < 499; i++) {
-            Auction a = seedActive(i);
-            savedRows.add(new Object[] {
-                    user.getId(),
-                    a.getId(),
-                    Timestamp.from(now.minusSeconds(499 - i).toInstant())
+            auctionRows.add(new Object[] {
+                    UUID.randomUUID(),                             // public_id
+                    UUID.randomUUID(),                             // sl_parcel_uuid
+                    user.getId(),                                  // seller_id
+                    AuctionStatus.ACTIVE.name(),                   // status
+                    VerificationTier.BOT.name(),                   // verification_tier
+                    "T-" + i,                                      // title
+                    1L,                                            // starting_bid
+                    1L,                                            // current_bid
+                    168,                                           // duration_hours
+                    Timestamp.from(now.minusHours(1).toInstant()), // starts_at
+                    Timestamp.from(now.plusDays(7).toInstant()),   // ends_at
+                    Timestamp.from(now.plusDays(7).toInstant()),   // original_ends_at
+                    new BigDecimal("0.05"),                        // commission_rate
+                    BigDecimal.ZERO,                               // agent_fee_rate
+                    createdAt                                      // created_at
             });
         }
+        jdbc.batchUpdate(
+                "INSERT INTO auctions (public_id, sl_parcel_uuid, seller_id, status, "
+                        + "verification_tier, title, starting_bid, current_bid, duration_hours, "
+                        + "starts_at, ends_at, original_ends_at, commission_rate, agent_fee_rate, "
+                        + "created_at, listing_fee_paid, snipe_protect) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, false)",
+                auctionRows);
 
+        // Pull the IDs of the just-inserted auctions for the saved_auctions
+        // batch + per-test cleanup. They're contiguous in serial order but
+        // we read them by seller_id to be exact.
+        List<Long> ids = jdbc.queryForList(
+                "SELECT id FROM auctions WHERE seller_id = ? ORDER BY id ASC",
+                Long.class, user.getId());
+        seededAuctionIds.addAll(ids);
+
+        // Bulk insert 499 saved_auctions rows.
+        List<Object[]> savedRows = new ArrayList<>(499);
+        for (int i = 0; i < ids.size(); i++) {
+            savedRows.add(new Object[] {
+                    user.getId(),
+                    ids.get(i),
+                    Timestamp.from(now.minusSeconds(ids.size() - i).toInstant())
+            });
+        }
         jdbc.batchUpdate(
                 "INSERT INTO saved_auctions (user_id, auction_id, saved_at) VALUES (?, ?, ?)",
                 savedRows);
@@ -98,17 +141,15 @@ class SavedAuctionConcurrencyTest {
     @AfterEach
     void cleanup() {
         if (seededUserId != null) {
+            // Bulk DELETEs in one connection — same rationale as the seed
+            // bulk insert. Snapshots only exist for the 2 race auctions
+            // (seedActive); the 499 bulk-seeded auctions have none, so the
+            // snapshot delete is a no-op for those rows.
             jdbc.update("DELETE FROM saved_auctions WHERE user_id = ?", seededUserId);
-        }
-        for (Long aid : seededAuctionIds) {
-            try {
-                jdbc.update("DELETE FROM auction_parcel_snapshots WHERE auction_id = ?", aid);
-                auctionRepo.deleteById(aid);
-            } catch (Exception ignored) {
-                // best-effort
-            }
-        }
-        if (seededUserId != null) {
+            jdbc.update("DELETE FROM auction_parcel_snapshots "
+                    + "WHERE auction_id IN (SELECT id FROM auctions WHERE seller_id = ?)",
+                    seededUserId);
+            jdbc.update("DELETE FROM auctions WHERE seller_id = ?", seededUserId);
             try {
                 userRepo.deleteById(seededUserId);
             } catch (Exception ignored) {

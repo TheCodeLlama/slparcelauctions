@@ -87,17 +87,17 @@ class BidVsProxyCounterIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "cnt-seller@example.com", "CntSeller",
                 "11111111-aaaa-bbbb-cccc-000000000501");
-        sellerId = userRepository.findByEmail("cnt-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("cnt-seller@example.com").orElseThrow().getId();
 
         aAccessToken = registerAndVerifyUser(
                 "cnt-alice@example.com", "CntAlice",
                 "22222222-aaaa-bbbb-cccc-000000000502");
-        aId = userRepository.findByEmail("cnt-alice@example.com").orElseThrow().getId();
+        aId = userRepository.findByUsername("cnt-alice@example.com").orElseThrow().getId();
 
         bAccessToken = registerAndVerifyUser(
                 "cnt-bob@example.com", "CntBob",
                 "33333333-aaaa-bbbb-cccc-000000000503");
-        bId = userRepository.findByEmail("cnt-bob@example.com").orElseThrow().getId();
+        bId = userRepository.findByUsername("cnt-bob@example.com").orElseThrow().getId();
 
         sellerParcelUuid = seedParcel();
     }
@@ -174,7 +174,7 @@ class BidVsProxyCounterIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

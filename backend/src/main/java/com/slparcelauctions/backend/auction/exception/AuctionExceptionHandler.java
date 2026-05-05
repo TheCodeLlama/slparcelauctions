@@ -255,7 +255,7 @@ public class AuctionExceptionHandler {
         pd.setProperty("code", e.getReason().name());
         pd.setDetail(switch (e.getReason()) {
             case PENALTY_OWED ->
-                    "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.";
+                    "You have an outstanding penalty balance. Pay at any SLParcels terminal to resume listing.";
             case TIMED_SUSPENSION ->
                     "Your listing privileges are temporarily suspended.";
             case PERMANENT_BAN ->

@@ -75,7 +75,7 @@ class AdminReportServiceTest {
     @BeforeEach
     void seed() {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rptadmin-seller-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -84,7 +84,7 @@ class AdminReportServiceTest {
                 .build());
             sellerId = seller.getId();
 
-            User admin = userRepo.save(User.builder()
+            User admin = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rptadmin-admin-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -93,7 +93,7 @@ class AdminReportServiceTest {
                 .build());
             adminId = admin.getId();
 
-            User reporter1 = userRepo.save(User.builder()
+            User reporter1 = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rptadmin-r1-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -102,7 +102,7 @@ class AdminReportServiceTest {
                 .build());
             reporter1Id = reporter1.getId();
 
-            User reporter2 = userRepo.save(User.builder()
+            User reporter2 = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rptadmin-r2-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -111,7 +111,7 @@ class AdminReportServiceTest {
                 .build());
             reporter2Id = reporter2.getId();
 
-            User reporter3 = userRepo.save(User.builder()
+            User reporter3 = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rptadmin-r3-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -120,7 +120,7 @@ class AdminReportServiceTest {
                 .build());
             reporter3Id = reporter3.getId();
 
-            User reporter4 = userRepo.save(User.builder()
+            User reporter4 = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rptadmin-r4-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

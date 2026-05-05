@@ -14,7 +14,7 @@ export interface CuratorTrayTriggerProps {
  * unauthenticated — the Curator Tray is a logged-in-only surface.
  *
  * <p>Count rendering:
- *   - {@code —} while the initial {@code useSavedIds} fetch is in flight.
+ *   - {@code -} while the initial {@code useSavedIds} fetch is in flight.
  *   - Literal {@code 1}..{@code 99} for small sets.
  *   - {@code 99+} once the set has >= 100 entries.
  */
@@ -28,7 +28,7 @@ export function CuratorTrayTrigger({
   if (session.status !== "authenticated") return null;
 
   const count = ids.size;
-  const label = isLoading ? "—" : count >= 100 ? "99+" : String(count);
+  const label = isLoading ? "-" : count >= 100 ? "99+" : String(count);
 
   return (
     <button

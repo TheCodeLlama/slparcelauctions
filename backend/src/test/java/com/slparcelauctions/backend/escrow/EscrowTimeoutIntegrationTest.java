@@ -448,7 +448,7 @@ class EscrowTimeoutIntegrationTest {
     }
 
     private User saveSeller() {
-        return userRepo.save(User.builder()
+        return userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("timeout-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Timeout Seller")
@@ -458,7 +458,7 @@ class EscrowTimeoutIntegrationTest {
     }
 
     private User saveBidder() {
-        return userRepo.save(User.builder()
+        return userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("timeout-bidder-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Timeout Bidder")

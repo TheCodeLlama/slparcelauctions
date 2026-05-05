@@ -1,4 +1,4 @@
-// SLPA Parcel Verifier
+// SLParcels Parcel Verifier
 //
 // Single-use rezzable object. Seller rezzes it on the parcel they want to
 // list, the script reads parcel metadata, auto-prompts for a 6-digit PARCEL
@@ -131,7 +131,7 @@ default {
         if (data == EOF) {
             // Validate required config.
             if (PARCEL_VERIFY_URL == "") {
-                dieWithMessage("✗ Parcel Verifier: incomplete config — PARCEL_VERIFY_URL required");
+                dieWithMessage("✗ Parcel Verifier: incomplete config. PARCEL_VERIFY_URL required.");
                 return;
             }
 
@@ -168,7 +168,7 @@ default {
 
             // Auto-prompt: open listen + show llTextBox immediately.
             listenHandle = llListen(codeChan, "", rezzer, "");
-            llTextBox(rezzer, "Enter your 6-digit PARCEL code:", codeChan);
+            llTextBox(rezzer, "Enter your 6-digit parcel verification code:", codeChan);
             llSetTimerEvent(90.0);  // 90s code-entry timeout
             phase = PHASE_AWAITING_CODE;
             return;
@@ -223,7 +223,7 @@ default {
         llSetTimerEvent(0);
 
         if (status == 204) {
-            dieWithMessage("✓ Parcel verified — your listing is live on slparcels.com.");
+            dieWithMessage("✓ Parcel verified. Your listing is live on slparcels.com.");
         } else if (status >= 400 && status < 500) {
             string title  = llJsonGetValue(body, ["title"]);
             string detail = llJsonGetValue(body, ["detail"]);
@@ -247,7 +247,7 @@ default {
             dieWithMessage("✗ Timed out waiting for code.");
         } else {
             // PHASE_HTTP_INFLIGHT — HTTP timed out; listen already removed.
-            dieWithMessage("✗ Timed out reaching SLPA.");
+            dieWithMessage("✗ Timed out reaching SLParcels.");
         }
     }
 

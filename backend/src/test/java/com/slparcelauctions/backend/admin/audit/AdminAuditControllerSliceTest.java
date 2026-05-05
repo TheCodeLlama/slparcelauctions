@@ -61,13 +61,13 @@ class AdminAuditControllerSliceTest {
     void seedUsers() {
         adminDbId = userRepository.findByPublicId(ADMIN_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(ADMIN_UUID).email("admin-audit-ctrl@x.com")
+                .publicId(ADMIN_UUID).email("admin-audit-ctrl@x.com").username("admin-audit-ctrl")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Admin").role(Role.ADMIN).verified(true).build()))
             .getId();
         userDbId = userRepository.findByPublicId(USER_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(USER_UUID).email("user-audit-ctrl@x.com")
+                .publicId(USER_UUID).email("user-audit-ctrl@x.com").username("user-audit-ctrl")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("User").role(Role.USER).verified(true).build()))
             .getId();
@@ -83,7 +83,7 @@ class AdminAuditControllerSliceTest {
 
     private AdminAction buildAction() {
         User admin = User.builder()
-            .email("admin@x.com")
+            .email("admin@x.com").username("admin")
             .passwordHash("x")
             .displayName("Admin")
             .build();

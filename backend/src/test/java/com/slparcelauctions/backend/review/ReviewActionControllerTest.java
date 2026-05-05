@@ -66,7 +66,7 @@ class ReviewActionControllerTest {
     private static final long REVIEW_LONG_ID = 1_234L;
 
     private User mockCaller() {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         return caller;
     }

@@ -19,7 +19,7 @@ function toSearchParams(params: SP): URLSearchParams {
 }
 
 export const metadata: Metadata = {
-  title: "Seller listings · SLPA",
+  title: "Seller listings · SLParcels",
 };
 
 export default async function SellerListingsPage({

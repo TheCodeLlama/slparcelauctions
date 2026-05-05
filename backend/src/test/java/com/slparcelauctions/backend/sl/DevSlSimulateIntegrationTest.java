@@ -46,11 +46,11 @@ class DevSlSimulateIntegrationTest {
     void simulate_withJustCode_linksAvatarWithDefaults() throws Exception {
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"sim@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Sim\"}"))
+                .content("{\"username\":\"sim@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String regBody = reg.getResponse().getContentAsString();
         String accessToken = objectMapper.readTree(regBody).get("accessToken").asText();
-        Long userId = userRepository.findByEmail("sim@example.com").orElseThrow().getId();
+        Long userId = userRepository.findByUsername("sim@example.com").orElseThrow().getId();
 
         MvcResult gen = mockMvc.perform(post("/api/v1/verification/generate")
                 .header("Authorization", "Bearer " + accessToken))

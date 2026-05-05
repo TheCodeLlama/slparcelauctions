@@ -74,9 +74,9 @@ class ReviewServiceSubmitTest {
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
                 escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
 
-        seller = User.builder().id(10L).email("seller@example.com").passwordHash("x").displayName("Sally").build();
-        winner = User.builder().id(20L).email("winner@example.com").passwordHash("x").displayName("Willy").build();
-        stranger = User.builder().id(99L).email("stranger@example.com").passwordHash("x").build();
+        seller = User.builder().id(10L).email("seller@example.com").username("seller").passwordHash("x").displayName("Sally").build();
+        winner = User.builder().id(20L).email("winner@example.com").username("winner").passwordHash("x").displayName("Willy").build();
+        stranger = User.builder().id(99L).email("stranger@example.com").username("stranger").passwordHash("x").build();
 
         auction = Auction.builder()
                 .title("Lakefront")

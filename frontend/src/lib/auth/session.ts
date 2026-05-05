@@ -28,7 +28,8 @@ export function setAccessToken(token: string | null): void {
  */
 export type AuthUser = {
   publicId: string;
-  email: string;
+  username: string;
+  email: string | null;
   displayName: string | null;
   slAvatarUuid: string | null;
   verified: boolean;

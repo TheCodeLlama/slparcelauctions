@@ -57,7 +57,7 @@ class AuctionSearchPredicateBuilderTest {
 
     @BeforeEach
     void seed() {
-        seller = userRepo.save(User.builder()
+        seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -183,7 +183,7 @@ class AuctionSearchPredicateBuilderTest {
     @Test
     void sellerIdFilter() {
         Auction mine = seedActive("R1-" + UUID.randomUUID(), 1024, "GENERAL");
-        User otherSeller = userRepo.save(User.builder()
+        User otherSeller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("other-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

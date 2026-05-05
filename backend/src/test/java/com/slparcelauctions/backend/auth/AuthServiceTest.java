@@ -4,9 +4,9 @@ import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auth.dto.AuthResult;
 import com.slparcelauctions.backend.auth.dto.LoginRequest;
 import com.slparcelauctions.backend.auth.dto.RegisterRequest;
-import com.slparcelauctions.backend.auth.exception.EmailAlreadyExistsException;
 import com.slparcelauctions.backend.auth.exception.InvalidCredentialsException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.auth.exception.UsernameAlreadyExistsException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -75,7 +75,7 @@ class AuthServiceTest {
 
     @Test
     void register_createsUserIssuesTokens() {
-        User user = stubUser(42L, "alice@example.com");
+        User user = stubUser(42L, "alice");
         UserResponse userResponse = UserResponse.from(user);
 
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(userResponse);
@@ -86,7 +86,7 @@ class AuthServiceTest {
                         "raw-refresh-token", OffsetDateTime.now().plusDays(7)));
 
         AuthResult result = authService.register(
-                new RegisterRequest("alice@example.com", "Password1!", "Alice"),
+                new RegisterRequest("alice", "Password1!"),
                 httpRequest);
 
         assertThat(result.accessToken()).isEqualTo("access-token");
@@ -99,15 +99,26 @@ class AuthServiceTest {
         verify(refreshTokenService).issueForUser(eq(42L), anyString(), anyString());
     }
 
+    @Test
+    void register_userAlreadyExists_translatesToUsernameAlreadyExists() {
+        when(userService.createUser(any(CreateUserRequest.class)))
+                .thenThrow(UserAlreadyExistsException.username("alice"));
+
+        assertThatThrownBy(() -> authService.register(
+                new RegisterRequest("alice", "Password1!"),
+                httpRequest))
+                .isInstanceOf(UsernameAlreadyExistsException.class);
+    }
+
     // -------------------------------------------------------------------------
     // 2. login — valid credentials return result
     // -------------------------------------------------------------------------
 
     @Test
     void login_withValidCredentials_returnsResult() {
-        User user = stubUser(7L, "bob@example.com");
+        User user = stubUser(7L, "bob");
 
-        when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("secret123!", user.getPasswordHash())).thenReturn(true);
         when(jwtService.issueAccessToken(any(AuthPrincipal.class))).thenReturn("access-token");
         when(refreshTokenService.issueForUser(eq(7L), anyString(), anyString()))
@@ -115,29 +126,29 @@ class AuthServiceTest {
                         "raw-refresh-token", OffsetDateTime.now().plusDays(7)));
 
         AuthResult result = authService.login(
-                new LoginRequest("bob@example.com", "secret123!"),
+                new LoginRequest("bob", "secret123!"),
                 httpRequest);
 
         assertThat(result.accessToken()).isEqualTo("access-token");
         assertThat(result.refreshToken()).isEqualTo("raw-refresh-token");
         assertThat(result.user().publicId()).isNotNull();
 
-        verify(userRepository).findByEmail("bob@example.com");
+        verify(userRepository).findByUsername("bob");
         verify(passwordEncoder).matches("secret123!", user.getPasswordHash());
         verify(jwtService).issueAccessToken(any(AuthPrincipal.class));
         verify(refreshTokenService).issueForUser(eq(7L), anyString(), anyString());
     }
 
     // -------------------------------------------------------------------------
-    // 3. login — unknown email → InvalidCredentialsException
+    // 3. login — unknown username → InvalidCredentialsException
     // -------------------------------------------------------------------------
 
     @Test
-    void login_withInvalidEmail_throwsInvalidCredentials() {
-        when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
+    void login_withInvalidUsername_throwsInvalidCredentials() {
+        when(userRepository.findByUsername("nobody")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest("nobody@example.com", "anything123!"),
+                new LoginRequest("nobody", "anything123!"),
                 httpRequest))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
@@ -148,13 +159,13 @@ class AuthServiceTest {
 
     @Test
     void login_withWrongPassword_throwsInvalidCredentials() {
-        User user = stubUser(5L, "carol@example.com");
+        User user = stubUser(5L, "carol");
 
-        when(userRepository.findByEmail("carol@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername("carol")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrongpassword!", user.getPasswordHash())).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login(
-                new LoginRequest("carol@example.com", "wrongpassword!"),
+                new LoginRequest("carol", "wrongpassword!"),
                 httpRequest))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
@@ -186,10 +197,10 @@ class AuthServiceTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static User stubUser(Long id, String email) {
+    private static User stubUser(Long id, String username) {
         return User.builder()
                 .id(id)
-                .email(email)
+                .username(username)
                 .passwordHash("hashed-password")
                 .displayName("Test User")
                 .tokenVersion(0L)

@@ -69,13 +69,13 @@ class AdminFraudFlagControllerListSliceTest {
     void seedUsers() {
         adminDbId = userRepository.findByPublicId(ADMIN_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(ADMIN_UUID).email("admin-fraud-list@x.com")
+                .publicId(ADMIN_UUID).email("admin-fraud-list@x.com").username("admin-fraud-list")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Admin").role(Role.ADMIN).verified(true).build()))
             .getId();
         userDbId = userRepository.findByPublicId(USER_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(USER_UUID).email("user-fraud-list@x.com")
+                .publicId(USER_UUID).email("user-fraud-list@x.com").username("user-fraud-list")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("User").role(Role.USER).verified(true).build()))
             .getId();

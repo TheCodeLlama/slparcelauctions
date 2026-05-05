@@ -91,7 +91,7 @@ class BanEnforcementIntegrationTest {
         lenient().when(valueOps.get(anyString())).thenReturn(null);
         lenient().doNothing().when(valueOps).set(anyString(), anyString(), any());
 
-        adminUser = userRepo.save(User.builder()
+        adminUser = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("ban-admin-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -173,8 +173,8 @@ class BanEnforcementIntegrationTest {
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"reg-banned-" + UUID.randomUUID()
-                                + "@x.com\",\"password\":\"hunter22abc\",\"displayName\":\"RegBanned\"}"))
+                        .content("{\"username\":\"reg-banned-" + UUID.randomUUID()
+                                + "@x.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("USER_BANNED"));
     }
@@ -189,8 +189,8 @@ class BanEnforcementIntegrationTest {
         String email = "login-banned-" + UUID.randomUUID() + "@x.com";
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email
-                                + "\",\"password\":\"hunter22abc\",\"displayName\":\"LoginBanned\"}"))
+                        .content("{\"username\":\"" + email
+                                + "\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated());
 
         banRepo.save(Ban.builder()
@@ -202,7 +202,7 @@ class BanEnforcementIntegrationTest {
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"hunter22abc\"}"))
+                        .content("{\"username\":\"" + email + "\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("USER_BANNED"));
     }
@@ -253,8 +253,8 @@ class BanEnforcementIntegrationTest {
         String email = "both-login-" + UUID.randomUUID() + "@x.com";
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email
-                                + "\",\"password\":\"hunter22abc\",\"displayName\":\"BothLogin\"}"))
+                        .content("{\"username\":\"" + email
+                                + "\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated());
 
         banRepo.save(Ban.builder()
@@ -276,7 +276,7 @@ class BanEnforcementIntegrationTest {
         // Login is blocked by IP
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"" + email + "\",\"password\":\"hunter22abc\"}"))
+                        .content("{\"username\":\"" + email + "\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("USER_BANNED"));
     }
@@ -298,8 +298,8 @@ class BanEnforcementIntegrationTest {
         // With lifted ban, register should succeed
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"lifted-" + UUID.randomUUID()
-                                + "@x.com\",\"password\":\"hunter22abc\",\"displayName\":\"Lifted\"}"))
+                        .content("{\"username\":\"lifted-" + UUID.randomUUID()
+                                + "@x.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated());
     }
 
@@ -320,8 +320,8 @@ class BanEnforcementIntegrationTest {
         // With expired ban, register should succeed
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"expired-" + UUID.randomUUID()
-                                + "@x.com\",\"password\":\"hunter22abc\",\"displayName\":\"Expired\"}"))
+                        .content("{\"username\":\"expired-" + UUID.randomUUID()
+                                + "@x.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated());
     }
 
@@ -331,7 +331,7 @@ class BanEnforcementIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

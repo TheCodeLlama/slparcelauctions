@@ -1,4 +1,4 @@
-# SLPA — Second Life Parcel Auctions
+# SLParcels
 
 Player-to-player land auction platform for Second Life. Bridges a web-based auction UI to in-world Second Life via verification terminals, escrow objects, and bot services. Phase 1 supports Mainland parcels only.
 

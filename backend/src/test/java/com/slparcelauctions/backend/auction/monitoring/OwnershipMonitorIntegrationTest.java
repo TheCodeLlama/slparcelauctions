@@ -265,7 +265,7 @@ class OwnershipMonitorIntegrationTest {
     private Long seedActiveAuction(UUID sellerAvatar, UUID parcelUuid, int consecutiveFailures) {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         return tx.execute(ts -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("monitor-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Monitor Seller")

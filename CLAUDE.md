@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SLPA (Second Life Parcel Auctions) is a player-to-player land auction platform for Second Life. It bridges web-based auctions with the Second Life virtual world through verification terminals, escrow objects, and bot services. Phase 1 supports Mainland parcels only.
+SLParcels is a player-to-player land auction platform for Second Life. It bridges web-based auctions with the Second Life virtual world through verification terminals, escrow objects, and bot services. Phase 1 supports Mainland parcels only.
 
 ## Architecture
 
@@ -139,7 +139,7 @@ Server components and Amplify build-time prerendering have surprised us repeated
 
 ## In-world payment terminals — always refund on deposit error
 
-Once L$ has reached an SLPA Terminal script (the `money()` event has fired), every non-OK backend response **must** bounce the L$ back via `llTransferLindenDollars`. The earlier "ERROR could be an attacker probing, owner-say only" rationale was wrong — SL header + shared-secret pre-flight rejects bad senders before any L$-bearing path runs, so a real ERROR reaching the deposit response handler is a legitimate-but-failed deposit, not an attack. Backend `/sl/wallet/deposit` returns REFUND (not ERROR) for any failure after L$ is in hand; the LSL script also refunds on ERROR responses defensively. Withdraw-side errors are different — no L$ has moved, ERROR is fine there.
+Once L$ has reached an SLParcels Terminal script (the `money()` event has fired), every non-OK backend response **must** bounce the L$ back via `llTransferLindenDollars`. The earlier "ERROR could be an attacker probing, owner-say only" rationale was wrong — SL header + shared-secret pre-flight rejects bad senders before any L$-bearing path runs, so a real ERROR reaching the deposit response handler is a legitimate-but-failed deposit, not an attack. Backend `/sl/wallet/deposit` returns REFUND (not ERROR) for any failure after L$ is in hand; the LSL script also refunds on ERROR responses defensively. Withdraw-side errors are different — no L$ has moved, ERROR is fine there.
 
 ## AWS / Prod Ops
 

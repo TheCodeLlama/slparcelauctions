@@ -35,7 +35,7 @@ export function GroupToggleRow({
           value ? "bg-brand" : "bg-bg-hover border border-border",
           mutedDisabled && "opacity-50 cursor-not-allowed"
         )}
-        aria-label={`${label} — ${value ? "on" : "off"}${mutedDisabled ? " (muted)" : ""}`}
+        aria-label={`${label}: ${value ? "on" : "off"}${mutedDisabled ? " (muted)" : ""}`}
         data-testid={`group-toggle-${group}`}
       >
         <span

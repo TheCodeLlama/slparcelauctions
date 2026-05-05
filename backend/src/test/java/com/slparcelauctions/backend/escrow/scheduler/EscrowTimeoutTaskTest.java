@@ -257,7 +257,7 @@ class EscrowTimeoutTaskTest {
     // -------------------------------------------------------------------------
 
     private Escrow buildEscrow(EscrowState state) {
-        User seller = User.builder().id(SELLER_ID).email("seller@example.com")
+        User seller = User.builder().id(SELLER_ID).email("seller@example.com").username("seller")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
         Auction auction = Auction.builder()
                 .title("Test listing")
@@ -287,7 +287,7 @@ class EscrowTimeoutTaskTest {
                 .build());
         // Use a bare in-memory User stub for winner-side references if needed;
         // the task does not read it.
-        User.builder().id(WINNER_ID).email("winner@example.com")
+        User.builder().id(WINNER_ID).email("winner@example.com").username("winner")
                 .slAvatarUuid(WINNER_AVATAR).verified(true).build();
         return Escrow.builder()
                 .id(ESCROW_ID)

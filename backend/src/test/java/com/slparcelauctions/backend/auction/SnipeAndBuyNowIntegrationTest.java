@@ -94,17 +94,17 @@ class SnipeAndBuyNowIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "snipe-seller@example.com", "SnipeSeller",
                 "11111111-aaaa-bbbb-cccc-000000000101");
-        sellerId = userRepository.findByEmail("snipe-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("snipe-seller@example.com").orElseThrow().getId();
 
         bidder1AccessToken = registerAndVerifyUser(
                 "snipe-bidder-1@example.com", "SnipeBidderOne",
                 "22222222-aaaa-bbbb-cccc-000000000102");
-        bidder1Id = userRepository.findByEmail("snipe-bidder-1@example.com").orElseThrow().getId();
+        bidder1Id = userRepository.findByUsername("snipe-bidder-1@example.com").orElseThrow().getId();
 
         bidder2AccessToken = registerAndVerifyUser(
                 "snipe-bidder-2@example.com", "SnipeBidderTwo",
                 "33333333-aaaa-bbbb-cccc-000000000103");
-        bidder2Id = userRepository.findByEmail("snipe-bidder-2@example.com").orElseThrow().getId();
+        bidder2Id = userRepository.findByUsername("snipe-bidder-2@example.com").orElseThrow().getId();
 
         sellerParcelUuid = seedParcel();
     }
@@ -257,7 +257,7 @@ class SnipeAndBuyNowIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

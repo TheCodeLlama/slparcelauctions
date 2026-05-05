@@ -58,7 +58,7 @@ class NotificationDaoUpsertTest {
 
     @BeforeEach
     void createUser() {
-        User user = userRepository.save(User.builder()
+        User user = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("notif-dao-test-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash")
                 .build());

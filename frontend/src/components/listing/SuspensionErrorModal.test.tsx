@@ -18,7 +18,7 @@ describe("SuspensionErrorModal", () => {
     expect(modal.dataset.code).toBe("PENALTY_OWED");
     expect(modal).toHaveTextContent(/penalty owed/i);
     expect(modal).toHaveTextContent(/outstanding penalty balance/i);
-    expect(modal).toHaveTextContent(/SLPA terminal/i);
+    expect(modal).toHaveTextContent(/SLParcels terminal/i);
   });
 
   it("renders the TIMED_SUSPENSION variant", () => {

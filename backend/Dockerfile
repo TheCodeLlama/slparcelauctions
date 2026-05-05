@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 #
-# Production multi-stage build for the SLPA backend (Spring Boot 4 / Java 26).
+# Production multi-stage build for the SLParcels backend (Spring Boot 4 / Java 26).
 #
 # - Stage 1 (build):    JDK + Maven, builds the fat jar, then extracts Spring
 #                       Boot's layered structure for efficient image caching

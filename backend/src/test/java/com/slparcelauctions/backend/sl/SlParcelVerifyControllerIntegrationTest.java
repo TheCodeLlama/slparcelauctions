@@ -75,7 +75,7 @@ class SlParcelVerifyControllerIntegrationTest {
         sellerAvatarUuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         sellerAccessToken = registerAndVerifyUser(
                 "method-b-seller@example.com", "MethodBSeller", sellerAvatarUuid);
-        sellerId = userRepository.findByEmail("method-b-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("method-b-seller@example.com").orElseThrow().getId();
         parcelUuid = seedParcel();
     }
 
@@ -235,7 +235,7 @@ class SlParcelVerifyControllerIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

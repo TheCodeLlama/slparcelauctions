@@ -31,7 +31,7 @@ const VISIBLE_MS = 4_000;
  * extension. Copy mirrors spec §10:
  *
  * <pre>
- *   Auction extended by {N}m — {remainingAfterExtension}
+ *   Auction extended by {N}m. {remainingAfterExtension}
  * </pre>
  *
  * Lifetime is driven by the parent: pass {@code isVisible=true} to
@@ -68,7 +68,7 @@ export function SnipeExtensionBanner({
         <span className="font-semibold">
           Auction extended by {extensionMinutes}m
         </span>
-        {" — "}
+        {". "}
         <span>{remainingAfterExtension}</span>
       </span>
     </div>

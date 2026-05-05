@@ -270,7 +270,7 @@ class AdminDisputeServiceTest {
 
     private void seed(EscrowState startingState, boolean funded) {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("dispute-resolve-seller-" + UUID.randomUUID() + "@test.com")
                     .passwordHash("hash")
                     .displayName("Dispute Resolve Seller")
@@ -279,7 +279,7 @@ class AdminDisputeServiceTest {
                     .cancelledWithBids(0)
                     .penaltyBalanceOwed(0L)
                     .build());
-            User bidder = userRepo.save(User.builder()
+            User bidder = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("dispute-resolve-bidder-" + UUID.randomUUID() + "@test.com")
                     .passwordHash("hash")
                     .displayName("Dispute Resolve Bidder")
@@ -288,7 +288,7 @@ class AdminDisputeServiceTest {
                     .cancelledWithBids(0)
                     .penaltyBalanceOwed(0L)
                     .build());
-            User admin = userRepo.save(User.builder()
+            User admin = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("dispute-resolve-admin-" + UUID.randomUUID() + "@test.com")
                     .passwordHash("hash")
                     .displayName("Dispute Resolve Admin")

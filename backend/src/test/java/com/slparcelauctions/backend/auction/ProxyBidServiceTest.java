@@ -80,9 +80,9 @@ class ProxyBidServiceTest {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
         service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
 
-        seller = User.builder().id(10L).email("seller@example.com")
+        seller = User.builder().id(10L).email("seller@example.com").username("seller")
                 .displayName("Seller").verified(true).build();
-        bidder = User.builder().id(20L).email("bidder@example.com")
+        bidder = User.builder().id(20L).email("bidder@example.com").username("bidder")
                 .displayName("Bidder").verified(true).build();
 
         activeAuction = Auction.builder()

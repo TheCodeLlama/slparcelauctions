@@ -78,7 +78,7 @@ class MeWalletLedgerControllerSliceTest {
         // don't leak across tests when the suite shares a DB.
         String suffix = UUID.randomUUID().toString();
         User user = userRepository.save(User.builder()
-                .email("ledger-slice-" + suffix + "@example.com")
+                .email("ledger-slice-" + suffix + "@example.com").username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)

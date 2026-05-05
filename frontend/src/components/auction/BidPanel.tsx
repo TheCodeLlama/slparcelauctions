@@ -205,9 +205,9 @@ function CurrentBidDisplay({
 }
 
 function formatHighBid(value: number | string | null): string {
-  if (value == null) return "—";
+  if (value == null) return "-";
   const n = typeof value === "string" ? Number(value) : value;
-  if (!Number.isFinite(n)) return "—";
+  if (!Number.isFinite(n)) return "-";
   return n.toLocaleString();
 }
 

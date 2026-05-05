@@ -43,7 +43,7 @@ class AuctionPhotoServiceTest {
     void setup() {
         ReflectionTestUtils.setField(service, "maxPerListing", 10);
 
-        User seller = User.builder().id(42L).email("s@example.com").build();
+        User seller = User.builder().id(42L).email("s@example.com").username("s").build();
         draftAuction = Auction.builder()
                 .title("Test listing")
                 .id(1L)

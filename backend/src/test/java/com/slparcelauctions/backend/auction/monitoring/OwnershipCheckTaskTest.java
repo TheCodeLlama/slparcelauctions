@@ -287,7 +287,7 @@ class OwnershipCheckTaskTest {
     // -------------------------------------------------------------------------
 
     private Auction buildActive() {
-        User seller = User.builder().id(42L).email("s@example.com")
+        User seller = User.builder().id(42L).email("s@example.com").username("s")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
         return Auction.builder()
                 .title("Test listing")

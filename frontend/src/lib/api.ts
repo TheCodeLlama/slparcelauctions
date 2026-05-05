@@ -20,7 +20,7 @@ export function configureApiClient(queryClient: QueryClient): void {
  * RFC 7807 Problem Details. Matches the shape that
  * backend/src/main/java/.../common/GlobalExceptionHandler.java emits.
  *
- * `errors` is a SLPA extension for validation failures —
+ * `errors` is a SLParcels extension for validation failures —
  * { fieldName: "must not be blank", ... } — populated by the
  * MethodArgumentNotValidException handler.
  */

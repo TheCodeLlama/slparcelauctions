@@ -191,21 +191,21 @@ class BidBidRaceTest {
     private void setup() {
         // Seller + two verified bidders + parcel + ACTIVE auction. Saved
         // OUTSIDE the test transaction so both race threads can see them.
-        User seller = userRepository.save(User.builder()
+        User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Race Seller")
                 .verified(true)
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
-        User bidderA = userRepository.save(User.builder()
+        User bidderA = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-bidder-a-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Race Bidder A")
                 .verified(true)
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
-        User bidderB = userRepository.save(User.builder()
+        User bidderB = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-bidder-b-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Race Bidder B")

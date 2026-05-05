@@ -67,7 +67,7 @@ export function WalletTermsModal({
   return (
     <Modal
       open={open}
-      title="SLPA Wallet Terms of Use"
+      title="SLParcels Wallet Terms of Use"
       onClose={onClose}
       footer={
         <>
@@ -85,7 +85,7 @@ export function WalletTermsModal({
         </>
       }
     >
-      <p>By using the SLPA wallet, you acknowledge:</p>
+      <p>By using the SLParcels wallet, you acknowledge:</p>
       <ul className="list-disc pl-5 space-y-1">
         <li>
           <strong>Non-interest-bearing.</strong> L$ held in your wallet do not
@@ -93,18 +93,18 @@ export function WalletTermsModal({
         </li>
         <li>
           <strong>L$ status.</strong> L$ are a Linden Lab limited-license token,
-          not currency. SLPA holds L$ on your behalf as a transactional convenience.
+          not currency. SLParcels holds L$ on your behalf as a transactional convenience.
         </li>
         <li>
-          <strong>No L$&harr;USD conversion.</strong> SLPA does not exchange L$
+          <strong>No L$&harr;USD conversion.</strong> SLParcels does not exchange L$
           for USD or any other currency.
         </li>
         <li>
-          <strong>Recoverable on shutdown.</strong> If SLPA ceases operations,
+          <strong>Recoverable on shutdown.</strong> If SLParcels ceases operations,
           all positive wallet balances will be returned to your verified SL avatar.
         </li>
         <li>
-          <strong>Freezable for fraud.</strong> SLPA may freeze a wallet balance
+          <strong>Freezable for fraud.</strong> SLParcels may freeze a wallet balance
           pending fraud investigation, max 30 days absent legal process.
         </li>
         <li>

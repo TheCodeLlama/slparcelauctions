@@ -41,7 +41,7 @@ class UserControllerUpdateMeSliceTest {
     /** Register + login and return the accessToken for use in Authorization headers. */
     private String registerAndLogin(String email) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"Tester\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email);
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -105,6 +105,13 @@ class UserControllerUpdateMeSliceTest {
     @Test
     void put_me_nullFields_skipsUpdate() throws Exception {
         String token = registerAndLogin("put-me-null@example.com");
+        // Seed an initial displayName so we can verify a null PUT does NOT
+        // overwrite it. Registration no longer populates displayName.
+        mockMvc.perform(put("/api/v1/users/me")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\"Tester\"}"))
+                .andExpect(status().isOk());
 
         mockMvc.perform(put("/api/v1/users/me")
                 .header("Authorization", "Bearer " + token)
@@ -128,7 +135,7 @@ class UserControllerUpdateMeSliceTest {
         mockMvc.perform(put("/api/v1/users/me")
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"displayName\":\"Alice\",\"email\":\"hacker@example.com\",\"role\":\"admin\"}"))
+                .content("{\"username\":\"hacker@example.com\",\"role\":\"admin\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("https://slpa.example/problems/user/unknown-field"))
                 .andExpect(jsonPath("$.code").value("USER_UNKNOWN_FIELD"));

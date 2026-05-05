@@ -60,7 +60,7 @@ describe("VerificationCodeDisplay", () => {
     expect(await screen.findByText("123456")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /enter this code at any slpa verification terminal/i,
+        /enter this code at any slparcels verification terminal/i,
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("timer")).toBeInTheDocument();

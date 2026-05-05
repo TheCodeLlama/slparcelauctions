@@ -96,7 +96,7 @@ resource "aws_ecs_task_definition" "backend" {
         interval = 30
         timeout  = 5
         retries  = 3
-        # Spring Boot 4 + Java 26 + the SLPA bean graph takes ~150-180s to
+        # Spring Boot 4 + Java 26 + the SLParcels bean graph takes ~150-180s to
         # finish context init on a 0.25 vCPU Fargate task. startPeriod=180
         # gives the JVM headroom to bind 8080 before failed checks count
         # toward the unhealthy threshold. With 0.5 vCPU the real boot is

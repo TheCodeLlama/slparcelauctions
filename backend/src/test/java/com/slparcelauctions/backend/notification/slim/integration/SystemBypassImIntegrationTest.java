@@ -86,7 +86,7 @@ class SystemBypassImIntegrationTest {
         var rows = slImRepo.findAll().stream()
             .filter(m -> m.getUserId().equals(u.getId())).toList();
         assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getMessageText()).contains("[SLPA] All systems normal");
+        assertThat(rows.get(0).getMessageText()).contains("[SLParcels] All systems normal");
     }
 
     @Test
@@ -125,7 +125,7 @@ class SystemBypassImIntegrationTest {
     }
 
     private User saveUserAllOff(boolean hasAvatar) {
-        User u = User.builder()
+        User u = User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build();
         if (hasAvatar) u.setSlAvatarUuid(UUID.randomUUID());

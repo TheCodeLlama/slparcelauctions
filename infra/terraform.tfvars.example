@@ -1,5 +1,5 @@
 ################################################################################
-# SLPA — Terraform variable overrides (example)
+# SLParcels — Terraform variable overrides (example)
 #
 # Copy to terraform.tfvars (gitignored) and fill in non-default values for your
 # deployment. Most variables have sane launch-lite defaults in variables.tf;

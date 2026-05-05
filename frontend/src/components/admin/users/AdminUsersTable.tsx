@@ -74,7 +74,7 @@ export function AdminUsersTable({ rows }: Props) {
                     {truncateUuid(row.slAvatarUuid)}
                   </span>
                 ) : (
-                  <span className="text-fg-muted/50">—</span>
+                  <span className="text-fg-muted/50">-</span>
                 )}
               </td>
               <td className="px-3 py-2.5">
@@ -101,7 +101,7 @@ export function AdminUsersTable({ rows }: Props) {
                     BANNED
                   </span>
                 ) : (
-                  <span className="text-[11px] text-fg-muted">—</span>
+                  <span className="text-[11px] text-fg-muted">-</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.createdAt)}</td>

@@ -52,7 +52,7 @@ import type { Page } from "@/types/page";
  *
  * Per-test overrides:
  *   server.use(authHandlers.loginSuccess())
- *   server.use(authHandlers.registerEmailExists())
+ *   server.use(authHandlers.registerUsernameExists())
  *
  * Handler factories take optional fixture parameters (e.g., a custom user) so
  * tests can specialize without rebuilding the response from scratch.
@@ -93,15 +93,15 @@ export const authHandlers = {
       })
     ),
 
-  registerEmailExists: () =>
+  registerUsernameExists: () =>
     http.post("*/api/v1/auth/register", () =>
       HttpResponse.json(
         {
-          type: "https://slpa.example/problems/auth/email-exists",
-          title: "Email already registered",
+          type: "https://slpa.example/problems/auth/username-exists",
+          title: "Username already taken",
           status: 409,
-          detail: "An account with that email already exists.",
-          code: "AUTH_EMAIL_EXISTS",
+          detail: "An account with that username already exists.",
+          code: "AUTH_USERNAME_EXISTS",
         },
         { status: 409 }
       )
@@ -139,7 +139,7 @@ export const authHandlers = {
           type: "https://slpa.example/problems/auth/invalid-credentials",
           title: "Invalid credentials",
           status: 401,
-          detail: "Email or password is incorrect.",
+          detail: "Username or password is incorrect.",
           code: "AUTH_INVALID_CREDENTIALS",
         },
         { status: 401 }

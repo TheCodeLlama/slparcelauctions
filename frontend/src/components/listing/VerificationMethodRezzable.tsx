@@ -19,7 +19,7 @@ export interface VerificationMethodRezzableProps {
 
 /**
  * REZZABLE in-progress panel. Shows the parcel verification code for
- * the seller to paste into an SLPA Parcel Terminal object they rez
+ * the seller to paste into an SLParcels Parcel Terminal object they rez
  * on-parcel.
  *
  * Code expiry:
@@ -106,7 +106,7 @@ export function VerificationMethodRezzable({
       ) : null}
       <ol className="list-decimal list-inside flex flex-col gap-2 rounded-lg bg-bg-subtle p-6 text-sm text-fg">
         <li>
-          Open your SL inventory and find the &quot;SLPA Parcel Terminal&quot;
+          Open your SL inventory and find the &quot;SLParcels Parcel Terminal&quot;
           object.
         </li>
         <li>Rez it on the parcel you&apos;re listing.</li>

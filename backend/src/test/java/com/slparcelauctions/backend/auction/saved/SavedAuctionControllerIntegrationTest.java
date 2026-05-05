@@ -94,7 +94,7 @@ class SavedAuctionControllerIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "saved-seller@example.com", "SavedSeller",
                 "11111111-aaaa-bbbb-cccc-000000000201");
-        sellerId = userRepository.findByEmail("saved-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("saved-seller@example.com").orElseThrow().getId();
 
         bidderAccessToken = registerAndVerifyUser(
                 "saved-bidder@example.com", "SavedBidder",
@@ -366,7 +366,7 @@ class SavedAuctionControllerIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

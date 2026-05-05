@@ -8,19 +8,11 @@ export default function LoginPage() {
   return (
     <AuthCard>
       <AuthCard.Title>Welcome Back</AuthCard.Title>
-      <AuthCard.Subtitle>Sign in to your SLPA account.</AuthCard.Subtitle>
+      <AuthCard.Subtitle>Sign in to your SLParcels account.</AuthCard.Subtitle>
       <AuthCard.Body>
         <Suspense>
           <LoginForm />
         </Suspense>
-        <div className="text-center">
-          <Link
-            href="/forgot-password"
-            className="text-xs font-medium text-brand hover:underline"
-          >
-            Forgot your password?
-          </Link>
-        </div>
       </AuthCard.Body>
       <AuthCard.Footer>
         New to the curator?{" "}

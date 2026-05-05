@@ -272,7 +272,7 @@ describe("AuctionPage generateMetadata", () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ publicId: "" }),
     });
-    expect(meta.title).toBe("Auction · SLPA");
+    expect(meta.title).toBe("Auction · SLParcels");
   });
 
   it("returns OG metadata derived from the auction fetch", async () => {
@@ -298,7 +298,7 @@ describe("AuctionPage generateMetadata", () => {
       params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000000007" }),
     });
 
-    expect(meta.title).toBe("Epic Beachfront Parcel · SLPA");
+    expect(meta.title).toBe("Epic Beachfront Parcel · SLParcels");
     expect(meta.description).toContain("Heterocera");
     expect(meta.description).toContain("1024");
     expect(meta.description).toContain("4,200");
@@ -356,7 +356,7 @@ describe("AuctionPage generateMetadata", () => {
     const meta = await generateMetadata({
       params: Promise.resolve({ publicId: "00000000-0000-0000-0000-000000002707" }),
     });
-    expect(meta.title).toBe("Auction · SLPA");
+    expect(meta.title).toBe("Auction · SLParcels");
   });
 
   it("generateMetadata and AuctionPage both consume the same cached helper module", async () => {
@@ -749,7 +749,7 @@ describe("AuctionDetailClient", () => {
     );
     const row = screen.getByTestId("auction-ended-row");
     expect(row).toHaveAttribute("data-outcome", "SOLD");
-    expect(row).toHaveTextContent("Auction ended — L$2,500");
+    expect(row).toHaveTextContent("Auction ended at L$2,500");
   });
 
   it("surfaces the snipe-extension banner on a snipe-triggering envelope", async () => {

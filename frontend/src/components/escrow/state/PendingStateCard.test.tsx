@@ -86,7 +86,7 @@ describe("PendingStateCard", () => {
         />,
       );
       expect(
-        screen.getByText(/slpa terminal in-world/i),
+        screen.getByText(/slparcels terminal in-world/i),
       ).toBeInTheDocument();
     });
 

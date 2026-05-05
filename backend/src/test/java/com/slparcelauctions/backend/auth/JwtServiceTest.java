@@ -53,7 +53,7 @@ class JwtServiceTest {
         // userId is a sentinel null after parse — resolved by JwtAuthenticationFilter
         assertThat(parsed.userId()).isNull();
         assertThat(parsed.userPublicId()).isEqualTo(publicId);
-        assertThat(parsed.email()).isEqualTo("user@example.com");
+        assertThat(parsed.username()).isEqualTo("user@example.com");
         assertThat(parsed.tokenVersion()).isEqualTo(3L);
         assertThat(parsed.role()).isEqualTo(Role.USER);
     }
@@ -107,7 +107,7 @@ class JwtServiceTest {
         AuthPrincipal parsed = jwtService.parseAccessToken(token);
 
         assertThat(parsed.userPublicId()).isEqualTo(publicId);
-        assertThat(parsed.email()).isEqualTo("a@b.com");
+        assertThat(parsed.username()).isEqualTo("a@b.com");
         assertThat(parsed.tokenVersion()).isEqualTo(0L);
         assertThat(parsed.role()).isEqualTo(Role.USER);
         assertThat(parsed.userId()).isNull();

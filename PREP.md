@@ -1,4 +1,4 @@
-# SLPA AWS Deployment — Pre-flight Setup
+# SLParcels AWS Deployment — Pre-flight Setup
 
 Everything you need to do **before** I can start writing Terraform or touching AWS. Follow top-to-bottom. Each step says exactly what to click, type, or run, and what to expect when it works.
 
@@ -29,14 +29,14 @@ When you finish, ping me and I'll start on Step 1 of the implementation flow (Fl
 
 ## Step 1 — AWS account ready
 
-**If you already have an AWS account you'll use for SLPA:** skip to Step 2. Make sure a payment method is on file (the launch-lite SLPA bill will be ~$130-180/mo).
+**If you already have an AWS account you'll use for SLParcels:** skip to Step 2. Make sure a payment method is on file (the launch-lite SLParcels bill will be ~$130-180/mo).
 
 **If you need to create one:**
 
 1. Go to https://aws.amazon.com/free/
 2. Click "Create an AWS Account" (top right).
 3. Email + password + AWS account name. Use a real email you check; AWS sends bills + alerts here.
-4. Account type: **Personal** (or Business, doesn't materially matter for SLPA).
+4. Account type: **Personal** (or Business, doesn't materially matter for SLParcels).
 5. Add a credit card. AWS pre-authorizes $1 to verify; refunded immediately.
 6. Phone verification (SMS or call).
 7. Pick the **Basic Support plan** (free).
@@ -65,7 +65,7 @@ This is AWS's modern SSO service (formerly "AWS SSO"). You'll use it to log in v
 1. Sign in to the AWS Console as the **root user** (the email you used in Step 1). For this one-time setup; we'll switch off root immediately after.
 2. Top-left search bar: search **"IAM Identity Center"** and click it.
 3. If you see "Enable" — click it. AWS asks where to enable:
-   - **Region:** choose **`US East (N. Virginia) — us-east-1`** to match the SLPA stack region.
+   - **Region:** choose **`US East (N. Virginia) — us-east-1`** to match the SLParcels stack region.
    - Click **Enable**. Takes ~30 seconds.
 4. If Identity Center is already enabled in another region, you'll need to disable + re-enable in `us-east-1`, OR accept the cross-region setup. Cleanest is to enable directly in `us-east-1` from the start.
 
@@ -173,7 +173,7 @@ Next prompts:
 
 | Prompt                                                 | Your answer                                                                |
 |--------------------------------------------------------|----------------------------------------------------------------------------|
-| (account selection)                                    | If you have one account, it auto-selects. Otherwise pick the SLPA account. |
+| (account selection)                                    | If you have one account, it auto-selects. Otherwise pick the SLParcels account. |
 | (role selection)                                       | Pick `AdministratorAccess`.                                                |
 | `CLI default client Region [None]:`                    | `us-east-1`                                                                |
 | `CLI default output format [None]:`                    | `json`                                                                     |
@@ -299,7 +299,7 @@ aws dynamodb describe-table --table-name slpa-prod-tfstate-lock --query "Table.T
 
 First should return one bucket entry; second should return `"ACTIVE"`.
 
-**Cost: ~$0.20/mo for the bucket + DynamoDB.** Pay-per-request DynamoDB is essentially free at SLPA's lock-acquisition rate.
+**Cost: ~$0.20/mo for the bucket + DynamoDB.** Pay-per-request DynamoDB is essentially free at SLParcels' lock-acquisition rate.
 
 ---
 

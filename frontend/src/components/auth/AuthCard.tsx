@@ -7,7 +7,7 @@ type AuthCardProps = { children: ReactNode };
 /**
  * Compound layout component for the three auth pages (register, login,
  * forgot-password). Wraps the existing Card primitive in a centered container
- * with the SLPA brand header always rendered at the top.
+ * with the SLParcels brand header always rendered at the top.
  *
  * Compound subcomponents:
  *   <AuthCard.Title />     — h2 headline
@@ -31,7 +31,7 @@ export function AuthCard({ children }: AuthCardProps) {
       {/* Brand header — always rendered, not a slot */}
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold tracking-tight font-black uppercase tracking-tight text-fg">
-          SLPA
+          SLParcels
         </h1>
         <p className="mt-2 text-[11px] font-medium uppercase tracking-widest text-fg-muted">
           The Digital Curator

@@ -1,5 +1,5 @@
 ################################################################################
-# SLPA — Terraform variables
+# SLParcels — Terraform variables
 #
 # Every variable is annotated with whether it's a launch-lite default or an
 # upgrade lever. Spec reference: §5 (Launch-lite vs. production-tier upgrade

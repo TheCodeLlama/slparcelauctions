@@ -51,7 +51,7 @@ class BanRepositoryTest {
     @BeforeEach
     void seedAdmin() {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User admin = userRepo.save(User.builder()
+            User admin = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("ban-repo-admin-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

@@ -39,7 +39,7 @@ export function escrowBannerCopy(input: BannerCopyInput): BannerCopyResult {
       if (role === "winner") {
         return {
           headline: "Pay escrow",
-          detail: "at an SLPA terminal in-world.",
+          detail: "at an SLParcels terminal in-world.",
           tone: "action",
         };
       }
@@ -77,14 +77,14 @@ export function escrowBannerCopy(input: BannerCopyInput): BannerCopyResult {
     case "DISPUTED":
       return {
         headline: "Escrow disputed",
-        detail: "SLPA staff is reviewing.",
+        detail: "SLParcels staff is reviewing.",
         tone: "problem",
       };
 
     case "FROZEN":
       return {
         headline: "Escrow frozen",
-        detail: "SLPA staff is investigating.",
+        detail: "SLParcels staff is investigating.",
         tone: "problem",
       };
 

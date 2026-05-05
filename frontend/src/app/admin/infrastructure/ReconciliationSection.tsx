@@ -10,7 +10,7 @@ export function ReconciliationSection() {
       <header className="flex justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold">Daily balance reconciliation</h2>
-          <p className="text-[10px] opacity-55">Sum of pending escrow vs SLPA SL account · runs 03:00 UTC daily</p>
+          <p className="text-[10px] opacity-55">Sum of pending escrow vs SLParcels SL account · runs 03:00 UTC daily</p>
         </div>
         {latest && (
           <span className={`px-2.5 py-1 rounded-full text-[10px] ${badgeFor(latest.status)}`}>
@@ -25,8 +25,8 @@ export function ReconciliationSection() {
         <div className="bg-bg-subtle rounded p-3 mb-3 text-xs space-y-1">
           <Row label="Last run" value={new Date(latest.ranAt).toLocaleString()} />
           <Row label="Expected (locked sum)" value={`L$ ${latest.expected}`} />
-          <Row label="Observed (grid balance)" value={latest.observed !== null ? `L$ ${latest.observed}` : "—"} />
-          <Row label="Drift" value={latest.drift !== null ? `L$ ${latest.drift}` : "—"} />
+          <Row label="Observed (grid balance)" value={latest.observed !== null ? `L$ ${latest.observed}` : "-"} />
+          <Row label="Drift" value={latest.drift !== null ? `L$ ${latest.drift}` : "-"} />
           {latest.errorMessage && <p className="text-danger text-[11px] mt-2">{latest.errorMessage}</p>}
         </div>
       )}
@@ -38,7 +38,7 @@ export function ReconciliationSection() {
             {runs.map((r) => (
               <span key={r.id} className={`px-2 py-1 rounded text-[10.5px] ${badgeFor(r.status)}`}>
                 {new Date(r.ranAt).toLocaleDateString()}{" "}
-                {r.status === "BALANCED" ? "✓" : r.status === "MISMATCH" ? `⚠ L$ ${r.drift}` : "—"}
+                {r.status === "BALANCED" ? "✓" : r.status === "MISMATCH" ? `⚠ L$ ${r.drift}` : "-"}
               </span>
             ))}
           </div>

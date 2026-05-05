@@ -36,7 +36,7 @@ describe("ActiveFilters", () => {
       maxPrice: 500,
     };
     renderWithProviders(<ActiveFilters query={q} onChange={() => {}} />);
-    expect(screen.getByText("L$100–500")).toBeInTheDocument();
+    expect(screen.getByText("L$100-500")).toBeInTheDocument();
   });
 
   it("renders maturity csv chip", () => {

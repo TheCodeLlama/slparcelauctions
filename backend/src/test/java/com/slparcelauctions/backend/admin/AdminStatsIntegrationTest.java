@@ -63,7 +63,7 @@ class AdminStatsIntegrationTest {
     @BeforeEach
     void seed() {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("stats-seller-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

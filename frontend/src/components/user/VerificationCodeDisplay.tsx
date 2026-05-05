@@ -24,7 +24,7 @@ export function VerificationCodeDisplay() {
       <div className="flex flex-col items-center gap-6 py-8">
         <p className="text-base text-fg-muted text-center max-w-md">
           Click the button below to generate a 6-digit verification code.
-          You&apos;ll have 15 minutes to enter it at any SLPA Verification
+          You&apos;ll have 15 minutes to enter it at any SLParcels Verification
           Terminal in Second Life.
         </p>
         <Button
@@ -46,9 +46,9 @@ export function VerificationCodeDisplay() {
     <div className="flex flex-col items-center gap-6 py-8">
       <CodeDisplay
         code={activeCode.code}
-        label="Enter this code at any SLPA Verification Terminal"
+        label="Enter this code at any SLParcels Verification Terminal"
         onCopySuccess={() => toast.success("Code copied to clipboard")}
-        onCopyError={() => toast.error("Failed to copy — copy the code manually")}
+        onCopyError={() => toast.error("Failed to copy. Copy the code manually.")}
       />
       <div className="flex items-center gap-2 text-fg-muted">
         <span className="text-xs">Expires in</span>

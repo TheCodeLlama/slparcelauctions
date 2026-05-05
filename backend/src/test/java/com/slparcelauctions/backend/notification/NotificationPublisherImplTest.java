@@ -100,7 +100,7 @@ class NotificationPublisherImplTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private User testUser(String prefix) {
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email(prefix + "-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash").build());
         userIds.add(u.getId());

@@ -143,7 +143,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             AuthPrincipal principal = new AuthPrincipal(
                 user.getId(),
                 user.getPublicId(),
-                parsed.email(),
+                parsed.username(),
                 parsed.tokenVersion(),
                 parsed.role());
 

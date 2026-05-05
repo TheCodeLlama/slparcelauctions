@@ -79,7 +79,7 @@ class AuctionEndTaskTest {
         lenient().when(bidRepo.findDistinctBidderUserIdsByAuctionId(anyLong()))
                 .thenReturn(List.of());
         // Default seller so notification publisher calls (auction.getSeller().getId()) never NPE.
-        defaultSeller = User.builder().id(1L).displayName("Default Seller").build();
+        defaultSeller = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).displayName("Default Seller").build();
         // Manually init synchronization so registerSynchronization inside
         // closeOne does not blow up (the @Transactional proxy normally
         // handles this but the unit test invokes closeOne directly).
@@ -99,7 +99,7 @@ class AuctionEndTaskTest {
 
     @Test
     void sold_whenBidAboveReserve_setsWinnerAndFinalBid_publishesEnvelopeWithDisplayName() {
-        User winner = User.builder().id(7L).displayName("Top Bidder").build();
+        User winner = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(7L).displayName("Top Bidder").build();
         Auction auction = Auction.builder()
                 .seller(defaultSeller)
                 .title("Test listing")
@@ -234,7 +234,7 @@ class AuctionEndTaskTest {
     void sold_whenNoReserveSet_andBidsExist() {
         // No reserve_price at all + bidCount > 0 must land on SOLD (not
         // RESERVE_NOT_MET) — the null-guard short-circuits the comparison.
-        User winner = User.builder().id(9L).displayName("Any Bidder").build();
+        User winner = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(9L).displayName("Any Bidder").build();
         Auction auction = Auction.builder()
                 .seller(defaultSeller)
                 .title("Test listing")

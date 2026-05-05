@@ -1,6 +1,6 @@
 # SL IM Dispatcher
 
-In-world component of the SLPA SL IM notification channel. Polls the SLPA
+In-world component of the SLParcels SL IM notification channel. Polls the SLParcels
 backend for pending IMs and delivers them via `llInstantMessage`.
 
 ## Architecture summary
@@ -16,7 +16,7 @@ backend for pending IMs and delivers them via `llInstantMessage`.
 
 ## Deployment
 
-This is a **SLPA-team-deployed object**, one per environment. Not user-deployed.
+This is a **SLParcels-team-deployed object**, one per environment. Not user-deployed.
 
 1. Rez a generic prim somewhere with reliable land permissions (group land or
    owner-controlled). Outbound HTTP must be permitted on that parcel.
@@ -26,7 +26,7 @@ This is a **SLPA-team-deployed object**, one per environment. Not user-deployed.
 4. Reset the script (right-click → Edit → Reset Scripts in Selection).
 5. Watch local chat for the startup message: `SL IM dispatcher: ready (poll=...)`.
 
-Object ownership and modify permissions should be tightly scoped to SLPA-team
+Object ownership and modify permissions should be tightly scoped to SLParcels-team
 avatars only. The shared secret is in the notecard, visible to anyone with
 edit-rights on the object.
 
@@ -45,7 +45,7 @@ with `#` are comments. Whitespace is trimmed. Required keys:
 ### Rotating the shared secret
 
 1. Update the deployment's secrets store with the new value.
-2. Restart the SLPA backend so it picks up the new secret.
+2. Restart the SLParcels backend so it picks up the new secret.
 3. Edit the `config` notecard with the new `SHARED_SECRET` value.
 4. Reset the script (the `changed(CHANGED_INVENTORY)` handler also auto-resets,
    but a manual reset is faster).
@@ -106,7 +106,7 @@ Three load-bearing notes:
 
 The shared secret is a deployment artifact; treat it like a database password.
 Notecard contents are visible to anyone with object-edit rights, so the
-dispatcher prim's ownership and modify permissions should be SLPA-team-only.
+dispatcher prim's ownership and modify permissions should be SLParcels-team-only.
 A leaked shared secret means an attacker can pull the entire pending IM queue
 and confirm-mark messages as DELIVERED, blocking real delivery — rotate
 immediately if compromise is suspected.

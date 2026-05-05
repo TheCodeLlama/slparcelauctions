@@ -74,7 +74,7 @@ class AdminFraudFlagReinstateIntegrationTest {
     @BeforeEach
     void seed() {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("reinstate-int-seller-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -82,7 +82,7 @@ class AdminFraudFlagReinstateIntegrationTest {
                 .build());
             sellerId = seller.getId();
 
-            User admin = userRepo.save(User.builder()
+            User admin = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("reinstate-int-admin-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

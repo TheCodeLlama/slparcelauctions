@@ -39,7 +39,7 @@ export function PendingStateCard({ escrow, role }: StateCardProps) {
             Pay L$ {escrow.finalBidAmount.toLocaleString()}
           </h2>
           <p className="text-sm text-fg-muted">
-            Pay at an SLPA terminal in-world. Your winning bid needs to land
+            Pay at an SLParcels terminal in-world. Your winning bid needs to land
             before the payment deadline.
           </p>
           <div>

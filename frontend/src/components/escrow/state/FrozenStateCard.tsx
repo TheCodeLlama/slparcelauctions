@@ -39,11 +39,11 @@ export function FrozenStateCard({ escrow, role }: StateCardProps) {
       {isTransient ? (
         <p className="text-sm text-fg-muted">
           We couldn&apos;t verify parcel ownership repeatedly; this is likely
-          a transient issue and SLPA will re-check manually.
+          a transient issue and SLParcels will re-check manually.
         </p>
       ) : (
         <p className="text-sm text-fg-muted">
-          Your L$ will be refunded automatically. SLPA has flagged this
+          Your L$ will be refunded automatically. SLParcels has flagged this
           auction for review.
         </p>
       )}

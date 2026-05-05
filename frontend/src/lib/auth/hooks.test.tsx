@@ -42,7 +42,7 @@ describe("useAuth", () => {
     await waitFor(() => {
       expect(result.current.status).toBe("authenticated");
     });
-    expect(result.current.user?.email).toBe("test@example.com");
+    expect(result.current.user?.username).toBe("test-user");
     expect(getAccessToken()).toBe("mock-access-token-jwt");
   });
 });
@@ -64,7 +64,7 @@ describe("useLogin", () => {
 
     const { result } = renderHook(() => useLogin(), { wrapper });
 
-    result.current.mutate({ email: "test@example.com", password: "anything" });
+    result.current.mutate({ username: "test-user", password: "anything" });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -72,7 +72,7 @@ describe("useLogin", () => {
 
     expect(getAccessToken()).toBe("mock-access-token-jwt");
     expect(queryClient.getQueryData(["auth", "session"])).toMatchObject({
-      email: "test@example.com",
+      username: "test-user",
     });
   });
 
@@ -81,7 +81,7 @@ describe("useLogin", () => {
 
     const { result } = renderHook(() => useLogin(), { wrapper });
 
-    result.current.mutate({ email: "wrong@example.com", password: "wrong" });
+    result.current.mutate({ username: "wrong", password: "wrong" });
 
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
@@ -108,9 +108,8 @@ describe("useRegister", () => {
     const { result } = renderHook(() => useRegister(), { wrapper });
 
     result.current.mutate({
-      email: "new@example.com",
+      username: "newuser",
       password: "hunter22ab",
-      displayName: null,
     });
 
     await waitFor(() => {
@@ -134,7 +133,7 @@ describe("useLogout", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
-    queryClient.setQueryData(["auth", "session"], { id: 1, email: "test@example.com" });
+    queryClient.setQueryData(["auth", "session"], { id: 1, username: "test-user" });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

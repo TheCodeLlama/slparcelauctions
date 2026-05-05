@@ -8,7 +8,8 @@ import type { CurrentUser, PublicUserProfile } from "@/lib/user/api";
  */
 export const mockUser: AuthUser = {
   publicId: "00000000-0000-0000-0000-00000000002a",
-  email: "test@example.com",
+  username: "test-user",
+  email: null,
   displayName: null,
   slAvatarUuid: null,
   verified: false,

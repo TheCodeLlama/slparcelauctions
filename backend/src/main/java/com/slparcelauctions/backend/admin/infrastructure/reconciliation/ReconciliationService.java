@@ -58,7 +58,7 @@ public class ReconciliationService {
         long sourceReserved = reservationRepo.sumAllActive();
         if (denormReserved != sourceReserved) {
             long denormDrift = denormReserved - sourceReserved;
-            log.error("Reconciliation aborted: DENORM_DRIFT — "
+            log.error("Reconciliation aborted: DENORM_DRIFT. "
                     + "users.reserved_lindens sum={} vs bid_reservations sum={} (diff={})",
                     denormReserved, sourceReserved, denormDrift);
             ReconciliationRun run = persist(now, 0L, null, denormDrift,
@@ -77,7 +77,7 @@ public class ReconciliationService {
         if (balanceOpt.isEmpty()) {
             persist(now, sumExpected(), null, null,
                     ReconciliationStatus.ERROR,
-                    "Balance data stale — terminal may be offline");
+                    "Balance data stale; terminal may be offline");
             log.error("Reconciliation aborted: balance reading stale (>2h)");
             return;
         }
@@ -133,7 +133,7 @@ public class ReconciliationService {
     }
 
     /**
-     * Total L$ the SLPA service avatar is expected to hold:
+     * Total L$ the SLParcels service avatar is expected to hold:
      * locked escrows (winner's L$ moved into escrow at auction close) +
      * wallet balances (user-deposited L$ awaiting allocation/withdraw).
      * Reservations are partitions of wallet balance; do NOT add separately.

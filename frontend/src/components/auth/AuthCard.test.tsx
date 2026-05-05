@@ -4,13 +4,13 @@ import { renderWithProviders, screen } from "@/test/render";
 import { AuthCard } from "./AuthCard";
 
 describe("AuthCard", () => {
-  it("always renders the SLPA brand header and tagline", () => {
+  it("always renders the SLParcels brand header and tagline", () => {
     renderWithProviders(
       <AuthCard>
         <AuthCard.Body>content</AuthCard.Body>
       </AuthCard>
     );
-    expect(screen.getByText("SLPA")).toBeInTheDocument();
+    expect(screen.getByText("SLParcels")).toBeInTheDocument();
     expect(screen.getByText("The Digital Curator")).toBeInTheDocument();
   });
 
