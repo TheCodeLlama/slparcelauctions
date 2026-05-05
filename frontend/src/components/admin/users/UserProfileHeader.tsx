@@ -23,7 +23,7 @@ export function UserProfileHeader({ user }: Props) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold text-fg truncate">
-              {user.displayName ?? user.email}
+              {user.displayName ?? user.username}
             </h1>
             {user.activeBan && (
               <span
@@ -58,7 +58,8 @@ export function UserProfileHeader({ user }: Props) {
             )}
           </div>
           <div className="mt-1.5 text-sm text-fg-muted flex flex-wrap gap-x-4 gap-y-0.5">
-            <span>{user.email}</span>
+            <span>@{user.username}</span>
+            {user.email && <span>{user.email}</span>}
             {user.slAvatarUuid && (
               <span
                 className="font-mono text-[11px]"

@@ -3,7 +3,6 @@ package com.slparcelauctions.backend.admin.users;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -98,12 +97,12 @@ class AdminUserServiceTest {
         Page<User> page = new PageImpl<>(List.of(user));
         Pageable pageable = PageRequest.of(0, 25);
 
-        when(userRepo.searchAdmin(isNull(), eq(uuid), eq(pageable))).thenReturn(page);
+        when(userRepo.searchAdminByUuid(eq(uuid), eq(pageable))).thenReturn(page);
 
         PagedResponse<AdminUserSummaryDto> result = service.search(uuid.toString(), pageable);
 
         assertThat(result.totalElements()).isEqualTo(1);
-        verify(userRepo).searchAdmin(isNull(), eq(uuid), eq(pageable));
+        verify(userRepo).searchAdminByUuid(eq(uuid), eq(pageable));
     }
 
     @Test
@@ -113,37 +112,37 @@ class AdminUserServiceTest {
         Page<User> page = new PageImpl<>(List.of(user));
         Pageable pageable = PageRequest.of(0, 25);
 
-        when(userRepo.searchAdmin(eq(input), isNull(), eq(pageable))).thenReturn(page);
+        when(userRepo.searchAdminByText(eq(input), eq(pageable))).thenReturn(page);
 
         PagedResponse<AdminUserSummaryDto> result = service.search(input, pageable);
 
         assertThat(result.totalElements()).isEqualTo(1);
-        verify(userRepo).searchAdmin(eq(input), isNull(), eq(pageable));
+        verify(userRepo).searchAdminByText(eq(input), eq(pageable));
     }
 
     @Test
-    void search_emptyInput_passesNullBoth() {
+    void search_emptyInput_callsAll() {
         Page<User> page = new PageImpl<>(Collections.emptyList());
         Pageable pageable = PageRequest.of(0, 25);
 
-        when(userRepo.searchAdmin(isNull(), isNull(), eq(pageable))).thenReturn(page);
+        when(userRepo.searchAdminAll(eq(pageable))).thenReturn(page);
 
         PagedResponse<AdminUserSummaryDto> result = service.search("", pageable);
 
         assertThat(result.totalElements()).isEqualTo(0);
-        verify(userRepo).searchAdmin(isNull(), isNull(), eq(pageable));
+        verify(userRepo).searchAdminAll(eq(pageable));
     }
 
     @Test
-    void search_nullInput_passesNullBoth() {
+    void search_nullInput_callsAll() {
         Page<User> page = new PageImpl<>(Collections.emptyList());
         Pageable pageable = PageRequest.of(0, 25);
 
-        when(userRepo.searchAdmin(isNull(), isNull(), eq(pageable))).thenReturn(page);
+        when(userRepo.searchAdminAll(eq(pageable))).thenReturn(page);
 
         service.search(null, pageable);
 
-        verify(userRepo).searchAdmin(isNull(), isNull(), eq(pageable));
+        verify(userRepo).searchAdminAll(eq(pageable));
     }
 
     // -------------------------------------------------------------------------

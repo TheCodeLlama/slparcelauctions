@@ -119,7 +119,7 @@ Every entity extends `BaseEntity` (immutable / append-only) or `BaseMutableEntit
 
 Subclass entities use Lombok `@SuperBuilder`, **not** `@Builder`. Do not redeclare `id`, `publicId`, `createdAt`, `updatedAt`, or `version` — they're inherited. Do not override `equals` or `hashCode` (they're `final`, keyed off `publicId`).
 
-DTO field naming: `publicId: UUID` for public DTOs. Bot / admin-internal DTOs keep `id: Long`. URL paths follow the same split: `/api/v1/auctions/{publicId}` for public, `/api/v1/bot/tasks/{taskId}` (Long) for internal.
+DTO field naming: `publicId: UUID` for both public DTOs and admin DTOs the frontend consumes. Bot-internal DTOs keep `id: Long`. URL paths follow the same split: `/api/v1/auctions/{publicId}` and `/api/v1/admin/users/{publicId}` use UUID; `/api/v1/bot/tasks/{taskId}` (Long) is bot-internal. Admin row DTOs that reference another entity (e.g. an auction inside `AdminUserListingRowDto`) carry that entity's `publicId` so the frontend can build `/auction/{publicId}` links without an extra round-trip; the redundant numeric `auctionId` is kept alongside for log/debug surfaces.
 
 JWT subject claim is the user's `publicId` (UUID string). The auth filter resolves `userId` (Long) via `UserRepository.findByPublicId` at request entry; the `AuthPrincipal` carries both.
 

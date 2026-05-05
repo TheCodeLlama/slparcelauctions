@@ -26,9 +26,9 @@ export function UserActionsRail({ user, onRefresh }: Props) {
   const [showLiftBan, setShowLiftBan] = useState(false);
   const [showDeleteUser, setShowDeleteUser] = useState(false);
 
-  const promote = usePromoteUser(user.id);
-  const demote = useDemoteUser(user.id);
-  const resetFrivolous = useResetFrivolousCounter(user.id);
+  const promote = usePromoteUser(user.publicId);
+  const demote = useDemoteUser(user.publicId);
+  const resetFrivolous = useResetFrivolousCounter(user.publicId);
 
   const activeBanAsRow: AdminBanRow | null = user.activeBan
     ? {
@@ -36,7 +36,7 @@ export function UserActionsRail({ user, onRefresh }: Props) {
         banType: user.activeBan.banType,
         ipAddress: null,
         slAvatarUuid: user.slAvatarUuid,
-        avatarLinkedUserId: user.id,
+        avatarLinkedUserId: null,
         avatarLinkedDisplayName: user.displayName,
         firstSeenIp: null,
         reasonCategory: "OTHER",
@@ -67,19 +67,19 @@ export function UserActionsRail({ user, onRefresh }: Props) {
   const modalProps = {
     promote: {
       title: "Promote to admin",
-      description: `Grant ${user.displayName ?? user.email} admin privileges?`,
+      description: `Grant ${user.displayName ?? user.username} admin privileges?`,
       confirmLabel: "Promote",
       confirmVariant: "primary" as const,
     },
     demote: {
       title: "Demote from admin",
-      description: `Remove admin privileges from ${user.displayName ?? user.email}?`,
+      description: `Remove admin privileges from ${user.displayName ?? user.username}?`,
       confirmLabel: "Demote",
       confirmVariant: "destructive" as const,
     },
     resetFrivolous: {
       title: "Reset frivolous counter",
-      description: `Reset the frivolous cancellation counter for ${user.displayName ?? user.email}?`,
+      description: `Reset the frivolous cancellation counter for ${user.displayName ?? user.username}?`,
       confirmLabel: "Reset",
       confirmVariant: "primary" as const,
     },
@@ -196,7 +196,7 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       <div className="rounded-lg bg-bg-muted border border-border-subtle p-4 flex flex-col gap-2">
         <div className="text-[11px] font-medium text-fg-muted mb-1">Quick links</div>
         <Link
-          href={`/users/${user.id}`}
+          href={`/users/${user.publicId}`}
           className="text-sm text-brand hover:underline underline-offset-2"
           target="_blank"
           data-testid="public-profile-link"
@@ -238,7 +238,7 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       )}
 
       {showIps && (
-        <RecentIpsModal userId={user.id} onClose={() => setShowIps(false)} />
+        <RecentIpsModal publicId={user.publicId} onClose={() => setShowIps(false)} />
       )}
 
       <CreateBanModal
@@ -256,8 +256,8 @@ export function UserActionsRail({ user, onRefresh }: Props) {
 
       {showDeleteUser && (
         <DeleteUserModal
-          userId={user.id}
-          userEmail={user.email}
+          publicId={user.publicId}
+          userLabel={user.displayName ?? user.username}
           onClose={() => setShowDeleteUser(false)}
         />
       )}

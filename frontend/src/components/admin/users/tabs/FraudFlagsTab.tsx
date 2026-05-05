@@ -15,12 +15,12 @@ function formatDate(iso: string): string {
 }
 
 type Props = {
-  userId: number;
+  publicId: string;
 };
 
-export function FraudFlagsTab({ userId }: Props) {
+export function FraudFlagsTab({ publicId }: Props) {
   const [page, setPage] = useState(0);
-  const { data, isLoading, isError } = useAdminUserFraudFlags(userId, page, PAGE_SIZE);
+  const { data, isLoading, isError } = useAdminUserFraudFlags(publicId, page, PAGE_SIZE);
 
   if (isLoading) {
     return <div className="py-6 text-sm text-fg-muted">Loading fraud flags…</div>;
@@ -54,13 +54,17 @@ export function FraudFlagsTab({ userId }: Props) {
                 data-testid={`fraud-flag-row-${row.flagId}`}
               >
                 <td className="px-3 py-2.5">
-                  <Link
-                    href={`/auction/${row.auctionId}`}
-                    className="text-brand hover:underline underline-offset-2 line-clamp-1"
-                    target="_blank"
-                  >
-                    {row.auctionTitle}
-                  </Link>
+                  {row.auctionPublicId ? (
+                    <Link
+                      href={`/auction/${row.auctionPublicId}`}
+                      className="text-brand hover:underline underline-offset-2 line-clamp-1"
+                      target="_blank"
+                    >
+                      {row.auctionTitle ?? "(deleted)"}
+                    </Link>
+                  ) : (
+                    <span className="text-fg-muted">(deleted)</span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 text-fg-muted">{row.reason}</td>
                 <td className="px-3 py-2.5">

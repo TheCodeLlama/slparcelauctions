@@ -188,8 +188,9 @@ export type ActiveBanSummary = {
 };
 
 export type AdminUserSummary = {
-  id: number;
-  email: string;
+  publicId: string;
+  username: string;
+  email: string | null;
   displayName: string | null;
   slAvatarUuid: string | null;
   slDisplayName: string | null;
@@ -202,8 +203,9 @@ export type AdminUserSummary = {
 };
 
 export type AdminUserDetail = {
-  id: number;
-  email: string;
+  publicId: string;
+  username: string;
+  email: string | null;
   displayName: string | null;
   slAvatarUuid: string | null;
   slDisplayName: string | null;
@@ -223,6 +225,7 @@ export type AdminUserDetail = {
 
 export type AdminUserListingRow = {
   auctionId: number;
+  auctionPublicId: string;
   title: string;
   regionName: string | null;
   status: AuctionStatus;
@@ -233,6 +236,7 @@ export type AdminUserListingRow = {
 export type AdminUserBidRow = {
   bidId: number;
   auctionId: number;
+  auctionPublicId: string;
   auctionTitle: string;
   amount: number;
   placedAt: string;
@@ -242,6 +246,7 @@ export type AdminUserBidRow = {
 export type AdminUserCancellationRow = {
   logId: number;
   auctionId: number;
+  auctionPublicId: string;
   auctionTitle: string;
   cancelledFromStatus: string;
   hadBids: boolean;
@@ -255,6 +260,7 @@ export type AdminUserCancellationRow = {
 export type AdminUserReportRow = {
   reportId: number;
   auctionId: number;
+  auctionPublicId: string;
   auctionTitle: string;
   reason: string;
   status: string;
@@ -265,8 +271,9 @@ export type AdminUserReportRow = {
 
 export type AdminUserFraudFlagRow = {
   flagId: number;
-  auctionId: number;
-  auctionTitle: string;
+  auctionId: number | null;
+  auctionPublicId: string | null;
+  auctionTitle: string | null;
   reason: string;
   resolved: boolean;
   detectedAt: string;

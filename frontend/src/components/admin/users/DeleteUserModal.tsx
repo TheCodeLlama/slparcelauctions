@@ -10,9 +10,9 @@ type PreconditionError = {
   blockingIds: number[];
 };
 
-type Props = { userId: number; userEmail?: string | null; onClose: () => void };
+type Props = { publicId: string; userLabel?: string | null; onClose: () => void };
 
-export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
+export function DeleteUserModal({ publicId, userLabel, onClose }: Props) {
   const [adminNote, setAdminNote] = useState("");
   const [error, setError] = useState<string | PreconditionError | null>(null);
   const router = useRouter();
@@ -21,7 +21,7 @@ export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
   const submit = () => {
     setError(null);
     mutation.mutate(
-      { userId, adminNote },
+      { publicId, adminNote },
       {
         onSuccess: () => {
           onClose();
@@ -58,7 +58,7 @@ export function DeleteUserModal({ userId, userEmail, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-sm font-semibold mb-2">
-          Delete user{userEmail ? ` ${userEmail}` : ""}?
+          Delete user{userLabel ? ` ${userLabel}` : ""}?
         </h2>
         <p className="text-[11px] opacity-70 mb-3">
           This soft-deletes the user. Their identity is scrubbed but their auctions

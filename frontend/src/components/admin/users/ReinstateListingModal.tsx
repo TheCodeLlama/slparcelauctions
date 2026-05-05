@@ -8,13 +8,13 @@ const NOTES_MAX = 1000;
 
 type Props = {
   auction: AdminUserListingRow;
-  userId: number;
+  userPublicId: string;
   onClose: () => void;
 };
 
-export function ReinstateListingModal({ auction, userId, onClose }: Props) {
+export function ReinstateListingModal({ auction, userPublicId, onClose }: Props) {
   const [notes, setNotes] = useState("");
-  const reinstate = useReinstateAuction(userId);
+  const reinstate = useReinstateAuction(userPublicId);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -30,7 +30,7 @@ export function ReinstateListingModal({ auction, userId, onClose }: Props) {
     e.preventDefault();
     if (!canSubmit) return;
     reinstate.mutate(
-      { auctionId: auction.auctionId, notes: notes.trim() },
+      { auctionPublicId: auction.auctionPublicId, notes: notes.trim() },
       { onSuccess: onClose }
     );
   }

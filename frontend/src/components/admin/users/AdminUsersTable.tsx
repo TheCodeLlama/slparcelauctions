@@ -46,18 +46,18 @@ export function AdminUsersTable({ rows }: Props) {
         <tbody>
           {rows.map((row) => (
             <tr
-              key={row.id}
-              data-testid={`user-row-${row.id}`}
+              key={row.publicId}
+              data-testid={`user-row-${row.publicId}`}
               className="border-b border-border-subtle/50 hover:bg-bg-muted/50 cursor-pointer"
             >
               <td className="px-3 py-2.5">
                 <Link
-                  href={`/admin/users/${row.id}`}
+                  href={`/admin/users/${row.publicId}`}
                   className="block"
-                  data-testid={`user-link-${row.id}`}
+                  data-testid={`user-link-${row.publicId}`}
                 >
                   <div className="text-fg font-medium">
-                    {row.displayName ?? row.email}
+                    {row.displayName ?? row.username}
                   </div>
                   <div className="text-[11px] text-fg-muted mt-0.5">
                     {row.completedSales} sold
@@ -67,7 +67,7 @@ export function AdminUsersTable({ rows }: Props) {
                   </div>
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-fg-muted">{row.email}</td>
+              <td className="px-3 py-2.5 text-fg-muted">{row.email ?? <span className="text-fg-muted/50">-</span>}</td>
               <td className="px-3 py-2.5">
                 {row.slAvatarUuid ? (
                   <span className="font-mono text-[11px] text-fg-muted" title={row.slAvatarUuid}>

@@ -5,13 +5,13 @@ import { adminQueryKeys } from "@/lib/admin/queryKeys";
 import { useToast } from "@/components/ui/Toast/useToast";
 import { isApiError } from "@/lib/api";
 
-export function useDemoteUser(userId: number) {
+export function useDemoteUser(publicId: string) {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: (notes: string) => adminApi.users.demote(userId, notes),
+    mutationFn: (notes: string) => adminApi.users.demote(publicId, notes),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: adminQueryKeys.user(userId) });
+      qc.invalidateQueries({ queryKey: adminQueryKeys.user(publicId) });
       qc.invalidateQueries({ queryKey: adminQueryKeys.users() });
       qc.invalidateQueries({ queryKey: adminQueryKeys.stats() });
       toast.success("User demoted.");

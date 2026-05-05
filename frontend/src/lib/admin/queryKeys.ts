@@ -27,10 +27,10 @@ export const adminQueryKeys = {
   users: () => [...adminQueryKeys.all, "users"] as const,
   usersList: (filters: { search?: string; page: number; size: number }) =>
     [...adminQueryKeys.users(), "list", filters] as const,
-  user: (id: number) => [...adminQueryKeys.users(), "detail", id] as const,
-  userTab: (id: number, tab: string, filters: { page: number; size: number }) =>
-    [...adminQueryKeys.user(id), tab, filters] as const,
-  userIps: (id: number) => [...adminQueryKeys.user(id), "ips"] as const,
+  user: (publicId: string) => [...adminQueryKeys.users(), "detail", publicId] as const,
+  userTab: (publicId: string, tab: string, filters: { page: number; size: number }) =>
+    [...adminQueryKeys.user(publicId), tab, filters] as const,
+  userIps: (publicId: string) => [...adminQueryKeys.user(publicId), "ips"] as const,
   audit: (filters: {
     targetType?: AdminActionTargetType;
     targetId?: number;
