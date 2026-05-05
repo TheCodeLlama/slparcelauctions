@@ -38,6 +38,9 @@ public class User extends BaseMutableEntity {
     @Column(unique = true)
     private String email;
 
+    @Column(nullable = false, length = 64)
+    private String username;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
