@@ -1,5 +1,8 @@
 package com.slparcelauctions.backend.user;
 
+import java.text.Normalizer;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,19 +27,28 @@ public class UserService {
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
-        if (userRepository.existsByEmail(request.email())) {
-            throw UserAlreadyExistsException.email(request.email());
+        String normalized = normalizeUsername(request.username());
+        if (userRepository.existsByUsername(normalized)) {
+            throw UserAlreadyExistsException.username(normalized);
         }
 
         User user = User.builder()
-                .email(request.email())
+                .username(normalized)
                 .passwordHash(passwordEncoder.encode(request.password()))
-                .displayName(request.displayName())
                 .build();
 
-        User saved = userRepository.save(user);
-        log.info("Created user id={} email={}", saved.getId(), saved.getEmail());
-        return UserResponse.from(saved);
+        try {
+            User saved = userRepository.save(user);
+            userRepository.flush();
+            log.info("Created user id={} username={}", saved.getId(), saved.getUsername());
+            return UserResponse.from(saved);
+        } catch (DataIntegrityViolationException e) {
+            // The functional unique index on LOWER(username) caught a concurrent
+            // insert that landed between our existsByUsername check and save.
+            // Translate to the same 409 the caller would have gotten without
+            // the race.
+            throw UserAlreadyExistsException.username(normalized);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -107,5 +119,18 @@ public class UserService {
 
     private User loadUser(Long id) {
         return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    /**
+     * Normalize a username for storage and lookup: trim, NFC-normalize, then
+     * collapse runs of internal whitespace to a single regular space. The
+     * resulting string is case-preserved — case-insensitivity is enforced by
+     * {@code LOWER(username)} at query and unique-index time, never at the app
+     * layer.
+     */
+    private static String normalizeUsername(String raw) {
+        String nfc = Normalizer.normalize(raw, Normalizer.Form.NFC);
+        String trimmed = nfc.trim();
+        return trimmed.replaceAll("\\s+", " ");
     }
 }
