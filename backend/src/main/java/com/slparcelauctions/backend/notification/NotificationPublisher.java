@@ -78,4 +78,14 @@ public interface NotificationPublisher {
     // User wallet withdrawals (terminal-fulfilled)
     void walletWithdrawalCompleted(long userId, long amountL, Long ledgerEntryId);
     void walletWithdrawalReversed(long userId, long amountL, Long ledgerEntryId, String reason);
+
+    // Admin wallet ops — material decisions about a user's funds. Always-on (SYSTEM group).
+    void walletAdjusted(long userId, long deltaL, String notes);
+    void walletFrozen(long userId, String notes);
+    void walletUnfrozen(long userId, String notes);
+    void walletPenaltyForgiven(long userId, long amountL, String notes);
+    void walletDormancyReset(long userId, String notes);
+    void walletTermsCleared(long userId, String notes);
+    void walletWithdrawalForceCompleted(long userId, long amountL, Long ledgerEntryId, String notes);
+    void walletWithdrawalForceFailed(long userId, long amountL, Long ledgerEntryId, String notes);
 }

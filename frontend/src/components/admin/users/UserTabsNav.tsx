@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type UserTab = "listings" | "bids" | "cancellations" | "reports" | "fraudFlags" | "moderation";
+export type UserTab = "listings" | "bids" | "cancellations" | "reports" | "fraudFlags" | "moderation" | "wallet";
 
 const TABS: Array<{ id: UserTab; label: string }> = [
   { id: "listings", label: "Listings" },
@@ -9,6 +9,7 @@ const TABS: Array<{ id: UserTab; label: string }> = [
   { id: "reports", label: "Reports" },
   { id: "fraudFlags", label: "Fraud flags" },
   { id: "moderation", label: "Moderation" },
+  { id: "wallet", label: "Wallet" },
 ];
 
 type Props = {

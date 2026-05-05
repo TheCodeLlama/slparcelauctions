@@ -10,6 +10,7 @@ import { CancellationsTab } from "./tabs/CancellationsTab";
 import { ReportsTab } from "./tabs/ReportsTab";
 import { FraudFlagsTab } from "./tabs/FraudFlagsTab";
 import { ModerationTab } from "./tabs/ModerationTab";
+import { WalletTab } from "./wallet/WalletTab";
 import { UserActionsRail } from "./UserActionsRail";
 
 type Props = {
@@ -52,6 +53,7 @@ export function AdminUserDetailPage({ publicId }: Props) {
         {activeTab === "reports" && <ReportsTab publicId={publicId} />}
         {activeTab === "fraudFlags" && <FraudFlagsTab publicId={publicId} />}
         {activeTab === "moderation" && <ModerationTab publicId={publicId} />}
+        {activeTab === "wallet" && <WalletTab publicId={publicId} />}
       </div>
 
       <div className="sticky top-6">

@@ -33,7 +33,15 @@ public enum NotificationCategory {
     WITHDRAWAL_COMPLETED(NotificationGroup.ADMIN_OPS),
     WITHDRAWAL_FAILED(NotificationGroup.ADMIN_OPS),
     WALLET_WITHDRAWAL_COMPLETED(NotificationGroup.SYSTEM),
-    WALLET_WITHDRAWAL_REVERSED(NotificationGroup.SYSTEM);
+    WALLET_WITHDRAWAL_REVERSED(NotificationGroup.SYSTEM),
+    WALLET_ADJUSTED(NotificationGroup.SYSTEM),
+    WALLET_FROZEN(NotificationGroup.SYSTEM),
+    WALLET_UNFROZEN(NotificationGroup.SYSTEM),
+    WALLET_PENALTY_FORGIVEN(NotificationGroup.SYSTEM),
+    WALLET_DORMANCY_RESET(NotificationGroup.SYSTEM),
+    WALLET_TERMS_CLEARED(NotificationGroup.SYSTEM),
+    WITHDRAWAL_FORCE_COMPLETED(NotificationGroup.SYSTEM),
+    WITHDRAWAL_FORCE_FAILED(NotificationGroup.SYSTEM);
 
     private final NotificationGroup group;
 

@@ -294,6 +294,80 @@ export type UserIpProjection = {
   sessionCount: number;
 };
 
+// ---------- Admin wallet ops ----------
+
+export type AdminWalletPendingWithdrawalStatus = "QUEUED" | "IN_FLIGHT";
+
+export type AdminWalletPendingWithdrawal = {
+  terminalCommandId: number;
+  amount: number;
+  recipientUuid: string;
+  queuedAt: string;
+  dispatchedAt: string | null;
+  attemptCount: number;
+  status: AdminWalletPendingWithdrawalStatus;
+  canForceFinalize: boolean;
+};
+
+export type AdminWalletSnapshot = {
+  publicId: string;
+  username: string;
+  balanceLindens: number;
+  reservedLindens: number;
+  availableLindens: number;
+  penaltyBalanceOwed: number;
+  walletFrozenAt: string | null;
+  walletFrozenReason: string | null;
+  walletFrozenByAdminId: number | null;
+  walletDormancyStartedAt: string | null;
+  walletDormancyPhase: number | null;
+  walletTermsAcceptedAt: string | null;
+  walletTermsVersion: string | null;
+  pendingWithdrawals: AdminWalletPendingWithdrawal[];
+};
+
+export type AdminWalletLedgerEntryType =
+  | "DEPOSIT"
+  | "WITHDRAW_QUEUED"
+  | "WITHDRAW_COMPLETED"
+  | "WITHDRAW_REVERSED"
+  | "BID_RESERVED"
+  | "BID_RELEASED"
+  | "ESCROW_DEBIT"
+  | "ESCROW_REFUND"
+  | "LISTING_FEE_DEBIT"
+  | "LISTING_FEE_REFUND"
+  | "PENALTY_DEBIT"
+  | "ADJUSTMENT";
+
+export type AdminWalletLedgerRow = {
+  entryId: number;
+  entryType: AdminWalletLedgerEntryType;
+  amount: number;
+  balanceAfter: number;
+  reservedAfter: number;
+  createdAt: string;
+  description: string | null;
+  refType: string | null;
+  refId: number | null;
+  createdByAdminId: number | null;
+};
+
+export type AdminWalletAdjustRequest = {
+  amount: number;
+  notes: string;
+  overrideReservationFloor: boolean;
+};
+
+export type AdminWalletForgivePenaltyRequest = {
+  amount: number;
+  notes: string;
+};
+
+export type AdminWalletNotesRequest = {
+  notes: string;
+};
+
 export * from "./auditLog";
 export * from "./disputes";
 export * from "./infrastructure";

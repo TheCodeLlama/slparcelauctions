@@ -271,6 +271,20 @@ public class User extends BaseMutableEntity {
     private OffsetDateTime walletDormancyStartedAt;
 
     /**
+     * Set by an admin to block every wallet outflow path (withdraw,
+     * pay-penalty, pay-listing-fee, bid reservation). Inflows still
+     * work. Cleared by an admin via the unfreeze endpoint.
+     */
+    @Column(name = "wallet_frozen_at")
+    private OffsetDateTime walletFrozenAt;
+
+    @Column(name = "wallet_frozen_by_admin_id")
+    private Long walletFrozenByAdminId;
+
+    @Column(name = "wallet_frozen_reason", columnDefinition = "text")
+    private String walletFrozenReason;
+
+    /**
      * Current dormancy notification phase: 1-4 during the 4-week
      * notification window, 99 = COMPLETED (auto-return executed).
      * NULL = not in dormancy state.
