@@ -1,6 +1,6 @@
-# SLPA Full Testing Procedures
+# SLParcels Full Testing Procedures
 
-End-to-end testing playbook for the SLPA dev environment. Covers automated test suites, the canonical local stack, manual API surfaces, and the per-flow scripts you should run before opening a PR.
+End-to-end testing playbook for the SLParcels dev environment. Covers automated test suites, the canonical local stack, manual API surfaces, and the per-flow scripts you should run before opening a PR.
 
 This document complements the deeper per-epic testing guides under `docs/testing/` (currently `EPIC_6_TESTING.md`). When testing a specific epic, read its guide alongside this one.
 
