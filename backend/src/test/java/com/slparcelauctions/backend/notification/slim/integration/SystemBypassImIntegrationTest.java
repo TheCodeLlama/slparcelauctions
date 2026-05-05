@@ -86,7 +86,7 @@ class SystemBypassImIntegrationTest {
         var rows = slImRepo.findAll().stream()
             .filter(m -> m.getUserId().equals(u.getId())).toList();
         assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getMessageText()).contains("[SLPA] All systems normal");
+        assertThat(rows.get(0).getMessageText()).contains("[SLParcels] All systems normal");
     }
 
     @Test

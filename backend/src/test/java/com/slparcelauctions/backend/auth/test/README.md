@@ -1,6 +1,6 @@
 # auth/test — authentication test infrastructure
 
-This package ships the shared test helpers that every protected-endpoint test in the SLPA backend
+This package ships the shared test helpers that every protected-endpoint test in the SLParcels backend
 uses. It's built in Task 01-07 and inherited by Task 01-09 onwards (bid, listing, escrow, etc.).
 
 ## Helpers

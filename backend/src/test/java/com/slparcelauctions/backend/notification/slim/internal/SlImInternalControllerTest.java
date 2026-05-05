@@ -65,16 +65,16 @@ class SlImInternalControllerTest {
 
     @Test
     void pending_returnsBatchOldestFirst() throws Exception {
-        var first = dao.upsert(user.getId(), avatar, "[SLPA] first", null);
+        var first = dao.upsert(user.getId(), avatar, "[SLParcels] first", null);
         Thread.sleep(10);
-        var second = dao.upsert(user.getId(), avatar, "[SLPA] second", "key2");
+        var second = dao.upsert(user.getId(), avatar, "[SLParcels] second", "key2");
 
         mvc.perform(get("/api/v1/internal/sl-im/pending?limit=10").header("Authorization", AUTH))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.messages.length()").value(2))
             .andExpect(jsonPath("$.messages[0].id").value((int) first.id()))
             .andExpect(jsonPath("$.messages[1].id").value((int) second.id()))
-            .andExpect(jsonPath("$.messages[0].messageText").value("[SLPA] first"))
+            .andExpect(jsonPath("$.messages[0].messageText").value("[SLParcels] first"))
             .andExpect(jsonPath("$.messages[0].avatarUuid").value(avatar));
     }
 
@@ -106,7 +106,7 @@ class SlImInternalControllerTest {
 
     @Test
     void delivered_pendingRow_transitionsTo204AndSetsDeliveredAt() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
 
         mvc.perform(post("/api/v1/internal/sl-im/" + r.id() + "/delivered").header("Authorization", AUTH))
             .andExpect(status().isNoContent());
@@ -119,7 +119,7 @@ class SlImInternalControllerTest {
 
     @Test
     void delivered_alreadyDelivered_idempotent204() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         mvc.perform(post("/api/v1/internal/sl-im/" + r.id() + "/delivered").header("Authorization", AUTH))
             .andExpect(status().isNoContent());
         SlImMessage afterFirst = repo.findById(r.id()).orElseThrow();
@@ -138,7 +138,7 @@ class SlImInternalControllerTest {
 
     @Test
     void delivered_onFailedRow_returns409() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         SlImMessage row = repo.findById(r.id()).orElseThrow();
         row.setStatus(SlImMessageStatus.FAILED);
         repo.save(row);
@@ -149,7 +149,7 @@ class SlImInternalControllerTest {
 
     @Test
     void delivered_onExpiredRow_returns409() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         SlImMessage row = repo.findById(r.id()).orElseThrow();
         row.setStatus(SlImMessageStatus.EXPIRED);
         repo.save(row);
@@ -166,7 +166,7 @@ class SlImInternalControllerTest {
 
     @Test
     void delivered_unauthorized_returns401() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         mvc.perform(post("/api/v1/internal/sl-im/" + r.id() + "/delivered"))
             .andExpect(status().isUnauthorized());
     }
@@ -175,7 +175,7 @@ class SlImInternalControllerTest {
 
     @Test
     void failed_pendingRow_transitionsTo204() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
 
         mvc.perform(post("/api/v1/internal/sl-im/" + r.id() + "/failed").header("Authorization", AUTH))
             .andExpect(status().isNoContent());
@@ -188,7 +188,7 @@ class SlImInternalControllerTest {
 
     @Test
     void failed_alreadyFailed_idempotent204() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         mvc.perform(post("/api/v1/internal/sl-im/" + r.id() + "/failed").header("Authorization", AUTH))
             .andExpect(status().isNoContent());
         mvc.perform(post("/api/v1/internal/sl-im/" + r.id() + "/failed").header("Authorization", AUTH))
@@ -197,7 +197,7 @@ class SlImInternalControllerTest {
 
     @Test
     void failed_onDeliveredRow_returns409() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         SlImMessage row = repo.findById(r.id()).orElseThrow();
         row.setStatus(SlImMessageStatus.DELIVERED);
         repo.save(row);
@@ -208,7 +208,7 @@ class SlImInternalControllerTest {
 
     @Test
     void failed_onExpiredRow_returns409() throws Exception {
-        var r = dao.upsert(user.getId(), avatar, "[SLPA] x", null);
+        var r = dao.upsert(user.getId(), avatar, "[SLParcels] x", null);
         SlImMessage row = repo.findById(r.id()).orElseThrow();
         row.setStatus(SlImMessageStatus.EXPIRED);
         repo.save(row);

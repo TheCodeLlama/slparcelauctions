@@ -53,11 +53,11 @@ class SlImMessageRepositoryTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var first = dao.upsert(u.getId(), avatar, "[SLPA] first", null);
+        var first = dao.upsert(u.getId(), avatar, "[SLParcels] first", null);
         Thread.sleep(20);
-        var second = dao.upsert(u.getId(), avatar, "[SLPA] second", null);
+        var second = dao.upsert(u.getId(), avatar, "[SLParcels] second", null);
         Thread.sleep(20);
-        var third = dao.upsert(u.getId(), avatar, "[SLPA] third", null);
+        var third = dao.upsert(u.getId(), avatar, "[SLParcels] third", null);
 
         List<SlImMessage> rows = repo.pollPending(10);
         assertThat(rows).hasSize(3);
@@ -72,7 +72,7 @@ class SlImMessageRepositoryTest {
         String avatar = UUID.randomUUID().toString();
 
         for (int i = 0; i < 15; i++) {
-            dao.upsert(u.getId(), avatar, "[SLPA] " + i, null);
+            dao.upsert(u.getId(), avatar, "[SLParcels] " + i, null);
         }
 
         assertThat(repo.pollPending(10)).hasSize(10);
@@ -84,10 +84,10 @@ class SlImMessageRepositoryTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var pending = dao.upsert(u.getId(), avatar, "[SLPA] pending", null);
-        var delivered = dao.upsert(u.getId(), avatar, "[SLPA] delivered", null);
-        var expired = dao.upsert(u.getId(), avatar, "[SLPA] expired", null);
-        var failed = dao.upsert(u.getId(), avatar, "[SLPA] failed", null);
+        var pending = dao.upsert(u.getId(), avatar, "[SLParcels] pending", null);
+        var delivered = dao.upsert(u.getId(), avatar, "[SLParcels] delivered", null);
+        var expired = dao.upsert(u.getId(), avatar, "[SLParcels] expired", null);
+        var failed = dao.upsert(u.getId(), avatar, "[SLParcels] failed", null);
 
         SlImMessage d = repo.findById(delivered.id()).orElseThrow();
         d.setStatus(SlImMessageStatus.DELIVERED);
@@ -109,9 +109,9 @@ class SlImMessageRepositoryTest {
         User u = userRepo.save(testUser());
         String avatar = UUID.randomUUID().toString();
 
-        var p1 = dao.upsert(u.getId(), avatar, "[SLPA] p1", "k1");
-        var p2 = dao.upsert(u.getId(), avatar, "[SLPA] p2", "k2");
-        var d = dao.upsert(u.getId(), avatar, "[SLPA] d", "k3");
+        var p1 = dao.upsert(u.getId(), avatar, "[SLParcels] p1", "k1");
+        var p2 = dao.upsert(u.getId(), avatar, "[SLParcels] p2", "k2");
+        var d = dao.upsert(u.getId(), avatar, "[SLParcels] d", "k3");
 
         SlImMessage row = repo.findById(d.id()).orElseThrow();
         row.setStatus(SlImMessageStatus.DELIVERED);

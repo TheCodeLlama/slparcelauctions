@@ -110,7 +110,7 @@ class OutbidImIntegrationTest {
             .toList();
         assertThat(aliceRows).hasSize(1);
         assertThat(aliceRows.get(0).getMessageText())
-            .contains("[SLPA] You've been outbid")
+            .contains("[SLParcels] You've been outbid")
             .contains("L$2,000")
             .endsWith("/auction/" + a.getId());
 

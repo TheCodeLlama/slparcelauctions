@@ -241,7 +241,7 @@ class PenaltyTerminalControllerSliceTest {
         doNothing().when(headerValidator).validate(SHARD, OWNER_KEY);
         when(service.pay(any(PenaltyPaymentRequest.class)))
                 .thenThrow(new UserNotFoundException(
-                        "No SLPA user found for avatar " + AVATAR_UUID));
+                        "No SLParcels user found for avatar " + AVATAR_UUID));
 
         mockMvc.perform(post("/api/v1/sl/penalty-payment")
                         .contentType(MediaType.APPLICATION_JSON)

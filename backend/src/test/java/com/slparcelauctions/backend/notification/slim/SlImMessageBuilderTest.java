@@ -17,7 +17,7 @@ class SlImMessageBuilderTest {
             "https://slpa.example.com/auction/42#bid-panel");
 
         assertThat(result).isEqualTo(
-            "[SLPA] You've been outbid on Hampton Hills\n\n" +
+            "[SLParcels] You've been outbid on Hampton Hills\n\n" +
             "Current bid is L$2,000.\n\n" +
             "https://slpa.example.com/auction/42#bid-panel");
         assertThat(byteLen(result)).isLessThanOrEqualTo(1024);
@@ -57,7 +57,7 @@ class SlImMessageBuilderTest {
 
         assertThat(result).contains("…");
         assertThat(result).endsWith(deeplink);
-        assertThat(result).startsWith("[SLPA] Hampton Hills update");
+        assertThat(result).startsWith("[SLParcels] Hampton Hills update");
         assertThat(byteLen(result)).isLessThanOrEqualTo(1024);
     }
 
@@ -80,7 +80,7 @@ class SlImMessageBuilderTest {
     @Test
     void assemble_bodyEmpty_returnsTitleAndDeeplink() {
         String result = builder.assemble("Title", "", "https://slpa.example.com/x");
-        assertThat(result).isEqualTo("[SLPA] Title\n\n\n\nhttps://slpa.example.com/x");
+        assertThat(result).isEqualTo("[SLParcels] Title\n\n\n\nhttps://slpa.example.com/x");
         assertThat(byteLen(result)).isLessThanOrEqualTo(1024);
     }
 

@@ -86,7 +86,7 @@ class SlImChannelDispatcherTest {
         assertThat(row.getUserId()).isEqualTo(u.getId());
         assertThat(row.getAvatarUuid()).isEqualTo(u.getSlAvatarUuid().toString());
         assertThat(row.getStatus()).isEqualTo(SlImMessageStatus.PENDING);
-        assertThat(row.getMessageText()).startsWith("[SLPA] You've been outbid on Hampton");
+        assertThat(row.getMessageText()).startsWith("[SLParcels] You've been outbid on Hampton");
         assertThat(row.getMessageText()).contains("Current bid is L$2,000.");
         assertThat(row.getMessageText()).endsWith("/auction/42");
         assertThat(row.getCoalesceKey()).isEqualTo("outbid:" + u.getId() + ":42");
