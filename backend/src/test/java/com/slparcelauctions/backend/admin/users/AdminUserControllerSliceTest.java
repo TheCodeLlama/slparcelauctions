@@ -149,7 +149,7 @@ class AdminUserControllerSliceTest {
     @Test
     void detail_admin_returns200() throws Exception {
         AdminUserDetailDto dto = new AdminUserDetailDto(
-            TARGET_UUID, "target-user-ctrl@x.com", "Target", null, null,
+            TARGET_UUID, "target-user-ctrl", "target-user-ctrl@x.com", "Target", null, null,
             Role.USER, false, null, null,
             0L, 0L, 0L, 0L, 0L, null, false, null);
         when(adminUserService.detail(anyLong())).thenReturn(dto);
