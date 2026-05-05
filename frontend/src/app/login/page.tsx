@@ -13,14 +13,6 @@ export default function LoginPage() {
         <Suspense>
           <LoginForm />
         </Suspense>
-        <div className="text-center">
-          <Link
-            href="/forgot-password"
-            className="text-xs font-medium text-brand hover:underline"
-          >
-            Forgot your password?
-          </Link>
-        </div>
       </AuthCard.Body>
       <AuthCard.Footer>
         New to the curator?{" "}
