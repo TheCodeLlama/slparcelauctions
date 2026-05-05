@@ -14,11 +14,11 @@
 
 ## Spec deviations documented in this plan
 
-Two judgment calls were made during plan-writing where the spec was either ambiguous or empirically wrong. Each is documented here so the user can redirect:
+Two judgment calls were raised during plan-writing where the spec was either ambiguous or empirically wrong. The user resolved each:
 
-1. **`docs/implementation/epic-*/task-*.md` files (~17 files containing bare `SLPA`)** — The spec's Bucket 3 enumerates 5 specific files under `docs/implementation/` (CONVENTIONS.md, DEFERRED_WORK.md, FOOTGUNS.md, PHASES.md, CLEANED_FROM_DEFERRED.md) and explicitly skips only `docs/implementation/epic-00/00-stitch-design-system.md`. Other `epic-NN/task-*.md` files are neither enumerated as swept nor as skipped. Per CLAUDE.md these are "task breakdowns per phase with acceptance criteria" used as live reference during ongoing implementation. **This plan includes them in the sweep.** Task 13 handles them. If the user prefers to treat these like historical specs/plans (skipped), drop Task 13.
+1. **`docs/implementation/epic-*/task-*.md` files (~17 files containing bare `SLPA`)** — The spec's Bucket 3 enumerates 5 specific files under `docs/implementation/` (CONVENTIONS.md, DEFERRED_WORK.md, FOOTGUNS.md, PHASES.md, CLEANED_FROM_DEFERRED.md) and explicitly skips only `docs/implementation/epic-00/00-stitch-design-system.md`. Other `epic-NN/task-*.md` files are neither enumerated as swept nor as skipped. **User decision: SKIP. These files are treated like historical specs/plans and are excluded from the sweep.** No task touches `docs/implementation/epic-*/**`.
 
-2. **`infra/` Terraform comments contain brand references.** The spec's File Scope section says "There is no brand-text in Terraform comments worth chasing." Empirical grep found brand references in `infra/main.tf`, `infra/outputs.tf`, `infra/variables.tf`, `infra/dns/route53.tf`, `infra/data/elasticache.tf`, `infra/data/s3.tf`, `infra/networking/security_groups.tf`, `infra/compute/alb.tf`, `infra/compute/ecs_backend.tf`, `infra/cicd/main.tf`, `infra/observability/main.tf`, `infra/terraform.tfvars.example`. Per the spec's *intent* ("no live doc shows the old brand") these comments are operational docs an engineer reads, so they should be swept. **This plan includes them in the sweep.** Task 14 handles them. AWS resource names (`slpa-prod`, etc.) and env var literals (`SLPA_BOT_SHARED_SECRET`, etc.) inside those files are kept literal per spec.
+2. **`infra/` Terraform comments contain brand references.** The spec's File Scope section says "There is no brand-text in Terraform comments worth chasing." Empirical grep proved otherwise — `infra/main.tf` line 2 is `# SLPA — Terraform root module`. **User decision: sweep comments ONLY. Per explicit user direction, only `#` comment lines in `infra/` get swept. Terraform `description = "..."` attributes, `error_message = "..."` strings, variable defaults, and any other non-comment string content stay literal even when they contain `SLPA`.** Task 14 handles this with the comments-only restriction.
 
 ---
 
@@ -151,23 +151,6 @@ Inventory grouped by phase. The exact file list per task is established by runni
 - `docs/implementation/PHASES.md`
 - `docs/implementation/CLEANED_FROM_DEFERRED.md`
 - `docs/implementation/CONVENTIONS.md` (if it has SLPA references — verify at task start)
-- `docs/implementation/epic-01/task-06-nextjs-layout.md`
-- `docs/implementation/epic-01/task-10-landing-page.md`
-- `docs/implementation/epic-02/02-player-verification.md`
-- `docs/implementation/epic-02/task-01-verification-codes.md`
-- `docs/implementation/epic-02/task-02-sl-verify-endpoint.md`
-- `docs/implementation/epic-02/task-04-dashboard-verification-ui.md`
-- `docs/implementation/epic-03/task-02-parcel-verification-methods-ab.md`
-- `docs/implementation/epic-03/task-05-listing-creation-ui.md`
-- `docs/implementation/epic-05/task-02-payment-receiving.md`
-- `docs/implementation/epic-05/task-05-escrow-ui.md`
-- `docs/implementation/epic-07/task-04-homepage-featured.md`
-- `docs/implementation/epic-09/task-02-email-notifications.md`
-- `docs/implementation/epic-11/11-lsl-scripts.md`
-- `docs/implementation/epic-11/task-01-verification-terminal.md`
-- `docs/implementation/epic-11/task-02-escrow-terminal.md`
-- `docs/implementation/epic-11/task-03-parcel-verifier.md`
-- `docs/implementation/epic-00/01-stitch-landing-and-auth.md` (NOT epic-00/00-stitch-design-system.md — that's skipped)
 - `docs/postman-publicid-migration-checklist.md`
 - `docs/testing/EPIC_6_TESTING.md`
 - `backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md`
@@ -210,6 +193,10 @@ Inventory grouped by phase. The exact file list per task is established by runni
 - `docs/initial-design/CREATOR_PARTNERSHIP_PROGRAM.md`
 - `docs/implementation/epic-00/00-stitch-design-system.md`
 - `~/.claude/projects/.../memory/**`
+
+### Skipped (per user decision on plan deviation #1)
+
+- `docs/implementation/epic-*/**` (the entire `epic-NN/` tree, including all `task-*.md` files and the `epic-NN/NN-*.md` overviews)
 
 ---
 
@@ -872,42 +859,51 @@ git commit -m "chore(rebrand): swap brand to SLParcels in bot and LSL docs and s
 
 ---
 
-### Task 13: docs/implementation/ tree (live + epic-NN per spec deviation #1)
+### Task 13: docs/implementation/ live files + ops + backend test README
 
-**Files:** see "Implementation guides + ops + final-design + backend test docs" in File Structure (excluding `docs/final-design/` which gets its own task) — covers `docs/implementation/{DEFERRED_WORK,FOOTGUNS,PHASES,CLEANED_FROM_DEFERRED,CONVENTIONS}.md`, `docs/implementation/epic-{01..11}/**/*.md` (excluding `epic-00/00-stitch-design-system.md`), `docs/postman-publicid-migration-checklist.md`, `docs/testing/EPIC_6_TESTING.md`, and `backend/src/test/java/.../auth/test/README.md`.
+**Files:** `docs/implementation/{DEFERRED_WORK,FOOTGUNS,PHASES,CLEANED_FROM_DEFERRED,CONVENTIONS}.md`, `docs/postman-publicid-migration-checklist.md`, `docs/testing/EPIC_6_TESTING.md`, and `backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md`.
+
+The entire `docs/implementation/epic-*/**` tree is **skipped** per user decision (plan deviation #1).
 
 - [ ] **Step 1: Scoped grep**
 
 ```bash
 git grep -nE 'SL Parcel Auctions|Second Life Parcel Auctions|\bSLPA\b' -- \
-  'docs/implementation/' \
+  'docs/implementation/DEFERRED_WORK.md' \
+  'docs/implementation/FOOTGUNS.md' \
+  'docs/implementation/PHASES.md' \
+  'docs/implementation/CLEANED_FROM_DEFERRED.md' \
+  'docs/implementation/CONVENTIONS.md' \
   'docs/postman-publicid-migration-checklist.md' \
   'docs/testing/EPIC_6_TESTING.md' \
-  'backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md' \
-  ':(exclude)docs/implementation/epic-00/00-stitch-design-system.md'
+  'backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md'
 ```
 
 - [ ] **Step 2: Apply replacements**
 
-All of these are documentation. Brand references swap. The usual suspects (`SLPABot*`, `slpa-prod`, `SLPA_*`, `com.slparcelauctions`) stay literal.
+All of these are live documentation. Brand references swap. The usual suspects (`SLPABot*`, `slpa-prod`, `SLPA_*`, `com.slparcelauctions`) stay literal.
 
-`DEFERRED_WORK.md` is in the swept set — Task 16 appends a row to it later. Both edits land in the same PR but as separate commits.
+`DEFERRED_WORK.md` is in the swept set — Task 16 also appends a row to it. Both edits land in the same PR but as separate commits.
 
-`epic-NN/task-XX-*.md` files are dated implementation breakdowns. Per spec deviation #1, they're swept. If the user redirects, drop these from the file set.
-
-- [ ] **Step 3: Re-run scoped grep**
+- [ ] **Step 3: Re-run scoped grep — surviving matches must all be literal identifiers**
 
 ```bash
-git grep -nE '\bSLPA\b' -- 'docs/implementation/' 'docs/postman-publicid-migration-checklist.md' 'docs/testing/EPIC_6_TESTING.md' 'backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md' ':(exclude)docs/implementation/epic-00/00-stitch-design-system.md'
+git grep -nE '\bSLPA\b' -- \
+  'docs/implementation/DEFERRED_WORK.md' \
+  'docs/implementation/FOOTGUNS.md' \
+  'docs/implementation/PHASES.md' \
+  'docs/implementation/CLEANED_FROM_DEFERRED.md' \
+  'docs/implementation/CONVENTIONS.md' \
+  'docs/postman-publicid-migration-checklist.md' \
+  'docs/testing/EPIC_6_TESTING.md' \
+  'backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md'
 ```
-
-Surviving matches: only literals.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add docs/implementation/ docs/postman-publicid-migration-checklist.md docs/testing/EPIC_6_TESTING.md backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md
-git commit -m "chore(rebrand): swap brand to SLParcels in implementation guides and ops docs"
+git add docs/implementation/DEFERRED_WORK.md docs/implementation/FOOTGUNS.md docs/implementation/PHASES.md docs/implementation/CLEANED_FROM_DEFERRED.md docs/implementation/CONVENTIONS.md docs/postman-publicid-migration-checklist.md docs/testing/EPIC_6_TESTING.md backend/src/test/java/com/slparcelauctions/backend/auth/test/README.md
+git commit -m "chore(rebrand): swap brand to SLParcels in live implementation guides and ops docs"
 ```
 
 ---
@@ -942,11 +938,15 @@ git grep -nE 'SL Parcel Auctions|Second Life Parcel Auctions|\bSLPA\b' -- \
   infra/
 ```
 
-- [ ] **Step 2: Apply replacements**
+- [ ] **Step 2: Apply replacements with strict per-file-type rules**
 
-For YAML and Terraform: comment text and `description = "..."` strings get swept. Resource names, env var literals, config keys stay literal.
+**docs/final-design/ (full sweep):** Brand references swap; identifier discipline as elsewhere.
 
-Example diff for `infra/main.tf`:
+**docker-compose.yml, backend/Dockerfile, application.yml, application-prod.yml (comments only):** Comment text gets swept. YAML keys (`slpa.bot.*`, etc.), env var literals (`SLPA_*`), and shell-interpolated identifiers stay literal.
+
+**infra/ (COMMENTS ONLY — per user decision on plan deviation #2):** ONLY `#` comment lines in `.tf` and `.tfvars.example` files get swept. Terraform `description = "..."` attributes, `error_message = "..."` strings, variable defaults, locals, and any other non-comment string content stay literal **even when they contain `SLPA`**.
+
+Example ALLOWED edit in `infra/main.tf`:
 
 ```diff
 -# SLPA — Terraform root module
@@ -956,22 +956,29 @@ Example diff for `infra/main.tf`:
 +# Deploys the SLParcels production stack on AWS. See:
 ```
 
-Example diff for `infra/data/elasticache.tf`:
+Example KEEP-AS-IS (description string is NOT a comment) in `infra/data/elasticache.tf`:
 
-```diff
--  description          = "SLPA ${var.environment} Redis - sessions, bid rate-limit counters, auction countdown timers, bot heartbeat state."
-+  description          = "SLParcels ${var.environment} Redis - sessions, bid rate-limit counters, auction countdown timers, bot heartbeat state."
+```
+  description          = "SLPA ${var.environment} Redis - sessions, bid rate-limit counters, auction countdown timers, bot heartbeat state."
 ```
 
-Example KEEP-LITERAL in `infra/compute/ecs_backend.tf`:
+This line stays unchanged. Per user direction, we do not edit Terraform string attributes.
+
+Example KEEP-AS-IS (error_message string is NOT a comment) in `infra/variables.tf`:
+
+```
+    error_message = "Bot pool is fixed at 5 named workers (SLPABot1-5). Set between 1 and 5."
+```
+
+This line stays unchanged for two reasons: it's a string attribute (per user direction), and the `SLPABot1-5` token is a literal avatar reference anyway.
+
+Example KEEP-AS-IS in `infra/compute/ecs_backend.tf`:
 
 ```
 # (JWT_SECRET, SLPA_BOT_SHARED_SECRET, SLPA_PRIMARY_ESCROW_UUID,
 ```
 
-The `SLPA_BOT_SHARED_SECRET` and `SLPA_PRIMARY_ESCROW_UUID` are env var identifiers → stay.
-
-For `infra/variables.tf` line 133: `error_message = "Bot pool is fixed at 5 named workers (SLPABot1-5). Set between 1 and 5."` — `SLPABot1-5` is literal avatar names → stays. No edit on that line.
+This IS a comment, but the `SLPA_BOT_SHARED_SECRET` and `SLPA_PRIMARY_ESCROW_UUID` tokens are env var identifiers → stay literal. So while the implementer is *allowed* to edit comment lines in `infra/`, on this specific line nothing actually changes (no brand references, only identifiers).
 
 - [ ] **Step 3: Re-run scoped grep**
 
@@ -979,7 +986,12 @@ For `infra/variables.tf` line 133: `error_message = "Bot pool is fixed at 5 name
 git grep -nE '\bSLPA\b' -- docs/final-design/ docker-compose.yml backend/Dockerfile backend/src/main/resources/application*.yml infra/
 ```
 
-Surviving matches: only literal env var references (`SLPA_*`), config keys (`slpa.*`), avatar names (`SLPABot*`), and resource names (`slpa-prod`).
+Surviving matches must all classify as one of:
+- Literal env var (`SLPA_*`)
+- Literal config key (`slpa.*`)
+- Literal avatar name (`SLPABot*`, `SLPAEscrow*`)
+- Literal AWS resource name (`slpa-prod*`)
+- **In `infra/` only:** brand text inside a non-comment Terraform string attribute (allowed per user direction — these stay literal even when not identifier-shaped)
 
 - [ ] **Step 4: No tests run for this task — config + Terraform syntax is verified by build/deploy pipelines, not unit tests**
 
@@ -1044,7 +1056,9 @@ Read every line of the output and classify:
   - `SLPA` workspace name in Postman wayfinding sentences
   - `SLPA Dev` Postman environment name
   - `package com.slparcelauctions...;` and `import com.slparcelauctions...;` declarations
-- **Brand (bug):** any prose use of `SLPA` as a product/brand reference. Fix immediately.
+- **Allowed in `infra/` only (per plan deviation #2 user resolution):** brand text appearing inside a Terraform non-comment string attribute (`description = "SLPA ..."`, `error_message = "...SLPA..."`, etc.). Per user direction, these stay literal. They count as allowed.
+- **Allowed in `docs/implementation/epic-*/` (per plan deviation #1 user resolution):** any `SLPA` matches in this tree are allowed because the entire tree is skipped. (V2's exclusion list does NOT exclude this tree by default — if matches surface here, they're expected and allowed.)
+- **Brand (bug):** any prose use of `SLPA` as a product/brand reference outside the allowed zones above. Fix immediately.
 
 If any match falls into the brand bucket, edit the file, re-run V2, until classification is clean.
 
@@ -1164,8 +1178,8 @@ Plan vs. spec coverage:
 - ✅ Spec Verification V1/V2/V2.5/V3 — Task 15 + Task 16
 - ✅ Spec Deferred Work row — Task 16 step 3
 - ✅ Spec Risks R1-R6 — addressed by V2.5, R2 wording note in Task 11, R3 snapshot review in Task 7, R4 asset audit in Task 1, R5 acknowledged in PR description, R6 no action needed
-- ⚠️ Spec deviation #1 (epic-NN files swept) — explicit at top of plan
-- ⚠️ Spec deviation #2 (infra Terraform comments swept) — explicit at top of plan
+- ⚠️ Spec deviation #1 (epic-NN files) — user resolved: SKIP. Entire `docs/implementation/epic-*/**` tree excluded from sweep.
+- ⚠️ Spec deviation #2 (infra Terraform) — user resolved: comments only. Only `#` comment lines in `infra/` swept; non-comment string attributes (`description`, `error_message`, etc.) stay literal even when they contain brand text.
 
 Placeholder scan: no "TBD", no "implement later", no "similar to Task N" without code, no vague "handle edge cases".
 
