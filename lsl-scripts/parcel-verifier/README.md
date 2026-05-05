@@ -1,4 +1,4 @@
-# SLPA Parcel Verifier (rezzable)
+# SLParcels Parcel Verifier (rezzable)
 
 Single-use rezzable object. Sellers rez it on the parcel they want to list,
 the script reads parcel metadata via `llGetParcelDetails`, prompts for a
@@ -21,10 +21,10 @@ the script reads parcel metadata via `llGetParcelDetails`, prompts for a
 Distributed two ways:
 
 1. **Marketplace listing** — free, transfer YES, copy YES, modify NO. The
-   modify-NO setting prevents accidental edits that would void SLPA service
+   modify-NO setting prevents accidental edits that would void SLParcels service
    account ownership.
-2. **SLPA Terminal "Get Parcel Verifier" menu** — `llGiveInventory` from a
-   deployed SLPA Terminal. Sellers who don't have a Marketplace copy can
+2. **SLParcels Terminal "Get Parcel Verifier" menu** — `llGiveInventory` from a
+   deployed SLParcels Terminal. Sellers who don't have a Marketplace copy can
    pick one up from any kiosk.
 
 To set up the Marketplace listing:
@@ -32,7 +32,7 @@ To set up the Marketplace listing:
 1. Rez a generic prim. Give it a small visual marker (a flag or beacon).
 2. Drop `parcel-verifier.lsl` into the prim.
 3. Drop the `config` notecard with `PARCEL_VERIFY_URL` set.
-4. Set permissions: transfer YES, copy YES, modify NO. Owner: SLPA service
+4. Set permissions: transfer YES, copy YES, modify NO. Owner: SLParcels service
    avatar.
 5. Take the object back into inventory and list on Marketplace as a free item.
 
@@ -54,7 +54,7 @@ chat after rez:
 - `✗ <title>: <detail>` (backend rejection — code expired, parcel mismatch, etc.)
 - `✗ Backend unreachable. Please rez again in a moment.` (5xx / network)
 - `✗ Timed out waiting for code.` (90s with no code entered)
-- `✗ Timed out reaching SLPA.` (30s with no HTTP response)
+- `✗ Timed out reaching SLParcels.` (30s with no HTTP response)
 
 ## Troubleshooting
 
@@ -78,7 +78,7 @@ chat after rez:
 
 ## Security
 
-- Object owner must be an SLPA service avatar listed in
+- Object owner must be an SLParcels service avatar listed in
   `slpa.sl.trusted-owner-keys`. The backend rejects `X-SecondLife-Owner-Key`
   not in that set.
 - The `X-SecondLife-Owner-Key` header on the outbound request identifies the

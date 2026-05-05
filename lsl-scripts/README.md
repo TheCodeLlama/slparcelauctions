@@ -1,6 +1,6 @@
 # LSL Scripts
 
-In-world Linden Scripting Language (LSL) code that consumes SLPA's backend APIs.
+In-world Linden Scripting Language (LSL) code that consumes SLParcels's backend APIs.
 Each script is the in-world half of an end-to-end integration; the matching
 backend code lives under `backend/src/main/java/com/slparcelauctions/backend/`.
 
@@ -26,16 +26,16 @@ A script's README must cover:
 ## Scripts
 
 - [`verification-terminal/`](verification-terminal/) — In-world account-linking
-  kiosk. Players touch and enter their 6-digit SLPA code; the script POSTs
+  kiosk. Players touch and enter their 6-digit SLParcels code; the script POSTs
   avatar metadata to link the SL account to a website account. Header-trust
   only; widely deployed via Marketplace + allied venues.
 - [`parcel-verifier/`](parcel-verifier/) — Single-use rezzable. Sellers rez it
   on the parcel they want to list; the script reads parcel metadata, prompts
   for the 6-digit PARCEL code, POSTs to the backend, then `llDie()`s.
-  Distributed via Marketplace + given out by the SLPA Parcel Verifier Giver.
+  Distributed via Marketplace + given out by the SLParcels Parcel Verifier Giver.
 - [`slpa-verifier-giver/`](slpa-verifier-giver/) — Touch-to-receive prim that
-  hands out a copy of the SLPA Parcel Verifier inventory item. Free, no L$,
-  no shared secret. Per-avatar 60s rate-limit. Deployed at SLPA HQ + auction
+  hands out a copy of the SLParcels Parcel Verifier inventory item. Free, no L$,
+  no shared secret. Per-avatar 60s rate-limit. Deployed at SLParcels HQ + auction
   venues + Marketplace.
 - [`slpa-terminal/`](slpa-terminal/) — Wallet-model payment terminal. Right-
   click → Pay credits the user's wallet via `/sl/wallet/deposit` (lockless,
@@ -43,8 +43,8 @@ A script's README must cover:
   Withdraw uses per-flow slots dispatched by avatar key on a single shared
   listen — no terminal-wide lock. Also receives HTTP-in commands from the
   backend for PAYOUT / WITHDRAW execution (REFUND defensive — refunds are
-  wallet credits, never dispatched). SLPA-team-deployed; holds shared
+  wallet credits, never dispatched). SLParcels-team-deployed; holds shared
   secret + PERMISSION_DEBIT.
-- [`sl-im-dispatcher/`](sl-im-dispatcher/) — Polls SLPA backend for pending
-  SL IM notifications and delivers them via `llInstantMessage`. SLPA-team-deployed
+- [`sl-im-dispatcher/`](sl-im-dispatcher/) — Polls SLParcels backend for pending
+  SL IM notifications and delivers them via `llInstantMessage`. SLParcels-team-deployed
   (one instance per environment); not user-deployed.

@@ -1,13 +1,13 @@
-# SLPA Verification Terminal
+# SLParcels Verification Terminal
 
 In-world account-linking kiosk. Players touch this terminal, type their 6-digit
-SLPA code, and the script POSTs their avatar metadata to the backend to link
+SLParcels code, and the script POSTs their avatar metadata to the backend to link
 the SL account to a website account.
 
 ## Architecture summary
 
 - **Trust:** SL-injected `X-SecondLife-Shard` + `X-SecondLife-Owner-Key` headers.
-  No shared secret. The terminal must be owned by an SLPA service avatar listed
+  No shared secret. The terminal must be owned by an SLParcels service avatar listed
   in `slpa.sl.trusted-owner-keys`.
 - **State machine:** IDLE → (touch) lock + busy chrome → (llTextBox) code entry →
   (dataserver) DATA_BORN + DATA_PAYINFO → (HTTP) POST /sl/verify → (http_response)
@@ -17,17 +17,17 @@ the SL account to a website account.
 
 ## Deployment
 
-User-facing kiosk distributed via Marketplace + SLPA HQ + allied venues.
+User-facing kiosk distributed via Marketplace + SLParcels HQ + allied venues.
 
 1. Rez a generic prim, give it terminal-style geometry / texture (visual; not
    script concern).
 2. Drop `verification-terminal.lsl` into the prim.
 3. Drop a copy of `config.notecard.example` renamed to **`config`** (no
    extension). Edit `VERIFY_URL` to match the target environment.
-4. Set the prim's owner to the SLPA service avatar (so `X-SecondLife-Owner-Key`
+4. Set the prim's owner to the SLParcels service avatar (so `X-SecondLife-Owner-Key`
    matches `slpa.sl.trusted-owner-keys`).
 5. Reset the script (right-click → Edit → Reset Scripts in Selection).
-6. Confirm idle floating text appears: "SLPA Verification Terminal\nTouch to
+6. Confirm idle floating text appears: "SLParcels Verification Terminal\nTouch to
    link your account".
 
 ## Configuration
@@ -46,10 +46,10 @@ Editing the notecard auto-resets the script via `CHANGED_INVENTORY`.
 
 In steady state:
 
-- `SLPA Verification Terminal: ready (verify=...)` — startup ping.
-- `SLPA Verification Terminal: touch from <name>` — when a user touches.
-- `SLPA Verification Terminal: verify ok: userId=<n>` — successful link.
-- `SLPA Verification Terminal: verify denied: <reason>` — backend rejected.
+- `SLParcels Verification Terminal: ready (verify=...)` — startup ping.
+- `SLParcels Verification Terminal: touch from <name>` — when a user touches.
+- `SLParcels Verification Terminal: verify ok: userId=<n>` — successful link.
+- `SLParcels Verification Terminal: verify denied: <reason>` — backend rejected.
 
 If silent for >5 minutes during expected traffic, check land permissions for
 outbound HTTP and confirm the prim has the script + notecard.
@@ -61,7 +61,7 @@ outbound HTTP and confirm the prim has the script + notecard.
 | Startup says `incomplete config` | Notecard missing `VERIFY_URL`. |
 | Startup says `notecard 'config' missing or unreadable` | Notecard not in prim, or named something other than exactly `config`. |
 | Periodic `5xx` responses | Backend issue. Check server logs. |
-| `403` responses | `X-SecondLife-Owner-Key` not in trusted set, or wrong shard. Confirm owner is an SLPA service avatar. |
+| `403` responses | `X-SecondLife-Owner-Key` not in trusted set, or wrong shard. Confirm owner is an SLParcels service avatar. |
 | `✓` never appears after correct code | Possibly the dataserver event for DATA_BORN / DATA_PAYINFO was lost. The 30s data-timeout will fire and speak an error. User can re-touch. |
 
 ## Limits
@@ -75,7 +75,7 @@ outbound HTTP and confirm the prim has the script + notecard.
 
 ## Security
 
-- The terminal must be owned by an SLPA service avatar listed in
+- The terminal must be owned by an SLParcels service avatar listed in
   `slpa.sl.trusted-owner-keys`. Backend rejects `X-SecondLife-Owner-Key` not
   in that set.
 - No shared secret in the notecard — header trust is sufficient because the

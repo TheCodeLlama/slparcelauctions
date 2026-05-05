@@ -1,4 +1,4 @@
-# config notecard for SLPA Parcel Verifier (rezzable)
+# config notecard for SLParcels Parcel Verifier (rezzable)
 # Place this file (renamed to "config", no extension) in the prim's contents
 # BEFORE you rez it on a parcel — once rezzed it self-destructs after one
 # verification attempt.
