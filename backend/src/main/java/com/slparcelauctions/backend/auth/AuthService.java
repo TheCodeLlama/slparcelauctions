@@ -4,9 +4,9 @@ import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auth.dto.AuthResult;
 import com.slparcelauctions.backend.auth.dto.LoginRequest;
 import com.slparcelauctions.backend.auth.dto.RegisterRequest;
-import com.slparcelauctions.backend.auth.exception.EmailAlreadyExistsException;
 import com.slparcelauctions.backend.auth.exception.InvalidCredentialsException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
+import com.slparcelauctions.backend.auth.exception.UsernameAlreadyExistsException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -50,13 +50,13 @@ public class AuthService {
      * Creates a new account and issues an access token + refresh token.
      *
      * <p>Delegates to {@link UserService#createUser} for the user record, then loads the
-     * entity directly via {@link UserRepository#findById} for the freshly-assigned
+     * entity directly via {@link UserRepository#findByPublicId} for the freshly-assigned
      * {@code token_version}. The extra DB read is acceptable — registration is not a hot path.
      *
      * @param request  validated registration payload
      * @param httpReq  used to extract {@code User-Agent} and remote IP for the refresh-token row
      * @return access token, raw refresh token, and user snapshot
-     * @throws EmailAlreadyExistsException if the email is already in use
+     * @throws UsernameAlreadyExistsException if the username is already in use
      */
     public AuthResult register(RegisterRequest request, HttpServletRequest httpReq) {
         String ip = httpReq.getRemoteAddr();
@@ -64,9 +64,9 @@ public class AuthService {
         UserResponse created;
         try {
             created = userService.createUser(
-                    new CreateUserRequest(request.email(), request.password(), request.displayName()));
+                    new CreateUserRequest(request.username(), request.password()));
         } catch (UserAlreadyExistsException e) {
-            throw new EmailAlreadyExistsException(request.email());
+            throw new UsernameAlreadyExistsException(request.username());
         }
 
         // One extra DB read — register is not a hot path.
@@ -82,21 +82,21 @@ public class AuthService {
     // -------------------------------------------------------------------------
 
     /**
-     * Authenticates a user by email and password and issues tokens.
+     * Authenticates a user by username and password and issues tokens.
      *
-     * <p>Both "email not found" and "wrong password" throw {@link InvalidCredentialsException}
-     * with an identical message, so the endpoint does not leak email existence through differing
+     * <p>Both "username not found" and "wrong password" throw {@link InvalidCredentialsException}
+     * with an identical message, so the endpoint does not leak username existence through differing
      * response shapes.
      *
      * @param request  validated login payload
      * @param httpReq  used to extract {@code User-Agent} and remote IP for the refresh-token row
      * @return access token, raw refresh token, and user snapshot
-     * @throws InvalidCredentialsException if the email is unknown or the password does not match
+     * @throws InvalidCredentialsException if the username is unknown or the password does not match
      */
     public AuthResult login(LoginRequest request, HttpServletRequest httpReq) {
         String ip = httpReq.getRemoteAddr();
         banCheckService.assertNotBanned(ip, null);
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByUsername(request.username())
                 .orElseThrow(InvalidCredentialsException::new);
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
@@ -138,7 +138,7 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalStateException(
                         "User disappeared during token refresh: id=" + rotation.userId()));
 
-        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getEmail(), user.getTokenVersion(), user.getRole());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getUsername(), user.getTokenVersion(), user.getRole());
         String newAccessToken = jwtService.issueAccessToken(principal);
 
         return new AuthResult(newAccessToken, rotation.rawToken(), UserResponse.from(user));
@@ -185,7 +185,7 @@ public class AuthService {
         String userAgent = httpReq.getHeader("User-Agent");
         String ipAddress = httpReq.getRemoteAddr();
 
-        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getEmail(), user.getTokenVersion(), user.getRole());
+        AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getUsername(), user.getTokenVersion(), user.getRole());
         String accessToken = jwtService.issueAccessToken(principal);
 
         RefreshTokenService.IssuedRefreshToken issued =
