@@ -291,6 +291,12 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Next infra touch — verify `module.fck_nat[0]` outputs (likely `instance_id` per the RaJiska/fck-nat module contract), add `aws_cloudwatch_metric_alarm.nat_instance_cpu` keyed on namespace=`AWS/EC2`, dimension `InstanceId`. Conditional on `var.nat_type == "instance"` to no-op when NAT Gateway is in use.
 - **Notes:** Spec table row `slpa-nat-instance-cpu` > 80% over 5 min, alert-only.
 
+### SLParcels rebrand follow-ups
+- **From:** SLParcels rebrand sweep (2026-05-04). See spec `docs/superpowers/specs/2026-05-04-slparcels-rebrand-design.md` for the full enumeration of 14 items.
+- **Why:** Copy + live-docs sweep was the approved scope; everything below was deliberately out of scope to avoid prod-cutover and external-dependency work. The spec retains the `slpa-prod` AWS resource names, `com.slparcelauctions` Java package, `slpa.*` config prefix, `SLPA_*` env vars, real `SLPABot1-5` + `SLPAEscrow Resident` SL avatars, the `SLPA` Postman workspace name, the `lsl-scripts/slpa-terminal/` and `slpa-verifier-giver/` folder paths, and historical/aspirational/generated docs (specs/plans, stitch mockups, initial-design, epic-NN task docs).
+- **When:** Item-by-item, no fixed phase. The high-cost items (AWS recreation, SL avatar provisioning) are gated on a maintenance window; the low-cost items (Postman workspace rename, Java package rename, repo folder renames, historical doc sweep) can be picked up whenever convenient.
+- **Notes:** One additional item discovered during execution: `backend/src/main/resources/db/migration/V5__reconciliation_extension.sql` line 7 contains a brand reference in a comment. Reverted during the sweep because Flyway's checksum validation rejected the edit (the migration is already applied to the dev database). To swap it, either (a) wait until the next DB wipe so V5 re-applies cleanly, or (b) `flyway repair` the schema_history checksum after editing. Spec deviation captured at plan-write time: per user direction, infra/ Terraform string attributes (`description = "..."`, `comment = "..."`, `error_message = "..."`) stay literal even when they contain brand text — only `#` comment lines were swept.
+
 ---
 
 ## Removal Criteria
