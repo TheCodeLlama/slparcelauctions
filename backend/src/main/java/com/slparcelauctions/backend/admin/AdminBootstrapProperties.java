@@ -9,5 +9,5 @@ import lombok.Data;
 @Data
 @ConfigurationProperties(prefix = "slpa.admin")
 public class AdminBootstrapProperties {
-    private List<String> bootstrapEmails = List.of();
+    private List<String> bootstrapUsernames = List.of();
 }
