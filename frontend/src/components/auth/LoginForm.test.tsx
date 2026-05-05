@@ -23,7 +23,7 @@ describe("LoginForm", () => {
 
     renderWithProviders(<LoginForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "user@example.com");
+    await user.type(screen.getByLabelText(/username/i), "alice");
     await user.type(screen.getByLabelText(/password/i), "anything");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -38,7 +38,7 @@ describe("LoginForm", () => {
 
     renderWithProviders(<LoginForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "wrong@example.com");
+    await user.type(screen.getByLabelText(/username/i), "wrong");
     await user.type(screen.getByLabelText(/password/i), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -54,7 +54,7 @@ describe("LoginForm", () => {
 
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/at least 3 characters/i)).toBeInTheDocument();
   });
 
   it("renders the 'Signed in for 7 days on this device' helper text", () => {

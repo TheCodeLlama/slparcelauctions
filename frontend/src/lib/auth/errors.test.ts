@@ -6,18 +6,18 @@ import { mapProblemDetailToForm } from "./errors";
 import { ApiError } from "@/lib/api";
 
 type TestForm = {
-  email: string;
+  username: string;
   password: string;
   confirmPassword: string;
   terms: boolean;
 };
 
-const KNOWN_FIELDS = ["email", "password", "confirmPassword", "terms"] as const;
+const KNOWN_FIELDS = ["username", "password", "confirmPassword", "terms"] as const;
 
 function setupForm() {
   return renderHook(() => {
     const form = useForm<TestForm>({
-      defaultValues: { email: "", password: "", confirmPassword: "", terms: false },
+      defaultValues: { username: "", password: "", confirmPassword: "", terms: false },
     });
     // Subscribe to formState.errors so the hook re-renders when errors change.
     void form.formState.errors;
@@ -45,7 +45,7 @@ describe("mapProblemDetailToForm", () => {
       status: 400,
       code: "VALIDATION_FAILED",
       errors: {
-        email: "must be a valid email",
+        username: "must be at least 3 characters",
         password: "must be at least 10 characters",
       },
     });
@@ -54,23 +54,23 @@ describe("mapProblemDetailToForm", () => {
       mapProblemDetailToForm(error, result.current, KNOWN_FIELDS);
     });
 
-    expect(result.current.formState.errors.email?.message).toBe("must be a valid email");
+    expect(result.current.formState.errors.username?.message).toBe("must be at least 3 characters");
     expect(result.current.formState.errors.password?.message).toBe("must be at least 10 characters");
   });
 
-  it("maps AUTH_EMAIL_EXISTS to a field-level error on email", () => {
+  it("maps AUTH_USERNAME_EXISTS to a field-level error on username", () => {
     const { result } = setupForm();
     const error = new ApiError({
-      type: "https://slpa.example/problems/auth/email-exists",
+      type: "https://slpa.example/problems/auth/username-exists",
       status: 409,
-      code: "AUTH_EMAIL_EXISTS",
+      code: "AUTH_USERNAME_EXISTS",
     });
 
     act(() => {
       mapProblemDetailToForm(error, result.current, KNOWN_FIELDS);
     });
 
-    expect(result.current.formState.errors.email?.message).toMatch(/already exists/i);
+    expect(result.current.formState.errors.username?.message).toMatch(/already taken/i);
   });
 
   it("maps AUTH_INVALID_CREDENTIALS to root.serverError (NOT a field-level error)", () => {
@@ -85,7 +85,7 @@ describe("mapProblemDetailToForm", () => {
       mapProblemDetailToForm(error, result.current, KNOWN_FIELDS);
     });
 
-    expect(result.current.formState.errors.email).toBeUndefined();
+    expect(result.current.formState.errors.username).toBeUndefined();
     expect(result.current.formState.errors.password).toBeUndefined();
     // root.serverError lives at errors.root?.serverError in RHF.
     const root = (result.current.formState.errors as { root?: { serverError?: { message?: string } } }).root;

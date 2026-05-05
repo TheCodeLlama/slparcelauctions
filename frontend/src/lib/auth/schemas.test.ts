@@ -54,7 +54,7 @@ describe("passwordInputSchema", () => {
 
 describe("registerSchema", () => {
   const valid = {
-    email: "user@example.com",
+    username: "user",
     password: "hunter22ab",
     confirmPassword: "hunter22ab",
     terms: true as const,
@@ -81,12 +81,12 @@ describe("registerSchema", () => {
 
 describe("loginSchema", () => {
   it("accepts a valid login payload", () => {
-    const result = loginSchema.safeParse({ email: "user@example.com", password: "anything" });
+    const result = loginSchema.safeParse({ username: "user", password: "anything" });
     expect(result.success).toBe(true);
   });
 
   it("rejects empty password", () => {
-    const result = loginSchema.safeParse({ email: "user@example.com", password: "" });
+    const result = loginSchema.safeParse({ username: "user", password: "" });
     expect(result.success).toBe(false);
   });
 });

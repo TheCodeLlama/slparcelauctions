@@ -20,7 +20,7 @@ describe("LoginForm — next-redirect", () => {
     server.use(authHandlers.loginSuccess());
 
     renderWithProviders(<LoginForm />);
-    await user.type(screen.getByLabelText(/email/i), "user@example.com");
+    await user.type(screen.getByLabelText(/username/i), "alice");
     await user.type(screen.getByLabelText(/password/i), "anything");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 

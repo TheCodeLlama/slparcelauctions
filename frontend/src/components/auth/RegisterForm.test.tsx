@@ -23,7 +23,7 @@ describe("RegisterForm", () => {
 
     renderWithProviders(<RegisterForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "new@example.com");
+    await user.type(screen.getByLabelText(/username/i), "newuser");
     await user.type(screen.getByLabelText(/^password$/i), "hunter22ab");
     await user.type(screen.getByLabelText(/confirm password/i), "hunter22ab");
     await user.click(screen.getByLabelText(/terms/i));
@@ -34,19 +34,19 @@ describe("RegisterForm", () => {
     });
   });
 
-  it("shows email-exists error inline when backend returns 409", async () => {
+  it("shows username-exists error inline when backend returns 409", async () => {
     const user = userEvent.setup();
-    server.use(authHandlers.registerEmailExists());
+    server.use(authHandlers.registerUsernameExists());
 
     renderWithProviders(<RegisterForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "taken@example.com");
+    await user.type(screen.getByLabelText(/username/i), "taken");
     await user.type(screen.getByLabelText(/^password$/i), "hunter22ab");
     await user.type(screen.getByLabelText(/confirm password/i), "hunter22ab");
     await user.click(screen.getByLabelText(/terms/i));
     await user.click(screen.getByRole("button", { name: /create account/i }));
 
-    expect(await screen.findByText(/already exists/i)).toBeInTheDocument();
+    expect(await screen.findByText(/already taken/i)).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
   });
 
@@ -54,7 +54,7 @@ describe("RegisterForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<RegisterForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(screen.getByLabelText(/username/i), "test");
     await user.type(screen.getByLabelText(/^password$/i), "hunter22ab");
     await user.type(screen.getByLabelText(/confirm password/i), "different22ab");
     await user.click(screen.getByLabelText(/terms/i));
@@ -68,7 +68,7 @@ describe("RegisterForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<RegisterForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(screen.getByLabelText(/username/i), "test");
     await user.type(screen.getByLabelText(/^password$/i), "hunter22ab");
     await user.type(screen.getByLabelText(/confirm password/i), "hunter22ab");
     // Skip the terms checkbox
