@@ -1682,14 +1682,15 @@ This means FAILED rows in `sl_im_message` only appear via:
 If support runs `SELECT status, count(*) FROM sl_im_message GROUP BY status`
 and sees zero FAILED rows, that's correct behavior. Not a missing pipeline.
 
-### F.99 — Admin bootstrap config WILL re-promote a deliberately-demoted bootstrap email
+### F.99 — Admin bootstrap config WILL re-promote a deliberately-demoted bootstrap username
 
-The `slpa.admin.bootstrap-emails` list is a forward-promote-on-startup
+The `slpa.admin.bootstrap-usernames` list is a forward-promote-on-startup
 mechanism, not a configurable opt-out. The `WHERE u.role = 'USER'` guard
-catches deliberately-demoted bootstrap emails on next restart and
-re-promotes them. To permanently demote a bootstrap email, **remove it
+catches deliberately-demoted bootstrap usernames on next restart and
+re-promotes them. To permanently demote a bootstrap username, **remove it
 from the config list** AND bump `tokenVersion` (else outstanding tokens
-keep working until expiry). Documented as intentional in spec
+keep working until expiry). Matching is case-insensitive (the JPQL
+lowercases both sides). Documented as intentional in spec
 2026-04-26 §10.6.
 
 ### F.100 — Demoting an admin requires both `role = USER` AND `tokenVersion + 1`
