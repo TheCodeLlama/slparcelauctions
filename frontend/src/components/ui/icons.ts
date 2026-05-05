@@ -87,3 +87,6 @@ export {
 
 // Cluster 2 redesign additions (TrustStrip)
 export { RefreshCw } from "lucide-react";
+
+// Admin listings table additions
+export { MoreVertical, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
