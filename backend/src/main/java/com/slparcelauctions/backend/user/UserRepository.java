@@ -87,15 +87,25 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("""
         SELECT u FROM User u
-        WHERE (:uuid IS NOT NULL AND u.slAvatarUuid = :uuid)
-           OR (:uuid IS NULL AND :search IS NOT NULL AND
-               (LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%'))
-                OR LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
-                OR LOWER(COALESCE(u.slDisplayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))))
-           OR (:search IS NULL AND :uuid IS NULL)
+        WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%'))
+           OR LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+           OR LOWER(COALESCE(u.slDisplayName, '')) LIKE LOWER(CONCAT('%', :search, '%'))
         ORDER BY u.createdAt DESC
         """)
-    Page<User> searchAdmin(@Param("search") String search, @Param("uuid") UUID uuidOrNull, Pageable pageable);
+    Page<User> searchAdminByText(@Param("search") String search, Pageable pageable);
+
+    @Query("""
+        SELECT u FROM User u
+        WHERE u.slAvatarUuid = :uuid
+        ORDER BY u.createdAt DESC
+        """)
+    Page<User> searchAdminByUuid(@Param("uuid") UUID uuid, Pageable pageable);
+
+    @Query("""
+        SELECT u FROM User u
+        ORDER BY u.createdAt DESC
+        """)
+    Page<User> searchAdminAll(Pageable pageable);
 
     /**
      * Sum of all wallet balances. Used by ReconciliationService to compute the

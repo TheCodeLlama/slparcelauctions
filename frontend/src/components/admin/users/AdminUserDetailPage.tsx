@@ -13,12 +13,12 @@ import { ModerationTab } from "./tabs/ModerationTab";
 import { UserActionsRail } from "./UserActionsRail";
 
 type Props = {
-  userId: number;
+  publicId: string;
 };
 
-export function AdminUserDetailPage({ userId }: Props) {
+export function AdminUserDetailPage({ publicId }: Props) {
   const [activeTab, setActiveTab] = useState<UserTab>("listings");
-  const { data: user, isLoading, isError, refetch } = useAdminUser(userId);
+  const { data: user, isLoading, isError, refetch } = useAdminUser(publicId);
 
   if (isLoading) {
     return (
@@ -46,12 +46,12 @@ export function AdminUserDetailPage({ userId }: Props) {
         <UserStatsCards stats={user} />
         <UserTabsNav active={activeTab} onChange={setActiveTab} />
 
-        {activeTab === "listings" && <ListingsTab userId={userId} />}
-        {activeTab === "bids" && <BidsTab userId={userId} />}
-        {activeTab === "cancellations" && <CancellationsTab userId={userId} />}
-        {activeTab === "reports" && <ReportsTab userId={userId} />}
-        {activeTab === "fraudFlags" && <FraudFlagsTab userId={userId} />}
-        {activeTab === "moderation" && <ModerationTab userId={userId} />}
+        {activeTab === "listings" && <ListingsTab publicId={publicId} />}
+        {activeTab === "bids" && <BidsTab publicId={publicId} />}
+        {activeTab === "cancellations" && <CancellationsTab publicId={publicId} />}
+        {activeTab === "reports" && <ReportsTab publicId={publicId} />}
+        {activeTab === "fraudFlags" && <FraudFlagsTab publicId={publicId} />}
+        {activeTab === "moderation" && <ModerationTab publicId={publicId} />}
       </div>
 
       <div className="sticky top-6">

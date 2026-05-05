@@ -129,41 +129,41 @@ export const adminApi = {
       if (params.search) sp.set("search", params.search);
       return api.get(`/api/v1/admin/users?${sp.toString()}`);
     },
-    detail(id: number): Promise<AdminUserDetail> {
-      return api.get(`/api/v1/admin/users/${id}`);
+    detail(publicId: string): Promise<AdminUserDetail> {
+      return api.get(`/api/v1/admin/users/${publicId}`);
     },
-    listings(id: number, page: number, size: number): Promise<Page<AdminUserListingRow>> {
-      return api.get(`/api/v1/admin/users/${id}/listings?page=${page}&size=${size}`);
+    listings(publicId: string, page: number, size: number): Promise<Page<AdminUserListingRow>> {
+      return api.get(`/api/v1/admin/users/${publicId}/listings?page=${page}&size=${size}`);
     },
-    bids(id: number, page: number, size: number): Promise<Page<AdminUserBidRow>> {
-      return api.get(`/api/v1/admin/users/${id}/bids?page=${page}&size=${size}`);
+    bids(publicId: string, page: number, size: number): Promise<Page<AdminUserBidRow>> {
+      return api.get(`/api/v1/admin/users/${publicId}/bids?page=${page}&size=${size}`);
     },
-    cancellations(id: number, page: number, size: number): Promise<Page<AdminUserCancellationRow>> {
-      return api.get(`/api/v1/admin/users/${id}/cancellations?page=${page}&size=${size}`);
+    cancellations(publicId: string, page: number, size: number): Promise<Page<AdminUserCancellationRow>> {
+      return api.get(`/api/v1/admin/users/${publicId}/cancellations?page=${page}&size=${size}`);
     },
-    reports(id: number, page: number, size: number): Promise<Page<AdminUserReportRow>> {
-      return api.get(`/api/v1/admin/users/${id}/reports?page=${page}&size=${size}`);
+    reports(publicId: string, page: number, size: number): Promise<Page<AdminUserReportRow>> {
+      return api.get(`/api/v1/admin/users/${publicId}/reports?page=${page}&size=${size}`);
     },
-    fraudFlags(id: number, page: number, size: number): Promise<Page<AdminUserFraudFlagRow>> {
-      return api.get(`/api/v1/admin/users/${id}/fraud-flags?page=${page}&size=${size}`);
+    fraudFlags(publicId: string, page: number, size: number): Promise<Page<AdminUserFraudFlagRow>> {
+      return api.get(`/api/v1/admin/users/${publicId}/fraud-flags?page=${page}&size=${size}`);
     },
-    moderation(id: number, page: number, size: number): Promise<Page<AdminUserModerationRow>> {
-      return api.get(`/api/v1/admin/users/${id}/moderation?page=${page}&size=${size}`);
+    moderation(publicId: string, page: number, size: number): Promise<Page<AdminUserModerationRow>> {
+      return api.get(`/api/v1/admin/users/${publicId}/moderation?page=${page}&size=${size}`);
     },
-    ips(id: number): Promise<UserIpProjection[]> {
-      return api.get(`/api/v1/admin/users/${id}/ips`);
+    ips(publicId: string): Promise<UserIpProjection[]> {
+      return api.get(`/api/v1/admin/users/${publicId}/ips`);
     },
-    promote(id: number, notes: string): Promise<void> {
-      return api.post(`/api/v1/admin/users/${id}/promote`, { notes });
+    promote(publicId: string, notes: string): Promise<void> {
+      return api.post(`/api/v1/admin/users/${publicId}/promote`, { notes });
     },
-    demote(id: number, notes: string): Promise<void> {
-      return api.post(`/api/v1/admin/users/${id}/demote`, { notes });
+    demote(publicId: string, notes: string): Promise<void> {
+      return api.post(`/api/v1/admin/users/${publicId}/demote`, { notes });
     },
-    resetFrivolousCounter(id: number, notes: string): Promise<void> {
-      return api.post(`/api/v1/admin/users/${id}/reset-frivolous-counter`, { notes });
+    resetFrivolousCounter(publicId: string, notes: string): Promise<void> {
+      return api.post(`/api/v1/admin/users/${publicId}/reset-frivolous-counter`, { notes });
     },
-    delete(userId: number, adminNote: string): Promise<void> {
-      return api.delete(`/api/v1/admin/users/${userId}`, { body: { adminNote } });
+    delete(publicId: string, adminNote: string): Promise<void> {
+      return api.delete(`/api/v1/admin/users/${publicId}`, { body: { adminNote } });
     },
   },
 
@@ -209,13 +209,13 @@ export const adminApi = {
   },
 
   auctions: {
-    reinstate(id: number, notes: string): Promise<{
+    reinstate(publicId: string, notes: string): Promise<{
       auctionId: number;
       status: string;
       newEndsAt: string;
       suspensionDurationSeconds: number;
     }> {
-      return api.post(`/api/v1/admin/auctions/${id}/reinstate`, { notes });
+      return api.post(`/api/v1/admin/auctions/${publicId}/reinstate`, { notes });
     },
   },
 

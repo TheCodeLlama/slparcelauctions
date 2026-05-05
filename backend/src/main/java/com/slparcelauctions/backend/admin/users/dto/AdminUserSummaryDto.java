@@ -7,6 +7,7 @@ import com.slparcelauctions.backend.user.Role;
 
 public record AdminUserSummaryDto(
     UUID publicId,
+    String username,
     String email,
     String displayName,
     UUID slAvatarUuid,

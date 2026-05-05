@@ -15,12 +15,12 @@ function formatDate(iso: string): string {
 }
 
 type Props = {
-  userId: number;
+  publicId: string;
 };
 
-export function BidsTab({ userId }: Props) {
+export function BidsTab({ publicId }: Props) {
   const [page, setPage] = useState(0);
-  const { data, isLoading, isError } = useAdminUserBids(userId, page, PAGE_SIZE);
+  const { data, isLoading, isError } = useAdminUserBids(publicId, page, PAGE_SIZE);
 
   if (isLoading) {
     return <div className="py-6 text-sm text-fg-muted">Loading bids…</div>;
@@ -55,7 +55,7 @@ export function BidsTab({ userId }: Props) {
               >
                 <td className="px-3 py-2.5">
                   <Link
-                    href={`/auction/${row.auctionId}`}
+                    href={`/auction/${row.auctionPublicId}`}
                     className="text-brand hover:underline underline-offset-2 line-clamp-1"
                     target="_blank"
                   >

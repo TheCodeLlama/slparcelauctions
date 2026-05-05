@@ -190,6 +190,6 @@ slpa:
         top-users-in-log: 10
   admin:
     bootstrap-usernames:
-      - heath
+      - Heath Onyx
   web:
     base-url: ${SLPA_WEB_BASE_URL:http://localhost:3000}

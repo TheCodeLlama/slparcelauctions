@@ -597,15 +597,15 @@ export const adminHandlers = {
   },
 
   userDetailSuccess(detail: AdminUserDetail) {
-    return http.get(`*/api/v1/admin/users/${detail.id}`, () => HttpResponse.json(detail));
+    return http.get(`*/api/v1/admin/users/${detail.publicId}`, () => HttpResponse.json(detail));
   },
 
-  userIpsSuccess(userId: number, ips: UserIpProjection[]) {
-    return http.get(`*/api/v1/admin/users/${userId}/ips`, () => HttpResponse.json(ips));
+  userIpsSuccess(publicId: string, ips: UserIpProjection[]) {
+    return http.get(`*/api/v1/admin/users/${publicId}/ips`, () => HttpResponse.json(ips));
   },
 
-  userListingsSuccess(userId: number, rows: AdminUserModerationRow[]) {
-    return http.get(`*/api/v1/admin/users/${userId}/listings`, () =>
+  userListingsSuccess(publicId: string, rows: AdminUserModerationRow[]) {
+    return http.get(`*/api/v1/admin/users/${publicId}/listings`, () =>
       HttpResponse.json({
         content: rows,
         totalElements: rows.length,

@@ -12,12 +12,12 @@ function formatDate(iso: string): string {
 }
 
 type Props = {
-  userId: number;
+  publicId: string;
   onClose: () => void;
 };
 
-export function RecentIpsModal({ userId, onClose }: Props) {
-  const { data, isLoading, isError } = useAdminUserIps(userId);
+export function RecentIpsModal({ publicId, onClose }: Props) {
+  const { data, isLoading, isError } = useAdminUserIps(publicId);
   const [banIp, setBanIp] = useState<string | null>(null);
 
   useEffect(() => {

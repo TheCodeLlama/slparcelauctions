@@ -60,7 +60,14 @@ public class AdminUserService {
         UUID uuid = tryParseUuid(input);
         String search = uuid != null ? null
             : (input == null || input.isBlank() ? null : input.trim());
-        Page<User> page = userRepo.searchAdmin(search, uuid, pageable);
+        Page<User> page;
+        if (uuid != null) {
+            page = userRepo.searchAdminByUuid(uuid, pageable);
+        } else if (search != null) {
+            page = userRepo.searchAdminByText(search, pageable);
+        } else {
+            page = userRepo.searchAdminAll(pageable);
+        }
         OffsetDateTime now = OffsetDateTime.now(clock);
         return PagedResponse.from(page.map(u -> toSummary(u, now)));
     }
@@ -80,7 +87,7 @@ public class AdminUserService {
             }
         }
         return new AdminUserDetailDto(
-            u.getPublicId(), u.getEmail(), u.getDisplayName(),
+            u.getPublicId(), u.getUsername(), u.getEmail(), u.getDisplayName(),
             u.getSlAvatarUuid(), u.getSlDisplayName(),
             u.getRole(), Boolean.TRUE.equals(u.getVerified()), u.getVerifiedAt(),
             u.getCreatedAt(),
@@ -95,7 +102,7 @@ public class AdminUserService {
     public PagedResponse<AdminUserListingRowDto> listings(Long userId, Pageable pageable) {
         Page<Auction> page = auctionRepo.findBySellerIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.from(page.map(a -> new AdminUserListingRowDto(
-            a.getId(), a.getTitle(),
+            a.getId(), a.getPublicId(), a.getTitle(),
             a.getParcelSnapshot() != null ? a.getParcelSnapshot().getRegionName() : null,
             a.getStatus(), a.getEndsAt(), a.getFinalBidAmount())));
     }
@@ -104,7 +111,8 @@ public class AdminUserService {
     public PagedResponse<AdminUserBidRowDto> bids(Long userId, Pageable pageable) {
         Page<Bid> page = bidRepo.findByBidderIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.from(page.map(b -> new AdminUserBidRowDto(
-            b.getId(), b.getAuction().getId(), b.getAuction().getTitle(),
+            b.getId(), b.getAuction().getId(), b.getAuction().getPublicId(),
+            b.getAuction().getTitle(),
             b.getAmount(), b.getCreatedAt(), b.getAuction().getStatus())));
     }
 
@@ -112,7 +120,8 @@ public class AdminUserService {
     public PagedResponse<AdminUserCancellationRowDto> cancellations(Long userId, Pageable pageable) {
         Page<CancellationLog> page = cancellationLogRepo.findBySellerIdOrderByCancelledAtDesc(userId, pageable);
         return PagedResponse.from(page.map(c -> new AdminUserCancellationRowDto(
-            c.getId(), c.getAuction().getId(), c.getAuction().getTitle(),
+            c.getId(), c.getAuction().getId(), c.getAuction().getPublicId(),
+            c.getAuction().getTitle(),
             c.getCancelledFromStatus(), Boolean.TRUE.equals(c.getHadBids()),
             c.getReason(),
             c.getPenaltyKind() != null ? c.getPenaltyKind().name() : null,
@@ -125,7 +134,8 @@ public class AdminUserService {
         return PagedResponse.from(page.map(r -> {
             String direction = r.getReporter().getId().equals(userId) ? "FILED_BY" : "AGAINST_LISTING";
             return new AdminUserReportRowDto(
-                r.getId(), r.getAuction().getId(), r.getAuction().getTitle(),
+                r.getId(), r.getAuction().getId(), r.getAuction().getPublicId(),
+                r.getAuction().getTitle(),
                 r.getReason().name(), r.getStatus().name(),
                 direction, r.getCreatedAt(), r.getUpdatedAt());
         }));
@@ -137,6 +147,7 @@ public class AdminUserService {
         return PagedResponse.from(page.map(f -> new AdminUserFraudFlagRowDto(
             f.getId(),
             f.getAuction() != null ? f.getAuction().getId() : null,
+            f.getAuction() != null ? f.getAuction().getPublicId() : null,
             f.getAuction() != null ? f.getAuction().getTitle() : null,
             f.getReason().name(), f.isResolved(), f.getDetectedAt())));
     }
@@ -160,7 +171,7 @@ public class AdminUserService {
         boolean banned = u.getSlAvatarUuid() != null
             && !banRepo.findActiveByAvatar(u.getSlAvatarUuid(), now).isEmpty();
         return new AdminUserSummaryDto(
-            u.getPublicId(), u.getEmail(), u.getDisplayName(),
+            u.getPublicId(), u.getUsername(), u.getEmail(), u.getDisplayName(),
             u.getSlAvatarUuid(), u.getSlDisplayName(),
             u.getRole(), Boolean.TRUE.equals(u.getVerified()), banned,
             u.getCompletedSales(), u.getCancelledWithBids(),

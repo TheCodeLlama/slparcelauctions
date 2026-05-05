@@ -29,9 +29,9 @@ export function UserSearchAutocomplete({ onSelect, placeholder = "Search by name
   }, [query]);
 
   function handleSelect(user: AdminUserSummary) {
-    const name = user.displayName ?? user.email;
-    setQuery(name);
-    setClosedForQuery(name);
+    const label = user.displayName ?? user.username;
+    setQuery(label);
+    setClosedForQuery(label);
     onSelect(user);
   }
 
@@ -57,17 +57,17 @@ export function UserSearchAutocomplete({ onSelect, placeholder = "Search by name
         >
           {results.map((user) => (
             <li
-              key={user.id}
+              key={user.publicId}
               role="option"
               aria-selected={false}
               onClick={() => handleSelect(user)}
-              data-testid={`user-option-${user.id}`}
+              data-testid={`user-option-${user.publicId}`}
               className="flex flex-col px-4 py-2 cursor-pointer hover:bg-bg-muted transition-colors"
             >
               <span className="text-sm font-medium text-fg">
-                {user.displayName ?? "(no display name)"}
+                {user.displayName ?? user.username}
               </span>
-              <span className="text-[11px] text-fg-muted">{user.email}</span>
+              <span className="text-[11px] text-fg-muted">{user.email ?? "—"}</span>
             </li>
           ))}
         </ul>

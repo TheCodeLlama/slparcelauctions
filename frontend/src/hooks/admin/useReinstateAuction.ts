@@ -5,14 +5,14 @@ import { adminQueryKeys } from "@/lib/admin/queryKeys";
 import { useToast } from "@/components/ui/Toast/useToast";
 import { isApiError } from "@/lib/api";
 
-export function useReinstateAuction(userId: number) {
+export function useReinstateAuction(userPublicId: string) {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: ({ auctionId, notes }: { auctionId: number; notes: string }) =>
-      adminApi.auctions.reinstate(auctionId, notes),
+    mutationFn: ({ auctionPublicId, notes }: { auctionPublicId: string; notes: string }) =>
+      adminApi.auctions.reinstate(auctionPublicId, notes),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: adminQueryKeys.userTab(userId, "listings", { page: 0, size: 25 }) });
+      qc.invalidateQueries({ queryKey: adminQueryKeys.userTab(userPublicId, "listings", { page: 0, size: 25 }) });
       qc.invalidateQueries({ queryKey: adminQueryKeys.stats() });
       toast.success("Auction reinstated.");
     },
@@ -20,7 +20,7 @@ export function useReinstateAuction(userId: number) {
       const code = isApiError(err) ? (err.problem as { code?: string }).code : null;
       if (code === "AUCTION_NOT_SUSPENDED") {
         toast.error("Auction is no longer SUSPENDED. Refreshing.");
-        qc.invalidateQueries({ queryKey: adminQueryKeys.userTab(userId, "listings", { page: 0, size: 25 }) });
+        qc.invalidateQueries({ queryKey: adminQueryKeys.userTab(userPublicId, "listings", { page: 0, size: 25 }) });
         return;
       }
       toast.error("Couldn't reinstate auction.");

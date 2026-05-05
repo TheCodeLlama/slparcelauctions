@@ -16,12 +16,12 @@ function formatDate(iso: string): string {
 }
 
 type Props = {
-  userId: number;
+  publicId: string;
 };
 
-export function ModerationTab({ userId }: Props) {
+export function ModerationTab({ publicId }: Props) {
   const [page, setPage] = useState(0);
-  const { data, isLoading, isError } = useAdminUserModeration(userId, page, PAGE_SIZE);
+  const { data, isLoading, isError } = useAdminUserModeration(publicId, page, PAGE_SIZE);
 
   if (isLoading) {
     return <div className="py-6 text-sm text-fg-muted">Loading moderation history…</div>;

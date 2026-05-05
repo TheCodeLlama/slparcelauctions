@@ -12,8 +12,8 @@ export function useDeleteSelf() {
 export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, adminNote }: { userId: number; adminNote: string }) =>
-      adminApi.users.delete(userId, adminNote),
+    mutationFn: ({ publicId, adminNote }: { publicId: string; adminNote: string }) =>
+      adminApi.users.delete(publicId, adminNote),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: adminQueryKeys.users() });
     },
