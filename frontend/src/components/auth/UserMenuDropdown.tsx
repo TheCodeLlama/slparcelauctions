@@ -13,7 +13,7 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
   const logout = useLogout();
   const router = useRouter();
 
-  const displayLabel = user.displayName ?? user.email.split("@")[0];
+  const displayLabel = user.displayName ?? user.username;
 
   const trigger = (
     <button
