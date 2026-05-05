@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.wallet.exception.BidReservationAmountMismatc
 import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
 import com.slparcelauctions.backend.wallet.exception.UserNotLinkedException;
 import com.slparcelauctions.backend.wallet.exception.UserStatusBlockedException;
+import com.slparcelauctions.backend.wallet.exception.WalletFrozenException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -148,6 +149,7 @@ public class WalletService {
 
         User user = userRepository.findByIdForUpdate(userId).orElseThrow();
         rejectIfBlocked(user);
+        rejectIfFrozen(user);
 
         if (user.availableLindens() < amount) {
             throw new InsufficientAvailableBalanceException(user.availableLindens(), amount);
@@ -205,6 +207,7 @@ public class WalletService {
         if (existing.isPresent()) return PenaltyDebitResult.replay(existing.get());
 
         User user = userRepository.findByIdForUpdate(userId).orElseThrow();
+        rejectIfFrozen(user);
         if (amount > user.getPenaltyBalanceOwed()) {
             throw new AmountExceedsOwedException(user.getPenaltyBalanceOwed(), amount);
         }
@@ -252,6 +255,7 @@ public class WalletService {
         if (newBidAmount <= 0) {
             throw new IllegalArgumentException("newBidAmount must be positive: " + newBidAmount);
         }
+        rejectIfFrozen(newBidder);
         if (newBidder.availableLindens() < newBidAmount) {
             throw new InsufficientAvailableBalanceException(newBidder.availableLindens(), newBidAmount);
         }
@@ -421,6 +425,7 @@ public class WalletService {
         if (amount <= 0) {
             throw new IllegalArgumentException("amount must be positive: " + amount);
         }
+        rejectIfFrozen(user);
         if (user.availableLindens() < amount) {
             throw new InsufficientAvailableBalanceException(user.availableLindens(), amount);
         }
@@ -608,6 +613,17 @@ public class WalletService {
         // BANNED/FROZEN are signals; expand as the user-status model grows.
         if (user.getBannedFromListing() != null && user.getBannedFromListing()) {
             throw new UserStatusBlockedException(user.getId(), "BANNED_FROM_LISTING");
+        }
+    }
+
+    /**
+     * Outflow gate for the admin wallet-freeze. Inflows (deposits, admin
+     * adjustments) bypass this check. See spec
+     * docs/superpowers/specs/2026-05-05-admin-user-wallet-ops-design.md §3.6.
+     */
+    private void rejectIfFrozen(User user) {
+        if (user.getWalletFrozenAt() != null) {
+            throw new WalletFrozenException(user.getId());
         }
     }
 

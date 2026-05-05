@@ -14,6 +14,11 @@ import type {
   AdminUserModerationRow,
   AdminUserReportRow,
   AdminUserSummary,
+  AdminWalletAdjustRequest,
+  AdminWalletForgivePenaltyRequest,
+  AdminWalletLedgerRow,
+  AdminWalletNotesRequest,
+  AdminWalletSnapshot,
   AdminActionTargetType,
   BanType,
   CreateBanRequest,
@@ -164,6 +169,40 @@ export const adminApi = {
     },
     delete(publicId: string, adminNote: string): Promise<void> {
       return api.delete(`/api/v1/admin/users/${publicId}`, { body: { adminNote } });
+    },
+    wallet: {
+      snapshot(publicId: string): Promise<AdminWalletSnapshot> {
+        return api.get(`/api/v1/admin/users/${publicId}/wallet`);
+      },
+      ledger(publicId: string, page: number, size: number): Promise<Page<AdminWalletLedgerRow>> {
+        return api.get(`/api/v1/admin/users/${publicId}/wallet/ledger?page=${page}&size=${size}`);
+      },
+      adjust(publicId: string, body: AdminWalletAdjustRequest): Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/adjust`, body);
+      },
+      freeze(publicId: string, body: AdminWalletNotesRequest): Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/freeze`, body);
+      },
+      unfreeze(publicId: string, body: AdminWalletNotesRequest): Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/unfreeze`, body);
+      },
+      forgivePenalty(publicId: string, body: AdminWalletForgivePenaltyRequest): Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/forgive-penalty`, body);
+      },
+      resetDormancy(publicId: string, body: AdminWalletNotesRequest): Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/reset-dormancy`, body);
+      },
+      clearTerms(publicId: string, body: AdminWalletNotesRequest): Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/clear-terms`, body);
+      },
+      forceCompleteWithdrawal(publicId: string, terminalCommandId: number, body: AdminWalletNotesRequest):
+          Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/withdrawals/${terminalCommandId}/force-complete`, body);
+      },
+      forceFailWithdrawal(publicId: string, terminalCommandId: number, body: AdminWalletNotesRequest):
+          Promise<AdminWalletSnapshot> {
+        return api.post(`/api/v1/admin/users/${publicId}/wallet/withdrawals/${terminalCommandId}/force-fail`, body);
+      },
     },
   },
 

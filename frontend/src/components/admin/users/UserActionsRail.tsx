@@ -4,15 +4,27 @@ import Link from "next/link";
 import { usePromoteUser } from "@/hooks/admin/usePromoteUser";
 import { useDemoteUser } from "@/hooks/admin/useDemoteUser";
 import { useResetFrivolousCounter } from "@/hooks/admin/useResetFrivolousCounter";
+import {
+  useAdminWallet,
+  useFreezeWallet,
+  useUnfreezeWallet,
+  useResetDormancy,
+  useClearTerms,
+} from "@/hooks/admin/useAdminWallet";
 import { ConfirmActionModal } from "./ConfirmActionModal";
 import { DeleteUserModal } from "./DeleteUserModal";
 import { RecentIpsModal } from "./RecentIpsModal";
+import { AdjustBalanceModal } from "./wallet/AdjustBalanceModal";
+import { ForgivePenaltyModal } from "./wallet/ForgivePenaltyModal";
 import { CreateBanModal } from "@/components/admin/bans/CreateBanModal";
 import { LiftBanModal } from "@/components/admin/bans/LiftBanModal";
 import { Button } from "@/components/ui/Button";
 import type { AdminUserDetail, AdminBanRow } from "@/lib/admin/types";
 
-type Action = "promote" | "demote" | "resetFrivolous" | null;
+type Action =
+  | "promote" | "demote" | "resetFrivolous"
+  | "freeze" | "unfreeze" | "resetDormancy" | "clearTerms"
+  | null;
 
 type Props = {
   user: AdminUserDetail;
@@ -25,10 +37,17 @@ export function UserActionsRail({ user, onRefresh }: Props) {
   const [showCreateBan, setShowCreateBan] = useState(false);
   const [showLiftBan, setShowLiftBan] = useState(false);
   const [showDeleteUser, setShowDeleteUser] = useState(false);
+  const [showAdjustBalance, setShowAdjustBalance] = useState(false);
+  const [showForgivePenalty, setShowForgivePenalty] = useState(false);
 
   const promote = usePromoteUser(user.publicId);
   const demote = useDemoteUser(user.publicId);
   const resetFrivolous = useResetFrivolousCounter(user.publicId);
+  const freeze = useFreezeWallet(user.publicId);
+  const unfreeze = useUnfreezeWallet(user.publicId);
+  const resetDormancy = useResetDormancy(user.publicId);
+  const clearTerms = useClearTerms(user.publicId);
+  const { data: wallet } = useAdminWallet(user.publicId);
 
   const activeBanAsRow: AdminBanRow | null = user.activeBan
     ? {
@@ -59,10 +78,19 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       demote.mutate(notes, { onSuccess: () => { setPendingAction(null); onRefresh(); } });
     } else if (pendingAction === "resetFrivolous") {
       resetFrivolous.mutate(notes, { onSuccess: () => { setPendingAction(null); onRefresh(); } });
+    } else if (pendingAction === "freeze") {
+      freeze.mutate({ notes }, { onSuccess: () => { setPendingAction(null); onRefresh(); } });
+    } else if (pendingAction === "unfreeze") {
+      unfreeze.mutate({ notes }, { onSuccess: () => { setPendingAction(null); onRefresh(); } });
+    } else if (pendingAction === "resetDormancy") {
+      resetDormancy.mutate({ notes }, { onSuccess: () => { setPendingAction(null); onRefresh(); } });
+    } else if (pendingAction === "clearTerms") {
+      clearTerms.mutate({ notes }, { onSuccess: () => { setPendingAction(null); onRefresh(); } });
     }
   }
 
-  const isMutating = promote.isPending || demote.isPending || resetFrivolous.isPending;
+  const isMutating = promote.isPending || demote.isPending || resetFrivolous.isPending
+    || freeze.isPending || unfreeze.isPending || resetDormancy.isPending || clearTerms.isPending;
 
   const modalProps = {
     promote: {
@@ -81,6 +109,30 @@ export function UserActionsRail({ user, onRefresh }: Props) {
       title: "Reset frivolous counter",
       description: `Reset the frivolous cancellation counter for ${user.displayName ?? user.username}?`,
       confirmLabel: "Reset",
+      confirmVariant: "primary" as const,
+    },
+    freeze: {
+      title: "Freeze wallet",
+      description: `Block all wallet outflows (withdraw, pay-penalty, listing-fee, bid-reservation) for ${user.displayName ?? user.username}?`,
+      confirmLabel: "Freeze",
+      confirmVariant: "destructive" as const,
+    },
+    unfreeze: {
+      title: "Unfreeze wallet",
+      description: `Re-enable wallet outflows for ${user.displayName ?? user.username}?`,
+      confirmLabel: "Unfreeze",
+      confirmVariant: "primary" as const,
+    },
+    resetDormancy: {
+      title: "Reset dormancy",
+      description: `Clear the wallet dormancy state for ${user.displayName ?? user.username}?`,
+      confirmLabel: "Reset",
+      confirmVariant: "primary" as const,
+    },
+    clearTerms: {
+      title: "Force terms re-acceptance",
+      description: `Clear the wallet terms acceptance for ${user.displayName ?? user.username}? They'll be prompted to re-accept on their next visit.`,
+      confirmLabel: "Clear terms",
       confirmVariant: "primary" as const,
     },
   };
@@ -144,6 +196,94 @@ export function UserActionsRail({ user, onRefresh }: Props) {
             Demote from admin
           </Button>
         )}
+      </div>
+
+      {/* Wallet quick actions */}
+      <div className="rounded-lg bg-bg-muted border border-border-subtle p-4 flex flex-col gap-2">
+        <div className="text-[11px] font-medium text-fg-muted mb-1">Wallet</div>
+        {wallet && (
+          <div className="text-[11px] text-fg-muted flex flex-col gap-0.5 mb-1">
+            <div className="flex justify-between">
+              <span>Balance</span>
+              <span className="font-mono text-fg">L$ {wallet.balanceLindens.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Available</span>
+              <span className="font-mono text-fg">L$ {wallet.availableLindens.toLocaleString()}</span>
+            </div>
+            {wallet.penaltyBalanceOwed > 0 && (
+              <div className="flex justify-between">
+                <span>Penalty owed</span>
+                <span className="font-mono text-danger">L$ {wallet.penaltyBalanceOwed.toLocaleString()}</span>
+              </div>
+            )}
+            {wallet.walletFrozenAt && (
+              <div className="text-danger font-semibold mt-1">FROZEN</div>
+            )}
+          </div>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          fullWidth
+          onClick={() => setShowAdjustBalance(true)}
+          data-testid="adjust-balance-btn"
+        >
+          Adjust balance
+        </Button>
+        {wallet && !wallet.walletFrozenAt && (
+          <Button
+            variant="destructive"
+            size="sm"
+            fullWidth
+            onClick={() => setPendingAction("freeze")}
+            data-testid="freeze-wallet-btn"
+          >
+            Freeze wallet
+          </Button>
+        )}
+        {wallet && wallet.walletFrozenAt && (
+          <Button
+            variant="secondary"
+            size="sm"
+            fullWidth
+            onClick={() => setPendingAction("unfreeze")}
+            data-testid="unfreeze-wallet-btn"
+          >
+            Unfreeze wallet
+          </Button>
+        )}
+        {wallet && wallet.penaltyBalanceOwed > 0 && (
+          <Button
+            variant="secondary"
+            size="sm"
+            fullWidth
+            onClick={() => setShowForgivePenalty(true)}
+            data-testid="forgive-penalty-btn"
+          >
+            Forgive penalty
+          </Button>
+        )}
+        {wallet && wallet.walletDormancyPhase != null && (
+          <Button
+            variant="secondary"
+            size="sm"
+            fullWidth
+            onClick={() => setPendingAction("resetDormancy")}
+            data-testid="reset-dormancy-btn"
+          >
+            Reset dormancy
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          fullWidth
+          onClick={() => setPendingAction("clearTerms")}
+          data-testid="clear-terms-btn"
+        >
+          Force terms re-accept
+        </Button>
       </div>
 
       {/* Frivolous counter */}
@@ -261,6 +401,21 @@ export function UserActionsRail({ user, onRefresh }: Props) {
           onClose={() => setShowDeleteUser(false)}
         />
       )}
+
+      <AdjustBalanceModal
+        open={showAdjustBalance}
+        publicId={user.publicId}
+        balanceLindens={wallet?.balanceLindens ?? 0}
+        reservedLindens={wallet?.reservedLindens ?? 0}
+        onClose={() => setShowAdjustBalance(false)}
+      />
+
+      <ForgivePenaltyModal
+        open={showForgivePenalty}
+        publicId={user.publicId}
+        penaltyOwed={wallet?.penaltyBalanceOwed ?? 0}
+        onClose={() => setShowForgivePenalty(false)}
+      />
     </aside>
   );
 }

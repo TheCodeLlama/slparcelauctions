@@ -449,6 +449,87 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void walletAdjusted(long userId, long deltaL, String notes) {
+        String sign = deltaL >= 0 ? "+" : "";
+        String title = String.format("Wallet adjusted by admin: %sL$%,d", sign, deltaL);
+        String body = "An admin adjusted your wallet balance. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_ADJUSTED, title, body,
+            NotificationDataBuilder.walletAdmin(deltaL, notes),
+            null));
+    }
+
+    @Override
+    public void walletFrozen(long userId, String notes) {
+        String title = "Wallet frozen by admin";
+        String body = "All wallet outflows (withdrawals, penalty payments, listing fees, bids) are blocked until an admin unfreezes your wallet. Reason: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_FROZEN, title, body,
+            NotificationDataBuilder.walletAdmin(0L, notes),
+            null));
+    }
+
+    @Override
+    public void walletUnfrozen(long userId, String notes) {
+        String title = "Wallet unfrozen";
+        String body = "Your wallet is no longer frozen. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_UNFROZEN, title, body,
+            NotificationDataBuilder.walletAdmin(0L, notes),
+            null));
+    }
+
+    @Override
+    public void walletPenaltyForgiven(long userId, long amountL, String notes) {
+        String title = String.format("Penalty forgiven: L$%,d", amountL);
+        String body = "An admin forgave L$ " + amountL + " of your penalty. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_PENALTY_FORGIVEN, title, body,
+            NotificationDataBuilder.walletAdmin(amountL, notes),
+            null));
+    }
+
+    @Override
+    public void walletDormancyReset(long userId, String notes) {
+        String title = "Wallet dormancy reset";
+        String body = "Your wallet's dormancy state was cleared by an admin. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_DORMANCY_RESET, title, body,
+            NotificationDataBuilder.walletAdmin(0L, notes),
+            null));
+    }
+
+    @Override
+    public void walletTermsCleared(long userId, String notes) {
+        String title = "Wallet terms re-acceptance required";
+        String body = "An admin reset your wallet terms acceptance. You'll be asked to re-accept the terms next time you visit the wallet page. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WALLET_TERMS_CLEARED, title, body,
+            NotificationDataBuilder.walletAdmin(0L, notes),
+            null));
+    }
+
+    @Override
+    public void walletWithdrawalForceCompleted(long userId, long amountL, Long ledgerEntryId, String notes) {
+        String title = String.format("Withdrawal completed manually: L$%,d", amountL);
+        String body = "An admin marked your L$ " + amountL + " withdrawal as completed. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WITHDRAWAL_FORCE_COMPLETED, title, body,
+            NotificationDataBuilder.walletWithdrawalReversed(amountL, ledgerEntryId, notes),
+            null));
+    }
+
+    @Override
+    public void walletWithdrawalForceFailed(long userId, long amountL, Long ledgerEntryId, String notes) {
+        String title = String.format("Withdrawal failed and refunded: L$%,d", amountL);
+        String body = "An admin marked your L$ " + amountL + " withdrawal as failed and refunded the L$ to your wallet. Note: " + notes;
+        notificationService.publish(new NotificationEvent(
+            userId, NotificationCategory.WITHDRAWAL_FORCE_FAILED, title, body,
+            NotificationDataBuilder.walletWithdrawalReversed(amountL, ledgerEntryId, notes),
+            null));
+    }
+
+    @Override
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.

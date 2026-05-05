@@ -216,6 +216,18 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    /**
+     * Payload for admin wallet ops notifications. {@code amountL} carries the
+     * delta for adjustments, the forgiven amount for penalty forgiveness, or
+     * 0 for state-only mutations like freeze.
+     */
+    public static Map<String, Object> walletAdmin(long amountL, String notes) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("amountL", amountL);
+        m.put("notes", notes);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

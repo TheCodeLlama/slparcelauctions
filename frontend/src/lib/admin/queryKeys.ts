@@ -31,6 +31,9 @@ export const adminQueryKeys = {
   userTab: (publicId: string, tab: string, filters: { page: number; size: number }) =>
     [...adminQueryKeys.user(publicId), tab, filters] as const,
   userIps: (publicId: string) => [...adminQueryKeys.user(publicId), "ips"] as const,
+  wallet: (publicId: string) => [...adminQueryKeys.user(publicId), "wallet"] as const,
+  walletLedger: (publicId: string, filters: { page: number; size: number }) =>
+    [...adminQueryKeys.wallet(publicId), "ledger", filters] as const,
   audit: (filters: {
     targetType?: AdminActionTargetType;
     targetId?: number;

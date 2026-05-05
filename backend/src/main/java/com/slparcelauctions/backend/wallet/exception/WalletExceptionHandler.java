@@ -83,4 +83,14 @@ public class WalletExceptionHandler {
         pd.setProperty("code", "WALLET_TERMS_NOT_ACCEPTED");
         return pd;
     }
+
+    @ExceptionHandler(WalletFrozenException.class)
+    public ProblemDetail handleWalletFrozen(WalletFrozenException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.LOCKED, e.getMessage());
+        pd.setTitle("Wallet frozen");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "WALLET_FROZEN");
+        return pd;
+    }
 }

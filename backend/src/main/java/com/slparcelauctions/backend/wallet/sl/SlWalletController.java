@@ -132,6 +132,9 @@ public class SlWalletController {
         } catch (UserStatusBlockedException e) {
             return SlWalletResponse.refundBlocked(SlWalletResponseReason.USER_FROZEN,
                     "wallet is currently frozen for this account");
+        } catch (com.slparcelauctions.backend.wallet.exception.WalletFrozenException e) {
+            return SlWalletResponse.refundBlocked(SlWalletResponseReason.USER_FROZEN,
+                    "wallet is currently frozen by an admin");
         } catch (InsufficientAvailableBalanceException e) {
             return SlWalletResponse.refundBlocked(SlWalletResponseReason.INSUFFICIENT_BALANCE,
                     "insufficient available balance: " + e.getAvailable());

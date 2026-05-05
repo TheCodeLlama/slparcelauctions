@@ -93,4 +93,22 @@ public interface TerminalCommandRepository extends JpaRepository<TerminalCommand
     long sumAmountByActionInAndStatusIn(
         @Param("actions") java.util.Collection<TerminalCommandAction> actions,
         @Param("statuses") java.util.Collection<TerminalCommandStatus> statuses);
+
+    /**
+     * Pending wallet-withdrawal commands for a given SL avatar UUID. Used by
+     * the admin wallet ops surface to render the "pending withdrawals" list
+     * and gate the force-complete / force-fail buttons. {@code QUEUED} = bot
+     * has not yet attempted dispatch (admin-actionable). {@code IN_FLIGHT} =
+     * mid-callback (admin must wait).
+     */
+    @Query("""
+            SELECT c FROM TerminalCommand c
+            WHERE c.purpose = com.slparcelauctions.backend.escrow.command.TerminalCommandPurpose.WALLET_WITHDRAWAL
+              AND c.recipientUuid = :recipientUuid
+              AND c.status IN (com.slparcelauctions.backend.escrow.command.TerminalCommandStatus.QUEUED,
+                               com.slparcelauctions.backend.escrow.command.TerminalCommandStatus.IN_FLIGHT)
+            ORDER BY c.createdAt ASC
+            """)
+    List<TerminalCommand> findPendingWalletWithdrawalsByRecipient(
+            @Param("recipientUuid") String recipientUuid);
 }
