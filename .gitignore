@@ -225,4 +225,8 @@ infra/crash.*.log
 # versions so every machine + CI run resolves the same provider versions.
 infra/.scratch/
 
+# Top-level scratch dir for transient working files (greps, baselines, tool
+# output captures). Never commit these — keep junk out of the repo.
+.scratch/
+
 .ignored-docs
