@@ -1,6 +1,6 @@
-// SLPA Parcel Verifier Giver
+// SLParcels Parcel Verifier Giver
 //
-// Single-purpose touch-to-receive prim. Hands out a copy of the SLPA
+// Single-purpose touch-to-receive prim. Hands out a copy of the SLParcels
 // Parcel Verifier inventory item to anyone who touches it. Free, no L$.
 //
 // Header-trust only — no shared secret, no L$, no backend HTTP. The only
@@ -8,7 +8,7 @@
 // spam the giver and exhaust the 16-pending-give-inventory cap.
 //
 // Replaces the "Get Parcel Verifier" menu option that used to live on the
-// SLPA Terminal. Splitting into a dedicated prim removes the two-place
+// SLParcels Terminal. Splitting into a dedicated prim removes the two-place
 // inventory-update rule (previously you had to drag-drop the new verifier
 // into every deployed payment terminal whenever parcel-verifier.lsl was
 // updated). Now the verifier-giver instances are the only place that
@@ -17,7 +17,7 @@
 // Configuration is loaded from a notecard named "config" in the same prim.
 // See README.md for deployment and operations details.
 
-string  VERIFIER_NAME    = "SLPA Parcel Verifier";
+string  VERIFIER_NAME    = "SLParcels Parcel Verifier";
 integer DEBUG_MODE       = TRUE;
 integer RATE_LIMIT_SECONDS = 60;
 
@@ -27,6 +27,11 @@ integer notecardLineNum     = 0;
 
 // Per-avatar rate-limit list: [avatarKey, lastGivenAt, ...]
 list givenSessions = [];
+
+// Random negative channel for llDialog. The script doesn't listen on this
+// channel — outcome dialogs use a single [OK] button purely for dismissal,
+// so the click is silently dropped.
+integer dialogChan = 0;
 
 readNotecardLine(integer n) {
     notecardLineNum     = n;
@@ -50,14 +55,15 @@ parseConfigLine(string line) {
 }
 
 setIdleChrome() {
-    llSetText("SLPA Parcel Verifier \xe2\x80\x94 Free\nTouch to receive",
+    llSetText("SLParcels Parcel Verifier \xe2\x80\x94 Free\nTouch to receive",
         <0.6, 0.9, 0.6>, 1.0);
-    llSetObjectName("SLPA Parcel Verifier Giver");
+    llSetObjectName("SLParcels Parcel Verifier Giver");
 }
 
 default {
     state_entry() {
         givenSessions = [];
+        dialogChan = (integer)(llFrand(-2000000000.0) - 1000000.0);
 
         // Mainland-only grid guard
         if (llGetEnv("sim_channel") != "Second Life Server") {
@@ -83,7 +89,7 @@ default {
         if (requested == notecardLineRequest) {
             if (data == EOF) {
                 if (DEBUG_MODE)
-                    llOwnerSay("SLPA Verifier Giver: config loaded (rate_limit="
+                    llOwnerSay("SLParcels Verifier Giver: config loaded (rate_limit="
                         + (string)RATE_LIMIT_SECONDS + "s).");
                 return;
             }
@@ -102,8 +108,9 @@ default {
         if (slot >= 0) {
             integer lastAt = llList2Integer(givenSessions, slot + 1);
             if (now - lastAt < RATE_LIMIT_SECONDS) {
-                llRegionSayTo(toucher, 0,
-                    "Just gave you one. Wait a minute before requesting another.");
+                llDialog(toucher,
+                    "Just gave you one. Wait a minute before requesting another.",
+                    ["OK"], dialogChan);
                 return;
             }
             givenSessions = llListReplaceList(givenSessions,
@@ -114,14 +121,15 @@ default {
 
         // Verify the named inventory item exists
         if (llGetInventoryType(VERIFIER_NAME) == INVENTORY_NONE) {
-            llRegionSayTo(toucher, 0,
-                "Sorry, the verifier object is missing. Please contact SLPA support.");
+            llDialog(toucher,
+                "Sorry, the verifier object is missing. Please contact SLParcels.com support or Heath Onyx.",
+                ["OK"], dialogChan);
             llOwnerSay("CRITICAL: '" + VERIFIER_NAME + "' missing from giver prim inventory.");
             return;
         }
 
         llGiveInventory(toucher, VERIFIER_NAME);
         if (DEBUG_MODE)
-            llOwnerSay("SLPA Verifier Giver: gave verifier to " + toucherName);
+            llOwnerSay("SLParcels Verifier Giver: gave verifier to " + toucherName);
     }
 }

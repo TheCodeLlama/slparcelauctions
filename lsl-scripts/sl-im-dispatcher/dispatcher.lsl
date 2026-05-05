@@ -1,6 +1,6 @@
-// SLPA SL IM Dispatcher
+// SLParcels SL IM Dispatcher
 //
-// Polls SLPA backend for pending notification IMs and delivers them via
+// Polls SLParcels backend for pending notification IMs and delivers them via
 // llInstantMessage. Single state machine with two cadences:
 //   - 60-second poll interval when idle
 //   - 2-second per-IM tick when delivering a batch
