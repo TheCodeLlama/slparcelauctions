@@ -8,7 +8,7 @@ import type { ProblemDetail } from "@/lib/api";
  *
  * Handles three paths:
  *   - VALIDATION_FAILED (400 with errors{} dict) → per-field form.setError
- *   - AUTH_EMAIL_EXISTS (409) → field-level on `email`
+ *   - AUTH_USERNAME_EXISTS (409) → field-level on `username`
  *   - AUTH_INVALID_CREDENTIALS (401) → form-level root.serverError
  *   - Everything else → form-level root.serverError with the detail or generic
  *
@@ -63,10 +63,10 @@ export function mapProblemDetailToForm<T extends FieldValues>(
     return;
   }
 
-  if (code === "AUTH_EMAIL_EXISTS") {
-    form.setError("email" as Path<T>, {
+  if (code === "AUTH_USERNAME_EXISTS") {
+    form.setError("username" as Path<T>, {
       type: "server",
-      message: "An account with this email already exists. Sign in instead?",
+      message: "That username is already taken.",
     });
     return;
   }
@@ -74,7 +74,7 @@ export function mapProblemDetailToForm<T extends FieldValues>(
   if (code === "AUTH_INVALID_CREDENTIALS") {
     form.setError("root.serverError" as Path<T>, {
       type: "server",
-      message: "Email or password is incorrect.",
+      message: "Username or password is incorrect.",
     });
     return;
   }

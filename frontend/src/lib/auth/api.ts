@@ -16,13 +16,12 @@ export type AuthResponse = {
 };
 
 export type RegisterRequest = {
-  email: string;
+  username: string;
   password: string;
-  displayName: string | null;
 };
 
 export type LoginRequest = {
-  email: string;
+  username: string;
   password: string;
 };
 
