@@ -201,12 +201,12 @@ function ListingActivatePage({ setPage }) {
         <div className="card" style={{ padding: 22 }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>Pay your listing fee in-world</h2>
           <p style={{ fontSize: 14, color: 'var(--fg-muted)', lineHeight: 1.5, margin: 0 }}>
-            Visit any SLPA terminal in-world and pay the listing fee. We'll detect the payment automatically.
+            Visit any SLParcels terminal in-world and pay the listing fee. We'll detect the payment automatically.
           </p>
           <div style={{ marginTop: 18, padding: 16, background: 'var(--bg-subtle)', borderRadius: 'var(--r-md)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}><span className="muted">Listing fee</span><L amount={50} /></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}><span className="muted">Terminal location</span><span className="mono">Bay City (128, 128)</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span className="muted">Memo</span><span className="mono">SLPA-LST-7421</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span className="muted">Memo</span><span className="mono">SLParcels-LST-7421</span></div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
             <Btn variant="primary" onClick={() => setStatus('DRAFT_PAID')}>Simulate payment received</Btn>
@@ -222,7 +222,7 @@ function ListingActivatePage({ setPage }) {
           {[
             ['object', 'Place verification object', "Rez our verifier object on the parcel and we'll detect it within 60 seconds."],
             ['signed', 'Signed parcel about info', "Paste a signed string into the parcel's About → Description."],
-            ['terminal', 'Visit terminal', 'Bring a code from your dashboard to any SLPA terminal in-world.'],
+            ['terminal', 'Visit terminal', 'Bring a code from your dashboard to any SLParcels terminal in-world.'],
           ].map(([k, l, d], i) => (
             <label key={k} style={{ display: 'flex', gap: 12, padding: 14, marginBottom: 8, border: '1px solid ' + (i === 0 ? 'var(--brand)' : 'var(--border)'), borderRadius: 'var(--r-md)', cursor: 'pointer', background: i === 0 ? 'var(--brand-soft)' : 'transparent' }}>
               <input type="radio" name="vmethod" defaultChecked={i === 0} style={{ marginTop: 2 }} />

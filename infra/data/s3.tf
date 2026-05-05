@@ -6,7 +6,7 @@
 # 'avatars/', 'listing-photos/', 'dispute-evidence/').
 #
 # Versioning is ON (required for dispute-evidence prefix recovery; storage
-# cost is small at SLPA scale). Two prefix-scoped lifecycle rules:
+# cost is small at SLParcels scale). Two prefix-scoped lifecycle rules:
 #   1. dispute-evidence/  -> Glacier Deep Archive at 365 days, expire at 7yrs
 #   2. (all prefixes) non-current versions -> delete after 90 days
 #

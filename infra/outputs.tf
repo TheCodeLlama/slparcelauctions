@@ -1,5 +1,5 @@
 ################################################################################
-# SLPA — Terraform outputs
+# SLParcels — Terraform outputs
 #
 # Outputs are added as resources land in subsequent PRs. Expected outputs from
 # the design (added incrementally):

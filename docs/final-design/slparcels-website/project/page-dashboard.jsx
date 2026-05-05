@@ -71,7 +71,7 @@ function DashboardOverview({ setPage, setAuctionId }) {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--danger)' }}>Listing privileges restricted</div>
               <div style={{ fontSize: 13, color: 'var(--fg)', marginTop: 4 }}>
-                Suspension lifts on <span className="bold">Apr 22, 2026</span>. Outstanding penalty: <span className="bold">L$500</span> — visit any in-world SLPA terminal to clear it.
+                Suspension lifts on <span className="bold">Apr 22, 2026</span>. Outstanding penalty: <span className="bold">L$500</span> — visit any in-world SLParcels terminal to clear it.
               </div>
               <a style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 600, marginTop: 8, display: 'inline-block', cursor: 'pointer' }}>Contact support →</a>
             </div>
@@ -617,7 +617,7 @@ function VerifyPage({ setPage }) {
           <ol style={{ paddingLeft: 0, listStyle: 'none', margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
             {[
               ['Generate a code', 'Tap the button on the right to issue a fresh 6-digit code.'],
-              ['Visit a verification terminal', <span>In-world, find any <span className="mono" style={{ background: 'var(--bg-muted)', padding: '1px 6px', borderRadius: 4 }}>SLPA Verifier</span> object — they’re at every major hub.</span>],
+              ['Visit a verification terminal', <span>In-world, find any <span className="mono" style={{ background: 'var(--bg-muted)', padding: '1px 6px', borderRadius: 4 }}>SLParcels Verifier</span> object — they’re at every major hub.</span>],
               ['Touch the terminal', 'It will prompt you to enter the code via the in-world chat.'],
               ['Paste the code', 'The terminal links your avatar to your SLParcels account.'],
               ['Return here', 'This page auto-detects when verification completes.'],

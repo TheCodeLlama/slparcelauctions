@@ -1,5 +1,5 @@
 ################################################################################
-# SLPA — CI/CD module (spec §4.10)
+# SLParcels — CI/CD module (spec §4.10)
 #
 # Owns the IAM role GitHub Actions assumes via OIDC to deploy backend + bots.
 # The OIDC provider itself is created out-of-band (PREP.md §10) — this module
