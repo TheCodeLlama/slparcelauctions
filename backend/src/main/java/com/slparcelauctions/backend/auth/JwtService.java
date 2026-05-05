@@ -23,7 +23,7 @@ import java.util.UUID;
  * <p><strong>Access tokens only.</strong> Refresh tokens are not JWTs — they're opaque
  * {@code SecureRandom}-derived strings handled by {@code RefreshTokenService}.
  *
- * <p>Access token claims: {@code sub} (user ID as string), {@code email}, {@code tv} (token version),
+ * <p>Access token claims: {@code sub} (user publicId as string), {@code username}, {@code tv} (token version),
  * {@code iat}, {@code exp}, {@code type} (literal {@code "access"}).
  *
  * <p>The {@code type} claim is enforced in {@link #parseAccessToken(String)} — any token whose
@@ -43,7 +43,7 @@ public class JwtService {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(principal.userPublicId().toString())
-            .claim("email", principal.email())
+            .claim("username", principal.username())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
             .claim("role", principal.role().name())
@@ -66,7 +66,7 @@ public class JwtService {
             }
 
             UUID userPublicId = UUID.fromString(claims.getSubject());
-            String email = (String) claims.get("email");
+            String username = (String) claims.get("username");
             Long tokenVersion = ((Number) claims.get("tv")).longValue();
             String roleClaim = (String) claims.get("role");
             Role role = roleClaim == null ? Role.USER : Role.valueOf(roleClaim);
@@ -74,7 +74,7 @@ public class JwtService {
             // userId (Long) is resolved by JwtAuthenticationFilter via UserRepository.findByPublicId,
             // not encoded in the JWT itself. Place a sentinel here; the filter overwrites the principal
             // before it lands in the SecurityContext.
-            return new AuthPrincipal(null, userPublicId, email, tokenVersion, role);
+            return new AuthPrincipal(null, userPublicId, username, tokenVersion, role);
         } catch (ExpiredJwtException e) {
             log.debug("Access token expired");
             throw new TokenExpiredException("Access token has expired.");
