@@ -30,7 +30,7 @@ function EvidenceValue({ value, linkedUsers }: EvidenceValueProps) {
     return (
       <span
         className="font-mono"
-        title={`${value} (not a registered SLPA user)`}
+        title={`${value} (not a registered SLParcels user)`}
       >
         {truncateUuid(value)}
       </span>

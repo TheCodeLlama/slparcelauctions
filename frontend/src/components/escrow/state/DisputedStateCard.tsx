@@ -11,7 +11,7 @@ const CATEGORY_LABEL: Record<EscrowDisputeReasonCategory, string> = {
 
 /**
  * DISPUTED state card. Terminal state — one of the two parties filed a
- * dispute and the escrow is awaiting manual SLPA review (admin tooling
+ * dispute and the escrow is awaiting manual SLParcels review (admin tooling
  * lands with Epic 10). Copy is deliberately role-neutral: both parties
  * see the same facts about the filing so the UX doesn't bias the
  * viewer toward either side during review.
@@ -43,7 +43,7 @@ export function DisputedStateCard({ escrow, role }: StateCardProps) {
         ) : null}
       </dl>
       <p className="text-sm text-fg-muted">
-        SLPA is reviewing this transaction. Expect a response within 48 hours.
+        SLParcels is reviewing this transaction. Expect a response within 48 hours.
       </p>
     </section>
   );

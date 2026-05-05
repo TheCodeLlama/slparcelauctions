@@ -75,7 +75,7 @@ function SellerPreConfirmation({
         <li>
           Set &quot;Sell to:&quot; to the winner&apos;s avatar name.
         </li>
-        <li>Set the price to L$ 0 (SLPA has already escrowed payment).</li>
+        <li>Set the price to L$ 0 (SLParcels has already escrowed payment).</li>
         <li>Confirm the sale in the SL viewer dialog.</li>
       </ol>
 

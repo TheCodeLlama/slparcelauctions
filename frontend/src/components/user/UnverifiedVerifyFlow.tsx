@@ -21,7 +21,7 @@ export function UnverifiedVerifyFlow() {
       <div className="text-center max-w-2xl">
         <p className="text-base text-fg-muted">
           To bid, list parcels for sale, or participate in auctions, you need to
-          link your Second Life avatar to your SLPA account. This is a one-time
+          link your Second Life avatar to your SLParcels account. This is a one-time
           verification that proves you control the avatar you claim to own.
         </p>
       </div>
@@ -33,7 +33,7 @@ export function UnverifiedVerifyFlow() {
         <ol className="list-decimal list-inside text-sm text-fg-muted space-y-1">
           <li>Click &quot;Generate Verification Code&quot; above</li>
           <li>Copy the 6-digit code</li>
-          <li>Go to any SLPA Verification Terminal in Second Life</li>
+          <li>Go to any SLParcels Verification Terminal in Second Life</li>
           <li>Touch the terminal and enter your code</li>
           <li>This page will automatically detect when you&apos;re verified</li>
         </ol>
