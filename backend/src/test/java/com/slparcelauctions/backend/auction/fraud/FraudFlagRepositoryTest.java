@@ -73,7 +73,7 @@ class FraudFlagRepositoryTest {
     @BeforeEach
     void seedCountData() {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User user = userRepository.save(User.builder()
+            User user = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("seed-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -150,7 +150,7 @@ class FraudFlagRepositoryTest {
     @Test
     @Transactional
     void save_persistsWithJsonbEvidenceAndRoundTrips() {
-        User seller = userRepository.save(User.builder()
+        User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("fraud-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Fraud Seller")
@@ -222,7 +222,7 @@ class FraudFlagRepositoryTest {
     @Test
     @Transactional
     void findByAuctionId_returnsOnlyFlagsForThatAuction() {
-        User seller = userRepository.save(User.builder()
+        User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("fraud-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Fraud Seller")

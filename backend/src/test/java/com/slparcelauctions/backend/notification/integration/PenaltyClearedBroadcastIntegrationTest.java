@@ -75,7 +75,7 @@ class PenaltyClearedBroadcastIntegrationTest {
 
     private User userWithPenalty(long balance) {
         return new TransactionTemplate(txManager).execute(s -> {
-            User u = userRepo.save(User.builder()
+            User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("penalty-" + UUID.randomUUID() + "@test.com")
                     .passwordHash("h")
                     .displayName("PenaltyUser")

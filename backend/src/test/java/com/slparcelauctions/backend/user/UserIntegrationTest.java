@@ -50,35 +50,32 @@ class UserIntegrationTest {
 
     @Test
     void createUser_persistsHashedPasswordAndDefaultJsonbPrefs() throws Exception {
-        CreateUserRequest request = new CreateUserRequest(
-                "integration+create@example.com", "password123", "Integration User");
+        CreateUserRequest request = new CreateUserRequest("integration+create", "password123!");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.publicId").exists())
-                .andExpect(jsonPath("$.email").value("integration+create@example.com"))
-                .andExpect(jsonPath("$.displayName").value("Integration User"))
+                .andExpect(jsonPath("$.username").value("integration+create"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.notifyEmail.bidding").value(true))
                 .andExpect(jsonPath("$.notifyEmail.marketing").value(false))
                 .andExpect(jsonPath("$.notifySlIm.reviews").value(false));
 
-        Optional<User> persisted = userRepository.findByEmail("integration+create@example.com");
+        Optional<User> persisted = userRepository.findByUsername("integration+create");
         assertThat(persisted).isPresent();
         User user = persisted.get();
-        assertThat(user.getPasswordHash()).isNotEqualTo("password123");
-        assertThat(passwordEncoder.matches("password123", user.getPasswordHash())).isTrue();
+        assertThat(user.getPasswordHash()).isNotEqualTo("password123!");
+        assertThat(passwordEncoder.matches("password123!", user.getPasswordHash())).isTrue();
         assertThat(user.getNotifyEmail()).containsEntry("bidding", true);
         assertThat(user.getNotifySlIm()).containsEntry("auction_result", true);
         assertThat(user.getCreatedAt()).isNotNull();
     }
 
     @Test
-    void createUser_duplicateEmail_returns409() throws Exception {
-        CreateUserRequest first = new CreateUserRequest(
-                "integration+dup@example.com", "password123", null);
+    void createUser_duplicateUsername_returns409() throws Exception {
+        CreateUserRequest first = new CreateUserRequest("integration+dup", "password123!");
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(first)))
@@ -93,7 +90,7 @@ class UserIntegrationTest {
     @Test
     void getUserProfile_returnsPublicView() throws Exception {
         User user = userRepository.save(User.builder()
-                .email("integration+profile@example.com")
+                .email("integration+profile@example.com").username("integration+profile")
                 .passwordHash(passwordEncoder.encode("password123"))
                 .displayName("Profile User")
                 .bio("about me")
@@ -117,7 +114,7 @@ class UserIntegrationTest {
     @Test
     void updateUser_dirtyCheckingFlushesChangesToDb() {
         User saved = userRepository.save(User.builder()
-                .email("integration+update@example.com")
+                .email("integration+update@example.com").username("integration+update")
                 .passwordHash(passwordEncoder.encode("password123"))
                 .displayName("Old Name")
                 .bio("old bio")

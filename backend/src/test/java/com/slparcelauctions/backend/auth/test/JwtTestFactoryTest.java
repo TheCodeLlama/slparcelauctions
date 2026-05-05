@@ -37,7 +37,7 @@ class JwtTestFactoryTest {
         Claims claims = parsed.getPayload();
 
         assertThat(claims.getSubject()).isEqualTo(publicId.toString());
-        assertThat(claims.get("email")).isEqualTo("test@example.com");
+        assertThat(claims.get("username")).isEqualTo("test@example.com");
         assertThat(((Number) claims.get("tv")).longValue()).isEqualTo(0L);
         assertThat(claims.get("type")).isEqualTo("access");
     }

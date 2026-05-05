@@ -87,13 +87,13 @@ class AvatarUploadFlowIntegrationTest {
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(String.format(
-                        "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"Avatar Tester\"}",
+                        "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                         email)))
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode body = objectMapper.readTree(reg.getResponse().getContentAsString());
         // Track the internal Long id for S3 cleanup (avatars/{id}/ key prefix).
-        Long userId = userRepository.findByEmail(email).orElseThrow().getId();
+        Long userId = userRepository.findByUsername(email).orElseThrow().getId();
         createdUserIds.add(userId);
         return body.get("accessToken").asText();
     }

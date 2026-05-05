@@ -60,7 +60,7 @@ public class JwtTestFactory {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(principal.userPublicId().toString())
-            .claim("email", principal.email())
+            .claim("username", principal.username())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
             .claim("role", principal.role().name())
@@ -74,7 +74,7 @@ public class JwtTestFactory {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(principal.userPublicId().toString())
-            .claim("email", principal.email())
+            .claim("username", principal.username())
             .claim("tv", principal.tokenVersion())
             .claim("type", "access")
             .claim("role", principal.role().name())
@@ -88,7 +88,7 @@ public class JwtTestFactory {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(principal.userPublicId().toString())
-            .claim("email", principal.email())
+            .claim("username", principal.username())
             .claim("tv", principal.tokenVersion())
             .claim("type", "refresh") // wrong — access token parser should reject
             .claim("role", principal.role().name())
@@ -106,7 +106,7 @@ public class JwtTestFactory {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject("1")
-            .claim("email", "unused@example.com")
+            .claim("username", "unused")
             .claim("tv", 0L)
             .claim("type", "access")
             .issuedAt(Date.from(now))

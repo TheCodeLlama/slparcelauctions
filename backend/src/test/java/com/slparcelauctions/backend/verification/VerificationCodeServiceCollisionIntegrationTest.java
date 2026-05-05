@@ -72,13 +72,13 @@ class VerificationCodeServiceCollisionIntegrationTest {
         // in one tx, so the writes are durable before we call consume.
         long[] ids = transactionTemplate.execute(status -> {
             User u1 = userRepository.save(User.builder()
-                    .email("collision1@example.com")
+                    .email("collision1@example.com").username("collision1")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Collision User 1")
                     .verified(false)
                     .build());
             User u2 = userRepository.save(User.builder()
-                    .email("collision2@example.com")
+                    .email("collision2@example.com").username("collision2")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Collision User 2")
                     .verified(false)

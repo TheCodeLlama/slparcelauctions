@@ -165,7 +165,7 @@ class WalletWithdrawalCallbackHandlerTest {
     }
 
     private User newUser() {
-        return userRepo.save(User.builder()
+        return userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("wallet-cb-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

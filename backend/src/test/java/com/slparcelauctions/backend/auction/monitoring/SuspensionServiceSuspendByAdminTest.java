@@ -66,7 +66,7 @@ class SuspensionServiceSuspendByAdminTest {
     @BeforeEach
     void seed() {
         savedAuction = new TransactionTemplate(txManager).execute(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("seller-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

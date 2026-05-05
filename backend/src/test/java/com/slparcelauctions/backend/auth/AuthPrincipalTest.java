@@ -16,7 +16,7 @@ class AuthPrincipalTest {
 
         assertThat(principal.userId()).isEqualTo(42L);
         assertThat(principal.userPublicId()).isEqualTo(publicId);
-        assertThat(principal.email()).isEqualTo("user@example.com");
+        assertThat(principal.username()).isEqualTo("user@example.com");
         assertThat(principal.tokenVersion()).isEqualTo(7L);
         assertThat(principal.role()).isEqualTo(Role.USER);
     }

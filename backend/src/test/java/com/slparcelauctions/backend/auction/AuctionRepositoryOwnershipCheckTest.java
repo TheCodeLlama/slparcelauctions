@@ -44,7 +44,7 @@ class AuctionRepositoryOwnershipCheckTest {
 
     @Test
     void findDueForOwnershipCheck_returnsStaleAndNullOrderedOldestFirst_excludesNonActive() {
-        User seller = userRepo.save(User.builder()
+        User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("due-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Due Seller")
@@ -94,7 +94,7 @@ class AuctionRepositoryOwnershipCheckTest {
         // Epic 08 sub-spec 2 §6 — a CANCELLED auction with an open watch
         // window should be returned alongside ACTIVE due rows; one whose
         // watch window has expired must NOT.
-        User seller = userRepo.save(User.builder()
+        User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("watch-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Watch Seller")

@@ -89,7 +89,7 @@ class SlParcelVerifyServiceTest {
                 headerValidator, codeRepo, auctionRepo, ownershipInit,
                 notificationPublisher, FIXED);
 
-        seller = User.builder().id(SELLER_ID).email("s@example.com")
+        seller = User.builder().id(SELLER_ID).email("s@example.com").username("s")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
         auction = Auction.builder()
                 .title("Test listing")

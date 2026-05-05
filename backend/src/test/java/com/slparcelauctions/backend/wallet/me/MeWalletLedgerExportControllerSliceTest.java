@@ -61,7 +61,7 @@ class MeWalletLedgerExportControllerSliceTest {
     void setUp() {
         String suffix = UUID.randomUUID().toString();
         User user = userRepository.save(User.builder()
-                .email("ledger-export-" + suffix + "@example.com")
+                .email("ledger-export-" + suffix + "@example.com").username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)

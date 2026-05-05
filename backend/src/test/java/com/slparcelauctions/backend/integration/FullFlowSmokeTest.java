@@ -87,7 +87,7 @@ class FullFlowSmokeTest {
         sellerAvatarUuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         sellerAccessToken = registerAndVerifyUser(
                 "full-flow-seller@example.com", "FullFlowSeller", sellerAvatarUuid);
-        var seller = userRepository.findByEmail("full-flow-seller@example.com").orElseThrow();
+        var seller = userRepository.findByUsername("full-flow-seller@example.com").orElseThrow();
         sellerId = seller.getId();
         sellerPublicId = seller.getPublicId();
         parcelUuid = seedParcelViaLookup();
@@ -389,7 +389,7 @@ class FullFlowSmokeTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

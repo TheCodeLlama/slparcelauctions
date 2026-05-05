@@ -63,7 +63,7 @@ class AuctionServiceTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(service, "defaultCommissionRate", new BigDecimal("0.05"));
-        seller = User.builder().id(42L).email("s@example.com").verified(true).build();
+        seller = User.builder().id(42L).email("s@example.com").username("s").verified(true).build();
         lenient().when(userRepo.findById(42L)).thenReturn(Optional.of(seller));
         Region region = TestRegions.mainland();
         ParcelResponse response = new ParcelResponse(

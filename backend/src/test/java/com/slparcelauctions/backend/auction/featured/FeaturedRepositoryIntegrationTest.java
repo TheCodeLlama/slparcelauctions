@@ -57,7 +57,7 @@ class FeaturedRepositoryIntegrationTest {
 
     @BeforeEach
     void seed() {
-        seller = userRepo.save(User.builder()
+        seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("seller-" + UUID.randomUUID() + "@ex.com")
                 .passwordHash("x").slAvatarUuid(UUID.randomUUID())
                 .displayName("Seller").verified(true).build());

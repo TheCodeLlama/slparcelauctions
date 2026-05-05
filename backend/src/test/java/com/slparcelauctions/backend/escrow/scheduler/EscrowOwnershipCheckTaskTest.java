@@ -276,7 +276,7 @@ class EscrowOwnershipCheckTaskTest {
     private void stubWinner() {
         User winner = User.builder()
                 .id(WINNER_ID)
-                .email("winner@example.com")
+                .email("winner@example.com").username("winner")
                 .slAvatarUuid(WINNER_AVATAR)
                 .verified(true)
                 .build();
@@ -284,7 +284,7 @@ class EscrowOwnershipCheckTaskTest {
     }
 
     private Escrow buildPending() {
-        User seller = User.builder().id(SELLER_ID).email("seller@example.com")
+        User seller = User.builder().id(SELLER_ID).email("seller@example.com").username("seller")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
         Auction auction = Auction.builder()
                 .title("Test listing")

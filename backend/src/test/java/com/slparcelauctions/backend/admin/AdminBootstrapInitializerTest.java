@@ -20,7 +20,7 @@ class AdminBootstrapInitializerTest {
 
     private AdminBootstrapInitializer subject(List<String> emails) {
         AdminBootstrapProperties props = new AdminBootstrapProperties();
-        props.setBootstrapEmails(emails);
+        props.setBootstrapUsernames(emails);
         return new AdminBootstrapInitializer(userRepository, props);
     }
 
@@ -34,18 +34,18 @@ class AdminBootstrapInitializerTest {
     @Test
     void promoteBootstrapAdmins_callsRepoWithExactList() {
         List<String> emails = List.of("a@x.com", "b@x.com");
-        when(userRepository.bulkPromoteByEmailIfUser(emails)).thenReturn(2);
+        when(userRepository.bulkPromoteByUsernameIfUser(emails)).thenReturn(2);
         AdminBootstrapInitializer init = subject(emails);
         init.promoteBootstrapAdmins();
-        verify(userRepository).bulkPromoteByEmailIfUser(emails);
+        verify(userRepository).bulkPromoteByUsernameIfUser(emails);
     }
 
     @Test
     void promoteBootstrapAdmins_zeroPromotedIsNotAnError() {
         List<String> emails = List.of("absent@x.com");
-        when(userRepository.bulkPromoteByEmailIfUser(emails)).thenReturn(0);
+        when(userRepository.bulkPromoteByUsernameIfUser(emails)).thenReturn(0);
         AdminBootstrapInitializer init = subject(emails);
         init.promoteBootstrapAdmins();
-        verify(userRepository).bulkPromoteByEmailIfUser(emails);
+        verify(userRepository).bulkPromoteByUsernameIfUser(emails);
     }
 }

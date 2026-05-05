@@ -124,7 +124,7 @@ class EscrowTransferReminderSchedulerTest {
 
     private Escrow buildFundedEscrow(long escrowId, long auctionId, long sellerId,
                                       String parcelTitle, OffsetDateTime transferDeadline) {
-        User seller = User.builder().id(sellerId).build();
+        User seller = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(sellerId).build();
 
         Auction auction = Auction.builder()
                 .id(auctionId)

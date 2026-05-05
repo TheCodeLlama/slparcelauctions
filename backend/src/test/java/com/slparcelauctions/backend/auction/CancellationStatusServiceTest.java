@@ -64,7 +64,7 @@ class CancellationStatusServiceTest {
 
         user = User.builder()
                 .id(USER_ID)
-                .email("seller@example.com")
+                .email("seller@example.com").username("seller")
                 .passwordHash("x")
                 .penaltyBalanceOwed(0L)
                 .bannedFromListing(false)

@@ -45,7 +45,7 @@ class AvatarServiceTest {
     void upload_happyPath_putsThreeObjectsAndUpdatesUser() {
         UUID userPublicId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         User user = User.builder()
-                .id(1L).publicId(userPublicId).email("a@b.c").passwordHash("x").verified(false).build();
+                .id(1L).publicId(userPublicId).email("a@b.c").username("a").passwordHash("x").verified(false).build();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "avatar.png", "image/png", new byte[]{1, 2, 3});
         Map<Integer, byte[]> resized = Map.of(
@@ -100,7 +100,7 @@ class AvatarServiceTest {
 
     @Test
     void fetch_userHasNoAvatar_returnsPlaceholder() {
-        User user = User.builder().id(1L).profilePicUrl(null).build();
+        User user = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).profilePicUrl(null).build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         StoredObject result = service.fetch(1L, 128);
@@ -112,7 +112,7 @@ class AvatarServiceTest {
 
     @Test
     void fetch_userHasAvatar_returnsProxiedBytes() {
-        User user = User.builder().id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
+        User user = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         byte[] stored = new byte[]{50, 51, 52};
         when(storage.get("avatars/1/128.png"))
@@ -125,7 +125,7 @@ class AvatarServiceTest {
 
     @Test
     void fetch_orphanedProfilePicUrl_returnsPlaceholder() {
-        User user = User.builder().id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
+        User user = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(storage.get("avatars/1/128.png"))
                 .thenThrow(new ObjectNotFoundException("avatars/1/128.png", null));

@@ -124,7 +124,7 @@ class JwtChannelInterceptorTest {
         assertThat(user.getName()).isEqualTo("42");
         StompAuthenticationToken token = (StompAuthenticationToken) user;
         assertThat(token.principal().userId()).isEqualTo(42L);
-        assertThat(token.principal().email()).isEqualTo("test@example.com");
+        assertThat(token.principal().username()).isEqualTo("test@example.com");
         assertThat(token.principal().tokenVersion()).isEqualTo(1L);
     }
 

@@ -18,7 +18,7 @@ public class WithMockAuthPrincipalSecurityContextFactory
         AuthPrincipal principal = new AuthPrincipal(
             annotation.userId(),
             UUID.randomUUID(),
-            annotation.email(),
+            annotation.username(),
             annotation.tokenVersion(),
             Role.USER
         );

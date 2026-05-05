@@ -80,7 +80,7 @@ class AuctionVerificationServiceMethodCTest {
                 auctionService, auctionRepo, worldApi, verificationCodeService,
                 botTaskService, botTaskRepo, ownershipInit, mock(NotificationPublisher.class), fixed, ESCROW_UUID, SENTINEL_PRICE);
 
-        seller = User.builder().id(SELLER_ID).email("s@example.com")
+        seller = User.builder().id(SELLER_ID).email("s@example.com").username("s")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
         snapshot = AuctionParcelSnapshot.builder()
                 .slParcelUuid(PARCEL_UUID)

@@ -67,7 +67,7 @@ class SavedAuctionConcurrencyTest {
 
     @BeforeEach
     void seed() {
-        user = userRepo.save(User.builder()
+        user = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("cap-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

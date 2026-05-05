@@ -54,7 +54,7 @@ class AuctionSearchControllerIntegrationTest {
     @BeforeEach
     void seed() {
         clearRedisKeys("slpa:search:*");
-        User seller = userRepo.save(User.builder()
+        User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("seller-" + UUID.randomUUID() + "@ex.com")
                 .passwordHash("x").slAvatarUuid(UUID.randomUUID())
                 .displayName("Seller").verified(true).build());

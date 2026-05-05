@@ -85,7 +85,7 @@ class BotTaskServiceTest {
         injectConfig(service, "sentinelPrice", SENTINEL_PRICE);
         injectConfig(service, "primaryEscrowUuid", ESCROW_UUID);
 
-        seller = User.builder().id(42L).email("s@example.com")
+        seller = User.builder().id(42L).email("s@example.com").username("s")
                 .slAvatarUuid(SELLER_AVATAR).verified(true).build();
 
         lenient().when(botTaskRepo.save(any(BotTask.class)))

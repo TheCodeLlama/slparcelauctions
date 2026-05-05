@@ -93,7 +93,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_returns201_withDto() throws Exception {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         stubAuctionLookup();
         when(reviewService.submit(eq(AUCTION_LONG_ID), any(User.class), any(ReviewSubmitRequest.class)))
@@ -157,7 +157,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_ineligible_returns422_REVIEW_INELIGIBLE() throws Exception {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         stubAuctionLookup();
         when(reviewService.submit(eq(AUCTION_LONG_ID), any(User.class), any(ReviewSubmitRequest.class)))
@@ -174,7 +174,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_windowClosed_returns422_REVIEW_WINDOW_CLOSED() throws Exception {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         stubAuctionLookup();
         when(reviewService.submit(eq(AUCTION_LONG_ID), any(User.class), any(ReviewSubmitRequest.class)))
@@ -191,7 +191,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void submitReview_duplicate_returns409_REVIEW_ALREADY_SUBMITTED() throws Exception {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         stubAuctionLookup();
         when(reviewService.submit(eq(AUCTION_LONG_ID), any(User.class), any(ReviewSubmitRequest.class)))
@@ -224,7 +224,7 @@ class ReviewControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void listReviews_authenticatedParty_returns200_withEnrichedShape() throws Exception {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
         stubAuctionLookup();
         OffsetDateTime windowCloses = OffsetDateTime.now().plusDays(13);

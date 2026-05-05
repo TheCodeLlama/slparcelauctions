@@ -49,10 +49,10 @@ class AuthFlowIntegrationTest {
         // Step 1: POST /api/v1/auth/register
         MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"reg@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Reg User\"}"))
+                .content("{\"username\":\"reg@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
-            .andExpect(jsonPath("$.user.email").value("reg@example.com"))
+            .andExpect(jsonPath("$.user.username").value("reg@example.com"))
             .andExpect(header().exists("Set-Cookie"))
             .andReturn();
 
@@ -64,7 +64,7 @@ class AuthFlowIntegrationTest {
         mockMvc.perform(get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.email").value("reg@example.com"));
+            .andExpect(jsonPath("$.username").value("reg@example.com"));
     }
 
     // -------------------------------------------------------------------------
@@ -76,13 +76,13 @@ class AuthFlowIntegrationTest {
         // Setup: register a user
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"refresh@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Refresh User\"}"))
+                .content("{\"username\":\"refresh@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isCreated());
 
         // Login
         MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"refresh@example.com\",\"password\":\"hunter22abc\"}"))
+                .content("{\"username\":\"refresh@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andExpect(header().exists("Set-Cookie"))
@@ -112,7 +112,7 @@ class AuthFlowIntegrationTest {
         mockMvc.perform(get("/api/v1/users/me")
                 .header("Authorization", "Bearer " + newAccessToken))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.email").value("refresh@example.com"));
+            .andExpect(jsonPath("$.username").value("refresh@example.com"));
     }
 
     // -------------------------------------------------------------------------
@@ -124,14 +124,14 @@ class AuthFlowIntegrationTest {
         // Step 1: Register, capture cookie A + access token A
         MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"cascade@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Cascade User\"}"))
+                .content("{\"username\":\"cascade@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isCreated())
             .andReturn();
 
         String registerBody = registerResult.getResponse().getContentAsString();
         String accessTokenA = objectMapper.readTree(registerBody).get("accessToken").asText();
         String cookieA = extractRefreshCookie(registerResult);
-        Long userId = userRepository.findByEmail("cascade@example.com").orElseThrow().getId();
+        Long userId = userRepository.findByUsername("cascade@example.com").orElseThrow().getId();
         assertThat(cookieA).isNotBlank();
 
         // Step 2: Refresh with cookie A → get cookie B
@@ -187,7 +187,7 @@ class AuthFlowIntegrationTest {
         // Step 1: Register
         MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"logout@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Logout User\"}"))
+                .content("{\"username\":\"logout@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isCreated())
             .andReturn();
 
@@ -224,14 +224,14 @@ class AuthFlowIntegrationTest {
         // Step 1: Register (device 1) — captures access token 1 + cookie 1
         MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"logoutall@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"LogoutAll User\"}"))
+                .content("{\"username\":\"logoutall@example.com\",\"password\":\"hunter22abc\"}"))
             .andExpect(status().isCreated())
             .andReturn();
 
         String registerBody = registerResult.getResponse().getContentAsString();
         String accessToken1 = objectMapper.readTree(registerBody).get("accessToken").asText();
         String cookie1 = extractRefreshCookie(registerResult);
-        Long userId = userRepository.findByEmail("logoutall@example.com").orElseThrow().getId();
+        Long userId = userRepository.findByUsername("logoutall@example.com").orElseThrow().getId();
         assertThat(cookie1).isNotBlank();
 
         // Step 2: Seed a "device 2" refresh token via fixture

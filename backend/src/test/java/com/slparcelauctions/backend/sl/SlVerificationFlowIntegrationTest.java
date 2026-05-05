@@ -58,11 +58,11 @@ class SlVerificationFlowIntegrationTest {
         // Register and extract access token + user id
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"slflow@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"SlFlow\"}"))
+                .content("{\"username\":\"slflow@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String regBody = reg.getResponse().getContentAsString();
         String accessToken = objectMapper.readTree(regBody).get("accessToken").asText();
-        Long userId = userRepository.findByEmail("slflow@example.com").orElseThrow().getId();
+        Long userId = userRepository.findByUsername("slflow@example.com").orElseThrow().getId();
 
         // Generate verification code
         MvcResult gen = mockMvc.perform(post("/api/v1/verification/generate")
@@ -116,7 +116,7 @@ class SlVerificationFlowIntegrationTest {
         // First user: register + generate + verify with avatar cccc...
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"dup1@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Dup1\"}"))
+                .content("{\"username\":\"dup1@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String t1 = objectMapper.readTree(reg.getResponse().getContentAsString())
                 .get("accessToken").asText();
@@ -138,7 +138,7 @@ class SlVerificationFlowIntegrationTest {
         // Second user tries to link the SAME avatar
         MvcResult reg2 = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"dup2@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Dup2\"}"))
+                .content("{\"username\":\"dup2@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated()).andReturn();
         String t2 = objectMapper.readTree(reg2.getResponse().getContentAsString())
                 .get("accessToken").asText();

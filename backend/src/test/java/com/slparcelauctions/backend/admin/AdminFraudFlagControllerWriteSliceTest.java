@@ -64,7 +64,7 @@ class AdminFraudFlagControllerWriteSliceTest {
     void seedUsers() {
         adminDbId = userRepository.findByPublicId(ADMIN_UUID)
             .orElseGet(() -> userRepository.save(User.builder()
-                .publicId(ADMIN_UUID).email("admin-fraud-write@x.com")
+                .publicId(ADMIN_UUID).email("admin-fraud-write@x.com").username("admin-fraud-write")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Admin").role(Role.ADMIN).verified(true).build()))
             .getId();

@@ -29,7 +29,7 @@ class AdminActionServiceTest {
 
     @Test
     void record_buildsRowAndSaves() {
-        User admin = User.builder().id(42L).email("admin@x.com").passwordHash("x").build();
+        User admin = User.builder().id(42L).email("admin@x.com").username("admin").passwordHash("x").build();
         when(userRepository.findById(42L)).thenReturn(Optional.of(admin));
 
         AdminAction saved = AdminAction.builder()
@@ -69,7 +69,7 @@ class AdminActionServiceTest {
 
     @Test
     void record_nullDetails_storedAsEmptyMap() {
-        User admin = User.builder().id(7L).email("admin2@x.com").passwordHash("x").build();
+        User admin = User.builder().id(7L).email("admin2@x.com").username("admin2").passwordHash("x").build();
         when(userRepository.findById(7L)).thenReturn(Optional.of(admin));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

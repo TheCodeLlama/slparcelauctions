@@ -186,7 +186,7 @@ class OutbidImIntegrationTest {
     // --- Fixture helpers (pattern from BidNotificationIntegrationTest) ---
 
     private User saveUser(boolean hasAvatar, boolean groupPrefsOn) {
-        User u = User.builder()
+        User u = User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash")
             .displayName("TestUser")

@@ -16,7 +16,7 @@ class ReviewEntityTest {
 
     @Test
     void visibleDefaultsFalseAndFlagCountZero() {
-        User u = User.builder().email("x@y.z").passwordHash("x").build();
+        User u = User.builder().email("x@y.z").username("x").passwordHash("x").build();
         Review r = Review.builder()
                 .reviewer(u)
                 .reviewee(u)

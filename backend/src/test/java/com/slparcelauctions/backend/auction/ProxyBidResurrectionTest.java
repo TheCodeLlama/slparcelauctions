@@ -89,17 +89,17 @@ class ProxyBidResurrectionTest {
         sellerAccessToken = registerAndVerifyUser(
                 "res-seller@example.com", "ResSeller",
                 "11111111-aaaa-bbbb-cccc-000000000301");
-        sellerId = userRepository.findByEmail("res-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("res-seller@example.com").orElseThrow().getId();
 
         aAccessToken = registerAndVerifyUser(
                 "res-alice@example.com", "ResAlice",
                 "22222222-aaaa-bbbb-cccc-000000000302");
-        aId = userRepository.findByEmail("res-alice@example.com").orElseThrow().getId();
+        aId = userRepository.findByUsername("res-alice@example.com").orElseThrow().getId();
 
         bAccessToken = registerAndVerifyUser(
                 "res-bob@example.com", "ResBob",
                 "33333333-aaaa-bbbb-cccc-000000000303");
-        bId = userRepository.findByEmail("res-bob@example.com").orElseThrow().getId();
+        bId = userRepository.findByUsername("res-bob@example.com").orElseThrow().getId();
 
         sellerParcelUuid = seedParcel();
     }
@@ -169,7 +169,7 @@ class ProxyBidResurrectionTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

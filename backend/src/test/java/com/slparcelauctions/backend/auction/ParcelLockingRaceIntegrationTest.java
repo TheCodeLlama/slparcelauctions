@@ -91,7 +91,7 @@ class ParcelLockingRaceIntegrationTest {
         parcelUuid = new UUID(0x5555555555555555L, suffix);
 
         sellerAccessToken = registerAndVerifyUser(email, "Locker", sellerAvatar.toString());
-        sellerId = userRepository.findByEmail(email).orElseThrow().getId();
+        sellerId = userRepository.findByUsername(email).orElseThrow().getId();
         seedParcel();
     }
 
@@ -319,7 +319,7 @@ class ParcelLockingRaceIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

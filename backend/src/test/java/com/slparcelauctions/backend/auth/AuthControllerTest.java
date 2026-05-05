@@ -71,7 +71,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(
-                    new RegisterRequest("new@example.com", "hunter22abc", "Newbie")))
+                    new RegisterRequest("new", "hunter22abc")))
                 .with(csrf()))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.accessToken").value("access-token"))
@@ -84,7 +84,7 @@ class AuthControllerTest {
     void register_returns400OnValidationFailure() throws Exception {
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"not-an-email\",\"password\":\"short\",\"displayName\":\"\"}")
+                .content("{\"username\":\"not-an-email\",\"password\":\"short\"}")
                 .with(csrf()))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
@@ -158,7 +158,7 @@ class AuthControllerTest {
 
     private UserResponse stubUser() {
         return new UserResponse(
-            java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),
+            java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), "new",
             "new@example.com", "Newbie", null, null, null, null, null, null, null, null,
             null, null, null, null, null,
             0L, null, false,

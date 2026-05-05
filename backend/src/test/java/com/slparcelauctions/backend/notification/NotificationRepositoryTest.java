@@ -53,10 +53,10 @@ class NotificationRepositoryTest {
 
     @BeforeEach
     void createUsers() {
-        userId = userRepository.save(User.builder()
+        userId = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("notif-repo-a-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash").build()).getId();
-        otherUserId = userRepository.save(User.builder()
+        otherUserId = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("notif-repo-b-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash").build()).getId();
     }

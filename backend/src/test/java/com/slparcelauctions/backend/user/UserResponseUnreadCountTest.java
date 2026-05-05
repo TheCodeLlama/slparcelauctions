@@ -44,10 +44,10 @@ class UserResponseUnreadCountTest {
 
     @BeforeEach
     void createUsers() {
-        aliceId = userRepo.save(User.builder()
+        aliceId = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("uruc-alice-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash").build()).getId();
-        bobId = userRepo.save(User.builder()
+        bobId = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("uruc-bob-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash").build()).getId();
     }

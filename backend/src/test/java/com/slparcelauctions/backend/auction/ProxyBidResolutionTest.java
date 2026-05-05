@@ -61,12 +61,12 @@ class ProxyBidResolutionTest {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
         service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
 
-        userA = User.builder().id(100L).displayName("Alice").verified(true).build();
-        userB = User.builder().id(200L).displayName("Bob").verified(true).build();
+        userA = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(100L).displayName("Alice").verified(true).build();
+        userB = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(200L).displayName("Bob").verified(true).build();
         auction = Auction.builder()
                 .title("Test listing")
                 .id(500L)
-                .seller(User.builder().id(1L).verified(true).build())
+                .seller(User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).verified(true).build())
                 .status(AuctionStatus.ACTIVE)
                 .startingBid(1000L)
                 .currentBid(0L)

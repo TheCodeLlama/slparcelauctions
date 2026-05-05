@@ -66,7 +66,7 @@ class UserReportServiceTest {
     @BeforeEach
     void seed() {
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rpt-seller-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())
@@ -74,7 +74,7 @@ class UserReportServiceTest {
                 .build());
             sellerId = seller.getId();
 
-            User reporter = userRepo.save(User.builder()
+            User reporter = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("rpt-reporter-" + UUID.randomUUID() + "@x.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

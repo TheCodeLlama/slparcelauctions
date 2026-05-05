@@ -94,7 +94,7 @@ class UserDeletionServiceTest {
     private User activeUser() {
         return User.builder()
                 .id(USER_ID)
-                .email("user@example.com")
+                .email("user@example.com").username("user")
                 .passwordHash(ENCODED_PASSWORD)
                 .displayName("Test User")
                 .bio("Some bio")

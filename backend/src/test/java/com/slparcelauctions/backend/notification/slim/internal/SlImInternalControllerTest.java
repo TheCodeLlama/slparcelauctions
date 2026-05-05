@@ -55,7 +55,7 @@ class SlImInternalControllerTest {
     @BeforeEach
     void seed() {
         repo.deleteAll();
-        user = userRepo.save(User.builder()
+        user = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         avatar = UUID.randomUUID().toString();

@@ -100,17 +100,17 @@ class MyBidsIntegrationTest {
         sellerAccessToken = registerAndVerifyUser(
                 "mybids-seller@example.com", "MyBidsSeller",
                 "11111111-aaaa-bbbb-cccc-000000000101");
-        sellerId = userRepository.findByEmail("mybids-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("mybids-seller@example.com").orElseThrow().getId();
 
         bidderAccessToken = registerAndVerifyUser(
                 "mybids-bidder@example.com", "MyBidsBidder",
                 "22222222-aaaa-bbbb-cccc-000000000102");
-        bidderId = userRepository.findByEmail("mybids-bidder@example.com").orElseThrow().getId();
+        bidderId = userRepository.findByUsername("mybids-bidder@example.com").orElseThrow().getId();
 
         registerAndVerifyUser(
                 "mybids-other@example.com", "MyBidsOther",
                 "33333333-aaaa-bbbb-cccc-000000000103");
-        otherBidderId = userRepository.findByEmail("mybids-other@example.com").orElseThrow().getId();
+        otherBidderId = userRepository.findByUsername("mybids-other@example.com").orElseThrow().getId();
 
         parcelUuids = new java.util.ArrayList<>(7);
         for (int i = 0; i < 7; i++) {
@@ -594,7 +594,7 @@ class MyBidsIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

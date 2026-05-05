@@ -257,7 +257,7 @@ class BidCancelRaceTest {
     }
 
     private void setup() {
-        User seller = userRepository.save(User.builder()
+        User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("bid-cancel-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Bid/Cancel Seller")
@@ -265,7 +265,7 @@ class BidCancelRaceTest {
                 .verified(true)
                 .cancelledWithBids(0)
                 .build());
-        User bidder = userRepository.save(User.builder()
+        User bidder = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("bid-cancel-bidder-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Bid/Cancel Bidder")

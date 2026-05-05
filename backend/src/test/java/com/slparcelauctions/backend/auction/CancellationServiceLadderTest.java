@@ -73,7 +73,7 @@ class CancellationServiceLadderTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService, fixed);
-        seller = User.builder().id(42L).email("s@example.com")
+        seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
                 .bannedFromListing(false)

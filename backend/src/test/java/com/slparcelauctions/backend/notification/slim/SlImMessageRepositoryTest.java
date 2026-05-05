@@ -127,7 +127,7 @@ class SlImMessageRepositoryTest {
     }
 
     private User testUser() {
-        return User.builder()
+        return User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash")
             .build();

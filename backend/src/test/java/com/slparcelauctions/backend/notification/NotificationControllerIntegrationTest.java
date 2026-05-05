@@ -66,10 +66,10 @@ class NotificationControllerIntegrationTest {
         String aliceSuffix = UUID.randomUUID().toString();
         String bobSuffix = UUID.randomUUID().toString();
         aliceJwt = registerUser("notif-alice-" + aliceSuffix + "@example.com", "Alice");
-        aliceId = userRepo.findByEmail("notif-alice-" + aliceSuffix + "@example.com")
+        aliceId = userRepo.findByUsername("notif-alice-" + aliceSuffix + "@example.com")
                 .orElseThrow().getId();
         bobJwt = registerUser("notif-bob-" + bobSuffix + "@example.com", "Bob");
-        bobId = userRepo.findByEmail("notif-bob-" + bobSuffix + "@example.com")
+        bobId = userRepo.findByUsername("notif-bob-" + bobSuffix + "@example.com")
                 .orElseThrow().getId();
     }
 
@@ -241,7 +241,7 @@ class NotificationControllerIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

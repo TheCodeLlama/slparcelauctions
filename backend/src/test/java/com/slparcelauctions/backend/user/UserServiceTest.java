@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -42,12 +41,10 @@ class UserServiceTest {
 
     @Test
     void createUser_hashesPasswordAndPersists() {
-        CreateUserRequest request = new CreateUserRequest("alice@example.com", "password123", "Alice");
-        when(userRepository.existsByEmail("alice@example.com")).thenReturn(false);
-        when(passwordEncoder.encode("password123")).thenReturn("hashed");
+        CreateUserRequest request = new CreateUserRequest("alice", "password123!");
+        when(userRepository.existsByUsername("alice")).thenReturn(false);
+        when(passwordEncoder.encode("password123!")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            // id and createdAt are assigned by the DB / Hibernate; use reflection to simulate
-            // their assignment in unit tests since @Setter(NONE) blocks direct mutation.
             User saved = invocation.getArgument(0);
             try {
                 java.lang.reflect.Field idField = com.slparcelauctions.backend.common.BaseEntity.class.getDeclaredField("id");
@@ -63,15 +60,14 @@ class UserServiceTest {
         UserResponse response = userService.createUser(request);
 
         assertThat(response.publicId()).isNotNull();
-        assertThat(response.email()).isEqualTo("alice@example.com");
-        assertThat(response.displayName()).isEqualTo("Alice");
+        assertThat(response.username()).isEqualTo("alice");
         verify(userRepository).save(any(User.class));
     }
 
     @Test
-    void createUser_duplicateEmail_throws() {
-        CreateUserRequest request = new CreateUserRequest("dup@example.com", "password123", null);
-        when(userRepository.existsByEmail("dup@example.com")).thenReturn(true);
+    void createUser_duplicateUsername_throws() {
+        CreateUserRequest request = new CreateUserRequest("dup", "password123!");
+        when(userRepository.existsByUsername("dup")).thenReturn(true);
 
         assertThatThrownBy(() -> userService.createUser(request))
                 .isInstanceOf(UserAlreadyExistsException.class);
@@ -84,6 +80,7 @@ class UserServiceTest {
         User user = User.builder()
                 .id(7L)
                 .email("bob@example.com")
+                .username("bob")
                 .passwordHash("hash")
                 .displayName("Bob")
                 .build();
@@ -92,7 +89,7 @@ class UserServiceTest {
         UserResponse response = userService.getUserById(7L);
 
         assertThat(response.publicId()).isNotNull();
-        assertThat(response.email()).isEqualTo("bob@example.com");
+        assertThat(response.username()).isEqualTo("bob");
     }
 
     @Test
@@ -107,7 +104,7 @@ class UserServiceTest {
     void getPublicProfile_returnsProfile() {
         User user = User.builder()
                 .id(3L)
-                .email("carol@example.com")
+                .username("carol")
                 .passwordHash("hash")
                 .displayName("Carol")
                 .bio("hi")
@@ -125,7 +122,7 @@ class UserServiceTest {
     void updateUser_mutatesEntityForDirtyCheckingWithoutCallingSave() {
         User user = User.builder()
                 .id(2L)
-                .email("dave@example.com")
+                .username("dave")
                 .passwordHash("hash")
                 .displayName("Dave")
                 .bio("old bio")
@@ -135,10 +132,6 @@ class UserServiceTest {
         UpdateUserRequest update = new UpdateUserRequest("Dave the Great", "new bio");
         UserResponse response = userService.updateUser(2L, update);
 
-        // Service must mutate the managed entity in place so JPA dirty checking
-        // flushes the change. An explicit save() call would also work but is
-        // unnecessary inside an @Transactional boundary — the absence of save()
-        // here is intentional and we assert it.
         assertThat(user.getDisplayName()).isEqualTo("Dave the Great");
         assertThat(user.getBio()).isEqualTo("new bio");
         assertThat(response.displayName()).isEqualTo("Dave the Great");
@@ -151,7 +144,7 @@ class UserServiceTest {
     void updateUser_nullFieldsLeaveExistingValuesUntouched() {
         User user = User.builder()
                 .id(8L)
-                .email("eve@example.com")
+                .username("eve")
                 .passwordHash("hash")
                 .displayName("Eve")
                 .bio("keep me")
@@ -167,7 +160,7 @@ class UserServiceTest {
 
     @Test
     void deleteUser_deletesEntity() {
-        User user = User.builder().id(5L).email("e@e.com").passwordHash("h").build();
+        User user = User.builder().id(5L).username("eee").passwordHash("h").build();
         when(userRepository.findById(5L)).thenReturn(Optional.of(user));
 
         userService.deleteUser(5L);
@@ -179,7 +172,7 @@ class UserServiceTest {
     void bumpTokenVersion_incrementsByOne() {
         User user = User.builder()
                 .id(10L)
-                .email("frank@example.com")
+                .username("frank")
                 .passwordHash("hash")
                 .tokenVersion(3L)
                 .build();
@@ -188,7 +181,6 @@ class UserServiceTest {
         userService.bumpTokenVersion(10L);
 
         assertThat(user.getTokenVersion()).isEqualTo(4L);
-        // JPA dirty checking handles persistence; no explicit save() expected
         verify(userRepository).findById(10L);
         verifyNoMoreInteractions(userRepository);
     }

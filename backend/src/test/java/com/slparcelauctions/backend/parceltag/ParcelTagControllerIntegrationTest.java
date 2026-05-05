@@ -53,7 +53,7 @@ class ParcelTagControllerIntegrationTest {
     @Test
     void list_authenticated_returnsAtLeast25TagsGroupedByCategory() throws Exception {
         String token = registerUser(
-                "parcel-tags-reader-" + UUID.randomUUID() + "@example.com", "Reader");
+                "ptr-" + UUID.randomUUID().toString().substring(0, 8), "Reader");
 
         MvcResult result = mockMvc.perform(get("/api/v1/parcel-tags")
                 .header("Authorization", "Bearer " + token))
@@ -98,7 +98,7 @@ class ParcelTagControllerIntegrationTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

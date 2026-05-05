@@ -50,7 +50,7 @@ class AdminAuctionServiceTest {
     }
 
     private User seller() {
-        return User.builder().id(7L).email("seller@x.com").passwordHash("x").displayName("Seller").build();
+        return User.builder().id(7L).email("seller@x.com").username("seller").passwordHash("x").displayName("Seller").build();
     }
 
     @Test

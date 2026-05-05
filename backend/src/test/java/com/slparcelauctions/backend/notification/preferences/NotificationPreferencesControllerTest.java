@@ -56,10 +56,10 @@ class NotificationPreferencesControllerTest {
 
     @BeforeEach
     void seed() {
-        alice = userRepo.save(User.builder()
+        alice = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("alice-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
-        bob = userRepo.save(User.builder()
+        bob = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("bob-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
 

@@ -59,14 +59,14 @@ class AdminBanServiceTest {
             cacheInvalidator, adminActionService, FIXED_CLOCK);
 
         adminUser = User.builder()
-            .email("admin@x.com")
+            .email("admin@x.com").username("admin")
             .passwordHash("x")
             .displayName("Admin")
             .build();
         setId(adminUser, ADMIN_ID);
 
         linkedUser = User.builder()
-            .email("user@x.com")
+            .email("user@x.com").username("user")
             .passwordHash("x")
             .slAvatarUuid(AVATAR_UUID)
             .displayName("Linked User")

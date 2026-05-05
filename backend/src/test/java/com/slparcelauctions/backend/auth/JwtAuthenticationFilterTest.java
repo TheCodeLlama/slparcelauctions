@@ -87,7 +87,7 @@ class JwtAuthenticationFilterTest {
             .getAuthentication().getPrincipal();
         assertThat(set.userId()).isEqualTo(42L);
         assertThat(set.userPublicId()).isEqualTo(publicId);
-        assertThat(set.email()).isEqualTo("user@example.com");
+        assertThat(set.username()).isEqualTo("user@example.com");
         assertThat(set.tokenVersion()).isEqualTo(0L);
         assertThat(set.role()).isEqualTo(Role.USER);
         verify(chain).doFilter(req, resp);

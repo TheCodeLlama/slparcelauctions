@@ -51,7 +51,7 @@ class AdminAuthGateSliceTest {
     private String tokenFor(String email, Role role) {
         User user = userRepository.save(
             User.builder()
-                .email(email)
+                .email(email).username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                 .passwordHash("irrelevant")
                 .role(role)
                 .build());

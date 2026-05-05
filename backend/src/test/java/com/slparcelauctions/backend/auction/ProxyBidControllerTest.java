@@ -84,12 +84,12 @@ class ProxyBidControllerTest {
         sellerAccessToken = registerAndVerifyUser(
                 "proxy-seller@example.com", "ProxySeller",
                 "11111111-aaaa-bbbb-cccc-000000000201");
-        sellerId = userRepository.findByEmail("proxy-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("proxy-seller@example.com").orElseThrow().getId();
 
         bidderAccessToken = registerAndVerifyUser(
                 "proxy-bidder@example.com", "ProxyBidder",
                 "22222222-aaaa-bbbb-cccc-000000000202");
-        bidderId = userRepository.findByEmail("proxy-bidder@example.com").orElseThrow().getId();
+        bidderId = userRepository.findByUsername("proxy-bidder@example.com").orElseThrow().getId();
 
         otherBidderAccessToken = registerAndVerifyUser(
                 "proxy-other@example.com", "ProxyOther",
@@ -373,7 +373,7 @@ class ProxyBidControllerTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -134,7 +134,7 @@ class ReviewResponseWindowClosingSchedulerTest {
 
     private Review buildVisibleReview(long reviewId, long auctionId, long revieweeId,
                                        String parcelTitle, OffsetDateTime revealedAt) {
-        User reviewee = User.builder().id(revieweeId).build();
+        User reviewee = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(revieweeId).build();
 
         Auction auction = Auction.builder()
                 .id(auctionId)
@@ -144,7 +144,7 @@ class ReviewResponseWindowClosingSchedulerTest {
         return Review.builder()
                 .id(reviewId)
                 .auction(auction)
-                .reviewer(User.builder().id(999L).build())
+                .reviewer(User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(999L).build())
                 .reviewee(reviewee)
                 .reviewedRole(ReviewedRole.SELLER)
                 .rating(4)

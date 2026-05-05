@@ -85,17 +85,17 @@ class ProxyBidTieFlipTest {
         sellerAccessToken = registerAndVerifyUser(
                 "tie-seller@example.com", "TieSeller",
                 "11111111-aaaa-bbbb-cccc-000000000401");
-        sellerId = userRepository.findByEmail("tie-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("tie-seller@example.com").orElseThrow().getId();
 
         aAccessToken = registerAndVerifyUser(
                 "tie-alice@example.com", "TieAlice",
                 "22222222-aaaa-bbbb-cccc-000000000402");
-        aId = userRepository.findByEmail("tie-alice@example.com").orElseThrow().getId();
+        aId = userRepository.findByUsername("tie-alice@example.com").orElseThrow().getId();
 
         bAccessToken = registerAndVerifyUser(
                 "tie-bob@example.com", "TieBob",
                 "33333333-aaaa-bbbb-cccc-000000000403");
-        bId = userRepository.findByEmail("tie-bob@example.com").orElseThrow().getId();
+        bId = userRepository.findByUsername("tie-bob@example.com").orElseThrow().getId();
 
         sellerParcelUuid = seedParcel();
     }
@@ -185,7 +185,7 @@ class ProxyBidTieFlipTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

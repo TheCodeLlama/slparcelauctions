@@ -77,7 +77,7 @@ class WsTestIntegrationTest {
         // userRepository.findByPublicId(sub). A synthetic UUID with no
         // backing row is rejected, so seed a real User and issue tokens
         // against that user's id + publicId.
-        testUser = userRepository.save(User.builder()
+        testUser = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("wstest-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("x")
                 .slAvatarUuid(UUID.randomUUID())

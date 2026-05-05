@@ -189,7 +189,7 @@ class BotMonitorLifecycleServiceTest {
             VerificationTier tier, AuctionStatus status, boolean needsWinner) {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(ts -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("bot-lifecycle-seller-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Bot Lifecycle Seller")
@@ -200,7 +200,7 @@ class BotMonitorLifecycleServiceTest {
 
             User winner = null;
             if (needsWinner) {
-                winner = userRepo.save(User.builder()
+                winner = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                         .email("bot-lifecycle-winner-" + UUID.randomUUID() + "@example.com")
                         .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                         .displayName("Bot Lifecycle Winner")

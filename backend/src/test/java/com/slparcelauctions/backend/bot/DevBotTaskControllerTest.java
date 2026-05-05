@@ -77,7 +77,7 @@ class DevBotTaskControllerTest {
         sellerAvatarUuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         sellerAccessToken = registerAndVerifyUser(
                 "dev-bot-seller@example.com", "DevBotSeller", sellerAvatarUuid);
-        sellerId = userRepository.findByEmail("dev-bot-seller@example.com").orElseThrow().getId();
+        sellerId = userRepository.findByUsername("dev-bot-seller@example.com").orElseThrow().getId();
         sellerParcelUuid = seedParcel();
     }
 
@@ -160,7 +160,7 @@ class DevBotTaskControllerTest {
 
     private String registerUser(String email, String displayName) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"%s\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email, displayName);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

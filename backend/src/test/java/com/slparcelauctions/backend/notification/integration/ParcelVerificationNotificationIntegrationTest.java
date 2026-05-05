@@ -102,7 +102,7 @@ class ParcelVerificationNotificationIntegrationTest {
 
         // Seed seller, auction in VERIFICATION_PENDING
         new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("verif-seller-" + UUID.randomUUID() + "@test.com")
                     .passwordHash("h")
                     .displayName("VerifSeller")

@@ -95,7 +95,7 @@ class CancellationServiceCancelByAdminTest {
     }
 
     private User newUser(String prefix, Role role) {
-        return new TransactionTemplate(txManager).execute(s -> userRepo.save(User.builder()
+        return new TransactionTemplate(txManager).execute(s -> userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email(prefix + "-" + UUID.randomUUID() + "@test.com")
                 .passwordHash("h")
                 .displayName(prefix)

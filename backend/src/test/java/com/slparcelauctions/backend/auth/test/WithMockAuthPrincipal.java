@@ -11,12 +11,12 @@ import java.lang.annotation.Target;
  * {@code SecurityContext} for the test method or class. Modelled on Spring Security's
  * {@code @WithMockUser}.
  *
- * <p>Defaults: {@code userId=1L}, {@code email="test@example.com"}, {@code tokenVersion=0L}.
+ * <p>Defaults: {@code userId=1L}, {@code username="test-user"}, {@code tokenVersion=0L}.
  * Override any subset via annotation attributes:
  *
  * <pre>{@code
  * @Test
- * @WithMockAuthPrincipal(userId = 42, email = "alice@example.com")
+ * @WithMockAuthPrincipal(userId = 42, username = "alice")
  * void placesBid_whenAuthenticated() { ... }
  * }</pre>
  *
@@ -29,6 +29,6 @@ import java.lang.annotation.Target;
 @WithSecurityContext(factory = WithMockAuthPrincipalSecurityContextFactory.class)
 public @interface WithMockAuthPrincipal {
     long userId() default 1L;
-    String email() default "test@example.com";
+    String username() default "test-user";
     long tokenVersion() default 0L;
 }

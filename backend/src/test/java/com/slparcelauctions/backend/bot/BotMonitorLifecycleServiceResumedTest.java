@@ -113,7 +113,7 @@ class BotMonitorLifecycleServiceResumedTest {
     private Auction seedAuction(VerificationTier tier, AuctionStatus status) {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(ts -> {
-            User seller = userRepo.save(User.builder()
+            User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("resumed-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Resumed Lifecycle Seller")

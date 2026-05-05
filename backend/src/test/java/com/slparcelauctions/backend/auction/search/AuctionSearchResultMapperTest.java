@@ -102,7 +102,7 @@ class AuctionSearchResultMapperTest {
     private Auction auction(long id, long currentBid, Long reserve) {
         User seller = User.builder()
                 .id(42L)
-                .email("seller-" + id + "@example.com")
+                .email("seller-" + id + "@example.com").username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
                 .passwordHash("x")
                 .displayName("seller")
                 .slAvatarUuid(UUID.randomUUID())

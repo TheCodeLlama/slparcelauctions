@@ -104,7 +104,7 @@ class AuctionEndNotificationIntegrationTest {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private User saveUser(String prefix) {
-        return new TransactionTemplate(txManager).execute(s -> userRepo.save(User.builder()
+        return new TransactionTemplate(txManager).execute(s -> userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email(prefix + "-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("hash")
                 .displayName(prefix)

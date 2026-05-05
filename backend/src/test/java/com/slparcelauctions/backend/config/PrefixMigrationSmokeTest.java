@@ -49,7 +49,7 @@ class PrefixMigrationSmokeTest {
         // Positive proof — register on the new path returns 201.
         mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"prefix-smoke@example.com\",\"password\":\"hunter22abc\",\"displayName\":\"Smoke\"}"))
+                .content("{\"username\":\"prefix-smoke@example.com\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().isCreated());
 
         // Positive proof — health on the new path returns 200.
@@ -64,7 +64,7 @@ class PrefixMigrationSmokeTest {
         // Negative proof — old register path is dead. Same 4xx rationale.
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"x@y.z\",\"password\":\"hunter22abc\",\"displayName\":\"x\"}"))
+                .content("{\"username\":\"x@y.z\",\"password\":\"hunter22abc\"}"))
                 .andExpect(status().is4xxClientError());
     }
 }

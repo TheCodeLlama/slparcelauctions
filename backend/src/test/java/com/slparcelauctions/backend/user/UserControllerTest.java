@@ -68,13 +68,13 @@ class UserControllerTest {
     void createUser_returns201() throws Exception {
         java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse response = new UserResponse(
-                publicId, "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
+                publicId, "alice", "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
 
-        CreateUserRequest request = new CreateUserRequest("alice@example.com", "password123", "Alice");
+        CreateUserRequest request = new CreateUserRequest("alice", "password123");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -82,24 +82,25 @@ class UserControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/v1/users/" + publicId))
                 .andExpect(jsonPath("$.publicId").value(publicId.toString()))
-                .andExpect(jsonPath("$.email").value("alice@example.com"))
+                .andExpect(jsonPath("$.username").value("alice"))
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
     }
 
     @Test
-    void createUser_invalidEmail_returns400() throws Exception {
-        CreateUserRequest request = new CreateUserRequest("not-an-email", "password123", null);
+    void createUser_blankUsername_returns400() throws Exception {
+        // Blank fails @NotBlank; username field must be the violation surface.
+        CreateUserRequest request = new CreateUserRequest("", "password123!");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.email").exists());
+                .andExpect(jsonPath("$.errors.username").exists());
     }
 
     @Test
     void createUser_shortPassword_returns400() throws Exception {
-        CreateUserRequest request = new CreateUserRequest("ok@example.com", "short", null);
+        CreateUserRequest request = new CreateUserRequest("ok", "short");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -111,8 +112,7 @@ class UserControllerTest {
     @Test
     void createUser_passwordWithoutDigitOrSymbol_returns400() throws Exception {
         // Long enough (>10) but only letters — must fail the regex.
-        CreateUserRequest request = new CreateUserRequest(
-                "ok@example.com", "alllettersnoothers", null);
+        CreateUserRequest request = new CreateUserRequest("ok", "alllettersnoothers");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -124,8 +124,7 @@ class UserControllerTest {
     @Test
     void createUser_passwordWithoutLetter_returns400() throws Exception {
         // Long enough and has digits/symbols, but no letter — must fail the regex.
-        CreateUserRequest request = new CreateUserRequest(
-                "ok@example.com", "1234567890!", null);
+        CreateUserRequest request = new CreateUserRequest("ok", "1234567890!");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,17 +134,17 @@ class UserControllerTest {
     }
 
     @Test
-    void createUser_duplicateEmail_returns409() throws Exception {
-        doThrow(UserAlreadyExistsException.email("dup@example.com"))
+    void createUser_duplicateUsername_returns409() throws Exception {
+        doThrow(UserAlreadyExistsException.username("dup"))
                 .when(userService).createUser(any(CreateUserRequest.class));
 
-        CreateUserRequest request = new CreateUserRequest("dup@example.com", "password123", null);
+        CreateUserRequest request = new CreateUserRequest("dup", "password123!");
 
         mockMvc.perform(post("/api/v1/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail").value("User with email already exists: dup@example.com"));
+                .andExpect(jsonPath("$.detail").value("User with username already exists: dup"));
     }
 
     @Test
@@ -177,7 +176,7 @@ class UserControllerTest {
     void getMe_returnsUserDto_whenAuthenticated() throws Exception {
         java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse expected = new UserResponse(
-                publicId, "test@example.com", "Test User", null, null, null, null, null, null, null, null,
+                publicId, "test", "test@example.com", "Test User", null, null, null, null, null, null, null, null,
                 false, null, false, Map.of(), Map.of(),
                 0L, null, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
@@ -186,7 +185,7 @@ class UserControllerTest {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.publicId").value(publicId.toString()))
-                .andExpect(jsonPath("$.email").value(expected.email()));
+                .andExpect(jsonPath("$.username").value(expected.username()));
     }
 
     @Test

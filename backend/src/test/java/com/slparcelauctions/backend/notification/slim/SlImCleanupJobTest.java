@@ -57,7 +57,7 @@ class SlImCleanupJobTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-04-26T08:30:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
 
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         String avatar = UUID.randomUUID().toString();
@@ -107,7 +107,7 @@ class SlImCleanupJobTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-04-26T08:30:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
 
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         String avatar = UUID.randomUUID().toString();
@@ -142,7 +142,7 @@ class SlImCleanupJobTest {
         when(clock.instant()).thenReturn(Instant.parse("2026-04-26T08:30:00Z"));
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
 
-        User u = userRepo.save(User.builder()
+        User u = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
             .email("u-" + UUID.randomUUID() + "@test.local")
             .passwordHash("hash").build());
         String avatar = UUID.randomUUID().toString();

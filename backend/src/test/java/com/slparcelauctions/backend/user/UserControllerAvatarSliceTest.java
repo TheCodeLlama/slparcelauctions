@@ -52,7 +52,7 @@ class UserControllerAvatarSliceTest {
 
     private String registerAndLogin(String email) throws Exception {
         String body = String.format(
-                "{\"email\":\"%s\",\"password\":\"hunter22abc\",\"displayName\":\"Avatar Tester\"}",
+                "{\"username\":\"%s\",\"password\":\"hunter22abc\"}",
                 email);
         MvcResult reg = mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)

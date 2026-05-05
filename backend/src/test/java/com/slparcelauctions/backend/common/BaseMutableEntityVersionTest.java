@@ -127,7 +127,7 @@ class BaseMutableEntityVersionTest {
     }
 
     private static User newUser(String label) {
-        return User.builder()
+        return User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email(label + "-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName(label)

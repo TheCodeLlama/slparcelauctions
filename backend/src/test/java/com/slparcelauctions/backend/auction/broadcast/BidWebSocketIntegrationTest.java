@@ -210,14 +210,14 @@ class BidWebSocketIntegrationTest {
     private void seedFixtures() {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
-            User seller = userRepository.save(User.builder()
+            User seller = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("ws-seller-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("WS Seller")
                     .verified(true)
                     .slAvatarUuid(UUID.randomUUID())
                     .build());
-            User bidder = userRepository.save(User.builder()
+            User bidder = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("ws-bidder-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("WS Bidder")

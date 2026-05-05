@@ -155,7 +155,7 @@ class BotTaskClaimRaceIntegrationTest {
     }
 
     private Auction seedAuction() {
-        User seller = userRepo.save(User.builder()
+        User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("bot-claim-race-seller-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Bot Claim Race Seller")

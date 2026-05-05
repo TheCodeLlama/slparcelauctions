@@ -108,7 +108,7 @@ class UserReviewsControllerTest {
     @Test
     @WithMockAuthPrincipal(userId = 1L)
     void listPending_returnsListOfPendingReviewDto() throws Exception {
-        User caller = User.builder().id(1L).email("test@example.com").passwordHash("x").build();
+        User caller = User.builder().id(1L).email("test@example.com").username("test").passwordHash("x").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(caller));
 
         java.util.UUID pendingAuctionId = java.util.UUID.fromString("00000000-0000-0000-0000-00000000022b");

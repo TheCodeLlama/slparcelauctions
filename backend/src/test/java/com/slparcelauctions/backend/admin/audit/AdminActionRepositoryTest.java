@@ -45,7 +45,7 @@ class AdminActionRepositoryTest {
     void seed() {
         String suffix = UUID.randomUUID().toString();
         User admin = userRepository.save(User.builder()
-            .email("audit-admin-" + suffix + "@x.com")
+            .email("audit-admin-" + suffix + "@x.com").username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8))
             .passwordHash("x")
             .role(Role.ADMIN)
             .tokenVersion(1L)

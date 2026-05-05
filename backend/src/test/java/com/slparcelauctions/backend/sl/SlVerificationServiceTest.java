@@ -61,7 +61,7 @@ class SlVerificationServiceTest {
     void happyPath_linksAvatarAndMarksVerified() {
         when(userRepository.findBySlAvatarUuid(AVATAR)).thenReturn(Optional.empty());
         when(codeService.consume("123456", VerificationCodeType.PLAYER)).thenReturn(7L);
-        User user = User.builder().id(7L).email("a@b.c").passwordHash("x").verified(false).build();
+        User user = User.builder().id(7L).email("a@b.c").username("a").passwordHash("x").verified(false).build();
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -81,7 +81,7 @@ class SlVerificationServiceTest {
 
     @Test
     void avatarAlreadyLinked_throwsBeforeConsumingCode() {
-        User other = User.builder().id(99L).slAvatarUuid(AVATAR).build();
+        User other = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(99L).slAvatarUuid(AVATAR).build();
         when(userRepository.findBySlAvatarUuid(AVATAR)).thenReturn(Optional.of(other));
 
         assertThatThrownBy(() -> service.verify("Production", TRUSTED.toString(), body()))
@@ -93,7 +93,7 @@ class SlVerificationServiceTest {
     void userAlreadyVerified_throws() {
         when(userRepository.findBySlAvatarUuid(AVATAR)).thenReturn(Optional.empty());
         when(codeService.consume("123456", VerificationCodeType.PLAYER)).thenReturn(7L);
-        User verified = User.builder().id(7L).verified(true).email("a@b.c").passwordHash("x").build();
+        User verified = User.builder().id(7L).verified(true).email("a@b.c").username("a").passwordHash("x").build();
         when(userRepository.findById(7L)).thenReturn(Optional.of(verified));
 
         assertThatThrownBy(() -> service.verify("Production", TRUSTED.toString(), body()))
