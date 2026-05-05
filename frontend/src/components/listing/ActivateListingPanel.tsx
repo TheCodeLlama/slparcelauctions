@@ -26,7 +26,7 @@ export interface ActivateListingPanelProps {
 }
 
 /**
- * DRAFT-state listing-fee gate. The seller funds their SLPA wallet at any
+ * DRAFT-state listing-fee gate. The seller funds their SLParcels wallet at any
  * in-world terminal; clicking Activate Listing debits the fee from the
  * wallet's available balance via {@code POST /me/auctions/{id}/pay-listing-fee}.
  * The activate page's polling hook picks up the resulting status flip on
@@ -100,7 +100,7 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
             Accept wallet terms first
           </h2>
           <p className="text-sm text-fg">
-            Listing fees are paid from your SLPA wallet. Accept the wallet
+            Listing fees are paid from your SLParcels wallet. Accept the wallet
             terms of use to continue.
           </p>
           <Button
@@ -156,7 +156,7 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
         <p className="text-sm text-fg">
           Listing fee is <strong>{formatLindens(fee)}</strong>. Your wallet
           has <strong>{formatLindens(wallet.available)}</strong> available;
-          you need <strong>{formatLindens(short)}</strong> more. Pay any SLPA
+          you need <strong>{formatLindens(short)}</strong> more. Pay any SLParcels
           terminal in-world and your balance updates automatically.
         </p>
         <Button
@@ -180,7 +180,7 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
       </h2>
       <p className="text-sm text-fg">
         Listing fee is <strong>{formatLindens(fee)}</strong>, debited from
-        your SLPA wallet. Available balance:{" "}
+        your SLParcels wallet. Available balance:{" "}
         <strong>{formatLindens(wallet.available)}</strong>.
       </p>
       <FormError message={error ?? undefined} />

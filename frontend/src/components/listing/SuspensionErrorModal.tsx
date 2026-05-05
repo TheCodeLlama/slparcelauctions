@@ -28,7 +28,7 @@ const COPY: Record<
 > = {
   PENALTY_OWED: {
     title: "Penalty owed",
-    body: "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.",
+    body: "You have an outstanding penalty balance. Pay at any SLParcels terminal to resume listing.",
     ctaLabel: "Go to dashboard",
   },
   TIMED_SUSPENSION: {

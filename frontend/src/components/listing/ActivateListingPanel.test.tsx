@@ -93,7 +93,7 @@ describe("ActivateListingPanel", () => {
       screen.getByRole("button", { name: /Accept wallet terms/i }),
     );
     expect(
-      screen.getByRole("heading", { name: /SLPA Wallet Terms of Use/i }),
+      screen.getByRole("heading", { name: /SLParcels Wallet Terms of Use/i }),
     ).toBeInTheDocument();
   });
 

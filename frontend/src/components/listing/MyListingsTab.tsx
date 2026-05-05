@@ -36,7 +36,7 @@ function listingDisabledReason(user: CurrentUser | undefined): string | null {
   }
   const owesPenalty = (user.penaltyBalanceOwed ?? 0) > 0;
   if (owesPenalty) {
-    return "You have an outstanding penalty balance. Pay at any SLPA terminal to resume listing.";
+    return "You have an outstanding penalty balance. Pay at any SLParcels terminal to resume listing.";
   }
   const suspensionUntilRaw = user.listingSuspensionUntil;
   const suspensionUntil = suspensionUntilRaw

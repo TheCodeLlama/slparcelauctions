@@ -29,7 +29,7 @@ const METHODS: readonly MethodCard[] = [
     key: "REZZABLE",
     title: "Rezzable terminal",
     body:
-      "We give you a one-time code. Rez an SLPA parcel terminal on your land and it verifies ownership on your behalf. Works for individually-owned land.",
+      "We give you a one-time code. Rez an SLParcels parcel terminal on your land and it verifies ownership on your behalf. Works for individually-owned land.",
   },
   {
     key: "SALE_TO_BOT",
