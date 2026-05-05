@@ -106,7 +106,7 @@ public class PenaltyTerminalService {
         // UserRepository.findIdBySlAvatarUuid javadoc.
         Long userId = userRepo.findIdBySlAvatarUuid(req.slAvatarUuid())
                 .orElseThrow(() -> new UserNotFoundException(
-                        "No SLPA user found for avatar " + req.slAvatarUuid()));
+                        "No SLParcels user found for avatar " + req.slAvatarUuid()));
 
         // Idempotency check happens BEFORE the pessimistic lock so a
         // benign terminal-side retry never competes for a write lock

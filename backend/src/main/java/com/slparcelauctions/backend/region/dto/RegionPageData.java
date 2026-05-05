@@ -9,7 +9,7 @@ import java.util.UUID;
  * the bounding-box table.
  *
  * <p>{@code maturityRaw} is the SL meta-tag value as returned (e.g. "PG_NOT",
- * "M_NOT", "AO_NOT"). Translation to canonical SLPA values
+ * "M_NOT", "AO_NOT"). Translation to canonical SLParcels values
  * ({@code GENERAL}/{@code MODERATE}/{@code ADULT}) happens in the service layer
  * via {@code MaturityRating.fromSlCode}.
  */

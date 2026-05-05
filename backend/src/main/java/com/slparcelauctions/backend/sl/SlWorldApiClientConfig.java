@@ -35,7 +35,7 @@ public class SlWorldApiClientConfig {
                 .responseTimeout(Duration.ofMillis(timeoutMs));
         return WebClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader(HttpHeaders.USER_AGENT, "SLPA-Backend/1.0")
+                .defaultHeader(HttpHeaders.USER_AGENT, "SLParcels-Backend/1.0")
                 .defaultHeader(HttpHeaders.ACCEPT, "text/html")
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();

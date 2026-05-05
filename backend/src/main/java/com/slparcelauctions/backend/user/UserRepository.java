@@ -95,7 +95,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * Sum of all wallet balances. Used by ReconciliationService to compute the
-     * expected SLPA service avatar balance against the wallet pool.
+     * expected SLParcels service avatar balance against the wallet pool.
      */
     @Query("SELECT COALESCE(SUM(u.balanceLindens), 0) FROM User u")
     long sumWalletBalances();

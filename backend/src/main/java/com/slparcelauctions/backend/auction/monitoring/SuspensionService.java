@@ -243,6 +243,6 @@ public class SuspensionService {
 
         notificationPublisher.listingSuspended(
             auction.getSeller().getId(), auction.getId(),
-            auction.getTitle(), "Suspended by SLPA staff");
+            auction.getTitle(), "Suspended by SLParcels staff");
     }
 }

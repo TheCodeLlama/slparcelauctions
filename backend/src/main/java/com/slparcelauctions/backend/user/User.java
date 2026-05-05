@@ -133,7 +133,7 @@ public class User extends BaseMutableEntity {
      * Outstanding penalty debt in L$ owed by this seller from cancelled-with-
      * bids offenses on the cancellation ladder (Epic 08 sub-spec 2 §2). Pay-at-
      * terminal model: while this is &gt; 0 the seller is suspended from creating
-     * new listings; payment at any SLPA terminal pays it down to zero, at which
+     * new listings; payment at any SLParcels terminal pays it down to zero, at which
      * point the suspension lifts. Incremented atomically inside
      * {@code CancellationService.cancel} when the ladder selects
      * {@code PENALTY} or {@code PENALTY_AND_30D}; decremented by

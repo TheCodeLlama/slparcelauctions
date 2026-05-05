@@ -283,7 +283,7 @@ public class TerminalCommandService {
                 .terminalId(cmd.getTerminalId())
                 .completedAt(now)
                 .build());
-        // COMMISSION rows intentionally omit a payee — the SLPA platform itself is the
+        // COMMISSION rows intentionally omit a payee — the SLParcels platform itself is the
         // recipient and we have no User entity for the internal platform account.
         // Reconciliation by type (AUCTION_ESCROW_COMMISSION) is the canonical path.
         ledgerRepo.save(EscrowTransaction.builder()

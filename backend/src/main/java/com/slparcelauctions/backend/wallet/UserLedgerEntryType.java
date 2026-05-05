@@ -8,7 +8,7 @@ package com.slparcelauctions.backend.wallet;
  */
 public enum UserLedgerEntryType {
     /**
-     * Resident-initiated L$ deposit via the in-world SLPA Terminal's
+     * Resident-initiated L$ deposit via the in-world SLParcels Terminal's
      * {@code money()} handler. {@code sl_transaction_id} is the LSL
      * {@code llGenerateKey()} value that deduplicates retries.
      * Increases {@code balance_lindens}.

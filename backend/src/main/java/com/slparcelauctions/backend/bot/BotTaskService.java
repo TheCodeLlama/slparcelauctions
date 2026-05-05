@@ -172,7 +172,7 @@ public class BotTaskService {
         // SUCCESS path: validate escrow UUID + sentinel price before doing anything.
         if (body.authBuyerId() == null || !body.authBuyerId().equals(primaryEscrowUuid)) {
             throw new IllegalArgumentException(
-                    "authBuyerId must equal the SLPA primary escrow UUID");
+                    "authBuyerId must equal the SLParcels primary escrow UUID");
         }
         if (body.salePrice() == null || body.salePrice().longValue() != sentinelPrice) {
             throw new IllegalArgumentException(

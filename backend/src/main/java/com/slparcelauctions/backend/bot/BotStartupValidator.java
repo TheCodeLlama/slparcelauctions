@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Closes two DEFERRED_WORK items:
  * <ul>
  *   <li>"Bot service authentication" (Epic 03 sub-spec 1, Task 8).</li>
- *   <li>Bot half of "Primary escrow UUID + SLPA trusted-owner-keys
+ *   <li>Bot half of "Primary escrow UUID + SLParcels trusted-owner-keys
  *       production config".</li>
  * </ul>
  *
@@ -48,14 +48,14 @@ public class BotStartupValidator {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(
                     "slpa.bot.shared-secret must be set in non-dev profiles. "
-                            + "Configure via environment variable SLPA_BOT_SHARED_SECRET "
+                            + "Configure via environment variable SLParcels_BOT_SHARED_SECRET "
                             + "or a secrets-manager override.");
         }
         if (DEV_PLACEHOLDER_SECRET.equals(secret)) {
             throw new IllegalStateException(
                     "slpa.bot.shared-secret is still the dev placeholder "
                             + "\"" + DEV_PLACEHOLDER_SECRET + "\". "
-                            + "Rotate via SLPA_BOT_SHARED_SECRET before deploying.");
+                            + "Rotate via SLParcels_BOT_SHARED_SECRET before deploying.");
         }
         if (secret.length() < MIN_SECRET_LENGTH) {
             throw new IllegalStateException(
@@ -70,7 +70,7 @@ public class BotStartupValidator {
             throw new IllegalStateException(
                     "slpa.bot-task.primary-escrow-uuid is still the dev "
                             + "placeholder " + DEV_PLACEHOLDER_ESCROW_UUID
-                            + ". Configure via SLPA_PRIMARY_ESCROW_UUID.");
+                            + ". Configure via SLParcels_PRIMARY_ESCROW_UUID.");
         }
 
         log.info("Bot startup validation OK: secretLen={}, primaryEscrowUuid={}",

@@ -34,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Default cadence (1 minute) is considerably slower than the
  * dispatcher's 30s tick: refund dispatch is not time-critical (the L$
- * is already held at the SLPA avatar account) and the idempotency guard
+ * is already held at the SLParcels avatar account) and the idempotency guard
  * on {@code terminalCommandId IS NULL} makes extra sweeps cheap but
  * wasteful. Gated by {@code slpa.escrow.listing-fee-refund-job.enabled}
  * ({@code matchIfMissing=true}) so tests can disable the bean entirely

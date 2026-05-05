@@ -133,7 +133,7 @@ public class ReconciliationService {
     }
 
     /**
-     * Total L$ the SLPA service avatar is expected to hold:
+     * Total L$ the SLParcels service avatar is expected to hold:
      * locked escrows (winner's L$ moved into escrow at auction close) +
      * wallet balances (user-deposited L$ awaiting allocation/withdraw).
      * Reservations are partitions of wallet balance; do NOT add separately.

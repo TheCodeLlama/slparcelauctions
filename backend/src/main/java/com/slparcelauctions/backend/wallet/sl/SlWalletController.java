@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * SL-headers-gated wallet endpoints called by the in-world SLPA Terminal.
+ * SL-headers-gated wallet endpoints called by the in-world SLParcels Terminal.
  *
  * <p>{@code POST /api/v1/sl/wallet/deposit} — terminal posts after a
  * {@code money()} event. Returns {@code OK} on credit, {@code REFUND} on
@@ -85,7 +85,7 @@ public class SlWalletController {
             return SlWalletResponse.ok();
         } catch (UserNotLinkedException e) {
             return SlWalletResponse.refund(SlWalletResponseReason.UNKNOWN_PAYER,
-                    "no SLPA account linked to this avatar");
+                    "no SLParcels account linked to this avatar");
         } catch (UserStatusBlockedException e) {
             return SlWalletResponse.refund(SlWalletResponseReason.USER_FROZEN,
                     "wallet is currently frozen for this account");
@@ -128,7 +128,7 @@ public class SlWalletController {
             return SlWalletResponse.okWithQueue(result.entry().getId());
         } catch (UserNotLinkedException e) {
             return SlWalletResponse.refundBlocked(SlWalletResponseReason.NOT_LINKED,
-                    "no SLPA account linked to this avatar");
+                    "no SLParcels account linked to this avatar");
         } catch (UserStatusBlockedException e) {
             return SlWalletResponse.refundBlocked(SlWalletResponseReason.USER_FROZEN,
                     "wallet is currently frozen for this account");
