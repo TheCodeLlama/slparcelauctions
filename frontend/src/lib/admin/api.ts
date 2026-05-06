@@ -3,6 +3,9 @@ import type {
   AdminBanRow,
   AdminFraudFlagDetail,
   AdminFraudFlagSummary,
+  AdminListingActionRequest,
+  AdminListingRow,
+  AdminListingsFilters,
   AdminReportDetail,
   AdminReportListingRow,
   AdminStatsResponse,
@@ -314,6 +317,34 @@ export const adminApi = {
   ownershipRecheck: {
     recheck(auctionId: number): Promise<AdminOwnershipRecheckResponse> {
       return api.post(`/api/v1/admin/auctions/${auctionId}/recheck-ownership`, {});
+    },
+  },
+
+  listings: {
+    list(filters: AdminListingsFilters): Promise<Page<AdminListingRow>> {
+      const search = new URLSearchParams();
+      if (filters.search) search.set("search", filters.search);
+      if (filters.statuses && filters.statuses.length > 0) {
+        for (const s of filters.statuses) search.append("status", s);
+      }
+      if (filters.hasReserve === true) search.set("hasReserve", "true");
+      if (filters.hasReserve === false) search.set("hasReserve", "false");
+      search.set("page", String(filters.page));
+      search.set("size", String(filters.size));
+      search.set("sort", `${filters.sort.column},${filters.sort.direction}`);
+      return api.get(`/api/v1/admin/listings?${search.toString()}`);
+    },
+    warn(publicId: string, body: AdminListingActionRequest): Promise<void> {
+      return api.post(`/api/v1/admin/listings/${publicId}/warn`, body);
+    },
+    suspend(publicId: string, body: AdminListingActionRequest): Promise<void> {
+      return api.post(`/api/v1/admin/listings/${publicId}/suspend`, body);
+    },
+    cancel(publicId: string, body: AdminListingActionRequest): Promise<void> {
+      return api.post(`/api/v1/admin/listings/${publicId}/cancel`, body);
+    },
+    reinstate(publicId: string, body: AdminListingActionRequest): Promise<void> {
+      return api.post(`/api/v1/admin/listings/${publicId}/reinstate`, body);
     },
   },
 };

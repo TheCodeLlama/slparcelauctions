@@ -19,6 +19,7 @@ export function ForgivePenaltyModal({ open, publicId, penaltyOwed, onClose }: Pr
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- `open`/`penaltyOwed` are external triggers; seeding form state when the modal opens is intentional.
     setAmount(String(penaltyOwed));
     setNotes("");
   }, [open, penaltyOwed]);

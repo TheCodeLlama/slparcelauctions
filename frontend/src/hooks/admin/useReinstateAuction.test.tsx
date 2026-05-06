@@ -9,7 +9,7 @@ import { useReinstateAuction } from "./useReinstateAuction";
 import { adminQueryKeys } from "@/lib/admin/queryKeys";
 
 vi.mock("next/navigation", () => ({
-  usePathname: vi.fn(() => "/admin/users/10"),
+  usePathname: vi.fn(() => "/admin/users/00000000-0000-0000-0000-000000000010"),
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
@@ -21,8 +21,8 @@ vi.mock("next/navigation", () => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
-const USER_ID = 10;
-const AUCTION_ID = 55;
+const USER_PID = "00000000-0000-0000-0000-000000000010";
+const AUCTION_PID = "00000000-0000-0000-0000-000000000055";
 
 function makeWrapper(qc: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -37,9 +37,9 @@ function makeWrapper(qc: QueryClient) {
 describe("useReinstateAuction", () => {
   it("invalidates user listings tab and stats on success", async () => {
     server.use(
-      http.post(`*/api/v1/admin/auctions/${AUCTION_ID}/reinstate`, () =>
+      http.post(`*/api/v1/admin/auctions/${AUCTION_PID}/reinstate`, () =>
         HttpResponse.json({
-          auctionId: AUCTION_ID,
+          auctionId: 55,
           status: "ACTIVE",
           newEndsAt: "2026-05-01T00:00:00Z",
           suspensionDurationSeconds: 3600,
@@ -52,22 +52,22 @@ describe("useReinstateAuction", () => {
     });
     const spy = vi.spyOn(qc, "invalidateQueries");
 
-    const { result } = renderHook(() => useReinstateAuction(USER_ID), {
+    const { result } = renderHook(() => useReinstateAuction(USER_PID), {
       wrapper: makeWrapper(qc),
     });
 
     await act(async () => {
-      await result.current.mutateAsync({ auctionId: AUCTION_ID, notes: "reinstate notes" });
+      await result.current.mutateAsync({ auctionPublicId: AUCTION_PID, notes: "reinstate notes" });
     });
 
     const keys = spy.mock.calls.map((c) => (c[0] as { queryKey?: unknown }).queryKey);
-    expect(keys).toContainEqual(adminQueryKeys.userTab(USER_ID, "listings", { page: 0, size: 25 }));
+    expect(keys).toContainEqual(adminQueryKeys.userTab(USER_PID, "listings", { page: 0, size: 25 }));
     expect(keys).toContainEqual(adminQueryKeys.stats());
   });
 
   it("invalidates user listings on AUCTION_NOT_SUSPENDED 409", async () => {
     server.use(
-      http.post(`*/api/v1/admin/auctions/${AUCTION_ID}/reinstate`, () =>
+      http.post(`*/api/v1/admin/auctions/${AUCTION_PID}/reinstate`, () =>
         HttpResponse.json(
           { code: "AUCTION_NOT_SUSPENDED", message: "Not suspended", details: {} },
           { status: 409 }
@@ -80,24 +80,22 @@ describe("useReinstateAuction", () => {
     });
     const spy = vi.spyOn(qc, "invalidateQueries");
 
-    const { result } = renderHook(() => useReinstateAuction(USER_ID), {
+    const { result } = renderHook(() => useReinstateAuction(USER_PID), {
       wrapper: makeWrapper(qc),
     });
 
     await act(async () => {
-      await result.current.mutate({ auctionId: AUCTION_ID, notes: "try reinstate" });
+      await result.current.mutate({ auctionPublicId: AUCTION_PID, notes: "try reinstate" });
     });
 
-    // Should still be error state
     expect(result.current.isError).toBe(true);
-    // Should still invalidate listings to refresh the stale data
     const keys = spy.mock.calls.map((c) => (c[0] as { queryKey?: unknown }).queryKey);
-    expect(keys).toContainEqual(adminQueryKeys.userTab(USER_ID, "listings", { page: 0, size: 25 }));
+    expect(keys).toContainEqual(adminQueryKeys.userTab(USER_PID, "listings", { page: 0, size: 25 }));
   });
 
   it("ignores admin stats invalidation when AUCTION_NOT_SUSPENDED", async () => {
     server.use(
-      http.post(`*/api/v1/admin/auctions/${AUCTION_ID}/reinstate`, () =>
+      http.post(`*/api/v1/admin/auctions/${AUCTION_PID}/reinstate`, () =>
         HttpResponse.json(
           { code: "AUCTION_NOT_SUSPENDED", message: "Not suspended", details: {} },
           { status: 409 }
@@ -110,17 +108,15 @@ describe("useReinstateAuction", () => {
     });
     const spy = vi.spyOn(qc, "invalidateQueries");
 
-    const { result } = renderHook(() => useReinstateAuction(USER_ID), {
+    const { result } = renderHook(() => useReinstateAuction(USER_PID), {
       wrapper: makeWrapper(qc),
     });
 
     await act(async () => {
-      await result.current.mutate({ auctionId: AUCTION_ID, notes: "try reinstate" });
+      await result.current.mutate({ auctionPublicId: AUCTION_PID, notes: "try reinstate" });
     });
 
     const keys = spy.mock.calls.map((c) => (c[0] as { queryKey?: unknown }).queryKey);
-    // stats should NOT be invalidated on 409 AUCTION_NOT_SUSPENDED path
     expect(keys).not.toContainEqual(adminQueryKeys.stats());
   });
 });
-
