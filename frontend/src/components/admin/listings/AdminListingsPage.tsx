@@ -102,7 +102,10 @@ export function AdminListingsPage({
 
   // Page-size text input local state
   const [sizeInput, setSizeInput] = useState<string>(String(urlSize));
-  useEffect(() => { setSizeInput(String(urlSize)); }, [urlSize]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL is the external source of truth; mirroring it into local input state when the URL changes externally is the point of this effect.
+    setSizeInput(String(urlSize));
+  }, [urlSize]);
 
   const filters: AdminListingsFilters = {
     search: urlSearch || undefined,

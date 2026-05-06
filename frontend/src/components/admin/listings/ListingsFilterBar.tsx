@@ -35,7 +35,10 @@ export function ListingsFilterBar({
 }: Props) {
   const [searchInput, setSearchInput] = useState(search);
 
-  useEffect(() => { setSearchInput(search); }, [search]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL search param is the external source of truth; mirroring it into local input state when the URL changes externally (back/forward, Reset) is the point of this effect.
+    setSearchInput(search);
+  }, [search]);
 
   // 300ms debounce
   useEffect(() => {
