@@ -849,10 +849,10 @@ export const adminAuditLogHandlers = {
 };
 
 export const adminUserDeletionHandlers = {
-  deleteSuccess: (userId: number) =>
-    http.delete(`*/api/v1/admin/users/${userId}`, () => new HttpResponse(null, { status: 204 })),
-  delete409Auctions: (userId: number, auctionIds: number[]) =>
-    http.delete(`*/api/v1/admin/users/${userId}`, () =>
+  deleteSuccess: (publicId: string) =>
+    http.delete(`*/api/v1/admin/users/${publicId}`, () => new HttpResponse(null, { status: 204 })),
+  delete409Auctions: (publicId: string, auctionIds: number[]) =>
+    http.delete(`*/api/v1/admin/users/${publicId}`, () =>
       HttpResponse.json(
         { status: 409, code: "ACTIVE_AUCTIONS", message: "blocked", blockingIds: auctionIds },
         { status: 409 }

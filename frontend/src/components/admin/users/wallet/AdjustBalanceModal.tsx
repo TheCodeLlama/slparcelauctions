@@ -27,6 +27,7 @@ export function AdjustBalanceModal({
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- `open` is the external trigger; resetting form state when the modal opens is intentional.
     setAmount("");
     setNotes("");
     setOverride(false);

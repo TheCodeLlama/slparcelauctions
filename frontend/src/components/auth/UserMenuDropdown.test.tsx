@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 
 const mockUserWithDisplayName: AuthUser = {
   publicId: "00000000-0000-0000-0000-000000000001",
+  username: "alice",
   email: "alice@example.com",
   displayName: "Alice Smith",
   slAvatarUuid: null,
@@ -23,6 +24,7 @@ const mockUserWithDisplayName: AuthUser = {
 
 const mockUserNullDisplayName: AuthUser = {
   publicId: "00000000-0000-0000-0000-000000000002",
+  username: "alice",
   email: "alice@example.com",
   displayName: null,
   slAvatarUuid: null,
@@ -41,7 +43,7 @@ describe("UserMenuDropdown", () => {
     expect(screen.getByText("Alice Smith")).toBeInTheDocument();
   });
 
-  it("renders trigger label as email local-part when displayName is null", () => {
+  it("renders trigger label as username when displayName is null", () => {
     renderWithProviders(<UserMenuDropdown user={mockUserNullDisplayName} />);
     expect(screen.getByText("alice")).toBeInTheDocument();
   });

@@ -1,4 +1,9 @@
-import type { AdminActionTargetType, FraudFlagListStatus, FraudFlagReason } from "./types";
+import type {
+  AdminActionTargetType,
+  AdminListingsFilters,
+  FraudFlagListStatus,
+  FraudFlagReason,
+} from "./types";
 import type { AdminDisputeFilters } from "./disputes";
 import type { AdminAuditLogFilters } from "./auditLog";
 
@@ -66,4 +71,8 @@ export const adminQueryKeys = {
     [...adminQueryKeys.withdrawals(), "list", page, size] as const,
   withdrawalsAvailable: () =>
     [...adminQueryKeys.withdrawals(), "available"] as const,
+
+  listings: () => [...adminQueryKeys.all, "listings"] as const,
+  listingsList: (filters: AdminListingsFilters) =>
+    [...adminQueryKeys.listings(), "list", filters] as const,
 };

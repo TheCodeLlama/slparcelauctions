@@ -18,7 +18,8 @@ vi.mock("next/navigation", () => ({
 
 function makeUser(overrides: Partial<AdminUserSummary> = {}): AdminUserSummary {
   return {
-    id: 1,
+    publicId: "11111111-1111-1111-1111-111111111111",
+    username: "testuser",
     email: "user@example.com",
     displayName: "Test User",
     slAvatarUuid: null,
@@ -41,40 +42,42 @@ describe("AdminUsersTable", () => {
 
   it("renders rows for each user", () => {
     const users = [
-      makeUser({ id: 1, displayName: "Alice" }),
-      makeUser({ id: 2, displayName: "Bob" }),
-      makeUser({ id: 3, displayName: "Charlie" }),
+      makeUser({ publicId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", displayName: "Alice" }),
+      makeUser({ publicId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", displayName: "Bob" }),
+      makeUser({ publicId: "cccccccc-cccc-cccc-cccc-cccccccccccc", displayName: "Charlie" }),
     ];
     renderWithProviders(<AdminUsersTable rows={users} />);
 
     expect(screen.getByTestId("users-table")).toBeInTheDocument();
-    expect(screen.getByTestId("user-row-1")).toBeInTheDocument();
-    expect(screen.getByTestId("user-row-2")).toBeInTheDocument();
-    expect(screen.getByTestId("user-row-3")).toBeInTheDocument();
+    expect(screen.getByTestId("user-row-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")).toBeInTheDocument();
+    expect(screen.getByTestId("user-row-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")).toBeInTheDocument();
+    expect(screen.getByTestId("user-row-cccccccc-cccc-cccc-cccc-cccccccccccc")).toBeInTheDocument();
   });
 
   it("shows ADMIN chip for admin users", () => {
-    renderWithProviders(<AdminUsersTable rows={[makeUser({ id: 5, role: "ADMIN" })]} />);
+    renderWithProviders(<AdminUsersTable rows={[makeUser({ role: "ADMIN" })]} />);
     expect(screen.getByText("ADMIN")).toBeInTheDocument();
   });
 
   it("shows BANNED chip for users with active ban", () => {
-    renderWithProviders(<AdminUsersTable rows={[makeUser({ id: 6, hasActiveBan: true })]} />);
+    renderWithProviders(<AdminUsersTable rows={[makeUser({ hasActiveBan: true })]} />);
     expect(screen.getByText("BANNED")).toBeInTheDocument();
   });
 
   it("shows cancelled-with-bids count in error color when nonzero", () => {
+    const publicId = "77777777-7777-7777-7777-777777777777";
     renderWithProviders(
-      <AdminUsersTable rows={[makeUser({ id: 7, cancelledWithBids: 3 })]} />
+      <AdminUsersTable rows={[makeUser({ publicId, cancelledWithBids: 3 })]} />
     );
-    const row = screen.getByTestId("user-row-7");
+    const row = screen.getByTestId(`user-row-${publicId}`);
     expect(row).toBeInTheDocument();
     expect(row.textContent).toContain("3 cancelled");
   });
 
-  it("links to /admin/users/:id for each row", () => {
-    renderWithProviders(<AdminUsersTable rows={[makeUser({ id: 42, displayName: "Link Test" })]} />);
-    const link = screen.getByTestId("user-link-42");
-    expect(link).toHaveAttribute("href", "/admin/users/42");
+  it("links to /admin/users/:publicId for each row", () => {
+    const publicId = "42424242-4242-4242-4242-424242424242";
+    renderWithProviders(<AdminUsersTable rows={[makeUser({ publicId, displayName: "Link Test" })]} />);
+    const link = screen.getByTestId(`user-link-${publicId}`);
+    expect(link).toHaveAttribute("href", `/admin/users/${publicId}`);
   });
 });

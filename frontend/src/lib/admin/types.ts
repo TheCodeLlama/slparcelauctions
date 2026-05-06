@@ -368,6 +368,55 @@ export type AdminWalletNotesRequest = {
   notes: string;
 };
 
+// ─── Admin Listings ────────────────────────────────────────────────────────
+
+export type AdminListingRow = {
+  publicId: string;
+  title: string;
+  sellerPublicId: string;
+  sellerUsername: string;
+  status: AuctionStatus;
+  hasReserve: boolean;
+  createdAt: string;
+  startingBid: number;
+  currentBid: number;
+  bidCount: number;
+  saveCount: number;
+  endsAt: string | null;
+  region: string | null;
+};
+
+export type AdminListingsSortColumn =
+  | "title"
+  | "seller"
+  | "createdAt"
+  | "startingBid"
+  | "currentBid"
+  | "bidCount"
+  | "saveCount"
+  | "endsAt"
+  | "region";
+
+export type AdminListingsSort = {
+  column: AdminListingsSortColumn;
+  direction: "asc" | "desc";
+};
+
+export type AdminListingsFilters = {
+  search?: string;
+  statuses?: AuctionStatus[];
+  hasReserve?: boolean | null;
+  page: number;
+  size: number;
+  sort: AdminListingsSort;
+};
+
+export type AdminListingActionRequest = {
+  notes: string;
+};
+
+export type AdminListingAction = "warn" | "suspend" | "cancel" | "reinstate";
+
 export * from "./auditLog";
 export * from "./disputes";
 export * from "./infrastructure";
