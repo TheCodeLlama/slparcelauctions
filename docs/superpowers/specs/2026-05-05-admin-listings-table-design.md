@@ -57,8 +57,7 @@ Sort + filter + paginate happens server-side via Spring Data `Pageable` + `Sort`
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `search` | string? | null | Matches `LOWER(title) LIKE %q%` OR `LOWER(seller.username) LIKE %q%` |
-| `status` | `AuctionStatus[]` | see below | Repeatable: `?status=ACTIVE&status=SUSPENDED`. Empty = "all statuses". |
-| `verification` | `VerificationStatus[]` | `[]` (= all) | Repeatable, multi-select |
+| `status` | `AuctionStatus[]` | see below | Repeatable: `?status=ACTIVE&status=SUSPENDED`. Empty = "all statuses". Verification lifecycle (PENDING/FAILED) is captured in AuctionStatus directly — no separate verification filter. |
 | `hasReserve` | bool? | null | null = either, true = `reserve_price IS NOT NULL`, false = `IS NULL` |
 | `page` | int | 0 | Standard `Pageable` |
 | `size` | int | 25 | Admin-only — no clamp; service trusts the value |
@@ -69,7 +68,7 @@ The `status` parameter has no built-in default — the *frontend* default for `/
 **Sortable columns** (server-side whitelist enforced in `AdminListingService`):
 `title`, `seller`, `createdAt`, `startPrice`, `currentBid`, `bidCount`, `saveCount`, `endsAt`, `region`.
 
-Anything else → `400 Bad Request` with `code=INVALID_SORT_COLUMN`. Status, verification, reserve are filter-only (enums/booleans don't sort meaningfully).
+Anything else → `400 Bad Request` with `code=INVALID_SORT_COLUMN`. Status and reserve are filter-only (enums/booleans don't sort meaningfully).
 
 **Response:** `Page<AdminListingRowDto>` (Spring Data envelope — `content`, `number`, `totalPages`, `totalElements`).
 
@@ -82,17 +81,18 @@ public record AdminListingRowDto(
     UUID sellerPublicId,              // /admin/users/{publicId}
     String sellerUsername,
     AuctionStatus status,
-    VerificationStatus verificationStatus,
     boolean hasReserve,               // bool only — never the value
-    Instant createdAt,
-    Long startPriceLindens,
-    Long currentBidLindens,           // null if no bids
+    OffsetDateTime createdAt,
+    Long startingBid,
+    Long currentBid,                  // 0 if no bids (entity default)
     Integer bidCount,
     Long saveCount,                   // 0 if no saves
-    Instant endsAt,                   // null for non-ACTIVE in some flows
-    String region                     // SL region from parcel snapshot
+    OffsetDateTime endsAt,            // null for some non-ACTIVE flows
+    String region                     // from parcel snapshot
 ) {}
 ```
+
+13 fields. Verification lifecycle is captured in `status` directly (DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED, ACTIVE, ...).
 
 ### 3.3 Repository query
 
@@ -116,7 +116,6 @@ SELECT
     u.public_id      AS seller_public_id,
     u.username       AS seller_username,
     a.status,
-    a.verification_status,
     (a.reserve_price IS NOT NULL) AS has_reserve,
     a.created_at,
     a.starting_bid,
@@ -135,7 +134,6 @@ LEFT JOIN (
 ) s ON s.auction_id = a.id
 WHERE (:search IS NULL OR LOWER(a.title) LIKE :search OR LOWER(u.username) LIKE :search)
   AND (:hasStatusFilter = false OR a.status = ANY(CAST(:statuses AS varchar[])))
-  AND (:hasVerificationFilter = false OR a.verification_status = ANY(CAST(:verifications AS varchar[])))
   AND (:hasReserve IS NULL
        OR (:hasReserve = true  AND a.reserve_price IS NOT NULL)
        OR (:hasReserve = false AND a.reserve_price IS NULL))
@@ -260,13 +258,12 @@ This is the **default** — the user can override by selecting any combination i
 ### 5.3 Filter bar layout
 
 ```
-[Search title or seller…        ]  [Status ▾]  [Verification ▾]  [Reserve ▾]  [Reset]
-                                       3 selected     1 selected     Either
+[Search title or seller…        ]  [Status ▾]  [Reserve ▾]  [Reset]
+                                       3 selected      Either
 ```
 
 - **Search** — debounced 300ms, fires on Enter or pause. Clears on Esc.
 - **Status** — multi-select dropdown of `AuctionStatus` values, shows count or "All".
-- **Verification** — multi-select of `VerificationStatus`.
 - **Reserve** — three-state cycle: `Either` / `Has reserve` / `No reserve`.
 - **Reset** — clears everything to defaults; visible only when any filter is non-default.
 
@@ -287,14 +284,14 @@ Below the bar: a results-summary line `Showing 26–50 of 1,438 listings`. Page-
 
 Clicking a chip overwrites filters + sort. Clicking the active preset clears back to defaults.
 
-### 5.5 Table columns (13)
+### 5.5 Table columns (12)
 
-| Title | Seller | Status | Verif. | Reserve | Created | Start | Current bid | Bids | Saves | Ends | Region | … |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Title | Seller | Status | Reserve | Created | Start | Current bid | Bids | Saves | Ends | Region | … |
+|---|---|---|---|---|---|---|---|---|---|---|---|
 
 - **Title** — link to `/auction/{publicId}` (cmd/ctrl-click opens new tab via default browser behavior). Truncates with ellipsis; full title in `title=`.
 - **Seller** — link to `/admin/users/{sellerPublicId}`.
-- **Status** / **Verif.** / **Reserve** — chips. Filter-only.
+- **Status** / **Reserve** — chips. Filter-only.
 - **Created**, **Start**, **Current bid**, **Bids**, **Saves**, **Ends**, **Region** — sortable. Header click cycles asc → desc → off. Active sort shows ↑/↓ glyph.
 - **Ends** — relative string ("2h 14m") computed from `endsAt`. Sorts on `endsAt` server-side. Non-ACTIVE rows show `—`.
 - **…** — kebab `MoreVertical` opens an action menu (Warn / Suspend / Cancel / Reinstate). Items disabled when the listing's status doesn't permit, with a tooltip explaining why.
@@ -311,16 +308,15 @@ Clicking a chip overwrites filters + sort. Clicking the active preset clears bac
 
 A second page that reuses the same `<AdminListingsTable>` component:
 
-- **Status filter**: hidden. The page IS the status filter — locked to `DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED`.
-- **Verification filter**: visible (useful for "show only failed-verification drafts").
+- **Status filter**: hidden. The page IS the status filter — locked to `DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED`. The status chip still renders in each row so admins can tell DRAFT from VERIFICATION_FAILED at a glance.
 - **Default sort**: `createdAt desc` (newest drafts first).
-- **Action menu**: same four items, same status guards. The status guards in §4.1 already correctly permit suspend/cancel on draft statuses and forbid reinstate.
+- **Action menu**: same four items, same status guards. Reinstate is always disabled here (no SUSPENDED listings to reinstate).
 - **Title link**: still `/auction/{publicId}` — the public auction page handles the "this is a draft" view itself.
 
 The shared component takes a `lockedStatuses?: AuctionStatus[]` prop. When set, the component:
-1. Always sends those statuses regardless of URL `status` params (URL `status` params are ignored here)
+1. Always sends those statuses regardless of URL `status` params
 2. Hides the Status filter dropdown
-3. Hides the "Suspended" preset (irrelevant) and shows a different preset row (e.g. "Failed verification" / "Awaiting verification")
+3. Replaces the listings preset row with a drafts-flavored set (e.g. "Failed verification", "Awaiting verification", "Unpaid drafts")
 
 ## 7. Action modals
 
