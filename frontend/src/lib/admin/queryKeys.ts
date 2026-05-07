@@ -1,5 +1,6 @@
 import type {
   AdminActionTargetType,
+  AdminLedgerFilters,
   AdminListingsFilters,
   FraudFlagListStatus,
   FraudFlagReason,
@@ -75,4 +76,8 @@ export const adminQueryKeys = {
   listings: () => [...adminQueryKeys.all, "listings"] as const,
   listingsList: (filters: AdminListingsFilters) =>
     [...adminQueryKeys.listings(), "list", filters] as const,
+
+  ledger: () => [...adminQueryKeys.all, "ledger"] as const,
+  ledgerList: (filters: AdminLedgerFilters) =>
+    [...adminQueryKeys.ledger(), "list", filters] as const,
 };
