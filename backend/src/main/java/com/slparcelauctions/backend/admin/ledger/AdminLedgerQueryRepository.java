@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.admin.ledger;
 
 import java.math.BigInteger;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -197,6 +198,7 @@ public class AdminLedgerQueryRepository {
     private static OffsetDateTime toOffsetDateTime(Object o) {
         if (o == null) return null;
         if (o instanceof OffsetDateTime odt) return odt;
+        if (o instanceof Instant inst) return inst.atOffset(ZoneOffset.UTC);
         if (o instanceof java.sql.Timestamp ts) {
             return ts.toInstant().atOffset(ZoneOffset.UTC);
         }
