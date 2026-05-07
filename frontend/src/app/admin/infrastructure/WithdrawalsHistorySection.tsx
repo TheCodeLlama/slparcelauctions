@@ -1,9 +1,14 @@
 "use client";
 import { useWithdrawals } from "@/lib/admin/infrastructureHooks";
+import { useScrollToRowFromQueryParam } from "@/hooks/useScrollToRowFromQueryParam";
 
 export function WithdrawalsHistorySection() {
   const { data } = useWithdrawals(0, 20);
   const rows = data?.content ?? [];
+
+  // Drill-down from /admin/ledger
+  useScrollToRowFromQueryParam("withdrawalId", "withdrawal-row", [data]);
+
   if (rows.length === 0) return null;
   return (
     <section className="bg-bg-muted rounded p-4">
@@ -17,7 +22,11 @@ export function WithdrawalsHistorySection() {
         </thead>
         <tbody>
           {rows.map((w) => (
-            <tr key={w.id} className="border-b border-border-subtle/40">
+            <tr
+              key={w.id}
+              className="border-b border-border-subtle/40"
+              data-testid={`withdrawal-row-${w.id}`}
+            >
               <td className="py-2">{new Date(w.requestedAt).toLocaleString()}</td>
               <td className="py-2">#{w.adminUserId}</td>
               <td className="py-2">L$ {w.amount.toLocaleString()}</td>

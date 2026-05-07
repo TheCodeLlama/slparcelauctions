@@ -3,6 +3,8 @@ import type {
   AdminBanRow,
   AdminFraudFlagDetail,
   AdminFraudFlagSummary,
+  AdminLedgerFilters,
+  AdminLedgerRow,
   AdminListingActionRequest,
   AdminListingRow,
   AdminListingsFilters,
@@ -345,6 +347,28 @@ export const adminApi = {
     },
     reinstate(publicId: string, body: AdminListingActionRequest): Promise<void> {
       return api.post(`/api/v1/admin/listings/${publicId}/reinstate`, body);
+    },
+  },
+
+  ledger: {
+    list(filters: AdminLedgerFilters): Promise<Page<AdminLedgerRow>> {
+      const search = new URLSearchParams();
+      if (filters.search) search.set("search", filters.search);
+      if (filters.kinds && filters.kinds.length > 0) {
+        for (const k of filters.kinds) search.append("kinds", k);
+      }
+      if (filters.userPublicId) search.set("userPublicId", filters.userPublicId);
+      if (filters.entryType) search.set("entryType", filters.entryType);
+      if (filters.refType) search.set("refType", filters.refType);
+      if (filters.refId != null) search.set("refId", String(filters.refId));
+      if (filters.dateFrom) search.set("dateFrom", filters.dateFrom);
+      if (filters.dateTo) search.set("dateTo", filters.dateTo);
+      if (filters.amountMin != null) search.set("amountMin", String(filters.amountMin));
+      if (filters.amountMax != null) search.set("amountMax", String(filters.amountMax));
+      search.set("page", String(filters.page));
+      search.set("size", String(filters.size));
+      search.set("sort", `${filters.sort.column},${filters.sort.direction}`);
+      return api.get(`/api/v1/admin/ledger?${search.toString()}`);
     },
   },
 };

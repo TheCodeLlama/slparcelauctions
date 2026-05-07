@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useAdminWallet, useAdminWalletLedger } from "@/hooks/admin/useAdminWallet";
+import { useScrollToRowFromQueryParam } from "@/hooks/useScrollToRowFromQueryParam";
 import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/Button";
 import { ForceFinalizeWithdrawalModal } from "./ForceFinalizeWithdrawalModal";
@@ -31,6 +32,10 @@ export function WalletTab({ publicId }: Props) {
 
   const { data: wallet, isLoading: walletLoading, isError: walletError } = useAdminWallet(publicId);
   const { data: ledger, isLoading: ledgerLoading } = useAdminWalletLedger(publicId, page, PAGE_SIZE);
+
+  // Drill-down from /admin/ledger: scroll-to-and-highlight a specific row.
+  useScrollToRowFromQueryParam("ledgerEntryId", "ledger-row", [ledger]);
+  useScrollToRowFromQueryParam("terminalCommandId", "pending-withdrawal", [wallet]);
 
   if (walletLoading) {
     return <div className="py-6 text-sm text-fg-muted">Loading wallet…</div>;
