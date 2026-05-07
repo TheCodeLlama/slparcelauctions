@@ -312,8 +312,8 @@ public class AdminLedgerQueryRepository {
           END                                                          AS counterparty_user_id
         FROM escrow_transactions et
         JOIN escrows es ON es.id = et.escrow_id
-        LEFT JOIN users payer_u ON payer_u.sl_avatar_uuid = et.payer::uuid
-        LEFT JOIN users payee_u ON payee_u.sl_avatar_uuid = et.payee::uuid
+        LEFT JOIN users payer_u ON payer_u.id = et.payer_id
+        LEFT JOIN users payee_u ON payee_u.id = et.payee_id
         """;
 
     private static final String TERMINAL_CMD_ARM = """
@@ -339,7 +339,7 @@ public class AdminLedgerQueryRepository {
           recip_u.id                                                   AS user_id,
           NULL::bigint                                                 AS counterparty_user_id
         FROM terminal_commands tc
-        LEFT JOIN users recip_u ON recip_u.sl_avatar_uuid = tc.recipient_uuid::uuid
+        LEFT JOIN users recip_u ON recip_u.sl_avatar_uuid::text = tc.recipient_uuid
         """;
 
     private static final String WITHDRAWAL_ARM = """
@@ -364,7 +364,7 @@ public class AdminLedgerQueryRepository {
           recip_u.id                                                   AS user_id,
           admin_u.id                                                   AS counterparty_user_id
         FROM withdrawals w
-        LEFT JOIN users recip_u ON recip_u.sl_avatar_uuid = w.recipient_uuid::uuid
+        LEFT JOIN users recip_u ON recip_u.sl_avatar_uuid::text = w.recipient_uuid
         LEFT JOIN users admin_u ON admin_u.id = w.admin_user_id
         """;
 
