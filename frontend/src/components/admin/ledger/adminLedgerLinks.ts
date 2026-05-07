@@ -14,32 +14,29 @@ export function rowDrillLink(row: AdminLedgerRow): string | null {
   switch (row.kind) {
     case "USER_LEDGER": {
       if (!row.userPublicId) return null;
-      return `/admin/users/${row.userPublicId}/wallet?ledgerEntryId=${row.nativeId}`;
+      return `/admin/users/${row.userPublicId}?tab=wallet&ledgerEntryId=${row.nativeId}`;
     }
     case "ESCROW_TXN": {
-      // refId is the escrow id; we need an auction publicId to link to the
-      // escrow page, which we don't have in the row. Fall back to the
-      // user's wallet page when a user resolved (it shows the paired
-      // UserLedgerEntry); otherwise no link.
+      // refId is the escrow id; we don't have the auction publicId in the
+      // row. Fall back to the resolved user's wallet tab when present.
       if (row.userPublicId) {
-        return `/admin/users/${row.userPublicId}/wallet?escrowId=${row.refId ?? ""}`;
+        return `/admin/users/${row.userPublicId}?tab=wallet&escrowId=${row.refId ?? ""}`;
       }
       return null;
     }
     case "TERMINAL_CMD": {
       if (row.entryType === "WALLET_WITHDRAWAL" && row.userPublicId) {
-        return `/admin/users/${row.userPublicId}/wallet?terminalCommandId=${row.nativeId}`;
+        return `/admin/users/${row.userPublicId}?tab=wallet&terminalCommandId=${row.nativeId}`;
       }
       return `/admin/infrastructure?tab=terminals&commandId=${row.nativeId}`;
     }
     case "WITHDRAWAL":
       return `/admin/infrastructure?tab=withdrawals&withdrawalId=${row.nativeId}`;
     case "BID_RESERVATION": {
-      // refId is the bid id; we don't have auction publicId in the row, so
-      // best we can do without an extra fetch is link to the user's wallet
-      // (which shows the paired BID_RESERVED/BID_RELEASED ledger rows).
+      // refId is the bid id; without the auction publicId, best landing is
+      // the user's wallet tab (which shows the paired BID_RESERVED/BID_RELEASED rows).
       if (row.userPublicId) {
-        return `/admin/users/${row.userPublicId}/wallet`;
+        return `/admin/users/${row.userPublicId}?tab=wallet`;
       }
       return null;
     }

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAdminUser } from "@/hooks/admin/useAdminUser";
 import { UserProfileHeader } from "./UserProfileHeader";
 import { UserStatsCards } from "./UserStatsCards";
@@ -17,8 +18,21 @@ type Props = {
   publicId: string;
 };
 
+const VALID_TABS: UserTab[] = [
+  "listings", "bids", "cancellations", "reports", "fraudFlags", "moderation", "wallet",
+];
+
+function isUserTab(s: string): s is UserTab {
+  return (VALID_TABS as string[]).includes(s);
+}
+
 export function AdminUserDetailPage({ publicId }: Props) {
-  const [activeTab, setActiveTab] = useState<UserTab>("listings");
+  const searchParams = useSearchParams();
+  const initialTab = (() => {
+    const raw = searchParams?.get("tab");
+    return raw && isUserTab(raw) ? raw : "listings";
+  })();
+  const [activeTab, setActiveTab] = useState<UserTab>(initialTab);
   const { data: user, isLoading, isError, refetch } = useAdminUser(publicId);
 
   if (isLoading) {
