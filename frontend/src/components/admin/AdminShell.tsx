@@ -25,6 +25,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Reports", href: "/admin/reports", badge: stats?.queues.openReports },
     { label: "Disputes", href: "/admin/disputes", badge: stats?.queues.activeDisputes },
     { label: "Bans", href: "/admin/bans" },
+    { label: "Ledger", href: "/admin/ledger" },
     { label: "Listings", href: "/admin/listings" },
     { label: "Drafts", href: "/admin/drafts" },
     { label: "Users", href: "/admin/users" },

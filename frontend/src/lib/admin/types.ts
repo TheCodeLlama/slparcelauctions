@@ -417,6 +417,55 @@ export type AdminListingActionRequest = {
 
 export type AdminListingAction = "warn" | "suspend" | "cancel" | "reinstate";
 
+// ─── Admin Global Ledger ───────────────────────────────────────────────────
+
+export type AdminLedgerKind =
+  | "USER_LEDGER"
+  | "ESCROW_TXN"
+  | "TERMINAL_CMD"
+  | "WITHDRAWAL"
+  | "BID_RESERVATION";
+
+export type AdminLedgerRow = {
+  kind: AdminLedgerKind;
+  eventId: string;
+  nativeId: number;
+  createdAt: string;
+  userPublicId: string | null;
+  username: string | null;
+  counterpartyPublicId: string | null;
+  counterpartyUsername: string | null;
+  amountLindens: number;
+  entryType: string;
+  status: string | null;
+  refType: string | null;
+  refId: number | null;
+  description: string | null;
+};
+
+export type AdminLedgerSortColumn = "createdAt" | "amountLindens";
+
+export type AdminLedgerSort = {
+  column: AdminLedgerSortColumn;
+  direction: "asc" | "desc";
+};
+
+export type AdminLedgerFilters = {
+  search?: string;
+  kinds?: AdminLedgerKind[];
+  userPublicId?: string;
+  entryType?: string;
+  refType?: string;
+  refId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  amountMin?: number;
+  amountMax?: number;
+  page: number;
+  size: number;
+  sort: AdminLedgerSort;
+};
+
 export * from "./auditLog";
 export * from "./disputes";
 export * from "./infrastructure";
