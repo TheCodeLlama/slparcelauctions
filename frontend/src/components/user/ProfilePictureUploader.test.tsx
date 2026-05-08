@@ -9,19 +9,21 @@ import { mockVerifiedCurrentUser } from "@/test/msw/fixtures";
 // setState doesn't trigger an infinite re-render loop.
 import { useEffect } from "react";
 
+function MockCropper({
+  onCropComplete,
+}: {
+  onCropComplete: (a: unknown, b: unknown) => void;
+}) {
+  useEffect(() => {
+    onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div data-testid="mock-cropper" />;
+}
+
 vi.mock("react-easy-crop", () => ({
   __esModule: true,
-  default: ({
-    onCropComplete,
-  }: {
-    onCropComplete: (a: unknown, b: unknown) => void;
-  }) => {
-    useEffect(() => {
-      onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-    return <div data-testid="mock-cropper" />;
-  },
+  default: MockCropper,
 }));
 
 import { ProfilePictureUploader } from "./ProfilePictureUploader";

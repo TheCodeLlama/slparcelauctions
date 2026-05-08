@@ -6,26 +6,25 @@ import userEvent from "@testing-library/user-event";
 // onCropComplete once on mount via useEffect (firing inside the render
 // body would create an infinite re-render loop because the parent
 // setState would re-render the mock, which would call onCropComplete
-// again, ad infinitum). useEffect with an empty deps array is the
-// correct hook for "do this once after mount".
+// again, ad infinitum).
 import { useEffect } from "react";
 
-vi.mock("react-easy-crop", () => {
-  return {
-    __esModule: true,
-    default: ({
-      onCropComplete,
-    }: {
-      onCropComplete: (a: unknown, b: unknown) => void;
-    }) => {
-      useEffect(() => {
-        onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, []);
-      return <div data-testid="mock-cropper" />;
-    },
-  };
-});
+function MockCropper({
+  onCropComplete,
+}: {
+  onCropComplete: (a: unknown, b: unknown) => void;
+}) {
+  useEffect(() => {
+    onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div data-testid="mock-cropper" />;
+}
+
+vi.mock("react-easy-crop", () => ({
+  __esModule: true,
+  default: MockCropper,
+}));
 
 // getCroppedImg uses real DOM Image / Canvas APIs that aren't reliable
 // in jsdom. Mock it to a Blob factory that exercises the parent's
