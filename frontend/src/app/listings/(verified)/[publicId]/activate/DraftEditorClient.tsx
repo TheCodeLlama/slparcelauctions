@@ -18,6 +18,7 @@ import { EditablePhotoGallery } from "@/components/listing/draft-editor/Editable
 import { BidPanelPreview } from "@/components/listing/draft-editor/BidPanelPreview";
 import { DraftActionBar } from "@/components/listing/draft-editor/DraftActionBar";
 import { DeleteDraftModal } from "@/components/listing/draft-editor/DeleteDraftModal";
+import { ConfirmListParcelModal } from "@/components/listing/draft-editor/ConfirmListParcelModal";
 import {
   useDraftEditorMutations,
   type DraftSettings,
@@ -59,6 +60,7 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
   const feeQ = useListingFeeConfig();
   const walletQ = useWallet(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmListOpen, setConfirmListOpen] = useState(false);
 
   const listMutation = useMutation({
     mutationFn: () => payListingFee(auction.publicId, genIdempotencyKey()),
@@ -66,6 +68,7 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
       qc.invalidateQueries({ queryKey: activateAuctionKey(auction.publicId) });
       qc.invalidateQueries({ queryKey: walletQueryKey });
       toast.success("Listing fee paid. Choose a verification method next.");
+      setConfirmListOpen(false);
     },
     onError: (e) => {
       const detail = isApiError(e)
@@ -128,7 +131,7 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
         walletBalance={wallet.available}
         isListing={listMutation.isPending}
         insufficientFunds={insufficientFunds}
-        onListParcel={() => listMutation.mutate()}
+        onListParcel={() => setConfirmListOpen(true)}
         onDeleteDraft={() => setDeleteOpen(true)}
       />
       <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 pb-24 lg:pb-12 w-full">
@@ -194,6 +197,14 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
         auction={auction}
+      />
+      <ConfirmListParcelModal
+        open={confirmListOpen}
+        onClose={() => setConfirmListOpen(false)}
+        onConfirm={() => listMutation.mutate()}
+        listingFee={fee}
+        walletBalance={wallet.available}
+        isListing={listMutation.isPending}
       />
     </div>
   );
