@@ -96,8 +96,14 @@ public class AuctionController {
     }
 
     @GetMapping("/users/me/auctions")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<SellerAuctionResponse> listMine(
             @AuthenticationPrincipal AuthPrincipal principal) {
+        // @Transactional keeps the JPA session open through the stream so the
+        // mapper's `a.getSeller()` / `a.getParcel()` / `a.getTags()` proxy
+        // accesses can hydrate. OSIV is disabled (application.yml), so without
+        // this annotation the session closes before the mapper runs and we
+        // get LazyInitializationException at JSON serialization time.
         List<Auction> auctions = auctionService.loadOwnedBy(principal.userId());
         Map<Long, Escrow> escrows = loadEscrowsFor(auctions);
         return auctions.stream()
