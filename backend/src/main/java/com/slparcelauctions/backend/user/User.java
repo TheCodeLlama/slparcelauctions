@@ -194,6 +194,39 @@ public class User extends BaseMutableEntity {
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified = false;
 
+    /**
+     * Forced post-verify onboarding step #1: user has either uploaded an
+     * avatar, picked their SL profile photo, or explicitly skipped. Flipped
+     * to {@code true} by {@code AvatarService.upload} or
+     * {@code OnboardingService.skipAvatar}. Drives the {@code (onboarded)}
+     * layout redirect to {@code /dashboard/avatar}.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. V20 backfills
+     * existing users with {@code profile_pic_url IS NOT NULL}.
+     */
+    @Builder.Default
+    @Column(name = "avatar_step_completed", nullable = false,
+            columnDefinition = "boolean not null default false")
+    private Boolean avatarStepCompleted = false;
+
+    /**
+     * Forced post-verify onboarding step #2: user has either set a display
+     * name or explicitly skipped (accepting the username fallback). Flipped
+     * to {@code true} by {@code OnboardingService.setDisplayName}. Drives
+     * the {@code (onboarded)} layout redirect to {@code /dashboard/display-name}.
+     *
+     * <p>The {@code columnDefinition} supplies a SQL-side default so
+     * Hibernate's {@code ddl-auto: update} can add this NOT NULL column to
+     * existing rows on local dev databases without failing. V20 backfills
+     * existing users with {@code display_name IS NOT NULL}.
+     */
+    @Builder.Default
+    @Column(name = "display_name_step_completed", nullable = false,
+            columnDefinition = "boolean not null default false")
+    private Boolean displayNameStepCompleted = false;
+
     @Builder.Default
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "notify_email", columnDefinition = "jsonb")

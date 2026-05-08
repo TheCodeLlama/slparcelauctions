@@ -63,6 +63,27 @@ class AvatarServiceTest {
         String expectedUrl = "/api/v1/users/" + userPublicId + "/avatar/256";
         assertThat(user.getProfilePicUrl()).isEqualTo(expectedUrl);
         assertThat(resp.profilePicUrl()).isEqualTo(expectedUrl);
+        // Onboarding-step flag flips when an avatar is uploaded — the upload
+        // is one of the three exits from the avatar onboarding gate.
+        assertThat(user.getAvatarStepCompleted()).isTrue();
+    }
+
+    @Test
+    void upload_avatarStepCompletedAlreadyTrue_idempotent() {
+        UUID userPublicId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        User user = User.builder()
+                .id(1L).publicId(userPublicId).email("a@b.c").username("a").passwordHash("x")
+                .verified(true).avatarStepCompleted(true).build();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", "image/png", new byte[]{1, 2, 3});
+        when(processor.process(any(byte[].class))).thenReturn(Map.of(
+                64, new byte[]{10}, 128, new byte[]{20}, 256, new byte[]{30}));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        service.upload(1L, file);
+
+        // Re-uploads do not flip the flag back / set it to anything else.
+        assertThat(user.getAvatarStepCompleted()).isTrue();
     }
 
     @Test
