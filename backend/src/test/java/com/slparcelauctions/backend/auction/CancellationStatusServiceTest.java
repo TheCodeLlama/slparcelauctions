@@ -253,8 +253,10 @@ class CancellationStatusServiceTest {
 
     @Test
     void historyFor_resolvesPrimaryPhotoUrlFromAuctionPhoto() {
+        UUID p2PublicId = UUID.randomUUID();
         AuctionPhoto p1 = AuctionPhoto.builder().id(50L).sortOrder(1).build();
         AuctionPhoto p2 = AuctionPhoto.builder().id(51L).sortOrder(0).build();
+        org.springframework.test.util.ReflectionTestUtils.setField(p2, "publicId", p2PublicId);
         Auction auction = Auction.builder()
                 .id(303L)
                 .title("Photo'd auction")
@@ -279,7 +281,9 @@ class CancellationStatusServiceTest {
         Page<CancellationHistoryDto> page = service.historyFor(USER_ID, PageRequest.of(0, 10));
 
         // Picks the photo with the smallest sortOrder (p2 = sortOrder 0).
+        // URL emits the photo's publicId (UUID) — PhotoController only resolves
+        // UUIDs via findByPublicId.
         assertThat(page.getContent().get(0).primaryPhotoUrl())
-                .isEqualTo("/api/v1/photos/51");
+                .isEqualTo("/api/v1/photos/" + p2PublicId);
     }
 }

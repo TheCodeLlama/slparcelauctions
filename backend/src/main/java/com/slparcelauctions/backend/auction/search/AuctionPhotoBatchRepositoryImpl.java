@@ -40,11 +40,15 @@ public class AuctionPhotoBatchRepositoryImpl implements AuctionPhotoBatchReposit
         // Window function picks the first photo per auction. Indexed via the
         // primary key on (id) — if (auction_id, sort_order) shows up in
         // slow-query logs, add a covering index then.
+        //
+        // URL uses public_id (UUID), not id (Long). PhotoController only
+        // resolves UUIDs via findByPublicId — emitting `/api/v1/photos/{long-id}`
+        // here 404s every browse-card thumbnail.
         String sql = """
                 SELECT auction_id, url
                 FROM (
                   SELECT auction_id,
-                         '/api/v1/photos/' || id AS url,
+                         '/api/v1/photos/' || public_id AS url,
                          ROW_NUMBER() OVER (
                            PARTITION BY auction_id
                            ORDER BY sort_order ASC, id ASC
