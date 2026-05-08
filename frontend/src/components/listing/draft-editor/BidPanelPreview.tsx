@@ -1,7 +1,5 @@
 "use client";
 import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { Pencil } from "@/components/ui/icons";
 import {
   EditableSettingsModal,
   type EditableSettingsModalProps,
@@ -86,15 +84,14 @@ export function BidPanelPreview({
           value={settings}
           onSave={onSettingsChange}
           renderTrigger={(open) => (
-            <Button
-              variant="secondary"
+            <button
+              type="button"
               onClick={open}
               data-testid="bid-panel-preview-edit-settings"
-              className="w-full"
+              className="inline-flex items-center justify-center w-full h-9 px-4 rounded-sm bg-warning text-white text-sm font-medium hover:opacity-90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-warning"
             >
-              <Pencil className="size-4" aria-hidden="true" />
               Edit auction settings
-            </Button>
+            </button>
           )}
         />
       </div>
