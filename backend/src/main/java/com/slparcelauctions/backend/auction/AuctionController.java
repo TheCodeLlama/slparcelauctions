@@ -65,10 +65,15 @@ public class AuctionController {
 
     @PostMapping("/auctions")
     @ResponseStatus(HttpStatus.CREATED)
+    @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse create(
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody AuctionCreateRequest req,
             HttpServletRequest httpRequest) {
+        // @Transactional keeps the JPA session open through the mapper so the
+        // mapper's lazy proxy access (`t.getCategory().getLabel()` per-tag) can
+        // hydrate. OSIV is disabled (application.yml). Same pattern as
+        // listMine + the existing PUT/PATCH endpoints in this controller.
         requireVerified(principal.userId());
         String ip = httpRequest.getRemoteAddr();
         Auction created = auctionService.create(principal.userId(), req, ip);
@@ -76,13 +81,16 @@ public class AuctionController {
     }
 
     @GetMapping("/auctions/{publicId}")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Object get(
             @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
         // loadForDetailByPublicId eagerly hydrates parcel + seller + photos + tags so
         // the public/seller mappers downstream can render the seller card +
-        // photo carousel off a single LEFT JOIN. Single-row fetch — no
-        // HHH90003004 risk from the multiple to-many entity-graph branches.
+        // photo carousel off a single LEFT JOIN. The entity graph does NOT
+        // hydrate tag.category (that FK was introduced in V19 and the graph
+        // wasn't updated), so @Transactional keeps the session open for the
+        // category proxy access in AuctionDtoMapper.tagList.
         Auction a = auctionService.loadForDetailByPublicId(publicId);
         Long userId = principal == null ? null : principal.userId();
         boolean isSeller = userId != null && a.getSeller().getId().equals(userId);
@@ -155,6 +163,7 @@ public class AuctionController {
     }
 
     @GetMapping("/auctions/{publicId}/preview")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public SellerAuctionResponse preview(
             @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
@@ -182,6 +191,7 @@ public class AuctionController {
      * public surface.
      */
     @GetMapping("/users/{userPublicId}/auctions")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public PagedResponse<PublicAuctionResponse> getUserAuctions(
             @PathVariable UUID userPublicId,
             @RequestParam(name = "status") String status,
