@@ -80,4 +80,7 @@ export const adminQueryKeys = {
   ledger: () => [...adminQueryKeys.all, "ledger"] as const,
   ledgerList: (filters: AdminLedgerFilters) =>
     [...adminQueryKeys.ledger(), "list", filters] as const,
+
+  parcelTags: () => [...adminQueryKeys.all, "parcel-tags"] as const,
+  parcelTagsList: () => [...adminQueryKeys.parcelTags(), "list"] as const,
 };
