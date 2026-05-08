@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Avatar, Dropdown } from "@/components/ui";
 import { useLogout } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/user";
 
 type UserMenuDropdownProps = {
   user: AuthUser;
@@ -12,6 +13,11 @@ type UserMenuDropdownProps = {
 export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
   const logout = useLogout();
   const router = useRouter();
+  // AuthUser is the slim JWT-decoded session shape — it omits
+  // profilePicUrl. Pulling the full /me response here gives us the
+  // avatar URL + updatedAt for cache-busting; the query is
+  // already-cached for any other consumer on the page.
+  const { data: currentUser } = useCurrentUser();
 
   const displayLabel = user.displayName ?? user.username;
 
@@ -21,7 +27,13 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
       aria-label="User menu"
       className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
     >
-      <Avatar name={displayLabel} alt="User avatar" size="sm" />
+      <Avatar
+        src={currentUser?.profilePicUrl ?? undefined}
+        name={displayLabel}
+        alt="User avatar"
+        size="sm"
+        cacheBust={currentUser?.updatedAt}
+      />
       <span className="hidden md:inline text-xs text-fg">{displayLabel}</span>
     </button>
   );
