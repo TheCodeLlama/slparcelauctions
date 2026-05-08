@@ -320,6 +320,25 @@ public class User extends BaseMutableEntity {
         return balanceLindens - reservedLindens;
     }
 
+    /**
+     * Overrides Lombok's {@code @Getter} so every consumer — DTO mappers, WS
+     * envelopes, admin views — sees a non-blank name without each one having
+     * to remember a fallback. Returns the user's chosen SLParcels
+     * {@code displayName} when set, otherwise the SLParcels {@code username}
+     * (which is NOT NULL, so the wire never carries a null name).
+     *
+     * <p>Persistence is unaffected: Hibernate uses field access (the
+     * {@code @Id} on {@link BaseMutableEntity} is on a field), so reads and
+     * dirty-checks bypass this method and operate directly on the
+     * {@code displayName} column. The {@code @Setter} from Lombok continues
+     * to write the raw field, so {@code UserService.update} still skips
+     * {@code null} requests cleanly and the column can hold a real null.
+     */
+    public String getDisplayName() {
+        if (displayName != null && !displayName.isBlank()) return displayName;
+        return username;
+    }
+
     private static Map<String, Object> defaultNotifyEmail() {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("bidding", true);
