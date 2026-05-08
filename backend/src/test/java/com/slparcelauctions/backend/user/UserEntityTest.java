@@ -33,4 +33,36 @@ class UserEntityTest {
         assertThat(u.getCompletedSales()).isEqualTo(0);
         assertThat(u.getCancelledWithBids()).isEqualTo(0);
     }
+
+    @Test
+    void getDisplayNameReturnsDisplayNameWhenSet() {
+        User u = User.builder()
+                .email("a@b.com").username("loginname")
+                .passwordHash("x")
+                .displayName("Chosen Name")
+                .build();
+        assertThat(u.getDisplayName()).isEqualTo("Chosen Name");
+    }
+
+    @Test
+    void getDisplayNameFallsBackToUsernameWhenDisplayNameNull() {
+        User u = User.builder()
+                .email("a@b.com").username("loginname")
+                .passwordHash("x")
+                .build();
+        assertThat(u.getDisplayName()).isEqualTo("loginname");
+    }
+
+    @Test
+    void getDisplayNameFallsBackToUsernameWhenDisplayNameBlank() {
+        // Empty / whitespace-only strings (from trimmed updates or older
+        // rows) are treated the same as null so a seller card never renders
+        // an empty name.
+        User u = User.builder()
+                .email("a@b.com").username("loginname")
+                .passwordHash("x")
+                .displayName("   ")
+                .build();
+        assertThat(u.getDisplayName()).isEqualTo("loginname");
+    }
 }
