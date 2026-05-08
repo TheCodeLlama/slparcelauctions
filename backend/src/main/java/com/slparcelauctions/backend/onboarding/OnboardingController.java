@@ -62,7 +62,12 @@ public class OnboardingController {
         return slProfilePhotoService.fetchProfilePhoto(u.getSlAvatarUuid())
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(MediaType.IMAGE_JPEG)
-                        .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
+                        // Short browser cache (1 min) — the page fetches once per
+                        // onboarding flow and a long cache strands users on stale
+                        // bytes if we ever change the encoded shape (cf. the v2
+                        // stretch retrofit). Backend Redis still caches for 1h
+                        // for cross-user efficiency.
+                        .cacheControl(CacheControl.maxAge(Duration.ofMinutes(1)).cachePrivate())
                         .body(bytes))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
