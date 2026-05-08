@@ -51,7 +51,7 @@ export function DraftActionBar({
       </div>
       <div className="flex items-center gap-2">
         <Button
-          variant="ghost"
+          variant="secondary"
           onClick={onDeleteDraft}
           disabled={isListing}
           data-testid="draft-action-bar-delete"

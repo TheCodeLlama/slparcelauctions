@@ -4,10 +4,10 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
 import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import type {
-  ParcelTagDto,
   PublicAuctionResponse,
   SellerAuctionResponse,
 } from "@/types/auction";
+import type { ParcelTagDto } from "@/types/parcelTag";
 import type { ParcelMaturityRating } from "@/types/parcel";
 import { SnipeProtectionBadge } from "./SnipeProtectionBadge";
 import { VerificationTierBadge } from "./VerificationTierBadge";

@@ -13,7 +13,9 @@ describe("EditableTags", () => {
   it("renders existing chips and the Edit tags trigger", () => {
     renderWithProviders(
       <EditableTags
-        value={[{ code: "WATERFRONT", label: "Waterfront" }]}
+        value={[
+          { code: "WATERFRONT", label: "Waterfront", category: "Water", description: null, sortOrder: 1 },
+        ]}
         onSave={vi.fn()}
       />,
     );
@@ -35,7 +37,9 @@ describe("EditableTags", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     renderWithProviders(
       <EditableTags
-        value={[{ code: "WATERFRONT", label: "Waterfront" }]}
+        value={[
+          { code: "WATERFRONT", label: "Waterfront", category: "Water", description: null, sortOrder: 1 },
+        ]}
         onSave={onSave}
       />,
     );

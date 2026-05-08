@@ -8,14 +8,13 @@ import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { CheckCircle2 } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
-import { ActivateListingPanel } from "@/components/listing/ActivateListingPanel";
 import { ActivateStatusStepper } from "@/components/listing/ActivateStatusStepper";
 import { CancelListingModal } from "@/components/listing/CancelListingModal";
-import { ListingPreviewCard } from "@/components/listing/ListingPreviewCard";
 import { VerificationInProgressPanel } from "@/components/listing/VerificationInProgressPanel";
 import { VerificationMethodPicker } from "@/components/listing/VerificationMethodPicker";
 import { useActivateAuction } from "@/hooks/useActivateAuction";
 import { isApiError } from "@/lib/api";
+import { DraftEditorClient } from "./DraftEditorClient";
 
 export interface ActivateClientProps {
   auctionPublicId: string;
@@ -126,15 +125,13 @@ export function ActivateClient({ auctionPublicId }: ActivateClientProps) {
     );
   }
 
+  if (auction.status === "DRAFT") {
+    return <DraftEditorClient auction={auction} />;
+  }
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
       <ActivateStatusStepper status={auction.status} />
-      {auction.status === "DRAFT" && (
-        <>
-          <ListingPreviewCard auction={auction} isPreview />
-          <ActivateListingPanel auctionPublicId={auction.publicId} />
-        </>
-      )}
       {(auction.status === "DRAFT_PAID" ||
         auction.status === "VERIFICATION_FAILED") && (
         <VerificationMethodPicker

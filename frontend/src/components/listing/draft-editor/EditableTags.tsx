@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { FormError } from "@/components/ui/FormError";
 import { Tag as TagIcon, Plus } from "@/components/ui/icons";
 import { TagSelector } from "@/components/listing/TagSelector";
-import type { ParcelTagDto } from "@/types/auction";
+import type { ParcelTagDto } from "@/types/parcelTag";
 
 export interface EditableTagsProps {
   value: ParcelTagDto[];
