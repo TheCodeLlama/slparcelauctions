@@ -17,7 +17,7 @@ describe("VerifiedDashboardLayout", () => {
     server.use(authHandlers.refreshSuccess());
   });
 
-  it("renders children and tab rail for verified users", async () => {
+  it("renders children for verified users (chrome moved to (onboarded) layout)", async () => {
     server.use(userHandlers.meVerified());
     renderWithProviders(
       <VerifiedDashboardLayout>
@@ -26,11 +26,10 @@ describe("VerifiedDashboardLayout", () => {
       { auth: "authenticated" },
     );
 
-    expect(await screen.findByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "My Bids" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "My Listings" })).toBeInTheDocument();
-    expect(screen.getByTestId("child-content")).toBeInTheDocument();
+    expect(await screen.findByTestId("child-content")).toBeInTheDocument();
+    // Tabs + h1 moved into (onboarded)/layout.tsx
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Overview" })).not.toBeInTheDocument();
   });
 
   it("redirects unverified users to /dashboard/verify", async () => {
