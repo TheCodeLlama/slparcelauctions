@@ -14,10 +14,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
+
+import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -45,9 +50,12 @@ class SlProfilePhotoServiceTest {
 
     private static final UUID AVATAR = UUID.fromString("aa87bc38-c175-427d-b665-02e6838963cc");
     private static final String CACHE_KEY = "sl:profile-photo:" + AVATAR;
-    private static final byte[] PHOTO_BYTES = new byte[]{
-            (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,
-            0x00, 0x10, 'J', 'F', 'I', 'F'};
+    /**
+     * A real, decodable 256x192 JPEG. The service's resize step needs
+     * ImageIO to be able to round-trip the bytes; a hand-written magic-
+     * bytes fixture is rejected. Generated once at class-load.
+     */
+    private static final byte[] PHOTO_BYTES = makeJpeg(256, 192);
 
     private static WireMockServer worldWm;
     private static WireMockServer pictureWm;
@@ -118,7 +126,7 @@ class SlProfilePhotoServiceTest {
     }
 
     @Test
-    void successfulScrapeAndImageFetch_returnsBytesAndCachesPositive() {
+    void successfulScrapeAndImageFetch_returnsResizedBytesAndCachesPositive() throws Exception {
         // Stub world.sl: parcelimg with a picture-service src whose path we
         // mirror locally so the bound WebClient resolves it correctly.
         worldWm.stubFor(get(urlPathEqualTo("/resident/" + AVATAR))
@@ -137,7 +145,11 @@ class SlProfilePhotoServiceTest {
         Optional<byte[]> result = service.fetchProfilePhoto(AVATAR);
 
         assertThat(result).isPresent();
-        assertThat(result.get()).isEqualTo(PHOTO_BYTES);
+        // Returned bytes are NOT the input — service stretches the 4:3 SL
+        // photo back to a square and scales to 512x512 before returning.
+        BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(result.get()));
+        assertThat(decoded.getWidth()).isEqualTo(512);
+        assertThat(decoded.getHeight()).isEqualTo(512);
         verify(valueOps).set(eq(CACHE_KEY), anyString(), eq(Duration.ofHours(1)));
     }
 
@@ -230,6 +242,26 @@ class SlProfilePhotoServiceTest {
 
         assertThat(result).isPresent();
         worldWm.verify(exactly(1), getRequestedFor(urlPathEqualTo("/resident/" + AVATAR)));
+    }
+
+    /** Generates a real, decodable JPEG of the requested dimensions. */
+    private static byte[] makeJpeg(int width, int height) {
+        try {
+            BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            // Solid-color content — service decodes by dimensions, not pixels.
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    img.setRGB(x, y, 0x808080);
+                }
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            if (!ImageIO.write(img, "jpeg", baos)) {
+                throw new IllegalStateException("ImageIO.write returned false");
+            }
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to generate test JPEG", e);
+        }
     }
 
     private static String htmlWithImg(String src) {
