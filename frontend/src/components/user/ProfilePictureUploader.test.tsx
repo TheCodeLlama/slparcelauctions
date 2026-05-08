@@ -4,9 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { mockVerifiedCurrentUser } from "@/test/msw/fixtures";
 
 // react-easy-crop hangs in jsdom waiting for ResizeObserver to fire so
-// it can compute the crop area. Mock to a static stub so the cropper
-// mounts immediately and the file-pick → cropper-visible flow can be
-// asserted. The actual crop+upload path is covered by AvatarCropper.test.tsx.
+// it can compute the crop area. Mock to a static stub. onCropComplete
+// is fired in useEffect (NOT inline in the render body) so a parent
+// setState doesn't trigger an infinite re-render loop.
+import { useEffect } from "react";
+
 vi.mock("react-easy-crop", () => ({
   __esModule: true,
   default: ({
@@ -14,7 +16,10 @@ vi.mock("react-easy-crop", () => ({
   }: {
     onCropComplete: (a: unknown, b: unknown) => void;
   }) => {
-    onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+    useEffect(() => {
+      onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     return <div data-testid="mock-cropper" />;
   },
 }));

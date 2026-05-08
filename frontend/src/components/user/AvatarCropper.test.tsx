@@ -2,9 +2,14 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Mock react-easy-crop: we render a stub <Cropper> that synchronously
-// fires onCropComplete with a deterministic crop area, so AvatarCropper
-// has a non-null croppedAreaPixels by mount-time and Save is enabled.
+// Mock react-easy-crop: render a stub <Cropper> that fires
+// onCropComplete once on mount via useEffect (firing inside the render
+// body would create an infinite re-render loop because the parent
+// setState would re-render the mock, which would call onCropComplete
+// again, ad infinitum). useEffect with an empty deps array is the
+// correct hook for "do this once after mount".
+import { useEffect } from "react";
+
 vi.mock("react-easy-crop", () => {
   return {
     __esModule: true,
@@ -13,9 +18,10 @@ vi.mock("react-easy-crop", () => {
     }: {
       onCropComplete: (a: unknown, b: unknown) => void;
     }) => {
-      // Synchronously emit a fake crop area so the cropper's internal
-      // state is hydrated before any user interaction.
-      onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+      useEffect(() => {
+        onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
       return <div data-testid="mock-cropper" />;
     },
   };
