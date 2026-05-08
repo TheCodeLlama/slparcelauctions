@@ -47,11 +47,11 @@ class ParcelTagServiceTest {
 
     @Test
     void listGroupedActive_groupsTagsByCategoryPreservingOrder() {
-        // Repo already sorts ORDER BY category ASC, sort_order ASC.
-        ParcelTag t1 = ParcelTag.builder().id(1L).code("A").label("A").category("Cat1").sortOrder(1).active(true).build();
-        ParcelTag t2 = ParcelTag.builder().id(2L).code("B").label("B").category("Cat1").sortOrder(2).active(true).build();
-        ParcelTag t3 = ParcelTag.builder().id(3L).code("C").label("C").category("Cat2").sortOrder(1).active(true).build();
-        when(repo.findByActiveTrueOrderByCategoryAscSortOrderAsc())
+        // Repo already sorts ORDER BY category ASC, label ASC.
+        ParcelTag t1 = ParcelTag.builder().id(1L).code("A").label("A").category("Cat1").active(true).build();
+        ParcelTag t2 = ParcelTag.builder().id(2L).code("B").label("B").category("Cat1").active(true).build();
+        ParcelTag t3 = ParcelTag.builder().id(3L).code("C").label("C").category("Cat2").active(true).build();
+        when(repo.findByActiveTrueOrderByCategoryAscLabelAsc())
                 .thenReturn(List.of(t1, t2, t3));
 
         List<ParcelTagGroupResponse> groups = service.listGroupedActive();
@@ -68,7 +68,7 @@ class ParcelTagServiceTest {
 
     @Test
     void listGroupedActive_emptyRepo_returnsEmptyList() {
-        when(repo.findByActiveTrueOrderByCategoryAscSortOrderAsc())
+        when(repo.findByActiveTrueOrderByCategoryAscLabelAsc())
                 .thenReturn(List.of());
 
         assertThat(service.listGroupedActive()).isEmpty();

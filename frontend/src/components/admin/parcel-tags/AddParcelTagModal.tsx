@@ -24,7 +24,6 @@ export function AddParcelTagModal({
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
-  const [sortOrder, setSortOrder] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useCreateParcelTag();
@@ -36,7 +35,6 @@ export function AddParcelTagModal({
       setLabel("");
       setCategory("");
       setDescription("");
-      setSortOrder("");
       setError(null);
     }
   }, [open]);
@@ -54,7 +52,6 @@ export function AddParcelTagModal({
         label: label.trim(),
         category: category.trim(),
         description: description.trim() || undefined,
-        sortOrder: sortOrder.trim() ? Number(sortOrder) : undefined,
       });
       onClose();
     } catch (e) {
@@ -136,18 +133,6 @@ export function AddParcelTagModal({
               maxLength={2000}
               className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg ring-1 ring-border-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               data-testid="add-parcel-tag-description"
-            />
-          </Field>
-
-          <Field
-            label="Sort order (optional)"
-            hint="Defaults to one after the last tag in the chosen category."
-          >
-            <Input
-              type="number"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              data-testid="add-parcel-tag-sort-order"
             />
           </Field>
 

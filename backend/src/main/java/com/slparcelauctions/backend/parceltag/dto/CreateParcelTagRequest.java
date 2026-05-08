@@ -10,9 +10,6 @@ import jakarta.validation.constraints.Size;
  * {@code code} is the immutable admin-facing primary key for a tag. Restricted
  * to uppercase letters / digits / underscore so it stays stable on the wire
  * (no ambiguity from spaces, hyphens, or case-folding mismatches).
- * <p>
- * {@code sortOrder} is optional — when null, the service assigns
- * {@code max(sortOrder in same category) + 1}.
  */
 public record CreateParcelTagRequest(
         @NotBlank
@@ -30,6 +27,4 @@ public record CreateParcelTagRequest(
         String category,
 
         @Size(max = 2000)
-        String description,
-
-        Integer sortOrder) {}
+        String description) {}

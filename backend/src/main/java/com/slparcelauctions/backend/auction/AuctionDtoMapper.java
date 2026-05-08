@@ -180,7 +180,7 @@ public class AuctionDtoMapper {
 
     private List<ParcelTagResponse> tagList(Auction a) {
         return a.getTags().stream()
-                .sorted(Comparator.comparing(t -> t.getSortOrder() == null ? 0 : t.getSortOrder()))
+                .sorted(Comparator.comparing(t -> t.getLabel() == null ? "" : t.getLabel()))
                 .map(ParcelTagResponse::from)
                 .toList();
     }

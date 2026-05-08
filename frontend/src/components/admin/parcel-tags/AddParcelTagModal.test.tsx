@@ -40,7 +40,7 @@ describe("AddParcelTagModal", () => {
         received = await request.json();
         return HttpResponse.json({
           code: "X", label: "X", category: "Y", description: null,
-          sortOrder: 1, active: true, createdAt: "x", updatedAt: "x",
+          active: true, createdAt: "x", updatedAt: "x",
         });
       }),
     );

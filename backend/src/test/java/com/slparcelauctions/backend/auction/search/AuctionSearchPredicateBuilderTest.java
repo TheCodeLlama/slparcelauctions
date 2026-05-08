@@ -69,14 +69,12 @@ class AuctionSearchPredicateBuilderTest {
                 .code("beachfront-" + UUID.randomUUID())
                 .label("Beachfront")
                 .category("Waterfront")
-                .sortOrder(1)
                 .active(true)
                 .build());
         roadside = tagRepo.save(ParcelTag.builder()
                 .code("roadside-" + UUID.randomUUID())
                 .label("Roadside")
                 .category("Access")
-                .sortOrder(1)
                 .active(true)
                 .build());
     }

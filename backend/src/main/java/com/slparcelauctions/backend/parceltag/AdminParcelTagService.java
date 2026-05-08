@@ -37,7 +37,7 @@ public class AdminParcelTagService {
 
     @Transactional(readOnly = true)
     public List<AdminParcelTagDto> listAll() {
-        return repo.findAllByOrderByCategoryAscSortOrderAsc().stream()
+        return repo.findAllByOrderByCategoryAscLabelAsc().stream()
                 .map(AdminParcelTagDto::from)
                 .toList();
     }
@@ -47,15 +47,11 @@ public class AdminParcelTagService {
         if (repo.existsByCode(req.code())) {
             throw new ParcelTagCodeConflictException(req.code());
         }
-        int sortOrder = req.sortOrder() != null
-                ? req.sortOrder()
-                : repo.findMaxSortOrderByCategory(req.category()) + 1;
         ParcelTag tag = ParcelTag.builder()
                 .code(req.code())
                 .label(req.label())
                 .category(req.category())
                 .description(req.description())
-                .sortOrder(sortOrder)
                 .active(true)
                 .build();
         ParcelTag saved = repo.save(tag);
@@ -65,7 +61,6 @@ public class AdminParcelTagService {
         details.put("code", saved.getCode());
         details.put("label", saved.getLabel());
         details.put("category", saved.getCategory());
-        details.put("sortOrder", saved.getSortOrder());
         adminActionService.record(adminUserId,
                 AdminActionType.PARCEL_TAG_CREATED,
                 AdminActionTargetType.PARCEL_TAG,
@@ -93,10 +88,6 @@ public class AdminParcelTagService {
                     "from", tag.getDescription() == null ? "" : tag.getDescription(),
                     "to", req.description()));
             tag.setDescription(req.description());
-        }
-        if (req.sortOrder() != null && !req.sortOrder().equals(tag.getSortOrder())) {
-            changes.put("sortOrder", Map.of("from", tag.getSortOrder(), "to", req.sortOrder()));
-            tag.setSortOrder(req.sortOrder());
         }
 
         ParcelTag saved = repo.save(tag);

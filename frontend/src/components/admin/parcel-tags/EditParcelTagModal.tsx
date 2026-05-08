@@ -28,7 +28,6 @@ export function EditParcelTagModal({
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
-  const [sortOrder, setSortOrder] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useUpdateParcelTag();
@@ -39,7 +38,6 @@ export function EditParcelTagModal({
       setLabel(tag.label);
       setCategory(tag.category);
       setDescription(tag.description ?? "");
-      setSortOrder(String(tag.sortOrder));
       setError(null);
     }
   }, [open, tag]);
@@ -57,8 +55,6 @@ export function EditParcelTagModal({
     if (category.trim() !== tag.category) body.category = category.trim();
     if ((description.trim() || "") !== (tag.description ?? ""))
       body.description = description.trim();
-    const newSortOrder = sortOrder.trim() ? Number(sortOrder) : tag.sortOrder;
-    if (newSortOrder !== tag.sortOrder) body.sortOrder = newSortOrder;
 
     if (Object.keys(body).length === 0) {
       onClose();
@@ -140,15 +136,6 @@ export function EditParcelTagModal({
               maxLength={2000}
               className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg ring-1 ring-border-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               data-testid="edit-parcel-tag-description"
-            />
-          </Field>
-
-          <Field label="Sort order">
-            <Input
-              type="number"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value)}
-              data-testid="edit-parcel-tag-sort-order"
             />
           </Field>
 

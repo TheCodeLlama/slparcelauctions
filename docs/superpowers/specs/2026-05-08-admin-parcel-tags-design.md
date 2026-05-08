@@ -14,13 +14,14 @@ Admins can add, edit, and disable/re-enable land tags (a.k.a. parcel tags) from 
 | Column | Constraints |
 |---|---|
 | `code` | unique, ≤50 chars, immutable from admin's perspective (referenced by every auction in the DB) |
-| `label` | ≤100 chars, displayed to buyers |
+| `label` | ≤100 chars, displayed to buyers; drives alphabetical ordering within a category |
 | `category` | ≤50 chars, free-text, groups tags on the browse filter |
 | `description` | nullable text, optional admin note |
-| `sortOrder` | integer, drives ordering within a category |
 | `active` | boolean, hides/shows in the public catalogue |
 
-Today the only public surface is `GET /api/v1/parcel-tags` (anonymous) returning **active** tags grouped by category, sorted by `sortOrder`. 25 canonical tags are seeded on first boot via `ParcelTagService.seedDefaultTagsIfEmpty()`. There's no admin endpoint — admins can't currently edit, disable, or add tags.
+> **2026-05-08 follow-up:** the original schema had a `sortOrder` integer column for manual within-category ordering. Dropped after launch as YAGNI — the seed data didn't actually use it semantically (just `++order` at insert time), and alphabetical-by-label is simpler, predictable, and self-maintaining. Migration `V18__drop_parcel_tag_sort_order.sql` removes the column. Public + admin lists now sort `category ASC, label ASC`.
+
+Today the only public surface is `GET /api/v1/parcel-tags` (anonymous) returning **active** tags grouped by category, sorted alphabetically by `label`. 25 canonical tags are seeded on first boot via `ParcelTagService.seedDefaultTagsIfEmpty()`. There's no admin endpoint — admins can't currently edit, disable, or add tags.
 
 The codebase has 14 admin controllers under `/api/v1/admin/...`. The natural pattern is one controller per domain (`AdminFraudFlagController`, `AdminUserController`, etc.), and `SecurityConfig` already gates `/api/v1/admin/**` to `ROLE_ADMIN`.
 
