@@ -35,6 +35,7 @@ export function EditParcelTagModal({
 
   useEffect(() => {
     if (open && tag) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- `tag` is external source of truth; pre-filling form state on open is intentional (matches CreateBanModal pattern)
       setLabel(tag.label);
       setCategory(tag.category);
       setDescription(tag.description ?? "");

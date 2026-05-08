@@ -31,6 +31,7 @@ export function AddParcelTagModal({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- `open` is external source of truth; resetting form state on close is intentional (matches CreateBanModal pattern)
       setCode("");
       setLabel("");
       setCategory("");
