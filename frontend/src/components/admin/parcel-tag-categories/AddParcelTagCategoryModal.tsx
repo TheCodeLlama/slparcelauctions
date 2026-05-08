@@ -1,36 +1,33 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { FormError } from "@/components/ui/FormError";
 import { ApiError, isApiError } from "@/lib/api";
-import { useCreateParcelTag } from "@/hooks/admin/useAdminParcelTags";
-import { useAdminParcelTagCategories } from "@/hooks/admin/useAdminParcelTagCategories";
+import { useCreateParcelTagCategory } from "@/hooks/admin/useAdminParcelTagCategories";
 
-export interface AddParcelTagModalProps {
+export interface AddParcelTagCategoryModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
+export function AddParcelTagCategoryModal({
+  open,
+  onClose,
+}: AddParcelTagCategoryModalProps) {
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
-  const [categoryCode, setCategoryCode] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const mutation = useCreateParcelTag();
-  const { data: categories } = useAdminParcelTagCategories();
-  const activeCategories = (categories ?? []).filter((c) => c.active);
+  const mutation = useCreateParcelTagCategory();
 
   useEffect(() => {
     if (!open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- `open` is external source of truth; resetting form state on close is intentional (matches CreateBanModal pattern)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- `open` is external source of truth; resetting on close mirrors AddParcelTagModal.
       setCode("");
       setLabel("");
-      setCategoryCode("");
       setDescription("");
       setError(null);
     }
@@ -42,18 +39,17 @@ export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
       await mutation.mutateAsync({
         code: code.trim(),
         label: label.trim(),
-        categoryCode: categoryCode.trim(),
         description: description.trim() || undefined,
       });
       onClose();
     } catch (e) {
       if (e instanceof ApiError || isApiError(e)) {
         setError(
-          e.problem.detail ?? e.problem.title ?? "Could not create tag.",
+          e.problem.detail ?? e.problem.title ?? "Could not create category.",
         );
         return;
       }
-      setError(e instanceof Error ? e.message : "Could not create tag.");
+      setError(e instanceof Error ? e.message : "Could not create category.");
     }
   }
 
@@ -69,11 +65,11 @@ export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
-          data-testid="add-parcel-tag-modal"
+          data-testid="add-parcel-tag-category-modal"
           className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6"
         >
           <DialogTitle className="text-base font-bold tracking-tight text-fg">
-            Add parcel tag
+            Add parcel category
           </DialogTitle>
 
           <Field
@@ -87,8 +83,8 @@ export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
                 setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))
               }
               maxLength={50}
-              placeholder="BEACHFRONT"
-              data-testid="add-parcel-tag-code"
+              placeholder="TERRAIN"
+              data-testid="add-parcel-tag-category-code"
             />
           </Field>
 
@@ -98,31 +94,9 @@ export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               maxLength={100}
-              placeholder="Beachfront"
-              data-testid="add-parcel-tag-label"
+              placeholder="Terrain"
+              data-testid="add-parcel-tag-category-label"
             />
-          </Field>
-
-          <Field label="Category">
-            <select
-              value={categoryCode}
-              onChange={(e) => setCategoryCode(e.target.value)}
-              className="h-10 rounded-lg bg-bg-subtle px-3 text-fg ring-1 ring-border-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              data-testid="add-parcel-tag-category"
-            >
-              <option value="">Pick a category…</option>
-              {activeCategories.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <Link
-              href="/admin/parcel-tag-categories"
-              className="text-[11px] text-brand underline underline-offset-4 hover:opacity-80"
-            >
-              Manage categories →
-            </Link>
           </Field>
 
           <Field label="Description (optional)">
@@ -132,7 +106,7 @@ export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
               rows={3}
               maxLength={2000}
               className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg ring-1 ring-border-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              data-testid="add-parcel-tag-description"
+              data-testid="add-parcel-tag-category-description"
             />
           </Field>
 
@@ -149,16 +123,11 @@ export function AddParcelTagModal({ open, onClose }: AddParcelTagModalProps) {
             <Button
               variant="primary"
               onClick={submit}
-              disabled={
-                mutation.isPending ||
-                !code.trim() ||
-                !label.trim() ||
-                !categoryCode.trim()
-              }
+              disabled={mutation.isPending || !code.trim() || !label.trim()}
               loading={mutation.isPending}
-              data-testid="add-parcel-tag-submit"
+              data-testid="add-parcel-tag-category-submit"
             >
-              Add tag
+              Add category
             </Button>
           </div>
         </DialogPanel>

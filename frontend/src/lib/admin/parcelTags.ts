@@ -1,9 +1,15 @@
 import { api } from "@/lib/api";
 
+export interface AdminParcelTagCategoryRef {
+  code: string;
+  label: string;
+  active: boolean;
+}
+
 export interface AdminParcelTagDto {
   code: string;
   label: string;
-  category: string;
+  category: AdminParcelTagCategoryRef;
   description: string | null;
   active: boolean;
   createdAt: string;
@@ -13,13 +19,13 @@ export interface AdminParcelTagDto {
 export interface CreateParcelTagPayload {
   code: string;
   label: string;
-  category: string;
+  categoryCode: string;
   description?: string;
 }
 
 export interface UpdateParcelTagPayload {
   label?: string;
-  category?: string;
+  categoryCode?: string;
   description?: string;
 }
 

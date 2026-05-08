@@ -50,6 +50,7 @@ class AuctionSearchPredicateBuilderTest {
     @Autowired com.slparcelauctions.backend.region.RegionRepository regionRepo;
     @Autowired UserRepository userRepo;
     @Autowired ParcelTagRepository tagRepo;
+    @Autowired com.slparcelauctions.backend.parceltag.ParcelTagCategoryRepository categoryRepo;
 
     private User seller;
     private ParcelTag beachfront;
@@ -65,16 +66,26 @@ class AuctionSearchPredicateBuilderTest {
                 .verified(true)
                 .build());
 
+        com.slparcelauctions.backend.parceltag.ParcelTagCategory waterfrontCat =
+                categoryRepo.save(com.slparcelauctions.backend.parceltag.ParcelTagCategory.builder()
+                        .code("WATERFRONT-" + UUID.randomUUID().toString().replace("-", "_").substring(0, 8))
+                        .label("Waterfront-" + UUID.randomUUID().toString().substring(0, 8))
+                        .active(true).build());
+        com.slparcelauctions.backend.parceltag.ParcelTagCategory accessCat =
+                categoryRepo.save(com.slparcelauctions.backend.parceltag.ParcelTagCategory.builder()
+                        .code("ACCESS-" + UUID.randomUUID().toString().replace("-", "_").substring(0, 8))
+                        .label("Access-" + UUID.randomUUID().toString().substring(0, 8))
+                        .active(true).build());
         beachfront = tagRepo.save(ParcelTag.builder()
                 .code("beachfront-" + UUID.randomUUID())
                 .label("Beachfront")
-                .category("Waterfront")
+                .category(waterfrontCat)
                 .active(true)
                 .build());
         roadside = tagRepo.save(ParcelTag.builder()
                 .code("roadside-" + UUID.randomUUID())
                 .label("Roadside")
-                .category("Access")
+                .category(accessCat)
                 .active(true)
                 .build());
     }
