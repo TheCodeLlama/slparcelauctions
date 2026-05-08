@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/cn";
 import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import type {
+  ParcelTagDto,
   PublicAuctionResponse,
   SellerAuctionResponse,
 } from "@/types/auction";
@@ -11,6 +12,27 @@ import type { ParcelMaturityRating } from "@/types/parcel";
 import { SnipeProtectionBadge } from "./SnipeProtectionBadge";
 import { VerificationTierBadge } from "./VerificationTierBadge";
 import { VisitInSecondLifeButton } from "./VisitInSecondLifeButton";
+import { EditableTitle } from "@/components/listing/draft-editor/EditableTitle";
+import { EditableDescription } from "@/components/listing/draft-editor/EditableDescription";
+import { EditableTags } from "@/components/listing/draft-editor/EditableTags";
+import { EditableSettingsModal } from "@/components/listing/draft-editor/EditableSettingsModal";
+import type { DraftSettings } from "@/components/listing/draft-editor/draftEditorMutations";
+
+/**
+ * Optional editor wiring for the seller's draft preview on
+ * /listings/[id]/activate. When provided, each editable field renders an
+ * inline click-to-edit wrapper that calls the corresponding async save
+ * handler. Absent the prop, the panel renders identically to the buyer
+ * flow.
+ */
+export interface ParcelInfoPanelEditable {
+  onTitleChange: (next: string) => Promise<void>;
+  onDescriptionChange: (next: string) => Promise<void>;
+  onTagsChange: (codes: string[]) => Promise<void>;
+  onSettingsChange: (next: DraftSettings) => Promise<void>;
+  /** Current settings snapshot — driven through to the settings modal. */
+  settings: DraftSettings;
+}
 
 /**
  * Parcel-scoped metadata panel for the auction detail page.
@@ -38,6 +60,12 @@ interface Props {
   className?: string;
   /** Optional action rendered in the title row (e.g. ReportListingButton). */
   reportButton?: ReactNode;
+  /**
+   * When set, swap the title / description / tags rendering for inline
+   * click-to-edit wrappers driven by the supplied async handlers. Used
+   * by the seller's DRAFT preview on /listings/[id]/activate.
+   */
+  editable?: ParcelInfoPanelEditable;
 }
 
 const MATURITY_MAP: Record<
@@ -58,7 +86,7 @@ const MATURITY_MAP: Record<
   },
 };
 
-export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
+export function ParcelInfoPanel({ auction, className, reportButton, editable }: Props) {
   const { parcel } = auction;
   // Seller-authored listing title wins the headline slot. Falls back to
   // parcel.description (legacy pre-sub-spec-2 listings) and ultimately
@@ -84,12 +112,19 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
     >
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-2 min-w-0">
-          <h1
-            className="text-2xl font-bold tracking-tight font-display text-fg"
-            data-testid="parcel-info-panel-title"
-          >
-            {title}
-          </h1>
+          {editable ? (
+            <EditableTitle
+              value={auction.title ?? ""}
+              onSave={editable.onTitleChange}
+            />
+          ) : (
+            <h1
+              className="text-2xl font-bold tracking-tight font-display text-fg"
+              data-testid="parcel-info-panel-title"
+            >
+              {title}
+            </h1>
+          )}
           <p
             className="flex flex-wrap items-center gap-2 text-sm text-fg-muted"
             data-testid="parcel-info-panel-subline"
@@ -132,29 +167,52 @@ export function ParcelInfoPanel({ auction, className, reportButton }: Props) {
         )}
       </div>
 
-      {auction.tags.length > 0 && (
-        <ul
-          className="flex flex-wrap gap-1.5"
-          data-testid="parcel-info-panel-tags"
-        >
-          {auction.tags.map((t) => (
-            <li key={t.code}>
-              <StatusBadge tone="default">
-                <TagIcon className="size-3" aria-hidden="true" />
-                {t.label}
-              </StatusBadge>
-            </li>
-          ))}
-        </ul>
+      {editable ? (
+        <EditableTags
+          value={auction.tags as ParcelTagDto[]}
+          onSave={editable.onTagsChange}
+        />
+      ) : (
+        auction.tags.length > 0 && (
+          <ul
+            className="flex flex-wrap gap-1.5"
+            data-testid="parcel-info-panel-tags"
+          >
+            {auction.tags.map((t) => (
+              <li key={t.code}>
+                <StatusBadge tone="default">
+                  <TagIcon className="size-3" aria-hidden="true" />
+                  {t.label}
+                </StatusBadge>
+              </li>
+            ))}
+          </ul>
+        )
       )}
 
-      {auction.sellerDesc && (
-        <p
-          className="whitespace-pre-wrap text-base text-fg max-w-2xl"
-          data-testid="parcel-info-panel-description"
-        >
-          {auction.sellerDesc}
-        </p>
+      {editable ? (
+        <EditableDescription
+          value={auction.sellerDesc ?? ""}
+          onSave={editable.onDescriptionChange}
+        />
+      ) : (
+        auction.sellerDesc && (
+          <p
+            className="whitespace-pre-wrap text-base text-fg max-w-2xl"
+            data-testid="parcel-info-panel-description"
+          >
+            {auction.sellerDesc}
+          </p>
+        )
+      )}
+
+      {editable && (
+        <div data-testid="parcel-info-panel-settings-edit">
+          <EditableSettingsModal
+            value={editable.settings}
+            onSave={editable.onSettingsChange}
+          />
+        </div>
       )}
     </section>
   );
