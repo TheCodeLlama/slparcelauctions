@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { ArrowRight } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import { usePendingReviews } from "@/hooks/useReviews";
 import type { PendingReviewDto } from "@/types/review";
 
@@ -53,7 +54,7 @@ function PendingReviewRow({ item }: { item: PendingReviewDto }) {
         {item.primaryPhotoUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- Deferred: swap to next/image when backend returns image dimensions + a stable remotePatterns list for SL CDN hosts is agreed upon. Matches the ListingCard deferral.
           <img
-            src={item.primaryPhotoUrl}
+            src={apiUrl(item.primaryPhotoUrl) ?? undefined}
             alt=""
             className="h-full w-full object-cover"
             loading="lazy"
