@@ -180,6 +180,18 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(PhotoSetMismatchException.class)
+    public ProblemDetail handlePhotoSetMismatch(
+            PhotoSetMismatchException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "The submitted photo list does not match the auction's photos.");
+        pd.setTitle("Photo Set Mismatch");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PHOTO_SET_MISMATCH");
+        return pd;
+    }
+
     @ExceptionHandler(ProxyBidAlreadyExistsException.class)
     public ProblemDetail handleProxyBidAlreadyExists(
             ProxyBidAlreadyExistsException e, HttpServletRequest req) {
