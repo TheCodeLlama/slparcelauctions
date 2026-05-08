@@ -1,19 +1,10 @@
 package com.slparcelauctions.backend.parceltag;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,48 +14,12 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagGroupResponse;
 class ParcelTagServiceTest {
 
     private ParcelTagRepository repo;
-    private ParcelTagCategoryRepository categoryRepo;
     private ParcelTagService service;
 
     @BeforeEach
     void setup() {
         repo = mock(ParcelTagRepository.class);
-        categoryRepo = mock(ParcelTagCategoryRepository.class);
-        service = new ParcelTagService(repo, categoryRepo);
-    }
-
-    @Test
-    void seedDefaultTagsIfEmpty_runsInsertsWhenTableEmpty() {
-        when(repo.count()).thenReturn(0L);
-        // Categories are looked up by derived code; return Optional.empty so
-        // the seed creates them.
-        when(categoryRepo.findByCode(anyString())).thenReturn(Optional.empty());
-        // Re-route the categoryRepo.save → return arg so subsequent computeIfAbsent
-        // picks the cached map entry rather than re-saving on each call.
-        Map<String, ParcelTagCategory> savedCats = new HashMap<>();
-        when(categoryRepo.save(any(ParcelTagCategory.class))).thenAnswer(inv -> {
-            ParcelTagCategory c = inv.getArgument(0);
-            savedCats.put(c.getCode(), c);
-            return c;
-        });
-
-        service.seedDefaultTagsIfEmpty();
-
-        // 25 inserts — one per canonical tag row.
-        verify(repo, times(25)).save(any(ParcelTag.class));
-        // 6 categories created via the seed-on-first-encounter path.
-        verify(categoryRepo, times(6)).save(any(ParcelTagCategory.class));
-        verify(categoryRepo, atLeastOnce()).findByCode(anyString());
-    }
-
-    @Test
-    void seedDefaultTagsIfEmpty_isNoOpWhenTableHasRows() {
-        when(repo.count()).thenReturn(10L);
-
-        service.seedDefaultTagsIfEmpty();
-
-        verify(repo, never()).save(any(ParcelTag.class));
-        verify(categoryRepo, never()).save(any(ParcelTagCategory.class));
+        service = new ParcelTagService(repo);
     }
 
     @Test
