@@ -1,14 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderWithProviders, screen, waitFor, fireEvent } from "@/test/render";
+import { renderWithProviders, screen, fireEvent } from "@/test/render";
 import userEvent from "@testing-library/user-event";
-import { server } from "@/test/msw/server";
-import { userHandlers } from "@/test/msw/handlers";
 import { mockVerifiedCurrentUser } from "@/test/msw/fixtures";
-import { ProfilePictureUploader } from "./ProfilePictureUploader";
 
-function setup() {
-  server.use(userHandlers.uploadAvatarSuccess());
-}
+// react-easy-crop hangs in jsdom waiting for ResizeObserver to fire so
+// it can compute the crop area. Mock to a static stub so the cropper
+// mounts immediately and the file-pick → cropper-visible flow can be
+// asserted. The actual crop+upload path is covered by AvatarCropper.test.tsx.
+vi.mock("react-easy-crop", () => ({
+  __esModule: true,
+  default: ({
+    onCropComplete,
+  }: {
+    onCropComplete: (a: unknown, b: unknown) => void;
+  }) => {
+    onCropComplete({}, { x: 0, y: 0, width: 100, height: 100 });
+    return <div data-testid="mock-cropper" />;
+  },
+}));
+
+import { ProfilePictureUploader } from "./ProfilePictureUploader";
 
 const createObjectURLSpy = vi.fn(() => "blob:http://localhost/fake-preview");
 const revokeObjectURLSpy = vi.fn();
