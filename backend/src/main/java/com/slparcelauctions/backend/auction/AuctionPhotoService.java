@@ -137,4 +137,45 @@ public class AuctionPhotoService {
     public List<AuctionPhoto> list(Long auctionId) {
         return photoRepo.findByAuctionIdOrderBySortOrderAsc(auctionId);
     }
+
+    /**
+     * Atomic full-list reorder. The body's photo publicId set must equal the
+     * auction's current photo set (no extras, no missing, no duplicates) —
+     * mismatch raises {@link com.slparcelauctions.backend.auction.exception.PhotoSetMismatchException}.
+     * Walks the body in order assigning {@code sortOrder = i + 1} and
+     * persists via {@code saveAll}. Gated to {@code DRAFT}/{@code DRAFT_PAID}.
+     */
+    @Transactional
+    public List<AuctionPhoto> reorder(
+            Long auctionId, Long sellerId, List<UUID> orderedPhotoPublicIds) {
+        Auction auction = auctionService.loadForSeller(auctionId, sellerId);
+        if (auction.getStatus() != AuctionStatus.DRAFT
+                && auction.getStatus() != AuctionStatus.DRAFT_PAID) {
+            throw new com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException(
+                    auctionId, auction.getStatus(), "REORDER_PHOTOS");
+        }
+
+        List<AuctionPhoto> existing =
+                photoRepo.findByAuctionIdOrderBySortOrderAsc(auctionId);
+        java.util.Set<UUID> expected = existing.stream()
+                .map(AuctionPhoto::getPublicId)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.Set<UUID> bodySet = new java.util.HashSet<>(orderedPhotoPublicIds);
+        if (bodySet.size() != orderedPhotoPublicIds.size()
+                || !expected.equals(bodySet)) {
+            throw new com.slparcelauctions.backend.auction.exception
+                    .PhotoSetMismatchException(expected, bodySet);
+        }
+
+        java.util.Map<UUID, AuctionPhoto> byPublicId = existing.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        AuctionPhoto::getPublicId, p -> p));
+        for (int i = 0; i < orderedPhotoPublicIds.size(); i++) {
+            AuctionPhoto p = byPublicId.get(orderedPhotoPublicIds.get(i));
+            p.setSortOrder(i + 1);
+        }
+        photoRepo.saveAll(byPublicId.values());
+        log.info("Auction {} photos reordered: {}", auctionId, orderedPhotoPublicIds);
+        return photoRepo.findByAuctionIdOrderBySortOrderAsc(auctionId);
+    }
 }

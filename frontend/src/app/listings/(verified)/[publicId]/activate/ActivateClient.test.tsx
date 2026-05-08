@@ -103,7 +103,7 @@ describe("ActivateClient", () => {
     vi.useRealTimers();
   });
 
-  it("DRAFT → renders the listing preview + activate panel", async () => {
+  it("DRAFT → renders the rich draft editor with sample-data banner + List Parcel action", async () => {
     server.use(
       http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(auctionBase({ status: "DRAFT" })),
@@ -126,11 +126,10 @@ describe("ActivateClient", () => {
       auth: "authenticated",
     });
     expect(
-      await screen.findByText(/Preview: this is how your listing/i),
+      await screen.findByTestId("draft-sample-data-banner"),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByRole("button", { name: /Activate Listing/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("draft-action-bar-list")).toBeInTheDocument();
+    expect(screen.getByTestId("draft-action-bar-delete")).toBeInTheDocument();
   });
 
   it("DRAFT_PAID → click a method → shows the in-progress panel", async () => {

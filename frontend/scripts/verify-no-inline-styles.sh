@@ -29,9 +29,19 @@ fi
 #   `stopColor` presentation attribute to drive a linearGradient partial-fill.
 #   `stopColor` is an SVG-only property with no Tailwind utility equivalent —
 #   it cannot be expressed as a class on the <stop> element.
+#
+# - src/components/listing/draft-editor/EditablePhotoGallery.tsx and
+#   src/components/listing/PhotoUploader.tsx: @dnd-kit/sortable's `useSortable`
+#   hook returns `transform` (a CSSProperties.transform string) and
+#   `transition` values that must be applied as inline styles to the
+#   sortable item — those values change continuously during a drag and
+#   cannot be precomputed into Tailwind classes. See spec
+#   docs/superpowers/specs/2026-05-07-listing-image-reorder-and-real-preview-design.md.
 allowlist=(
   "src/components/marketing/HeroFeaturedStack.tsx"
   "src/components/reviews/RatingSummary.tsx"
+  "src/components/listing/draft-editor/EditablePhotoGallery.tsx"
+  "src/components/listing/PhotoUploader.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.

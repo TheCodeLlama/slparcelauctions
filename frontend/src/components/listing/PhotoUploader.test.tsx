@@ -6,7 +6,7 @@ import {
   userEvent,
 } from "@/test/render";
 import type { StagedPhoto } from "@/lib/listing/photoStaging";
-import { PhotoUploader } from "./PhotoUploader";
+import { applyStagedDragEnd, PhotoUploader } from "./PhotoUploader";
 
 // jsdom implements URL.createObjectURL as undefined. Stub it so stagePhoto
 // doesn't throw when the test adds a file, and spy on revoke for lifecycle
@@ -76,5 +76,47 @@ describe("PhotoUploader", () => {
     ) as HTMLInputElement;
     expect(inputAfter).toBeDisabled();
     expect(screen.getByText(/Maximum 1 photos reached/)).toBeInTheDocument();
+  });
+});
+
+describe("applyStagedDragEnd", () => {
+  function staged(id: string): StagedPhoto {
+    return {
+      id,
+      file: new File(["x"], `${id}.png`, { type: "image/png" }),
+      objectUrl: `blob:${id}`,
+      error: null,
+      uploadedPhotoId: null,
+    };
+  }
+
+  it("moves last to first", () => {
+    const next = applyStagedDragEnd(
+      [staged("a"), staged("b"), staged("c")],
+      "c",
+      "a",
+    );
+    expect(next?.map((p) => p.id)).toEqual(["c", "a", "b"]);
+  });
+
+  it("returns null when activeId === overId", () => {
+    expect(
+      applyStagedDragEnd([staged("a"), staged("b")], "a", "a"),
+    ).toBeNull();
+  });
+
+  it("returns null when overId is null", () => {
+    expect(
+      applyStagedDragEnd([staged("a"), staged("b")], "a", null),
+    ).toBeNull();
+  });
+
+  it("moves middle to end", () => {
+    const next = applyStagedDragEnd(
+      [staged("a"), staged("b"), staged("c")],
+      "b",
+      "c",
+    );
+    expect(next?.map((p) => p.id)).toEqual(["a", "c", "b"]);
   });
 });

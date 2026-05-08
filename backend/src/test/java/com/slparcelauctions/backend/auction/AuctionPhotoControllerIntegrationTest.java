@@ -263,6 +263,98 @@ class AuctionPhotoControllerIntegrationTest {
     }
 
     @Test
+    void reorder_happyPath_returns200WithReorderedDtoArray() throws Exception {
+        Auction a = seedDraftAuction();
+        // Seed 3 photo rows directly so we don't have to upload + read back IDs.
+        java.util.List<UUID> publicIds = new ArrayList<>();
+        for (int i = 1; i <= 3; i++) {
+            AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
+                    .auction(a).objectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
+                    .contentType("image/webp").sizeBytes(1L).sortOrder(i).build());
+            publicIds.add(p.getPublicId());
+        }
+        java.util.List<UUID> reverseOrder = java.util.List.of(
+                publicIds.get(2), publicIds.get(1), publicIds.get(0));
+
+        String body = objectMapper.writeValueAsString(
+                java.util.Map.of("photoPublicIds", reverseOrder));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/auctions/" + a.getPublicId() + "/photos/order")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].publicId").value(reverseOrder.get(0).toString()))
+                .andExpect(jsonPath("$[0].sortOrder").value(1))
+                .andExpect(jsonPath("$[2].publicId").value(reverseOrder.get(2).toString()))
+                .andExpect(jsonPath("$[2].sortOrder").value(3));
+    }
+
+    @Test
+    void reorder_setMismatch_returns400WithCode() throws Exception {
+        Auction a = seedDraftAuction();
+        java.util.List<UUID> publicIds = new ArrayList<>();
+        for (int i = 1; i <= 2; i++) {
+            AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
+                    .auction(a).objectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
+                    .contentType("image/webp").sizeBytes(1L).sortOrder(i).build());
+            publicIds.add(p.getPublicId());
+        }
+        java.util.List<UUID> withStray = java.util.List.of(
+                publicIds.get(0), publicIds.get(1), UUID.randomUUID());
+
+        String body = objectMapper.writeValueAsString(
+                java.util.Map.of("photoPublicIds", withStray));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/auctions/" + a.getPublicId() + "/photos/order")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PHOTO_SET_MISMATCH"));
+    }
+
+    @Test
+    void reorder_activeAuction_returns409() throws Exception {
+        Auction a = seedDraftAuction();
+        AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
+                .auction(a).objectKey("listings/" + a.getId() + "/seed-1.webp")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build());
+        a.setStatus(AuctionStatus.ACTIVE);
+        auctionRepository.save(a);
+
+        String body = objectMapper.writeValueAsString(
+                java.util.Map.of("photoPublicIds", java.util.List.of(p.getPublicId())));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/auctions/" + a.getPublicId() + "/photos/order")
+                        .header("Authorization", "Bearer " + sellerAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("AUCTION_INVALID_STATE"));
+    }
+
+    @Test
+    void reorder_anonymous_returns401() throws Exception {
+        Auction a = seedDraftAuction();
+        AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
+                .auction(a).objectKey("listings/" + a.getId() + "/seed-1.webp")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build());
+
+        String body = objectMapper.writeValueAsString(
+                java.util.Map.of("photoPublicIds", java.util.List.of(p.getPublicId())));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .patch("/api/v1/auctions/" + a.getPublicId() + "/photos/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void getBytes_draftAuction_servesBytesToSeller() throws Exception {
         Auction a = seedDraftAuction();
         byte[] bytes = generateSimplePng();

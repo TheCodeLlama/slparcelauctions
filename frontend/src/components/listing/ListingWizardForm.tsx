@@ -61,7 +61,7 @@ export interface ListingWizardFormProps {
 
 /**
  * Shared form body for the Create (`/listings/create`) and Edit
- * (`/listings/[id]/edit`) flows. Both routes reduce to this component
+ * (`/listings/[id]/activate`) flows. Both routes reduce to this component
  * with a different mode/id combo.
  *
  * Single-step Configure form: parcel lookup + settings + description +
@@ -109,7 +109,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   }, [isEdit, draft.state.status, draft.state.auctionPublicId, router]);
 
   // Ref-guarded one-shot: after the first successful create, replace the
-  // URL to /listings/{id}/edit so the seller lands on a durable URL that
+  // URL to /listings/{id}/activate so the seller lands on a durable URL that
   // survives a refresh. Tracked by ref (not state) to avoid re-renders
   // and to guarantee the redirect fires at most once per mount.
   const createRedirectedRef = useRef(false);
@@ -159,7 +159,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
         !createRedirectedRef.current
       ) {
         createRedirectedRef.current = true;
-        router.replace(`/listings/${saved.publicId}/edit`);
+        router.replace(`/listings/${saved.publicId}/activate`);
       }
       return saved;
     } catch (e: unknown) {

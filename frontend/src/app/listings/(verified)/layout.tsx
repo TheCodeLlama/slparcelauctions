@@ -9,8 +9,7 @@ import { useCurrentUser } from "@/lib/user";
 /**
  * Shared layout for the authenticated+verified listing routes:
  *   - /listings/create
- *   - /listings/[id]/edit
- *   - /listings/[id]/activate (Task 9)
+ *   - /listings/[id]/activate (DRAFT becomes a rich editor; non-DRAFT remains the activate dispatcher)
  *
  * Mirrors the dashboard/(verified) guard: RequireAuth handles the
  * unauthenticated redirect to /login, and a useCurrentUser check

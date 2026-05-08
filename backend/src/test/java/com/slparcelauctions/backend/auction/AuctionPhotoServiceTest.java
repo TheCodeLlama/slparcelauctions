@@ -179,4 +179,106 @@ class AuctionPhotoServiceTest {
                 .hasMessageContaining("does not belong");
         verify(storage, never()).delete(anyString());
     }
+
+    @Test
+    void reorder_happyPath_renumbersSortOrder() {
+        java.util.UUID photoA = java.util.UUID.randomUUID();
+        java.util.UUID photoB = java.util.UUID.randomUUID();
+        java.util.UUID photoC = java.util.UUID.randomUUID();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        ReflectionTestUtils.setField(pA, "publicId", photoA);
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        ReflectionTestUtils.setField(pB, "publicId", photoB);
+        AuctionPhoto pC = AuctionPhoto.builder().auction(draftAuction).objectKey("k3")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(3).build();
+        ReflectionTestUtils.setField(pC, "publicId", photoC);
+
+        when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
+        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(1L))
+                .thenReturn(java.util.List.of(pA, pB, pC))
+                .thenReturn(java.util.List.of(pC, pA, pB));
+
+        java.util.List<AuctionPhoto> result =
+                service.reorder(1L, 42L, java.util.List.of(photoC, photoA, photoB));
+
+        assertThat(pC.getSortOrder()).isEqualTo(1);
+        assertThat(pA.getSortOrder()).isEqualTo(2);
+        assertThat(pB.getSortOrder()).isEqualTo(3);
+        assertThat(result).extracting(AuctionPhoto::getPublicId)
+                .containsExactly(photoC, photoA, photoB);
+    }
+
+    @Test
+    void reorder_rejectsExtraUuid() {
+        java.util.UUID photoA = java.util.UUID.randomUUID();
+        java.util.UUID photoB = java.util.UUID.randomUUID();
+        java.util.UUID strayUuid = java.util.UUID.randomUUID();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        ReflectionTestUtils.setField(pA, "publicId", photoA);
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        ReflectionTestUtils.setField(pB, "publicId", photoB);
+
+        when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
+        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(1L))
+                .thenReturn(java.util.List.of(pA, pB));
+
+        assertThatThrownBy(() -> service.reorder(1L, 42L,
+                java.util.List.of(photoA, photoB, strayUuid)))
+            .isInstanceOf(com.slparcelauctions.backend.auction.exception.PhotoSetMismatchException.class);
+    }
+
+    @Test
+    void reorder_rejectsMissingUuid() {
+        java.util.UUID photoA = java.util.UUID.randomUUID();
+        java.util.UUID photoB = java.util.UUID.randomUUID();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        ReflectionTestUtils.setField(pA, "publicId", photoA);
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        ReflectionTestUtils.setField(pB, "publicId", photoB);
+
+        when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
+        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(1L))
+                .thenReturn(java.util.List.of(pA, pB));
+
+        assertThatThrownBy(() -> service.reorder(1L, 42L, java.util.List.of(photoA)))
+            .isInstanceOf(com.slparcelauctions.backend.auction.exception.PhotoSetMismatchException.class);
+    }
+
+    @Test
+    void reorder_rejectsDuplicateUuid() {
+        java.util.UUID photoA = java.util.UUID.randomUUID();
+        java.util.UUID photoB = java.util.UUID.randomUUID();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        ReflectionTestUtils.setField(pA, "publicId", photoA);
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
+                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        ReflectionTestUtils.setField(pB, "publicId", photoB);
+
+        when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
+        when(photoRepo.findByAuctionIdOrderBySortOrderAsc(1L))
+                .thenReturn(java.util.List.of(pA, pB));
+
+        assertThatThrownBy(() -> service.reorder(1L, 42L,
+                java.util.List.of(photoA, photoA)))
+            .isInstanceOf(com.slparcelauctions.backend.auction.exception.PhotoSetMismatchException.class);
+    }
+
+    @Test
+    void reorder_rejectsActiveAuction() {
+        User seller = User.builder().id(42L).email("s@example.com").username("s").build();
+        Auction active = Auction.builder()
+                .title("Test").id(1L).seller(seller).status(AuctionStatus.ACTIVE).build();
+        when(auctionService.loadForSeller(1L, 42L)).thenReturn(active);
+
+        assertThatThrownBy(() -> service.reorder(1L, 42L,
+                java.util.List.of(java.util.UUID.randomUUID())))
+            .isInstanceOf(InvalidAuctionStateException.class);
+    }
 }

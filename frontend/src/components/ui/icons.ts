@@ -40,6 +40,7 @@ export { Copy, CheckCircle2, AlertCircle, MessageSquare, Upload } from "lucide-r
 export {
   UploadCloud,
   ImagePlus,
+  GripVertical,
   AlertTriangle,
   XCircle,
   Building2,
