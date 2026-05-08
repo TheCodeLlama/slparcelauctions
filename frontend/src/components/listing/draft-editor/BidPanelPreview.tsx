@@ -1,59 +1,50 @@
 "use client";
 import { Input } from "@/components/ui/Input";
-import { sampleCurrentBid, sampleBidderCount } from "./SampleBidHistory";
+import { Button } from "@/components/ui/Button";
+import { Pencil } from "@/components/ui/icons";
+import {
+  EditableSettingsModal,
+  type EditableSettingsModalProps,
+} from "./EditableSettingsModal";
+import type { DraftSettings } from "./draftEditorMutations";
 
 /**
- * Read-only sample-data variant of the buyer's BidPanel. Renders the
- * same visual structure — current bid, bidder count, time-remaining,
- * disabled bid input — populated from {@link SAMPLE_BIDS} so the seller
- * sees what the right-rail will look like once the auction is active.
+ * Read-only preview of the buyer's BidPanel for the seller's DRAFT editor.
+ * Shows the seller's actual settings (starting bid, buy now, reserve,
+ * duration) but no fake current-bid / bidder-count — at activation the
+ * listing starts empty.
  *
- * No WebSocket subscription, no auth read, no mutations.
+ * The bottom of the panel hosts the **Edit auction settings** trigger
+ * which opens the settings modal. Settings are coupled (`buyNow > reserve
+ * > startingBid`) so they save as a group.
  */
 export interface BidPanelPreviewProps {
-  startingBid: number;
-  buyNowPrice: number | null;
-  reservePrice: number | null;
-  durationHours: number;
+  settings: DraftSettings;
+  onSettingsChange: EditableSettingsModalProps["onSave"];
 }
 
 export function BidPanelPreview({
-  startingBid,
-  buyNowPrice,
-  reservePrice,
-  durationHours,
+  settings,
+  onSettingsChange,
 }: BidPanelPreviewProps) {
-  const currentBid = sampleCurrentBid();
-  const bidders = sampleBidderCount();
+  const { startingBid, buyNowPrice, reservePrice, durationHours } = settings;
 
   return (
     <div
       data-testid="bid-panel-preview"
       className="flex flex-col gap-4 rounded-lg bg-surface-raised p-5 ring-1 ring-border-subtle"
     >
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold tracking-tight text-fg">
-          Bid panel
-        </h3>
-        <span
-          data-testid="bid-panel-preview-sample-pill"
-          className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand"
-        >
-          Sample
-        </span>
-      </div>
+      <h3 className="text-sm font-semibold tracking-tight text-fg">
+        Bid panel preview
+      </h3>
       <dl className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between">
           <dt className="text-xs font-medium uppercase text-fg-muted">
-            Current bid
+            Starting bid
           </dt>
           <dd className="text-lg font-bold text-fg">
-            L${currentBid.toLocaleString()}
+            L${startingBid.toLocaleString()}
           </dd>
-        </div>
-        <div className="flex items-baseline justify-between text-xs text-fg-muted">
-          <dt>Starting bid</dt>
-          <dd>L${startingBid.toLocaleString()}</dd>
         </div>
         {buyNowPrice != null && buyNowPrice > 0 && (
           <div className="flex items-baseline justify-between text-xs text-fg-muted">
@@ -68,12 +59,12 @@ export function BidPanelPreview({
           </div>
         )}
         <div className="flex items-baseline justify-between text-xs text-fg-muted">
-          <dt>Bidders</dt>
-          <dd>{bidders}</dd>
-        </div>
-        <div className="flex items-baseline justify-between text-xs text-fg-muted">
-          <dt>Time remaining</dt>
-          <dd>Runs for {durationHours}h when activated</dd>
+          <dt>Duration</dt>
+          <dd>
+            {durationHours % 24 === 0
+              ? `${durationHours / 24} day${durationHours / 24 === 1 ? "" : "s"}`
+              : `${durationHours} hours`}
+          </dd>
         </div>
       </dl>
       <div className="flex flex-col gap-1">
@@ -82,13 +73,30 @@ export function BidPanelPreview({
           value=""
           onChange={() => {}}
           disabled
-          placeholder={`Min L$${(currentBid + 1).toLocaleString()}`}
+          placeholder={`Min L$${(startingBid + 1).toLocaleString()}`}
           aria-label="Bid amount (preview)"
           data-testid="bid-panel-preview-input"
         />
         <p className="text-[11px] text-fg-muted">
           Listing not yet active.
         </p>
+      </div>
+      <div className="border-t border-border-subtle pt-3">
+        <EditableSettingsModal
+          value={settings}
+          onSave={onSettingsChange}
+          renderTrigger={(open) => (
+            <Button
+              variant="secondary"
+              onClick={open}
+              data-testid="bid-panel-preview-edit-settings"
+              className="w-full"
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+              Edit auction settings
+            </Button>
+          )}
+        />
       </div>
     </div>
   );

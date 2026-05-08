@@ -15,8 +15,6 @@ import { VisitInSecondLifeButton } from "./VisitInSecondLifeButton";
 import { EditableTitle } from "@/components/listing/draft-editor/EditableTitle";
 import { EditableDescription } from "@/components/listing/draft-editor/EditableDescription";
 import { EditableTags } from "@/components/listing/draft-editor/EditableTags";
-import { EditableSettingsModal } from "@/components/listing/draft-editor/EditableSettingsModal";
-import type { DraftSettings } from "@/components/listing/draft-editor/draftEditorMutations";
 
 /**
  * Optional editor wiring for the seller's draft preview on
@@ -24,14 +22,15 @@ import type { DraftSettings } from "@/components/listing/draft-editor/draftEdito
  * inline click-to-edit wrapper that calls the corresponding async save
  * handler. Absent the prop, the panel renders identically to the buyer
  * flow.
+ *
+ * Auction settings (starting bid / reserve / buy now / duration) are
+ * deliberately NOT here — they edit as a coupled group from the bid
+ * panel preview's "Edit auction settings" button.
  */
 export interface ParcelInfoPanelEditable {
   onTitleChange: (next: string) => Promise<void>;
   onDescriptionChange: (next: string) => Promise<void>;
   onTagsChange: (codes: string[]) => Promise<void>;
-  onSettingsChange: (next: DraftSettings) => Promise<void>;
-  /** Current settings snapshot — driven through to the settings modal. */
-  settings: DraftSettings;
 }
 
 /**
@@ -206,14 +205,6 @@ export function ParcelInfoPanel({ auction, className, reportButton, editable }: 
         )
       )}
 
-      {editable && (
-        <div data-testid="parcel-info-panel-settings-edit">
-          <EditableSettingsModal
-            value={editable.settings}
-            onSave={editable.onSettingsChange}
-          />
-        </div>
-      )}
     </section>
   );
 }
