@@ -109,7 +109,7 @@ public class CancellationStatusService {
         // and project to the flat photo URL served by {@link PhotoController}.
         return auction.getPhotos().stream()
                 .min(Comparator.comparing(AuctionPhoto::getSortOrder))
-                .map(p -> "/api/v1/photos/" + p.getId())
+                .map(p -> "/api/v1/photos/" + p.getPublicId())
                 .orElse(null);
     }
 }
