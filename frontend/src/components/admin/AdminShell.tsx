@@ -28,6 +28,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Ledger", href: "/admin/ledger" },
     { label: "Listings", href: "/admin/listings" },
     { label: "Drafts", href: "/admin/drafts" },
+    { label: "Parcel tags", href: "/admin/parcel-tags" },
     { label: "Users", href: "/admin/users" },
     { label: "Infrastructure", href: "/admin/infrastructure" },
     { label: "Audit log", href: "/admin/audit-log" },
