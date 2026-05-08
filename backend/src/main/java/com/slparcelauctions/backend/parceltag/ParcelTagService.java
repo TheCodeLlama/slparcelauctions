@@ -32,12 +32,13 @@ import lombok.extern.slf4j.Slf4j;
 public class ParcelTagService {
 
     private final ParcelTagRepository repo;
+    private final ParcelTagCategoryRepository categoryRepo;
 
     @Transactional(readOnly = true)
     public List<ParcelTagGroupResponse> listGroupedActive() {
         Map<String, List<ParcelTagResponse>> grouped = new LinkedHashMap<>();
-        for (ParcelTag t : repo.findByActiveTrueOrderByCategoryAscLabelAsc()) {
-            grouped.computeIfAbsent(t.getCategory(), k -> new ArrayList<>())
+        for (ParcelTag t : repo.findByActiveTrueAndCategoryActiveTrueOrderByCategory_LabelAscLabelAsc()) {
+            grouped.computeIfAbsent(t.getCategory().getLabel(), k -> new ArrayList<>())
                     .add(ParcelTagResponse.from(t));
         }
         return grouped.entrySet().stream()
@@ -59,17 +60,35 @@ public class ParcelTagService {
         if (repo.count() > 0) {
             return;
         }
+        Map<String, ParcelTagCategory> categoryByLabel = new LinkedHashMap<>();
         for (String[] row : SEED_DATA) {
+            String categoryLabel = row[2];
+            ParcelTagCategory category = categoryByLabel.computeIfAbsent(
+                    categoryLabel,
+                    label -> categoryRepo.findByCode(deriveCategoryCode(label))
+                            .orElseGet(() -> categoryRepo.save(ParcelTagCategory.builder()
+                                    .code(deriveCategoryCode(label))
+                                    .label(label)
+                                    .active(true)
+                                    .build())));
             ParcelTag t = ParcelTag.builder()
                     .code(row[0])
                     .label(row[1])
-                    .category(row[2])
+                    .category(category)
                     .description(row[3])
                     .active(true)
                     .build();
             repo.save(t);
         }
-        log.info("Seeded {} default parcel tags on first boot.", SEED_DATA.length);
+        log.info("Seeded {} default parcel tags ({} categories) on first boot.",
+                SEED_DATA.length, categoryByLabel.size());
+    }
+
+    /** Mirrors the V19 migration's regex: uppercase, non-alphanumeric runs collapse to "_", trim leading/trailing "_". */
+    private static String deriveCategoryCode(String label) {
+        String upper = label.toUpperCase();
+        String collapsed = upper.replaceAll("[^A-Z0-9]+", "_");
+        return collapsed.replaceAll("^_+|_+$", "");
     }
 
     private static final String[][] SEED_DATA = {

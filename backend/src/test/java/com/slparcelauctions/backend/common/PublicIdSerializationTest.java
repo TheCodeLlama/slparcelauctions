@@ -28,10 +28,13 @@ class PublicIdSerializationTest {
     @Test
     void directEntitySerializationDoesNotLeakInternalId() throws Exception {
         // Construct an in-memory entity — no persist required.
+        com.slparcelauctions.backend.parceltag.ParcelTagCategory cat =
+                com.slparcelauctions.backend.parceltag.ParcelTagCategory.builder()
+                        .code("TERRAIN").label("Terrain").active(true).build();
         ParcelTag tag = ParcelTag.builder()
                 .code("WATERFRONT")
                 .label("Waterfront")
-                .category("TERRAIN")
+                .category(cat)
                 .build();
 
         String json = objectMapper.writeValueAsString(tag);

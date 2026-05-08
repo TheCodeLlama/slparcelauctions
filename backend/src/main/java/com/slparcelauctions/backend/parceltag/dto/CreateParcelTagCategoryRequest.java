@@ -4,12 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * POST /api/v1/admin/parcel-tags request body.
- * <p>
- * {@code categoryCode} must reference an existing active {@code ParcelTagCategory}.
- */
-public record CreateParcelTagRequest(
+public record CreateParcelTagCategoryRequest(
         @NotBlank
         @Size(min = 1, max = 50)
         @Pattern(regexp = "^[A-Z0-9_]+$",
@@ -19,10 +14,6 @@ public record CreateParcelTagRequest(
         @NotBlank
         @Size(min = 1, max = 100)
         String label,
-
-        @NotBlank
-        @Size(min = 1, max = 50)
-        String categoryCode,
 
         @Size(max = 2000)
         String description) {}

@@ -13,6 +13,8 @@ import com.slparcelauctions.backend.admin.audit.AdminActionType;
 import com.slparcelauctions.backend.parceltag.dto.AdminParcelTagDto;
 import com.slparcelauctions.backend.parceltag.dto.CreateParcelTagRequest;
 import com.slparcelauctions.backend.parceltag.dto.UpdateParcelTagRequest;
+import com.slparcelauctions.backend.parceltag.exception.InactiveParcelTagCategoryException;
+import com.slparcelauctions.backend.parceltag.exception.ParcelTagCategoryNotFoundException;
 import com.slparcelauctions.backend.parceltag.exception.ParcelTagCodeConflictException;
 import com.slparcelauctions.backend.parceltag.exception.ParcelTagNotFoundException;
 
@@ -20,12 +22,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Write-side admin operations for {@link ParcelTag}. Read-side admin list
- * runs through the same repository as the public service but returns
- * inactive rows too.
- *
- * <p>Each write records an {@code AdminAction} via {@link AdminActionService}
- * for audit-log traceability.
+ * Write-side admin operations for {@link ParcelTag}. Categories are
+ * resolved via {@link ParcelTagCategoryRepository} on each create/update —
+ * the body carries a {@code categoryCode} which must reference an active
+ * row.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,11 +33,12 @@ import lombok.extern.slf4j.Slf4j;
 public class AdminParcelTagService {
 
     private final ParcelTagRepository repo;
+    private final ParcelTagCategoryRepository categoryRepo;
     private final AdminActionService adminActionService;
 
     @Transactional(readOnly = true)
     public List<AdminParcelTagDto> listAll() {
-        return repo.findAllByOrderByCategoryAscLabelAsc().stream()
+        return repo.findAllByOrderByCategory_LabelAscLabelAsc().stream()
                 .map(AdminParcelTagDto::from)
                 .toList();
     }
@@ -47,10 +48,11 @@ public class AdminParcelTagService {
         if (repo.existsByCode(req.code())) {
             throw new ParcelTagCodeConflictException(req.code());
         }
+        ParcelTagCategory category = resolveActiveCategory(req.categoryCode());
         ParcelTag tag = ParcelTag.builder()
                 .code(req.code())
                 .label(req.label())
-                .category(req.category())
+                .category(category)
                 .description(req.description())
                 .active(true)
                 .build();
@@ -60,7 +62,7 @@ public class AdminParcelTagService {
         Map<String, Object> details = new HashMap<>();
         details.put("code", saved.getCode());
         details.put("label", saved.getLabel());
-        details.put("category", saved.getCategory());
+        details.put("categoryCode", category.getCode());
         adminActionService.record(adminUserId,
                 AdminActionType.PARCEL_TAG_CREATED,
                 AdminActionTargetType.PARCEL_TAG,
@@ -79,9 +81,13 @@ public class AdminParcelTagService {
             changes.put("label", Map.of("from", tag.getLabel(), "to", req.label()));
             tag.setLabel(req.label());
         }
-        if (req.category() != null && !req.category().equals(tag.getCategory())) {
-            changes.put("category", Map.of("from", tag.getCategory(), "to", req.category()));
-            tag.setCategory(req.category());
+        if (req.categoryCode() != null
+                && !req.categoryCode().equals(tag.getCategory().getCode())) {
+            ParcelTagCategory next = resolveActiveCategory(req.categoryCode());
+            changes.put("categoryCode", Map.of(
+                    "from", tag.getCategory().getCode(),
+                    "to", next.getCode()));
+            tag.setCategory(next);
         }
         if (req.description() != null && !req.description().equals(tag.getDescription())) {
             changes.put("description", Map.of(
@@ -126,5 +132,18 @@ public class AdminParcelTagService {
                 adminUserId, saved.getCode(), before, saved.getActive());
 
         return AdminParcelTagDto.from(saved);
+    }
+
+    /**
+     * Resolve a category code to its row, raising the appropriate 4xx if the
+     * code is unknown or refers to a disabled category.
+     */
+    private ParcelTagCategory resolveActiveCategory(String categoryCode) {
+        ParcelTagCategory cat = categoryRepo.findByCode(categoryCode)
+                .orElseThrow(() -> new ParcelTagCategoryNotFoundException(categoryCode));
+        if (!Boolean.TRUE.equals(cat.getActive())) {
+            throw new InactiveParcelTagCategoryException(categoryCode);
+        }
+        return cat;
     }
 }

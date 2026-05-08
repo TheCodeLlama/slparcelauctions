@@ -1,61 +1,45 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { FormError } from "@/components/ui/FormError";
 import { ApiError, isApiError } from "@/lib/api";
-import { useUpdateParcelTag } from "@/hooks/admin/useAdminParcelTags";
-import { useAdminParcelTagCategories } from "@/hooks/admin/useAdminParcelTagCategories";
-import type { AdminParcelTagDto } from "@/lib/admin/parcelTags";
+import { useUpdateParcelTagCategory } from "@/hooks/admin/useAdminParcelTagCategories";
+import type { AdminParcelTagCategoryDto } from "@/lib/admin/parcelTagCategories";
 
-export interface EditParcelTagModalProps {
+export interface EditParcelTagCategoryModalProps {
   open: boolean;
   onClose: () => void;
-  tag: AdminParcelTagDto | null;
+  category: AdminParcelTagCategoryDto | null;
 }
 
-/**
- * Edits everything except the {@code code} (admin-immutable). Only fields
- * that actually changed get sent in the PATCH body. Category is selected
- * from active rows in {@code parcel_tag_categories}.
- */
-export function EditParcelTagModal({
+export function EditParcelTagCategoryModal({
   open,
   onClose,
-  tag,
-}: EditParcelTagModalProps) {
+  category,
+}: EditParcelTagCategoryModalProps) {
   const [label, setLabel] = useState("");
-  const [categoryCode, setCategoryCode] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const mutation = useUpdateParcelTag();
-  const { data: categories } = useAdminParcelTagCategories();
-  // Include the tag's current category in the dropdown even if it's now
-  // inactive — otherwise the seller's saved value silently disappears.
-  const dropdownCategories = (categories ?? []).filter(
-    (c) => c.active || c.code === tag?.category.code,
-  );
+  const mutation = useUpdateParcelTagCategory();
 
   useEffect(() => {
-    if (open && tag) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- `tag` is external source of truth; pre-filling on open mirrors CreateBanModal pattern.
-      setLabel(tag.label);
-      setCategoryCode(tag.category.code);
-      setDescription(tag.description ?? "");
+    if (open && category) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors EditParcelTagModal pattern; `category` is external source of truth.
+      setLabel(category.label);
+      setDescription(category.description ?? "");
       setError(null);
     }
-  }, [open, tag]);
+  }, [open, category]);
 
   async function submit() {
-    if (!tag) return;
+    if (!category) return;
     setError(null);
     const body: Record<string, unknown> = {};
-    if (label.trim() !== tag.label) body.label = label.trim();
-    if (categoryCode.trim() !== tag.category.code) body.categoryCode = categoryCode.trim();
-    if ((description.trim() || "") !== (tag.description ?? ""))
+    if (label.trim() !== category.label) body.label = label.trim();
+    if ((description.trim() || "") !== (category.description ?? ""))
       body.description = description.trim();
 
     if (Object.keys(body).length === 0) {
@@ -63,16 +47,16 @@ export function EditParcelTagModal({
       return;
     }
     try {
-      await mutation.mutateAsync({ code: tag.code, body });
+      await mutation.mutateAsync({ code: category.code, body });
       onClose();
     } catch (e) {
       if (e instanceof ApiError || isApiError(e)) {
         setError(
-          e.problem.detail ?? e.problem.title ?? "Could not save tag.",
+          e.problem.detail ?? e.problem.title ?? "Could not save category.",
         );
         return;
       }
-      setError(e instanceof Error ? e.message : "Could not save tag.");
+      setError(e instanceof Error ? e.message : "Could not save category.");
     }
   }
 
@@ -88,19 +72,22 @@ export function EditParcelTagModal({
       />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <DialogPanel
-          data-testid="edit-parcel-tag-modal"
+          data-testid="edit-parcel-tag-category-modal"
           className="w-full max-w-md flex flex-col gap-4 rounded-lg bg-bg-subtle p-6"
         >
           <DialogTitle className="text-base font-bold tracking-tight text-fg">
-            Edit parcel tag
+            Edit parcel category
           </DialogTitle>
 
           <div className="rounded-lg bg-surface-raised px-3 py-2">
             <span className="text-[11px] uppercase font-medium text-fg-muted">
               Code (locked)
             </span>
-            <p className="font-mono text-sm text-fg" data-testid="edit-parcel-tag-code">
-              {tag?.code ?? ""}
+            <p
+              className="font-mono text-sm text-fg"
+              data-testid="edit-parcel-tag-category-code"
+            >
+              {category?.code ?? ""}
             </p>
           </div>
 
@@ -110,30 +97,8 @@ export function EditParcelTagModal({
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               maxLength={100}
-              data-testid="edit-parcel-tag-label"
+              data-testid="edit-parcel-tag-category-label"
             />
-          </Field>
-
-          <Field label="Category">
-            <select
-              value={categoryCode}
-              onChange={(e) => setCategoryCode(e.target.value)}
-              className="h-10 rounded-lg bg-bg-subtle px-3 text-fg ring-1 ring-border-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              data-testid="edit-parcel-tag-category"
-            >
-              {dropdownCategories.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.label}
-                  {!c.active ? " (inactive)" : ""}
-                </option>
-              ))}
-            </select>
-            <Link
-              href="/admin/parcel-tag-categories"
-              className="text-[11px] text-brand underline underline-offset-4 hover:opacity-80"
-            >
-              Manage categories →
-            </Link>
           </Field>
 
           <Field label="Description">
@@ -143,7 +108,7 @@ export function EditParcelTagModal({
               rows={3}
               maxLength={2000}
               className="w-full resize-y rounded-lg bg-bg-subtle px-4 py-3 text-fg ring-1 ring-border-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-              data-testid="edit-parcel-tag-description"
+              data-testid="edit-parcel-tag-category-description"
             />
           </Field>
 
@@ -162,7 +127,7 @@ export function EditParcelTagModal({
               onClick={submit}
               disabled={mutation.isPending || !label.trim()}
               loading={mutation.isPending}
-              data-testid="edit-parcel-tag-submit"
+              data-testid="edit-parcel-tag-category-submit"
             >
               Save changes
             </Button>

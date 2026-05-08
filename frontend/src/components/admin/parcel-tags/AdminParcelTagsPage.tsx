@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { FormError } from "@/components/ui/FormError";
@@ -14,11 +14,6 @@ export function AdminParcelTagsPage() {
   const { data: tags, isLoading, error } = useAdminParcelTags();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<AdminParcelTagDto | null>(null);
-
-  const existingCategories = useMemo(
-    () => Array.from(new Set((tags ?? []).map((t) => t.category))),
-    [tags],
-  );
 
   return (
     <div data-testid="admin-parcel-tags-page" className="flex flex-col gap-4">
@@ -59,16 +54,11 @@ export function AdminParcelTagsPage() {
         />
       )}
 
-      <AddParcelTagModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        existingCategories={existingCategories}
-      />
+      <AddParcelTagModal open={addOpen} onClose={() => setAddOpen(false)} />
       <EditParcelTagModal
         open={editing != null}
         onClose={() => setEditing(null)}
         tag={editing}
-        existingCategories={existingCategories}
       />
     </div>
   );

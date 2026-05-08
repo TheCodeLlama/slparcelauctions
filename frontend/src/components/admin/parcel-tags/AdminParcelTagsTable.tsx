@@ -21,11 +21,12 @@ function groupByCategory(tags: AdminParcelTagDto[]): CategoryGroup[] {
   const order: string[] = [];
   const map = new Map<string, AdminParcelTagDto[]>();
   for (const t of tags) {
-    if (!map.has(t.category)) {
-      map.set(t.category, []);
-      order.push(t.category);
+    const label = t.category.label;
+    if (!map.has(label)) {
+      map.set(label, []);
+      order.push(label);
     }
-    map.get(t.category)!.push(t);
+    map.get(label)!.push(t);
   }
   return order.map((category) => ({
     category,
