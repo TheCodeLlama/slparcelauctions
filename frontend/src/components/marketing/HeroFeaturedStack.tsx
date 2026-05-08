@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { AuctionSearchResultDto } from "@/types/search";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 
 /**
  * Hero right-side 3D card stack: up to three featured auctions rendered as
@@ -33,7 +34,7 @@ export function HeroFeaturedStack({ featured }: { featured: AuctionSearchResultD
             {(listing.primaryPhotoUrl ?? listing.parcel.snapshotUrl) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={listing.primaryPhotoUrl ?? listing.parcel.snapshotUrl ?? ""}
+                src={apiUrl(listing.primaryPhotoUrl) ?? apiUrl(listing.parcel.snapshotUrl) ?? ""}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="eager"
