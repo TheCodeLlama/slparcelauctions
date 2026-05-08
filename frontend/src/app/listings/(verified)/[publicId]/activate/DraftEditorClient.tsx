@@ -17,9 +17,7 @@ import {
 import { EditablePhotoGallery } from "@/components/listing/draft-editor/EditablePhotoGallery";
 import { BidPanelPreview } from "@/components/listing/draft-editor/BidPanelPreview";
 import { DraftActionBar } from "@/components/listing/draft-editor/DraftActionBar";
-import { DraftSampleDataBanner } from "@/components/listing/draft-editor/DraftSampleDataBanner";
 import { DeleteDraftModal } from "@/components/listing/draft-editor/DeleteDraftModal";
-import { SAMPLE_BIDS } from "@/components/listing/draft-editor/SampleBidHistory";
 import {
   useDraftEditorMutations,
   type DraftSettings,
@@ -134,7 +132,6 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
         onDeleteDraft={() => setDeleteOpen(true)}
       />
       <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-4 pb-24 lg:pb-12 w-full">
-        <DraftSampleDataBanner />
         <div className="mt-4">
           <BreadcrumbNav
             region={auction.parcel.regionName}
@@ -165,8 +162,6 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
                 onTitleChange: m.saveTitle,
                 onDescriptionChange: m.saveDescription,
                 onTagsChange: m.saveTags,
-                onSettingsChange: m.saveSettings,
-                settings,
               }}
             />
             <VisitInSecondLifeBlock
@@ -176,29 +171,22 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
               positionZ={auction.parcel.positionZ}
             />
             <ParcelLayoutMapPlaceholder />
-            <BidHistoryList
-              auctionPublicId={auction.publicId}
-              sampleEntries={[...SAMPLE_BIDS]}
-            />
+            <BidHistoryList auctionPublicId={auction.publicId} />
             <SellerProfileCard seller={sellerCardData} />
           </div>
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-24">
               <BidPanelPreview
-                startingBid={auction.startingBid}
-                buyNowPrice={auction.buyNowPrice}
-                reservePrice={auction.reservePrice}
-                durationHours={auction.durationHours}
+                settings={settings}
+                onSettingsChange={m.saveSettings}
               />
             </div>
           </aside>
         </div>
         <div className="lg:hidden mt-8">
           <BidPanelPreview
-            startingBid={auction.startingBid}
-            buyNowPrice={auction.buyNowPrice}
-            reservePrice={auction.reservePrice}
-            durationHours={auction.durationHours}
+            settings={settings}
+            onSettingsChange={m.saveSettings}
           />
         </div>
       </main>

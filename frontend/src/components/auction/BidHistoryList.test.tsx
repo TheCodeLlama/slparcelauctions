@@ -218,17 +218,3 @@ describe("BidHistoryList", () => {
   });
 });
 
-describe("BidHistoryList sample mode", () => {
-  it("renders sampleEntries with a Sample pill and skips the live query", () => {
-    const sample = [
-      entry({ bidPublicId: "s1", bidderDisplayName: "Sample Bidder A", amount: 1000 }),
-      entry({ bidPublicId: "s2", bidderDisplayName: "Sample Bidder B", amount: 1200 }),
-    ];
-    renderWithProviders(
-      <BidHistoryList auctionPublicId="abc" sampleEntries={sample} />,
-    );
-    expect(screen.getByTestId("bid-history-sample-pill")).toBeInTheDocument();
-    expect(screen.getByText("Sample Bidder A")).toBeInTheDocument();
-    expect(screen.getByText("Sample Bidder B")).toBeInTheDocument();
-  });
-});

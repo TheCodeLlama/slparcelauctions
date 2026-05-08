@@ -126,9 +126,8 @@ describe("ActivateClient", () => {
       auth: "authenticated",
     });
     expect(
-      await screen.findByTestId("draft-sample-data-banner"),
+      await screen.findByTestId("draft-action-bar-list"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("draft-action-bar-list")).toBeInTheDocument();
     expect(screen.getByTestId("draft-action-bar-delete")).toBeInTheDocument();
   });
 

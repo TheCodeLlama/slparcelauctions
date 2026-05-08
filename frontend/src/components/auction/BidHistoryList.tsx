@@ -11,13 +11,6 @@ const ANIMATION_MS = 2_000;
 
 export interface BidHistoryListProps {
   auctionPublicId: string;
-  /**
-   * When set, suppresses the live-query path and renders these synthetic
-   * bid rows with a "Sample" pill. Used by the seller's draft preview on
-   * /listings/[id]/activate to show what the populated history will look
-   * like once the auction is active.
-   */
-  sampleEntries?: BidHistoryEntry[];
 }
 
 /**
@@ -39,49 +32,7 @@ export interface BidHistoryListProps {
  * Infinite scroll is deferred per spec §19 — "Load more" is sufficient
  * for Phase 1.
  */
-export function BidHistoryList({ auctionPublicId, sampleEntries }: BidHistoryListProps) {
-  if (sampleEntries) {
-    return (
-      <SampleBidHistoryList entries={sampleEntries} />
-    );
-  }
-  return <LiveBidHistoryList auctionPublicId={auctionPublicId} />;
-}
-
-function SampleBidHistoryList({ entries }: { entries: BidHistoryEntry[] }) {
-  return (
-    <section
-      aria-label="Bid history"
-      data-testid="bid-history-list"
-      data-sample="true"
-      className="flex flex-col gap-2"
-    >
-      <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-fg">
-        Bid history{" "}
-        <span className="text-sm font-normal text-fg-muted">
-          ({entries.length})
-        </span>
-        <span
-          data-testid="bid-history-sample-pill"
-          className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand"
-        >
-          Sample
-        </span>
-      </h3>
-      <ul
-        className="flex flex-col gap-1"
-        data-testid="bid-history-page"
-        data-page={0}
-      >
-        {entries.map((row) => (
-          <BidHistoryRow key={row.bidPublicId} entry={row} isAnimated={false} />
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function LiveBidHistoryList({ auctionPublicId }: { auctionPublicId: string }) {
+export function BidHistoryList({ auctionPublicId }: BidHistoryListProps) {
   // Track which page the user has loaded up to. Page 0 is always loaded
   // (seeded by the server component); the button bumps this to 1, 2, …
   const [loadedThrough, setLoadedThrough] = useState(0);
