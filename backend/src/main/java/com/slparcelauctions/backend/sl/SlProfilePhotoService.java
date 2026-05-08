@@ -46,7 +46,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SlProfilePhotoService {
 
-    static final String CACHE_PREFIX = "sl:profile-photo:";
+    /**
+     * Versioned cache key prefix. Bump the suffix any time the bytes we
+     * cache change shape (resize, format, source URL) — old entries
+     * become unreachable and TTL out naturally. v2 added the 4:3-to-square
+     * stretch + 512x512 upscale.
+     */
+    static final String CACHE_PREFIX = "sl:profile-photo:v2:";
     static final String NEGATIVE_SENTINEL = "NONE";
     static final Duration POSITIVE_TTL = Duration.ofHours(1);
     static final Duration NEGATIVE_TTL = Duration.ofMinutes(5);

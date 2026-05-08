@@ -49,7 +49,7 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 class SlProfilePhotoServiceTest {
 
     private static final UUID AVATAR = UUID.fromString("aa87bc38-c175-427d-b665-02e6838963cc");
-    private static final String CACHE_KEY = "sl:profile-photo:" + AVATAR;
+    private static final String CACHE_KEY = "sl:profile-photo:v2:" + AVATAR;
     /**
      * A real, decodable 256x192 JPEG. The service's resize step needs
      * ImageIO to be able to round-trip the bytes; a hand-written magic-

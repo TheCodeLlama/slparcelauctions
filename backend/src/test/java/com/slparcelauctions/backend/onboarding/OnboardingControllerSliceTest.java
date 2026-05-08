@@ -156,7 +156,7 @@ class OnboardingControllerSliceTest {
                 .andExpect(content().contentType(MediaType.IMAGE_JPEG))
                 .andExpect(content().bytes(bytes))
                 .andExpect(header().string("Cache-Control",
-                        org.hamcrest.Matchers.containsString("max-age=3600")));
+                        org.hamcrest.Matchers.containsString("max-age=60")));
     }
 
     @Test
