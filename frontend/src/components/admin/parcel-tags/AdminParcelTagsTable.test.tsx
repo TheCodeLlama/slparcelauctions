@@ -13,17 +13,17 @@ afterAll(() => server.close());
 const tags: AdminParcelTagDto[] = [
   {
     code: "WATERFRONT", label: "Waterfront", category: "Terrain",
-    description: null, sortOrder: 1, active: true,
+    description: null, active: true,
     createdAt: "x", updatedAt: "x",
   },
   {
     code: "SNOW", label: "Snow", category: "Terrain",
-    description: null, sortOrder: 2, active: false,
+    description: null, active: false,
     createdAt: "x", updatedAt: "x",
   },
   {
     code: "STREETFRONT", label: "Streetfront", category: "Roads",
-    description: null, sortOrder: 1, active: true,
+    description: null, active: true,
     createdAt: "x", updatedAt: "x",
   },
 ];

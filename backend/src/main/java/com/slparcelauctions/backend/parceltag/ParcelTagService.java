@@ -36,7 +36,7 @@ public class ParcelTagService {
     @Transactional(readOnly = true)
     public List<ParcelTagGroupResponse> listGroupedActive() {
         Map<String, List<ParcelTagResponse>> grouped = new LinkedHashMap<>();
-        for (ParcelTag t : repo.findByActiveTrueOrderByCategoryAscSortOrderAsc()) {
+        for (ParcelTag t : repo.findByActiveTrueOrderByCategoryAscLabelAsc()) {
             grouped.computeIfAbsent(t.getCategory(), k -> new ArrayList<>())
                     .add(ParcelTagResponse.from(t));
         }
@@ -59,14 +59,12 @@ public class ParcelTagService {
         if (repo.count() > 0) {
             return;
         }
-        int order = 0;
         for (String[] row : SEED_DATA) {
             ParcelTag t = ParcelTag.builder()
                     .code(row[0])
                     .label(row[1])
                     .category(row[2])
                     .description(row[3])
-                    .sortOrder(++order)
                     .active(true)
                     .build();
             repo.save(t);

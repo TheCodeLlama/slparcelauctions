@@ -12,7 +12,7 @@ afterAll(() => server.close());
 
 const tag: AdminParcelTagDto = {
   code: "WATERFRONT", label: "Waterfront", category: "Terrain",
-  description: "Old desc", sortOrder: 3, active: true,
+  description: "Old desc", active: true,
   createdAt: "x", updatedAt: "x",
 };
 

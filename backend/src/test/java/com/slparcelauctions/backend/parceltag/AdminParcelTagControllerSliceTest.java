@@ -91,7 +91,7 @@ class AdminParcelTagControllerSliceTest {
 
     private static AdminParcelTagDto sampleDto(String code) {
         OffsetDateTime now = OffsetDateTime.now();
-        return new AdminParcelTagDto(code, "Label", "Cat", "Desc", 1, true, now, now);
+        return new AdminParcelTagDto(code, "Label", "Cat", "Desc", true, now, now);
     }
 
     @Test

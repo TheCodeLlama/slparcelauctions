@@ -14,7 +14,7 @@ describe("EditableTags", () => {
     renderWithProviders(
       <EditableTags
         value={[
-          { code: "WATERFRONT", label: "Waterfront", category: "Water", description: null, sortOrder: 1 },
+          { code: "WATERFRONT", label: "Waterfront", category: "Water", description: null },
         ]}
         onSave={vi.fn()}
       />,
@@ -38,7 +38,7 @@ describe("EditableTags", () => {
     renderWithProviders(
       <EditableTags
         value={[
-          { code: "WATERFRONT", label: "Waterfront", category: "Water", description: null, sortOrder: 1 },
+          { code: "WATERFRONT", label: "Waterfront", category: "Water", description: null },
         ]}
         onSave={onSave}
       />,

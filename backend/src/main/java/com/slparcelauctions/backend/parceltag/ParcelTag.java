@@ -34,10 +34,6 @@ public class ParcelTag extends BaseMutableEntity {
     private String description;
 
     @Builder.Default
-    @Column(name = "sort_order", nullable = false)
-    private Integer sortOrder = 0;
-
-    @Builder.Default
     @Column(nullable = false)
     private Boolean active = true;
 

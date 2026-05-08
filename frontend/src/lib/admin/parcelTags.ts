@@ -5,7 +5,6 @@ export interface AdminParcelTagDto {
   label: string;
   category: string;
   description: string | null;
-  sortOrder: number;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -16,14 +15,12 @@ export interface CreateParcelTagPayload {
   label: string;
   category: string;
   description?: string;
-  sortOrder?: number;
 }
 
 export interface UpdateParcelTagPayload {
   label?: string;
   category?: string;
   description?: string;
-  sortOrder?: number;
 }
 
 export const adminParcelTagsApi = {

@@ -91,7 +91,6 @@ describe("ListingPreviewCard", () => {
               label: "Beach",
               category: "Terrain",
               description: null,
-              sortOrder: 1,
             },
           ],
           photos: [
