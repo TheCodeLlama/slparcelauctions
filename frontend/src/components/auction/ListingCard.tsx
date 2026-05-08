@@ -4,6 +4,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { ShieldCheck, MapPin, Heart } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import { deriveStatusChip } from "@/lib/search/status-chip";
 import { useSavedIds, useToggleSaved } from "@/hooks/useSavedAuctions";
 import type { AuctionSearchResultDto } from "@/types/search";
@@ -82,8 +83,13 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
     endOutcome: listing.endOutcome,
     endsAt: listing.endsAt,
   });
+  // Backend emits relative `/api/v1/photos/{publicId}` paths; the browser
+  // resolves them against slparcels.com which doesn't proxy /api/* to the
+  // backend. apiUrl() rewrites to slpa.app per the SSR-caveats convention.
   const imageSrc =
-    listing.primaryPhotoUrl ?? listing.parcel.snapshotUrl ?? undefined;
+    apiUrl(listing.primaryPhotoUrl) ??
+    apiUrl(listing.parcel.snapshotUrl) ??
+    undefined;
   const maxTags = MAX_TAGS[variant];
   // Defensive coercion: the backend has historically wavered between
   // string[] (current contract — labels) and ParcelTag entity rows (a

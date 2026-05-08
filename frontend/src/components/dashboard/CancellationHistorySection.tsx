@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { ChevronDown, ChevronUp } from "@/components/ui/icons";
 import { Pagination } from "@/components/ui/Pagination";
 import { cn } from "@/lib/cn";
+import { apiUrl } from "@/lib/api/url";
 import { useCancellationHistory } from "@/hooks/useCancellationHistory";
 import type { CancellationHistoryDto } from "@/types/cancellation";
 import { CancellationConsequenceBadge } from "@/components/cancellation/CancellationConsequenceBadge";
@@ -38,7 +39,7 @@ function CancellationHistoryRow({ row }: { row: CancellationHistoryDto }) {
           {row.primaryPhotoUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- Deferred: swap to next/image when backend returns image dimensions + a stable remotePatterns list for SL CDN hosts is agreed upon. Matches the PendingReviewsSection deferral.
             <img
-              src={row.primaryPhotoUrl}
+              src={apiUrl(row.primaryPhotoUrl) ?? undefined}
               alt=""
               className="h-full w-full object-cover"
               loading="lazy"
