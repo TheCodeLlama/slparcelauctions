@@ -66,8 +66,10 @@ export function EditablePhotoGallery({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 5px activation distance lets click events on the delete X / drag handle
+  // dispatch normally; only sustained drags engage the sensor.
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -224,7 +226,8 @@ function SortablePhotoTile({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
   };
 
   return (
@@ -232,25 +235,27 @@ function SortablePhotoTile({
       ref={setNodeRef}
       style={style}
       data-testid={`editable-photo-tile-${photo.publicId}`}
-      className="relative h-24 overflow-hidden rounded-lg border border-border-subtle bg-bg-subtle"
+      {...attributes}
+      {...listeners}
+      className="relative h-24 overflow-hidden rounded-lg border border-border-subtle bg-bg-subtle cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      aria-label={`Photo ${photo.publicId}, drag to reorder`}
     >
       <img
         src={apiUrl(photo.url) ?? photo.url}
         alt=""
-        className="h-full w-full object-cover"
+        className="pointer-events-none h-full w-full object-cover"
+        draggable={false}
       />
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        aria-label={`Drag photo ${photo.publicId}`}
-        className="absolute left-1 top-1 rounded-full bg-surface-raised/90 p-1 text-fg-muted cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1 top-1 rounded-full bg-surface-raised/90 p-1 text-fg-muted"
       >
-        <GripVertical className="size-3.5" aria-hidden="true" />
-      </button>
+        <GripVertical className="size-3.5" />
+      </span>
       <button
         type="button"
         onClick={onDeleteRequest}
+        onPointerDown={(e) => e.stopPropagation()}
         disabled={isDragging}
         aria-label={`Remove photo ${photo.publicId}`}
         className="absolute right-1 top-1 rounded-full bg-surface-raised/90 p-1 text-danger hover:bg-surface-raised disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"

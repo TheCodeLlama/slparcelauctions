@@ -68,7 +68,9 @@ describe("EditablePhotoGallery", () => {
     );
     expect(screen.getByTestId("editable-photo-tile-p1")).toBeInTheDocument();
     expect(screen.getByLabelText("Remove photo p1")).toBeInTheDocument();
-    expect(screen.getByLabelText("Drag photo p1")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Photo p1, drag to reorder"),
+    ).toBeInTheDocument();
   });
 
   it("delete button opens confirm modal, confirm calls onDelete", async () => {

@@ -111,7 +111,7 @@ export function PhotoUploader({
   const atCap = staged.length >= maxPhotos;
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -182,7 +182,8 @@ function SortableStagedPhoto({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
   };
 
   return (
@@ -191,33 +192,34 @@ function SortableStagedPhoto({
       style={style}
       data-testid="staged-photo"
       data-photo-error={photo.error ? "true" : undefined}
-      className="relative overflow-hidden rounded-lg border border-border-subtle"
+      {...attributes}
+      {...listeners}
+      className="relative overflow-hidden rounded-lg border border-border-subtle cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      aria-label="Staged photo, drag to reorder"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.objectUrl}
         alt=""
-        className="h-24 w-full object-cover"
+        className="pointer-events-none h-24 w-full object-cover"
+        draggable={false}
       />
       {photo.error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-bg/90 p-2 text-center text-xs text-danger">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-danger-bg/90 p-2 text-center text-xs text-danger">
           <AlertTriangle className="size-4" aria-hidden="true" />
           <span>{photo.error}</span>
         </div>
       )}
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        aria-label="Drag photo"
-        disabled={disabled}
-        className="absolute left-1 top-1 rounded-full bg-surface-raised/90 p-1 text-fg-muted cursor-grab active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1 top-1 rounded-full bg-surface-raised/90 p-1 text-fg-muted"
       >
-        <GripVertical className="size-3.5" aria-hidden="true" />
-      </button>
+        <GripVertical className="size-3.5" />
+      </span>
       <button
         type="button"
         onClick={onRemove}
+        onPointerDown={(e) => e.stopPropagation()}
         disabled={disabled || isDragging}
         aria-label="Remove photo"
         className="absolute right-1 top-1 rounded-full bg-surface-raised/90 p-1 text-danger hover:bg-surface-raised disabled:opacity-50"
@@ -225,7 +227,7 @@ function SortableStagedPhoto({
         <Trash2 className="size-3.5" aria-hidden="true" />
       </button>
       {photo.uploadedPhotoId == null ? (
-        <span className="absolute bottom-1 left-1 rounded-full bg-bg-hover/90 px-2 py-0.5 text-[11px] font-medium text-fg-muted">
+        <span className="pointer-events-none absolute bottom-1 left-1 rounded-full bg-bg-hover/90 px-2 py-0.5 text-[11px] font-medium text-fg-muted">
           staged
         </span>
       ) : null}
