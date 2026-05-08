@@ -418,7 +418,7 @@ class AuctionServiceTest {
         Set<String> codes = Set.of("waterfront", "unknown_tag");
         when(tagRepo.findByCodeIn(codes)).thenReturn(List.of(
                 ParcelTag.builder().id(1L).code("waterfront").label("Waterfront")
-                        .category("feature").active(true).sortOrder(1).build()));
+                        .category("feature").active(true).build()));
 
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,

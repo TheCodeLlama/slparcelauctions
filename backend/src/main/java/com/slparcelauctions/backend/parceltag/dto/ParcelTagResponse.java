@@ -6,11 +6,10 @@ public record ParcelTagResponse(
         String code,
         String label,
         String category,
-        String description,
-        Integer sortOrder) {
+        String description) {
 
     public static ParcelTagResponse from(ParcelTag t) {
         return new ParcelTagResponse(
-                t.getCode(), t.getLabel(), t.getCategory(), t.getDescription(), t.getSortOrder());
+                t.getCode(), t.getLabel(), t.getCategory(), t.getDescription());
     }
 }

@@ -15,7 +15,6 @@ public record AdminParcelTagDto(
         String label,
         String category,
         String description,
-        Integer sortOrder,
         Boolean active,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt) {
@@ -26,7 +25,6 @@ public record AdminParcelTagDto(
                 t.getLabel(),
                 t.getCategory(),
                 t.getDescription(),
-                t.getSortOrder(),
                 t.getActive(),
                 t.getCreatedAt(),
                 t.getUpdatedAt());

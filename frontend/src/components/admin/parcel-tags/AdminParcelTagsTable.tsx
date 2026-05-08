@@ -29,7 +29,7 @@ function groupByCategory(tags: AdminParcelTagDto[]): CategoryGroup[] {
   }
   return order.map((category) => ({
     category,
-    tags: map.get(category)!.sort((a, b) => a.sortOrder - b.sortOrder),
+    tags: map.get(category)!.sort((a, b) => a.label.localeCompare(b.label)),
   }));
 }
 
@@ -84,7 +84,6 @@ export function AdminParcelTagsTable({ tags, onEdit }: AdminParcelTagsTableProps
                 <tr>
                   <th className="px-3 py-2 text-left">Code</th>
                   <th className="px-3 py-2 text-left">Label</th>
-                  <th className="px-3 py-2 text-left">Sort</th>
                   <th className="px-3 py-2 text-left">Active</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
@@ -104,7 +103,6 @@ export function AdminParcelTagsTable({ tags, onEdit }: AdminParcelTagsTableProps
                       {tag.code}
                     </td>
                     <td className="px-3 py-2 text-fg">{tag.label}</td>
-                    <td className="px-3 py-2 text-fg-muted">{tag.sortOrder}</td>
                     <td className="px-3 py-2">
                       <span
                         className={cn(

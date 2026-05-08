@@ -36,7 +36,6 @@ class AdminParcelTagServiceTest {
     @Test
     void create_happyPath_persistsAndAudits() {
         when(repo.existsByCode("BEACHFRONT")).thenReturn(false);
-        when(repo.findMaxSortOrderByCategory("Terrain")).thenReturn(8);
         when(repo.save(any(ParcelTag.class))).thenAnswer(inv -> {
             ParcelTag t = inv.getArgument(0);
             org.springframework.test.util.ReflectionTestUtils.setField(t, "id", 99L);
@@ -44,11 +43,11 @@ class AdminParcelTagServiceTest {
         });
 
         CreateParcelTagRequest req = new CreateParcelTagRequest(
-                "BEACHFRONT", "Beachfront", "Terrain", "Sandy beach", null);
+                "BEACHFRONT", "Beachfront", "Terrain", "Sandy beach");
         AdminParcelTagDto result = service.create(42L, req);
 
         assertThat(result.code()).isEqualTo("BEACHFRONT");
-        assertThat(result.sortOrder()).isEqualTo(9);
+        assertThat(result.label()).isEqualTo("Beachfront");
         assertThat(result.active()).isTrue();
         verify(adminActionService).record(
                 eq(42L),
@@ -60,24 +59,11 @@ class AdminParcelTagServiceTest {
     }
 
     @Test
-    void create_explicitSortOrder_isHonoured() {
-        when(repo.existsByCode("X")).thenReturn(false);
-        when(repo.save(any(ParcelTag.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        CreateParcelTagRequest req = new CreateParcelTagRequest(
-                "X", "X", "C", "d", 0);
-        AdminParcelTagDto result = service.create(1L, req);
-
-        assertThat(result.sortOrder()).isZero();
-        verify(repo, never()).findMaxSortOrderByCategory(any());
-    }
-
-    @Test
     void create_duplicateCode_throwsConflict() {
         when(repo.existsByCode("WATERFRONT")).thenReturn(true);
 
         CreateParcelTagRequest req = new CreateParcelTagRequest(
-                "WATERFRONT", "x", "y", null, null);
+                "WATERFRONT", "x", "y", null);
 
         assertThatThrownBy(() -> service.create(1L, req))
                 .isInstanceOf(ParcelTagCodeConflictException.class);
@@ -90,13 +76,13 @@ class AdminParcelTagServiceTest {
     void update_writesOnlySuppliedFields_andAudits() {
         ParcelTag existing = ParcelTag.builder()
                 .code("WATERFRONT").label("Old").category("Terrain")
-                .description("d").sortOrder(1).active(true).build();
+                .description("d").active(true).build();
         org.springframework.test.util.ReflectionTestUtils.setField(existing, "id", 7L);
         when(repo.findByCode("WATERFRONT")).thenReturn(Optional.of(existing));
         when(repo.save(any(ParcelTag.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateParcelTagRequest req = new UpdateParcelTagRequest(
-                "New label", null, null, null);
+                "New label", null, null);
         AdminParcelTagDto result = service.update(42L, "WATERFRONT", req);
 
         assertThat(result.label()).isEqualTo("New label");
@@ -115,12 +101,12 @@ class AdminParcelTagServiceTest {
     void update_noChanges_skipsAudit() {
         ParcelTag existing = ParcelTag.builder()
                 .code("WATERFRONT").label("Same").category("T")
-                .description("d").sortOrder(1).active(true).build();
+                .description("d").active(true).build();
         when(repo.findByCode("WATERFRONT")).thenReturn(Optional.of(existing));
         when(repo.save(any(ParcelTag.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateParcelTagRequest req = new UpdateParcelTagRequest(
-                "Same", "T", "d", 1);
+                "Same", "T", "d");
         service.update(42L, "WATERFRONT", req);
 
         verify(adminActionService, never()).record(
@@ -132,7 +118,7 @@ class AdminParcelTagServiceTest {
         when(repo.findByCode("NOPE")).thenReturn(Optional.empty());
 
         UpdateParcelTagRequest req = new UpdateParcelTagRequest(
-                "x", null, null, null);
+                "x", null, null);
 
         assertThatThrownBy(() -> service.update(1L, "NOPE", req))
                 .isInstanceOf(ParcelTagNotFoundException.class);
@@ -142,7 +128,7 @@ class AdminParcelTagServiceTest {
     void toggleActive_flipsAndAudits() {
         ParcelTag existing = ParcelTag.builder()
                 .code("X").label("X").category("Y")
-                .sortOrder(1).active(true).build();
+                .active(true).build();
         org.springframework.test.util.ReflectionTestUtils.setField(existing, "id", 5L);
         when(repo.findByCode("X")).thenReturn(Optional.of(existing));
         when(repo.save(any(ParcelTag.class))).thenAnswer(inv -> inv.getArgument(0));

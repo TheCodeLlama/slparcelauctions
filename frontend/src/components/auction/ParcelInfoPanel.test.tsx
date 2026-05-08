@@ -168,14 +168,12 @@ describe("ParcelInfoPanel", () => {
               label: "Waterfront",
               category: "feature",
               description: null,
-              sortOrder: 0,
             },
             {
               code: "residential",
               label: "Residential",
               category: "use",
               description: null,
-              sortOrder: 1,
             },
           ],
         })}
