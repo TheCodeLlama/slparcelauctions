@@ -54,6 +54,18 @@ class UserEntityTest {
     }
 
     @Test
+    void onboardingFlagsDefaultToFalse() {
+        // Forced post-verify onboarding gates depend on these flags
+        // initialising to false on every new account.
+        User u = User.builder()
+                .email("a@b.com").username("a")
+                .passwordHash("x")
+                .build();
+        assertThat(u.getAvatarStepCompleted()).isFalse();
+        assertThat(u.getDisplayNameStepCompleted()).isFalse();
+    }
+
+    @Test
     void getDisplayNameFallsBackToUsernameWhenDisplayNameBlank() {
         // Empty / whitespace-only strings (from trimmed updates or older
         // rows) are treated the same as null so a seller card never renders

@@ -34,6 +34,7 @@ export function mockAuthResponse(user: AuthUser = mockUser) {
 
 export const mockUnverifiedCurrentUser: CurrentUser = {
   publicId: "00000000-0000-0000-0000-00000000002a",
+  username: "test-user",
   email: "unverified@example.com",
   displayName: "Test User",
   bio: null,
@@ -47,6 +48,11 @@ export const mockUnverifiedCurrentUser: CurrentUser = {
   verified: false,
   verifiedAt: null,
   emailVerified: true,
+  // Existing test users default to "onboarding completed" so suites that
+  // pre-date the gate aren't accidentally redirected by the new
+  // (onboarded) layout.
+  avatarStepCompleted: true,
+  displayNameStepCompleted: true,
   notifyEmail: {},
   notifySlIm: {},
   // Listing-suspension defaults — a clean account has no pending penalty,

@@ -3,15 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { Tabs, type TabItem } from "@/components/ui/Tabs";
 import { useCurrentUser } from "@/lib/user";
 
-const TABS: TabItem[] = [
-  { id: "overview", label: "Overview", href: "/dashboard/overview" },
-  { id: "bids", label: "My Bids", href: "/dashboard/bids" },
-  { id: "listings", label: "My Listings", href: "/dashboard/listings" },
-];
-
+/**
+ * Verify-gate only. Tabs / dashboard chrome moved into the nested
+ * (onboarded) layout so the new forced-onboarding pages
+ * (/dashboard/avatar, /dashboard/display-name) — which are siblings of
+ * (onboarded) under (verified) — can render their own page chrome
+ * without inheriting the dashboard tabs strip.
+ */
 export default function VerifiedDashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { data: user, isPending, isError } = useCurrentUser();
@@ -24,11 +24,5 @@ export default function VerifiedDashboardLayout({ children }: { children: React.
   if (isPending || !user) return <LoadingSpinner label="Loading your dashboard..." />;
   if (!user.verified) return <LoadingSpinner label="Redirecting..." />;
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="text-xl font-bold tracking-tight font-display mb-6">Dashboard</h1>
-      <Tabs tabs={TABS} className="mb-8" />
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }

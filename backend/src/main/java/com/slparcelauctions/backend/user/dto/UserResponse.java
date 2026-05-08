@@ -24,6 +24,12 @@ public record UserResponse(
         Boolean verified,
         OffsetDateTime verifiedAt,
         Boolean emailVerified,
+        // Forced post-verify onboarding state. Drives the (onboarded)
+        // layout redirect on the frontend; both must be true for the user
+        // to reach the dashboard. See
+        // docs/superpowers/specs/2026-05-08-avatar-and-display-name-onboarding-design.md.
+        boolean avatarStepCompleted,
+        boolean displayNameStepCompleted,
         Map<String, Object> notifyEmail,
         Map<String, Object> notifySlIm,
         // Listing-suspension state (Epic 08 sub-spec 2 §7.2). Mirrors the
@@ -62,6 +68,8 @@ public record UserResponse(
                 user.getVerified(),
                 user.getVerifiedAt(),
                 user.getEmailVerified(),
+                Boolean.TRUE.equals(user.getAvatarStepCompleted()),
+                Boolean.TRUE.equals(user.getDisplayNameStepCompleted()),
                 user.getNotifyEmail(),
                 user.getNotifySlIm(),
                 user.getPenaltyBalanceOwed(),
