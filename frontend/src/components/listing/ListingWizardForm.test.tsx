@@ -182,10 +182,10 @@ describe("ListingWizardForm (create flow)", () => {
     });
     expect(routerPush).not.toHaveBeenCalled();
 
-    // First successful create should replace the URL to /listings/{id}/edit
+    // First successful create should replace the URL to /listings/{id}/activate
     // per sub-spec 2 §4.1.4 so a refresh keeps the seller on the same auction.
     await waitFor(() =>
-      expect(routerReplace).toHaveBeenCalledWith("/listings/00000000-0000-0000-0000-000000000007/edit"),
+      expect(routerReplace).toHaveBeenCalledWith("/listings/00000000-0000-0000-0000-000000000007/activate"),
     );
   });
 

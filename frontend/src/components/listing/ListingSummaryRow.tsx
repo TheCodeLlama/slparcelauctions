@@ -347,7 +347,7 @@ function PrimaryActions({
   const id = auction.publicId;
   const publicHref = `/auction/${id}`;
   const escrowHref = `/auction/${id}/escrow`;
-  const editHref = `/listings/${id}/edit`;
+  const editHref = `/listings/${id}/activate`;
   const activateHref = `/listings/${id}/activate`;
   const hasEscrow = auction.escrowState != null;
 
