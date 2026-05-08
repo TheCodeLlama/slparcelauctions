@@ -28,3 +28,18 @@ export function deletePhoto(
 ): Promise<void> {
   return api.delete<void>(`/api/v1/auctions/${auctionId}/photos/${photoId}`);
 }
+
+/**
+ * PATCH /api/v1/auctions/{auctionPublicId}/photos/order — atomic full-list
+ * reorder. The body's photoPublicIds set must equal the auction's current
+ * photo set; mismatch returns 400 PHOTO_SET_MISMATCH.
+ */
+export function reorderPhotos(
+  auctionPublicId: string,
+  photoPublicIds: string[],
+): Promise<AuctionPhotoDto[]> {
+  return api.patch<AuctionPhotoDto[]>(
+    `/api/v1/auctions/${auctionPublicId}/photos/order`,
+    { photoPublicIds },
+  );
+}

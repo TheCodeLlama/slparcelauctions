@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, test } from "vitest";
 import { http, HttpResponse } from "msw";
 import { act } from "@testing-library/react";
 import {
@@ -215,5 +215,20 @@ describe("BidHistoryList", () => {
       const top = screen.getAllByTestId("bid-history-row")[0];
       expect(top).toHaveAttribute("data-animated", "true");
     });
+  });
+});
+
+describe("BidHistoryList sample mode", () => {
+  it("renders sampleEntries with a Sample pill and skips the live query", () => {
+    const sample = [
+      entry({ bidPublicId: "s1", bidderDisplayName: "Sample Bidder A", amount: 1000 }),
+      entry({ bidPublicId: "s2", bidderDisplayName: "Sample Bidder B", amount: 1200 }),
+    ];
+    renderWithProviders(
+      <BidHistoryList auctionPublicId="abc" sampleEntries={sample} />,
+    );
+    expect(screen.getByTestId("bid-history-sample-pill")).toBeInTheDocument();
+    expect(screen.getByText("Sample Bidder A")).toBeInTheDocument();
+    expect(screen.getByText("Sample Bidder B")).toBeInTheDocument();
   });
 });
