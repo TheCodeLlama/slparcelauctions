@@ -69,7 +69,9 @@ class UserControllerTest {
         java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse response = new UserResponse(
                 publicId, "alice", "alice@example.com", "Alice", null, null, null, null, null, null, null, null,
-                false, null, false, Map.of(), Map.of(),
+                false, null, false,
+                false, false, // avatarStepCompleted, displayNameStepCompleted
+                Map.of(), Map.of(),
                 0L, null, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.createUser(any(CreateUserRequest.class))).thenReturn(response);
@@ -177,7 +179,9 @@ class UserControllerTest {
         java.util.UUID publicId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000001");
         UserResponse expected = new UserResponse(
                 publicId, "test", "test@example.com", "Test User", null, null, null, null, null, null, null, null,
-                false, null, false, Map.of(), Map.of(),
+                false, null, false,
+                false, false, // avatarStepCompleted, displayNameStepCompleted
+                Map.of(), Map.of(),
                 0L, null, false,
                 OffsetDateTime.now(), OffsetDateTime.now(), 0L, Role.USER);
         when(userService.getUserById(1L)).thenReturn(expected);

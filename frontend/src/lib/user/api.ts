@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 
 export type CurrentUser = {
   publicId: string;
+  username: string;
   email: string;
   displayName: string | null;
   bio: string | null;
@@ -15,6 +16,18 @@ export type CurrentUser = {
   verified: boolean;
   verifiedAt: string | null;
   emailVerified: boolean;
+  /**
+   * Forced post-verify onboarding step #1: true once the user uploads an
+   * avatar, picks their SL profile photo, or skips. Drives the
+   * (onboarded) layout redirect to /dashboard/avatar.
+   */
+  avatarStepCompleted: boolean;
+  /**
+   * Forced post-verify onboarding step #2: true once the user saves a
+   * display name or skips. Drives the (onboarded) layout redirect to
+   * /dashboard/display-name.
+   */
+  displayNameStepCompleted: boolean;
   notifyEmail: Record<string, unknown>;
   notifySlIm: Record<string, unknown>;
   /**
@@ -91,10 +104,49 @@ export const userApi = {
     form.append("file", file);
     return api.post<CurrentUser>("/api/v1/users/me/avatar", form);
   },
+  uploadAvatarBlob: (blob: Blob) => {
+    // Cropper output is WebP; backend ImageUploadValidator decodes via
+    // Scrimage (dwebp). Wire format is the same regardless of extension —
+    // both fields are illustrative for any server-side logging.
+    const file = new File([blob], "avatar.webp", { type: blob.type || "image/webp" });
+    return userApi.uploadAvatar(file);
+  },
   publicProfile: (publicId: string) =>
     api.get<PublicUserProfile>(`/api/v1/users/${publicId}`),
   deleteSelf: (password: string): Promise<void> =>
     api.delete("/api/v1/users/me", { body: { password } }),
+};
+
+export const onboardingApi = {
+  skipAvatar: () =>
+    api.post<CurrentUser>("/api/v1/users/me/onboarding/avatar/skip"),
+  setDisplayName: (displayName: string | null) =>
+    api.post<CurrentUser>("/api/v1/users/me/onboarding/display-name", {
+      displayName,
+    }),
+  /**
+   * Fetches the user's SL profile photo bytes through the backend proxy.
+   * Returns null when the backend says 404 (no SL avatar UUID set, no
+   * profile photo, or scrape failed). Any other non-OK status throws.
+   *
+   * <p>Uses {@code fetch} directly because {@code api.get} parses JSON;
+   * we need the raw response so we can read it as a Blob and feed it to
+   * the cropper via {@code URL.createObjectURL}.
+   */
+  fetchSlProfilePhoto: async (): Promise<Blob | null> => {
+    const { getAccessToken } = await import("@/lib/auth/session");
+    const token = getAccessToken();
+    const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+    const res = await fetch(`${base}/api/v1/users/me/onboarding/sl-profile-photo`, {
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error(`Failed to fetch SL profile photo (${res.status})`);
+    }
+    return await res.blob();
+  },
 };
 
 export const verificationApi = {

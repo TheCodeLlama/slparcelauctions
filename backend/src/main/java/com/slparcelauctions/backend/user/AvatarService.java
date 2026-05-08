@@ -69,7 +69,12 @@ public class AvatarService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         user.setProfilePicUrl("/api/v1/users/" + user.getPublicId() + "/avatar/256");
-        // JPA dirty checking flushes the setProfilePicUrl on transaction commit.
+        // Uploading an avatar implicitly completes the post-verify avatar
+        // onboarding step. Idempotent — re-uploading is a no-op on the flag.
+        if (!Boolean.TRUE.equals(user.getAvatarStepCompleted())) {
+            user.setAvatarStepCompleted(true);
+        }
+        // JPA dirty checking flushes both setters on transaction commit.
         return UserResponse.from(user);
     }
 
