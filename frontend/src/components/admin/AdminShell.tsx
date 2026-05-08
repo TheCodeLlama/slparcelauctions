@@ -29,6 +29,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Listings", href: "/admin/listings" },
     { label: "Drafts", href: "/admin/drafts" },
     { label: "Parcel tags", href: "/admin/parcel-tags" },
+    { label: "Parcel categories", href: "/admin/parcel-tag-categories" },
     { label: "Users", href: "/admin/users" },
     { label: "Infrastructure", href: "/admin/infrastructure" },
     { label: "Audit log", href: "/admin/audit-log" },

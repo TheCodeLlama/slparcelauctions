@@ -10,19 +10,22 @@ beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+const terrain = { code: "TERRAIN", label: "Terrain", active: true };
+const roads = { code: "ROADS", label: "Roads", active: true };
+
 const tags: AdminParcelTagDto[] = [
   {
-    code: "WATERFRONT", label: "Waterfront", category: "Terrain",
+    code: "WATERFRONT", label: "Waterfront", category: terrain,
     description: null, active: true,
     createdAt: "x", updatedAt: "x",
   },
   {
-    code: "SNOW", label: "Snow", category: "Terrain",
+    code: "SNOW", label: "Snow", category: terrain,
     description: null, active: false,
     createdAt: "x", updatedAt: "x",
   },
   {
-    code: "STREETFRONT", label: "Streetfront", category: "Roads",
+    code: "STREETFRONT", label: "Streetfront", category: roads,
     description: null, active: true,
     createdAt: "x", updatedAt: "x",
   },
@@ -33,6 +36,10 @@ describe("AdminParcelTagsTable", () => {
     renderWithProviders(<AdminParcelTagsTable tags={tags} onEdit={vi.fn()} />);
     expect(screen.getByTestId("admin-parcel-tags-group-Terrain")).toBeInTheDocument();
     expect(screen.getByTestId("admin-parcel-tags-group-Roads")).toBeInTheDocument();
+    // Sort within category is alphabetical by label.
+    const rows = screen.getAllByTestId(/admin-parcel-tag-row-/);
+    expect(rows[0]).toHaveAttribute("data-testid", "admin-parcel-tag-row-SNOW");
+    expect(rows[1]).toHaveAttribute("data-testid", "admin-parcel-tag-row-WATERFRONT");
     const snowRow = screen.getByTestId("admin-parcel-tag-row-SNOW");
     expect(snowRow).toHaveAttribute("data-active", "false");
   });

@@ -44,4 +44,42 @@ public class ParcelTagExceptionHandler {
         pd.setProperty("tagCode", e.getTagCode());
         return pd;
     }
+
+    @ExceptionHandler(ParcelTagCategoryCodeConflictException.class)
+    public ProblemDetail handleCategoryConflict(
+            ParcelTagCategoryCodeConflictException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "A parcel tag category with this code already exists.");
+        pd.setTitle("Parcel Tag Category Code Conflict");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PARCEL_TAG_CATEGORY_CODE_CONFLICT");
+        pd.setProperty("categoryCode", e.getCategoryCode());
+        return pd;
+    }
+
+    @ExceptionHandler(ParcelTagCategoryNotFoundException.class)
+    public ProblemDetail handleCategoryNotFound(
+            ParcelTagCategoryNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Parcel Tag Category Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "PARCEL_TAG_CATEGORY_NOT_FOUND");
+        pd.setProperty("categoryCode", e.getCategoryCode());
+        return pd;
+    }
+
+    @ExceptionHandler(InactiveParcelTagCategoryException.class)
+    public ProblemDetail handleInactiveCategory(
+            InactiveParcelTagCategoryException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "The selected parcel tag category is inactive. Pick another or re-enable it.");
+        pd.setTitle("Inactive Parcel Tag Category");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INACTIVE_PARCEL_TAG_CATEGORY");
+        pd.setProperty("categoryCode", e.getCategoryCode());
+        return pd;
+    }
 }

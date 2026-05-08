@@ -8,7 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ParcelTagRepository extends JpaRepository<ParcelTag, Long> {
 
-    List<ParcelTag> findByActiveTrueOrderByCategoryAscLabelAsc();
+    /** Public view: only tags whose own active flag AND whose category's active flag are both true. */
+    List<ParcelTag> findByActiveTrueAndCategoryActiveTrueOrderByCategory_LabelAscLabelAsc();
 
     List<ParcelTag> findByCodeIn(Set<String> codes);
 
@@ -16,6 +17,6 @@ public interface ParcelTagRepository extends JpaRepository<ParcelTag, Long> {
 
     boolean existsByCode(String code);
 
-    /** Admin view — returns inactive rows too. */
-    List<ParcelTag> findAllByOrderByCategoryAscLabelAsc();
+    /** Admin view — returns all tags (incl. inactive) regardless of category state. */
+    List<ParcelTag> findAllByOrderByCategory_LabelAscLabelAsc();
 }

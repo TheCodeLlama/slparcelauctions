@@ -10,6 +10,8 @@ public record ParcelTagResponse(
 
     public static ParcelTagResponse from(ParcelTag t) {
         return new ParcelTagResponse(
-                t.getCode(), t.getLabel(), t.getCategory(), t.getDescription());
+                t.getCode(), t.getLabel(),
+                t.getCategory() == null ? null : t.getCategory().getLabel(),
+                t.getDescription());
     }
 }

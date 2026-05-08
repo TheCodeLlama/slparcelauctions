@@ -83,4 +83,9 @@ export const adminQueryKeys = {
 
   parcelTags: () => [...adminQueryKeys.all, "parcel-tags"] as const,
   parcelTagsList: () => [...adminQueryKeys.parcelTags(), "list"] as const,
+
+  parcelTagCategories: () =>
+    [...adminQueryKeys.all, "parcel-tag-categories"] as const,
+  parcelTagCategoriesList: () =>
+    [...adminQueryKeys.parcelTagCategories(), "list"] as const,
 };

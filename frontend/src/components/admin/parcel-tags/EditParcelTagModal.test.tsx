@@ -11,22 +11,37 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 const tag: AdminParcelTagDto = {
-  code: "WATERFRONT", label: "Waterfront", category: "Terrain",
-  description: "Old desc", active: true,
-  createdAt: "x", updatedAt: "x",
+  code: "WATERFRONT",
+  label: "Waterfront",
+  category: { code: "TERRAIN", label: "Terrain", active: true },
+  description: "Old desc",
+  active: true,
+  createdAt: "x",
+  updatedAt: "x",
 };
+
+const categoriesHandler = http.get(
+  "*/api/v1/admin/parcel-tag-categories",
+  () =>
+    HttpResponse.json([
+      { code: "TERRAIN", label: "Terrain", description: null, active: true,
+        createdAt: "x", updatedAt: "x" },
+      { code: "ROADS", label: "Roads", description: null, active: true,
+        createdAt: "x", updatedAt: "x" },
+    ]),
+);
 
 describe("EditParcelTagModal", () => {
   it("renders code as read-only text", () => {
-    renderWithProviders(
-      <EditParcelTagModal open onClose={vi.fn()} tag={tag} existingCategories={[]} />,
-    );
+    server.use(categoriesHandler);
+    renderWithProviders(<EditParcelTagModal open onClose={vi.fn()} tag={tag} />);
     expect(screen.getByTestId("edit-parcel-tag-code")).toHaveTextContent("WATERFRONT");
   });
 
   it("submits only the changed fields", async () => {
     let received: unknown = null;
     server.use(
+      categoriesHandler,
       http.patch("*/api/v1/admin/parcel-tags/WATERFRONT", async ({ request }) => {
         received = await request.json();
         return HttpResponse.json({ ...tag, label: "New label" });
@@ -35,12 +50,7 @@ describe("EditParcelTagModal", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <EditParcelTagModal
-        open
-        onClose={onClose}
-        tag={tag}
-        existingCategories={[]}
-      />,
+      <EditParcelTagModal open onClose={onClose} tag={tag} />,
     );
     const labelInput = screen.getByTestId("edit-parcel-tag-label") as HTMLInputElement;
     await user.clear(labelInput);
@@ -55,6 +65,7 @@ describe("EditParcelTagModal", () => {
   it("no-op submit just closes (no PATCH)", async () => {
     let called = false;
     server.use(
+      categoriesHandler,
       http.patch("*/api/v1/admin/parcel-tags/WATERFRONT", () => {
         called = true;
         return HttpResponse.json(tag);
@@ -63,16 +74,10 @@ describe("EditParcelTagModal", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderWithProviders(
-      <EditParcelTagModal
-        open
-        onClose={onClose}
-        tag={tag}
-        existingCategories={[]}
-      />,
+      <EditParcelTagModal open onClose={onClose} tag={tag} />,
     );
     await user.click(screen.getByTestId("edit-parcel-tag-submit"));
     expect(onClose).toHaveBeenCalled();
-    // brief wait to confirm no PATCH was sent
     await new Promise((r) => setTimeout(r, 50));
     expect(called).toBe(false);
   });
