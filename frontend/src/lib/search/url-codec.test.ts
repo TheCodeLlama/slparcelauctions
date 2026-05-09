@@ -91,4 +91,29 @@ describe("url codec", () => {
     const q = queryFromSearchParams(sp);
     expect(q.statusFilter).toBe("ended_only");
   });
+
+  describe("q field round-trip", () => {
+    it("decodes ?q=foo", () => {
+      const sp = new URLSearchParams("q=foo");
+      expect(queryFromSearchParams(sp).q).toBe("foo");
+    });
+    it("encodes q=foo", () => {
+      const sp = searchParamsFromQuery({
+        ...defaultAuctionSearchQuery,
+        q: "foo",
+      });
+      expect(sp.get("q")).toBe("foo");
+    });
+    it("drops q on encode when blank", () => {
+      const sp = searchParamsFromQuery({
+        ...defaultAuctionSearchQuery,
+        q: "",
+      });
+      expect(sp.get("q")).toBeNull();
+    });
+    it("trims whitespace on decode", () => {
+      const sp = new URLSearchParams("q=%20%20foo%20%20");
+      expect(queryFromSearchParams(sp).q).toBe("foo");
+    });
+  });
 });

@@ -81,6 +81,9 @@ function parseEnum<T extends string>(
 export function queryFromSearchParams(sp: URLSearchParams): AuctionSearchQuery {
   const q: AuctionSearchQuery = { ...defaultAuctionSearchQuery };
 
+  const qParam = sp.get("q");
+  if (qParam && qParam.trim().length > 0) q.q = qParam.trim();
+
   const region = sp.get("region");
   if (region) q.region = region;
 
@@ -161,6 +164,7 @@ function putIf<T>(
  */
 export function searchParamsFromQuery(q: AuctionSearchQuery): URLSearchParams {
   const sp = new URLSearchParams();
+  putIf(sp, "q", q.q && q.q.length > 0 ? q.q : undefined, (v) => v);
   putIf(sp, "region", q.region, (v) => v);
   putIf(sp, "min_area", q.minArea, String);
   putIf(sp, "max_area", q.maxArea, String);
