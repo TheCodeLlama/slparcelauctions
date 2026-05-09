@@ -153,12 +153,12 @@ class AuctionPhotoControllerIntegrationTest {
     @Test
     void upload_oversizedBytes_returns413() throws Exception {
         Auction a = seedDraftAuction();
-        // Our validator maxBytes default is 2097152 (2 MiB). Spring's multipart
-        // layer is also 2MB — so to hit our in-service reject before spring's
-        // parser rejects, we stub the application property down to 1 byte via
-        // an already-large fixture. The 3mb avatar fixture exercises Spring's
-        // multipart layer instead (expect 413 from MaxUploadSizeExceededException).
-        byte[] bytes = Files.readAllBytes(FIXTURES.resolve("avatar-3mb.png"));
+        // Spring's multipart cap is 25 MB (matching slpa.photos.max-bytes). To
+        // exercise the 413 path we synthesise an in-memory byte array just over
+        // the limit — generating a real 25MB image fixture is wasteful and
+        // image content is irrelevant since the multipart layer rejects before
+        // any decode happens.
+        byte[] bytes = new byte[26 * 1024 * 1024];
 
         MockMultipartFile file = new MockMultipartFile(
                 "file", "big.png", "image/png", bytes);

@@ -38,15 +38,17 @@ export function revokeStagedPhoto(p: StagedPhoto): void {
 }
 
 /**
- * File-type and size guard for listing photos. Matches the backend
- * AuctionPhotoController contract (JPEG/PNG/WebP, ≤2 MB).
+ * File-type guard for listing photos. Matches the backend
+ * AuctionPhotoController contract (JPEG / PNG / WebP). No byte-size check
+ * here — PhotoUploader resizes each picked file via
+ * {@code browser-image-compression} (max 2048 px on the longest edge)
+ * before staging, so the wire payload is always small regardless of the
+ * source image. The server-side ListingPhotoProcessor still enforces a
+ * 25 MB cap as DoS protection.
  */
 export function validateFile(file: File): string | null {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
     return "Only JPEG, PNG, or WebP images are accepted.";
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    return "Image must be 2 MB or smaller.";
   }
   return null;
 }

@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { DropZone } from "@/components/ui/DropZone";
 import { AlertTriangle, GripVertical, Trash2 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
+import { resizeImage } from "@/lib/image/resizeImage";
 import {
   revokeStagedPhoto,
   stagePhoto,
@@ -88,17 +89,26 @@ export function PhotoUploader({
     };
   }, []);
 
-  function addFiles(files: File[]) {
+  async function addFiles(files: File[]) {
     if (disabled) return;
     const remaining = Math.max(0, maxPhotos - staged.length);
     const take = files.slice(0, remaining);
-    const additions: StagedPhoto[] = take.map((f) => {
-      const err = validateFile(f);
-      const p = stagePhoto(f);
-      p.error = err;
-      return p;
-    });
-    if (additions.length === 0) return;
+    if (take.length === 0) return;
+    const additions: StagedPhoto[] = await Promise.all(
+      take.map(async (raw) => {
+        const err = validateFile(raw);
+        if (err) {
+          const p = stagePhoto(raw);
+          p.error = err;
+          return p;
+        }
+        // Resize before staging so the on-disk preview, the upload payload,
+        // and the eventual S3 object are all the same already-shrunk bytes.
+        // Runs in a Web Worker so the main thread keeps repainting.
+        const resized = await resizeImage(raw, { maxDim: 2048 });
+        return stagePhoto(resized);
+      }),
+    );
     onStagedChange([...staged, ...additions]);
   }
 
