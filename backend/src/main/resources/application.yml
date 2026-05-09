@@ -135,8 +135,14 @@ slpa:
     post-cancel-watch-hours: 48
   photos:
     max-per-listing: 10
-    max-bytes: 2097152
-    max-dimension: 4096
+    # Server-side caps for ListingPhotoProcessor, applied to both listing-photo
+    # and user default-cover uploads. The frontend resizes via
+    # browser-image-compression before sending; these are the defense-in-depth
+    # backstop for clients that bypass the resize. 2048px on the longest edge
+    # is the display-quality target; 25MB protects the JVM from decode-OOM if
+    # someone POSTs an unresized 50MP RAW.
+    max-bytes: 26214400
+    max-dimension: 2048
   ownership-monitor:
     enabled: true
     check-interval-minutes: 30
