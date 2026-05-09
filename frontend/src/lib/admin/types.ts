@@ -384,6 +384,8 @@ export type AdminListingRow = {
   saveCount: number;
   endsAt: string | null;
   region: string | null;
+  isFeatured: boolean;
+  featuredUntil: string | null;
 };
 
 export type AdminListingsSortColumn =
@@ -406,6 +408,7 @@ export type AdminListingsFilters = {
   search?: string;
   statuses?: AuctionStatus[];
   hasReserve?: boolean | null;
+  featured?: boolean | null;
   page: number;
   size: number;
   sort: AdminListingsSort;
@@ -415,7 +418,18 @@ export type AdminListingActionRequest = {
   notes: string;
 };
 
-export type AdminListingAction = "warn" | "suspend" | "cancel" | "reinstate";
+export type AdminListingAction =
+  | "warn"
+  | "suspend"
+  | "cancel"
+  | "reinstate"
+  | "feature"
+  | "unfeature";
+
+export type SetFeaturedRequest = {
+  featured: boolean;
+  featuredUntil: string | null;
+};
 
 // ─── Admin Global Ledger ───────────────────────────────────────────────────
 

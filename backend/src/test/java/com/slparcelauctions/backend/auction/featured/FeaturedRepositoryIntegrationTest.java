@@ -29,12 +29,17 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 /**
- * Coverage for the three native-SQL queries that back the featured rows.
+ * Coverage for the three native-SQL queries that back the homepage rails.
  * Each test seeds its own ACTIVE auction set and verifies row count +
- * ordering. The {@code mostActive} test back-dates synthetic bids via a
- * native UPDATE because {@link Bid#getCreatedAt()} is
- * {@code @CreationTimestamp}-managed and the builder value would be
- * overwritten on insert.
+ * ordering. {@code @Transactional} rolls each test back so seeded fixtures
+ * don't bleed across tests.
+ *
+ * <p>Bid timestamps are back-dated via native UPDATE because
+ * {@link Bid#getCreatedAt()} is {@code @CreationTimestamp}-managed and any
+ * builder value would be overwritten on insert. The {@code em.flush()}
+ * after each insert is load-bearing: the JdbcTemplate-style scalar
+ * subqueries inside the rail queries read from the JDBC layer directly,
+ * not from the JPA write-behind cache.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -63,13 +68,119 @@ class FeaturedRepositoryIntegrationTest {
                 .displayName("Seller").verified(true).build());
     }
 
+    // ---------- featured() ----------
+
+    @Test
+    void featured_zeroCurated_returnsTopFourByCurrentBidDesc() {
+        Auction a1 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(a1, 100L);
+        Auction a2 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(a2, 500L);
+        Auction a3 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(a3, 300L);
+        Auction a4 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(a4, 200L);
+        Auction a5 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(a5, 400L);
+        em.flush();
+
+        List<Auction> result = featuredRepo.featured();
+
+        assertThat(result).hasSize(4);
+        assertThat(result.get(0).getId()).isEqualTo(a2.getId()); // 500
+        assertThat(result.get(1).getId()).isEqualTo(a5.getId()); // 400
+        assertThat(result.get(2).getId()).isEqualTo(a3.getId()); // 300
+        assertThat(result.get(3).getId()).isEqualTo(a4.getId()); // 200
+    }
+
+    @Test
+    void featured_twoCurated_returnsCuratedThenFill() {
+        Auction c1 = seedActive(plusHours(2), minusDays(1)); setFeatured(c1, null); setCurrentBid(c1, 50L);
+        Auction c2 = seedActive(plusHours(5), minusDays(1)); setFeatured(c2, null); setCurrentBid(c2, 60L);
+        Auction f1 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(f1, 1000L);
+        Auction f2 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(f2, 800L);
+        Auction f3 = seedActive(plusDays(7), minusDays(1)); setCurrentBid(f3, 900L);
+        em.flush();
+
+        List<Auction> result = featuredRepo.featured();
+
+        assertThat(result).hasSize(4);
+        assertThat(result.get(0).getId()).isEqualTo(c1.getId());
+        assertThat(result.get(1).getId()).isEqualTo(c2.getId());
+        assertThat(result.get(2).getId()).isEqualTo(f1.getId()); // 1000
+        assertThat(result.get(3).getId()).isEqualTo(f3.getId()); // 900
+    }
+
+    @Test
+    void featured_sixCurated_returnsSoonestFour() {
+        Auction[] rows = new Auction[6];
+        for (int i = 0; i < 6; i++) {
+            rows[i] = seedActive(plusHours(i + 1), minusDays(1));
+            setFeatured(rows[i], null);
+        }
+        em.flush();
+
+        List<Auction> result = featuredRepo.featured();
+
+        assertThat(result).hasSize(4);
+        assertThat(result).extracting(Auction::getId)
+                .containsExactly(rows[0].getId(), rows[1].getId(), rows[2].getId(), rows[3].getId());
+    }
+
+    @Test
+    void featured_pastFeaturedUntilExcludedFromCuratedBucket() {
+        // Expired featured auction must not appear in the curated band — i.e.
+        // it must not pre-empt the slot a non-flagged higher-bid row would own.
+        // We saturate the fill candidates with high-bid actives so the expired
+        // row would never make the fill cut on its own merits.
+        Auction expired = seedActive(plusDays(7), minusDays(1));
+        setFeatured(expired, OffsetDateTime.now().minusHours(1));
+        setCurrentBid(expired, 1L);
+        Auction live = seedActive(plusHours(2), minusDays(1));
+        setFeatured(live, OffsetDateTime.now().plusHours(1));
+        for (int i = 0; i < 4; i++) {
+            Auction filler = seedActive(plusDays(7), minusDays(1));
+            setCurrentBid(filler, 10_000L + i);
+        }
+        em.flush();
+
+        List<Auction> result = featuredRepo.featured();
+
+        assertThat(result).hasSize(4);
+        assertThat(result.get(0).getId()).isEqualTo(live.getId()); // curated
+        assertThat(result).extracting(Auction::getId).doesNotContain(expired.getId());
+    }
+
+    @Test
+    void featured_includesNullFeaturedUntil() {
+        Auction permanent = seedActive(plusDays(7), minusDays(1));
+        setFeatured(permanent, null);
+        em.flush();
+
+        List<Auction> result = featuredRepo.featured();
+
+        assertThat(result).extracting(Auction::getId).contains(permanent.getId());
+    }
+
+    @Test
+    void featured_excludesNonActiveStatuses() {
+        Auction draft = seedActive(plusDays(7), minusDays(1));
+        setFeatured(draft, null);
+        em.createNativeQuery("UPDATE auctions SET status = 'CANCELLED' WHERE id = :id")
+                .setParameter("id", draft.getId()).executeUpdate();
+        em.flush();
+
+        List<Auction> result = featuredRepo.featured();
+
+        assertThat(result).extracting(Auction::getId).doesNotContain(draft.getId());
+    }
+
+    // ---------- endingSoon() ----------
+
     @Test
     void endingSoon_ordersByEndsAtAsc_limit6() {
         for (int i = 0; i < 8; i++) {
-            seedActive(OffsetDateTime.now().plusHours(i + 1),
-                    OffsetDateTime.now().minusDays(1));
+            seedActive(plusHours(i + 1), minusDays(1));
         }
+        em.flush();
+
         List<Auction> result = featuredRepo.endingSoon();
+
         assertThat(result).hasSize(6);
         for (int i = 0; i < 5; i++) {
             assertThat(result.get(i).getEndsAt())
@@ -77,40 +188,108 @@ class FeaturedRepositoryIntegrationTest {
         }
     }
 
+    // ---------- trending() ----------
+
     @Test
-    void justListed_ordersByStartsAtDesc_limit6() {
-        for (int i = 0; i < 8; i++) {
-            seedActive(OffsetDateTime.now().plusDays(7),
-                    OffsetDateTime.now().minusHours(i));
-        }
-        List<Auction> result = featuredRepo.justListed();
-        assertThat(result).hasSize(6);
-        for (int i = 0; i < 5; i++) {
-            assertThat(result.get(i).getStartsAt())
-                    .isAfterOrEqualTo(result.get(i + 1).getStartsAt());
-        }
+    void trending_scoresBidsTwoSavesOne_over24h() {
+        Auction hot = seedActive(plusDays(7), minusDays(2));
+        Auction warm = seedActive(plusDays(7), minusDays(2));
+        Auction cold = seedActive(plusDays(7), minusDays(2));
+
+        seedRecentBids(hot, 3);   // 6 + 0 = 6
+        seedRecentSaves(hot, 1);  // 6 + 1 = 7
+        seedRecentBids(warm, 1);  // 2 + 0 = 2
+        seedRecentSaves(warm, 4); // 2 + 4 = 6
+        // cold: 0 + 0 = 0
+        em.flush();
+
+        List<Auction> result = featuredRepo.trending();
+
+        int hotIdx  = indexOf(result, hot.getId());
+        int warmIdx = indexOf(result, warm.getId());
+        int coldIdx = indexOf(result, cold.getId());
+        assertThat(hotIdx).isLessThan(warmIdx);
+        assertThat(warmIdx).isLessThan(coldIdx);
     }
 
     @Test
-    void mostActive_ordersBy6hBidCountDesc_limit6() {
-        Auction hot = seedActive(OffsetDateTime.now().plusDays(7),
-                OffsetDateTime.now().minusDays(3));
-        Auction cold = seedActive(OffsetDateTime.now().plusDays(7),
-                OffsetDateTime.now().minusDays(3));
+    void trending_excludesEventsOutside24h() {
+        Auction noisyOld = seedActive(plusDays(7), minusDays(2));
+        Auction silentRecent = seedActive(plusDays(7), minusDays(2));
 
-        // 5 recent bids on hot, 1 on cold. All bids land within the last
-        // 6 hours naturally — minutes-ago offsets are well inside the
-        // INTERVAL window the query uses, so back-dating isn't needed
-        // for the ordering assertion. We still flush so the COUNT(*)
-        // subquery sees the rows.
-        for (int i = 0; i < 5; i++) {
-            seedBid(hot, 1000L + i);
-        }
-        seedBid(cold, 1000L);
+        seedBidAt(noisyOld, OffsetDateTime.now().minusDays(3));     // outside 24h
+        seedSaveAt(silentRecent, OffsetDateTime.now().minusHours(1)); // inside
         em.flush();
 
-        List<Auction> result = featuredRepo.mostActive();
-        assertThat(result.get(0).getId()).isEqualTo(hot.getId());
+        List<Auction> result = featuredRepo.trending();
+
+        int recentIdx = indexOf(result, silentRecent.getId());
+        int oldIdx    = indexOf(result, noisyOld.getId());
+        assertThat(recentIdx).isLessThan(oldIdx);
+    }
+
+    // ---------- helpers ----------
+
+    private static OffsetDateTime plusHours(int h) { return OffsetDateTime.now().plusHours(h); }
+    private static OffsetDateTime plusDays(int d)  { return OffsetDateTime.now().plusDays(d); }
+    private static OffsetDateTime minusDays(int d) { return OffsetDateTime.now().minusDays(d); }
+
+    private void setFeatured(Auction a, OffsetDateTime until) {
+        em.createNativeQuery(
+                "UPDATE auctions SET is_featured = TRUE, featured_until = :u WHERE id = :id")
+                .setParameter("u", until)
+                .setParameter("id", a.getId())
+                .executeUpdate();
+    }
+
+    private void setCurrentBid(Auction a, long amount) {
+        em.createNativeQuery("UPDATE auctions SET current_bid = :b WHERE id = :id")
+                .setParameter("b", amount)
+                .setParameter("id", a.getId())
+                .executeUpdate();
+    }
+
+    private void seedRecentBids(Auction a, int n) {
+        for (int i = 0; i < n; i++) seedBidAt(a, OffsetDateTime.now().minusMinutes(5 + i));
+    }
+
+    private void seedBidAt(Auction a, OffsetDateTime when) {
+        Bid bid = bidRepo.save(Bid.builder()
+                .auction(a).bidder(seller)
+                .amount(100L).bidType(BidType.MANUAL)
+                .build());
+        em.flush();
+        em.createNativeQuery("UPDATE bids SET created_at = :t WHERE id = :id")
+                .setParameter("t", when)
+                .setParameter("id", bid.getId())
+                .executeUpdate();
+    }
+
+    private void seedRecentSaves(Auction a, int n) {
+        for (int i = 0; i < n; i++) seedSaveAt(a, OffsetDateTime.now().minusMinutes(5 + i));
+    }
+
+    private void seedSaveAt(Auction a, OffsetDateTime when) {
+        User saver = userRepo.save(User.builder()
+                .username("u-" + UUID.randomUUID().toString().substring(0, 8))
+                .email("saver-" + UUID.randomUUID() + "@ex.com")
+                .passwordHash("x").slAvatarUuid(UUID.randomUUID())
+                .displayName("S").verified(true).build());
+        em.flush();
+        em.createNativeQuery(
+                "INSERT INTO saved_auctions (public_id, version, created_at, updated_at, user_id, auction_id, saved_at) " +
+                "VALUES (gen_random_uuid(), 0, NOW(), NOW(), :u, :a, :t)")
+                .setParameter("u", saver.getId())
+                .setParameter("a", a.getId())
+                .setParameter("t", when)
+                .executeUpdate();
+    }
+
+    private static int indexOf(List<Auction> rows, Long id) {
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).getId().equals(id)) return i;
+        }
+        return -1;
     }
 
     private Auction seedActive(OffsetDateTime endsAt, OffsetDateTime startsAt) {
@@ -136,12 +315,5 @@ class FeaturedRepositoryIntegrationTest {
                 .positionX(128.0).positionY(64.0).positionZ(22.0)
                 .build());
         return auctionRepo.save(auction);
-    }
-
-    private Bid seedBid(Auction auction, long amount) {
-        return bidRepo.save(Bid.builder()
-                .auction(auction).bidder(seller)
-                .amount(amount).bidType(BidType.MANUAL)
-                .build());
     }
 }

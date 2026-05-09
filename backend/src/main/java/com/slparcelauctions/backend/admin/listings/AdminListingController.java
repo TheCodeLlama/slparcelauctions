@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.admin.listings.dto.AdminListingActionRequest;
 import com.slparcelauctions.backend.admin.listings.dto.AdminListingFilterParams;
 import com.slparcelauctions.backend.admin.listings.dto.AdminListingRowDto;
+import com.slparcelauctions.backend.admin.listings.dto.SetFeaturedRequest;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
@@ -48,13 +50,15 @@ public class AdminListingController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<AuctionStatus> status,
             @RequestParam(required = false) Boolean hasReserve,
+            @RequestParam(required = false) Boolean featured,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
         AdminListingFilterParams params = new AdminListingFilterParams(
             normalize(search),
             status == null ? List.of() : status,
-            hasReserve
+            hasReserve,
+            featured
         );
         Page<AdminListingRowDto> result = service.list(params, PageRequest.of(page, size, parseSort(sort)));
         return PagedResponse.from(result);
@@ -94,6 +98,14 @@ public class AdminListingController {
             @AuthenticationPrincipal AuthPrincipal admin) {
         service.reinstate(publicId, admin.userId(), body.notes());
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{publicId}/featured")
+    public AdminListingRowDto setFeatured(
+            @PathVariable UUID publicId,
+            @Valid @RequestBody SetFeaturedRequest body,
+            @AuthenticationPrincipal AuthPrincipal admin) {
+        return service.setFeatured(publicId, admin.userId(), body);
     }
 
     /** Trims whitespace and treats empty/blank strings as null. */

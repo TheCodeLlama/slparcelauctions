@@ -17,6 +17,13 @@ const PRESETS: Preset[] = [
     sort: { column: "endsAt", direction: "asc" },
   },
   {
+    key: "featured",
+    label: "Featured",
+    statuses: ["ACTIVE"],
+    sort: { column: "endsAt", direction: "asc" },
+    featured: true,
+  },
+  {
     key: "live-escrow",
     label: "Live escrow",
     statuses: ["ESCROW_PENDING", "ESCROW_FUNDED", "TRANSFER_PENDING", "DISPUTED"],

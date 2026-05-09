@@ -68,15 +68,15 @@ describe("auctions-search API", () => {
     await expect(searchAuctions({})).rejects.toMatchObject({ status: 429 });
   });
 
-  it("fetchFeatured hits the right endpoint", async () => {
+  it("fetchFeatured hits the right rail endpoint", async () => {
     let seen = "";
     server.use(
-      http.get("*/api/v1/auctions/featured/:category", ({ params }) => {
+      http.get("*/api/v1/auctions/rails/:category", ({ params }) => {
         seen = String(params.category);
         return HttpResponse.json({ content: [] });
       }),
     );
-    await fetchFeatured("ending-soon");
-    expect(seen).toBe("ending-soon");
+    await fetchFeatured("featured");
+    expect(seen).toBe("featured");
   });
 });

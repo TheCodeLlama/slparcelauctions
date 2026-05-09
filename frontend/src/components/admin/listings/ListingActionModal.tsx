@@ -6,6 +6,7 @@ import {
   useSuspendListing,
   useCancelListing,
   useReinstateListing,
+  useSetFeatured,
 } from "@/hooks/admin/useAdminListings";
 import type { AdminListingAction, AdminListingRow } from "@/lib/admin/types";
 
@@ -53,6 +54,20 @@ const CONFIG: Record<AdminListingAction, ActionConfig> = {
     placeholder:
       'e.g. "Seller has corrected the issue. Reinstating with extended end time."',
   },
+  feature: {
+    title: "Feature listing",
+    primaryLabel: "Feature listing",
+    variant: "primary",
+    body: "The listing will appear on the homepage Featured rail. Optional expiry — leave blank for permanent.",
+    placeholder: "",
+  },
+  unfeature: {
+    title: "Unfeature listing",
+    primaryLabel: "Unfeature listing",
+    variant: "destructive",
+    body: "The listing will be removed from the homepage Featured rail.",
+    placeholder: "",
+  },
 };
 
 type Props = {
@@ -64,23 +79,33 @@ type Props = {
 
 export function ListingActionModal({ open, action, row, onClose }: Props) {
   const [notes, setNotes] = useState<string>("");
+  const [featuredUntil, setFeaturedUntil] = useState<string>("");
   const config = CONFIG[action];
+  const isFeatureMode = action === "feature" || action === "unfeature";
 
   const warn = useWarnListing();
   const suspend = useSuspendListing();
   const cancel = useCancelListing();
   const reinstate = useReinstateListing();
+  const setFeatured = useSetFeatured();
 
+  // Pending state is always read off the union — types of `body` differ per
+  // mutation, so we keep two narrow references for the actual mutate calls
+  // (see handleSubmit below) instead of trying to call `mutation.mutate`
+  // on a union'd type.
   const mutation =
     action === "warn" ? warn :
     action === "suspend" ? suspend :
     action === "cancel" ? cancel :
-    reinstate;
+    action === "reinstate" ? reinstate :
+    setFeatured;
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- `open` is the external trigger; resetting form state when the modal opens is intentional.
     setNotes("");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- same justification.
+    setFeaturedUntil("");
   }, [open]);
 
   useEffect(() => {
@@ -94,14 +119,37 @@ export function ListingActionModal({ open, action, row, onClose }: Props) {
   if (!open) return null;
 
   const trimmed = notes.trim();
-  const tooShort = trimmed.length > 0 && trimmed.length < NOTES_MIN;
-  const valid = trimmed.length >= NOTES_MIN;
-  const canSubmit = valid && !mutation.isPending;
+  const tooShort = !isFeatureMode && trimmed.length > 0 && trimmed.length < NOTES_MIN;
+  const notesValid = trimmed.length >= NOTES_MIN;
+  const canSubmit = isFeatureMode
+    ? !mutation.isPending
+    : notesValid && !mutation.isPending;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
-    mutation.mutate(
+    if (isFeatureMode) {
+      setFeatured.mutate(
+        {
+          publicId: row.publicId,
+          body: {
+            featured: action === "feature",
+            featuredUntil:
+              action === "feature" && featuredUntil
+                ? new Date(featuredUntil).toISOString()
+                : null,
+          },
+        },
+        { onSuccess: onClose },
+      );
+      return;
+    }
+    const notesAction =
+      action === "warn" ? warn :
+      action === "suspend" ? suspend :
+      action === "cancel" ? cancel :
+      reinstate;
+    notesAction.mutate(
       { publicId: row.publicId, body: { notes: trimmed } },
       { onSuccess: onClose },
     );
@@ -157,29 +205,48 @@ export function ListingActionModal({ open, action, row, onClose }: Props) {
           <p className="text-[12px] text-fg-muted">{config.body}</p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="action-notes" className="text-xs font-medium text-fg">
-                Notes (sent to seller and audit log) <span className="text-danger">*</span>
-              </label>
-              <textarea
-                id="action-notes"
-                rows={4}
-                value={notes}
-                disabled={mutation.isPending}
-                onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
-                placeholder={config.placeholder}
-                data-testid={`listing-action-notes-${action}`}
-                className="w-full resize-y rounded-lg bg-bg-muted px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
-              />
-              <div className="flex justify-between text-[11px] font-medium">
-                <span className={tooShort ? "text-danger" : "text-fg-muted"}>
-                  Min {NOTES_MIN} chars, max {NOTES_MAX}.
-                </span>
-                <span className="text-fg-muted">
-                  {trimmed.length} / {NOTES_MAX}
-                </span>
+            {isFeatureMode ? (
+              action === "feature" ? (
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="featured-until" className="text-xs font-medium text-fg">
+                    Featured until (optional — blank = permanent)
+                  </label>
+                  <input
+                    id="featured-until"
+                    type="datetime-local"
+                    value={featuredUntil}
+                    disabled={mutation.isPending}
+                    onChange={(e) => setFeaturedUntil(e.target.value)}
+                    data-testid="featured-until-input"
+                    className="w-full rounded-lg bg-bg-muted px-4 py-3 text-fg ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+                  />
+                </div>
+              ) : null
+            ) : (
+              <div className="flex flex-col gap-1">
+                <label htmlFor="action-notes" className="text-xs font-medium text-fg">
+                  Notes (sent to seller and audit log) <span className="text-danger">*</span>
+                </label>
+                <textarea
+                  id="action-notes"
+                  rows={4}
+                  value={notes}
+                  disabled={mutation.isPending}
+                  onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
+                  placeholder={config.placeholder}
+                  data-testid={`listing-action-notes-${action}`}
+                  className="w-full resize-y rounded-lg bg-bg-muted px-4 py-3 text-fg placeholder:text-fg-muted ring-1 ring-border-subtle focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
+                />
+                <div className="flex justify-between text-[11px] font-medium">
+                  <span className={tooShort ? "text-danger" : "text-fg-muted"}>
+                    Min {NOTES_MIN} chars, max {NOTES_MAX}.
+                  </span>
+                  <span className="text-fg-muted">
+                    {trimmed.length} / {NOTES_MAX}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end gap-2">
               <Button

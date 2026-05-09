@@ -50,9 +50,9 @@ public class FeaturedService {
 
     private FeaturedResponse hydrate(FeaturedCategory category) {
         List<Auction> rows = switch (category) {
+            case FEATURED    -> featuredRepo.featured();
             case ENDING_SOON -> featuredRepo.endingSoon();
-            case JUST_LISTED -> featuredRepo.justListed();
-            case MOST_ACTIVE -> featuredRepo.mostActive();
+            case TRENDING    -> featuredRepo.trending();
         };
 
         List<Long> ids = rows.stream().map(Auction::getId).toList();

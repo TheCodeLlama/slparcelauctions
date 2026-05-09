@@ -13,6 +13,10 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
  * <p>Verification lifecycle is captured by {@code status} (DRAFT / DRAFT_PAID /
  * VERIFICATION_PENDING / VERIFICATION_FAILED / ACTIVE / ...) — there is no
  * separate verification field on the auction.
+ *
+ * <p>{@code isFeatured} reflects the admin-curated rail flag; {@code featuredUntil}
+ * is the optional expiry timestamp ({@code null} = permanent until admin
+ * toggles off, see 2026-05-09 homepage featured/trending design).
  */
 public record AdminListingRowDto(
     UUID publicId,
@@ -27,5 +31,7 @@ public record AdminListingRowDto(
     Integer bidCount,
     Long saveCount,
     OffsetDateTime endsAt,
-    String region
+    String region,
+    boolean isFeatured,
+    OffsetDateTime featuredUntil
 ) {}

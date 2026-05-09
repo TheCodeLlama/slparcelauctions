@@ -26,20 +26,19 @@ export function searchAuctions(
 }
 
 /**
- * Featured-row categories shipped by the homepage. {@code ending-soon}
- * surfaces active auctions with closest endsAt; {@code just-listed} the
- * most-recently-approved actives; {@code most-active} those with the
- * highest bidderCount in the past 24h.
+ * Homepage rail categories. {@code featured} is admin-curated with auto-fill
+ * by current_bid; {@code ending-soon} surfaces actives with closest endsAt;
+ * {@code trending} ranks by a 24h weighted score (bids * 2 + saves).
  */
-export type FeaturedCategory = "ending-soon" | "just-listed" | "most-active";
+export type FeaturedCategory = "featured" | "ending-soon" | "trending";
 
 /**
- * GET /api/v1/auctions/featured/{category}. Intended for the landing page's
- * three carousels; returns a flat {@code content} list (no pagination) so
- * the caller can render the strip without a second fetch.
+ * GET /api/v1/auctions/rails/{category}. Intended for the landing page's
+ * three rails; returns a flat {@code content} list (no pagination) so the
+ * caller can render the strip without a second fetch.
  */
 export function fetchFeatured(
   category: FeaturedCategory,
 ): Promise<{ content: AuctionSearchResultDto[] }> {
-  return api.get(`/api/v1/auctions/featured/${category}`);
+  return api.get(`/api/v1/auctions/rails/${category}`);
 }

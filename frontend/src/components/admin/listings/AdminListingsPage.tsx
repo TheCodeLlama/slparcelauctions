@@ -100,6 +100,12 @@ export function AdminListingsPage({
     return null;
   })();
 
+  const urlFeatured: boolean | null = (() => {
+    const raw = searchParams?.get("featured");
+    if (raw === "true") return true;
+    return null;
+  })();
+
   // Page-size text input local state
   const [sizeInput, setSizeInput] = useState<string>(String(urlSize));
   useEffect(() => {
@@ -111,6 +117,7 @@ export function AdminListingsPage({
     search: urlSearch || undefined,
     statuses: urlStatuses,
     hasReserve: urlHasReserve,
+    featured: urlFeatured,
     page: urlPage,
     size: urlSize,
     sort: urlSort,
@@ -122,6 +129,7 @@ export function AdminListingsPage({
     search?: string | null;
     statuses?: AuctionStatus[];
     hasReserve?: boolean | null | undefined;
+    featured?: boolean | null | undefined;
     page?: number;
     size?: number;
     sort?: AdminListingsSort;
@@ -138,6 +146,9 @@ export function AdminListingsPage({
     const nextHasReserve = "hasReserve" in updates ? updates.hasReserve : urlHasReserve;
     if (nextHasReserve === true) params.set("hasReserve", "true");
     if (nextHasReserve === false) params.set("hasReserve", "false");
+
+    const nextFeatured = "featured" in updates ? updates.featured : urlFeatured;
+    if (nextFeatured === true) params.set("featured", "true");
 
     const nextPage = updates.page ?? 0;
     if (nextPage > 0) params.set("page", String(nextPage));
@@ -168,16 +179,23 @@ export function AdminListingsPage({
       navigate({
         statuses: lockedStatuses ?? preset.statuses,
         sort: preset.sort,
+        featured: preset.featured ?? null,
         page: 0,
       });
     } else {
-      navigate({ statuses: lockedStatuses ?? defaultStatuses, sort: defaultSort, page: 0 });
+      navigate({
+        statuses: lockedStatuses ?? defaultStatuses,
+        sort: defaultSort,
+        featured: null,
+        page: 0,
+      });
     }
   }
 
   const isDirty =
     !!urlSearch ||
     urlHasReserve !== null ||
+    urlFeatured === true ||
     (!lockedStatuses && JSON.stringify([...urlStatuses].sort()) !== JSON.stringify([...defaultStatuses].sort())) ||
     urlSort.column !== defaultSort.column ||
     urlSort.direction !== defaultSort.direction;
@@ -201,6 +219,7 @@ export function AdminListingsPage({
               search: null,
               statuses: lockedStatuses ?? defaultStatuses,
               hasReserve: null,
+              featured: null,
               sort: defaultSort,
               page: 0,
             })

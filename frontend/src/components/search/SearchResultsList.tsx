@@ -164,7 +164,7 @@ function BrowseOption({
         )
       }
     >
-      {label ?? `Search /browse for "${trimmed}" →`}
+      {label ?? `Browse for "${trimmed}"`}
     </ComboboxOption>
   );
 }

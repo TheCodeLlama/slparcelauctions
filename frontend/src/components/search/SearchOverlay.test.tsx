@@ -142,6 +142,6 @@ describe("SearchOverlay", () => {
     );
     // The browse fallback is always present so the user can still
     // escape to /browse?q= even when suggest is down.
-    expect(screen.getByText(/Search \/browse/i)).toBeInTheDocument();
+    expect(screen.getByText(/Browse for "tula"/i)).toBeInTheDocument();
   });
 });
