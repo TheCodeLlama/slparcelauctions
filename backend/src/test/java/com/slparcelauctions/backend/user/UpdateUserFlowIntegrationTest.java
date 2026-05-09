@@ -78,7 +78,9 @@ class UpdateUserFlowIntegrationTest {
                 // Public fields
                 .andExpect(jsonPath("$.publicId").exists())
                 .andExpect(jsonPath("$.username").value("full-fields@example.com"))
-                .andExpect(jsonPath("$.displayName").value(nullValue()))
+                // User.getDisplayName() falls back to username when the user
+                // has no explicit displayName set — see User entity override.
+                .andExpect(jsonPath("$.displayName").value("full-fields@example.com"))
                 .andExpect(jsonPath("$.verified").value(false))
                 // Private fields (extended in Task 5)
                 .andExpect(jsonPath("$.email").value(nullValue()))

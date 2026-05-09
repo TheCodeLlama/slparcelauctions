@@ -39,6 +39,7 @@ export const mockUnverifiedCurrentUser: CurrentUser = {
   displayName: "Test User",
   bio: null,
   profilePicUrl: null,
+  defaultCoverUrl: null,
   slAvatarUuid: null,
   slAvatarName: null,
   slUsername: null,

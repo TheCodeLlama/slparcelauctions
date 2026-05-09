@@ -66,6 +66,40 @@ export function useUploadAvatar() {
   });
 }
 
+export function useUploadDefaultCover() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (file: File) => userApi.uploadDefaultCover(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY });
+      toast.success("Default cover updated");
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 400) {
+        toast.error("Upload must be a JPEG, PNG, or WebP image");
+      } else {
+        toast.error("Failed to upload cover image");
+      }
+    },
+  });
+}
+
+export function useDeleteDefaultCover() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: () => userApi.deleteDefaultCover(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CURRENT_USER_KEY });
+      toast.success("Default cover removed");
+    },
+    onError: () => {
+      toast.error("Failed to remove cover image");
+    },
+  });
+}
+
 export function useActiveVerificationCode() {
   return useQuery({
     queryKey: VERIFICATION_ACTIVE_KEY,

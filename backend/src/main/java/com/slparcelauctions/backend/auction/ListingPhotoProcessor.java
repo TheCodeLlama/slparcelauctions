@@ -17,15 +17,26 @@ import com.sksamuel.scrimage.webp.WebpWriter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Validates listing photos and re-encodes them to strip metadata. Unlike the
- * avatar processor, this one preserves the input's aspect ratio and
+ * Validates listing-style photos and re-encodes them to strip metadata. Unlike
+ * the avatar processor, this one preserves the input's aspect ratio and
  * dimensions — it only re-encodes through ImageIO (JPEG/PNG) or Scrimage
  * (WebP) so EXIF / IPTC / XMP metadata is dropped in the round-trip. Output
  * format matches input format (JPEG in -> JPEG out, PNG in -> PNG out,
  * WebP in -> WebP out).
  *
+ * <p>Used by both the listing-photo upload path
+ * ({@link AuctionPhotoService}) and the user default-cover upload path
+ * ({@link com.slparcelauctions.backend.user.UserDefaultCoverService}).
+ * Both paths share the same byte/dimension caps. If they ever need to
+ * diverge, split this into qualified beans — for now the shared instance
+ * is the simpler model.
+ *
  * <p>Byte-size and dimension caps are enforced via the shared
- * {@link ImageUploadValidator}.
+ * {@link ImageUploadValidator}. Default caps are 2048px on the longest edge
+ * and 25 MB on the raw input — small enough that the client-side resize via
+ * {@code browser-image-compression} satisfies them on every realistic phone
+ * photo, large enough that a malicious client bypassing the resize doesn't
+ * OOM the JVM during decode.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,10 +50,10 @@ public class ListingPhotoProcessor {
 
     private final ImageUploadValidator validator;
 
-    @Value("${slpa.photos.max-bytes:2097152}")
+    @Value("${slpa.photos.max-bytes:26214400}")
     private long maxBytes;
 
-    @Value("${slpa.photos.max-dimension:4096}")
+    @Value("${slpa.photos.max-dimension:2048}")
     private int maxDimension;
 
     public ProcessedPhoto process(byte[] inputBytes) {

@@ -76,14 +76,18 @@ public class ParcelSnapshotPhotoService {
             objectKey = photo.getObjectKey();
             photo = photoRepo.save(photo);
         } else {
-            // Insert new — sortOrder 0 so it precedes seller-uploaded photos
+            // Insert new — claim the next-available sortOrder. Empty auction =>
+            // 0; if a USER_DEFAULT_COVER row already landed at 0, this becomes
+            // 1; etc. Auto-insert services run before any seller upload, so the
+            // gap between auto-inserts and seller uploads stays clean.
+            int sortOrder = photoRepo.findMaxSortOrderByAuctionId(auction.getId()) + 1;
             objectKey = "listings/" + auction.getId() + "/sl-snapshot.jpg";
             photo = AuctionPhoto.builder()
                     .auction(auction)
                     .objectKey(objectKey)
                     .contentType(CONTENT_TYPE)
                     .sizeBytes((long) bytes.length)
-                    .sortOrder(0)
+                    .sortOrder(sortOrder)
                     .source(PhotoSource.SL_PARCEL_SNAPSHOT)
                     .build();
             photo = photoRepo.save(photo);

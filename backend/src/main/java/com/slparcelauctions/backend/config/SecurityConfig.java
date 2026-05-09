@@ -122,6 +122,10 @@ public class SecurityConfig {
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
                         // matcher ordering.
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}/avatar/{size}").permitAll()
+                        // Public default-cover image proxy. Same posture as the
+                        // avatar proxy — <img src> can't carry the JWT, and the
+                        // bytes were destined for public listings anyway.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}/default-cover/image").permitAll()
                         // Authenticated avatar upload.
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/me/avatar").authenticated()
                         // Authenticated profile edit (explicit for grep-ability; catch-all also covers it).

@@ -31,8 +31,11 @@ class ListingPhotoProcessorTest {
     @BeforeEach
     void setup() throws Exception {
         processor = new ListingPhotoProcessor(new ImageUploadValidator());
-        setField("maxBytes", 2L * 1024 * 1024);
-        setField("maxDimension", 4096);
+        // Defaults match the @Value defaults on the @Component (25 MB, 2048 px).
+        // Individual tests below tighten one or the other to exercise rejection
+        // paths.
+        setField("maxBytes", 25L * 1024 * 1024);
+        setField("maxDimension", 2048);
     }
 
     private void setField(String name, Object value) throws Exception {

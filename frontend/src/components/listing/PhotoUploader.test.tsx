@@ -6,6 +6,12 @@ import {
   userEvent,
 } from "@/test/render";
 import type { StagedPhoto } from "@/lib/listing/photoStaging";
+
+vi.mock("@/lib/image/resizeImage", () => ({
+  resizeImage: vi.fn(async (file: File) => file),
+}));
+
+import { resizeImage } from "@/lib/image/resizeImage";
 import { applyStagedDragEnd, PhotoUploader } from "./PhotoUploader";
 
 // jsdom implements URL.createObjectURL as undefined. Stub it so stagePhoto
@@ -15,6 +21,7 @@ beforeEach(() => {
   let counter = 0;
   URL.createObjectURL = vi.fn(() => `blob:mock-${counter++}`);
   URL.revokeObjectURL = vi.fn();
+  vi.mocked(resizeImage).mockClear();
 });
 
 function Harness({ initial = [] as StagedPhoto[], maxPhotos = 10 }) {
@@ -40,17 +47,13 @@ describe("PhotoUploader", () => {
     expect(screen.getByText("staged")).toBeInTheDocument();
   });
 
-  it("flags an oversized image with an error overlay", async () => {
+  it("calls resizeImage with maxDim 2048 before staging an accepted image", async () => {
     renderWithProviders(<Harness />);
     const input = screen.getByTestId("drop-zone-input") as HTMLInputElement;
-    // 3 MB — exceeds the 2 MB ceiling.
-    const big = new File([new Uint8Array(3 * 1024 * 1024)], "big.png", {
-      type: "image/png",
-    });
-    await userEvent.upload(input, big);
-    const item = await screen.findByTestId("staged-photo");
-    expect(item).toHaveAttribute("data-photo-error", "true");
-    expect(screen.getByText(/2 MB or smaller/i)).toBeInTheDocument();
+    const file = new File(["x"], "photo.png", { type: "image/png" });
+    await userEvent.upload(input, file);
+    await screen.findByTestId("staged-photo");
+    expect(resizeImage).toHaveBeenCalledWith(file, { maxDim: 2048 });
   });
 
   it("removes a staged photo when the trash button is clicked", async () => {
