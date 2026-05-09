@@ -15,56 +15,59 @@ import { fetchFeatured } from "@/lib/api/auctions-search";
 export const dynamic = "force-dynamic";
 
 /**
- * Homepage server component. Fans out the three featured-rail fetches under
- * a single Promise.allSettled so one endpoint's 5xx doesn't cascade into a
+ * Homepage server component. Fans out the three rail fetches under a
+ * single Promise.allSettled so one endpoint's 5xx doesn't cascade into a
  * full-page 500 — failing rails render a neutral placeholder instead.
  *
- * NB: Promise.allSettled (not Promise.all) is load-bearing here. Promise.all
- * short-circuits on the first rejection, which would couple the three
- * independent rails; allSettled never rejects, so every rail lands in the
- * render regardless of the others' outcomes.
+ * Section order: Hero -> Featured -> TrustStrip -> Ending Soon -> Trending.
+ * The Hero stack pulls from the new Featured rail (paid-promotion-aware),
+ * not from Ending Soon. Ending Soon is hidden when its content array is
+ * fulfilled-empty (per issue #155); a rejected fetch still renders the
+ * "unavailable" placeholder so admins can spot rail outages.
  *
- * StatsBar is intentionally omitted. Per product decision, launching with
- * low activity numbers reads as a liability rather than social proof — the
- * backend /stats/public endpoint is live but the component is deferred until
- * activity threshold is met. See docs/implementation/DEFERRED_WORK.md.
+ * Promise.allSettled (not Promise.all) is load-bearing: Promise.all
+ * short-circuits on the first rejection, which would couple the three
+ * independent rails.
  */
 export default async function HomePage() {
-  const [endingSoon, justListed, mostActive] = await Promise.allSettled([
+  const [featured, endingSoon, trending] = await Promise.allSettled([
+    fetchFeatured("featured"),
     fetchFeatured("ending-soon"),
-    fetchFeatured("just-listed"),
-    fetchFeatured("most-active"),
+    fetchFeatured("trending"),
   ]);
 
-  // The Hero stack uses the first 3 ending-soon listings as its featured
-  // preview. If the fetch failed, it falls back to an empty stack.
   const heroFeatured =
-    endingSoon.status === "fulfilled" ? endingSoon.value.content.slice(0, 3) : [];
+    featured.status === "fulfilled" ? featured.value.content.slice(0, 3) : [];
+
+  const hideEndingSoon =
+    endingSoon.status === "fulfilled" && endingSoon.value.content.length === 0;
 
   return (
     <>
       <Hero featured={heroFeatured} />
       <FeaturedRow
-        title="Ending soon"
-        sub="Auctions closing in the next few hours."
-        sortLink="/browse?sort=ending_soonest"
-        result={endingSoon}
+        title="Featured"
+        sub="Hand-picked premium parcels."
+        sortLink="/browse"
+        result={featured}
+        emptyMessage="No featured listings right now."
         columns={4}
       />
-      <FeaturedRow
-        title="Featured this week"
-        sub="Hand-picked premium parcels with verified covenants."
-        sortLink="/browse"
-        result={justListed}
-        emptyMessage="No new listings yet."
-        columns={3}
-      />
       <TrustStrip />
+      {hideEndingSoon ? null : (
+        <FeaturedRow
+          title="Ending soon"
+          sub="Auctions closing in the next few hours."
+          sortLink="/browse?sort=ending_soonest"
+          result={endingSoon}
+          columns={4}
+        />
+      )}
       <FeaturedRow
-        title="Trending across regions"
+        title="Trending"
         sub="Most-watched parcels right now."
         sortLink="/browse?sort=most_bids"
-        result={mostActive}
+        result={trending}
         emptyMessage="No active bidding to highlight right now."
         columns={4}
       />
