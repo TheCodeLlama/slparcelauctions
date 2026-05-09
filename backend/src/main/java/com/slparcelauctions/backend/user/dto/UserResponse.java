@@ -15,6 +15,11 @@ public record UserResponse(
         String displayName,
         String bio,
         String profilePicUrl,
+        // Relative URL to the user's default cover image, or null when unset.
+        // Resolved via {@code apiUrl()} on the frontend; the backing endpoint
+        // is permitAll so {@code <img src>} renders without an Authorization
+        // header. Auto-inserted as the first photo on every new listing.
+        String defaultCoverUrl,
         UUID slAvatarUuid,
         String slAvatarName,
         String slUsername,
@@ -52,6 +57,9 @@ public record UserResponse(
     }
 
     public static UserResponse from(User user, long unreadNotificationCount) {
+        String coverUrl = user.getDefaultCoverObjectKey() != null
+                ? "/api/v1/users/" + user.getPublicId() + "/default-cover/image"
+                : null;
         return new UserResponse(
                 user.getPublicId(),
                 user.getUsername(),
@@ -59,6 +67,7 @@ public record UserResponse(
                 user.getDisplayName(),
                 user.getBio(),
                 user.getProfilePicUrl(),
+                coverUrl,
                 user.getSlAvatarUuid(),
                 user.getSlAvatarName(),
                 user.getSlUsername(),

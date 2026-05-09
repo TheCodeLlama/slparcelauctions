@@ -188,7 +188,7 @@ class OnboardingControllerSliceTest {
     private static UserResponse stubUserResponse() {
         return new UserResponse(
                 UUID.randomUUID(), "alice", "alice@example.com", "Alice",
-                null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null,
                 true, null, false,
                 true, true,
                 Map.of(), Map.of(),

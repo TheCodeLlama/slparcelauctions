@@ -39,6 +39,7 @@ public class UserController {
 
     private final UserService userService;
     private final AvatarService avatarService;
+    private final UserDefaultCoverService userDefaultCoverService;
     private final UserDeletionService userDeletionService;
     private final UserRepository userRepository;
 
@@ -84,6 +85,31 @@ public class UserController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, obj.contentType())
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400, immutable")
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(obj.contentLength()))
+                .body(obj.bytes());
+    }
+
+    /**
+     * Public default-cover image proxy. Mirrors the avatar pattern: bytes
+     * are served {@code permitAll} so {@code <img src>} renders without an
+     * Authorization header. The cover image is destined for use as a
+     * listing photo (where it's already public) so the same bytes being
+     * fetchable a few hours earlier is not a privacy leak. UUID-suffixed
+     * S3 keys prevent enumeration.
+     *
+     * <p>404 when the user has no default cover set (mapped via
+     * {@link UserDefaultCoverNotFoundException} → global handler).
+     */
+    @GetMapping("/{publicId}/default-cover/image")
+    public ResponseEntity<byte[]> getDefaultCoverImage(@PathVariable UUID publicId) {
+        Long id = resolveUserId(publicId);
+        StoredObject obj = userDefaultCoverService.fetchBytes(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, obj.contentType())
+                // Short cache so the navbar/settings card refresh after a
+                // user updates their default cover doesn't lag behind the
+                // actual bytes for a full day.
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=60")
                 .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(obj.contentLength()))
                 .body(obj.bytes());
     }

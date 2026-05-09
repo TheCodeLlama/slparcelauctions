@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.ListingPhotoProcessor;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
+import com.slparcelauctions.backend.storage.StoredObject;
 import com.slparcelauctions.backend.user.dto.UserDefaultCoverDto;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
@@ -76,6 +77,22 @@ public class UserDefaultCoverService {
         log.info("User {} default cover updated: key={} ({} bytes)",
                 userId, newKey, processed.sizeBytes());
         return new UserDefaultCoverDto(presign(newKey), contentType, processed.sizeBytes());
+    }
+
+    /**
+     * Fetches the raw default-cover bytes for the public {@code GET
+     * /api/v1/users/{publicId}/default-cover/image} endpoint. Throws
+     * {@link UserDefaultCoverNotFoundException} if the user has no cover
+     * set; that maps to 404 via the global handler.
+     */
+    @Transactional(readOnly = true)
+    public StoredObject fetchBytes(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+        if (user.getDefaultCoverObjectKey() == null) {
+            throw new UserDefaultCoverNotFoundException(userId);
+        }
+        return storage.get(user.getDefaultCoverObjectKey());
     }
 
     @Transactional(readOnly = true)
