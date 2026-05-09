@@ -177,6 +177,13 @@ public class Auction extends BaseMutableEntity {
     @Column(name = "bid_count", nullable = false)
     private Integer bidCount = 0;
 
+    @Builder.Default
+    @Column(name = "is_featured", nullable = false)
+    private boolean isFeatured = false;
+
+    @Column(name = "featured_until")
+    private OffsetDateTime featuredUntil;
+
     @Column(name = "winner_id")
     private Long winnerId;
 
