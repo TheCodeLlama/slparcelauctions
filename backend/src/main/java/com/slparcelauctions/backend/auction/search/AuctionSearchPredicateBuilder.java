@@ -86,6 +86,17 @@ public class AuctionSearchPredicateBuilder {
         Join<Object, Object> parcel = root.join("parcelSnapshot");
         Join<Object, Object> region = parcel.join("region", JoinType.LEFT);
 
+        if (q.q() != null && !q.q().isBlank()) {
+            // Free-text q matches any of title / parcel name / region name.
+            // Powered by V22's pg_trgm GIN indexes; the same predicate the
+            // suggest endpoint uses, threaded through Criteria here so all
+            // existing filters AND together with the search box.
+            String pattern = "%" + q.q().trim().toLowerCase() + "%";
+            Predicate titleMatch  = cb.like(cb.lower(root.get("title")), pattern);
+            Predicate parcelMatch = cb.like(cb.lower(parcel.<String>get("parcelName")), pattern);
+            Predicate regionMatch = cb.like(cb.lower(region.<String>get("name")), pattern);
+            predicates.add(cb.or(titleMatch, parcelMatch, regionMatch));
+        }
         if (q.region() != null && !q.region().isBlank()) {
             predicates.add(cb.equal(
                     cb.lower(region.get("name")),

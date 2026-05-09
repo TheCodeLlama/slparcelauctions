@@ -1,6 +1,7 @@
 // frontend/src/test/msw/fixtures.ts
 import type { AuthUser } from "@/lib/auth/session";
 import type { CurrentUser, PublicUserProfile } from "@/lib/user/api";
+import type { SuggestResponse } from "@/lib/api/search-suggest";
 
 /**
  * Default mock user used by handlers and tests. Override per-test by passing a
@@ -141,6 +142,26 @@ export const mockUnsupportedFormatProblemDetail = {
   title: "Bad Request",
   detail: "Upload must be a JPEG, PNG, or WebP image",
 };
+
+export function mockSuggestResponse(
+  overrides: Partial<SuggestResponse> = {},
+): SuggestResponse {
+  return {
+    listings: [
+      {
+        publicId: "00000000-0000-0000-0000-000000000099",
+        title: "Premium Waterfront",
+        regionName: "Tula",
+        parcelName: "Beachfront retreat",
+        primaryPhotoUrl: "/api/v1/photos/aaaa",
+        currentBid: 12000,
+      },
+    ],
+    regions: [{ name: "Tula", activeAuctionCount: 4 }],
+    totalListings: 1,
+    ...overrides,
+  };
+}
 
 export const mockUserNotFoundProblemDetail = {
   status: 404,

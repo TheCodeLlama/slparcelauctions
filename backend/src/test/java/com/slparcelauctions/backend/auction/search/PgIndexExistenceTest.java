@@ -40,7 +40,12 @@ class PgIndexExistenceTest {
                 // Task 7: saved-auctions composite read index + per-user uniqueness
                 // (Postgres backs UNIQUE constraints with a same-named btree index).
                 "ix_saved_auctions_user_saved_at",
-                "uk_saved_auctions_user_auction"
+                "uk_saved_auctions_user_auction",
+                // V22 — pg_trgm GIN indexes for the header search overlay's
+                // ILIKE substring matches and similarity() ranking.
+                "idx_auctions_title_trgm",
+                "idx_parcel_snapshots_parcel_name_trgm",
+                "idx_regions_name_trgm"
         );
 
         Set<String> actual = jdbc.queryForList(

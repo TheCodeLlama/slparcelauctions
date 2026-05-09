@@ -95,6 +95,15 @@ class AuctionSearchControllerIntegrationTest {
     }
 
     @Test
+    void qFilter_returns_matchingRows() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions/search").param("q", "tula"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[*].parcel.region").value(
+                        org.hamcrest.Matchers.everyItem(
+                                org.hamcrest.Matchers.equalToIgnoringCase("Tula"))));
+    }
+
+    @Test
     void regionFilter_respects() throws Exception {
         mockMvc.perform(get("/api/v1/auctions/search").param("region", "tula"))
                 .andExpect(status().isOk())

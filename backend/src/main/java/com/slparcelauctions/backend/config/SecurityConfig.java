@@ -158,6 +158,12 @@ public class SecurityConfig {
                         // FOOTGUNS §B.5: this MUST sit before the
                         // /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.GET, "/api/v1/auctions/search").permitAll()
+                        // Public typeahead suggest endpoint for the header
+                        // search overlay (spec 2026-05-09). Mirrors the
+                        // /auctions/search posture: anonymous-safe, ACTIVE-
+                        // only filter applied service-side, 15s public
+                        // Cache-Control set by SearchSuggestController.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/search/suggest").permitAll()
                         // Public featured rows (Epic 07 sub-spec 1 §5.2).
                         // Three sibling paths under /featured/ — the single-
                         // segment "*" matches /ending-soon, /just-listed, and
