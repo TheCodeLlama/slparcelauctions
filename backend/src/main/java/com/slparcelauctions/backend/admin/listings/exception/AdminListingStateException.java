@@ -26,7 +26,9 @@ public class AdminListingStateException extends RuntimeException {
             case "INVALID_STATUS_FOR_ACTION", "ALREADY_SUSPENDED", "NOT_SUSPENDED" ->
                     HttpStatus.CONFLICT;
             case "LISTING_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "INVALID_SORT_COLUMN" -> HttpStatus.BAD_REQUEST;
+            case "INVALID_SORT_COLUMN",
+                 "FEATURE_REQUIRES_ACTIVE_STATUS",
+                 "FEATURED_UNTIL_REQUIRES_FEATURED_TRUE" -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.UNPROCESSABLE_ENTITY;
         };
     }
