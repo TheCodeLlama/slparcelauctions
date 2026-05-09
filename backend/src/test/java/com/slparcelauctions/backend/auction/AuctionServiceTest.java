@@ -50,6 +50,7 @@ class AuctionServiceTest {
     @Mock AuctionRepository auctionRepo;
     @Mock ParcelLookupService parcelLookupService;
     @Mock ParcelSnapshotPhotoService parcelSnapshotPhotoService;
+    @Mock UserDefaultCoverPhotoService userDefaultCoverPhotoService;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
     @Mock BanCheckService banCheckService;
@@ -97,6 +98,24 @@ class AuctionServiceTest {
         assertThat(a.getSlParcelUuid()).isEqualTo(PARCEL_UUID);
         assertThat(a.getListingFeePaid()).isFalse();
         assertThat(a.getCommissionRate()).isEqualByComparingTo(new BigDecimal("0.05"));
+    }
+
+    @Test
+    void create_appliesUserDefaultCoverBeforeSnapshot() {
+        // Order matters: cover claims sortOrder=0, then snapshot claims the
+        // next slot. ParcelSnapshotPhotoService now uses MAX(sortOrder)+1, so
+        // running them in the wrong order would put the snapshot at 0 and
+        // the cover at 1.
+        AuctionCreateRequest req = new AuctionCreateRequest(
+                PARCEL_UUID, "Test listing", 1000L, null, null,
+                168, false, null, "Nice parcel", Set.of());
+
+        service.create(42L, req, null);
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userDefaultCoverPhotoService, parcelSnapshotPhotoService);
+        order.verify(userDefaultCoverPhotoService).applyTo(any(Auction.class));
+        order.verify(parcelSnapshotPhotoService).refreshFor(any(Auction.class), any());
     }
 
     // -------------------------------------------------------------------------
