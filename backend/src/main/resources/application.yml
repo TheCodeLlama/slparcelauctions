@@ -36,8 +36,12 @@ spring:
     baseline-version: 0         # baseline at 0 so V1 runs on a fresh schema (default is 1, which would skip V1)
   servlet:
     multipart:
-      max-file-size: 2MB
-      max-request-size: 10MB
+      # Aligned with slpa.photos.max-bytes (25 MB) so Spring's multipart layer
+      # rejects oversized uploads with the same threshold the processor would.
+      # The user-facing UI never surfaces "too big" copy — these are JVM-OOM
+      # guards for clients that bypass the client-side resize.
+      max-file-size: 25MB
+      max-request-size: 30MB
   jackson:
     deserialization:
       # SECURITY: reject unknown fields in every request body globally. This is a
