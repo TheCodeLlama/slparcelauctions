@@ -16,7 +16,13 @@ export interface SearchResultsListProps {
     UseQueryResult<SuggestResponse>,
     "data" | "isLoading" | "isError" | "isFetching"
   >;
+  /** Debounced + trimmed query — drives skeletons / results / empty
+   *  copy. Lags the input by up to 250ms (debounce settle). */
   trimmed: string;
+  /** Live trimmed query — drives the BrowseOption value so a user can
+   *  Enter immediately after typing without waiting for the debounce
+   *  to settle. */
+  liveTrimmed: string;
 }
 
 function GroupHeader({ label }: { label: string }) {
@@ -35,40 +41,53 @@ function Skeleton() {
   );
 }
 
-export function SearchResultsList({ state, trimmed }: SearchResultsListProps) {
+export function SearchResultsList({
+  state,
+  trimmed,
+  liveTrimmed,
+}: SearchResultsListProps) {
   const { data, isLoading, isError } = state;
 
-  if (trimmed.length < 2) {
+  // BrowseOption is keyed off the LIVE input so Enter routes to
+  // /browse?q=… immediately even before the 250ms debounce settles.
+  // Other option values (skeletons / results) lag on `trimmed` because
+  // they reflect what the backend last returned for.
+  const browse = liveTrimmed.length >= 2 ? (
+    <BrowseOption trimmed={liveTrimmed} />
+  ) : null;
+
+  if (liveTrimmed.length < 2) {
     return <ComboboxOptions static className="py-2" />;
   }
   if (isError) {
     return (
-      <ComboboxOptions
-        static
-        className="py-6 text-center text-sm text-fg-muted"
-      >
-        Search is unavailable right now.
+      <ComboboxOptions static className="py-2">
+        <div className="px-3 py-4 text-center text-sm text-fg-muted">
+          Search is unavailable right now.
+        </div>
+        {browse}
       </ComboboxOptions>
     );
   }
-  if (isLoading || !data) {
+  if (isLoading || !data || trimmed !== liveTrimmed) {
     return (
       <ComboboxOptions static className="py-2">
         <Skeleton />
         <Skeleton />
         <Skeleton />
         <Skeleton />
+        {browse}
       </ComboboxOptions>
     );
   }
   const empty = data.listings.length === 0 && data.regions.length === 0;
   if (empty) {
     return (
-      <ComboboxOptions
-        static
-        className="py-6 text-center text-sm text-fg-muted"
-      >
-        No matches for &ldquo;{trimmed}&rdquo;.
+      <ComboboxOptions static className="py-2">
+        <div className="px-3 py-4 text-center text-sm text-fg-muted">
+          No matches for &ldquo;{trimmed}&rdquo;.
+        </div>
+        {browse}
       </ComboboxOptions>
     );
   }
@@ -111,18 +130,41 @@ export function SearchResultsList({ state, trimmed }: SearchResultsListProps) {
         </>
       ) : null}
       {data.totalListings > data.listings.length ? (
-        <ComboboxOption
-          value={{ kind: "browse", q: trimmed } satisfies SearchSelection}
-          className={({ focus }) =>
-            cn(
-              "cursor-pointer border-t border-border px-3 py-2 text-sm text-brand",
-              focus && "bg-bg-muted",
-            )
-          }
-        >
-          See all {data.totalListings} results for &ldquo;{trimmed}&rdquo; →
-        </ComboboxOption>
-      ) : null}
+        <BrowseOption
+          trimmed={liveTrimmed}
+          label={`See all ${data.totalListings} results for "${trimmed}" →`}
+        />
+      ) : (
+        browse
+      )}
     </ComboboxOptions>
+  );
+}
+
+/**
+ * The "browse" sentinel option that always exists once the user has
+ * typed >=2 chars. Always being present means Headless UI Combobox's
+ * native Enter handling auto-selects it whenever no other option is
+ * active — no manual bare-Enter detection needed.
+ */
+function BrowseOption({
+  trimmed,
+  label,
+}: {
+  trimmed: string;
+  label?: string;
+}) {
+  return (
+    <ComboboxOption
+      value={{ kind: "browse", q: trimmed } satisfies SearchSelection}
+      className={({ focus }) =>
+        cn(
+          "cursor-pointer border-t border-border px-3 py-2 text-sm text-brand",
+          focus && "bg-bg-muted",
+        )
+      }
+    >
+      {label ?? `Search /browse for "${trimmed}" →`}
+    </ComboboxOption>
   );
 }
