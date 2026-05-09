@@ -34,7 +34,11 @@ export function Dropdown({
       <MenuButton as="div">{trigger}</MenuButton>
       <MenuItems
         anchor={align === "end" ? "bottom end" : "bottom start"}
-        className="mt-2 min-w-48 bg-surface-raised rounded-lg shadow-md p-2 focus:outline-none"
+        // z-50 mirrors the sticky header and NotificationDropdown — the
+        // panel is portaled, and explicit-z-index siblings (e.g. the
+        // HeroFeaturedStack cards on the homepage at zIndex 1-3) would
+        // otherwise paint over it.
+        className="z-50 mt-2 min-w-48 bg-surface-raised rounded-lg shadow-md p-2 focus:outline-none"
       >
         {items.map((item, i) => (
           <MenuItem key={i} disabled={item.disabled}>

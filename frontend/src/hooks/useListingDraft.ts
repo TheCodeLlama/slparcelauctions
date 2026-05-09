@@ -308,19 +308,25 @@ export function useListingDraft(
     [setState],
   );
 
+  // Tracks whether the seller has manually typed in the title input.
+  // Auto-prefills from setParcel do not flip this — only setTitle does.
+  // Without this flag we couldn't distinguish "title is non-empty because
+  // it was prefilled from the previous parcel lookup" from "title is
+  // non-empty because the seller typed it" — and the former should still
+  // re-prefill on a subsequent parcel swap.
+  const titleUserEditedRef = useRef(false);
+
   const setParcel = useCallback(
     (p: ParcelDto) => {
       setState((s) => {
-        // Create-mode-only first-pick prefill: if the seller hasn't typed a
-        // title yet (untouched OR cleared back to empty) and the parcel
-        // ships an SL-side parcel name, seed the title from it. Once the
-        // seller edits the title, we never touch it again — including on a
-        // subsequent parcel swap. Edit mode never auto-touches an existing
-        // auction's title under any circumstances.
-        const titleEmpty =
-          s.title === null || s.title.trim().length === 0;
+        // Create-mode prefill: if the seller hasn't manually typed a title
+        // and the parcel ships an SL-side parcel name, seed the title from
+        // it. Re-prefills on every subsequent parcel lookup until the
+        // seller actually edits the title — at which point we never touch
+        // it again. Edit mode never auto-touches an existing auction's
+        // title under any circumstances.
         const shouldPrefill =
-          isCreateMode && titleEmpty && Boolean(p.parcelName);
+          isCreateMode && !titleUserEditedRef.current && Boolean(p.parcelName);
         const nextTitle = shouldPrefill ? p.parcelName : s.title;
         return { ...s, parcel: p, title: nextTitle, dirty: true };
       });
@@ -330,6 +336,7 @@ export function useListingDraft(
 
   const setTitle = useCallback(
     (value: string) => {
+      titleUserEditedRef.current = true;
       update("title", value);
     },
     [update],
