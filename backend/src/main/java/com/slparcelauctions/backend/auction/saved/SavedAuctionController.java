@@ -110,9 +110,10 @@ public class SavedAuctionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "24") int size) {
 
-        // near_region / distance / seller_id intentionally hardcoded null —
-        // they don't make sense in the saved-context view.
+        // q / near_region / distance / seller_id intentionally hardcoded null —
+        // none of those make sense in the saved-context view.
         AuctionSearchQuery q = new AuctionSearchQuery(
+                null,
                 region, minArea, maxArea, minPrice, maxPrice,
                 toSet(maturity), parseTags(tags),
                 TagsMode.fromWire(tagsMode),

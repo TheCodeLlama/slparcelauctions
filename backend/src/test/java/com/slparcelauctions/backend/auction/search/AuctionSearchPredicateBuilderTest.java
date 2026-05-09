@@ -247,6 +247,92 @@ class AuctionSearchPredicateBuilderTest {
         return auctionRepo.save(auction);
     }
 
+    private Auction seedActiveForQ(String regionName, String parcelName, String title) {
+        com.slparcelauctions.backend.region.Region r = regionRepo.save(
+                com.slparcelauctions.backend.region.Region.builder()
+                        .slUuid(UUID.randomUUID()).name(regionName)
+                        .gridX(1014.0).gridY(1014.0).maturityRating("GENERAL").build());
+        UUID parcelUuid = UUID.randomUUID();
+        Auction auction = auctionRepo.save(Auction.builder()
+                .slParcelUuid(parcelUuid)
+                .seller(seller)
+                .title(title)
+                .status(AuctionStatus.ACTIVE)
+                .startingBid(1000L)
+                .currentBid(1000L)
+                .durationHours(168)
+                .consecutiveWorldApiFailures(0)
+                .endsAt(OffsetDateTime.now().plusDays(7))
+                .snipeProtect(false)
+                .verificationTier(VerificationTier.BOT)
+                .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .region(r)
+                .regionName(regionName)
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .parcelName(parcelName)
+                .build());
+        return auctionRepo.save(auction);
+    }
+
+    @Test
+    void qFilter_matchesByTitle() {
+        Auction match = seedActiveForQ(
+                "Tula-" + UUID.randomUUID(), "Generic Plot", "Premium WaterfrontXyz");
+        Auction other = seedActiveForQ(
+                "Luna-" + UUID.randomUUID(), "Generic Plot", "Skybox parking");
+        AuctionSearchQuery q = AuctionSearchQueryBuilder.newBuilder()
+                .q("waterfrontxyz").build();
+        List<Auction> results = auctionRepo.findAll(builder.build(q),
+                PageRequest.of(0, 100, Sort.by("id"))).getContent();
+        assertThat(results).extracting(Auction::getId)
+                .contains(match.getId())
+                .doesNotContain(other.getId());
+    }
+
+    @Test
+    void qFilter_matchesByParcelName() {
+        Auction match = seedActiveForQ(
+                "Tula-" + UUID.randomUUID(), "BeachfrontXyz retreat", "Generic Title");
+        Auction other = seedActiveForQ(
+                "Luna-" + UUID.randomUUID(), "Industrial Lot", "Other Title");
+        AuctionSearchQuery q = AuctionSearchQueryBuilder.newBuilder()
+                .q("beachfrontxyz").build();
+        List<Auction> results = auctionRepo.findAll(builder.build(q),
+                PageRequest.of(0, 100, Sort.by("id"))).getContent();
+        assertThat(results).extracting(Auction::getId)
+                .contains(match.getId())
+                .doesNotContain(other.getId());
+    }
+
+    @Test
+    void qFilter_matchesByRegionName() {
+        Auction match = seedActiveForQ(
+                "TulaXyz-" + UUID.randomUUID(), "PlotA", "Generic");
+        Auction other = seedActiveForQ(
+                "Luna-" + UUID.randomUUID(), "PlotB", "Other");
+        AuctionSearchQuery q = AuctionSearchQueryBuilder.newBuilder()
+                .q("tulaxyz").build();
+        List<Auction> results = auctionRepo.findAll(builder.build(q),
+                PageRequest.of(0, 100, Sort.by("id"))).getContent();
+        assertThat(results).extracting(Auction::getId)
+                .contains(match.getId())
+                .doesNotContain(other.getId());
+    }
+
+    @Test
+    void qFilter_blankIsNoOp() {
+        Auction a = seedActiveForQ(
+                "Region-" + UUID.randomUUID(), "PlotName", "Title");
+        AuctionSearchQuery q = AuctionSearchQueryBuilder.newBuilder()
+                .q("").build();
+        List<Auction> results = auctionRepo.findAll(builder.build(q),
+                PageRequest.of(0, 100, Sort.by("id"))).getContent();
+        assertThat(results).extracting(Auction::getId).contains(a.getId());
+    }
+
     private Auction seedActiveWithTags(Set<ParcelTag> tags) {
         Auction a = seedActive("R-" + UUID.randomUUID(), 1024, "GENERAL");
         a.setTags(new HashSet<>(tags));

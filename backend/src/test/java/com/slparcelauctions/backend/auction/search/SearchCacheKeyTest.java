@@ -56,6 +56,23 @@ class SearchCacheKeyTest {
     }
 
     @Test
+    void differentQ_producesDifferentKey() {
+        AuctionSearchQuery a = AuctionSearchQueryBuilder.newBuilder().q("foo").build();
+        AuctionSearchQuery b = AuctionSearchQueryBuilder.newBuilder().q("bar").build();
+        assertThat(SearchCacheKey.keyFor(a)).isNotEqualTo(SearchCacheKey.keyFor(b));
+    }
+
+    @Test
+    void qIsLowercased_inKey() {
+        // Cache key is case-insensitive on q so "TULA" and "tula" share
+        // a cache slot — matches the predicate builder which lowercases
+        // before LIKE.
+        AuctionSearchQuery a = AuctionSearchQueryBuilder.newBuilder().q("Tula").build();
+        AuctionSearchQuery b = AuctionSearchQueryBuilder.newBuilder().q("tula").build();
+        assertThat(SearchCacheKey.keyFor(a)).isEqualTo(SearchCacheKey.keyFor(b));
+    }
+
+    @Test
     void keyFormatHasNamespacePrefix() {
         String key = SearchCacheKey.keyFor(AuctionSearchQueryBuilder.newBuilder().build());
         assertThat(key).startsWith("slpa:search:");

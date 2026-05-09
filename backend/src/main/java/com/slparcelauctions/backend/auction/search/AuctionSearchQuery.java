@@ -11,6 +11,7 @@ import com.slparcelauctions.backend.parceltag.ParcelTag;
  * to the predicate builder.
  */
 public record AuctionSearchQuery(
+        String q,                              // nullable free-text query (header search overlay)
         String region,                         // nullable
         Integer minArea, Integer maxArea,      // nullable
         Long minPrice, Long maxPrice,          // nullable

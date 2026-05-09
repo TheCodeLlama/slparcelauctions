@@ -6,6 +6,7 @@ import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 
 class AuctionSearchQueryBuilder {
+    private String q;
     private String region;
     private Integer minArea, maxArea;
     private Long minPrice, maxPrice;
@@ -25,6 +26,7 @@ class AuctionSearchQueryBuilder {
 
     static AuctionSearchQueryBuilder newBuilder() { return new AuctionSearchQueryBuilder(); }
 
+    AuctionSearchQueryBuilder q(String v) { this.q = v; return this; }
     AuctionSearchQueryBuilder region(String v) { this.region = v; return this; }
     AuctionSearchQueryBuilder minArea(Integer v) { this.minArea = v; return this; }
     AuctionSearchQueryBuilder maxArea(Integer v) { this.maxArea = v; return this; }
@@ -45,7 +47,7 @@ class AuctionSearchQueryBuilder {
     AuctionSearchQueryBuilder size(int v) { this.size = v; return this; }
 
     AuctionSearchQuery build() {
-        return new AuctionSearchQuery(region, minArea, maxArea, minPrice, maxPrice,
+        return new AuctionSearchQuery(q, region, minArea, maxArea, minPrice, maxPrice,
                 maturity, tags, tagsMode, reserveStatus, snipeProtection,
                 verificationTier, endingWithinHours, nearRegion, distance, sellerId,
                 sort, page, size);
