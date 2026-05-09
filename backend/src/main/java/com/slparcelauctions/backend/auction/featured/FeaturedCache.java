@@ -57,4 +57,20 @@ public class FeaturedCache {
         }
         return computed;
     }
+
+    /**
+     * Drops the cached entry for {@code category}, forcing the next call
+     * to recompute. Used by the admin Featured-toggle path so an admin
+     * write surfaces immediately instead of waiting up to 60s for the TTL.
+     * Errors from the Redis client are swallowed and logged — the caller
+     * does not need to handle a cache outage; the TTL self-heals.
+     */
+    public void invalidate(FeaturedCategory category) {
+        try {
+            redis.delete(category.cacheKey());
+        } catch (RuntimeException e) {
+            log.warn("Failed to invalidate featured cache for {}: {}",
+                    category, e.toString());
+        }
+    }
 }

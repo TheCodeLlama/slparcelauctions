@@ -164,14 +164,15 @@ public class SecurityConfig {
                         // only filter applied service-side, 15s public
                         // Cache-Control set by SearchSuggestController.
                         .requestMatchers(HttpMethod.GET, "/api/v1/search/suggest").permitAll()
-                        // Public featured rows (Epic 07 sub-spec 1 §5.2).
-                        // Three sibling paths under /featured/ — the single-
-                        // segment "*" matches /ending-soon, /just-listed, and
-                        // /most-active without admitting deeper paths. Same
-                        // 60s public Cache-Control posture as the controller.
-                        // FOOTGUNS §B.5: matcher order is first-match-wins,
-                        // so this rule MUST sit before /api/v1/**.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/featured/*").permitAll()
+                        // Public homepage rails (Epic 07 sub-spec 1 §5.2 +
+                        // 2026-05-09 featured/trending design). Three sibling
+                        // paths under /rails/ — the single-segment "*" matches
+                        // /featured, /ending-soon, and /trending without
+                        // admitting deeper paths. Same 60s public Cache-Control
+                        // posture as the controller. FOOTGUNS §B.5: matcher
+                        // order is first-match-wins, so this rule MUST sit
+                        // before /api/v1/**.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auctions/rails/*").permitAll()
                         // Public auction detail (Epic 04). The controller
                         // hides DRAFT/DRAFT_PAID/VERIFICATION_PENDING/
                         // VERIFICATION_FAILED/SUSPENDED via 404 for non-

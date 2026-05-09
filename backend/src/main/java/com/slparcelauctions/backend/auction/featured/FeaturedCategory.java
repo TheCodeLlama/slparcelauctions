@@ -5,12 +5,16 @@ package com.slparcelauctions.backend.auction.featured;
  * Redis key so the per-endpoint caches do not collide and an individual
  * row can be invalidated independently.
  *
- * <p>Defined in Epic 07 sub-spec 1 §5.2 (featured endpoints).
+ * <p>The {@code FEATURED} rail is admin-curated (see
+ * {@code is_featured}/{@code featured_until} on {@code auctions}) and
+ * auto-fills empty slots from the highest-{@code current_bid} ACTIVE
+ * auctions. {@code TRENDING} is computed as a 24h weighted score:
+ * {@code bids * 2 + saves}.
  */
 public enum FeaturedCategory {
-    ENDING_SOON("slpa:featured:ending-soon"),
-    JUST_LISTED("slpa:featured:just-listed"),
-    MOST_ACTIVE("slpa:featured:most-active");
+    FEATURED("slpa:featured:rail:featured"),
+    ENDING_SOON("slpa:featured:rail:ending-soon"),
+    TRENDING("slpa:featured:rail:trending");
 
     private final String cacheKey;
 
