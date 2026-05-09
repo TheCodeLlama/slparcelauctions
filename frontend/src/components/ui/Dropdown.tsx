@@ -34,6 +34,11 @@ export function Dropdown({
       <MenuButton as="div">{trigger}</MenuButton>
       <MenuItems
         anchor={align === "end" ? "bottom end" : "bottom start"}
+        // modal={false} disables Headless UI's useScrollLock, which is on by
+        // default for anchored MenuItems. A header dropdown is not a true
+        // modal — locking body scroll while it's open prevents the user
+        // from scrolling the page underneath, which feels broken.
+        modal={false}
         // z-50 mirrors the sticky header and NotificationDropdown — the
         // panel is portaled, and explicit-z-index siblings (e.g. the
         // HeroFeaturedStack cards on the homepage at zIndex 1-3) would
