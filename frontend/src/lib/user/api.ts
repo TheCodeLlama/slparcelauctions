@@ -7,6 +7,13 @@ export type CurrentUser = {
   displayName: string | null;
   bio: string | null;
   profilePicUrl: string | null;
+  /**
+   * Relative URL to the user's default cover image, or null when unset.
+   * Backed by a public proxy endpoint so {@code <img src>} renders without
+   * the JWT. Auto-inserted as the first photo of every new listing the
+   * user creates after setting it.
+   */
+  defaultCoverUrl: string | null;
   slAvatarUuid: string | null;
   slAvatarName: string | null;
   slUsername: string | null;
@@ -115,6 +122,19 @@ export const userApi = {
     api.get<PublicUserProfile>(`/api/v1/users/${publicId}`),
   deleteSelf: (password: string): Promise<void> =>
     api.delete("/api/v1/users/me", { body: { password } }),
+  uploadDefaultCover: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.put<DefaultCoverDto>("/api/v1/users/me/default-cover", form);
+  },
+  deleteDefaultCover: (): Promise<void> =>
+    api.delete("/api/v1/users/me/default-cover"),
+};
+
+export type DefaultCoverDto = {
+  url: string;
+  contentType: string;
+  sizeBytes: number;
 };
 
 export const onboardingApi = {
