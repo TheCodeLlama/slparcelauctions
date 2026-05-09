@@ -47,6 +47,10 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
       label: "Profile",
       onSelect: () => router.push(`/users/${user.publicId}`),
     },
+    {
+      label: "Settings",
+      onSelect: () => router.push("/settings/profile"),
+    },
     ...(user.role === "ADMIN"
       ? [{ label: "Admin", onSelect: () => router.push("/admin") }]
       : []),
