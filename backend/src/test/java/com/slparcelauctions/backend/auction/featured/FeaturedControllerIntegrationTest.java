@@ -17,7 +17,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Full-stack coverage for {@code GET /api/v1/auctions/featured/*}. Verifies
+ * Full-stack coverage for {@code GET /api/v1/auctions/rails/*}. Verifies
  * the public security path, the {@code Cache-Control: max-age=60} response
  * header, the JSON envelope shape, and per-endpoint cache key isolation.
  *
@@ -48,7 +48,7 @@ class FeaturedControllerIntegrationTest {
     }
 
     private void clearCache() {
-        var keys = redis.keys("slpa:featured:*");
+        var keys = redis.keys("slpa:featured:rail:*");
         if (keys != null && !keys.isEmpty()) {
             redis.delete(keys);
         }
@@ -56,7 +56,7 @@ class FeaturedControllerIntegrationTest {
 
     @Test
     void endingSoon_unauth_returns200() throws Exception {
-        mockMvc.perform(get("/api/v1/auctions/featured/ending-soon"))
+        mockMvc.perform(get("/api/v1/auctions/rails/ending-soon"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control",
                         org.hamcrest.Matchers.containsString("max-age=60")))
@@ -64,34 +64,34 @@ class FeaturedControllerIntegrationTest {
     }
 
     @Test
-    void justListed_unauth_returns200() throws Exception {
-        mockMvc.perform(get("/api/v1/auctions/featured/just-listed"))
+    void featured_unauth_returns200() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions/rails/featured"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test
-    void mostActive_unauth_returns200() throws Exception {
-        mockMvc.perform(get("/api/v1/auctions/featured/most-active"))
+    void trending_unauth_returns200() throws Exception {
+        mockMvc.perform(get("/api/v1/auctions/rails/trending"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test
     void secondCall_servedFromCacheKey() throws Exception {
-        mockMvc.perform(get("/api/v1/auctions/featured/ending-soon"))
+        mockMvc.perform(get("/api/v1/auctions/rails/ending-soon"))
                 .andExpect(status().isOk());
         org.assertj.core.api.Assertions.assertThat(
-                redis.keys("slpa:featured:ending-soon")).hasSize(1);
+                redis.keys("slpa:featured:rail:ending-soon")).hasSize(1);
     }
 
     @Test
     void oneEndpointCached_doesNotAffectOthers() throws Exception {
-        mockMvc.perform(get("/api/v1/auctions/featured/ending-soon"))
+        mockMvc.perform(get("/api/v1/auctions/rails/ending-soon"))
                 .andExpect(status().isOk());
         org.assertj.core.api.Assertions.assertThat(
-                redis.keys("slpa:featured:just-listed")).isEmpty();
+                redis.keys("slpa:featured:rail:featured")).isEmpty();
         org.assertj.core.api.Assertions.assertThat(
-                redis.keys("slpa:featured:most-active")).isEmpty();
+                redis.keys("slpa:featured:rail:trending")).isEmpty();
     }
 }
