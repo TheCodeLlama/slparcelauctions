@@ -7,6 +7,7 @@ import { isApiError } from "@/lib/api";
 import type {
   AdminListingActionRequest,
   AdminListingsFilters,
+  SetFeaturedRequest,
 } from "@/lib/admin/types";
 
 export function useAdminListingsList(filters: AdminListingsFilters) {
@@ -31,6 +32,10 @@ export function adminListingErrorMessage(err: unknown, fallback: string): string
       return "Listing not found. It may have been deleted.";
     case "INVALID_SORT_COLUMN":
       return "Invalid sort column. Reset sort and try again.";
+    case "FEATURE_REQUIRES_ACTIVE_STATUS":
+      return "Only ACTIVE listings can be featured.";
+    case "FEATURED_UNTIL_REQUIRES_FEATURED_TRUE":
+      return "Cannot set an expiry when un-featuring.";
     default:
       return fallback;
   }
@@ -99,5 +104,21 @@ export function useReinstateListing() {
       toast.success("Listing reinstated.");
     },
     onError: (e) => toast.error(adminListingErrorMessage(e, "Couldn't reinstate listing.")),
+  });
+}
+
+export function useSetFeatured() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const invalidate = makeInvalidator(qc);
+  return useMutation({
+    mutationFn: ({ publicId, body }: { publicId: string; body: SetFeaturedRequest }) =>
+      adminApi.listings.setFeatured(publicId, body),
+    onSuccess: (_, vars) => {
+      invalidate();
+      toast.success(vars.body.featured ? "Listing featured." : "Listing unfeatured.");
+    },
+    onError: (e) =>
+      toast.error(adminListingErrorMessage(e, "Couldn't update featured status.")),
   });
 }
