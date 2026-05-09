@@ -146,6 +146,14 @@ export function BrowseShell({
         />
       </FilterSidebar>
       <main className="flex-1 flex flex-col gap-4 p-4 md:p-8">
+        {query.q ? (
+          <div className="text-sm text-fg-muted">
+            Showing results for{" "}
+            <span className="font-semibold text-fg">
+              &ldquo;{query.q}&rdquo;
+            </span>
+          </div>
+        ) : null}
         <ResultsHeader
           title={title}
           total={result.data?.totalElements ?? 0}

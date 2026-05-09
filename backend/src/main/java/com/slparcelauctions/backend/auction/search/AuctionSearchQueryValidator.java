@@ -71,6 +71,7 @@ public class AuctionSearchQueryValidator {
         }
 
         return new AuctionSearchQuery(
+                q.q(),
                 q.region(), q.minArea(), q.maxArea(), q.minPrice(), q.maxPrice(),
                 q.maturity(), q.tags(), q.tagsMode(), q.reserveStatus(),
                 q.snipeProtection(), q.verificationTier(), q.endingWithinHours(),

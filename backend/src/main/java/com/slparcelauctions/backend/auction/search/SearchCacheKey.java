@@ -25,6 +25,7 @@ public final class SearchCacheKey {
 
     public static String keyFor(AuctionSearchQuery q) {
         StringBuilder sb = new StringBuilder();
+        append(sb, "q", q.q() == null ? null : q.q().trim().toLowerCase());
         append(sb, "region", q.region());
         append(sb, "minArea", q.minArea());
         append(sb, "maxArea", q.maxArea());

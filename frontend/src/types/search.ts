@@ -49,6 +49,12 @@ export type SavedStatusFilter = "active_only" | "all" | "ended_only";
  * server-side).
  */
 export type AuctionSearchQuery = {
+  /**
+   * Free-text query. Matches against listing title, parcel name, and
+   * region name (OR'd together) on the backend. Powered by the same
+   * pg_trgm GIN indexes the header suggest endpoint uses.
+   */
+  q?: string;
   region?: string;
   minArea?: number;
   maxArea?: number;

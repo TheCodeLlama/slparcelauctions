@@ -39,6 +39,7 @@ public class AuctionSearchController {
 
     @GetMapping
     public ResponseEntity<SearchPagedResponse<AuctionSearchResultDto>> search(
+            @RequestParam(required = false) String q,
             @RequestParam(required = false) String region,
             @RequestParam(name = "min_area", required = false) Integer minArea,
             @RequestParam(name = "max_area", required = false) Integer maxArea,
@@ -58,7 +59,8 @@ public class AuctionSearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "24") int size) {
 
-        AuctionSearchQuery q = new AuctionSearchQuery(
+        AuctionSearchQuery query = new AuctionSearchQuery(
+                q,
                 region, minArea, maxArea, minPrice, maxPrice,
                 toSet(maturity), parseTags(tags),
                 TagsMode.fromWire(tagsMode),
@@ -69,7 +71,7 @@ public class AuctionSearchController {
                 AuctionSearchSort.fromWire(sort),
                 page, size);
 
-        SearchPagedResponse<AuctionSearchResultDto> body = service.search(q);
+        SearchPagedResponse<AuctionSearchResultDto> body = service.search(query);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofSeconds(30)).cachePublic())
                 .body(body);

@@ -104,4 +104,20 @@ public class SearchRateLimitConfig {
                         .build())
                 .build();
     }
+
+    /**
+     * 300 rpm/IP — typeahead amplifies request count ~10x compared to
+     * the structured /search path, so its bucket is sized higher. 5
+     * requests/sec sustained handles fast typing without throttling
+     * a real user.
+     */
+    @Bean
+    public BucketConfiguration suggestBucketConfiguration() {
+        return BucketConfiguration.builder()
+                .addLimit(Bandwidth.builder()
+                        .capacity(300)
+                        .refillGreedy(300, Duration.ofMinutes(1))
+                        .build())
+                .build();
+    }
 }

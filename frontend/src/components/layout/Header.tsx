@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { MenuIcon, Search } from "@/components/ui/icons";
+import { MenuIcon } from "@/components/ui/icons";
 import { Button, IconButton, ThemeToggle, WalletPill } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/cn";
@@ -10,6 +10,7 @@ import { MobileMenu } from "./MobileMenu";
 import { NavLink } from "./NavLink";
 import { UserMenuDropdown } from "@/components/auth/UserMenuDropdown";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { SearchOverlayTrigger } from "@/components/search/SearchOverlayTrigger";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -49,14 +50,7 @@ export function Header() {
           </nav>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <IconButton
-              aria-label="Search (coming soon)"
-              variant="tertiary"
-              className="hidden md:inline-flex"
-              disabled
-            >
-              <Search className="h-[18px] w-[18px]" />
-            </IconButton>
+            <SearchOverlayTrigger />
             <ThemeToggle />
             <div id="curator-tray-slot" />
             <NotificationBell />

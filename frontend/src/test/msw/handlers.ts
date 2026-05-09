@@ -12,6 +12,7 @@ import {
   mockUserNotFoundProblemDetail,
   mockVerificationNotFoundProblemDetail,
   mockAlreadyVerifiedProblemDetail,
+  mockSuggestResponse,
 } from "./fixtures";
 import type { CurrentUser, PublicUserProfile, UpdateProfileRequest } from "@/lib/user/api";
 import type { NotificationDto } from "@/lib/notifications/types";
@@ -335,6 +336,14 @@ export const notificationHandlers = [
       }
     }
     return HttpResponse.json({ markedRead: count });
+  }),
+  http.get("*/api/v1/search/suggest", ({ request }) => {
+    const url = new URL(request.url);
+    const q = url.searchParams.get("q") ?? "";
+    if (q.trim().length < 2) {
+      return HttpResponse.json({ listings: [], regions: [], totalListings: 0 });
+    }
+    return HttpResponse.json(mockSuggestResponse());
   }),
 ];
 
