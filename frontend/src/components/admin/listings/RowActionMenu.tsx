@@ -34,22 +34,33 @@ function gateFor(status: AuctionStatus, action: AdminListingAction): ActionGate 
         return { allowed: false, reason: "Only suspended listings can be reinstated" };
       }
       return { allowed: true };
+    case "feature":
+    case "unfeature":
+      // Backend rejects non-ACTIVE; mirror the guard so the menu doesn't
+      // surface a button that the API will reject.
+      if (status !== "ACTIVE") {
+        return { allowed: false, reason: "Only ACTIVE listings can be featured" };
+      }
+      return { allowed: true };
   }
 }
 
 type Props = {
   status: AuctionStatus;
+  isFeatured: boolean;
   onPick: (action: AdminListingAction) => void;
 };
 
 const ACTIONS: { key: AdminListingAction; label: string; destructive: boolean }[] = [
-  { key: "warn",      label: "Warn seller",      destructive: true },
-  { key: "suspend",   label: "Suspend listing",  destructive: true },
-  { key: "cancel",    label: "Cancel listing",   destructive: true },
+  { key: "feature",   label: "Feature listing",   destructive: false },
+  { key: "unfeature", label: "Unfeature listing", destructive: false },
+  { key: "warn",      label: "Warn seller",       destructive: true },
+  { key: "suspend",   label: "Suspend listing",   destructive: true },
+  { key: "cancel",    label: "Cancel listing",    destructive: true },
   { key: "reinstate", label: "Reinstate listing", destructive: false },
 ];
 
-export function RowActionMenu({ status, onPick }: Props) {
+export function RowActionMenu({ status, isFeatured, onPick }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -89,7 +100,12 @@ export function RowActionMenu({ status, onPick }: Props) {
           data-testid="row-action-menu"
           className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg bg-bg-subtle border border-border-subtle shadow-md py-1"
         >
-          {ACTIONS.map((a) => {
+          {ACTIONS.filter((a) => {
+            // Hide whichever feature/unfeature isn't applicable to the row.
+            if (a.key === "feature") return !isFeatured;
+            if (a.key === "unfeature") return isFeatured;
+            return true;
+          }).map((a) => {
             const gate = gateFor(status, a.key);
             return (
               <button

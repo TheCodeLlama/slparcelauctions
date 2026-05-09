@@ -6,6 +6,8 @@ export type Preset = {
   label: string;
   statuses: AuctionStatus[];
   sort: AdminListingsFilters["sort"];
+  /** When true, the preset narrows the list to currently-featured rows. */
+  featured?: boolean;
 };
 
 type Props = {
@@ -23,6 +25,7 @@ function isActive(p: Preset, f: AdminListingsFilters): boolean {
   const b = new Set(f.statuses ?? []);
   if (a.size !== b.size) return false;
   for (const v of a) if (!b.has(v)) return false;
+  if ((p.featured ?? false) !== (f.featured ?? false)) return false;
   return f.sort.column === p.sort.column && f.sort.direction === p.sort.direction;
 }
 

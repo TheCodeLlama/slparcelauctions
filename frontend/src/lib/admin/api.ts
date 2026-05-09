@@ -31,6 +31,7 @@ import type {
   FraudFlagReason,
   MyReportResponse,
   ReportRequest,
+  SetFeaturedRequest,
   UserIpProjection,
 } from "./types";
 import type { AdminAuditLogFilters, AdminAuditLogRow } from "./auditLog";
@@ -331,6 +332,7 @@ export const adminApi = {
       }
       if (filters.hasReserve === true) search.set("hasReserve", "true");
       if (filters.hasReserve === false) search.set("hasReserve", "false");
+      if (filters.featured === true) search.set("featured", "true");
       search.set("page", String(filters.page));
       search.set("size", String(filters.size));
       search.set("sort", `${filters.sort.column},${filters.sort.direction}`);
@@ -347,6 +349,9 @@ export const adminApi = {
     },
     reinstate(publicId: string, body: AdminListingActionRequest): Promise<void> {
       return api.post(`/api/v1/admin/listings/${publicId}/reinstate`, body);
+    },
+    setFeatured(publicId: string, body: SetFeaturedRequest): Promise<AdminListingRow> {
+      return api.patch(`/api/v1/admin/listings/${publicId}/featured`, body);
     },
   },
 

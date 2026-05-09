@@ -45,11 +45,12 @@ function formatTimeRemaining(endsAt: string | null, status: string): string {
   return `${minutes}m`;
 }
 
-const COLUMNS: { key: AdminListingsSortColumn | "status" | "reserve" | "actions"; label: string; sortable: boolean; align?: "right" | "left" }[] = [
+const COLUMNS: { key: AdminListingsSortColumn | "status" | "reserve" | "featured" | "actions"; label: string; sortable: boolean; align?: "right" | "left" }[] = [
   { key: "title",       label: "Title",       sortable: true },
   { key: "seller",      label: "Seller",      sortable: true },
   { key: "status",      label: "Status",      sortable: false },
   { key: "reserve",     label: "Reserve",     sortable: false },
+  { key: "featured",    label: "Featured",    sortable: false },
   { key: "createdAt",   label: "Created",     sortable: true },
   { key: "startingBid", label: "Start",       sortable: true, align: "right" },
   { key: "currentBid",  label: "Current bid", sortable: true, align: "right" },
@@ -163,6 +164,19 @@ export function AdminListingsTable({ rows, sort, onSortChange }: Props) {
                       <span className="text-[11px] text-fg-muted">—</span>
                     )}
                   </td>
+                  <td className="px-3 py-2.5">
+                    {row.isFeatured ? (
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-bg text-brand"
+                        title={row.featuredUntil ? `Until ${formatDate(row.featuredUntil)}` : "Permanent"}
+                        data-testid={`featured-badge-${row.publicId}`}
+                      >
+                        Featured
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-fg-muted">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.createdAt)}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-fg-muted text-[11px]">{formatLindens(row.startingBid)}</td>
                   <td className="px-3 py-2.5 text-right font-mono text-fg text-[11px]">{formatLindens(row.currentBid)}</td>
@@ -177,6 +191,7 @@ export function AdminListingsTable({ rows, sort, onSortChange }: Props) {
                   <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu
                       status={row.status}
+                      isFeatured={row.isFeatured}
                       onPick={(action) => setPendingAction({ row, action })}
                     />
                   </td>

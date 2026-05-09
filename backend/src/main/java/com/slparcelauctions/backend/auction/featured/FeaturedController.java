@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Three public homepage rows. Anonymous access — gated in
- * {@code SecurityConfig} as {@code GET /api/v1/auctions/featured/*}.
+ * Three public homepage rails. Anonymous access — gated in
+ * {@code SecurityConfig} as {@code GET /api/v1/auctions/rails/**}.
  *
  * <p>The Redis-side {@link FeaturedCache} fronts the service layer; the
  * 60s {@code Cache-Control: public} response header is layered on top so
@@ -20,25 +20,25 @@ import lombok.RequiredArgsConstructor;
  * within the same window.
  */
 @RestController
-@RequestMapping("/api/v1/auctions/featured")
+@RequestMapping("/api/v1/auctions/rails")
 @RequiredArgsConstructor
 public class FeaturedController {
 
     private final FeaturedService service;
+
+    @GetMapping("/featured")
+    public ResponseEntity<FeaturedResponse> featured() {
+        return cachedOk(service.get(FeaturedCategory.FEATURED));
+    }
 
     @GetMapping("/ending-soon")
     public ResponseEntity<FeaturedResponse> endingSoon() {
         return cachedOk(service.get(FeaturedCategory.ENDING_SOON));
     }
 
-    @GetMapping("/just-listed")
-    public ResponseEntity<FeaturedResponse> justListed() {
-        return cachedOk(service.get(FeaturedCategory.JUST_LISTED));
-    }
-
-    @GetMapping("/most-active")
-    public ResponseEntity<FeaturedResponse> mostActive() {
-        return cachedOk(service.get(FeaturedCategory.MOST_ACTIVE));
+    @GetMapping("/trending")
+    public ResponseEntity<FeaturedResponse> trending() {
+        return cachedOk(service.get(FeaturedCategory.TRENDING));
     }
 
     private static ResponseEntity<FeaturedResponse> cachedOk(FeaturedResponse body) {

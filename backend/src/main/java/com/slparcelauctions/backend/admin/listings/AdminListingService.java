@@ -16,12 +16,16 @@ import com.slparcelauctions.backend.admin.audit.AdminActionType;
 import com.slparcelauctions.backend.admin.exception.AuctionNotSuspendedException;
 import com.slparcelauctions.backend.admin.listings.dto.AdminListingFilterParams;
 import com.slparcelauctions.backend.admin.listings.dto.AdminListingRowDto;
+import com.slparcelauctions.backend.admin.listings.dto.SetFeaturedRequest;
 import com.slparcelauctions.backend.admin.listings.exception.AdminListingStateException;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.CancellationService;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.featured.FeaturedCache;
+import com.slparcelauctions.backend.auction.featured.FeaturedCategory;
 import com.slparcelauctions.backend.auction.monitoring.SuspensionService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 
@@ -63,6 +67,7 @@ public class AdminListingService {
     private final SuspensionService suspensionService;
     private final CancellationService cancellationService;
     private final AdminAuctionService adminAuctionService;
+    private final FeaturedCache featuredCache;
 
     private static final Map<String, Object> SOURCE_METADATA =
         Map.of("source", "ADMIN_LISTINGS_TABLE");
@@ -166,6 +171,53 @@ public class AdminListingService {
             notes,
             SOURCE_METADATA
         );
+    }
+
+    /**
+     * Toggles the auction's {@code is_featured} flag (and, when featuring,
+     * its {@code featured_until} expiry). Evicts the FEATURED rail's Redis
+     * cache so the homepage surfaces the change immediately rather than
+     * waiting up to 60s for the TTL.
+     *
+     * <p>Status guard is defense-in-depth: the admin row-action menu
+     * already gates by {@code ACTIVE}, but a direct API hit must also fail
+     * cleanly. {@code featured = false} with {@code featuredUntil} populated
+     * is a caller bug — surface it rather than silently dropping the field.
+     */
+    @Transactional
+    public AdminListingRowDto setFeatured(UUID publicId, Long adminUserId, SetFeaturedRequest req) {
+        Auction auction = resolveOrThrow(publicId);
+
+        if (auction.getStatus() != AuctionStatus.ACTIVE) {
+            throw new AdminListingStateException(
+                "FEATURE_REQUIRES_ACTIVE_STATUS",
+                "Cannot feature a listing in status " + auction.getStatus());
+        }
+        if (!req.featured() && req.featuredUntil() != null) {
+            throw new AdminListingStateException(
+                "FEATURED_UNTIL_REQUIRES_FEATURED_TRUE",
+                "featuredUntil cannot be set when featured=false");
+        }
+
+        auction.setFeatured(req.featured());
+        auction.setFeaturedUntil(req.featured() ? req.featuredUntil() : null);
+        auctionRepo.save(auction);
+
+        featuredCache.invalidate(FeaturedCategory.FEATURED);
+
+        adminActionService.record(
+            adminUserId,
+            req.featured() ? AdminActionType.FEATURE_LISTING
+                           : AdminActionType.UNFEATURE_LISTING,
+            AdminActionTargetType.LISTING,
+            auction.getId(),
+            null,
+            SOURCE_METADATA);
+
+        return queryRepo.findRowByPublicId(publicId)
+            .orElseThrow(() -> new AdminListingStateException(
+                "LISTING_NOT_FOUND",
+                "Listing not found after write: " + publicId));
     }
 
     private Auction resolveOrThrow(UUID publicId) {

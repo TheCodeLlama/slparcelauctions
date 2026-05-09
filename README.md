@@ -173,12 +173,14 @@ The `onboarding/` slice adds two forced post-verify steps gated by new boolean c
 
 - `GET /api/v1/auctions/search` — filterable, sortable, paginated (30s Redis cache, 60rpm/IP). Now also accepts a `q=<text>` free-text filter that OR-matches title, parcel name, and region name (powered by the same pg_trgm GIN indexes the suggest endpoint uses).
 - `GET /api/v1/search/suggest?q=<text>` — typeahead for the header search overlay. Returns up to 5 listings + 3 regions + a total count (15s public Cache-Control, 300rpm/IP). Empty / single-char queries return an empty envelope without hitting the DB.
-- `GET /api/v1/auctions/featured/ending-soon` — up to 6 (60s cache).
-- `GET /api/v1/auctions/featured/just-listed` — up to 6 (60s cache).
-- `GET /api/v1/auctions/featured/most-active` — up to 6 (60s cache).
+- `GET /api/v1/auctions/rails/featured` — admin-curated rail (target 4) with auto-fill from highest `current_bid` ACTIVE auctions. Curated rows always render before fill rows so paying / curated slots aren't demoted under organic fill (60s cache, 60s public Cache-Control).
+- `GET /api/v1/auctions/rails/ending-soon` — soonest-closing ACTIVE auctions, up to 6 (60s cache).
+- `GET /api/v1/auctions/rails/trending` — 24h weighted score (`bids * 2 + saves`), up to 6 (60s cache).
 - `GET /api/v1/stats/public` — four-count site stats + asOf (60s cache).
 
 The header search icon opens a typeahead overlay (Headless UI Combobox; anchored panel ≥md, full-screen Dialog <md). Click a listing → `/auction/{publicId}`; click a region → `/browse?region={name}`; press Enter → `/browse?q={text}`, where the existing filter sidebar still applies. Backed by the V22 `pg_trgm` indexes on `auctions.title`, `auction_parcel_snapshots.parcel_name`, and `regions.name`.
+
+The homepage renders Hero → Featured → TrustStrip → Ending Soon → Trending. The Hero stack pulls from the Featured rail (paid-promotion-aware once the paid add-on ships, see issue #230). Ending Soon is hidden when its content array is empty (issue #155); a rejected fetch still surfaces the unavailable placeholder so admins can spot rail outages. Admins promote a listing to the Featured rail via the row action menu on `/admin/listings` ("Feature listing" / "Unfeature listing") — backed by `PATCH /api/v1/admin/listings/{publicId}/featured`, columns `is_featured` + `featured_until` on `auctions` (V23), and a partial GIN index keyed on `(ends_at ASC, id ASC) WHERE is_featured = TRUE AND status = 'ACTIVE'`. The "Featured" preset chip on the same page filters to currently-featured rows.
 
 ### Authenticated saved-auctions (Curator Tray)
 

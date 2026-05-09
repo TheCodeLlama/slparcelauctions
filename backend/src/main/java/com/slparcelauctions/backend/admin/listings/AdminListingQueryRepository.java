@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -69,6 +70,10 @@ public class AdminListingQueryRepository {
                     ? " AND a.reserve_price IS NOT NULL "
                     : " AND a.reserve_price IS NULL ");
         }
+        if (params.featured() != null && params.featured()) {
+            where.append(" AND a.is_featured = TRUE ");
+            where.append(" AND (a.featured_until IS NULL OR a.featured_until > NOW()) ");
+        }
 
         String selectSql = """
             SELECT
@@ -84,7 +89,9 @@ public class AdminListingQueryRepository {
                 a.bid_count        AS bid_count,
                 COALESCE(s.save_count, 0) AS save_count,
                 a.ends_at          AS ends_at,
-                ps.region_name     AS region_name
+                ps.region_name     AS region_name,
+                a.is_featured      AS is_featured,
+                a.featured_until   AS featured_until
             FROM auctions a
             JOIN users u ON u.id = a.seller_id
             LEFT JOIN auction_parcel_snapshots ps ON ps.auction_id = a.id
@@ -180,8 +187,42 @@ public class AdminListingQueryRepository {
             toInteger(r[9]),
             toLong(r[10]),
             toOffsetDateTime(r[11]),
-            (String) r[12]
+            (String) r[12],
+            (Boolean) r[13],
+            toOffsetDateTime(r[14])
         );
+    }
+
+    /**
+     * Single-row read by {@code publicId}. Used by the admin Featured-toggle
+     * endpoint to return the post-write row to the caller (the frontend
+     * refreshes the row in place rather than re-fetching the whole list).
+     */
+    public Optional<AdminListingRowDto> findRowByPublicId(UUID publicId) {
+        String sql = """
+            SELECT
+                a.public_id, a.title, u.public_id, u.username, a.status,
+                (a.reserve_price IS NOT NULL),
+                a.created_at, a.starting_bid, a.current_bid, a.bid_count,
+                COALESCE(s.save_count, 0),
+                a.ends_at, ps.region_name,
+                a.is_featured, a.featured_until
+            FROM auctions a
+            JOIN users u ON u.id = a.seller_id
+            LEFT JOIN auction_parcel_snapshots ps ON ps.auction_id = a.id
+            LEFT JOIN (
+                SELECT auction_id, COUNT(*) AS save_count
+                  FROM saved_auctions
+                 GROUP BY auction_id
+            ) s ON s.auction_id = a.id
+            WHERE a.public_id = :publicId
+            """;
+        Query q = em.createNativeQuery(sql);
+        q.setParameter("publicId", publicId);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = q.getResultList();
+        if (rows.isEmpty()) return Optional.empty();
+        return Optional.of(mapRow(rows.get(0)));
     }
 
     private static Long toLong(Object o) {
@@ -203,6 +244,9 @@ public class AdminListingQueryRepository {
         if (o instanceof OffsetDateTime odt) return odt;
         if (o instanceof java.sql.Timestamp ts) {
             return ts.toInstant().atOffset(java.time.ZoneOffset.UTC);
+        }
+        if (o instanceof java.time.Instant inst) {
+            return inst.atOffset(java.time.ZoneOffset.UTC);
         }
         throw new IllegalStateException("Cannot convert to OffsetDateTime: " + o.getClass());
     }
