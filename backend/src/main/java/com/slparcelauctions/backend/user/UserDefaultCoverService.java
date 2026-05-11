@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.user;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
@@ -8,8 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.slparcelauctions.backend.auction.ListingPhotoProcessor;
+import com.slparcelauctions.backend.storage.ImagePurpose;
+import com.slparcelauctions.backend.storage.ImageStorageContext;
+import com.slparcelauctions.backend.storage.ImageStorageService;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
+import com.slparcelauctions.backend.storage.StoredImage;
 import com.slparcelauctions.backend.storage.StoredObject;
 import com.slparcelauctions.backend.user.dto.UserDefaultCoverDto;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
@@ -37,7 +41,7 @@ public class UserDefaultCoverService {
 
     private final UserRepository userRepository;
     private final ObjectStorageService storage;
-    private final ListingPhotoProcessor processor;
+    private final ImageStorageService imageStorage;
 
     @Transactional
     public UserDefaultCoverDto upload(Long userId, MultipartFile file) {
@@ -52,17 +56,17 @@ public class UserDefaultCoverService {
                     "Failed to read upload: " + e.getMessage(), e);
         }
 
-        ListingPhotoProcessor.ProcessedPhoto processed = processor.process(bytes);
+        // Build the key sans extension; the chokepoint appends .webp.
         String oldKey = user.getDefaultCoverObjectKey();
-        String contentType = processed.format().contentType();
-        String newKey = "users/" + userId + "/default-cover-" + UUID.randomUUID()
-                + "." + processed.format().extension();
+        String keyWithoutExt = "users/" + userId + "/default-cover-" + UUID.randomUUID();
 
-        storage.put(newKey, processed.bytes(), contentType);
+        StoredImage stored = imageStorage.storeImage(
+                new ByteArrayInputStream(bytes),
+                new ImageStorageContext(ImagePurpose.DEFAULT_COVER, keyWithoutExt));
 
-        user.setDefaultCoverObjectKey(newKey);
-        user.setDefaultCoverContentType(contentType);
-        user.setDefaultCoverSizeBytes(processed.sizeBytes());
+        user.setDefaultCoverObjectKey(stored.objectKey());
+        user.setDefaultCoverContentType(stored.contentType());
+        user.setDefaultCoverSizeBytes(stored.sizeBytes());
         // JPA dirty checking flushes setters on transaction commit.
 
         if (oldKey != null) {
@@ -75,8 +79,9 @@ public class UserDefaultCoverService {
         }
 
         log.info("User {} default cover updated: key={} ({} bytes)",
-                userId, newKey, processed.sizeBytes());
-        return new UserDefaultCoverDto(presign(newKey), contentType, processed.sizeBytes());
+                userId, stored.objectKey(), stored.sizeBytes());
+        return new UserDefaultCoverDto(
+                presign(stored.objectKey()), stored.contentType(), stored.sizeBytes());
     }
 
     /**
