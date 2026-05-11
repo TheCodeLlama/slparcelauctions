@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.user.UserRepository;
     "slpa.review.scheduler.enabled=false",
     "slpa.notifications.cleanup.enabled=false",
     "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false",
     "slpa.admin.bootstrap-usernames[0]=present-user",
     "slpa.admin.bootstrap-usernames[1]=present-admin",
     "slpa.admin.bootstrap-usernames[2]=absent"

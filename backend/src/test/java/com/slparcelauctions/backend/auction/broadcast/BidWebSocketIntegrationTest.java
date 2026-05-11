@@ -75,7 +75,8 @@ import com.slparcelauctions.backend.user.UserRepository;
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BidWebSocketIntegrationTest {

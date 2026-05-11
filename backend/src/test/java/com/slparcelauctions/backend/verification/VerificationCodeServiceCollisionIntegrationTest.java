@@ -44,7 +44,8 @@ import com.slparcelauctions.backend.verification.exception.CodeCollisionExceptio
 @TestPropertySource(properties = {
         "auth.cleanup.enabled=false",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 class VerificationCodeServiceCollisionIntegrationTest {
 

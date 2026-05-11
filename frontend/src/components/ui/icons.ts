@@ -91,3 +91,6 @@ export { RefreshCw } from "lucide-react";
 
 // Admin listings table additions
 export { MoreVertical, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+
+// Realty groups additions (Phase 14 dashboard pages)
+export { Mail, UserPlus, UserMinus, Users2, Inbox } from "lucide-react";

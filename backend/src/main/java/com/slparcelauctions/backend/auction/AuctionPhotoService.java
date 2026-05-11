@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.auction;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -12,7 +13,11 @@ import org.springframework.web.multipart.MultipartFile;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.PhotoLimitExceededException;
+import com.slparcelauctions.backend.storage.ImagePurpose;
+import com.slparcelauctions.backend.storage.ImageStorageContext;
+import com.slparcelauctions.backend.storage.ImageStorageService;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
+import com.slparcelauctions.backend.storage.StoredImage;
 import com.slparcelauctions.backend.storage.StoredObject;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
@@ -21,10 +26,11 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Orchestrator for per-auction photo uploads. Accepts a
- * {@link MultipartFile}, validates + re-encodes via
- * {@link ListingPhotoProcessor} (strips metadata), stores the processed
- * bytes at {@code listings/{auctionId}/{uuid}.{ext}} in object storage,
- * and persists an {@link AuctionPhoto} row. Mutations are gated to the
+ * {@link MultipartFile}, validates + re-encodes via the central
+ * {@link ImageStorageService} chokepoint (strips metadata and converts
+ * the raster to WebP), stores the bytes at
+ * {@code listings/{auctionId}/{uuid}.webp} in object storage, and
+ * persists an {@link AuctionPhoto} row. Mutations are gated to the
  * seller and to statuses {@code DRAFT} or {@code DRAFT_PAID}.
  */
 @Service
@@ -34,7 +40,7 @@ public class AuctionPhotoService {
 
     private final AuctionService auctionService;
     private final AuctionPhotoRepository photoRepo;
-    private final ListingPhotoProcessor processor;
+    private final ImageStorageService imageStorage;
     private final ObjectStorageService storage;
 
     @Value("${slpa.photos.max-per-listing:10}")
@@ -60,22 +66,23 @@ public class AuctionPhotoService {
                     "Failed to read upload: " + e.getMessage(), e);
         }
 
-        ListingPhotoProcessor.ProcessedPhoto processed = processor.process(bytes);
-        String objectKey = "listings/" + auctionId + "/" + UUID.randomUUID()
-                + "." + processed.format().extension();
-        storage.put(objectKey, processed.bytes(), processed.format().contentType());
+        // Caller key sans extension — the chokepoint appends .webp.
+        String keyWithoutExt = "listings/" + auctionId + "/" + UUID.randomUUID();
+        StoredImage stored = imageStorage.storeImage(
+                new ByteArrayInputStream(bytes),
+                new ImageStorageContext(ImagePurpose.LISTING_PHOTO, keyWithoutExt));
 
         int nextSort = (int) currentCount + 1;
         AuctionPhoto photo = AuctionPhoto.builder()
                 .auction(auction)
-                .objectKey(objectKey)
-                .contentType(processed.format().contentType())
-                .sizeBytes(processed.sizeBytes())
+                .objectKey(stored.objectKey())
+                .contentType(stored.contentType())
+                .sizeBytes(stored.sizeBytes())
                 .sortOrder(nextSort)
                 .build();
         AuctionPhoto saved = photoRepo.save(photo);
         log.info("Auction {} photo uploaded: id={} key={} ({} bytes, sortOrder={})",
-                auctionId, saved.getId(), objectKey, processed.sizeBytes(), nextSort);
+                auctionId, saved.getId(), stored.objectKey(), stored.sizeBytes(), nextSort);
         return saved;
     }
 

@@ -2,6 +2,13 @@ package com.slparcelauctions.backend.notification;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Set;
+
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupInvitation;
+import com.slparcelauctions.backend.realty.RealtyGroupMember;
+import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.user.User;
 
 public interface NotificationPublisher {
 
@@ -88,4 +95,18 @@ public interface NotificationPublisher {
     void walletTermsCleared(long userId, String notes);
     void walletWithdrawalForceCompleted(long userId, long amountL, Long ledgerEntryId, String notes);
     void walletWithdrawalForceFailed(long userId, long amountL, Long ledgerEntryId, String notes);
+
+    // ── Realty groups — lifecycle events (Phase 6 fleshes out fan-out + body copy).
+    // Stubs land here so Phase 4 services can call them while compiling.
+    void realtyGroupInvitationSent(RealtyGroupInvitation invitation);
+    void realtyGroupInvitationAccepted(RealtyGroupInvitation invitation);
+    void realtyGroupInvitationDeclined(RealtyGroupInvitation invitation);
+    void realtyGroupInvitationExpired(RealtyGroupInvitation invitation);
+    void realtyGroupMemberRemoved(RealtyGroup group, User removedUser);
+    void realtyGroupMemberLeft(RealtyGroup group, User leftUser);
+    void realtyGroupLeadershipTransferred(RealtyGroup group, User oldLeader, User newLeader, boolean oldLeaderStayed);
+    void realtyGroupDissolved(RealtyGroup group, List<User> formerMembers);
+    void realtyGroupPermissionsChanged(RealtyGroup group, RealtyGroupMember member,
+                                       Set<RealtyGroupPermission> added,
+                                       Set<RealtyGroupPermission> removed);
 }

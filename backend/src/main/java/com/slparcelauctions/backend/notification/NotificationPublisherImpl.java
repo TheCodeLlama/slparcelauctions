@@ -3,9 +3,23 @@ package com.slparcelauctions.backend.notification;
 import com.slparcelauctions.backend.notification.NotificationDao.UpsertResult;
 import com.slparcelauctions.backend.notification.dto.NotificationDto;
 import com.slparcelauctions.backend.notification.slim.SlImChannelDispatcher;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupInvitation;
+import com.slparcelauctions.backend.realty.RealtyGroupMember;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -39,18 +53,27 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private final NotificationWsBroadcasterPort wsBroadcaster;
     private final TransactionTemplate requiresNewTxTemplate;
     private final SlImChannelDispatcher slImChannelDispatcher;
+    private final RealtyGroupRepository realtyGroupRepository;
+    private final RealtyGroupMemberRepository realtyGroupMemberRepository;
+    private final UserRepository userRepository;
 
     public NotificationPublisherImpl(
             NotificationService notificationService,
             NotificationDao notificationDao,
             NotificationWsBroadcasterPort wsBroadcaster,
             @Qualifier("requiresNewTxTemplate") TransactionTemplate requiresNewTxTemplate,
-            SlImChannelDispatcher slImChannelDispatcher) {
+            SlImChannelDispatcher slImChannelDispatcher,
+            RealtyGroupRepository realtyGroupRepository,
+            RealtyGroupMemberRepository realtyGroupMemberRepository,
+            UserRepository userRepository) {
         this.notificationService = notificationService;
         this.notificationDao = notificationDao;
         this.wsBroadcaster = wsBroadcaster;
         this.requiresNewTxTemplate = requiresNewTxTemplate;
         this.slImChannelDispatcher = slImChannelDispatcher;
+        this.realtyGroupRepository = realtyGroupRepository;
+        this.realtyGroupMemberRepository = realtyGroupMemberRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -570,5 +593,265 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             title, body, data, false,
             result.createdAt(), result.updatedAt()
         );
+    }
+
+    // ─────────────────── Realty groups — lifecycle dispatch (spec §8) ───────────────────
+    //
+    // Each method composes a Notification with category REALTY_GROUP_* and dispatches
+    // once per resolved recipient. Recipient sets per spec §8:
+    //
+    //   invitation sent     → invitee
+    //   invitation accepted → leader + INVITE_AGENTS delegates (excluding the new member)
+    //   invitation declined → leader + INVITE_AGENTS delegates
+    //   invitation expired  → leader + INVITE_AGENTS delegates
+    //   member removed      → removed user only
+    //   member left         → leader + INVITE_AGENTS delegates (excluding leftUser if they
+    //                          themselves held INVITE_AGENTS)
+    //   leadership transfer → old leader + new leader + all other current members
+    //   dissolved           → every former member
+    //   permissions changed → the affected member only
+    //
+    // Body copy follows SLParcels transactional voice: plain, professional, no em-dashes.
+
+    @Override
+    public void realtyGroupInvitationSent(RealtyGroupInvitation invitation) {
+        RealtyGroup group = realtyGroupRepository.findById(invitation.getGroupId()).orElse(null);
+        if (group == null) {
+            log.warn("realtyGroupInvitationSent: group not found, groupId={} invitationId={}",
+                invitation.getGroupId(), invitation.getId());
+            return;
+        }
+        User inviter = userRepository.findById(invitation.getInvitedById()).orElse(null);
+        String inviterName = inviter == null ? "A group leader" : inviter.getDisplayName();
+        String title = "You were invited to join " + group.getName();
+        String body = inviterName + " invited you to join the realty group " + group.getName()
+            + ". Review the proposed permissions and accept or decline from your invitations dashboard.";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupInvitation(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            invitation.getPublicId(),
+            inviter == null ? null : inviter.getPublicId(),
+            inviterName);
+        publishOne(invitation.getInvitedUserId(),
+            NotificationCategory.REALTY_GROUP_INVITATION_SENT, title, body, data);
+    }
+
+    @Override
+    public void realtyGroupInvitationAccepted(RealtyGroupInvitation invitation) {
+        RealtyGroup group = realtyGroupRepository.findById(invitation.getGroupId()).orElse(null);
+        if (group == null) return;
+        User joiner = userRepository.findById(invitation.getInvitedUserId()).orElse(null);
+        String joinerName = joiner == null ? "A new member" : joiner.getDisplayName();
+        String title = joinerName + " joined " + group.getName();
+        String body = joinerName + " accepted the invitation to join " + group.getName() + ".";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupInvitation(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            invitation.getPublicId(),
+            joiner == null ? null : joiner.getPublicId(),
+            joinerName);
+
+        // Recipients: leader + INVITE_AGENTS delegates, excluding the new member themselves
+        // (they're the actor; a join notification to themselves is noise).
+        Set<Long> recipients = resolveLeaderAndInviteDelegates(group.getId(), invitation.getInvitedUserId());
+        for (Long userId : recipients) {
+            publishOne(userId, NotificationCategory.REALTY_GROUP_INVITATION_ACCEPTED, title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupInvitationDeclined(RealtyGroupInvitation invitation) {
+        RealtyGroup group = realtyGroupRepository.findById(invitation.getGroupId()).orElse(null);
+        if (group == null) return;
+        User decliner = userRepository.findById(invitation.getInvitedUserId()).orElse(null);
+        String declinerName = decliner == null ? "The invited user" : decliner.getDisplayName();
+        String title = declinerName + " declined invitation to " + group.getName();
+        String body = declinerName + " declined the invitation to join " + group.getName() + ".";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupInvitation(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            invitation.getPublicId(),
+            decliner == null ? null : decliner.getPublicId(),
+            declinerName);
+
+        Set<Long> recipients = resolveLeaderAndInviteDelegates(group.getId(), invitation.getInvitedUserId());
+        for (Long userId : recipients) {
+            publishOne(userId, NotificationCategory.REALTY_GROUP_INVITATION_DECLINED, title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupInvitationExpired(RealtyGroupInvitation invitation) {
+        RealtyGroup group = realtyGroupRepository.findById(invitation.getGroupId()).orElse(null);
+        if (group == null) return;
+        User invitee = userRepository.findById(invitation.getInvitedUserId()).orElse(null);
+        String inviteeName = invitee == null ? "An invited user" : invitee.getDisplayName();
+        String title = "Invitation to " + group.getName() + " expired";
+        String body = "The invitation to " + inviteeName + " for " + group.getName()
+            + " expired without a response. You can re-invite from the group's invitations tab.";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupInvitation(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            invitation.getPublicId(),
+            invitee == null ? null : invitee.getPublicId(),
+            inviteeName);
+
+        // Recipients: leader + INVITE_AGENTS delegates. Note: the invitee never became a
+        // member, so they're not in the delegate set; no exclusion needed.
+        Set<Long> recipients = resolveLeaderAndInviteDelegates(group.getId());
+        for (Long userId : recipients) {
+            publishOne(userId, NotificationCategory.REALTY_GROUP_INVITATION_EXPIRED, title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupMemberRemoved(RealtyGroup group, User removedUser) {
+        if (removedUser == null) return;
+        String removedName = removedUser.getDisplayName();
+        String title = "You were removed from " + group.getName();
+        String body = "You are no longer a member of " + group.getName()
+            + ". Contact the group leader if this was unexpected.";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupMembership(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            removedUser.getPublicId(), removedName);
+        publishOne(removedUser.getId(),
+            NotificationCategory.REALTY_GROUP_MEMBER_REMOVED, title, body, data);
+    }
+
+    @Override
+    public void realtyGroupMemberLeft(RealtyGroup group, User leftUser) {
+        if (leftUser == null) return;
+        String leftName = leftUser.getDisplayName();
+        String title = leftName + " left " + group.getName();
+        String body = leftName + " left the realty group " + group.getName() + ".";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupMembership(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            leftUser.getPublicId(), leftName);
+
+        // Recipients: leader + INVITE_AGENTS delegates, excluding the user who left
+        // (if they themselves held INVITE_AGENTS, they'd otherwise self-notify).
+        Set<Long> recipients = resolveLeaderAndInviteDelegates(group.getId(), leftUser.getId());
+        for (Long userId : recipients) {
+            publishOne(userId, NotificationCategory.REALTY_GROUP_MEMBER_LEFT, title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupLeadershipTransferred(RealtyGroup group, User oldLeader, User newLeader,
+                                                  boolean oldLeaderStayed) {
+        if (oldLeader == null || newLeader == null) return;
+        String oldName = oldLeader.getDisplayName();
+        String newName = newLeader.getDisplayName();
+        String title = "Leadership of " + group.getName() + " transferred";
+        String body = newName + " is now the leader of " + group.getName()
+            + ". Previous leader " + oldName
+            + (oldLeaderStayed ? " remains a member with full delegated permissions."
+                                : " has left the group.");
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupLeadershipTransferred(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            oldLeader.getPublicId(), oldName,
+            newLeader.getPublicId(), newName,
+            oldLeaderStayed);
+
+        // Recipients: old leader + new leader + all OTHER current members (deduped).
+        Set<Long> recipients = new LinkedHashSet<>();
+        recipients.add(oldLeader.getId());
+        recipients.add(newLeader.getId());
+        for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
+            recipients.add(m.getUserId());
+        }
+        for (Long userId : recipients) {
+            publishOne(userId, NotificationCategory.REALTY_GROUP_LEADERSHIP_TRANSFERRED, title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupDissolved(RealtyGroup group, List<User> formerMembers) {
+        if (formerMembers == null || formerMembers.isEmpty()) return;
+        String title = group.getName() + " was dissolved";
+        String body = "The realty group " + group.getName()
+            + " has been dissolved. Any listings previously attached to it are no longer affiliated with a group.";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+
+        Set<Long> seen = new HashSet<>();
+        for (User member : formerMembers) {
+            if (member == null) continue;
+            if (!seen.add(member.getId())) continue;
+            publishOne(member.getId(),
+                NotificationCategory.REALTY_GROUP_DISSOLVED, title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupPermissionsChanged(RealtyGroup group, RealtyGroupMember member,
+                                              Set<RealtyGroupPermission> added,
+                                              Set<RealtyGroupPermission> removed) {
+        if (member == null) return;
+        Set<String> addedNames = added == null
+            ? Set.of()
+            : new TreeSet<>(toNames(added));
+        Set<String> removedNames = removed == null
+            ? Set.of()
+            : new TreeSet<>(toNames(removed));
+        String title = "Your permissions in " + group.getName() + " changed";
+        StringBuilder body = new StringBuilder("Your permissions in ").append(group.getName()).append(" were updated.");
+        if (!addedNames.isEmpty()) {
+            body.append(" Granted: ").append(String.join(", ", addedNames)).append('.');
+        }
+        if (!removedNames.isEmpty()) {
+            body.append(" Revoked: ").append(String.join(", ", removedNames)).append('.');
+        }
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupPermissionsChanged(
+            group.getPublicId(), group.getName(), group.getSlug(),
+            addedNames, removedNames);
+        publishOne(member.getUserId(),
+            NotificationCategory.REALTY_GROUP_PERMISSIONS_CHANGED, title, body.toString(), data);
+    }
+
+    // ── Realty group helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Resolves the recipient set "leader + members who hold INVITE_AGENTS", deduped,
+     * minus any caller-provided exclusions (e.g. the actor whose action triggered the
+     * notification). The returned set preserves insertion order: leader first, then
+     * delegates in {@code joined_at} order. Exclusions are silently dropped.
+     */
+    Set<Long> resolveLeaderAndInviteDelegates(Long groupId, Long... exclusions) {
+        Set<Long> excluded = new HashSet<>();
+        if (exclusions != null) {
+            for (Long e : exclusions) {
+                if (e != null) excluded.add(e);
+            }
+        }
+        Set<Long> out = new LinkedHashSet<>();
+        Optional<RealtyGroup> g = realtyGroupRepository.findById(groupId);
+        g.ifPresent(group -> {
+            if (group.getLeaderId() != null && !excluded.contains(group.getLeaderId())) {
+                out.add(group.getLeaderId());
+            }
+        });
+        for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(groupId)) {
+            if (excluded.contains(m.getUserId())) continue;
+            // Skip the leader's member row — already added; this check also guards a
+            // future bug where the leader row carries permissions that are otherwise ignored.
+            if (g.isPresent() && g.get().getLeaderId() != null
+                    && g.get().getLeaderId().equals(m.getUserId())) {
+                continue;
+            }
+            if (m.permissionSet().contains(RealtyGroupPermission.INVITE_AGENTS)) {
+                out.add(m.getUserId());
+            }
+        }
+        return out;
+    }
+
+    /** Common per-recipient publish path for realty group notifications. */
+    private void publishOne(long userId, NotificationCategory category,
+                            String title, String body, Map<String, Object> data) {
+        notificationService.publish(new NotificationEvent(
+            userId, category, title, body, data, /* coalesceKey */ null));
+    }
+
+    private static List<String> toNames(Set<RealtyGroupPermission> perms) {
+        List<String> names = new ArrayList<>(perms.size());
+        for (RealtyGroupPermission p : perms) names.add(p.name());
+        return names;
     }
 }

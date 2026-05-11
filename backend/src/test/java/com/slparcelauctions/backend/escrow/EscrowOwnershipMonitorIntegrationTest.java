@@ -99,7 +99,8 @@ import reactor.core.publisher.Mono;
         // the World API failure counter branch.
         "slpa.escrow.ownership-api-failure-threshold=5",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 @Import(EscrowOwnershipMonitorIntegrationTest.CapturingConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

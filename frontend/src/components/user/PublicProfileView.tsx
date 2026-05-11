@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ProfileReviewTabs } from "@/components/reviews/ProfileReviewTabs";
+import { ProfileGroupsSection } from "@/components/realty/ProfileGroupsSection";
 import { isApiError } from "@/lib/api";
 import { userApi } from "@/lib/user/api";
 import { ActiveListingsSection } from "./ActiveListingsSection";
@@ -111,6 +112,9 @@ export function PublicProfileView({ userPublicId }: PublicProfileViewProps) {
           </div>
         </Card.Body>
       </Card>
+
+      {/* Groups (realty-groups spec §6.3) */}
+      <ProfileGroupsSection userPublicId={profile.publicId} />
 
       {/* Reviews (Epic 08 sub-spec 1 §8.2) */}
       <Card>
