@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -59,7 +60,8 @@ class ProxyBidResolutionTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
+        BidEligibilityService eligibilityService = new BidEligibilityService(mock(RealtyGroupMemberRepository.class));
+        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), eligibilityService);
 
         userA = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(100L).displayName("Alice").verified(true).build();
         userB = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(200L).displayName("Bob").verified(true).build();
