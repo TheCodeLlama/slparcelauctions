@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.OldLeaderAction;
 import com.slparcelauctions.backend.realty.RealtyGroup;
@@ -49,6 +50,7 @@ public class RealtyGroupMembershipService {
     private final RealtyGroupAuthorizer authorizer;
     private final NotificationPublisher notifications;
     private final UserRepository users;
+    private final AuctionRepository auctions;
 
     /**
      * Caller leaves the group. Deletes their own member row. Leader cannot leave — must
@@ -67,6 +69,7 @@ public class RealtyGroupMembershipService {
             .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
 
         members.deleteByGroupIdAndUserId(group.getId(), callerUserId);
+        auctions.reassignListingAgentForGroup(group.getId(), callerUserId, group.getLeaderId());
         // Resolve the User entity for the notification payload. Skip the fire if the row
         // somehow vanished mid-tx (defensive — same defensive posture as the dissolve path).
         Optional<User> leftUser = users.findById(callerUserId);

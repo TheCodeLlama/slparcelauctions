@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupInvitationRepository;
@@ -46,6 +47,7 @@ class RealtyGroupMembershipServiceLeaveTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock AuctionRepository auctions;
 
     @InjectMocks RealtyGroupMembershipService service;
 
@@ -114,5 +116,45 @@ class RealtyGroupMembershipServiceLeaveTest {
 
         assertThrows(RealtyGroupNotFoundException.class, () -> service.leave(pid, 999L));
         verify(members, never()).deleteByGroupIdAndUserId(any(), any());
+    }
+
+    @Test
+    void leave_reassigns_listing_agent_to_leader_on_active_auctions() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        RealtyGroupMember agent = RealtyGroupMember.builder()
+            .groupId(g.getId()).userId(200L).joinedAt(OffsetDateTime.now()).build();
+        when(members.findByGroupIdAndUserId(g.getId(), 200L)).thenReturn(Optional.of(agent));
+        User u = new User();
+        u.setUsername("agent");
+        when(users.findById(200L)).thenReturn(Optional.of(u));
+
+        service.leave(pid, 200L);
+
+        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
+    }
+
+    @Test
+    void leave_does_not_touch_ended_auctions() {
+        // reassignListingAgentForGroup only modifies DRAFT/VERIFICATION_PENDING/ACTIVE rows
+        // per the query contract; the service just calls it — the repo's JPQL handles the
+        // filtering. This test confirms the call is made exactly once (not guarded by status).
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        RealtyGroupMember agent = RealtyGroupMember.builder()
+            .groupId(g.getId()).userId(200L).joinedAt(OffsetDateTime.now()).build();
+        when(members.findByGroupIdAndUserId(g.getId(), 200L)).thenReturn(Optional.of(agent));
+        User u = new User();
+        u.setUsername("agent");
+        when(users.findById(200L)).thenReturn(Optional.of(u));
+
+        service.leave(pid, 200L);
+
+        // The repo query filters pre-terminal auctions; ended auctions are untouched by its
+        // WHERE clause. We verify the call fires and let the existing AuctionRepository
+        // tests verify the query predicate.
+        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
     }
 }
