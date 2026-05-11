@@ -9,6 +9,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
@@ -151,6 +153,38 @@ public class RealtyExceptionHandler {
         pd.setTitle("Already A Member");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "ALREADY_MEMBER");
+        return pd;
+    }
+
+    /**
+     * Mirrors {@code UserExceptionHandler}'s handling of the same exception but lifts the
+     * status to {@code 415} per spec §5.7 (the realty logo/cover upload endpoints surface
+     * format rejection at the wire as {@code UNSUPPORTED_IMAGE_FORMAT}). The package-scoped
+     * {@code @RestControllerAdvice} on this class wins over the user-package handler for
+     * any exception thrown from a realty controller.
+     */
+    @ExceptionHandler(UnsupportedImageFormatException.class)
+    public ProblemDetail handleUnsupportedImageFormat(
+            UnsupportedImageFormatException e, HttpServletRequest req) {
+        log.warn("Realty image upload rejected: {}", e.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "Upload must be a JPEG, PNG, or WebP image.");
+        pd.setTitle("Unsupported Image Format");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "UNSUPPORTED_IMAGE_FORMAT");
+        return pd;
+    }
+
+    @ExceptionHandler(RealtyGroupImageNotFoundException.class)
+    public ProblemDetail handleImageNotFound(
+            RealtyGroupImageNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Realty Group Image Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REALTY_GROUP_IMAGE_NOT_FOUND");
+        pd.setProperty("groupPublicId", e.getGroupPublicId().toString());
+        pd.setProperty("kind", e.getKind().name());
         return pd;
     }
 }
