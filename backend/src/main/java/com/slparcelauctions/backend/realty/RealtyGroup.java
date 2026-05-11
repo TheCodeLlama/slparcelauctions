@@ -42,13 +42,12 @@ public class RealtyGroup extends BaseMutableEntity {
     @Column(nullable = false, length = 64)
     private String name;
 
-    /**
-     * Postgres generated column: {@code lower(name)} stored as {@code CITEXT}, indexed
-     * {@code UNIQUE WHERE dissolved_at IS NULL} for case-insensitive name uniqueness on
-     * active groups. Read-only from JPA's perspective.
-     */
-    @Column(name = "name_lower", insertable = false, updatable = false)
-    private String nameLower;
+    // Note: the DB also has a `name_lower CITEXT` generated column carrying
+    // `lower(name)`, indexed UNIQUE WHERE dissolved_at IS NULL for case-insensitive
+    // name uniqueness. We intentionally do NOT map it as a Java field — Hibernate's
+    // schema validator can't reconcile the CITEXT column type with a String field, and
+    // application code uses the LOWER()-based JPQL query in the repository for
+    // case-insensitive lookups. The column exists only for the partial unique index.
 
     @Column(nullable = false, length = 80)
     private String slug;
