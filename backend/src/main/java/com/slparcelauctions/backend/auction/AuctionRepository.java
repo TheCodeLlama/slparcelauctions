@@ -234,7 +234,7 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      * {@code RealtyGroupMemberService.removeMember} inside their existing
      * {@code @Transactional} boundary.
      */
-    @Modifying(clearAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Auction a
                SET a.listingAgent.id = :newAgentId
