@@ -18,8 +18,8 @@ import com.sksamuel.scrimage.ImmutableImage;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Shared bytes-level image validation used by both {@code AvatarImageProcessor}
- * and {@code ListingPhotoProcessor}. Sniffs the format via byte-level magic
+ * Shared bytes-level image validation used by {@code ListingPhotoProcessor}
+ * and the central {@code ImageStorageService} chokepoint. Sniffs the format via byte-level magic
  * bytes for WebP and via ImageIO's reader registry for JPEG/PNG (trusting
  * the actual bytes, not the multipart {@code Content-Type} header which is
  * trivially client-controlled). Decodes the image so callers can work on a

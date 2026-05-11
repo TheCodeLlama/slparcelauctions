@@ -1,8 +1,8 @@
 package com.slparcelauctions.backend.user;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Map;
 import java.util.Set;
 
 import org.springframework.core.io.ResourceLoader;
@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.slparcelauctions.backend.storage.ImagePurpose;
+import com.slparcelauctions.backend.storage.ImageStorageContext;
+import com.slparcelauctions.backend.storage.ImageStorageService;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
 import com.slparcelauctions.backend.storage.StoredObject;
 import com.slparcelauctions.backend.storage.exception.ObjectNotFoundException;
@@ -38,11 +41,14 @@ public class AvatarService {
 
     private static final long MAX_UPLOAD_BYTES = 2L * 1024 * 1024;
     private static final Set<Integer> VALID_SIZES = Set.of(64, 128, 256);
+    /** Iteration order doesn't matter (each call is independent) but the
+     *  smallest size first keeps log lines monotonic by size. */
+    private static final int[] VALID_SIZES_ORDERED = {64, 128, 256};
     private static final String PLACEHOLDER_TEMPLATE = "classpath:static/placeholders/avatar-%d.png";
 
     private final UserRepository userRepository;
     private final ObjectStorageService storage;
-    private final AvatarImageProcessor processor;
+    private final ImageStorageService imageStorage;
     private final ResourceLoader resourceLoader;
 
     @Transactional
@@ -58,11 +64,21 @@ public class AvatarService {
             throw new UnsupportedImageFormatException("Failed to read upload: " + e.getMessage(), e);
         }
 
-        Map<Integer, byte[]> resized = processor.process(bytes);
-
-        for (Map.Entry<Integer, byte[]> entry : resized.entrySet()) {
-            String key = "avatars/" + userId + "/" + entry.getKey() + ".png";
-            storage.put(key, entry.getValue(), "image/png");
+        // Route every canonical size (64/128/256) through the central
+        // WebP chokepoint so the helper handles decode, resize, encode,
+        // and S3 write. We pass the same input bytes three times and let
+        // the helper resize per the size override. Each call re-decodes
+        // — accepted because avatar upload is rare and the spec says
+        // "don't over-engineer this". Output key omits the .webp suffix
+        // (the helper appends it) so we can keep computing canonical
+        // size-suffixed keys.
+        for (int size : VALID_SIZES_ORDERED) {
+            imageStorage.storeImage(
+                    new ByteArrayInputStream(bytes),
+                    new ImageStorageContext(
+                            ImagePurpose.AVATAR,
+                            "avatars/" + userId + "/" + size,
+                            size));
         }
         log.info("Avatar uploaded for user {} ({} bytes -> 3 sizes)", userId, bytes.length);
 
@@ -90,12 +106,24 @@ public class AvatarService {
             return loadPlaceholder(size);
         }
 
-        String key = "avatars/" + userId + "/" + size + ".png";
+        // Try the new WebP key first (post-chokepoint migration), then
+        // fall back to the legacy PNG key. Historical avatars uploaded
+        // before the migration remain at .png; new uploads land at
+        // .webp. Avatars have no content-type column on the user row,
+        // so we drive the served content type from whichever S3 object
+        // exists.
+        String webpKey = "avatars/" + userId + "/" + size + ".webp";
         try {
-            return storage.get(key);
+            return storage.get(webpKey);
+        } catch (ObjectNotFoundException ignored) {
+            // Fall through to legacy PNG.
+        }
+        String pngKey = "avatars/" + userId + "/" + size + ".png";
+        try {
+            return storage.get(pngKey);
         } catch (ObjectNotFoundException e) {
-            log.error("Orphaned profile_pic_url for userId={} (S3 key {} missing). Returning placeholder.",
-                    userId, key);
+            log.error("Orphaned profile_pic_url for userId={} (neither {} nor {} present). "
+                    + "Returning placeholder.", userId, webpKey, pngKey);
             return loadPlaceholder(size);
         }
     }
