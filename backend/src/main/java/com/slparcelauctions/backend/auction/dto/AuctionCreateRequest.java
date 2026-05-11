@@ -36,5 +36,14 @@ public record AuctionCreateRequest(
         @NotNull Boolean snipeProtect,
         Integer snipeWindowMin,                    // required iff snipeProtect
         @Size(max = 5000) String sellerDesc,
-        @Size(max = 10) Set<String> tags) {       // parcel_tag codes
+        @Size(max = 10) Set<String> tags,          // parcel_tag codes
+        /**
+         * When non-null, the auction is created under this realty group (case 1: the agent
+         * is also the seller). The controller routes to
+         * {@link com.slparcelauctions.backend.realty.listing.RealtyGroupListingService} which
+         * asserts {@code CREATE_LISTING} and snapshots {@code agent_fee_rate} +
+         * {@code agent_fee_split} onto the auction row. When null, behavior is identical to
+         * the individual-listing path.
+         */
+        UUID listAsGroupPublicId) {
 }
