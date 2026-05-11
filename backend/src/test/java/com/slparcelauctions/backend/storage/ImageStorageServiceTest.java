@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.slparcelauctions.backend.media.ImageUploadValidator;
+import com.slparcelauctions.backend.user.exception.ImageTooLargeException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 import com.sksamuel.scrimage.ImmutableImage;
 import com.sksamuel.scrimage.webp.WebpWriter;
@@ -149,6 +150,20 @@ class ImageStorageServiceTest {
                 new ByteArrayInputStream(heic),
                 new ImageStorageContext(ImagePurpose.AVATAR, "k")))
                 .isInstanceOf(UnsupportedImageFormatException.class);
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void rejectsOversizedInputWith413() {
+        // 16 MB cap + 1 byte. The probe-byte logic should detect the
+        // overflow and throw ImageTooLargeException (413), not silently
+        // truncate and 415.
+        byte[] tooBig = new byte[16 * 1024 * 1024 + 1];
+
+        assertThatThrownBy(() -> service.storeImage(
+                new ByteArrayInputStream(tooBig),
+                new ImageStorageContext(ImagePurpose.LISTING_PHOTO, "k")))
+                .isInstanceOf(ImageTooLargeException.class);
         verifyNoInteractions(storage);
     }
 

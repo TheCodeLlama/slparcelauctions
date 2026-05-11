@@ -125,7 +125,8 @@ class AuctionPhotoControllerIntegrationTest {
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.publicId").exists())
-                .andExpect(jsonPath("$.contentType").value("image/png"))
+                // Post-chokepoint migration every raster lands as WebP.
+                .andExpect(jsonPath("$.contentType").value("image/webp"))
                 .andExpect(jsonPath("$.sortOrder").value(1))
                 .andReturn();
 
@@ -133,7 +134,7 @@ class AuctionPhotoControllerIntegrationTest {
                 .get("publicId").asText());
         AuctionPhoto saved = photoRepository.findByPublicId(photoPublicId).orElseThrow();
         assertThat(saved.getObjectKey()).startsWith("listings/" + a.getId() + "/");
-        assertThat(saved.getObjectKey()).endsWith(".png");
+        assertThat(saved.getObjectKey()).endsWith(".webp");
     }
 
     @Test
@@ -236,7 +237,7 @@ class AuctionPhotoControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/photos/" + photoPublicId))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(header().string("Content-Type", "image/webp"))
                 .andExpect(header().string("Cache-Control", "public, max-age=86400"));
     }
 
@@ -260,7 +261,7 @@ class AuctionPhotoControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/photos/" + photoPublicId))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "image/png"));
+                .andExpect(header().string("Content-Type", "image/webp"));
     }
 
     @Test
@@ -372,7 +373,7 @@ class AuctionPhotoControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/photos/" + photoPublicId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "image/png"));
+                .andExpect(header().string("Content-Type", "image/webp"));
     }
 
     // -------------------------------------------------------------------------

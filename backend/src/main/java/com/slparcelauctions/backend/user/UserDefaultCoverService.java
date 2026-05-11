@@ -29,8 +29,9 @@ import lombok.extern.slf4j.Slf4j;
  * the new one is durably stored; replace-time delete failures are logged
  * but never fail the call (the new key is already on the row).
  *
- * <p>Re-encodes via the shared {@link ListingPhotoProcessor} so EXIF / IPTC
- * metadata is stripped before bytes hit S3.
+ * <p>Re-encodes via the central {@link ImageStorageService} chokepoint so
+ * raster uploads are converted to WebP and EXIF / IPTC metadata is
+ * stripped before bytes hit S3.
  */
 @Service
 @RequiredArgsConstructor

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.slparcelauctions.backend.media.ImageFormat;
 import com.slparcelauctions.backend.media.ImageUploadValidator;
+import com.slparcelauctions.backend.user.exception.ImageTooLargeException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 import com.sksamuel.scrimage.ImmutableImage;
 import com.sksamuel.scrimage.webp.WebpWriter;
@@ -125,9 +126,10 @@ public class ImageStorageServiceImpl implements ImageStorageService {
     /**
      * Reads up to {@code limit} bytes from the stream. Throws
      * {@link UnsupportedImageFormatException} (415) if the stream is empty
-     * or if reading itself fails. We don't error on hitting the cap —
-     * we return whatever we have, and the downstream decode catches a
-     * truncated image with the standard 415.
+     * or if reading itself fails, and {@link ImageTooLargeException} (413)
+     * if the stream has more bytes than the limit. Probing one extra
+     * byte after the cap is hit lets us distinguish "stream fit exactly"
+     * (no error) from "stream exceeded cap" (413).
      */
     private static byte[] readAtMost(InputStream in, int limit) {
         if (in == null) {
@@ -143,6 +145,13 @@ public class ImageStorageServiceImpl implements ImageStorageService {
             }
             if (total == 0) {
                 throw new UnsupportedImageFormatException("Upload is empty");
+            }
+            // Probe for overflow — if any more bytes are available, the
+            // payload exceeded the cap. Surface as 413 so the controller
+            // exception handlers can route to PAYLOAD_TOO_LARGE.
+            if (total == limit && in.read() != -1) {
+                throw new ImageTooLargeException(
+                        "Image upload exceeds the " + limit + "-byte cap.");
             }
             return baos.toByteArray();
         } catch (IOException e) {

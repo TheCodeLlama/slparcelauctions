@@ -23,8 +23,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.PhotoLimitExceededException;
-import com.slparcelauctions.backend.media.ImageFormat;
+import com.slparcelauctions.backend.storage.ImageStorageContext;
+import com.slparcelauctions.backend.storage.ImageStorageService;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
+import com.slparcelauctions.backend.storage.StoredImage;
 import com.slparcelauctions.backend.user.User;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,7 +34,7 @@ class AuctionPhotoServiceTest {
 
     @Mock AuctionService auctionService;
     @Mock AuctionPhotoRepository photoRepo;
-    @Mock ListingPhotoProcessor processor;
+    @Mock ImageStorageService imageStorage;
     @Mock ObjectStorageService storage;
 
     @InjectMocks AuctionPhotoService service;
@@ -52,14 +54,22 @@ class AuctionPhotoServiceTest {
                 .build();
     }
 
+    /** Echoes the caller's object key + ".webp", as if the chokepoint
+     *  encoded the input. */
+    private void stubChokepointEcho(long sizeBytes) {
+        when(imageStorage.storeImage(any(), any(ImageStorageContext.class)))
+                .thenAnswer(inv -> {
+                    ImageStorageContext ctx = inv.getArgument(1);
+                    return new StoredImage(
+                            ctx.objectKey() + ".webp", "image/webp", sizeBytes);
+                });
+    }
+
     @Test
-    void upload_happyPath_storesObjectAndSavesRow() {
+    void upload_happyPath_routesThroughChokepointAndSavesRow() {
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
         when(photoRepo.countByAuctionId(1L)).thenReturn(0L);
-        byte[] processedBytes = new byte[]{1, 2, 3};
-        when(processor.process(any(byte[].class)))
-                .thenReturn(new ListingPhotoProcessor.ProcessedPhoto(
-                        processedBytes, ImageFormat.PNG, processedBytes.length));
+        stubChokepointEcho(3L);
         when(photoRepo.save(any(AuctionPhoto.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -68,19 +78,19 @@ class AuctionPhotoServiceTest {
         AuctionPhoto saved = service.upload(1L, 42L, file);
 
         assertThat(saved.getObjectKey()).startsWith("listings/1/");
-        assertThat(saved.getObjectKey()).endsWith(".png");
-        assertThat(saved.getContentType()).isEqualTo("image/png");
+        // Migrated path writes .webp; content-type is image/webp.
+        assertThat(saved.getObjectKey()).endsWith(".webp");
+        assertThat(saved.getContentType()).isEqualTo("image/webp");
         assertThat(saved.getSortOrder()).isEqualTo(1);
-        verify(storage).put(startsWith("listings/1/"), eq(processedBytes), eq("image/png"));
+        verify(imageStorage).storeImage(any(), any(ImageStorageContext.class));
+        verify(storage, never()).put(anyString(), any(), anyString());
     }
 
     @Test
     void upload_assignsSortOrderAsCountPlusOne() {
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
         when(photoRepo.countByAuctionId(1L)).thenReturn(4L);
-        when(processor.process(any(byte[].class)))
-                .thenReturn(new ListingPhotoProcessor.ProcessedPhoto(
-                        new byte[]{1}, ImageFormat.JPEG, 1L));
+        stubChokepointEcho(1L);
         when(photoRepo.save(any(AuctionPhoto.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -96,9 +106,7 @@ class AuctionPhotoServiceTest {
         Auction paid = Auction.builder().title("Test listing").id(1L).status(AuctionStatus.DRAFT_PAID).build();
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(paid);
         when(photoRepo.countByAuctionId(1L)).thenReturn(0L);
-        when(processor.process(any(byte[].class)))
-                .thenReturn(new ListingPhotoProcessor.ProcessedPhoto(
-                        new byte[]{1}, ImageFormat.PNG, 1L));
+        stubChokepointEcho(1L);
         when(photoRepo.save(any(AuctionPhoto.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -118,6 +126,7 @@ class AuctionPhotoServiceTest {
 
         assertThatThrownBy(() -> service.upload(1L, 42L, file))
                 .isInstanceOf(InvalidAuctionStateException.class);
+        verify(imageStorage, never()).storeImage(any(), any(ImageStorageContext.class));
         verify(storage, never()).put(anyString(), any(), anyString());
         verify(photoRepo, never()).save(any());
     }
@@ -132,6 +141,7 @@ class AuctionPhotoServiceTest {
 
         assertThatThrownBy(() -> service.upload(1L, 42L, file))
                 .isInstanceOf(PhotoLimitExceededException.class);
+        verify(imageStorage, never()).storeImage(any(), any(ImageStorageContext.class));
         verify(storage, never()).put(anyString(), any(), anyString());
     }
 
