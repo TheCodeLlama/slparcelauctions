@@ -14,6 +14,9 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
 
     Optional<RealtyGroup> findByPublicId(UUID publicId);
 
+    /** Active-group lookup by public UUID; used by the listing integration service. */
+    Optional<RealtyGroup> findByPublicIdAndDissolvedAtIsNull(UUID publicId);
+
     /** Public-page lookup; only returns active groups. */
     Optional<RealtyGroup> findBySlugAndDissolvedAtIsNull(String slug);
 
