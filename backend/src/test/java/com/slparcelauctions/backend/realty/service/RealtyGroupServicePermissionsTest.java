@@ -23,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
@@ -33,6 +34,7 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundExceptio
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
+import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Unit tests for {@link RealtyGroupService#updateMemberPermissions}.
@@ -48,6 +50,8 @@ class RealtyGroupServicePermissionsTest {
     @Mock RealtyGroupMemberRepository members;
     @Mock RealtyGroupSlugFactory slugFactory;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock NotificationPublisher notifications;
+    @Mock UserRepository users;
 
     @InjectMocks RealtyGroupService service;
 
@@ -82,7 +86,28 @@ class RealtyGroupServicePermissionsTest {
             groupPid, memberPid, newPerms, 100L);
 
         verify(authorizer).assertLeader(100L, g.getId());
+        verify(notifications).realtyGroupPermissionsChanged(
+            any(RealtyGroup.class), any(RealtyGroupMember.class), any(), any());
         assertEquals(newPerms, result.permissionSet());
+    }
+
+    @Test
+    void noNotificationWhenPermissionSetUnchanged() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        RealtyGroupMember agent = buildMember(g.getId(), 200L);
+        agent.setPermissionSet(EnumSet.of(RealtyGroupPermission.INVITE_AGENTS));
+
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        when(members.findByPublicId(memberPid)).thenReturn(Optional.of(agent));
+        when(members.save(any(RealtyGroupMember.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.updateMemberPermissions(
+            groupPid, memberPid, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L);
+
+        verify(notifications, never()).realtyGroupPermissionsChanged(
+            any(), any(), any(), any());
     }
 
     @Test

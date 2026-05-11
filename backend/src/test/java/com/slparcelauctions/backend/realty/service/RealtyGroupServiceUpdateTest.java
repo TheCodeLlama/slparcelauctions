@@ -43,6 +43,8 @@ class RealtyGroupServiceUpdateTest {
     @Mock RealtyGroupMemberRepository members;
     @Mock RealtyGroupSlugFactory slugFactory;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock com.slparcelauctions.backend.notification.NotificationPublisher notifications;
+    @Mock com.slparcelauctions.backend.user.UserRepository users;
 
     @InjectMocks RealtyGroupService service;
 

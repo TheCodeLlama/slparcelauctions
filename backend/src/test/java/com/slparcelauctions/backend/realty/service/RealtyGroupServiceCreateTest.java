@@ -36,6 +36,8 @@ class RealtyGroupServiceCreateTest {
     @Mock RealtyGroupMemberRepository members;
     @Mock RealtyGroupSlugFactory slugFactory;
     @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer authorizer;
+    @Mock com.slparcelauctions.backend.notification.NotificationPublisher notifications;
+    @Mock com.slparcelauctions.backend.user.UserRepository users;
 
     @InjectMocks RealtyGroupService service;
 

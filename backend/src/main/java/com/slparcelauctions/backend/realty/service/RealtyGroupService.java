@@ -4,13 +4,18 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
@@ -26,6 +31,8 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDenied
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +59,8 @@ public class RealtyGroupService {
     private final RealtyGroupMemberRepository members;
     private final RealtyGroupSlugFactory slugFactory;
     private final RealtyGroupAuthorizer authorizer;
+    private final NotificationPublisher notifications;
+    private final UserRepository users;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -231,11 +240,23 @@ public class RealtyGroupService {
             throw new RealtyGroupPermissionDeniedException("Cannot edit leader permissions");
         }
 
+        Set<RealtyGroupPermission> previous = member.permissionSet();
         Set<RealtyGroupPermission> effective = (newPerms == null)
             ? EnumSet.noneOf(RealtyGroupPermission.class)
             : newPerms;
+        Set<RealtyGroupPermission> added = EnumSet.noneOf(RealtyGroupPermission.class);
+        added.addAll(effective);
+        added.removeAll(previous);
+        Set<RealtyGroupPermission> removed = EnumSet.noneOf(RealtyGroupPermission.class);
+        removed.addAll(previous);
+        removed.removeAll(effective);
         member.setPermissionSet(effective);
         RealtyGroupMember saved = members.save(member);
+        // Skip the notification fire when nothing actually changed; same-set PATCH should
+        // not spam the member.
+        if (!added.isEmpty() || !removed.isEmpty()) {
+            notifications.realtyGroupPermissionsChanged(group, saved, added, removed);
+        }
         log.info("Realty group permissions updated: groupPublicId={} memberPublicId={} perms={} callerUserId={}",
             groupPublicId, memberPublicId, effective, callerUserId);
         return saved;
@@ -253,8 +274,10 @@ public class RealtyGroupService {
     public RealtyGroup dissolveGroup(UUID publicId, Long callerUserId) {
         RealtyGroup group = loadActive(publicId);
         authorizer.assertLeader(callerUserId, group.getId());
+        List<User> formerMembers = loadCurrentMembersAsUsers(group.getId());
         group.setDissolvedAt(OffsetDateTime.now());
         RealtyGroup saved = groups.save(group);
+        notifications.realtyGroupDissolved(saved, formerMembers);
         log.info("Realty group dissolved by leader: publicId={} leaderId={}", publicId, callerUserId);
         return saved;
     }
@@ -265,10 +288,33 @@ public class RealtyGroupService {
      */
     public RealtyGroup dissolveGroupAsAdmin(UUID publicId, Long adminUserId) {
         RealtyGroup group = loadActive(publicId);
+        List<User> formerMembers = loadCurrentMembersAsUsers(group.getId());
         group.setDissolvedAt(OffsetDateTime.now());
         RealtyGroup saved = groups.save(group);
+        notifications.realtyGroupDissolved(saved, formerMembers);
         log.info("Realty group force-dissolved by admin: publicId={} adminUserId={}", publicId, adminUserId);
         return saved;
+    }
+
+    /**
+     * Resolve every current member of the group to its {@link User} entity, in join-order.
+     * Used by dissolve flows to fan out notifications. Performs one query for the member
+     * rows and one for the user entities; gaps (member row pointing at a vanished user) are
+     * skipped silently.
+     */
+    private List<User> loadCurrentMembersAsUsers(Long groupId) {
+        List<RealtyGroupMember> rows = members.findByGroupIdOrderByJoinedAtAsc(groupId);
+        if (rows.isEmpty()) return new ArrayList<>();
+        List<Long> userIds = new ArrayList<>(rows.size());
+        for (RealtyGroupMember row : rows) userIds.add(row.getUserId());
+        Map<Long, User> byId = new HashMap<>();
+        for (User u : users.findAllById(userIds)) byId.put(u.getId(), u);
+        List<User> ordered = new ArrayList<>(rows.size());
+        for (RealtyGroupMember row : rows) {
+            User u = byId.get(row.getUserId());
+            if (u != null) ordered.add(u);
+        }
+        return ordered;
     }
 
     // ─────────────────────── helpers ───────────────────────
