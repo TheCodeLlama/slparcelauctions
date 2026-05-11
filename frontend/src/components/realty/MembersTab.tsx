@@ -215,6 +215,7 @@ export function MembersTab({
       >
         {editTarget && (
           <EditPermissionsForm
+            key={editTarget.memberPublicId}
             groupPublicId={group.publicId}
             member={editTarget}
             onComplete={() => setEditTarget(null)}

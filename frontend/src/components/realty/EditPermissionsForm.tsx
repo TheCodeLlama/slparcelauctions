@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useUpdatePermissions } from "@/hooks/realty/useRealtyGroups";
 import { ALL_PERMISSIONS } from "@/lib/realty/permissions";
@@ -32,9 +32,9 @@ export function EditPermissionsForm({
     () => new Set(member.permissions ?? []),
   );
 
-  useEffect(() => {
-    setPermissions(new Set(member.permissions ?? []));
-  }, [member]);
+  // The parent modal re-mounts this form whenever a different member is
+  // selected (see MembersTab.editTarget) — no useEffect-driven reset
+  // needed. The form lifetime is scoped to one member at a time.
 
   function toggle(p: RealtyGroupPermission, on: boolean) {
     setPermissions((prev) => {
