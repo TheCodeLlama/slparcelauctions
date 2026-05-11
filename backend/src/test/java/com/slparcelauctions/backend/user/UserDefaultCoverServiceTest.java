@@ -17,26 +17,29 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
-import com.slparcelauctions.backend.auction.ListingPhotoProcessor;
-import com.slparcelauctions.backend.media.ImageFormat;
+import com.slparcelauctions.backend.storage.ImagePurpose;
+import com.slparcelauctions.backend.storage.ImageStorageContext;
+import com.slparcelauctions.backend.storage.ImageStorageService;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
+import com.slparcelauctions.backend.storage.StoredImage;
 import com.slparcelauctions.backend.user.dto.UserDefaultCoverDto;
 
 class UserDefaultCoverServiceTest {
 
     private UserRepository userRepository;
     private ObjectStorageService storage;
-    private ListingPhotoProcessor processor;
+    private ImageStorageService imageStorage;
     private UserDefaultCoverService service;
 
     @BeforeEach
     void setup() {
         userRepository = mock(UserRepository.class);
         storage = mock(ObjectStorageService.class);
-        processor = mock(ListingPhotoProcessor.class);
-        service = new UserDefaultCoverService(userRepository, storage, processor);
+        imageStorage = mock(ImageStorageService.class);
+        service = new UserDefaultCoverService(userRepository, storage, imageStorage);
     }
 
     private static User buildUser(Long id) {
@@ -51,29 +54,43 @@ class UserDefaultCoverServiceTest {
         return new MockMultipartFile("file", "x.jpg", "image/jpeg", new byte[]{1, 2, 3});
     }
 
-    private static ListingPhotoProcessor.ProcessedPhoto processedJpeg() {
-        byte[] bytes = new byte[]{9, 8, 7};
-        return new ListingPhotoProcessor.ProcessedPhoto(bytes, ImageFormat.JPEG, bytes.length);
+    /** Stubs the chokepoint to echo back the caller's key + ".webp". */
+    private void stubChokepointEcho(long sizeBytes) {
+        when(imageStorage.storeImage(any(), any(ImageStorageContext.class)))
+                .thenAnswer(inv -> {
+                    ImageStorageContext ctx = inv.getArgument(1);
+                    return new StoredImage(ctx.objectKey() + ".webp", "image/webp", sizeBytes);
+                });
     }
 
     @Test
-    void upload_happyPath_putsObjectAndUpdatesUser_withNoPriorCover() {
+    void upload_happyPath_chokepointWritesWebpAndUpdatesUser_withNoPriorCover() {
         User user = buildUser(42L);
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
-        when(processor.process(any(byte[].class))).thenReturn(processedJpeg());
+        stubChokepointEcho(3L);
         when(storage.presignGet(anyString(), any(Duration.class))).thenReturn("https://example/x");
 
         UserDefaultCoverDto dto = service.upload(42L, jpegFile());
 
         assertThat(user.getDefaultCoverObjectKey()).startsWith("users/42/default-cover-");
-        assertThat(user.getDefaultCoverObjectKey()).endsWith(".jpg");
-        assertThat(user.getDefaultCoverContentType()).isEqualTo("image/jpeg");
+        // Output key has the .webp extension applied by the chokepoint.
+        assertThat(user.getDefaultCoverObjectKey()).endsWith(".webp");
+        assertThat(user.getDefaultCoverContentType()).isEqualTo("image/webp");
         assertThat(user.getDefaultCoverSizeBytes()).isEqualTo(3L);
-        verify(storage).put(eq(user.getDefaultCoverObjectKey()), any(byte[].class), eq("image/jpeg"));
+        // Caller-supplied key has NO extension; the chokepoint appends one.
+        ArgumentCaptor<ImageStorageContext> ctxCap =
+                ArgumentCaptor.forClass(ImageStorageContext.class);
+        verify(imageStorage).storeImage(any(), ctxCap.capture());
+        assertThat(ctxCap.getValue().purpose()).isEqualTo(ImagePurpose.DEFAULT_COVER);
+        assertThat(ctxCap.getValue().objectKey())
+                .startsWith("users/42/default-cover-")
+                .doesNotContain(".");
         // No prior key — no delete should happen.
         verify(storage, never()).delete(anyString());
+        // ObjectStorageService.put is no longer called directly by this service.
+        verify(storage, never()).put(anyString(), any(), anyString());
         assertThat(dto.url()).isEqualTo("https://example/x");
-        assertThat(dto.contentType()).isEqualTo("image/jpeg");
+        assertThat(dto.contentType()).isEqualTo("image/webp");
         assertThat(dto.sizeBytes()).isEqualTo(3L);
     }
 
@@ -84,13 +101,16 @@ class UserDefaultCoverServiceTest {
         user.setDefaultCoverContentType("image/jpeg");
         user.setDefaultCoverSizeBytes(100L);
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
-        when(processor.process(any(byte[].class))).thenReturn(processedJpeg());
+        stubChokepointEcho(3L);
         when(storage.presignGet(anyString(), any(Duration.class))).thenReturn("https://example/x");
 
         UserDefaultCoverDto dto = service.upload(42L, jpegFile());
 
         assertThat(user.getDefaultCoverObjectKey()).startsWith("users/42/default-cover-");
         assertThat(user.getDefaultCoverObjectKey()).isNotEqualTo("users/42/default-cover-old-uuid.jpg");
+        // The old .jpg key is what gets deleted — historical objects retain
+        // their original extension on the row, the helper only changes new
+        // writes going forward.
         verify(storage).delete("users/42/default-cover-old-uuid.jpg");
         assertThat(dto).isNotNull();
     }
@@ -100,7 +120,7 @@ class UserDefaultCoverServiceTest {
         User user = buildUser(42L);
         user.setDefaultCoverObjectKey("users/42/default-cover-old.jpg");
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
-        when(processor.process(any(byte[].class))).thenReturn(processedJpeg());
+        stubChokepointEcho(3L);
         when(storage.presignGet(anyString(), any(Duration.class))).thenReturn("https://example/x");
         doThrow(new RuntimeException("S3 boom")).when(storage).delete("users/42/default-cover-old.jpg");
 
@@ -120,7 +140,7 @@ class UserDefaultCoverServiceTest {
         assertThatThrownBy(() -> service.upload(42L, jpegFile()))
                 .isInstanceOf(UserNotFoundException.class);
 
-        verify(processor, never()).process(any());
+        verify(imageStorage, never()).storeImage(any(), any(ImageStorageContext.class));
         verify(storage, never()).put(anyString(), any(), anyString());
     }
 

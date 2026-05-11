@@ -80,7 +80,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         "slpa.world-api.retry-backoff-ms=25",
         "slpa.world-api.timeout-ms=2000",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 class OwnershipMonitorIntegrationTest {
 

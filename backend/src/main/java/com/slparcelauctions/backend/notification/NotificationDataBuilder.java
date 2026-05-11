@@ -228,6 +228,61 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    // ── Realty groups ─────────────────────────────────────────────────────────
+
+    /** Base block for any realty group notification: stable group identity. */
+    public static Map<String, Object> realtyGroupBase(java.util.UUID groupPublicId,
+                                                       String groupName, String groupSlug) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("groupPublicId", groupPublicId == null ? null : groupPublicId.toString());
+        m.put("groupName", groupName);
+        m.put("groupSlug", groupSlug);
+        return m;
+    }
+
+    public static Map<String, Object> realtyGroupInvitation(
+            java.util.UUID groupPublicId, String groupName, String groupSlug,
+            java.util.UUID invitationPublicId,
+            java.util.UUID actorPublicId, String actorDisplayName) {
+        Map<String, Object> m = realtyGroupBase(groupPublicId, groupName, groupSlug);
+        m.put("invitationPublicId", invitationPublicId == null ? null : invitationPublicId.toString());
+        m.put("actorPublicId", actorPublicId == null ? null : actorPublicId.toString());
+        m.put("actorDisplayName", actorDisplayName);
+        return m;
+    }
+
+    public static Map<String, Object> realtyGroupMembership(
+            java.util.UUID groupPublicId, String groupName, String groupSlug,
+            java.util.UUID memberPublicId, String memberDisplayName) {
+        Map<String, Object> m = realtyGroupBase(groupPublicId, groupName, groupSlug);
+        m.put("memberPublicId", memberPublicId == null ? null : memberPublicId.toString());
+        m.put("memberDisplayName", memberDisplayName);
+        return m;
+    }
+
+    public static Map<String, Object> realtyGroupLeadershipTransferred(
+            java.util.UUID groupPublicId, String groupName, String groupSlug,
+            java.util.UUID oldLeaderPublicId, String oldLeaderDisplayName,
+            java.util.UUID newLeaderPublicId, String newLeaderDisplayName,
+            boolean oldLeaderStayed) {
+        Map<String, Object> m = realtyGroupBase(groupPublicId, groupName, groupSlug);
+        m.put("oldLeaderPublicId", oldLeaderPublicId == null ? null : oldLeaderPublicId.toString());
+        m.put("oldLeaderDisplayName", oldLeaderDisplayName);
+        m.put("newLeaderPublicId", newLeaderPublicId == null ? null : newLeaderPublicId.toString());
+        m.put("newLeaderDisplayName", newLeaderDisplayName);
+        m.put("oldLeaderStayed", oldLeaderStayed);
+        return m;
+    }
+
+    public static Map<String, Object> realtyGroupPermissionsChanged(
+            java.util.UUID groupPublicId, String groupName, String groupSlug,
+            java.util.Set<String> added, java.util.Set<String> removed) {
+        Map<String, Object> m = realtyGroupBase(groupPublicId, groupName, groupSlug);
+        m.put("added", added == null ? java.util.List.of() : new java.util.ArrayList<>(added));
+        m.put("removed", removed == null ? java.util.List.of() : new java.util.ArrayList<>(removed));
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

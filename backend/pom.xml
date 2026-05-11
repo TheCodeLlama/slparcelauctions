@@ -174,7 +174,17 @@
              so encode/decode works on every dev box and on CI without a
              native-image dependency. Per-conversion overhead is a single
              fork+exec (~10-20ms) which is acceptable at the HTTP-request
-             boundary where all conversions occur. -->
+             boundary where all conversions occur.
+
+             Also serves as the WebP encoder for the central
+             {@code ImageStorageService} chokepoint (see
+             {@code backend/.../storage/ImageStorageServiceImpl}). The realty-groups
+             spec §7.6 calls for {@code com.twelvemonkeys.imageio:imageio-webp};
+             we deviated because Scrimage was already on the classpath for
+             the same job and adding a second WebP encoder would conflict
+             with the existing SPI registration. {@code WebpEncoderProbeTest}
+             guards the round-trip on every platform we run on. -->
+
         <dependency>
             <groupId>com.sksamuel.scrimage</groupId>
             <artifactId>scrimage-core</artifactId>

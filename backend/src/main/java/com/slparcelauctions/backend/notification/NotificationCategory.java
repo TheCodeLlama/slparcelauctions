@@ -41,7 +41,19 @@ public enum NotificationCategory {
     WALLET_DORMANCY_RESET(NotificationGroup.SYSTEM),
     WALLET_TERMS_CLEARED(NotificationGroup.SYSTEM),
     WITHDRAWAL_FORCE_COMPLETED(NotificationGroup.SYSTEM),
-    WITHDRAWAL_FORCE_FAILED(NotificationGroup.SYSTEM);
+    WITHDRAWAL_FORCE_FAILED(NotificationGroup.SYSTEM),
+
+    // Realty groups — lifecycle (spec §8). Email default ON, SL IM default OFF,
+    // in-app feed always (driven by NotificationGroup.REALTY_GROUP preferences).
+    REALTY_GROUP_INVITATION_SENT(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_INVITATION_ACCEPTED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_INVITATION_DECLINED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_INVITATION_EXPIRED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_MEMBER_REMOVED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_MEMBER_LEFT(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_LEADERSHIP_TRANSFERRED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_DISSOLVED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_PERMISSIONS_CHANGED(NotificationGroup.REALTY_GROUP);
 
     private final NotificationGroup group;
 

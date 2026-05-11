@@ -36,8 +36,9 @@ spring:
     baseline-version: 0         # baseline at 0 so V1 runs on a fresh schema (default is 1, which would skip V1)
   servlet:
     multipart:
-      # Aligned with slpa.photos.max-bytes (25 MB) so Spring's multipart layer
-      # rejects oversized uploads with the same threshold the processor would.
+      # Sized so Spring's multipart layer rejects pathologically large
+      # uploads before they reach the central ImageStorageService chokepoint
+      # (which buffers up to 16 MB then magic-byte-sniffs + decodes).
       # The user-facing UI never surfaces "too big" copy — these are JVM-OOM
       # guards for clients that bypass the client-side resize.
       max-file-size: 25MB

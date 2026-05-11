@@ -20,6 +20,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
     "slpa.notifications.cleanup.enabled=false",
     "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false",
     "slpa.escrow.scheduler.enabled=false",
     "slpa.escrow.timeout-job.enabled=false",
     "slpa.escrow.command-dispatcher-job.enabled=false",

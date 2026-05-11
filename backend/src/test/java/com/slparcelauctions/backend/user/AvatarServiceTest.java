@@ -9,7 +9,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,7 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.mock.web.MockMultipartFile;
 
+import com.slparcelauctions.backend.storage.ImageStorageContext;
+import com.slparcelauctions.backend.storage.ImageStorageService;
 import com.slparcelauctions.backend.storage.ObjectStorageService;
+import com.slparcelauctions.backend.storage.StoredImage;
 import com.slparcelauctions.backend.storage.StoredObject;
 import com.slparcelauctions.backend.storage.exception.ObjectNotFoundException;
 import com.slparcelauctions.backend.user.dto.UserResponse;
@@ -30,36 +32,43 @@ class AvatarServiceTest {
 
     private UserRepository userRepository;
     private ObjectStorageService storage;
-    private AvatarImageProcessor processor;
+    private ImageStorageService imageStorage;
     private AvatarService service;
 
     @BeforeEach
     void setup() {
         userRepository = mock(UserRepository.class);
         storage = mock(ObjectStorageService.class);
-        processor = mock(AvatarImageProcessor.class);
-        service = new AvatarService(userRepository, storage, processor, new DefaultResourceLoader());
+        imageStorage = mock(ImageStorageService.class);
+        service = new AvatarService(userRepository, storage, imageStorage, new DefaultResourceLoader());
     }
 
     @Test
-    void upload_happyPath_putsThreeObjectsAndUpdatesUser() {
+    void upload_happyPath_routesThreeSizesThroughChokepointAndUpdatesUser() {
         UUID userPublicId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         User user = User.builder()
                 .id(1L).publicId(userPublicId).email("a@b.c").username("a").passwordHash("x").verified(false).build();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "avatar.png", "image/png", new byte[]{1, 2, 3});
-        Map<Integer, byte[]> resized = Map.of(
-                64, new byte[]{10},
-                128, new byte[]{20},
-                256, new byte[]{30});
-        when(processor.process(any(byte[].class))).thenReturn(resized);
+        when(imageStorage.storeImage(any(), any(ImageStorageContext.class)))
+                .thenAnswer(inv -> {
+                    ImageStorageContext ctx = inv.getArgument(1);
+                    return new StoredImage(ctx.objectKey() + ".webp", "image/webp", 100L);
+                });
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         UserResponse resp = service.upload(1L, file);
 
-        verify(storage).put(eq("avatars/1/64.png"), any(byte[].class), eq("image/png"));
-        verify(storage).put(eq("avatars/1/128.png"), any(byte[].class), eq("image/png"));
-        verify(storage).put(eq("avatars/1/256.png"), any(byte[].class), eq("image/png"));
+        // Three calls to the chokepoint, one per canonical size, with
+        // the maxDim override pinned to the size and the key sans
+        // extension (the helper appends .webp).
+        verify(imageStorage).storeImage(any(), eq(new ImageStorageContext(
+                com.slparcelauctions.backend.storage.ImagePurpose.AVATAR, "avatars/1/64", 64)));
+        verify(imageStorage).storeImage(any(), eq(new ImageStorageContext(
+                com.slparcelauctions.backend.storage.ImagePurpose.AVATAR, "avatars/1/128", 128)));
+        verify(imageStorage).storeImage(any(), eq(new ImageStorageContext(
+                com.slparcelauctions.backend.storage.ImagePurpose.AVATAR, "avatars/1/256", 256)));
+        verify(storage, never()).put(any(), any(), any());
         String expectedUrl = "/api/v1/users/" + userPublicId + "/avatar/256";
         assertThat(user.getProfilePicUrl()).isEqualTo(expectedUrl);
         assertThat(resp.profilePicUrl()).isEqualTo(expectedUrl);
@@ -76,8 +85,8 @@ class AvatarServiceTest {
                 .verified(true).avatarStepCompleted(true).build();
         MockMultipartFile file = new MockMultipartFile(
                 "file", "avatar.png", "image/png", new byte[]{1, 2, 3});
-        when(processor.process(any(byte[].class))).thenReturn(Map.of(
-                64, new byte[]{10}, 128, new byte[]{20}, 256, new byte[]{30}));
+        when(imageStorage.storeImage(any(), any(ImageStorageContext.class)))
+                .thenReturn(new StoredImage("avatars/1/256.webp", "image/webp", 100L));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         service.upload(1L, file);
@@ -94,15 +103,15 @@ class AvatarServiceTest {
 
         assertThatThrownBy(() -> service.upload(1L, file))
                 .isInstanceOf(AvatarTooLargeException.class);
-        verify(processor, never()).process(any());
+        verify(imageStorage, never()).storeImage(any(), any(ImageStorageContext.class));
         verify(storage, never()).put(any(), any(), any());
     }
 
     @Test
-    void upload_unsupportedFormat_propagatesFromProcessor() {
+    void upload_unsupportedFormat_propagatesFromChokepoint() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "bad.bmp", "image/bmp", new byte[]{1, 2, 3});
-        when(processor.process(any(byte[].class)))
+        when(imageStorage.storeImage(any(), any(ImageStorageContext.class)))
                 .thenThrow(new UnsupportedImageFormatException("bmp not allowed"));
 
         assertThatThrownBy(() -> service.upload(1L, file))
@@ -132,22 +141,41 @@ class AvatarServiceTest {
     }
 
     @Test
-    void fetch_userHasAvatar_returnsProxiedBytes() {
+    void fetch_newWebpKeyExists_returnsWebpBytes() {
         User user = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         byte[] stored = new byte[]{50, 51, 52};
+        when(storage.get("avatars/1/128.webp"))
+                .thenReturn(new StoredObject(stored, "image/webp", 3L));
+
+        StoredObject result = service.fetch(1L, 128);
+
+        assertThat(result.bytes()).isEqualTo(stored);
+        assertThat(result.contentType()).isEqualTo("image/webp");
+    }
+
+    @Test
+    void fetch_legacyPngFallbackWhenWebpMissing_returnsPngBytes() {
+        User user = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(storage.get("avatars/1/128.webp"))
+                .thenThrow(new ObjectNotFoundException("avatars/1/128.webp", null));
+        byte[] stored = new byte[]{60, 61, 62};
         when(storage.get("avatars/1/128.png"))
                 .thenReturn(new StoredObject(stored, "image/png", 3L));
 
         StoredObject result = service.fetch(1L, 128);
 
         assertThat(result.bytes()).isEqualTo(stored);
+        assertThat(result.contentType()).isEqualTo("image/png");
     }
 
     @Test
     void fetch_orphanedProfilePicUrl_returnsPlaceholder() {
         User user = User.builder().username("u-" + java.util.UUID.randomUUID().toString().substring(0, 8)).id(1L).profilePicUrl("/api/v1/users/1/avatar/256").build();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(storage.get("avatars/1/128.webp"))
+                .thenThrow(new ObjectNotFoundException("avatars/1/128.webp", null));
         when(storage.get("avatars/1/128.png"))
                 .thenThrow(new ObjectNotFoundException("avatars/1/128.png", null));
 

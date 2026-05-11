@@ -67,7 +67,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         "slpa.ownership-monitor.enabled=false",
         "slpa.escrow.ownership-monitor-job.enabled=false",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class CancelLadderRaceTest {

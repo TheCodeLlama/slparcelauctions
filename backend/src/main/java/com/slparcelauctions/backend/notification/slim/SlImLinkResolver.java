@@ -48,6 +48,14 @@ public class SlImLinkResolver {
                  WALLET_PENALTY_FORGIVEN, WALLET_DORMANCY_RESET, WALLET_TERMS_CLEARED,
                  WITHDRAWAL_FORCE_COMPLETED, WITHDRAWAL_FORCE_FAILED ->
                 base + "/wallet";
+            case REALTY_GROUP_INVITATION_SENT ->
+                base + "/dashboard/invitations";
+            case REALTY_GROUP_INVITATION_ACCEPTED, REALTY_GROUP_INVITATION_DECLINED,
+                 REALTY_GROUP_INVITATION_EXPIRED, REALTY_GROUP_MEMBER_LEFT,
+                 REALTY_GROUP_LEADERSHIP_TRANSFERRED, REALTY_GROUP_PERMISSIONS_CHANGED ->
+                base + "/group/" + data.get("groupSlug");
+            case REALTY_GROUP_MEMBER_REMOVED, REALTY_GROUP_DISSOLVED ->
+                base + "/dashboard/groups";
         };
     }
 }

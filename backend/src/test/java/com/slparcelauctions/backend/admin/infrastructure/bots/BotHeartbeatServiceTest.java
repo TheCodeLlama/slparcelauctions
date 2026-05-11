@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "slpa.review.scheduler.enabled=false",
     "slpa.notifications.cleanup.enabled=false",
     "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false",
     "slpa.bot-pool-health-log.enabled=false"
 })
 @Transactional

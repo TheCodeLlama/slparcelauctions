@@ -89,7 +89,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
         "slpa.escrow.timeout-job.enabled=true",
         "slpa.escrow.timeout-job.fixed-delay=PT24H",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 @Import({ClockOverrideConfig.class, EscrowTimeoutIntegrationTest.CapturingConfig.class})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

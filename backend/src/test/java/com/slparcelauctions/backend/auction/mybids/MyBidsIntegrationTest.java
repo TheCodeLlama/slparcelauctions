@@ -64,7 +64,8 @@ import com.slparcelauctions.backend.user.UserRepository;
         "auth.cleanup.enabled=false",
         "spring.jpa.properties.hibernate.generate_statistics=true",
         "slpa.notifications.cleanup.enabled=false",
-        "slpa.notifications.sl-im.cleanup.enabled=false"
+        "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false"
 })
 @Transactional
 class MyBidsIntegrationTest {

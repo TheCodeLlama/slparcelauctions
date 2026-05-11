@@ -45,6 +45,24 @@ describe("AdminShell", () => {
     expect(screen.getByText("ADMIN")).toBeInTheDocument();
   });
 
+  it("renders the Realty Groups nav entry", async () => {
+    server.use(
+      authHandlers.refreshSuccess(mockAdminUser),
+      adminHandlers.statsSuccess()
+    );
+
+    renderWithProviders(
+      <AdminShell>
+        <div>content</div>
+      </AdminShell>,
+      { auth: "authenticated", authUser: mockAdminUser }
+    );
+
+    const link = screen.getByRole("link", { name: "Realty Groups" });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/admin/realty-groups");
+  });
+
   it("renders fraud flag badge when open count is non-zero", async () => {
     server.use(
       authHandlers.refreshSuccess(mockAdminUser),

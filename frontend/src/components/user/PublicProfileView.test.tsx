@@ -46,6 +46,7 @@ describe("PublicProfileView", () => {
     server.use(
       userHandlers.publicProfileSuccess(mockPublicProfile),
       mockEmptyUserReviews(),
+      userHandlers.realtyGroupsEmpty(),
     );
 
     renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
@@ -60,6 +61,7 @@ describe("PublicProfileView", () => {
     server.use(
       userHandlers.publicProfileSuccess(mockUnverifiedPublicProfile),
       mockEmptyUserReviews(),
+      userHandlers.realtyGroupsEmpty(),
     );
 
     renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002c" />);
@@ -83,6 +85,7 @@ describe("PublicProfileView", () => {
     server.use(
       userHandlers.publicProfileSuccess(mockNewSellerPublicProfile),
       mockEmptyUserReviews(),
+      userHandlers.realtyGroupsEmpty(),
     );
 
     renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002b" />);
@@ -98,6 +101,7 @@ describe("PublicProfileView", () => {
     server.use(
       userHandlers.publicProfileSuccess(mockPublicProfile),
       mockEmptyUserReviews(),
+      userHandlers.realtyGroupsEmpty(),
     );
 
     renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
@@ -106,10 +110,47 @@ describe("PublicProfileView", () => {
     expect(screen.queryByText("New Seller")).not.toBeInTheDocument();
   });
 
+  it("renders the Groups section when the user has affiliations", async () => {
+    server.use(
+      userHandlers.publicProfileSuccess(mockPublicProfile),
+      mockEmptyUserReviews(),
+      userHandlers.realtyGroupsSuccess([
+        {
+          groupPublicId: "10000000-0000-0000-0000-000000000001",
+          groupName: "Mainland Realty",
+          groupSlug: "mainland-realty",
+          logoUrl: null,
+          role: "LEADER",
+        },
+      ]),
+    );
+
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
+
+    expect(await screen.findByText("Verified Tester")).toBeInTheDocument();
+    expect(await screen.findByText("Groups")).toBeInTheDocument();
+    expect(await screen.findByText("Mainland Realty")).toBeInTheDocument();
+    expect(screen.getByText("Leader")).toBeInTheDocument();
+  });
+
+  it("omits the Groups section when the user has no affiliations", async () => {
+    server.use(
+      userHandlers.publicProfileSuccess(mockPublicProfile),
+      mockEmptyUserReviews(),
+      userHandlers.realtyGroupsEmpty(),
+    );
+
+    renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
+
+    expect(await screen.findByText("Verified Tester")).toBeInTheDocument();
+    expect(screen.queryByText("Groups")).not.toBeInTheDocument();
+  });
+
   it("renders the ProfileReviewTabs instead of the legacy empty-state", async () => {
     server.use(
       userHandlers.publicProfileSuccess(mockPublicProfile),
       mockEmptyUserReviews(),
+      userHandlers.realtyGroupsEmpty(),
     );
 
     renderWithProviders(<PublicProfileView userPublicId="00000000-0000-0000-0000-00000000002a" />);
