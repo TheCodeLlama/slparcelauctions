@@ -39,6 +39,17 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
     /** Groups led by the given user (active only). */
     List<RealtyGroup> findByLeaderIdAndDissolvedAtIsNullOrderByCreatedAtDesc(Long leaderId);
 
+    /** Active groups in which the given user holds a membership row. Joined via the
+     *  member table so the result includes groups the user leads (the leader's row exists
+     *  by invariant) as well as groups they joined as an agent. */
+    @Query("""
+        SELECT g FROM RealtyGroup g
+         WHERE g.dissolvedAt IS NULL
+           AND g.id IN (SELECT m.groupId FROM RealtyGroupMember m WHERE m.userId = :userId)
+         ORDER BY g.createdAt DESC
+        """)
+    List<RealtyGroup> findActiveByMemberUserId(@Param("userId") Long userId);
+
     /** Admin list: paginated, filterable by status (active/dissolved/all). */
     @Query("""
         SELECT g FROM RealtyGroup g
