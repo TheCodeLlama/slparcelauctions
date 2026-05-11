@@ -17,6 +17,12 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
     /** Public-page lookup; only returns active groups. */
     Optional<RealtyGroup> findBySlugAndDissolvedAtIsNull(String slug);
 
+    /** All rows matching a slug regardless of dissolution; used by the public controller to
+     *  distinguish "never existed" (404) from "dissolved" (410). Returns at most one active
+     *  row at a time (partial unique index), but multiple dissolved rows may share the same
+     *  slug — we surface the most recently dissolved one. */
+    Optional<RealtyGroup> findFirstBySlugAndDissolvedAtIsNotNullOrderByDissolvedAtDesc(String slug);
+
     /** Case-insensitive name lookup; only returns active groups (the partial unique index
      *  on name_lower enforces uniqueness over the active set). */
     @Query("SELECT g FROM RealtyGroup g WHERE LOWER(g.name) = LOWER(:name) AND g.dissolvedAt IS NULL")
