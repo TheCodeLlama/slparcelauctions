@@ -89,7 +89,7 @@ class AuctionServiceTest {
     void create_validRequest_savesInDraft() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, false, null, "Nice parcel", Set.of());
+                168, false, null, "Nice parcel", Set.of(), null);
 
         Auction a = service.create(42L, req, null);
 
@@ -108,7 +108,7 @@ class AuctionServiceTest {
         // the cover at 1.
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, false, null, "Nice parcel", Set.of());
+                168, false, null, "Nice parcel", Set.of(), null);
 
         service.create(42L, req, null);
 
@@ -309,7 +309,7 @@ class AuctionServiceTest {
     private AuctionCreateRequest minimalCreateRequest(String title) {
         return new AuctionCreateRequest(
                 PARCEL_UUID, title, 1000L, null, null,
-                168, false, null, null, Set.of());
+                168, false, null, null, Set.of(), null);
     }
 
     @Test
@@ -319,7 +319,7 @@ class AuctionServiceTest {
         // must have a null verificationMethod.
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 500L, null, null,
-                72, true, 10, "Test", Set.of());
+                72, true, 10, "Test", Set.of(), null);
 
         Auction created = service.create(42L, req, null);
 
@@ -331,7 +331,7 @@ class AuctionServiceTest {
     void create_withSnipeProtect_setsSnipeWindow() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, true, 10, null, Set.of());
+                168, true, 10, null, Set.of(), null);
 
         Auction a = service.create(42L, req, null);
 
@@ -347,7 +347,7 @@ class AuctionServiceTest {
     void create_reservePriceLessThanStarting_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, 500L, null,
-                168, false, null, null, Set.of());
+                168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -358,7 +358,7 @@ class AuctionServiceTest {
     void create_buyNowLessThanReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, 5000L, 4000L,
-                168, false, null, null, Set.of());
+                168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -369,7 +369,7 @@ class AuctionServiceTest {
     void create_buyNowLessThanStartingWithNoReserve_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, 500L,
-                168, false, null, null, Set.of());
+                168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -384,7 +384,7 @@ class AuctionServiceTest {
     void create_durationNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                100, false, null, null, Set.of());
+                100, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -399,7 +399,7 @@ class AuctionServiceTest {
     void create_snipeProtectTrueWithNullWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, true, null, null, Set.of());
+                168, true, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -410,7 +410,7 @@ class AuctionServiceTest {
     void create_snipeProtectFalseWithWindow_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, false, 10, null, Set.of());
+                168, false, 10, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -421,7 +421,7 @@ class AuctionServiceTest {
     void create_snipeWindowNotInAllowedSet_throws() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, true, 7, null, Set.of());
+                168, true, 7, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -443,7 +443,7 @@ class AuctionServiceTest {
 
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
-                168, false, null, null, codes);
+                168, false, null, null, codes, null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -458,7 +458,7 @@ class AuctionServiceTest {
                 .thenThrow(new IllegalArgumentException("Parcel not found: " + unknownUuid));
         AuctionCreateRequest req = new AuctionCreateRequest(
                 unknownUuid, "Test listing", 1000L, null, null,
-                168, false, null, null, Set.of());
+                168, false, null, null, Set.of(), null);
 
         assertThatThrownBy(() -> service.create(42L, req, null))
                 .isInstanceOf(IllegalArgumentException.class)

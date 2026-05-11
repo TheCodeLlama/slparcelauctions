@@ -17,6 +17,7 @@ import { useMyProxy, myProxyKey } from "@/hooks/useMyProxy";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import { AuctionHero } from "@/components/auction/AuctionHero";
 import { BreadcrumbNav } from "@/components/auction/BreadcrumbNav";
+import { GroupAttributionLine } from "@/components/auction/GroupAttributionLine";
 import { ParcelInfoPanel } from "@/components/auction/ParcelInfoPanel";
 import { ParcelLayoutMapPlaceholder } from "@/components/auction/ParcelLayoutMapPlaceholder";
 import {
@@ -389,6 +390,10 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
                 sellerPublicId={auction.sellerPublicId}
               />
             }
+          />
+          <GroupAttributionLine
+            agent={auction.listingAgent}
+            group={auction.realtyGroup}
           />
           <VisitInSecondLifeBlock
             regionName={auction.parcel.regionName}

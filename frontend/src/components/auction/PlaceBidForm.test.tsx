@@ -8,7 +8,7 @@ import {
 } from "@/test/render";
 import { server } from "@/test/msw/server";
 import { PlaceBidForm } from "./PlaceBidForm";
-import type { PublicAuctionResponse } from "@/types/auction";
+import type { GroupAttribution, PublicAuctionResponse } from "@/types/auction";
 
 vi.mock("@/lib/ws/client", () => ({
   subscribe: vi.fn(),
@@ -313,5 +313,66 @@ describe("PlaceBidForm", () => {
     expect(screen.getByTestId("place-bid-connection-helper")).toHaveTextContent(
       /Waiting for connection/i,
     );
+  });
+
+  describe("group COI", () => {
+    const groupAttribution: GroupAttribution = {
+      publicId: "g1",
+      name: "Sunset Realty",
+      slug: "sunset",
+      logoUrl: null,
+      dissolved: false,
+    };
+
+    it("renders COI message when current user is a member of the auction group", async () => {
+      server.use(
+        http.get("*/api/v1/me/realty-groups", () =>
+          HttpResponse.json([
+            { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, memberCount: 1, memberSince: "2026-01-01T00:00:00Z" },
+          ]),
+        ),
+      );
+      renderWithProviders(
+        <PlaceBidForm
+          auction={auctionFixture({ realtyGroup: groupAttribution })}
+          connectionState={connected}
+        />,
+        { auth: "authenticated" },
+      );
+      expect(
+        await screen.findByText(/You're a member of/i),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/Sunset Realty/)).toBeInTheDocument();
+      expect(screen.queryByTestId("place-bid-form")).not.toBeInTheDocument();
+    });
+
+    it("renders the bid form normally when current user is not a member", async () => {
+      // Default handler returns [] — user is not a member.
+      renderWithProviders(
+        <PlaceBidForm
+          auction={auctionFixture({ realtyGroup: groupAttribution })}
+          connectionState={connected}
+        />,
+        { auth: "authenticated" },
+      );
+      await waitFor(() => {
+        expect(screen.queryByText(/You're a member of/i)).not.toBeInTheDocument();
+      });
+      expect(screen.getByTestId("place-bid-form")).toBeInTheDocument();
+    });
+
+    it("renders the bid form normally when auction has no realtyGroup", async () => {
+      renderWithProviders(
+        <PlaceBidForm
+          auction={auctionFixture({ realtyGroup: null })}
+          connectionState={connected}
+        />,
+        { auth: "authenticated" },
+      );
+      await waitFor(() => {
+        expect(screen.queryByText(/You're a member of/i)).not.toBeInTheDocument();
+      });
+      expect(screen.getByTestId("place-bid-form")).toBeInTheDocument();
+    });
   });
 });

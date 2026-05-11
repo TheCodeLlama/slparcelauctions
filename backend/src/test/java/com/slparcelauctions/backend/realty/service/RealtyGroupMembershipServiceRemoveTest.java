@@ -18,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupInvitationRepository;
@@ -49,6 +50,7 @@ class RealtyGroupMembershipServiceRemoveTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock AuctionRepository auctions;
 
     @InjectMocks RealtyGroupMembershipService service;
 
@@ -150,5 +152,22 @@ class RealtyGroupMembershipServiceRemoveTest {
 
         assertThrows(GroupDissolvedException.class,
             () -> service.removeMember(groupPid, memberPid, 150L));
+    }
+
+    @Test
+    void removeMember_reassigns_listing_agent_to_leader_on_active_auctions() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        RealtyGroupMember agent = buildMember(g.getId(), 200L);
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        when(members.findByPublicId(memberPid)).thenReturn(Optional.of(agent));
+        User u = new User();
+        u.setUsername("agent");
+        when(users.findById(200L)).thenReturn(Optional.of(u));
+
+        service.removeMember(groupPid, memberPid, 100L);
+
+        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
     }
 }

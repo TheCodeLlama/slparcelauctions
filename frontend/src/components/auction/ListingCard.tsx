@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { apiUrl } from "@/lib/api/url";
 import { deriveStatusChip } from "@/lib/search/status-chip";
 import { useSavedIds, useToggleSaved } from "@/hooks/useSavedAuctions";
+import { GroupChip } from "@/components/realty/GroupChip";
 import type { AuctionSearchResultDto } from "@/types/search";
 
 export type ListingCardVariant = "default" | "compact" | "featured";
@@ -170,6 +171,13 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
               </span>
             )}
           </div>
+          {listing.realtyGroup && !listing.realtyGroup.dissolved && (
+            <GroupChip
+              groupSlug={listing.realtyGroup.slug}
+              groupName={listing.realtyGroup.name}
+              logoUrl={listing.realtyGroup.logoUrl}
+            />
+          )}
           {variant !== "compact" && (
             <p className="text-xs text-fg-muted">
               {listing.bidCount} bid{listing.bidCount === 1 ? "" : "s"}

@@ -41,6 +41,7 @@ import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.ProxyBidAlreadyExistsException;
 import com.slparcelauctions.backend.auction.exception.ProxyBidNotFoundException;
 import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -78,7 +79,8 @@ class ProxyBidServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class));
+        BidEligibilityService eligibilityService = new BidEligibilityService(mock(RealtyGroupMemberRepository.class));
+        service = new ProxyBidService(auctionRepo, proxyBidRepo, bidRepo, userRepo, clock, publisher, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), eligibilityService);
 
         seller = User.builder().id(10L).email("seller@example.com").username("seller")
                 .displayName("Seller").verified(true).build();

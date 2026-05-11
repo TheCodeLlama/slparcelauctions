@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -205,6 +206,57 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     @EntityGraph(attributePaths = {"parcelSnapshot", "parcelSnapshot.region", "seller"})
     @Query("SELECT a FROM Auction a WHERE a.id IN :ids")
     List<Auction> findAllByIdWithParcelAndSeller(@Param("ids") Collection<Long> ids);
+
+    /**
+     * Returns {@code true} when the group has at least one listing in a
+     * pre-terminal status (DRAFT, VERIFICATION_PENDING, or ACTIVE).
+     * Used by {@link com.slparcelauctions.backend.realty.RealtyGroupService#dissolveGroup}
+     * to block leader-initiated dissolution while active listings exist.
+     */
+    @Query("""
+            SELECT (COUNT(a) > 0) FROM Auction a
+             WHERE a.realtyGroupId = :groupId
+               AND a.status IN (
+                    com.slparcelauctions.backend.auction.AuctionStatus.DRAFT,
+                    com.slparcelauctions.backend.auction.AuctionStatus.VERIFICATION_PENDING,
+                    com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE)
+            """)
+    boolean existsActiveListingsByGroupId(@Param("groupId") Long groupId);
+
+    /**
+     * Bulk-reassigns the listing agent on all pre-terminal auctions for a
+     * group when an agent departs (leave or remove). Only DRAFT,
+     * VERIFICATION_PENDING, and ACTIVE rows are touched — completed /
+     * cancelled / suspended auctions preserve their historical attribution.
+     * Returns the number of rows updated.
+     *
+     * <p>Called from {@code RealtyGroupMemberService.leave} and
+     * {@code RealtyGroupMemberService.removeMember} inside their existing
+     * {@code @Transactional} boundary.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Auction a
+               SET a.listingAgent.id = :newAgentId
+             WHERE a.realtyGroupId = :groupId
+               AND a.listingAgent.id = :oldAgentId
+               AND a.status IN (
+                    com.slparcelauctions.backend.auction.AuctionStatus.DRAFT,
+                    com.slparcelauctions.backend.auction.AuctionStatus.VERIFICATION_PENDING,
+                    com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE)
+            """)
+    int reassignListingAgentForGroup(
+            @Param("groupId") Long groupId,
+            @Param("oldAgentId") Long oldAgentId,
+            @Param("newAgentId") Long newAgentId);
+
+    /**
+     * Paged list of auctions belonging to the given realty group, filtered by status.
+     * Used by {@code RealtyGroupListingController} for the public
+     * {@code GET /api/v1/realty/groups/{publicId}/listings} endpoint.
+     */
+    Page<Auction> findByRealtyGroupIdAndStatusIn(
+            Long realtyGroupId, Collection<AuctionStatus> statuses, Pageable pageable);
 
     long countByStatus(AuctionStatus status);
 

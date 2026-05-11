@@ -67,6 +67,17 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(GroupMemberCannotBidException.class)
+    public ProblemDetail handleGroupMemberCannotBid(
+            GroupMemberCannotBidException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Group Member Cannot Bid");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "GROUP_MEMBER_CANNOT_BID");
+        return pd;
+    }
+
     @ExceptionHandler(NotVerifiedException.class)
     public ProblemDetail handleNotVerified(NotVerifiedException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(

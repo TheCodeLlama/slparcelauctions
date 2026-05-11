@@ -151,6 +151,46 @@ describe("ListingCard", () => {
     ).not.toBeInTheDocument();
   });
 
+  describe("group attribution", () => {
+    it("renders GroupChip when listing has a non-dissolved realtyGroup", () => {
+      renderWithProviders(
+        <ListingCard
+          listing={{
+            ...sample,
+            realtyGroup: { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: false },
+          }}
+          variant="default"
+        />,
+      );
+      expect(screen.getByText("Sunset Realty")).toBeInTheDocument();
+      expect(screen.getByTestId("group-chip")).toBeInTheDocument();
+    });
+
+    it("does NOT render GroupChip when realtyGroup is dissolved", () => {
+      renderWithProviders(
+        <ListingCard
+          listing={{
+            ...sample,
+            realtyGroup: { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: true },
+          }}
+          variant="default"
+        />,
+      );
+      expect(screen.queryByText("Sunset Realty")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("group-chip")).not.toBeInTheDocument();
+    });
+
+    it("does NOT render GroupChip when realtyGroup is null", () => {
+      renderWithProviders(
+        <ListingCard
+          listing={{ ...sample, realtyGroup: null }}
+          variant="default"
+        />,
+      );
+      expect(screen.queryByTestId("group-chip")).not.toBeInTheDocument();
+    });
+  });
+
   it("authenticated heart click toggles the saved state (optimistic)", async () => {
     // Stateful handler so the onSettled invalidation refetch returns the
     // new state rather than clobbering the optimistic update.
