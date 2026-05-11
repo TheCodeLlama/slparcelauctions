@@ -39,6 +39,7 @@ import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateExcepti
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
 import com.slparcelauctions.backend.escrow.EscrowService;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -74,7 +75,8 @@ class BidServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(NOW.toInstant(), ZoneOffset.UTC);
-        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), mock(BanCheckService.class), mock(com.slparcelauctions.backend.wallet.WalletService.class), mock(com.slparcelauctions.backend.wallet.BidReservationRepository.class));
+        BidEligibilityService eligibilityService = new BidEligibilityService(mock(RealtyGroupMemberRepository.class));
+        service = new BidService(auctionRepo, bidRepo, proxyBidRepo, userRepo, clock, publisher, escrowService, mock(com.slparcelauctions.backend.notification.NotificationPublisher.class), mock(BanCheckService.class), mock(com.slparcelauctions.backend.wallet.WalletService.class), mock(com.slparcelauctions.backend.wallet.BidReservationRepository.class), eligibilityService);
 
         seller = User.builder().id(10L).email("seller@example.com").username("seller")
                 .displayName("Seller").verified(true).build();

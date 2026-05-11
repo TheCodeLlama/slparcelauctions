@@ -22,7 +22,6 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.BidTooLowException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
-import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
@@ -91,6 +90,7 @@ public class BidService {
     private final BanCheckService banCheckService;
     private final WalletService walletService;
     private final BidReservationRepository reservationRepo;
+    private final BidEligibilityService bidEligibilityService;
 
     /**
      * Wallet enforcement flag. Default false so existing test fixtures (which
@@ -145,9 +145,7 @@ public class BidService {
         if (!Boolean.TRUE.equals(bidder.getVerified())) {
             throw new NotVerifiedException();
         }
-        if (bidder.getId().equals(auction.getSeller().getId())) {
-            throw new SellerCannotBidException();
-        }
+        bidEligibilityService.assertCanBid(auction, bidder);
 
         // Wallet preconditions (gated by feature flag).
         if (walletEnforcementEnabled) {
