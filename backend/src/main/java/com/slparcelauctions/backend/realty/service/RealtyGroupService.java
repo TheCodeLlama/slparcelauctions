@@ -4,6 +4,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.InvalidWebsiteUrlException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNameTakenException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
+import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
@@ -194,6 +197,48 @@ public class RealtyGroupService {
             group.setAgentFeeSplit(req.agentFeeSplit());
         }
         return groups.save(group);
+    }
+
+    // ─────────────────────── member permissions ───────────────────────
+
+    /**
+     * Replace a member's permission set wholesale (not additive). Leader-only —
+     * delegating this would let an {@link RealtyGroupPermission#INVITE_AGENTS} delegate
+     * escalate themselves via the invite-self / edit-perms loop.
+     *
+     * <p>Targeting the leader's own membership row is rejected with {@link
+     * RealtyGroupPermissionDeniedException}: the leader holds every permission implicitly
+     * so the column is unused for that row and must not be edited (it would create
+     * misleading state if a future caller starts trusting it).
+     *
+     * <p>A {@code null} permission set is treated as empty (revoke all flags).
+     */
+    public RealtyGroupMember updateMemberPermissions(UUID groupPublicId,
+                                                     UUID memberPublicId,
+                                                     Set<RealtyGroupPermission> newPerms,
+                                                     Long callerUserId) {
+        RealtyGroup group = loadActive(groupPublicId);
+        authorizer.assertLeader(callerUserId, group.getId());
+
+        RealtyGroupMember member = members.findByPublicId(memberPublicId)
+            .orElseThrow(() -> new RealtyGroupNotFoundException(memberPublicId));
+        if (!java.util.Objects.equals(group.getId(), member.getGroupId())) {
+            // Member belongs to a different group — surface as not-found in this scope
+            // rather than leaking cross-group existence.
+            throw new RealtyGroupNotFoundException(memberPublicId);
+        }
+        if (java.util.Objects.equals(member.getUserId(), group.getLeaderId())) {
+            throw new RealtyGroupPermissionDeniedException("Cannot edit leader permissions");
+        }
+
+        Set<RealtyGroupPermission> effective = (newPerms == null)
+            ? EnumSet.noneOf(RealtyGroupPermission.class)
+            : newPerms;
+        member.setPermissionSet(effective);
+        RealtyGroupMember saved = members.save(member);
+        log.info("Realty group permissions updated: groupPublicId={} memberPublicId={} perms={} callerUserId={}",
+            groupPublicId, memberPublicId, effective, callerUserId);
+        return saved;
     }
 
     // ─────────────────────── dissolve ───────────────────────
