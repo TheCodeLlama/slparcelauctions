@@ -1,0 +1,46 @@
+package com.slparcelauctions.backend.realty;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> {
+
+    Optional<RealtyGroup> findByPublicId(UUID publicId);
+
+    /** Public-page lookup; only returns active groups. */
+    Optional<RealtyGroup> findBySlugAndDissolvedAtIsNull(String slug);
+
+    /** Case-insensitive name lookup; only returns active groups (the partial unique index
+     *  on name_lower enforces uniqueness over the active set). */
+    @Query("SELECT g FROM RealtyGroup g WHERE LOWER(g.name) = LOWER(:name) AND g.dissolvedAt IS NULL")
+    Optional<RealtyGroup> findByNameIgnoreCaseActive(@Param("name") String name);
+
+    @Query("SELECT COUNT(g) FROM RealtyGroup g WHERE g.slug = :slug AND g.dissolvedAt IS NULL")
+    long countActiveBySlug(@Param("slug") String slug);
+
+    /** Used by the slug factory during rename so the row being renamed doesn't collide with
+     *  itself. */
+    @Query("SELECT COUNT(g) FROM RealtyGroup g WHERE g.slug = :slug AND g.dissolvedAt IS NULL AND g.id <> :excludeId")
+    long countOtherActiveBySlug(@Param("slug") String slug, @Param("excludeId") Long excludeId);
+
+    /** Groups led by the given user (active only). */
+    List<RealtyGroup> findByLeaderIdAndDissolvedAtIsNullOrderByCreatedAtDesc(Long leaderId);
+
+    /** Admin list: paginated, filterable by status (active/dissolved/all). */
+    @Query("""
+        SELECT g FROM RealtyGroup g
+         WHERE (:includeActive = TRUE AND g.dissolvedAt IS NULL)
+            OR (:includeDissolved = TRUE AND g.dissolvedAt IS NOT NULL)
+        """)
+    Page<RealtyGroup> findForAdmin(
+        @Param("includeActive") boolean includeActive,
+        @Param("includeDissolved") boolean includeDissolved,
+        Pageable pageable);
+}
