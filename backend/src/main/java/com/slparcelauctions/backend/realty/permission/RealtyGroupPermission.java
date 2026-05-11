@@ -8,9 +8,8 @@ package com.slparcelauctions.backend.realty.permission;
  * to {@code true} when {@code user_id == realty_groups.leader_id}); a non-leader member only
  * holds the permissions present in their array.
  *
- * <p>Future sub-projects (C/D/E/F) append new values here:
+ * <p>Future sub-projects (D/E/F) append new values here:
  * <ul>
- *   <li>C — {@code CREATE_LISTING}, {@code MANAGE_OWN_LISTING}, {@code MANAGE_ALL_LISTINGS}</li>
  *   <li>D — {@code SPEND_FROM_GROUP_WALLET}, {@code WITHDRAW_FROM_GROUP_WALLET}, {@code VIEW_GROUP_TRANSACTIONS}</li>
  *   <li>E — {@code REGISTER_SL_GROUP}</li>
  * </ul>
@@ -27,7 +26,20 @@ public enum RealtyGroupPermission {
      *  gated by the 30-day cooldown for non-admins regardless of this flag. */
     EDIT_GROUP_PROFILE,
 
-    /** Edit the group's {@code agent_fee_rate} and {@code agent_fee_split}. Stored in A+B;
-     *  consumed by sub-project C at auction-completion time. */
-    CONFIGURE_FEES;
+    /** Edit the group's {@code agent_fee_rate} and {@code agent_fee_split}. */
+    CONFIGURE_FEES,
+
+    /** Create an auction listing under this group. Snapshot of the group's fee terms is
+     *  written onto the auction at create time; consumed at SOLD close. */
+    CREATE_LISTING,
+
+    /** Manage (edit/pause/cancel) listings the holder personally created on the group's
+     *  behalf when they are not the seller. Defined here so the enum is whole; wired by
+     *  sub-project E when case-2 (member-owned parcel) ships. No-op in sub-project C. */
+    MANAGE_OWN_LISTING,
+
+    /** Broker-level: manage (pause/cancel) any of the group's listings regardless of who
+     *  created them. Defined here so the enum is whole; wired by sub-project E. No-op in
+     *  sub-project C. */
+    MANAGE_ALL_LISTINGS;
 }
