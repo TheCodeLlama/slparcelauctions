@@ -16,7 +16,7 @@ class DisputeResolvedPublisherTest {
     @BeforeEach
     void setUp() {
         service = mock(NotificationService.class);
-        publisher = new NotificationPublisherImpl(service, null, null, null, null);
+        publisher = new NotificationPublisherImpl(service, null, null, null, null, null, null, null);
     }
 
     @Test
