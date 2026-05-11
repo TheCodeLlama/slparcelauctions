@@ -211,6 +211,14 @@ export const userHandlers = {
     http.get("*/api/v1/users/:id", () =>
       HttpResponse.json(mockUserNotFoundProblemDetail, { status: 404 })
     ),
+
+  realtyGroupsEmpty: () =>
+    http.get("*/api/v1/users/:id/realty-groups", () => HttpResponse.json([])),
+
+  realtyGroupsSuccess: <T>(affiliations: T[]) =>
+    http.get("*/api/v1/users/:id/realty-groups", () =>
+      HttpResponse.json(affiliations),
+    ),
 };
 
 export const savedHandlers = {
