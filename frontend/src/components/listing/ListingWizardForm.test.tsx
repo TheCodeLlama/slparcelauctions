@@ -117,6 +117,12 @@ beforeEach(() => {
   if (typeof window !== "undefined") window.sessionStorage.clear();
   routerPush.mockReset();
   routerReplace.mockReset();
+  // Default: no eligible groups. Individual tests override to test the picker.
+  server.use(
+    http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+      HttpResponse.json([]),
+    ),
+  );
 });
 
 describe("ListingWizardForm (create flow)", () => {
@@ -499,5 +505,182 @@ describe("ListingWizardForm (suspension gate)", () => {
     expect(
       screen.queryByTestId("suspension-error-modal"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("ListingWizardForm — List-as picker", () => {
+  it("renders the picker when listing-eligible-groups returns at least one group", async () => {
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentFeeRate: 0.02,
+          },
+        ]),
+      ),
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />);
+
+    // Resolve a parcel so the parcel-gated form body renders.
+    await userEvent.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await userEvent.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // The picker should now appear.
+    expect(await screen.findByText(/Sunset Realty/i)).toBeInTheDocument();
+  });
+
+  it("does NOT render the picker when listing-eligible-groups returns empty", async () => {
+    // Default beforeEach handler already returns []; just install parcel lookup.
+    server.use(
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />);
+
+    await userEvent.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await userEvent.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // Give the eligible-groups query a moment to resolve.
+    await waitFor(() => {
+      expect(screen.queryByText(/List as/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("does NOT render the picker in edit mode even if groups are returned", async () => {
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentFeeRate: 0.02,
+          },
+        ]),
+      ),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000037", () =>
+        HttpResponse.json(
+          sellerResponse({
+            publicId: "00000000-0000-0000-0000-000000000037",
+            status: "DRAFT",
+            startingBid: 2500,
+          }),
+        ),
+      ),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(
+      <ListingWizardForm mode="edit" id="00000000-0000-0000-0000-000000000037" />,
+    );
+
+    await screen.findByText("Beachfront retreat");
+
+    // The picker must never appear in edit mode.
+    await waitFor(() => {
+      expect(screen.queryByText(/List as/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("posts listAsGroupPublicId when a group is chosen and form is submitted", async () => {
+    const user = userEvent.setup();
+    let capturedBody: Record<string, unknown> | null = null;
+
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentFeeRate: 0.02,
+          },
+        ]),
+      ),
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+      http.post("*/api/v1/auctions", async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sellerResponse(), { status: 201 });
+      }),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () =>
+        HttpResponse.json(sellerResponse()),
+      ),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />);
+
+    // Resolve a parcel.
+    await user.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await user.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // Wait for the picker to appear, then select the group.
+    await user.click(await screen.findByText(/Sunset Realty/i));
+
+    // Fill in the required title.
+    await user.type(screen.getByLabelText(/listing title/i), "Premium Waterfront");
+
+    // Submit.
+    await user.click(screen.getByRole("button", { name: /Save & continue/i }));
+
+    await waitFor(() => expect(capturedBody).toBeTruthy());
+    expect(capturedBody!.listAsGroupPublicId).toBe("g1");
+  });
+
+  it("posts listAsGroupPublicId as null when Individual is selected", async () => {
+    const user = userEvent.setup();
+    let capturedBody: Record<string, unknown> | null = null;
+
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentFeeRate: 0.02,
+          },
+        ]),
+      ),
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+      http.post("*/api/v1/auctions", async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(sellerResponse(), { status: 201 });
+      }),
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-000000000007", () =>
+        HttpResponse.json(sellerResponse()),
+      ),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />);
+
+    await user.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await user.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // Wait for picker, then explicitly pick Individual (the default).
+    await screen.findByText(/Sunset Realty/i);
+    await user.click(screen.getByLabelText(/Individual/i));
+
+    await user.type(screen.getByLabelText(/listing title/i), "Premium Waterfront");
+    await user.click(screen.getByRole("button", { name: /Save & continue/i }));
+
+    await waitFor(() => expect(capturedBody).toBeTruthy());
+    expect(capturedBody!.listAsGroupPublicId).toBeNull();
   });
 });

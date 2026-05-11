@@ -8,10 +8,13 @@ import { FormError } from "@/components/ui/FormError";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { isApiError } from "@/lib/api";
 import { useListingDraft } from "@/hooks/useListingDraft";
+import { useListingEligibleGroups } from "@/hooks/realty/useListingEligibleGroups";
 import { cn } from "@/lib/cn";
 import type { SellerAuctionResponse } from "@/types/auction";
 import type { SuspensionReasonCode } from "@/types/cancellation";
 import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
+import { AgentFeePreview } from "./AgentFeePreview";
+import { ListAsGroupPicker } from "./ListAsGroupPicker";
 import { ListingWizardLayout } from "./ListingWizardLayout";
 import { ParcelLookupField } from "./ParcelLookupField";
 import { TagSelector } from "./TagSelector";
@@ -94,6 +97,14 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     useState<SuspensionReasonCode | null>(null);
 
   const isEdit = mode === "edit";
+
+  // Listing-eligible groups — only relevant in create mode. The picker is
+  // hidden in edit mode because group attribution is immutable after creation.
+  const eligibleGroupsQ = useListingEligibleGroups();
+  const selectedGroup =
+    eligibleGroupsQ.data?.find(
+      (g) => g.publicId === draft.state.listAsGroupPublicId,
+    ) ?? null;
 
   // Redirect edits of auctions whose status has progressed past
   // DRAFT_PAID to the activate page, per sub-spec 2 §4.4. We only
@@ -293,6 +304,27 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                   onChange={(next) => draft.update("sellerDesc", next)}
                 />
               </section>
+
+              {!isEdit &&
+                eligibleGroupsQ.data &&
+                eligibleGroupsQ.data.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <ListAsGroupPicker
+                      eligibleGroups={eligibleGroupsQ.data}
+                      value={draft.state.listAsGroupPublicId}
+                      onChange={(id) =>
+                        draft.update("listAsGroupPublicId", id)
+                      }
+                    />
+                    {selectedGroup && draft.state.startingBid > 0 && (
+                      <AgentFeePreview
+                        startingBid={draft.state.startingBid}
+                        groupName={selectedGroup.name}
+                        agentFeeRate={selectedGroup.agentFeeRate}
+                      />
+                    )}
+                  </section>
+                )}
 
               <section className="flex flex-col gap-3">
                 <h2 className="text-sm font-semibold tracking-tight text-fg">

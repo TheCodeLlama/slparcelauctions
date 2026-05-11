@@ -163,6 +163,12 @@ export interface AuctionCreateRequest {
   snipeWindowMin?: AuctionSnipeWindowMin | null;
   sellerDesc?: string;
   tags: string[];
+  /**
+   * Optional realty group to list under. Null / absent = individual listing.
+   * Backend gates on the caller holding CREATE_LISTING in the group (or being
+   * the leader). See spec §6.1 — realty-groups-listing-integration.
+   */
+  listAsGroupPublicId?: string | null;
 }
 
 export type AuctionUpdateRequest = Partial<

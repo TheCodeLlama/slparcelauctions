@@ -77,6 +77,12 @@ export interface DraftState {
   uploadedPhotos: AuctionPhotoDto[];
   removedPhotoIds: string[];
   dirty: boolean;
+  /**
+   * Realty group to list under. Null = individual listing (the default).
+   * Set by the ListAsGroupPicker in create mode; cleared on edit mode
+   * (the group attribution is immutable after creation).
+   */
+  listAsGroupPublicId: string | null;
 }
 
 const EMPTY: DraftState = {
@@ -96,6 +102,7 @@ const EMPTY: DraftState = {
   uploadedPhotos: [],
   removedPhotoIds: [],
   dirty: false,
+  listAsGroupPublicId: null,
 };
 
 /**
@@ -127,6 +134,10 @@ function hydrateFromServer(a: SellerAuctionResponse): DraftState {
     uploadedPhotos: a.photos,
     removedPhotoIds: [],
     dirty: false,
+    // Group attribution is immutable after creation — do not re-surface it
+    // in the edit-mode picker. The wizard only shows the picker in create
+    // mode anyway, so this stays null on every server hydration.
+    listAsGroupPublicId: null,
   };
 }
 
@@ -388,6 +399,7 @@ export function useListingDraft(
       snipeWindowMin: s.snipeWindowMin,
       sellerDesc: s.sellerDesc,
       tags: s.tags,
+      listAsGroupPublicId: s.listAsGroupPublicId,
     };
 
     const wasCreate = s.auctionPublicId == null;
