@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "auth.cleanup.enabled=false",
     "slpa.notifications.cleanup.enabled=false",
     "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false",
     "slpa.auction-end.enabled=false",
     "slpa.ownership-monitor.enabled=false",
     "slpa.escrow.ownership-monitor-job.enabled=false",

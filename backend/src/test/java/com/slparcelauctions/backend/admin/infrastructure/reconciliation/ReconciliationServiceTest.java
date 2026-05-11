@@ -38,6 +38,7 @@ import static org.mockito.Mockito.verify;
     "slpa.review.scheduler.enabled=false",
     "slpa.notifications.cleanup.enabled=false",
     "slpa.notifications.sl-im.cleanup.enabled=false",
+    "slpa.realty.invitation-expiry.enabled=false",
     "slpa.bot-pool-health-log.enabled=false"
 })
 @Transactional
