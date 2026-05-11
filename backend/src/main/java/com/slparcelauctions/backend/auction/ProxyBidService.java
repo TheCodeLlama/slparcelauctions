@@ -27,7 +27,6 @@ import com.slparcelauctions.backend.auction.exception.InvalidProxyStateException
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
 import com.slparcelauctions.backend.auction.exception.ProxyBidAlreadyExistsException;
 import com.slparcelauctions.backend.auction.exception.ProxyBidNotFoundException;
-import com.slparcelauctions.backend.auction.exception.SellerCannotBidException;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
@@ -79,6 +78,7 @@ public class ProxyBidService {
     private final Clock clock;
     private final AuctionBroadcastPublisher publisher;
     private final NotificationPublisher notificationPublisher;
+    private final BidEligibilityService bidEligibilityService;
 
     // -------------------------------------------------------------------------
     // createProxy — spec §7 "POST /proxy-bid"
@@ -379,9 +379,7 @@ public class ProxyBidService {
         if (!Boolean.TRUE.equals(bidder.getVerified())) {
             throw new NotVerifiedException();
         }
-        if (bidder.getId().equals(auction.getSeller().getId())) {
-            throw new SellerCannotBidException();
-        }
+        bidEligibilityService.assertCanBid(auction, bidder);
         return bidder;
     }
 

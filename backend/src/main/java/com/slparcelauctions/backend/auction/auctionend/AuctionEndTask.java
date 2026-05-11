@@ -21,6 +21,8 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -62,6 +64,7 @@ public class AuctionEndTask {
     private final EscrowService escrowService;
     private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
+    private final RealtyGroupRepository realtyGroupRepo;
     private final Clock clock;
 
     /**
@@ -102,6 +105,9 @@ public class AuctionEndTask {
         if (outcome == AuctionEndOutcome.SOLD) {
             auction.setWinnerUserId(auction.getCurrentBidderId());
             auction.setFinalBidAmount(auction.getCurrentBid());
+        }
+        if (outcome == AuctionEndOutcome.SOLD && auction.getRealtyGroupId() != null) {
+            auction.setAgentFeeAmt(computeAgentFeeAmt(auction));
         }
         auctionRepo.save(auction);
 
@@ -208,5 +214,26 @@ public class AuctionEndTask {
             return AuctionEndOutcome.RESERVE_NOT_MET;
         }
         return AuctionEndOutcome.SOLD;
+    }
+
+    /**
+     * Computes the snapshot value of {@code agent_fee_amt} at SOLD close. Returns 0 if the
+     * group has been dissolved, has a null/zero rate, or the rate is missing. Floor rounding
+     * matches {@code EscrowCommissionCalculator}'s convention so commission + agent_fee +
+     * payout always sum to finalBid.
+     */
+    private long computeAgentFeeAmt(Auction a) {
+        RealtyGroup group = realtyGroupRepo.findById(a.getRealtyGroupId()).orElse(null);
+        if (group == null || group.getDissolvedAt() != null) {
+            return 0L;
+        }
+        java.math.BigDecimal rate = a.getAgentFeeRate();
+        if (rate == null || rate.signum() == 0) {
+            return 0L;
+        }
+        return java.math.BigDecimal.valueOf(a.getFinalBidAmount())
+                .multiply(rate)
+                .setScale(0, java.math.RoundingMode.FLOOR)
+                .longValueExact();
     }
 }

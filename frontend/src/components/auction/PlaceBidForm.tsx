@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/Toast";
 import { ApiError, isApiError } from "@/lib/api";
 import { placeBid } from "@/lib/api/auctions";
 import { minRequiredBid } from "@/lib/auction/bidIncrement";
+import { useMyRealtyGroups } from "@/hooks/realty/useRealtyGroups";
 import type {
   BidResponse,
   PublicAuctionResponse,
@@ -54,6 +55,16 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
   const [amount, setAmount] = useState<string>("");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmKind>({ kind: "none" });
+
+  // COI guard: members of the auction's realty group cannot bid on group
+  // listings. The query returns empty-array while unauthenticated (the
+  // BidPanel already gates access to this form on authentication + verification),
+  // so no extra loading state is needed for the unauthenticated path.
+  const myGroupsQuery = useMyRealtyGroups();
+  const isGroupMember =
+    !!auction.realtyGroup &&
+    !auction.realtyGroup.dissolved &&
+    (myGroupsQuery.data?.some((g) => g.publicId === auction.realtyGroup!.publicId) ?? false);
 
   const min = useMemo(
     () => minRequiredBid(auction.currentHighBid, auction.startingBid),
@@ -145,6 +156,19 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
 
   const submitDisabled =
     !hasValidAmount || !isConnected || mutation.isPending;
+
+  if (isGroupMember && auction.realtyGroup) {
+    return (
+      <div
+        className="rounded p-3 bg-bg-subtle text-sm text-fg"
+        role="alert"
+        data-testid="place-bid-group-coi"
+      >
+        You{"'"}re a member of{" "}
+        <strong>{auction.realtyGroup.name}</strong> and can{"'"}t bid on its listings.
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} data-testid="place-bid-form" className="flex flex-col gap-3">

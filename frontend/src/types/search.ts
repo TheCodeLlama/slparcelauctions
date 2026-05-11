@@ -8,7 +8,7 @@
 // snake_case for the wire contract (near_region, min_price, etc.).
 
 import type { ParcelMaturityRating } from "./parcel";
-import type { AuctionEndOutcome, VerificationTier } from "./auction";
+import type { AuctionEndOutcome, GroupAttribution, VerificationTier } from "./auction";
 
 export type { AuctionEndOutcome, VerificationTier };
 
@@ -126,6 +126,8 @@ export type AuctionSearchResultDto = {
   snipeProtect: boolean;
   snipeWindowMin: number | null;
   distanceRegions: number | null;
+  // Realty group attribution — present when the listing was created under a group.
+  realtyGroup?: GroupAttribution | null;
 };
 
 /**

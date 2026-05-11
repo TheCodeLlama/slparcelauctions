@@ -264,6 +264,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/logo/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/cover/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/realty-groups").permitAll()
+                        // Realty group public listings read (sub-project C §5.3).
+                        // Auth: public — same rationale as group detail above; <img> and
+                        // unauthenticated browse pages consume this endpoint.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty/groups/*/listings").permitAll()
                         // Admin surface (Epic 10 sub-spec 1 Task 1).
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

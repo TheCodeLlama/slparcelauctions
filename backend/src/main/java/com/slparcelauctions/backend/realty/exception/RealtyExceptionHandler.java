@@ -138,6 +138,16 @@ public class RealtyExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(ActiveListingsBlockDissolveException.class)
+    public ProblemDetail handleActiveListingsBlock(
+            ActiveListingsBlockDissolveException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Group Has Active Listings");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "GROUP_HAS_ACTIVE_LISTINGS");
+        return pd;
+    }
+
     @ExceptionHandler(InvalidWebsiteUrlException.class)
     public ProblemDetail handleBadUrl(InvalidWebsiteUrlException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());

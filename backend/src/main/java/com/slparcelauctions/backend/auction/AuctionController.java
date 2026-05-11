@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.common.PagedResponse;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.realty.listing.RealtyGroupListingService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -57,6 +58,7 @@ import lombok.RequiredArgsConstructor;
 public class AuctionController {
 
     private final AuctionService auctionService;
+    private final RealtyGroupListingService realtyGroupListingService;
     private final AuctionVerificationService verificationService;
     private final CancellationService cancellationService;
     private final AuctionDtoMapper mapper;
@@ -76,7 +78,12 @@ public class AuctionController {
         // listMine + the existing PUT/PATCH endpoints in this controller.
         requireVerified(principal.userId());
         String ip = httpRequest.getRemoteAddr();
-        Auction created = auctionService.create(principal.userId(), req, ip);
+        Auction created;
+        if (req.listAsGroupPublicId() != null) {
+            created = realtyGroupListingService.createGroupListing(principal.userId(), req, ip);
+        } else {
+            created = auctionService.create(principal.userId(), req, ip);
+        }
         return mapper.toSellerResponse(created, null);
     }
 

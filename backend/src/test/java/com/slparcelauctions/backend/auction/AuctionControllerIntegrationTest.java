@@ -114,7 +114,7 @@ class AuctionControllerIntegrationTest {
     void create_validRequest_returns201AndDraft() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 sellerParcelUuid, "Test listing", 1000L, null, null,
-                168, false, null, "Nice parcel", null);
+                168, false, null, "Nice parcel", null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -139,7 +139,7 @@ class AuctionControllerIntegrationTest {
 
         AuctionCreateRequest req = new AuctionCreateRequest(
                 sellerParcelUuid, "Test listing", 1000L, null, null,
-                168, false, null, null, null);
+                168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -158,7 +158,7 @@ class AuctionControllerIntegrationTest {
 
         AuctionCreateRequest req = new AuctionCreateRequest(
                 sellerParcelUuid, "Test listing", 1000L, null, null,
-                168, false, null, null, null);
+                168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -179,7 +179,7 @@ class AuctionControllerIntegrationTest {
 
         AuctionCreateRequest req = new AuctionCreateRequest(
                 sellerParcelUuid, "Test listing", 1000L, null, null,
-                168, false, null, null, null);
+                168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)
@@ -193,7 +193,7 @@ class AuctionControllerIntegrationTest {
     void create_asUnverifiedUser_returns403() throws Exception {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 sellerParcelUuid, "Test listing", 1000L, null, null,
-                168, false, null, null, null);
+                168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + unverifiedAccessToken)
@@ -215,7 +215,7 @@ class AuctionControllerIntegrationTest {
 
         AuctionCreateRequest req = new AuctionCreateRequest(
                 unknownUuid, "Test listing", 1000L, null, null,
-                168, false, null, null, null);
+                168, false, null, null, null, null);
 
         mockMvc.perform(post("/api/v1/auctions")
                 .header("Authorization", "Bearer " + sellerAccessToken)

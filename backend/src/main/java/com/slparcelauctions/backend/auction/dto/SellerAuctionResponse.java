@@ -59,5 +59,8 @@ public record SellerAuctionResponse(
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         EscrowState escrowState,
-        OffsetDateTime transferConfirmedAt) {
+        OffsetDateTime transferConfirmedAt,
+        GroupAttributionDto realtyGroup,
+        ListingAgentDto listingAgent,
+        java.math.BigDecimal agentFeeRate) {
 }

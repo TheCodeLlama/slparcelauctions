@@ -135,6 +135,10 @@ export interface SellerAuctionResponse {
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
   transferConfirmedAt?: string | null;
+  // Realty group attribution — present when the listing was created under a group.
+  realtyGroup?: GroupAttribution | null;
+  listingAgent?: ListingAgent | null;
+  agentFeeRate?: number | null;
 }
 
 /** Duration choices permitted by the backend (hours). */
@@ -159,6 +163,12 @@ export interface AuctionCreateRequest {
   snipeWindowMin?: AuctionSnipeWindowMin | null;
   sellerDesc?: string;
   tags: string[];
+  /**
+   * Optional realty group to list under. Null / absent = individual listing.
+   * Backend gates on the caller holding CREATE_LISTING in the group (or being
+   * the leader). See spec §6.1 — realty-groups-listing-integration.
+   */
+  listAsGroupPublicId?: string | null;
 }
 
 export type AuctionUpdateRequest = Partial<
@@ -231,6 +241,32 @@ export interface PublicAuctionResponse {
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
   transferConfirmedAt?: string | null;
+  // Realty group attribution — present when the listing was created under a group.
+  realtyGroup?: GroupAttribution | null;
+  listingAgent?: ListingAgent | null;
+  agentFeeRate?: number | null;
+}
+
+/**
+ * Realty group attribution embedded on auction DTOs when the listing was
+ * created under a group. Mirrors {@code AuctionGroupAttributionDto} server-side.
+ */
+export interface GroupAttribution {
+  publicId: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  dissolved: boolean;
+}
+
+/**
+ * Listing-agent attribution embedded on auction DTOs when an agent created the
+ * listing on behalf of a group. Mirrors {@code AuctionListingAgentDto} server-side.
+ */
+export interface ListingAgent {
+  publicId: string;
+  displayName: string;
+  avatarUrl: string | null;
 }
 
 /**

@@ -15,6 +15,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
@@ -23,6 +24,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.dto.CreateRealtyGroupRequest;
 import com.slparcelauctions.backend.realty.dto.UpdateRealtyGroupRequest;
+import com.slparcelauctions.backend.realty.exception.ActiveListingsBlockDissolveException;
 import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.InvalidWebsiteUrlException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNameTakenException;
@@ -61,6 +63,7 @@ public class RealtyGroupService {
     private final RealtyGroupAuthorizer authorizer;
     private final NotificationPublisher notifications;
     private final UserRepository users;
+    private final AuctionRepository auctions;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -274,6 +277,9 @@ public class RealtyGroupService {
     public RealtyGroup dissolveGroup(UUID publicId, Long callerUserId) {
         RealtyGroup group = loadActive(publicId);
         authorizer.assertLeader(callerUserId, group.getId());
+        if (auctions.existsActiveListingsByGroupId(group.getId())) {
+            throw new ActiveListingsBlockDissolveException();
+        }
         List<User> formerMembers = loadCurrentMembersAsUsers(group.getId());
         group.setDissolvedAt(OffsetDateTime.now());
         RealtyGroup saved = groups.save(group);

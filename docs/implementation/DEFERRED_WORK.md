@@ -297,6 +297,13 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Item-by-item, no fixed phase. The high-cost items (AWS recreation, SL avatar provisioning) are gated on a maintenance window; the low-cost items (Postman workspace rename, Java package rename, repo folder renames, historical doc sweep) can be picked up whenever convenient.
 - **Notes:** One additional item discovered during execution: `backend/src/main/resources/db/migration/V5__reconciliation_extension.sql` line 7 contains a brand reference in a comment. Reverted during the sweep because Flyway's checksum validation rejected the edit (the migration is already applied to the dev database). To swap it, either (a) wait until the next DB wipe so V5 re-applies cleanly, or (b) `flyway repair` the schema_history checksum after editing. Spec deviation captured at plan-write time: per user direction, infra/ Terraform string attributes (`description = "..."`, `comment = "..."`, `error_message = "..."`) stay literal even when they contain brand text — only `#` comment lines were swept.
 
+### Realty Groups: Listing Integration (Sub-project C, 2026-05-11)
+
+- **Agent-fee L$ distribution** — C calculates and snapshots `agent_fee_amt` on the auction row at SOLD close (spec §7), but no L$ moves. Sub-project D ([#238](https://github.com/TheCodeLlama/slparcelauctions/issues/238)) reads the snapshot and credits the group wallet + agent's user wallet. Backfill policy for C-era closed auctions is decided in D's brainstorm; default is go-live-forward.
+- **`MANAGE_OWN_LISTING` and `MANAGE_ALL_LISTINGS` permissions** — defined in the enum by C but not wired. Sub-project E ([#239](https://github.com/TheCodeLlama/slparcelauctions/issues/239)) wires them once case-2 (member-owned parcel) and broker-cancel/pause endpoints land.
+- **Postman collection updates** — the `SLPA -> Realty Groups -> List as Group` and `Dissolve gate` folders called for in plan Task 28 were not added in this PR. The automated test suite (backend + frontend) provides end-to-end coverage; Postman is a manual-test convenience surface that can be added in a follow-up.
+- **N+1 group lookup on batch auction reads** — `AuctionDtoMapper.resolveGroupAttribution` issues a `groups.findById` per auction on the batch overloads (used by listMine, search). Same shape as the existing N+1 photo / winner-publicId queries; deferred to the same future batch-hydrate refactor.
+
 ---
 
 ## Removal Criteria

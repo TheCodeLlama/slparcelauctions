@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,8 @@ import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionStatus;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
@@ -29,7 +32,8 @@ class AuctionDtoMapperTest {
     private final EscrowRepository escrowRepo = mock(EscrowRepository.class);
     private final com.slparcelauctions.backend.user.UserRepository userRepo =
             mock(com.slparcelauctions.backend.user.UserRepository.class);
-    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo);
+    private final RealtyGroupRepository realtyGroupRepo = mock(RealtyGroupRepository.class);
+    private final AuctionDtoMapper mapper = new AuctionDtoMapper(photoRepo, escrowRepo, userRepo, realtyGroupRepo);
 
     {
         when(photoRepo.findByAuctionIdOrderBySortOrderAsc(any())).thenReturn(List.of());
@@ -152,6 +156,57 @@ class AuctionDtoMapperTest {
 
         assertThat(dto.currentHighBid()).isEqualByComparingTo(BigDecimal.valueOf(500));
         assertThat(dto.bidderCount()).isEqualTo(3L);
+    }
+
+    @Test
+    void toPublicResponse_groupListed_populatesGroupAndAgentAttribution() {
+        UUID groupPublicId = UUID.randomUUID();
+        RealtyGroup group = RealtyGroup.builder()
+                .id(10L)
+                .name("Mainland Realty Co")
+                .slug("mainland-realty-co")
+                .logoObjectKey("logos/10/logo.webp")
+                .agentFeeRate(new BigDecimal("0.0300"))
+                .agentFeeSplit(new BigDecimal("0.5000"))
+                .memberSeatLimit(50)
+                .build();
+        // Override auto-generated publicId via reflection would be complex; use the
+        // repository stub to return our group and verify fields through the DTO.
+        when(realtyGroupRepo.findById(10L)).thenReturn(Optional.of(group));
+
+        User agent = User.builder()
+                .id(99L).email("agent@example.com").username("agent")
+                .displayName("Alice Agent")
+                .build();
+
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        a.setRealtyGroupId(10L);
+        a.setListingAgent(agent);
+        a.setAgentFeeRate(new BigDecimal("0.0300"));
+
+        PublicAuctionResponse dto = mapper.toPublicResponse(a);
+
+        assertThat(dto.realtyGroup()).isNotNull();
+        assertThat(dto.realtyGroup().name()).isEqualTo("Mainland Realty Co");
+        assertThat(dto.realtyGroup().slug()).isEqualTo("mainland-realty-co");
+        assertThat(dto.realtyGroup().logoUrl()).startsWith("/api/v1/realty-groups/");
+        assertThat(dto.realtyGroup().logoUrl()).endsWith("/logo/image");
+        assertThat(dto.realtyGroup().dissolved()).isFalse();
+        assertThat(dto.listingAgent()).isNotNull();
+        assertThat(dto.listingAgent().displayName()).isEqualTo("Alice Agent");
+        assertThat(dto.agentFeeRate()).isEqualByComparingTo(new BigDecimal("0.0300"));
+    }
+
+    @Test
+    void toPublicResponse_individualListing_nullGroupAndAgent() {
+        Auction a = buildAuction(AuctionStatus.ACTIVE);
+        // realtyGroupId and listingAgent are null by default in buildAuction
+
+        PublicAuctionResponse dto = mapper.toPublicResponse(a);
+
+        assertThat(dto.realtyGroup()).isNull();
+        assertThat(dto.listingAgent()).isNull();
+        assertThat(dto.agentFeeRate()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     private Auction buildAuction(AuctionStatus status) {

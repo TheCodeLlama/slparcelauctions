@@ -154,6 +154,22 @@ export interface UpdatePermissionsRequest {
   permissions: RealtyGroupPermission[];
 }
 
+// ─── Listing-eligible groups ───────────────────────────────────────────────
+
+/**
+ * Row in the response from {@code GET /api/v1/realty/me/listing-eligible-groups}.
+ * Drives the ListAsGroupPicker on the auction-create wizard. Filtered server-side to
+ * groups where the caller holds {@code CREATE_LISTING} (or is leader).
+ */
+export interface ListingEligibleGroup {
+  publicId: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  /** Decimal as number from JSON, e.g. 0.02 for a 2% rate. */
+  agentFeeRate: number;
+}
+
 // ─── Admin list filters ────────────────────────────────────────────────────
 
 export type AdminRealtyGroupsStatusFilter = "active" | "dissolved" | "all";
