@@ -60,4 +60,22 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
         @Param("includeActive") boolean includeActive,
         @Param("includeDissolved") boolean includeDissolved,
         Pageable pageable);
+
+    /**
+     * Admin list with case-insensitive substring search on the group's display name.
+     * {@code search} is matched via {@code LOWER(name) LIKE %lower%} so e.g. "Mainland" finds
+     * "Mainland Realty Co". When {@code search} is blank/null the predicate degenerates to
+     * "match any" via the OR-with-null guard.
+     */
+    @Query("""
+        SELECT g FROM RealtyGroup g
+         WHERE ((:includeActive = TRUE AND g.dissolvedAt IS NULL)
+             OR (:includeDissolved = TRUE AND g.dissolvedAt IS NOT NULL))
+           AND (:search IS NULL OR LOWER(g.name) LIKE LOWER(CONCAT('%', :search, '%')))
+        """)
+    Page<RealtyGroup> findForAdminWithSearch(
+        @Param("includeActive") boolean includeActive,
+        @Param("includeDissolved") boolean includeDissolved,
+        @Param("search") String search,
+        Pageable pageable);
 }
