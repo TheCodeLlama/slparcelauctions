@@ -58,7 +58,10 @@ public record PublicAuctionResponse(
         List<AuctionPhotoResponse> photos,
         SellerSummary seller,
         EscrowState escrowState,
-        OffsetDateTime transferConfirmedAt) {
+        OffsetDateTime transferConfirmedAt,
+        GroupAttributionDto realtyGroup,
+        ListingAgentDto listingAgent,
+        java.math.BigDecimal agentFeeRate) {
 
     /**
      * Enriched seller card for the listing-detail page. {@code averageRating}

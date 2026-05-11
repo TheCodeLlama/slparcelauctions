@@ -8,6 +8,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.slparcelauctions.backend.auction.dto.AuctionPhotoResponse;
+import com.slparcelauctions.backend.auction.dto.GroupAttributionDto;
+import com.slparcelauctions.backend.auction.dto.ListingAgentDto;
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse.SellerSummary;
@@ -17,6 +19,8 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -51,6 +55,7 @@ public class AuctionDtoMapper {
     private final AuctionPhotoRepository photoRepo;
     private final EscrowRepository escrowRepo;
     private final UserRepository userRepo;
+    private final RealtyGroupRepository realtyGroupRepo;
 
     public PublicAuctionStatus toPublicStatus(AuctionStatus internal) {
         return switch (internal) {
@@ -103,7 +108,10 @@ public class AuctionDtoMapper {
                 photoList(a),
                 sellerSummary(a.getSeller()),
                 escrow == null ? null : escrow.getState(),
-                escrow == null ? null : escrow.getTransferConfirmedAt());
+                escrow == null ? null : escrow.getTransferConfirmedAt(),
+                resolveGroupAttribution(a),
+                resolveListingAgent(a),
+                a.getAgentFeeRate());
     }
 
     public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending) {
@@ -152,7 +160,10 @@ public class AuctionDtoMapper {
                 a.getCreatedAt(),
                 a.getUpdatedAt(),
                 escrow == null ? null : escrow.getState(),
-                escrow == null ? null : escrow.getTransferConfirmedAt());
+                escrow == null ? null : escrow.getTransferConfirmedAt(),
+                resolveGroupAttribution(a),
+                resolveListingAgent(a),
+                a.getAgentFeeRate());
     }
 
     /**
@@ -240,6 +251,47 @@ public class AuctionDtoMapper {
         return userRepo.findById(auction.getWinnerId())
                 .map(User::getPublicId)
                 .orElse(null);
+    }
+
+    /**
+     * Resolves the group attribution block for group-listed auctions.
+     * Returns {@code null} for individual (non-group) listings.
+     * A single {@code findById} is issued per call; batch callers (listMine, search results)
+     * will incur one query per group-listed auction — acceptable for now, noted in
+     * DEFERRED_WORK.md under Task 29.
+     */
+    private GroupAttributionDto resolveGroupAttribution(Auction a) {
+        if (a.getRealtyGroupId() == null) {
+            return null;
+        }
+        RealtyGroup g = realtyGroupRepo.findById(a.getRealtyGroupId()).orElse(null);
+        if (g == null) {
+            return null;
+        }
+        String logoUrl = g.getLogoObjectKey() == null
+                ? null
+                : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
+        return new GroupAttributionDto(
+                g.getPublicId(), g.getName(), g.getSlug(), logoUrl, g.getDissolvedAt() != null);
+    }
+
+    /**
+     * Resolves the listing-agent attribution block for group-listed auctions.
+     * Returns {@code null} when no agent is assigned (individual listings).
+     * Avatar URL matches the existing {@code SellerSummary} convention:
+     * the {@code GET /api/v1/users/{publicId}/avatar/256} endpoint always serves
+     * bytes (real upload or placeholder), so the URL is emitted whenever the user
+     * has a non-null {@code publicId}.
+     */
+    private ListingAgentDto resolveListingAgent(Auction a) {
+        User u = a.getListingAgent();
+        if (u == null) {
+            return null;
+        }
+        String avatarUrl = u.getPublicId() == null
+                ? null
+                : "/api/v1/users/" + u.getPublicId() + "/avatar/256";
+        return new ListingAgentDto(u.getPublicId(), u.getDisplayName(), avatarUrl);
     }
 
     /**
