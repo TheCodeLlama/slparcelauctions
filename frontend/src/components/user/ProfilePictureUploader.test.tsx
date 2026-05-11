@@ -108,12 +108,4 @@ describe("ProfilePictureUploader", () => {
     expect(screen.queryByTestId("avatar-cropper")).not.toBeInTheDocument();
     expect(revokeObjectURLSpy).toHaveBeenCalled();
   });
-
-  // The crop-and-upload save path runs through `getCroppedImg`, which
-  // requires real Image / Canvas APIs. jsdom doesn't trigger
-  // {@code <img>.onload} for blob URLs, so the cropper's
-  // {@code croppedAreaPixels} stays null and Save is a no-op. The
-  // dedicated {@code AvatarCropper.test.tsx} mocks getCroppedImg and
-  // covers that path directly.
-  it.todo("save crops + uploads via MSW (covered by AvatarCropper.test.tsx)");
 });

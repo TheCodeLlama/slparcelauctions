@@ -61,9 +61,4 @@ describe("LoginForm", () => {
     renderWithProviders(<LoginForm />);
     expect(screen.getByText(/signed in for 7 days on this device/i)).toBeInTheDocument();
   });
-
-  // The ?next= redirect test lives in LoginForm.next.test.tsx because vi.doMock
-  // cannot override a module that is already statically imported in the same file.
-  // That file uses a top-level vi.mock to provide useSearchParams("next=/auction/42").
-  it.todo("redirects to next param after login when present — see LoginForm.next.test.tsx");
 });
