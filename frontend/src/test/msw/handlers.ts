@@ -897,5 +897,13 @@ export const userDeletionHandlers = {
  * Default handlers registered at server startup. Establishes the "no session"
  * baseline so tests that don't explicitly authenticate get the unauthenticated
  * bootstrap path automatically.
+ *
+ * The `me/realty-groups` handler returns an empty array by default so any
+ * component that calls {@code useMyRealtyGroups} (e.g. {@code PlaceBidForm}'s
+ * COI guard) does not need to register its own handler in tests that don't
+ * exercise group membership.
  */
-export const defaultHandlers = [authHandlers.refreshUnauthenticated()];
+export const defaultHandlers = [
+  authHandlers.refreshUnauthenticated(),
+  http.get("*/api/v1/me/realty-groups", () => HttpResponse.json([])),
+];
