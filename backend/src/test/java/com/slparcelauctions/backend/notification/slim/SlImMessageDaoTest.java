@@ -42,6 +42,23 @@ class SlImMessageDaoTest {
             conn.setAutoCommit(true);
             try (var stmt = conn.createStatement()) {
                 stmt.execute("DELETE FROM sl_im_message");
+                // Realty-groups FKs on users(id) block the test-user delete when prior
+                // realty-groups tests have leaked rows referencing a test-local user as
+                // leader or agent. Clear invitations + members + groups for any user
+                // matching the test email pattern before the users delete.
+                stmt.execute("""
+                    DELETE FROM realty_group_invitations
+                     WHERE invited_user_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                        OR invited_by_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
+                stmt.execute("""
+                    DELETE FROM realty_group_members
+                     WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
+                stmt.execute("""
+                    DELETE FROM realty_groups
+                     WHERE leader_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
                 stmt.execute("DELETE FROM users WHERE email LIKE 'u-%@test.local'");
             }
         }
