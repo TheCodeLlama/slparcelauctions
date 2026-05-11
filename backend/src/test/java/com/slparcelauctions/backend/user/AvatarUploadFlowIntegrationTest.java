@@ -9,14 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import javax.imageio.ImageIO;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -134,17 +132,22 @@ class AvatarUploadFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.profilePicUrl").value("/api/v1/users/" + userId + "/avatar/256"));
 
-        // Fetch all three sizes and assert each is a valid PNG at the expected dimensions.
+        // Fetch all three sizes. Post-chokepoint migration the avatar
+        // pipeline writes WebP, so the served Content-Type is image/webp.
+        // We use Scrimage to decode (the JDK's ImageIO has no built-in
+        // WebP reader) and assert the dimensions match each canonical
+        // size.
         for (int size : new int[]{64, 128, 256}) {
             MvcResult res = mockMvc.perform(get("/api/v1/users/" + userId + "/avatar/" + size))
                     .andExpect(status().isOk())
-                    .andExpect(header().string("Content-Type", "image/png"))
+                    .andExpect(header().string("Content-Type", "image/webp"))
                     .andExpect(header().string("Cache-Control", "public, max-age=86400, immutable"))
                     .andReturn();
             byte[] body = res.getResponse().getContentAsByteArray();
-            BufferedImage img = ImageIO.read(new ByteArrayInputStream(body));
+            BufferedImage img = com.sksamuel.scrimage.ImmutableImage.loader()
+                    .fromBytes(body).awt();
             assertThat(img)
-                    .as("avatar size %d should decode as a valid PNG (body length=%d)", size, body.length)
+                    .as("avatar size %d should decode as a valid WebP (body length=%d)", size, body.length)
                     .isNotNull();
             assertThat(img.getWidth()).isEqualTo(size);
             assertThat(img.getHeight()).isEqualTo(size);
