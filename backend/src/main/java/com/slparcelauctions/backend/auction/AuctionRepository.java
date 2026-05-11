@@ -250,6 +250,14 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
             @Param("oldAgentId") Long oldAgentId,
             @Param("newAgentId") Long newAgentId);
 
+    /**
+     * Paged list of auctions belonging to the given realty group, filtered by status.
+     * Used by {@code RealtyGroupListingController} for the public
+     * {@code GET /api/v1/realty/groups/{publicId}/listings} endpoint.
+     */
+    Page<Auction> findByRealtyGroupIdAndStatusIn(
+            Long realtyGroupId, Collection<AuctionStatus> statuses, Pageable pageable);
+
     long countByStatus(AuctionStatus status);
 
     Page<Auction> findBySellerIdOrderByCreatedAtDesc(Long sellerId, Pageable pageable);
