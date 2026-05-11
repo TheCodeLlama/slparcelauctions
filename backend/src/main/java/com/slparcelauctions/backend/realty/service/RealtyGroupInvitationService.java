@@ -234,6 +234,18 @@ public class RealtyGroupInvitationService {
         return saved;
     }
 
+    /**
+     * Group-side list of every invitation, newest first. INVITE_AGENTS-gated (or leader).
+     * Used by the {@code GET /api/v1/realty-groups/{publicId}/invitations} endpoint —
+     * dissolved groups still reject via {@link #loadActive}.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<RealtyGroupInvitation> listForGroup(UUID groupPublicId, Long callerUserId) {
+        RealtyGroup group = loadActive(groupPublicId);
+        authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.INVITE_AGENTS);
+        return invitations.findByGroupIdOrderByCreatedAtDesc(group.getId());
+    }
+
     // ─────────────────────── helpers ───────────────────────
 
     private RealtyGroup loadActive(UUID groupPublicId) {
