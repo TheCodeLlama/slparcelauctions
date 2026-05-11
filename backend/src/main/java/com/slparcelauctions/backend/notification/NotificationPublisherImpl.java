@@ -3,9 +3,15 @@ package com.slparcelauctions.backend.notification;
 import com.slparcelauctions.backend.notification.NotificationDao.UpsertResult;
 import com.slparcelauctions.backend.notification.dto.NotificationDto;
 import com.slparcelauctions.backend.notification.slim.SlImChannelDispatcher;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupInvitation;
+import com.slparcelauctions.backend.realty.RealtyGroupMember;
+import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.user.User;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -570,5 +576,78 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             title, body, data, false,
             result.createdAt(), result.updatedAt()
         );
+    }
+
+    // ─────────────────── Realty groups — Phase 6 fleshes out fan-out + body copy ───────────────────
+    //
+    // Phase 4 services depend on these signatures being callable. The actual delivery
+    // (in-app row + email + SL IM fan-out + recipient resolution per spec §8) lands in
+    // Phase 6. Each stub emits a structured log line so wiring can be sanity-checked
+    // ahead of the full implementation.
+
+    @Override
+    public void realtyGroupInvitationSent(RealtyGroupInvitation invitation) {
+        // TODO Phase 6: deliver to invitee.
+        log.info("[stub] realtyGroupInvitationSent: invitationId={} groupId={} invitedUserId={}",
+            invitation.getId(), invitation.getGroupId(), invitation.getInvitedUserId());
+    }
+
+    @Override
+    public void realtyGroupInvitationAccepted(RealtyGroupInvitation invitation) {
+        // TODO Phase 6: deliver to leader + INVITE_AGENTS delegates.
+        log.info("[stub] realtyGroupInvitationAccepted: invitationId={} groupId={} invitedUserId={}",
+            invitation.getId(), invitation.getGroupId(), invitation.getInvitedUserId());
+    }
+
+    @Override
+    public void realtyGroupInvitationDeclined(RealtyGroupInvitation invitation) {
+        // TODO Phase 6: deliver to leader + INVITE_AGENTS delegates.
+        log.info("[stub] realtyGroupInvitationDeclined: invitationId={} groupId={} invitedUserId={}",
+            invitation.getId(), invitation.getGroupId(), invitation.getInvitedUserId());
+    }
+
+    @Override
+    public void realtyGroupInvitationExpired(RealtyGroupInvitation invitation) {
+        // TODO Phase 6: deliver to leader + INVITE_AGENTS delegates.
+        log.info("[stub] realtyGroupInvitationExpired: invitationId={} groupId={} invitedUserId={}",
+            invitation.getId(), invitation.getGroupId(), invitation.getInvitedUserId());
+    }
+
+    @Override
+    public void realtyGroupMemberRemoved(RealtyGroup group, User removedUser) {
+        // TODO Phase 6: deliver to removed user.
+        log.info("[stub] realtyGroupMemberRemoved: groupId={} removedUserId={}",
+            group.getId(), removedUser.getId());
+    }
+
+    @Override
+    public void realtyGroupMemberLeft(RealtyGroup group, User leftUser) {
+        // TODO Phase 6: deliver to leader + INVITE_AGENTS delegates.
+        log.info("[stub] realtyGroupMemberLeft: groupId={} leftUserId={}",
+            group.getId(), leftUser.getId());
+    }
+
+    @Override
+    public void realtyGroupLeadershipTransferred(RealtyGroup group, User oldLeader, User newLeader,
+                                                  boolean oldLeaderStayed) {
+        // TODO Phase 6: deliver to old leader + new leader + all other current members.
+        log.info("[stub] realtyGroupLeadershipTransferred: groupId={} oldLeaderId={} newLeaderId={} oldStayed={}",
+            group.getId(), oldLeader.getId(), newLeader.getId(), oldLeaderStayed);
+    }
+
+    @Override
+    public void realtyGroupDissolved(RealtyGroup group, List<User> formerMembers) {
+        // TODO Phase 6: deliver to all former members.
+        log.info("[stub] realtyGroupDissolved: groupId={} formerMemberCount={}",
+            group.getId(), formerMembers == null ? 0 : formerMembers.size());
+    }
+
+    @Override
+    public void realtyGroupPermissionsChanged(RealtyGroup group, RealtyGroupMember member,
+                                              Set<RealtyGroupPermission> added,
+                                              Set<RealtyGroupPermission> removed) {
+        // TODO Phase 6: deliver to affected member.
+        log.info("[stub] realtyGroupPermissionsChanged: groupId={} memberId={} added={} removed={}",
+            group.getId(), member.getId(), added, removed);
     }
 }
