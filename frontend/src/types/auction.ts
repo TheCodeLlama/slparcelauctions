@@ -135,6 +135,10 @@ export interface SellerAuctionResponse {
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
   transferConfirmedAt?: string | null;
+  // Realty group attribution — present when the listing was created under a group.
+  realtyGroup?: GroupAttribution | null;
+  listingAgent?: ListingAgent | null;
+  agentFeeRate?: number | null;
 }
 
 /** Duration choices permitted by the backend (hours). */
@@ -231,6 +235,32 @@ export interface PublicAuctionResponse {
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
   transferConfirmedAt?: string | null;
+  // Realty group attribution — present when the listing was created under a group.
+  realtyGroup?: GroupAttribution | null;
+  listingAgent?: ListingAgent | null;
+  agentFeeRate?: number | null;
+}
+
+/**
+ * Realty group attribution embedded on auction DTOs when the listing was
+ * created under a group. Mirrors {@code AuctionGroupAttributionDto} server-side.
+ */
+export interface GroupAttribution {
+  publicId: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  dissolved: boolean;
+}
+
+/**
+ * Listing-agent attribution embedded on auction DTOs when an agent created the
+ * listing on behalf of a group. Mirrors {@code AuctionListingAgentDto} server-side.
+ */
+export interface ListingAgent {
+  publicId: string;
+  displayName: string;
+  avatarUrl: string | null;
 }
 
 /**
