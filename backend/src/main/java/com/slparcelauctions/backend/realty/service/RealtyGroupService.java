@@ -196,6 +196,36 @@ public class RealtyGroupService {
         return groups.save(group);
     }
 
+    // ─────────────────────── dissolve ───────────────────────
+
+    /**
+     * Leader-initiated dissolve. Sets {@code dissolved_at = NOW()}; the partial unique
+     * indexes on {@code name_lower} and {@code slug} immediately allow the name + slug to
+     * be reused by a brand-new group. Already-dissolved → {@link
+     * GroupDissolvedException} (410). Non-leader → {@link
+     * com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException}.
+     */
+    public RealtyGroup dissolveGroup(UUID publicId, Long callerUserId) {
+        RealtyGroup group = loadActive(publicId);
+        authorizer.assertLeader(callerUserId, group.getId());
+        group.setDissolvedAt(OffsetDateTime.now());
+        RealtyGroup saved = groups.save(group);
+        log.info("Realty group dissolved by leader: publicId={} leaderId={}", publicId, callerUserId);
+        return saved;
+    }
+
+    /**
+     * Admin force-dissolve. Bypasses the leader gate; otherwise identical to {@link
+     * #dissolveGroup}. Already-dissolved still rejected (no idempotent re-dissolve).
+     */
+    public RealtyGroup dissolveGroupAsAdmin(UUID publicId, Long adminUserId) {
+        RealtyGroup group = loadActive(publicId);
+        group.setDissolvedAt(OffsetDateTime.now());
+        RealtyGroup saved = groups.save(group);
+        log.info("Realty group force-dissolved by admin: publicId={} adminUserId={}", publicId, adminUserId);
+        return saved;
+    }
+
     // ─────────────────────── helpers ───────────────────────
 
     private RealtyGroup loadActive(UUID publicId) {
