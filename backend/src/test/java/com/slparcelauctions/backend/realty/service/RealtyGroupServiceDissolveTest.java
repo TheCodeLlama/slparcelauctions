@@ -24,12 +24,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
+import com.slparcelauctions.backend.realty.exception.ActiveListingsBlockDissolveException;
 import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
@@ -54,6 +56,7 @@ class RealtyGroupServiceDissolveTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock AuctionRepository auctions;
 
     @InjectMocks RealtyGroupService service;
 
@@ -188,5 +191,50 @@ class RealtyGroupServiceDissolveTest {
 
         assertThrows(RealtyGroupNotFoundException.class,
             () -> service.dissolveGroupAsAdmin(pid, 9999L));
+    }
+
+    // ─────────────────── active-listings guard ───────────────────
+
+    @Test
+    void leader_dissolve_blocked_by_active_listing() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(true);
+
+        assertThrows(ActiveListingsBlockDissolveException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void admin_force_dissolve_bypasses_active_listings_guard() {
+        // The admin path does NOT call existsActiveListingsByGroupId at all — bypasses
+        // the guard entirely. No auctions stub needed; the test asserts the admin path
+        // succeeds and never calls the leader gate.
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
+
+        RealtyGroup result = service.dissolveGroupAsAdmin(pid, 9999L);
+
+        assertNotNull(result.getDissolvedAt());
+        verify(authorizer, never()).assertLeader(anyLong(), anyLong());
+    }
+
+    @Test
+    void leader_dissolve_allowed_when_only_ended_listings_exist() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
+
+        RealtyGroup result = service.dissolveGroup(pid, 100L);
+
+        assertNotNull(result.getDissolvedAt());
     }
 }
