@@ -245,6 +245,25 @@ public class SecurityConfig {
                         // FOOTGUNS §B.5: must sit before /api/v1/**.
                         .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/respond").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/reviews/*/flag").authenticated()
+                        // Realty groups public reads (spec 2026-05-10 §5).
+                        // Group detail by publicId or slug, members roster, and the
+                        // user-profile affiliation list are anonymous-safe; the DTO
+                        // mapper hides per-member permissions+joinedAt from non-member,
+                        // non-admin viewers. Image byte endpoints (logo/cover) are also
+                        // permitAll so <img src> can fetch without an Authorization
+                        // header (FOOTGUNS §B.5 + the Frontend SSR caveats in CLAUDE.md).
+                        // The mutation endpoints (POST/PATCH/DELETE on the same paths,
+                        // plus /leave, /transfer-leadership, /members/* writes, and
+                        // /invitations) fall through to the /api/v1/** authenticated
+                        // catch-all because matcher order is first-match-wins.
+                        // FOOTGUNS §B.5: every public matcher MUST sit before the
+                        // /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/{publicId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/by-slug/{slug}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/members").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/logo/image").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/cover/image").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/*/realty-groups").permitAll()
                         // Admin surface (Epic 10 sub-spec 1 Task 1).
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

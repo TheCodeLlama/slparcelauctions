@@ -319,6 +319,16 @@ public class RealtyGroupService {
 
     // ─────────────────────── helpers ───────────────────────
 
+    /**
+     * Public re-export of the active-group lookup for controllers that need a fresh entity
+     * after delegating a mutation to another service. Throws {@link
+     * RealtyGroupNotFoundException} (404) when the publicId is unknown and {@link
+     * GroupDissolvedException} (410) when the group is soft-deleted.
+     */
+    public RealtyGroup loadActiveByPublicId(UUID publicId) {
+        return loadActive(publicId);
+    }
+
     private RealtyGroup loadActive(UUID publicId) {
         RealtyGroup group = groups.findByPublicId(publicId)
             .orElseThrow(() -> new RealtyGroupNotFoundException(publicId));
