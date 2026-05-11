@@ -104,6 +104,7 @@ public class RealtyGroupMembershipService {
         }
 
         members.deleteByGroupIdAndUserId(group.getId(), row.getUserId());
+        auctions.reassignListingAgentForGroup(group.getId(), row.getUserId(), group.getLeaderId());
         Optional<User> removedUser = users.findById(row.getUserId());
         removedUser.ifPresent(u -> notifications.realtyGroupMemberRemoved(group, u));
         log.info("Realty group member removed: groupPublicId={} memberPublicId={} callerUserId={}",
