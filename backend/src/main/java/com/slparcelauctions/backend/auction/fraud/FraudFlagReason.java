@@ -70,5 +70,23 @@ public enum FraudFlagReason {
      * within {@code slpa.cancellation.post-cancel-watch-hours} of cancellation
      * (default 48h). Strong signal of an off-platform deal.
      */
-    CANCEL_AND_SELL
+    CANCEL_AND_SELL,
+    /**
+     * Sub-project F (§4.5) — admin flags a realty group for a pattern of
+     * fraudulent listings (e.g. fake parcels, repeated cancel-and-sell offences
+     * across the group's brokers). Entity-keyed by {@link FraudFlagEntityKind#REALTY_GROUP}.
+     */
+    REALTY_GROUP_FRAUDULENT_LISTINGS,
+    /**
+     * Sub-project F (§4.5) — admin flags a realty group for impersonating
+     * another brand (name, branding, or SL-group affiliation chosen to deceive).
+     * Entity-keyed by {@link FraudFlagEntityKind#REALTY_GROUP}.
+     */
+    REALTY_GROUP_IMPERSONATION,
+    /**
+     * Sub-project F (§4.5) — admin flags a realty group after a meaningful
+     * number of user reports (§4.2) have been substantiated against it.
+     * Entity-keyed by {@link FraudFlagEntityKind#REALTY_GROUP}.
+     */
+    REALTY_GROUP_REPEATED_REPORTS
 }
