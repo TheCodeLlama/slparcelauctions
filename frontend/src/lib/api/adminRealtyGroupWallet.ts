@@ -46,3 +46,16 @@ export function adjustGroupWallet(
     body,
   );
 }
+
+/**
+ * GET /api/v1/admin/realty-groups/{publicId}/wallet.
+ *
+ * <p>Auth: JWT. Permission: admin role. Bypasses the leader-tier
+ * {@code VIEW_GROUP_TRANSACTIONS} permission so an admin can see any group's
+ * wallet snapshot without being a member.
+ */
+export function getAdminGroupWallet(publicId: string): Promise<GroupWallet> {
+  return api.get<GroupWallet>(
+    `/api/v1/admin/realty-groups/${publicId}/wallet`,
+  );
+}

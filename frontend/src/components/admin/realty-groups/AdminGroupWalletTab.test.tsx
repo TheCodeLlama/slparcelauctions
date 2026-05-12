@@ -71,4 +71,37 @@ describe("AdminGroupWalletTab", () => {
       screen.queryByTestId("admin-group-wallet-tab-balance"),
     ).not.toBeInTheDocument();
   });
+
+  it("renders the current balance from the admin GET wallet endpoint on mount", async () => {
+    server.use(
+      http.get(
+        `*/api/v1/admin/realty-groups/${GROUP_ID}/wallet`,
+        () =>
+          HttpResponse.json({
+            balance: 4200,
+            reserved: 200,
+            available: 4000,
+            leaderTermsAcceptedAt: null,
+            recentLedger: [],
+          }),
+      ),
+    );
+
+    renderWithProviders(<AdminGroupWalletTab groupPublicId={GROUP_ID} />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("admin-group-wallet-tab-balance"),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByTestId("admin-group-wallet-tab-available").textContent,
+    ).toMatch(/L\$4,000/);
+    expect(
+      screen.getByTestId("admin-group-wallet-tab-balance-value").textContent,
+    ).toMatch(/L\$4,200/);
+    expect(
+      screen.getByTestId("admin-group-wallet-tab-reserved").textContent,
+    ).toMatch(/L\$200/);
+  });
 });

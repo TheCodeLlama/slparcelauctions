@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,6 +42,11 @@ import lombok.RequiredArgsConstructor;
 public class AdminRealtyGroupWalletController {
 
     private final AdminRealtyGroupWalletService service;
+
+    @GetMapping
+    public GroupWalletDto get(@PathVariable UUID publicId) {
+        return service.read(publicId);
+    }
 
     @PostMapping("/adjust")
     public GroupWalletDto adjust(

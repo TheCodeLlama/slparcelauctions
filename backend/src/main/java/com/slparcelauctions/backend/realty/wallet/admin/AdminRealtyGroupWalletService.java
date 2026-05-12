@@ -131,13 +131,37 @@ public class AdminRealtyGroupWalletService {
         log.info("admin wallet adjustment: groupId={}, amount={}, balanceAfter={}, admin={}",
                 locked.getId(), amount, newBalance, adminUserId);
 
-        User leader = userRepository.findById(locked.getLeaderId()).orElseThrow();
+        return buildWalletDto(locked);
+    }
+
+    /**
+     * Read the group's wallet snapshot for admin display. Bypasses the
+     * leader-tier {@code VIEW_GROUP_TRANSACTIONS} permission gate that the
+     * member-facing {@code GET /api/v1/realty/groups/{publicId}/wallet}
+     * endpoint applies -- admin-role callers see the wallet of any group
+     * regardless of membership.
+     *
+     * @param groupPublicId the target group's public UUID
+     * @return wallet DTO including the latest 50 ledger entries
+     */
+    @Transactional(readOnly = true)
+    public GroupWalletDto read(UUID groupPublicId) {
+        RealtyGroup g = groupRepository.findByPublicId(groupPublicId)
+                .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
+        if (g.getDissolvedAt() != null) {
+            throw new GroupDissolvedException(groupPublicId);
+        }
+        return buildWalletDto(g);
+    }
+
+    private GroupWalletDto buildWalletDto(RealtyGroup g) {
+        User leader = userRepository.findById(g.getLeaderId()).orElseThrow();
         List<RealtyGroupLedgerEntry> recent = ledgerRepository.findRecentForGroup(
-                locked.getId(), PageRequest.of(0, RECENT_LEDGER_LIMIT));
+                g.getId(), PageRequest.of(0, RECENT_LEDGER_LIMIT));
         return walletDtoMapper.toWalletDto(
-                locked.getBalanceLindens(),
-                locked.getReservedLindens(),
-                locked.availableLindens(),
+                g.getBalanceLindens(),
+                g.getReservedLindens(),
+                g.availableLindens(),
                 leader,
                 recent);
     }
