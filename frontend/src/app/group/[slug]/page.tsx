@@ -8,6 +8,7 @@ import { LeaderCard } from "@/components/realty/LeaderCard";
 import { RealtyGroupAgentsGrid } from "@/components/realty/RealtyGroupAgentsGrid";
 import { RealtyGroupDissolvedView } from "@/components/realty/RealtyGroupDissolvedView";
 import { RealtyGroupHeroBanner } from "@/components/realty/RealtyGroupHeroBanner";
+import { ReportGroupAffordance } from "@/components/realty/ReportGroupAffordance";
 import type { RealtyGroupPublicDto } from "@/types/realty";
 
 /**
@@ -139,6 +140,12 @@ export default async function RealtyGroupPublicPage({ params }: PageProps) {
         editAffordance={<EditGroupAffordance slug={group.slug} />}
       />
       <main className="mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 flex flex-col gap-10">
+        <div className="flex justify-end">
+          <ReportGroupAffordance
+            groupPublicId={group.publicId}
+            groupSlug={group.slug}
+          />
+        </div>
         <section aria-labelledby="leader-heading">
           <SectionHeading title={<span id="leader-heading">Leader</span>} />
           <LeaderCard leader={group.leader} />
