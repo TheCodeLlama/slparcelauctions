@@ -80,6 +80,49 @@ public class RealtyGroupWalletService {
     }
 
     /* ============================================================ */
+    /* LISTING FEE DEBIT                                             */
+    /* ============================================================ */
+
+    /**
+     * Debit a group-listed auction's listing fee from the group wallet.
+     * Called from MeWalletController.payListingFee branching on
+     * auction.realty_group_id != null. Spec §5.4.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void debitListingFee(Long groupId, Long auctionId, long amount, Long actorUserId) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        RealtyGroup group = groupRepository.findByIdForUpdate(groupId).orElseThrow();
+        long available = group.availableLindens();
+        if (available < amount) {
+            throw new com.slparcelauctions.backend.realty.wallet.exception
+                .InsufficientGroupBalanceException(available, amount);
+        }
+        long newBalance = group.getBalanceLindens() - amount;
+        group.setBalanceLindens(newBalance);
+        clearDormancyOnActivity(group);
+        groupRepository.save(group);
+
+        RealtyGroupLedgerEntry entry = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(groupId)
+            .entryType(RealtyGroupLedgerEntryType.LISTING_FEE_DEBIT)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(group.getReservedLindens())
+            .refType("AUCTION")
+            .refId(auctionId)
+            .actorUserId(actorUserId)
+            .build());
+
+        broadcastPublisher.publish(group.getPublicId(),
+            newBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.LISTING_FEE_DEBIT.name(), entry.getPublicId());
+        log.info("group listing fee debit: groupId={}, auctionId={}, amount={}, balanceAfter={}, actor={}",
+            groupId, auctionId, amount, newBalance, actorUserId);
+    }
+
+    /* ============================================================ */
     /* INTERNAL HELPERS                                              */
     /* ============================================================ */
 
