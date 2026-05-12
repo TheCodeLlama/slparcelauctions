@@ -86,6 +86,13 @@ export interface RealtyGroupPublicDto {
   agents: AgentCardDto[];
   memberSeatLimit: number;
   memberCount: number;
+  /**
+   * Aggregated star rating for the group (sub-project F). Always present
+   * on the wire; {@code reviewCount === 0} and {@code averageRating === null}
+   * for groups without any qualifying review rows. Optional in the type so
+   * callers built before sub-project F shipped continue to compile.
+   */
+  rating?: GroupRating | null;
 }
 
 export interface RealtyGroupSummaryDto {
