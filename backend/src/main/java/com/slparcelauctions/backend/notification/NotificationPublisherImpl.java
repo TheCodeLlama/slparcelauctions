@@ -851,6 +851,56 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         return out;
     }
 
+    // ── Realty groups — admin moderation (sub-project F §8, §9). Fan-out to every
+    // current member. Task 28 will refine body copy + SL IM integration; for now
+    // this routes through the existing in-app publish primitive so callers can
+    // compile and the audit trail flows.
+
+    @Override
+    public void realtyGroupSuspended(RealtyGroup group, String reason,
+                                     OffsetDateTime expiresAt) {
+        if (group == null) return;
+        boolean permanent = expiresAt == null;
+        String title = (permanent ? "Group banned: " : "Group suspended: ") + group.getName();
+        StringBuilder body = new StringBuilder();
+        if (permanent) {
+            body.append("An admin has banned ").append(group.getName())
+                .append(". The group can no longer create listings, manage memberships, ")
+                .append("or move wallet funds.");
+        } else {
+            body.append("An admin has suspended ").append(group.getName())
+                .append(" until ").append(expiresAt)
+                .append(". The group cannot create listings, manage memberships, ")
+                .append("or move wallet funds until the suspension lifts.");
+        }
+        if (reason != null && !reason.isBlank()) {
+            body.append(" Reason: ").append(reason).append('.');
+        }
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        data.put("reason", reason);
+        data.put("expiresAt", expiresAt == null ? null : expiresAt.toString());
+        data.put("permanent", permanent);
+        for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
+            publishOne(m.getUserId(),
+                NotificationCategory.REALTY_GROUP_SUSPENDED, title, body.toString(), data);
+        }
+    }
+
+    @Override
+    public void realtyGroupUnsuspended(RealtyGroup group) {
+        if (group == null) return;
+        String title = "Group reinstated: " + group.getName();
+        String body = "The suspension on " + group.getName()
+            + " has been lifted. The group can resume normal operations.";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
+            publishOne(m.getUserId(),
+                NotificationCategory.REALTY_GROUP_UNSUSPENDED, title, body, data);
+        }
+    }
+
     // ── Group wallet withdrawal notifications (stub — fanout wired when Epic 09 dispatcher extended)
 
     @Override

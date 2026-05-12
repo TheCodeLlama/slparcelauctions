@@ -53,7 +53,12 @@ public enum NotificationCategory {
     REALTY_GROUP_MEMBER_LEFT(NotificationGroup.REALTY_GROUP),
     REALTY_GROUP_LEADERSHIP_TRANSFERRED(NotificationGroup.REALTY_GROUP),
     REALTY_GROUP_DISSOLVED(NotificationGroup.REALTY_GROUP),
-    REALTY_GROUP_PERMISSIONS_CHANGED(NotificationGroup.REALTY_GROUP);
+    REALTY_GROUP_PERMISSIONS_CHANGED(NotificationGroup.REALTY_GROUP),
+
+    // Realty groups — admin moderation (sub-project F §8, §9). Fired to every member
+    // when an admin suspends/bans a group (and when the suspension is lifted).
+    REALTY_GROUP_SUSPENDED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_UNSUSPENDED(NotificationGroup.REALTY_GROUP);
 
     private final NotificationGroup group;
 

@@ -126,4 +126,22 @@ public interface NotificationPublisher {
     void realtyGroupPermissionsChanged(RealtyGroup group, RealtyGroupMember member,
                                        Set<RealtyGroupPermission> added,
                                        Set<RealtyGroupPermission> removed);
+
+    // ── Realty groups — admin moderation (sub-project F §8, §9). Phase 4 stubs
+    // route through the existing in-app notification mechanism; Task 28 will
+    // refine the body copy and add SL IM integration.
+
+    /**
+     * Notify every current member of {@code group} that an admin has issued a
+     * suspension (or permanent ban when {@code expiresAt} is null). {@code reason}
+     * is the audit-facing {@code SuspensionReason}; copy is generated from it.
+     */
+    void realtyGroupSuspended(RealtyGroup group, String reason,
+                              java.time.OffsetDateTime expiresAt);
+
+    /**
+     * Notify every current member of {@code group} that an admin (or the expiry
+     * sweep) has lifted an active suspension.
+     */
+    void realtyGroupUnsuspended(RealtyGroup group);
 }

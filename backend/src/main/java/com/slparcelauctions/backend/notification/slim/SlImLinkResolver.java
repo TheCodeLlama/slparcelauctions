@@ -52,7 +52,8 @@ public class SlImLinkResolver {
                 base + "/dashboard/invitations";
             case REALTY_GROUP_INVITATION_ACCEPTED, REALTY_GROUP_INVITATION_DECLINED,
                  REALTY_GROUP_INVITATION_EXPIRED, REALTY_GROUP_MEMBER_LEFT,
-                 REALTY_GROUP_LEADERSHIP_TRANSFERRED, REALTY_GROUP_PERMISSIONS_CHANGED ->
+                 REALTY_GROUP_LEADERSHIP_TRANSFERRED, REALTY_GROUP_PERMISSIONS_CHANGED,
+                 REALTY_GROUP_SUSPENDED, REALTY_GROUP_UNSUSPENDED ->
                 base + "/group/" + data.get("groupSlug");
             case REALTY_GROUP_MEMBER_REMOVED, REALTY_GROUP_DISSOLVED ->
                 base + "/dashboard/groups";
