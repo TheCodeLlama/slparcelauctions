@@ -1,16 +1,24 @@
 package com.slparcelauctions.backend.realty.wallet;
 
 import java.time.Clock;
+import java.time.OffsetDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.escrow.command.TerminalCommand;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandAction;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandPurpose;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandStatus;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.wallet.broadcast.GroupWalletBroadcastPublisher;
+import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -30,15 +38,10 @@ public class RealtyGroupWalletService {
 
     private final RealtyGroupRepository groupRepository;
     private final RealtyGroupLedgerRepository ledgerRepository;
-    // Declared now for constructor stability; used in later tasks.
-    @SuppressWarnings("unused")
     private final UserRepository userRepository;
-    @SuppressWarnings("unused")
     private final TerminalCommandRepository terminalCommandRepository;
-    @SuppressWarnings("unused")
     private final NotificationPublisher notificationPublisher;
     private final GroupWalletBroadcastPublisher broadcastPublisher;
-    @SuppressWarnings("unused")
     private final Clock clock;
 
     /* ============================================================ */
@@ -163,6 +166,160 @@ public class RealtyGroupWalletService {
             RealtyGroupLedgerEntryType.LISTING_FEE_REFUND.name(), entry.getPublicId());
         log.info("group listing fee refund credit: groupId={}, refundId={}, amount={}, balanceAfter={}",
             groupId, refundRowId, amount, newBalance);
+    }
+
+    /* ============================================================ */
+    /* WITHDRAW                                                      */
+    /* ============================================================ */
+
+    /**
+     * Result returned by {@link #withdraw}. The caller (controller) uses
+     * {@code queueId} as the handle for progress polling and
+     * {@code estimatedFulfillmentSeconds} for UX copy.
+     */
+    public record WithdrawResult(Long queueId, int estimatedFulfillmentSeconds) {}
+
+    /**
+     * Initiate a group-wallet withdrawal. Caller is whoever holds
+     * WITHDRAW_FROM_GROUP_WALLET (or the leader). Recipient is always
+     * the group leader's verified SL avatar. Spec §5.3.
+     *
+     * <p>Idempotent: a duplicate {@code idempotencyKey} returns the original
+     * result without re-processing.
+     */
+    @Transactional
+    public WithdrawResult withdraw(Long groupId, long amount, UUID idempotencyKey, Long callerUserId) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        String idemStr = idempotencyKey.toString();
+        Optional<RealtyGroupLedgerEntry> replay = ledgerRepository.findByIdempotencyKey(idemStr);
+        if (replay.isPresent()) {
+            // Idempotency hit — find the matching TerminalCommand and return the original queueId.
+            TerminalCommand prior = terminalCommandRepository
+                .findByIdempotencyKey("GWAL-" + replay.get().getId())
+                .orElseThrow(() -> new IllegalStateException(
+                    "ledger row exists but terminal command missing for GWAL-" + replay.get().getId()));
+            return new WithdrawResult(prior.getId(), 60);
+        }
+
+        RealtyGroup group = groupRepository.findByIdForUpdate(groupId).orElseThrow();
+        User leader = userRepository.findById(group.getLeaderId())
+            .orElseThrow(() -> new IllegalStateException(
+                "group " + group.getPublicId() + " leader id " + group.getLeaderId() + " missing"));
+
+        if (leader.getWalletTermsAcceptedAt() == null) {
+            throw new com.slparcelauctions.backend.realty.wallet.exception
+                .LeaderTermsNotAcceptedException(leader.getPublicId());
+        }
+        if ((leader.getWalletFrozenAt() != null)
+                || (leader.getBannedFromListing() != null && leader.getBannedFromListing())) {
+            throw new com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException();
+        }
+        long available = group.availableLindens();
+        if (available < amount) {
+            throw new com.slparcelauctions.backend.realty.wallet.exception
+                .InsufficientGroupBalanceException(available, amount);
+        }
+
+        long newBalance = group.getBalanceLindens() - amount;
+        group.setBalanceLindens(newBalance);
+        clearDormancyOnActivity(group);
+        groupRepository.save(group);
+
+        RealtyGroupLedgerEntry queuedEntry = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(groupId)
+            .entryType(RealtyGroupLedgerEntryType.WITHDRAW_QUEUED)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(group.getReservedLindens())
+            .actorUserId(callerUserId)
+            .idempotencyKey(idemStr)
+            .refType("TERMINAL_COMMAND")
+            .build());
+
+        TerminalCommand cmd = terminalCommandRepository.save(TerminalCommand.builder()
+            .action(TerminalCommandAction.WITHDRAW)
+            .purpose(TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL)
+            .recipientUuid(leader.getSlAvatarUuid().toString())
+            .amount(amount)
+            .status(TerminalCommandStatus.QUEUED)
+            .idempotencyKey("GWAL-" + queuedEntry.getId())
+            .realtyGroupId(groupId)
+            .nextAttemptAt(OffsetDateTime.now(clock))
+            .attemptCount(0)
+            .requiresManualReview(false)
+            .build());
+
+        broadcastPublisher.publish(group.getPublicId(),
+            newBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.WITHDRAW_QUEUED.name(), queuedEntry.getPublicId());
+
+        log.info("group withdraw queued: groupId={}, amount={}, leader={}, callerUserId={}, queueId={}",
+            groupId, amount, leader.getPublicId(), callerUserId, cmd.getId());
+        return new WithdrawResult(cmd.getId(), 60);
+    }
+
+    /**
+     * Called by {@link com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler}
+     * when the terminal confirms the L$ transfer. No balance change — balance was
+     * decremented at queue time. Spec §5.3.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordWithdrawalSuccess(Long queuedLedgerId, String slTransactionKey) {
+        RealtyGroupLedgerEntry queued = ledgerRepository.findById(queuedLedgerId).orElseThrow();
+        ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(queued.getGroupId())
+            .entryType(RealtyGroupLedgerEntryType.WITHDRAW_COMPLETED)
+            .amount(queued.getAmount())
+            .balanceAfter(queued.getBalanceAfter())
+            .reservedAfter(queued.getReservedAfter())
+            .slTransactionId(slTransactionKey)
+            .refType("REALTY_GROUP_LEDGER_ENTRY")
+            .refId(queuedLedgerId)
+            .build());
+        log.info("group withdraw completed: ledgerId={}, slTxn={}", queuedLedgerId, slTransactionKey);
+    }
+
+    /**
+     * Called by {@link com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler}
+     * when the terminal fails after retry exhaustion. Credits the L$ back to the
+     * group balance and appends a WITHDRAW_REVERSED row. Spec §5.3.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordWithdrawalReversal(Long queuedLedgerId, String reason) {
+        RealtyGroupLedgerEntry queued = ledgerRepository.findById(queuedLedgerId).orElseThrow();
+        RealtyGroup group = groupRepository.findByIdForUpdate(queued.getGroupId()).orElseThrow();
+        long newBalance = group.getBalanceLindens() + queued.getAmount();
+        group.setBalanceLindens(newBalance);
+        groupRepository.save(group);
+
+        RealtyGroupLedgerEntry reversed = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(queued.getGroupId())
+            .entryType(RealtyGroupLedgerEntryType.WITHDRAW_REVERSED)
+            .amount(queued.getAmount())
+            .balanceAfter(newBalance)
+            .reservedAfter(group.getReservedLindens())
+            .description(reason == null ? "transport failure" : reason)
+            .refType("REALTY_GROUP_LEDGER_ENTRY")
+            .refId(queuedLedgerId)
+            .build());
+
+        broadcastPublisher.publish(group.getPublicId(),
+            newBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.WITHDRAW_REVERSED.name(), reversed.getPublicId());
+        log.warn("group withdraw reversed: ledgerId={}, reason={}, balanceAfter={}",
+            queuedLedgerId, reason, newBalance);
+    }
+
+    /**
+     * Returns the {@code groupId} of a realty_group_ledger row, or {@code null}
+     * if the row does not exist. Used by callback handlers to route notifications.
+     */
+    public Long findGroupIdForLedgerEntry(Long ledgerEntryId) {
+        return ledgerRepository.findById(ledgerEntryId)
+            .map(RealtyGroupLedgerEntry::getGroupId)
+            .orElse(null);
     }
 
     /* ============================================================ */
