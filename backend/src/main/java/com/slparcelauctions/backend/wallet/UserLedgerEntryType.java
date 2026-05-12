@@ -100,5 +100,13 @@ public enum UserLedgerEntryType {
      * Credited to the listing agent's user wallet after the seller's PAYOUT terminal
      * command succeeds. See spec §7.2 (Site B).
      */
-    AGENT_FEE_CREDIT
+    AGENT_FEE_CREDIT,
+
+    /**
+     * Sub-project E -- listing agent's case-3 commission slice at escrow completion.
+     * Credited to the listing agent's user wallet after the case-3 group-wallet PAYOUT
+     * succeeds. {@code amount = floor((final_bid - platform_commission) * agent_commission_rate)}.
+     * See spec §9.6.
+     */
+    AGENT_COMMISSION_CREDIT
 }

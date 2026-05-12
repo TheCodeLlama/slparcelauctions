@@ -12,6 +12,7 @@ function makeAgent(overrides: Partial<AgentCardDto> = {}): AgentCardDto {
     role: "AGENT",
     permissions: null,
     joinedAt: null,
+    agentCommissionRate: null,
     ...overrides,
   };
 }

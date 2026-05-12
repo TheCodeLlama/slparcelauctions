@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.realty.service;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -32,7 +33,9 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupNameTakenExcepti
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
+import com.slparcelauctions.backend.realty.exception.SlGroupRegisteredBlocksDissolveException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
@@ -68,6 +71,7 @@ public class RealtyGroupService {
     private final UserRepository users;
     private final AuctionRepository auctions;
     private final EscrowRepository escrows;
+    private final RealtyGroupSlGroupRepository slGroupRepo;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -228,10 +232,15 @@ public class RealtyGroupService {
      * misleading state if a future caller starts trusting it).
      *
      * <p>A {@code null} permission set is treated as empty (revoke all flags).
+     *
+     * <p>When {@code newCommissionRate} is non-null it replaces the member's stored
+     * commission rate. A {@code null} value leaves the rate unchanged, so a leader can
+     * patch the permission flags without touching the rate.
      */
     public RealtyGroupMember updateMemberPermissions(UUID groupPublicId,
                                                      UUID memberPublicId,
                                                      Set<RealtyGroupPermission> newPerms,
+                                                     BigDecimal newCommissionRate,
                                                      Long callerUserId) {
         RealtyGroup group = loadActive(groupPublicId);
         authorizer.assertLeader(callerUserId, group.getId());
@@ -258,6 +267,9 @@ public class RealtyGroupService {
         removed.addAll(previous);
         removed.removeAll(effective);
         member.setPermissionSet(effective);
+        if (newCommissionRate != null) {
+            member.setAgentCommissionRate(newCommissionRate);
+        }
         RealtyGroupMember saved = members.save(member);
         // Skip the notification fire when nothing actually changed; same-set PATCH should
         // not spam the member.
@@ -289,6 +301,10 @@ public class RealtyGroupService {
         }
         if (escrows.existsInFlightForGroup(group.getId())) {
             throw new GroupHasInFlightEscrowsException();
+        }
+        long slGroupCount = slGroupRepo.countByRealtyGroupId(group.getId());
+        if (slGroupCount > 0) {
+            throw new SlGroupRegisteredBlocksDissolveException(group.getPublicId(), slGroupCount);
         }
         List<User> formerMembers = loadCurrentMembersAsUsers(group.getId());
         group.setDissolvedAt(OffsetDateTime.now());

@@ -1,8 +1,10 @@
 // SLParcels Terminal (wallet model)
 //
-// Single-object payment kiosk for SLParcels. Two touch-menu options:
-//   1. Deposit  — instructs user to right-click and pay any amount
-//   2. Withdraw — touch-confirmed withdrawal from the user's SLParcels wallet
+// Single-object payment kiosk for SLParcels. Three touch-menu options:
+//   1. Deposit         — instructs user to right-click and pay any amount
+//   2. Withdraw        — touch-confirmed withdrawal from the user's SLParcels wallet
+//   3. SL Group Verify — founder-of-an-SL-group verification for realty groups
+//                        (sub-project E spec §7.3, §13.3)
 //
 // The terminal accepts deposits via the natural SL pay flow:
 //   * Right-click → Pay → enter amount → money() event fires
@@ -13,6 +15,10 @@
 // on a single shared listen — no terminal-wide lock, no per-flow listen
 // handles to leak. Up to 4 concurrent withdraw sessions; per-avatar dedup
 // (a second touch from the same avatar resets their existing slot).
+//
+// SL Group Verify uses a parallel per-flow slot list keyed by avatar so it
+// can dispatch llTextBox responses on the same shared listen without
+// stealing input from a concurrent withdraw flow.
 //
 // Also accepts backend-initiated PAYOUT/WITHDRAW commands via HTTP-in
 // (REFUND defensive — should never arrive in the wallet model since refunds
@@ -31,6 +37,10 @@ string  DEPOSIT_URL           = "";
 string  WITHDRAW_REQUEST_URL  = "";
 string  PAYOUT_RESULT_URL     = "";
 string  HEARTBEAT_URL         = "";
+// SL_GROUP_VERIFY_URL is optional for backward compatibility — pre-E
+// deployments simply degrade with an owner-say / dialog when a user picks
+// "SL Group Verify". New deployments should set it.
+string  SL_GROUP_VERIFY_URL   = "";
 string  SHARED_SECRET         = "";
 string  TERMINAL_ID           = "";
 string  REGION_NAME           = "";
@@ -62,6 +72,19 @@ list    withdrawSessions   = [];
 integer MAX_WITHDRAW_SESSIONS = 4;
 integer SESSION_TTL_SECONDS = 60;
 integer SLOT_STRIDE = 3;
+
+// === Per-flow SL Group Verify slots ===
+// Strided 2-wide list: [avatarKey, expiresAt, ...]. Independent of
+// withdrawSessions so a user can theoretically have both in flight, and
+// the listen dispatch checks withdraw slots first then verify slots.
+list    verifySessions     = [];
+integer MAX_VERIFY_SESSIONS = 4;
+integer VERIFY_SLOT_STRIDE  = 2;
+
+// === Background SL Group Verify POST (per text-box submit) ===
+key     verifyReqId        = NULL_KEY;
+key     verifyAvatar       = NULL_KEY;
+string  verifyCode         = "";
 
 // === Background deposit retry (per money() event) ===
 key     paymentReqId       = NULL_KEY;
@@ -135,6 +158,7 @@ parseConfigLine(string line) {
     else if (k == "WITHDRAW_REQUEST_URL")  WITHDRAW_REQUEST_URL  = v;
     else if (k == "PAYOUT_RESULT_URL")     PAYOUT_RESULT_URL     = v;
     else if (k == "HEARTBEAT_URL")         HEARTBEAT_URL         = v;
+    else if (k == "SL_GROUP_VERIFY_URL")   SL_GROUP_VERIFY_URL   = v;
     else if (k == "SHARED_SECRET")         SHARED_SECRET         = v;
     else if (k == "TERMINAL_ID")           TERMINAL_ID           = v;
     else if (k == "REGION_NAME")           REGION_NAME           = v;
@@ -379,6 +403,69 @@ sweepExpiredSlots() {
         }
         --i;
     }
+    // Sweep verify sessions on the same schedule
+    i = llGetListLength(verifySessions) / VERIFY_SLOT_STRIDE - 1;
+    while (i >= 0) {
+        integer expiresAt = llList2Integer(verifySessions, i * VERIFY_SLOT_STRIDE + 1);
+        if (expiresAt < now) {
+            verifySessions = llDeleteSubList(verifySessions,
+                i * VERIFY_SLOT_STRIDE, i * VERIFY_SLOT_STRIDE + VERIFY_SLOT_STRIDE - 1);
+        }
+        --i;
+    }
+}
+
+// ---------------- SL Group Verify slot helpers ----------------
+
+integer findVerifySlot(key avatar) {
+    integer i;
+    integer count = llGetListLength(verifySessions) / VERIFY_SLOT_STRIDE;
+    for (i = 0; i < count; ++i) {
+        key k = llList2Key(verifySessions, i * VERIFY_SLOT_STRIDE);
+        if (k == avatar) return i;
+    }
+    return -1;
+}
+
+// Returns slot index of new/reset slot, or -1 if at capacity (and not own).
+integer acquireOrResetVerifySlot(key avatar) {
+    integer existing = findVerifySlot(avatar);
+    if (existing >= 0) {
+        integer offset = existing * VERIFY_SLOT_STRIDE + 1;
+        verifySessions = llListReplaceList(verifySessions,
+            [llGetUnixTime() + SESSION_TTL_SECONDS], offset, offset);
+        return existing;
+    }
+    integer count = llGetListLength(verifySessions) / VERIFY_SLOT_STRIDE;
+    if (count >= MAX_VERIFY_SESSIONS) return -1;
+    verifySessions += [avatar, llGetUnixTime() + SESSION_TTL_SECONDS];
+    return count;
+}
+
+releaseVerifySlot(key avatar) {
+    integer slotIdx = findVerifySlot(avatar);
+    if (slotIdx < 0) return;
+    integer start = slotIdx * VERIFY_SLOT_STRIDE;
+    verifySessions = llDeleteSubList(verifySessions, start, start + VERIFY_SLOT_STRIDE - 1);
+}
+
+fireSlGroupVerify() {
+    // Spec §7.3 body shape: { verificationCode, founderAvatarUuid }.
+    // The backend SlGroupVerifyController (no shared-secret check at the
+    // controller; the SL header validator in /api/v1/sl/** is the trust
+    // gate) accepts this exact JSON. We do NOT include sharedSecret here
+    // because the controller doesn't read it — keeping the wire shape
+    // identical to the @RequestBody DTO avoids Jackson unknown-property
+    // surprises if validation is ever tightened.
+    string body = "{"
+        + "\"verificationCode\":\"" + escapeJson(verifyCode) + "\","
+        + "\"founderAvatarUuid\":\"" + (string)verifyAvatar + "\""
+        + "}";
+    verifyReqId = llHTTPRequest(SL_GROUP_VERIFY_URL,
+        [HTTP_METHOD, "POST",
+         HTTP_MIMETYPE, "application/json",
+         HTTP_BODY_MAXLENGTH, 16384],
+        body);
 }
 
 // ---------------- HTTP-in inflight ----------------
@@ -424,6 +511,7 @@ default {
         WITHDRAW_REQUEST_URL  = "";
         PAYOUT_RESULT_URL     = "";
         HEARTBEAT_URL         = "";
+        SL_GROUP_VERIFY_URL   = "";
         SHARED_SECRET         = "";
         TERMINAL_ID           = "";
         REGION_NAME           = "";
@@ -439,6 +527,10 @@ default {
         registerAttempt     = 0;
         registerNextRetryAt = 0;
         withdrawSessions    = [];
+        verifySessions      = [];
+        verifyReqId         = NULL_KEY;
+        verifyAvatar        = NULL_KEY;
+        verifyCode          = "";
         paymentReqId        = NULL_KEY;
         paymentPayer        = NULL_KEY;
         paymentAmount       = 0;
@@ -651,11 +743,16 @@ default {
     touch_start(integer num) {
         key toucher = llDetectedKey(0);
         // Per-toucher dialog filtered by avatar key in the listen handler.
+        // "SL Group Verify" is the founder-of-an-SL-group verification flow
+        // for realty groups (spec §7.3); it is offered on every terminal so
+        // a realty group's SL founder can complete verification from any
+        // SLParcels venue.
         llDialog(toucher,
             "What would you like to do?\n\n"
             + "Deposit: right-click & pay (any amount)\n"
-            + "Withdraw: pull L$ from your wallet to your avatar",
-            ["Deposit", "Withdraw"], mainChan);
+            + "Withdraw: pull L$ from your wallet to your avatar\n"
+            + "SL Group Verify: complete realty-group founder verification",
+            ["Deposit", "Withdraw", "SL Group Verify"], mainChan);
     }
 
     listen(integer chan, string name, key id, string msg) {
@@ -678,10 +775,59 @@ default {
             llTextBox(id, "Enter L$ amount to withdraw:", mainChan);
             return;
         }
+        if (msg == "SL Group Verify") {
+            if (SL_GROUP_VERIFY_URL == "") {
+                llDialog(id,
+                    "SL Group Verify is unavailable on this terminal. "
+                    + "Try another SLParcels terminal, or contact SLParcels staff.",
+                    ["OK"], mainChan);
+                if (DEBUG_MODE)
+                    llOwnerSay("SLParcels Terminal: SL Group Verify chosen but "
+                        + "SL_GROUP_VERIFY_URL is empty in the 'config' notecard.");
+                return;
+            }
+            integer vslot = acquireOrResetVerifySlot(id);
+            if (vslot < 0) {
+                llDialog(id, "Terminal busy with SL Group Verify requests, please try another terminal.",
+                    ["OK"], mainChan);
+                return;
+            }
+            llTextBox(id,
+                "Enter the SL Group Verify code from your SL Parcels web UI "
+                + "(format: SLPA-XXXXXXXXXXXX):",
+                mainChan);
+            return;
+        }
 
         // Dispatch by avatar key against per-flow withdraw slots
         integer slotIdx = findSlot(id);
-        if (slotIdx < 0) return;
+        if (slotIdx < 0) {
+            // Not a withdraw flow — check for a pending SL Group Verify slot.
+            integer vIdx = findVerifySlot(id);
+            if (vIdx < 0) return;
+            // Reject mid-flight verify (one request at a time per terminal).
+            if (verifyReqId != NULL_KEY) {
+                llDialog(id,
+                    "Another SL Group Verify request is in flight on this terminal. "
+                    + "Please wait a moment and try again.",
+                    ["OK"], mainChan);
+                releaseVerifySlot(id);
+                return;
+            }
+            string trimmed = llStringTrim(msg, STRING_TRIM);
+            if (trimmed == "") {
+                llDialog(id, "Verification code cannot be empty.", ["OK"], mainChan);
+                releaseVerifySlot(id);
+                return;
+            }
+            verifyAvatar = id;
+            verifyCode   = trimmed;
+            fireSlGroupVerify();
+            // Note: do NOT releaseVerifySlot yet — the http_response handler
+            // releases on completion. The 60s slot TTL is the upper bound if
+            // the backend never responds (sweeper will reclaim it).
+            return;
+        }
         integer amt = slotAmount(slotIdx);
         if (amt == -1) {
             // Awaiting amount
@@ -840,6 +986,61 @@ default {
             } else {
                 llOwnerSay("CRITICAL: /payout-result POST failed status="
                     + (string)status);
+            }
+            return;
+        }
+
+        // ----- SL Group Verify response (spec §7.3) -----
+        if (req == verifyReqId) {
+            verifyReqId = NULL_KEY;
+            key avatar = verifyAvatar;
+            verifyAvatar = NULL_KEY;
+            verifyCode = "";
+            // Release the slot first so a follow-up retry from the same
+            // avatar can immediately re-enter.
+            releaseVerifySlot(avatar);
+
+            // Per terminal-output-genericisation policy (commit 5a5276a):
+            // user-facing results go via llDialog [OK] (private to the
+            // toucher), not llRegionSayTo on channel 0 (heard within ~20m).
+            // Backend ProblemDetail title/detail are NOT surfaced to the
+            // toucher; status-keyed canned strings only. Operator triage
+            // detail stays in the DEBUG_MODE llOwnerSay line.
+            if (status == 200) {
+                llDialog(avatar,
+                    "SL group verified. The realty group can now list "
+                    + "parcels owned by this SL group.",
+                    ["OK"], mainChan);
+                if (DEBUG_MODE)
+                    llOwnerSay("SLParcels Terminal: SL Group Verify OK for "
+                        + (string)avatar);
+                return;
+            }
+
+            // Parse ProblemDetail `code` extension (set by RealtyExceptionHandler).
+            string code = llJsonGetValue(body, ["code"]);
+            string failMsg;
+            if (status == 410) {
+                failMsg = "Verification code expired. The realty group "
+                    + "leader needs to start a new registration.";
+            } else if (status == 422 && code == "SL_GROUP_FOUNDER_MISMATCH") {
+                failMsg = "You are not the founder of the SL group "
+                    + "registered with this code.";
+            } else if (status == 404) {
+                // No pending registration matches the code.
+                failMsg = "Verification code not recognised. Check the code "
+                    + "and try again, or ask the realty group leader to "
+                    + "restart the SL group registration.";
+            } else {
+                failMsg = "There was a problem with SL Group Verify. "
+                    + "Check the code and try again.";
+            }
+            llDialog(avatar, failMsg, ["OK"], mainChan);
+            if (DEBUG_MODE) {
+                debugSayUser(avatar, "sl-group-verify", status, body);
+                llOwnerSay("SLParcels Terminal: SL Group Verify failed for "
+                    + (string)avatar + " status=" + (string)status
+                    + " code=" + code);
             }
             return;
         }

@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -76,6 +77,20 @@ public class GlobalExceptionHandler {
         pd.setTitle("Type mismatch");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "TYPE_MISMATCH");
+        return pd;
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingParameter(MissingServletRequestParameterException e,
+                                                 HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Required parameter '" + e.getParameterName() + "' is missing.");
+        pd.setType(URI.create("https://slpa.example/problems/missing-parameter"));
+        pd.setTitle("Missing parameter");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "MISSING_PARAMETER");
+        pd.setProperty("parameter", e.getParameterName());
         return pd;
     }
 

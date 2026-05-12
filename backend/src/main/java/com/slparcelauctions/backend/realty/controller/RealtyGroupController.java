@@ -123,7 +123,8 @@ public class RealtyGroupController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody UpdatePermissionsRequest req) {
         RealtyGroupMember updated = groupService.updateMemberPermissions(
-            publicId, memberPublicId, req.permissions(), principal.userId());
+            publicId, memberPublicId, req.permissions(), req.agentCommissionRate(),
+            principal.userId());
         RealtyGroup group = groupService.loadActiveByPublicId(publicId);
         return ResponseEntity.ok(mapper.toAgentCard(group, updated));
     }

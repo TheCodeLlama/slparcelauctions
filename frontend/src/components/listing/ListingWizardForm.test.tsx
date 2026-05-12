@@ -643,6 +643,164 @@ describe("ListingWizardForm — List-as picker", () => {
     expect(capturedBody!.listAsGroupPublicId).toBe("g1");
   });
 
+  // Realty Groups: E §6.1 — when the parcel is SL-group-owned, the picker
+  // omits Individual (you can't personally own group-owned land) and
+  // auto-selects the first eligible realty group so the form is never in
+  // an invalid "no group, no Individual" state.
+  it("auto-selects the first eligible group when the parcel is SL-group-owned (no Individual option)", async () => {
+    const groupOwnedParcel: ParcelDto = {
+      ...sampleParcel,
+      ownerType: "group",
+    };
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentFeeRate: 0.02,
+          },
+        ]),
+      ),
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(groupOwnedParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+      http.get("*/api/v1/realty-groups/g1", () =>
+        HttpResponse.json({
+          publicId: "g1",
+          name: "Sunset Realty",
+          slug: "sunset",
+          description: null,
+          website: null,
+          logoUrl: null,
+          coverUrl: null,
+          memberSince: "2026-01-01T00:00:00Z",
+          leader: {
+            userPublicId: "leader",
+            displayName: "Leader",
+            avatarUrl: null,
+          },
+          agents: [
+            {
+              memberPublicId: "m1",
+              userPublicId: "00000000-0000-0000-0000-00000000002a",
+              displayName: "Caller",
+              avatarUrl: null,
+              role: "AGENT",
+              permissions: ["CREATE_LISTING"],
+              joinedAt: "2026-02-01T00:00:00Z",
+              agentCommissionRate: 0.1,
+            },
+          ],
+          agentFeeRate: "0.02",
+          agentFeeSplit: "0.5",
+          memberSeatLimit: 25,
+          memberCount: 2,
+        }),
+      ),
+      http.get("*/api/v1/realty/groups/g1/wallet", () =>
+        HttpResponse.json({
+          balance: 10000,
+          reserved: 0,
+          available: 10000,
+          recentLedger: [],
+        }),
+      ),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />, {
+      auth: "authenticated",
+    });
+
+    await userEvent.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await userEvent.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // Picker should appear with Sunset Realty as the (auto-selected) only
+    // option. Individual must not be in the DOM.
+    await screen.findByLabelText(/Sunset Realty/i);
+    expect(screen.queryByLabelText(/Individual/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the case-3 AgentCommissionPreview when the parcel is SL-group-owned", async () => {
+    const groupOwnedParcel: ParcelDto = {
+      ...sampleParcel,
+      ownerType: "group",
+    };
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentFeeRate: 0.02,
+          },
+        ]),
+      ),
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(groupOwnedParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+      http.get("*/api/v1/realty-groups/g1", () =>
+        HttpResponse.json({
+          publicId: "g1",
+          name: "Sunset Realty",
+          slug: "sunset",
+          description: null,
+          website: null,
+          logoUrl: null,
+          coverUrl: null,
+          memberSince: "2026-01-01T00:00:00Z",
+          leader: {
+            userPublicId: "leader",
+            displayName: "Leader",
+            avatarUrl: null,
+          },
+          agents: [
+            {
+              memberPublicId: "m1",
+              userPublicId: "00000000-0000-0000-0000-00000000002a",
+              displayName: "Caller",
+              avatarUrl: null,
+              role: "AGENT",
+              permissions: ["CREATE_LISTING"],
+              joinedAt: "2026-02-01T00:00:00Z",
+              agentCommissionRate: 0.1,
+            },
+          ],
+          agentFeeRate: "0.02",
+          agentFeeSplit: "0.5",
+          memberSeatLimit: 25,
+          memberCount: 2,
+        }),
+      ),
+      http.get("*/api/v1/realty/groups/g1/wallet", () =>
+        HttpResponse.json({
+          balance: 10000,
+          reserved: 0,
+          available: 10000,
+          recentLedger: [],
+        }),
+      ),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />, {
+      auth: "authenticated",
+    });
+
+    await userEvent.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await userEvent.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // The starting bid prefilled at 500 from sellerResponse default; the
+    // wizard's AuctionSettingsForm will load the same default. Verify the
+    // case-3 preview renders with the L$/commission split copy.
+    expect(
+      await screen.findByTestId("agent-commission-preview"),
+    ).toBeInTheDocument();
+  });
+
   it("posts listAsGroupPublicId as null when Individual is selected", async () => {
     const user = userEvent.setup();
     let capturedBody: Record<string, unknown> | null = null;

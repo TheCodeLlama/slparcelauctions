@@ -36,6 +36,7 @@ function buildRows(group: RealtyGroupPublicDto): AgentCardDto[] {
     role: "LEADER",
     permissions: null,
     joinedAt: null,
+    agentCommissionRate: null,
   };
   const all = [leaderRow, ...group.agents];
   return all.sort((a, b) =>
@@ -134,6 +135,14 @@ export function MembersTab({
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {m.agentCommissionRate != null && (
+                    <span
+                      className="text-[11px] text-fg-muted"
+                      data-testid={`member-commission-rate-${m.userPublicId}`}
+                    >
+                      Commission: {(m.agentCommissionRate * 100).toFixed(2)}%
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

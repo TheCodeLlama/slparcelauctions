@@ -32,6 +32,7 @@ import { formatRemainingLabel } from "@/components/auction/SnipeExtensionBanner"
 import { StickyBidBar } from "@/components/auction/StickyBidBar";
 import { BidSheet } from "@/components/auction/BidSheet";
 import { ReportListingButton } from "@/components/auction/ReportListingButton";
+import { BrokerCancelButton } from "@/components/listing/BrokerCancelButton";
 
 /**
  * Client shell for the auction detail page.
@@ -395,6 +396,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             agent={auction.listingAgent}
             group={auction.realtyGroup}
           />
+          <BrokerCancelButton auction={auction} />
           <VisitInSecondLifeBlock
             regionName={auction.parcel.regionName}
             positionX={auction.parcel.positionX}

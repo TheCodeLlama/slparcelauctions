@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.realty.listing;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,14 +31,23 @@ import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
+import com.slparcelauctions.backend.region.dto.RegionPageData;
+import com.slparcelauctions.backend.sl.SlWorldApiClient;
+import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
+import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
+import reactor.core.publisher.Mono;
+
 /**
  * Integration tests for {@link RealtyGroupListingController}:
  * <ul>
- *   <li>{@code GET /api/v1/realty/me/listing-eligible-groups}</li>
+ *   <li>{@code GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...} —
+ *       parcel-aware (sub-project E §5.3)</li>
  *   <li>{@code GET /api/v1/realty/groups/{publicId}/listings}</li>
  * </ul>
  *
@@ -67,7 +78,10 @@ class RealtyGroupListingControllerTest {
     @Autowired UserRepository userRepository;
     @Autowired RealtyGroupRepository groupRepository;
     @Autowired RealtyGroupMemberRepository memberRepository;
+    @Autowired RealtyGroupSlGroupRepository slGroupRepository;
     @Autowired AuctionRepository auctionRepository;
+
+    @MockitoBean SlWorldApiClient worldApi;
 
     // ─────────────────────── Shared fixtures ───────────────────────
 
@@ -118,6 +132,48 @@ class RealtyGroupListingControllerTest {
         return memberRepository.save(m);
     }
 
+    /**
+     * Seeds a verified {@link RealtyGroupSlGroup} row binding the given realty group
+     * to the given SL group UUID. Used by the parcel-aware eligibility tests.
+     */
+    private RealtyGroupSlGroup saveVerifiedSlGroupRegistration(Long realtyGroupId, UUID slGroupUuid) {
+        return slGroupRepository.save(RealtyGroupSlGroup.builder()
+            .realtyGroupId(realtyGroupId)
+            .slGroupUuid(slGroupUuid)
+            .slGroupName("SL Group " + slGroupUuid.toString().substring(0, 6))
+            .verified(true)
+            .verifiedAt(OffsetDateTime.now())
+            .pollAttempts(0)
+            .build());
+    }
+
+    /**
+     * Stubs the SL world API to make the given parcel UUID look like it is owned
+     * by an SL group with the given ownerUuid (or by an agent when {@code ownerType ==
+     * "agent"}). {@link com.slparcelauctions.backend.parcel.ParcelLookupService#lookup}
+     * fans out to two world-API calls; both must be stubbed.
+     */
+    private void stubParcelOwnedBy(UUID parcelUuid, String ownerType, UUID ownerUuid) {
+        UUID regionUuid = UUID.randomUUID();
+        when(worldApi.fetchParcelPage(parcelUuid)).thenReturn(
+                Mono.just(new ParcelPageData(new ParcelMetadata(
+                        parcelUuid,
+                        ownerUuid,
+                        ownerType,
+                        ownerType.equalsIgnoreCase("agent") ? "Owner Avatar" : null,
+                        "Seed Parcel",
+                        "Coniston",
+                        1024,
+                        "Seed description",
+                        "http://example.com/snap.jpg",
+                        null,
+                        128.0,
+                        64.0,
+                        22.0), regionUuid)));
+        when(worldApi.fetchRegionPage(regionUuid)).thenReturn(
+                Mono.just(new RegionPageData(regionUuid, "Coniston", 1014.0, 1014.0, "M_NOT")));
+    }
+
     private Auction saveAuction(User seller, RealtyGroup group, AuctionStatus status) {
         UUID parcelUuid = UUID.randomUUID();
         Auction a = Auction.builder()
@@ -157,17 +213,46 @@ class RealtyGroupListingControllerTest {
     }
 
     // ═════════════════════════════════════════════════════════════
-    // GET /api/v1/realty/me/listing-eligible-groups
+    // GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...
     // ═════════════════════════════════════════════════════════════
 
     @Test
-    void listing_eligible_groups_returns_leader_implicit_group() throws Exception {
-        // Caller is leader of group A → should appear even without explicit CREATE_LISTING.
-        RealtyGroup groupA = saveGroup("leader", caller.getId());
-        saveMemberRow(groupA.getId(), caller.getId(), java.util.EnumSet.noneOf(RealtyGroupPermission.class));
-
+    void getListingEligibleGroups_missingSlParcelUuid_400() throws Exception {
         mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
                 .header("Authorization", "Bearer " + callerJwt))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getListingEligibleGroups_validRequest_passesThroughParcelUuid() throws Exception {
+        // Parcel is agent-owned → endpoint returns empty array but with 200; this proves
+        // the parameter is parsed and routed.
+        UUID parcelUuid = UUID.randomUUID();
+        stubParcelOwnedBy(parcelUuid, "agent", UUID.randomUUID());
+
+        mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$").isArray())
+            .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void listing_eligible_groups_returns_leader_implicit_group() throws Exception {
+        // Caller is leader of group A; group A has a verified registration for the SL
+        // group that owns the parcel → group A appears.
+        RealtyGroup groupA = saveGroup("leader", caller.getId());
+        saveMemberRow(groupA.getId(), caller.getId(),
+                java.util.EnumSet.noneOf(RealtyGroupPermission.class));
+        UUID slGroupUuid = UUID.randomUUID();
+        saveVerifiedSlGroupRegistration(groupA.getId(), slGroupUuid);
+        UUID parcelUuid = UUID.randomUUID();
+        stubParcelOwnedBy(parcelUuid, "group", slGroupUuid);
+
+        mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.publicId == '" + groupA.getPublicId() + "')].slug")
                 .value(groupA.getSlug()));
@@ -175,7 +260,8 @@ class RealtyGroupListingControllerTest {
 
     @Test
     void listing_eligible_groups_excludes_member_without_create_listing_permission() throws Exception {
-        // Caller is a member of group B with only INVITE_AGENTS — must NOT appear.
+        // Caller is a member of group B with only INVITE_AGENTS — must NOT appear even
+        // though group B has a verified registration for the parcel's owner SL group.
         User groupLeader = userRepository.save(User.builder()
             .username("bl-" + UUID.randomUUID().toString().substring(0, 8))
             .email("bl-" + UUID.randomUUID() + "@test.local")
@@ -183,16 +269,22 @@ class RealtyGroupListingControllerTest {
         RealtyGroup groupB = saveGroup("noperm", groupLeader.getId());
         saveMemberRow(groupB.getId(), caller.getId(),
             java.util.EnumSet.of(RealtyGroupPermission.INVITE_AGENTS));
+        UUID slGroupUuid = UUID.randomUUID();
+        saveVerifiedSlGroupRegistration(groupB.getId(), slGroupUuid);
+        UUID parcelUuid = UUID.randomUUID();
+        stubParcelOwnedBy(parcelUuid, "group", slGroupUuid);
 
         mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
-                .header("Authorization", "Bearer " + callerJwt))
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.publicId == '" + groupB.getPublicId() + "')]").isEmpty());
     }
 
     @Test
     void listing_eligible_groups_includes_member_with_create_listing_permission() throws Exception {
-        // Caller is a member of group C with CREATE_LISTING → must appear.
+        // Caller is a member of group C with CREATE_LISTING; group C has a verified
+        // registration for the parcel's owner SL group → group C appears.
         User groupLeader = userRepository.save(User.builder()
             .username("cl-" + UUID.randomUUID().toString().substring(0, 8))
             .email("cl-" + UUID.randomUUID() + "@test.local")
@@ -200,41 +292,83 @@ class RealtyGroupListingControllerTest {
         RealtyGroup groupC = saveGroup("hasperm", groupLeader.getId());
         saveMemberRow(groupC.getId(), caller.getId(),
             java.util.EnumSet.of(RealtyGroupPermission.CREATE_LISTING));
+        UUID slGroupUuid = UUID.randomUUID();
+        saveVerifiedSlGroupRegistration(groupC.getId(), slGroupUuid);
+        UUID parcelUuid = UUID.randomUUID();
+        stubParcelOwnedBy(parcelUuid, "group", slGroupUuid);
 
         mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
-                .header("Authorization", "Bearer " + callerJwt))
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.publicId == '" + groupC.getPublicId() + "')].name")
-                .value(groupC.getName()));
+                .value(groupC.getName()))
+            // Case-3 → agentFeeRate is null (per-member rate replaces it).
+            .andExpect(jsonPath("$[?(@.publicId == '" + groupC.getPublicId() + "')].agentFeeRate")
+                .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
     }
 
     @Test
     void listing_eligible_groups_excludes_dissolved_group() throws Exception {
-        // Caller is leader of dissolved group D → must NOT appear.
+        // Caller is leader of dissolved group D — even with a verified registration, the
+        // dissolved group must NOT appear.
         RealtyGroup groupD = saveDissolvedGroup("dissolved", caller.getId());
-        saveMemberRow(groupD.getId(), caller.getId(), java.util.EnumSet.noneOf(RealtyGroupPermission.class));
+        saveMemberRow(groupD.getId(), caller.getId(),
+                java.util.EnumSet.noneOf(RealtyGroupPermission.class));
+        UUID slGroupUuid = UUID.randomUUID();
+        saveVerifiedSlGroupRegistration(groupD.getId(), slGroupUuid);
+        UUID parcelUuid = UUID.randomUUID();
+        stubParcelOwnedBy(parcelUuid, "group", slGroupUuid);
 
         mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
-                .header("Authorization", "Bearer " + callerJwt))
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.publicId == '" + groupD.getPublicId() + "')]").isEmpty());
     }
 
     @Test
-    void listing_eligible_groups_returns_empty_for_user_in_no_groups() throws Exception {
-        // Caller has no memberships at all → empty array.
-        // (The @BeforeEach seeds only the caller user, no memberships.)
+    void listing_eligible_groups_returns_empty_for_agent_owned_parcel() throws Exception {
+        // Even though caller is leader of group E with a verified registration, parcel is
+        // agent-owned → no group is eligible (personal-list path applies).
+        RealtyGroup groupE = saveGroup("agentparcel", caller.getId());
+        saveMemberRow(groupE.getId(), caller.getId(),
+                java.util.EnumSet.noneOf(RealtyGroupPermission.class));
+        UUID slGroupUuid = UUID.randomUUID();
+        saveVerifiedSlGroupRegistration(groupE.getId(), slGroupUuid);
+        UUID parcelUuid = UUID.randomUUID();
+        stubParcelOwnedBy(parcelUuid, "agent", UUID.randomUUID());
+
         mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
-                .header("Authorization", "Bearer " + callerJwt))
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
             .andExpect(status().isOk())
-            // May contain stray data from other tests in the shared DB; assert this caller
-            // appears in no groups by asserting the response is an array (not 404/500).
-            .andExpect(jsonPath("$").isArray());
+            .andExpect(jsonPath("$[?(@.publicId == '" + groupE.getPublicId() + "')]").isEmpty());
+    }
+
+    @Test
+    void listing_eligible_groups_returns_empty_when_no_verified_registration() throws Exception {
+        // Caller is leader of group F, but no realty group has a verified registration
+        // for the parcel's owner SL group → empty.
+        RealtyGroup groupF = saveGroup("nogeoreg", caller.getId());
+        saveMemberRow(groupF.getId(), caller.getId(),
+                java.util.EnumSet.noneOf(RealtyGroupPermission.class));
+        UUID parcelUuid = UUID.randomUUID();
+        // Stub the parcel as owned by an SL group that has NO verified registration.
+        stubParcelOwnedBy(parcelUuid, "group", UUID.randomUUID());
+
+        mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
+                .header("Authorization", "Bearer " + callerJwt)
+                .param("slParcelUuid", parcelUuid.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.publicId == '" + groupF.getPublicId() + "')]").isEmpty());
     }
 
     @Test
     void listing_eligible_groups_requires_auth() throws Exception {
-        mvc.perform(get("/api/v1/realty/me/listing-eligible-groups"))
+        UUID parcelUuid = UUID.randomUUID();
+        mvc.perform(get("/api/v1/realty/me/listing-eligible-groups")
+                .param("slParcelUuid", parcelUuid.toString()))
             .andExpect(status().isUnauthorized());
     }
 
@@ -287,4 +421,5 @@ class RealtyGroupListingControllerTest {
         mvc.perform(get("/api/v1/realty/groups/" + group.getPublicId() + "/listings"))
             .andExpect(status().isOk());
     }
+
 }

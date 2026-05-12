@@ -69,7 +69,9 @@ public class RealtyGroupMembershipService {
             .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
 
         members.deleteByGroupIdAndUserId(group.getId(), callerUserId);
-        auctions.reassignListingAgentForGroup(group.getId(), callerUserId, group.getLeaderId());
+        // E §10: case-3 reassigns seller_id; case-1 legacy keeps reassigning listing_agent_id.
+        auctions.reassignSellerToLeaderForCase3(callerUserId, group.getId(), group.getLeaderId());
+        auctions.reassignListingAgentToLeaderForCase1(callerUserId, group.getId(), group.getLeaderId());
         // Resolve the User entity for the notification payload. Skip the fire if the row
         // somehow vanished mid-tx (defensive — same defensive posture as the dissolve path).
         Optional<User> leftUser = users.findById(callerUserId);
@@ -104,7 +106,9 @@ public class RealtyGroupMembershipService {
         }
 
         members.deleteByGroupIdAndUserId(group.getId(), row.getUserId());
-        auctions.reassignListingAgentForGroup(group.getId(), row.getUserId(), group.getLeaderId());
+        // E §10: case-3 reassigns seller_id; case-1 legacy keeps reassigning listing_agent_id.
+        auctions.reassignSellerToLeaderForCase3(row.getUserId(), group.getId(), group.getLeaderId());
+        auctions.reassignListingAgentToLeaderForCase1(row.getUserId(), group.getId(), group.getLeaderId());
         Optional<User> removedUser = users.findById(row.getUserId());
         removedUser.ifPresent(u -> notifications.realtyGroupMemberRemoved(group, u));
         log.info("Realty group member removed: groupPublicId={} memberPublicId={} callerUserId={}",

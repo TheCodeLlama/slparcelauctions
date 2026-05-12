@@ -36,6 +36,8 @@ import com.slparcelauctions.backend.realty.exception.ActiveListingsBlockDissolve
 import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
+import com.slparcelauctions.backend.realty.exception.SlGroupRegisteredBlocksDissolveException;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
@@ -61,6 +63,7 @@ class RealtyGroupServiceDissolveTest {
     @Mock UserRepository users;
     @Mock AuctionRepository auctions;
     @Mock EscrowRepository escrows;
+    @Mock RealtyGroupSlGroupRepository slGroupRepo;
 
     @InjectMocks RealtyGroupService service;
 
@@ -292,6 +295,61 @@ class RealtyGroupServiceDissolveTest {
         when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
         when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
         when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
+
+        RealtyGroup result = service.dissolveGroup(pid, 100L);
+
+        assertNotNull(result.getDissolvedAt());
+        assertTrue(result.isDissolved());
+    }
+
+    // ─────────────────── SL-group registrations gate (Task 23 / spec §12) ───────────────────
+
+    @Test
+    void dissolve_blocksWhenVerifiedSlGroupExists() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        // countByRealtyGroupId counts both verified and pending; here a verified row exists.
+        when(slGroupRepo.countByRealtyGroupId(g.getId())).thenReturn(1L);
+
+        SlGroupRegisteredBlocksDissolveException ex = assertThrows(
+            SlGroupRegisteredBlocksDissolveException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        assertEquals(g.getPublicId(), ex.getRealtyGroupPublicId());
+        assertEquals(1L, ex.getCount());
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolve_blocksWhenPendingSlGroupExists() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        // A pending (unverified) registration row still counts — countByRealtyGroupId is
+        // agnostic to the `verified` flag.
+        when(slGroupRepo.countByRealtyGroupId(g.getId())).thenReturn(2L);
+
+        SlGroupRegisteredBlocksDissolveException ex = assertThrows(
+            SlGroupRegisteredBlocksDissolveException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        assertEquals(2L, ex.getCount());
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolve_succeedsAfterAllSlGroupsUnregistered() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        when(slGroupRepo.countByRealtyGroupId(g.getId())).thenReturn(0L);
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
         when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
 

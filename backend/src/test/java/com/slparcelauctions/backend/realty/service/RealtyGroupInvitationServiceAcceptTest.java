@@ -191,6 +191,28 @@ class RealtyGroupInvitationServiceAcceptTest {
     }
 
     @Test
+    void acceptInvitation_copiesRateOntoMember() {
+        UUID invPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        RealtyGroupInvitation inv = buildPendingInvite(
+            g.getId(), 200L, EnumSet.noneOf(RealtyGroupPermission.class));
+        BigDecimal invitationRate = new BigDecimal("0.1250");
+        inv.setAgentCommissionRate(invitationRate);
+
+        when(invitations.findByPublicId(invPid)).thenReturn(Optional.of(inv));
+        when(groups.findById(g.getId())).thenReturn(Optional.of(g));
+        when(members.existsByGroupIdAndUserId(g.getId(), 200L)).thenReturn(false);
+        when(members.countByGroupId(g.getId())).thenReturn(0L);
+        when(members.save(any(RealtyGroupMember.class))).thenAnswer(i -> i.getArgument(0));
+        when(invitations.save(any(RealtyGroupInvitation.class))).thenAnswer(i -> i.getArgument(0));
+
+        RealtyGroupMember saved = service.accept(invPid, 200L);
+
+        assertEquals(0, invitationRate.compareTo(saved.getAgentCommissionRate()),
+            "member row should carry the invitation's commission rate verbatim");
+    }
+
+    @Test
     void respondedAtTimestampSetOnAccept() {
         UUID invPid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L, 50);

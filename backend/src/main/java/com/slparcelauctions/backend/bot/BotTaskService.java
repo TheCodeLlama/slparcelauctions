@@ -29,6 +29,8 @@ import com.slparcelauctions.backend.bot.exception.BotTaskNotClaimedException;
 import com.slparcelauctions.backend.bot.exception.BotTaskNotFoundException;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.bot.exception.BotTaskWrongTypeException;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +68,7 @@ public class BotTaskService {
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final BotMonitorDispatcher dispatcher;
     private final BotMonitorLifecycleService monitorLifecycle;
+    private final RealtyGroupSlGroupRepository slGroupRepo;
     private final Clock clock;
 
     @Value("${slpa.bot-task.sentinel-price-lindens:999999999}")
@@ -177,6 +180,33 @@ public class BotTaskService {
         if (body.salePrice() == null || body.salePrice().longValue() != sentinelPrice) {
             throw new IllegalArgumentException(
                     "salePrice must equal the sentinel price L$" + sentinelPrice);
+        }
+
+        // Case-3 (SL group listing) ownership check — spec §8.3. The
+        // registered SL group UUID must match the parcelOwner the bot
+        // reported. Guards against the realty group registering SL group A
+        // while the parcel is actually owned by SL group B (also set-for-sale
+        // to the escrow bot). Defensive on null reg (deleted between create
+        // and bot complete) and null reported owner.
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            RealtyGroupSlGroup reg = slGroupRepo
+                    .findById(auction.getRealtyGroupSlGroupId())
+                    .orElse(null);
+            UUID reported = body.parcelOwner();
+            if (reg == null || reported == null || !reported.equals(reg.getSlGroupUuid())) {
+                task.setStatus(BotTaskStatus.FAILED);
+                task.setFailureReason("SL_GROUP_OWNERSHIP_MISMATCH");
+                task.setCompletedAt(now);
+                botTaskRepo.save(task);
+                auction.setStatus(AuctionStatus.VERIFICATION_FAILED);
+                auction.setVerificationNotes(
+                        "Bot: parcel is not owned by the registered SL group. Re-check that the "
+                                + "parcel is deeded to the correct SL group, then retry verification.");
+                auctionRepo.save(auction);
+                log.info("Bot task {} case-3 ownership mismatch: auctionId={} reported={} expected={}",
+                        taskId, auction.getId(), reported, reg == null ? null : reg.getSlGroupUuid());
+                return task;
+            }
         }
 
         // Service-layer parcel-lock pre-check. If another auction holds the lock,

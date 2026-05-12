@@ -231,7 +231,8 @@ public class RealtyGroupDtoMapper {
             user == null ? null : avatarUrlFor(user),
             role,
             perms,
-            exposePrivate ? row.getJoinedAt() : null);
+            exposePrivate ? row.getJoinedAt() : null,
+            exposePrivate ? row.getAgentCommissionRate() : null);
     }
 
     private Map<Long, User> hydrateUsers(List<RealtyGroupMember> rows) {

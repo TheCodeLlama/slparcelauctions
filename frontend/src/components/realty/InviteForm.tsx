@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { useInvite } from "@/hooks/realty/useRealtyGroups";
 import { ALL_PERMISSIONS } from "@/lib/realty/permissions";
 import type { RealtyGroupPermission } from "@/types/realty";
+import { CommissionRateInput } from "./CommissionRateInput";
 import { PermissionToggleRow } from "./PermissionToggleRow";
 
 export interface InviteFormProps {
@@ -28,6 +29,10 @@ export function InviteForm({ groupPublicId, onComplete }: InviteFormProps) {
   const [permissions, setPermissions] = useState<Set<RealtyGroupPermission>>(
     () => new Set(),
   );
+  // Commission rate held as a percentage string. Blank → omit the field
+  // on invite (backend default = 0). Explicit "0" → 0 (legal, no
+  // commission). See {@link CommissionRateInput}.
+  const [rateInput, setRateInput] = useState<string>("");
   const [touched, setTouched] = useState(false);
 
   function toggle(p: RealtyGroupPermission, on: boolean) {
@@ -43,16 +48,28 @@ export function InviteForm({ groupPublicId, onComplete }: InviteFormProps) {
     e.preventDefault();
     setTouched(true);
     if (!username.trim()) return;
+    const trimmed = rateInput.trim();
+    let agentCommissionRate: number | undefined;
+    if (trimmed !== "") {
+      const parsed = Number(trimmed);
+      if (Number.isFinite(parsed)) {
+        agentCommissionRate = parsed / 100;
+      }
+    }
     try {
       await invite.mutateAsync({
         publicId: groupPublicId,
         body: {
           invitedUsername: username.trim(),
           permissions: Array.from(permissions),
+          ...(agentCommissionRate !== undefined
+            ? { agentCommissionRate }
+            : {}),
         },
       });
       setUsername("");
       setPermissions(new Set());
+      setRateInput("");
       setTouched(false);
       onComplete?.();
     } catch {
@@ -90,6 +107,11 @@ export function InviteForm({ groupPublicId, onComplete }: InviteFormProps) {
           />
         ))}
       </div>
+      <CommissionRateInput
+        value={rateInput}
+        onChange={setRateInput}
+        data-testid="invite-form-commission-rate"
+      />
       <div className="flex justify-end">
         <Button
           type="submit"

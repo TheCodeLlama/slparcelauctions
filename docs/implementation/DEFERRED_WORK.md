@@ -299,8 +299,7 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Realty Groups: Listing Integration (Sub-project C, 2026-05-11)
 
-- **`MANAGE_OWN_LISTING` and `MANAGE_ALL_LISTINGS` permissions** — defined in the enum by C but not wired. Sub-project E ([#239](https://github.com/TheCodeLlama/slparcelauctions/issues/239)) wires them once case-2 (member-owned parcel) and broker-cancel/pause endpoints land.
-- **Postman collection updates** — the `SLPA -> Realty Groups -> List as Group` and `Dissolve gate` folders called for in plan Task 28 were not added in this PR. The automated test suite (backend + frontend) provides end-to-end coverage; Postman is a manual-test convenience surface that can be added in a follow-up.
+- **Postman collection updates** — the `SLPA -> Realty Groups -> List as Group` and `Dissolve gate` folders called for in plan Task 28 were not added in this PR. The automated test suite (backend + frontend) provides end-to-end coverage; Postman is a manual-test convenience surface that can be added in a follow-up. (E partly covers this: E's new endpoints are mirrored into the Realty Groups + SL + Parcel & Listings folders.)
 - **N+1 group lookup on batch auction reads** — `AuctionDtoMapper.resolveGroupAttribution` issues a `groups.findById` per auction on the batch overloads (used by listMine, search). Same shape as the existing N+1 photo / winner-publicId queries; deferred to the same future batch-hydrate refactor.
 
 ### Realty Groups: Group Wallet (Sub-project D, 2026-05-11)
@@ -311,6 +310,21 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Leader-terms-block banner activation** — `LeaderTermsBlockBanner` is rendered conditionally in the group wallet page, but the condition depends on `leaderTermsAcceptedAt` which is not currently surfaced in the `GroupWalletDto`. The banner renders as if terms are accepted until the DTO is extended. Small follow-up: add `leaderTermsAcceptedAt` (or a boolean `leaderTermsAccepted`) to `GroupWalletDto` and `GroupWalletPage`.
 - **User-side `WalletDormancyJob`** — no dormancy job exists for the user wallet (as distinct from the group-wallet `GroupWalletDormancyJob` and `GroupWalletDormancyTask` shipped in D). If the user-wallet design spec called for a user-side dormancy sweep, it was not implemented. Flag as a separate work item.
 - **Postman collection updates for group wallet endpoints** — `GET /realty/groups/{publicId}/wallet`, `GET .../wallet/ledger`, `POST .../wallet/withdraw`, and `POST pay listing fee — group path` were not added to the `SLPA -> Realty Groups` folder in the Postman collection. Manual-test surface only; automated coverage provided by backend + frontend tests.
+
+### Realty Groups: SL-group-owned listings (Sub-project E, 2026-05-12)
+
+- **Admin re-verify of an SL group registration** (after drift, e.g. SL changes the founder) — moved to F ([#240](https://github.com/TheCodeLlama/slparcelauctions/issues/240)). Spec §7.5.
+- **Admin force-unregister of an SL group** (compliance action) — moved to F (#240).
+- **Re-verify cadence for verified SL groups** (periodic re-poll of the About text / founder UUID) — moved to F (#240).
+- **Bulk per-member commission-rate edit** — UX polish; later. Leader currently edits one member at a time via the member edit drawer.
+- **Per-member commission-rate analytics dashboard** — F or later. No surface today shows "what each member earned across all closed listings".
+- **C-era code/column cleanup** — delete `AgentFeeDistributor`, drop `auctions.agent_fee_rate / agent_fee_split / agent_fee_amt`, drop `realty_groups.agent_fee_rate / agent_fee_split`, simplify `RealtyGroupListingService` once no case-1 rows remain in the wild. Tracked in [Realty Groups: G (#246)](https://github.com/TheCodeLlama/slparcelauctions/issues/246).
+- **`ListingEligibleGroupDto` does not carry per-member commission rate** — the listing wizard double-fetches via `useRealtyGroup` to surface the rate to the user. Adding `agentCommissionRate` to the eligible-groups DTO would save a round-trip on every parcel lookup. Moved to G.
+- **`AuctionGroupAttributionDto` does not expose `realtyGroupSlGroupId`** as an explicit case-3 marker. The frontend treats any non-null `realtyGroup` as case-3, which is sound after E (case-1 is unreachable from the wizard), but G can decide whether to add the marker for symmetric typing on the wire.
+- **Spec §9.6 description of escrow `payoutAmt` flow is stale** — it reads "subtracts agent_slice" from `payoutAmt`, but the implementation sets `payoutAmt = 0` for case 3 and routes both the agent slice and the group slice via `AgentCommissionDistributor` in the payout-success callback. Sync the spec text in G.
+- **PAYOUT TerminalCommand with amount=0 for case-3 auctions** — the escrow LSL script's behavior on $0 PAYOUTs has not been verified end-to-end. May need a "skip-terminal-for-case-3" branch or graceful $0 handling in the script. Track separately (in-world LSL touch).
+- **Seller notification on case-3 escrow payout fires with amount=0**, which is misleading copy ("L$0 payout received"). The agent commission credit + group wallet credit are the meaningful events; the seller-side notification message needs a case-3-aware tweak. Track separately.
+- **Postman variable wiring for `/sl/sl-group/verify` is approximate** — the new "SL group founder-terminal verify" request guesses `X-Slpa-Terminal-Auth` as the shared-secret header name; the exact header is whatever `SlTerminalAuthFilter` reads. Verify against the filter wiring before relying on the request.
 
 ### Pre-existing test flake: ReconciliationServiceTest.staleBalanceRecordsErrorStatus
 
