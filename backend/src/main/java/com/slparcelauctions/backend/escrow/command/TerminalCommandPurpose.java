@@ -20,5 +20,14 @@ public enum TerminalCommandPurpose {
      * {@code WITHDRAW_COMPLETED} ledger row; failure after retry exhaustion
      * appends a {@code WITHDRAW_REVERSED} row crediting balance back.
      */
-    WALLET_WITHDRAWAL
+    WALLET_WITHDRAWAL,
+
+    /**
+     * Realty-group-initiated wallet withdrawal. Recipient UUID is always the
+     * group leader's verified SL avatar. The originating
+     * realty_group_ledger.id is encoded in the idempotency key as
+     * "GWAL-{id}" (see RealtyGroupWalletService.withdraw). Callback flow is
+     * handled by GroupWalletWithdrawalCallbackHandler.
+     */
+    GROUP_WALLET_WITHDRAWAL
 }
