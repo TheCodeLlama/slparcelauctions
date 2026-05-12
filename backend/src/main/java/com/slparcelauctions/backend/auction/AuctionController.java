@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.auction.dto.AuctionCancelRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionVerifyRequest;
+import com.slparcelauctions.backend.auction.dto.BrokerCancelRequest;
 import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
@@ -166,6 +167,30 @@ public class AuctionController {
         Auction existing = auctionService.loadForSellerByPublicId(publicId, principal.userId());
         String ip = httpRequest.getRemoteAddr();
         Auction cancelled = cancellationService.cancel(existing.getId(), req.reason(), ip);
+        return mapper.toSellerResponse(cancelled, null);
+    }
+
+    /**
+     * Broker-initiated cancellation of a case-3 (SL-group-owned) listing —
+     * Realty Groups E spec §5.2. The caller is a broker on the owning realty
+     * group, not the listing's seller, so the auction is loaded via the
+     * non-seller-scoped {@code loadAnyByPublicId}. Authorization (the broker
+     * must hold {@link com.slparcelauctions.backend.realty.permission.RealtyGroupPermission#MANAGE_ALL_LISTINGS}
+     * on the owning group) and the case-3 precondition are enforced inside
+     * {@code CancellationService.brokerCancel} under the row lock.
+     */
+    @PostMapping("/auctions/{publicId}/broker-cancel")
+    @org.springframework.transaction.annotation.Transactional
+    public SellerAuctionResponse brokerCancel(
+            @PathVariable UUID publicId,
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody BrokerCancelRequest req,
+            HttpServletRequest httpRequest) {
+        requireVerified(principal.userId());
+        Auction existing = auctionService.loadAnyByPublicId(publicId);
+        String ip = httpRequest.getRemoteAddr();
+        Auction cancelled = cancellationService.brokerCancel(
+                principal.userId(), existing.getId(), req.reason(), ip);
         return mapper.toSellerResponse(cancelled, null);
     }
 
