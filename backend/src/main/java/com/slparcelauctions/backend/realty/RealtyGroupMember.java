@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.realty;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -66,6 +67,17 @@ public class RealtyGroupMember extends BaseMutableEntity {
 
     @Column(name = "joined_at", nullable = false)
     private OffsetDateTime joinedAt;
+
+    /**
+     * Per-listing agent commission rate snapshotted onto auctions at create-time (case 3).
+     * Stored as a fraction ({@code 0.10} = 10%). Leader-edited via the invitation +
+     * edit-permissions surface; non-leader members see their own rate read-only. Has no
+     * effect on case-1 legacy auctions, which still use the snapshot from the group-level
+     * rate/split fields until G removes them.
+     */
+    @Builder.Default
+    @Column(name = "agent_commission_rate", nullable = false, precision = 5, scale = 4)
+    private BigDecimal agentCommissionRate = BigDecimal.ZERO;
 
     @Transient
     public Set<RealtyGroupPermission> permissionSet() {
