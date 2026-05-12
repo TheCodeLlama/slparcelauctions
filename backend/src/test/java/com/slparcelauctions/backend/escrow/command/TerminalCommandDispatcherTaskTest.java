@@ -176,7 +176,7 @@ class TerminalCommandDispatcherTaskTest {
         assertThat(cmd.getAttemptCount()).isEqualTo(4);
         assertThat(cmd.getRequiresManualReview()).isTrue();
         assertThat(cmd.getLastError()).isEqualTo("5xx from terminal");
-        // Envelope publication is registered afterCommit — the mock publisher is
+        // Envelope publication is registered afterCommit â€” the mock publisher is
         // called only if the transaction commits. We can at least assert the
         // escrow lookup happened (so the envelope factory has its inputs).
         verify(escrowRepo).findById(ESCROW_ID);
@@ -220,7 +220,7 @@ class TerminalCommandDispatcherTaskTest {
     @Test
     void httpFailureBelowCap_doesNotWriteFailedLedgerRow() {
         // Below-cap retries leave the row in FAILED with backoff but do NOT
-        // write a per-attempt ledger row — that would balloon the ledger for
+        // write a per-attempt ledger row â€” that would balloon the ledger for
         // every transient hiccup. Only the cap-exhaust transition writes one.
         TerminalCommand cmd = buildQueued();
         Terminal terminal = buildTerminal();
@@ -283,7 +283,7 @@ class TerminalCommandDispatcherTaskTest {
 
         assertThat(cmd.getStatus()).isEqualTo(TerminalCommandStatus.FAILED);
         assertThat(cmd.getRequiresManualReview()).isTrue();
-        // Stalled — must NOT schedule another retry.
+        // Stalled â€” must NOT schedule another retry.
         assertThat(cmd.getNextAttemptAt())
                 .isEqualTo(OffsetDateTime.now(fixed).minusSeconds(1));
     }
@@ -394,7 +394,6 @@ class TerminalCommandDispatcherTaskTest {
                 .currentBid(5000L).bidCount(2)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .finalBidAmount(5000L)
                 .endOutcome(AuctionEndOutcome.SOLD)

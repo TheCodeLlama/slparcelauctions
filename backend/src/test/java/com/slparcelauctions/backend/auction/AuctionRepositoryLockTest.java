@@ -46,7 +46,7 @@ class AuctionRepositoryLockTest {
     @Autowired JdbcTemplate jdbc;
 
     /**
-     * Counts the pids — other than the caller's own backend pid — that hold a
+     * Counts the pids â€” other than the caller's own backend pid â€” that hold a
      * {@code RowShareLock} on the {@code auctions} relation. {@code SELECT ...
      * FOR UPDATE} takes that relation-level lock in addition to tagging the
      * row via its {@code xmax} (Postgres doesn't usually surface an
@@ -98,7 +98,6 @@ class AuctionRepositoryLockTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)
@@ -160,8 +159,8 @@ class AuctionRepositoryLockTest {
             // holding RowShareLock on the auctions table compared to the
             // baseline we captured before the holder started. Asserting a
             // delta (rather than an absolute count) immunises the test
-            // against background beans — ownership-monitor scheduler,
-            // verification sweeps — that may independently hold
+            // against background beans â€” ownership-monitor scheduler,
+            // verification sweeps â€” that may independently hold
             // RowShareLocks on auctions in parallel, while still catching
             // the case where findByIdForUpdate quietly stopped taking a
             // row-level lock at all.
@@ -177,7 +176,7 @@ class AuctionRepositoryLockTest {
             // This test is NOT @Transactional (we need the auction row
             // committed so the holder thread's SELECT FOR UPDATE finds it),
             // so clean up the rows we committed or they'll pollute other
-            // repository tests — e.g. findDueForOwnershipCheck which picks up
+            // repository tests â€” e.g. findDueForOwnershipCheck which picks up
             // any ACTIVE auction with null lastOwnershipCheckAt.
             auctionRepository.deleteById(auctionId);
             userRepository.delete(seller);

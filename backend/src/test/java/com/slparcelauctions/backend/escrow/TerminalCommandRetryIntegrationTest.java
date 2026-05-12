@@ -162,12 +162,12 @@ class TerminalCommandRetryIntegrationTest {
     void fourConsecutiveTransportFailures_stallCommand_broadcastStalledEnvelope() {
         seedCommandTerminalAndEscrow();
 
-        // Every POST fails — the dispatcher counts attempts and at the 4th
+        // Every POST fails â€” the dispatcher counts attempts and at the 4th
         // flip stamps requires_manual_review=true and publishes the stall.
         when(terminalHttp.post(anyString(), any()))
                 .thenReturn(TerminalHttpClient.TerminalHttpResult.fail("terminal 5xx"));
 
-        // Sweep 1: QUEUED → IN_FLIGHT attempt 1 → FAILED attempt 1 (backoff 1m).
+        // Sweep 1: QUEUED â†’ IN_FLIGHT attempt 1 â†’ FAILED attempt 1 (backoff 1m).
         dispatcherJob.dispatch();
         TerminalCommand after1 = cmdRepo.findById(seededCommandId).orElseThrow();
         assertThat(after1.getStatus()).isEqualTo(TerminalCommandStatus.FAILED);
@@ -177,7 +177,7 @@ class TerminalCommandRetryIntegrationTest {
         // Back-date nextAttemptAt so the next sweep picks the row up.
         backdateNextAttempt();
 
-        // Sweep 2: FAILED → IN_FLIGHT attempt 2 → FAILED attempt 2 (backoff 5m).
+        // Sweep 2: FAILED â†’ IN_FLIGHT attempt 2 â†’ FAILED attempt 2 (backoff 5m).
         dispatcherJob.dispatch();
         TerminalCommand after2 = cmdRepo.findById(seededCommandId).orElseThrow();
         assertThat(after2.getAttemptCount()).isEqualTo(2);
@@ -185,7 +185,7 @@ class TerminalCommandRetryIntegrationTest {
 
         backdateNextAttempt();
 
-        // Sweep 3: FAILED → IN_FLIGHT attempt 3 → FAILED attempt 3 (backoff 15m).
+        // Sweep 3: FAILED â†’ IN_FLIGHT attempt 3 â†’ FAILED attempt 3 (backoff 15m).
         dispatcherJob.dispatch();
         TerminalCommand after3 = cmdRepo.findById(seededCommandId).orElseThrow();
         assertThat(after3.getAttemptCount()).isEqualTo(3);
@@ -193,7 +193,7 @@ class TerminalCommandRetryIntegrationTest {
 
         backdateNextAttempt();
 
-        // Sweep 4: FAILED → IN_FLIGHT attempt 4 → STALL (requires_manual_review=true).
+        // Sweep 4: FAILED â†’ IN_FLIGHT attempt 4 â†’ STALL (requires_manual_review=true).
         dispatcherJob.dispatch();
         TerminalCommand stalled = cmdRepo.findById(seededCommandId).orElseThrow();
         assertThat(stalled.getStatus()).isEqualTo(TerminalCommandStatus.FAILED);
@@ -257,7 +257,6 @@ class TerminalCommandRetryIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(3))
                     .endsAt(now.minusHours(1))
                     .originalEndsAt(now.minusHours(1))

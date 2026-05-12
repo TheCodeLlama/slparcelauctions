@@ -27,8 +27,6 @@ function group(name: string): RealtyGroupPublicDto {
       avatarUrl: null,
     },
     agents: [],
-    agentFeeRate: "0.02",
-    agentFeeSplit: "0.5",
     memberSeatLimit: 25,
     memberCount: 1,
   };

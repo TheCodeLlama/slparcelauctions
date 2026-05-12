@@ -115,7 +115,6 @@ class SuspensionNotificationIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(OffsetDateTime.now().minusHours(1))
                     .endsAt(OffsetDateTime.now().plusHours(24))
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))

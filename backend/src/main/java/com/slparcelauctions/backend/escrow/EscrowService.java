@@ -1007,18 +1007,8 @@ public class EscrowService {
     }
 
     /**
-     * Returns 0 when {@code v} is null; otherwise returns {@code v}.
-     * Used to safely subtract {@code agent_fee_amt} (which is NULL for
-     * individual listings) from the payout so the formula reads cleanly
-     * without a conditional at the call site. Spec §7.1.
-     */
-    private static long nullToZero(Long v) {
-        return v == null ? 0L : v;
-    }
-
-    /**
      * Computes the {@code escrow.payout_amt} for an ended auction, branching
-     * on the auction's realty-group shape. The three cases are mutually
+     * on the auction's realty-group shape. The two cases are mutually
      * exclusive at the column level:
      *
      * <ul>
@@ -1029,11 +1019,6 @@ public class EscrowService {
      *       {@code agent_slice} and the realty group's wallet with {@code group_slice}.
      *       No L$ leaves SLPA to an SL avatar from the escrow row, so the terminal
      *       PAYOUT command carries amount=0 and is a SL-side no-op. Spec §8.5, §9.6.</li>
-     *   <li><b>Case 1 (D legacy -- group-listed, no SL group)</b>: deleted by
-     *       sub-project G; the post-payout distributor that drove it is gone.
-     *       All realty-group listings post-G are case 3; this branch is
-     *       retained only for historical context and dead-column tolerance
-     *       until the V29 migration drops {@code agent_fee_amt}.</li>
      *   <li><b>Individual</b>: both group columns null.
      *       {@code payoutAmt = commission.payout(finalBid)}.</li>
      * </ul>
@@ -1049,11 +1034,7 @@ public class EscrowService {
             // and group wallets internally at payout-success.
             return 0L;
         }
-        // Case 1 (legacy) and individual both go through D's existing formula:
-        // payout = commission.payout(finalBid) - agent_fee_amt; agent_fee_amt is NULL
-        // for individual listings (no realty group), so nullToZero collapses it to
-        // the unreduced payout in that branch.
-        return commission.payout(finalBid) - nullToZero(auction.getAgentFeeAmt());
+        return commission.payout(finalBid);
     }
 
     /**

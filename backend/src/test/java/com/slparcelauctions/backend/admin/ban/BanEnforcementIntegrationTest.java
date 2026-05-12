@@ -45,7 +45,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * Integration tests verifying {@link BanCheckService#assertNotBanned} is wired
  * into all 6 enforcement paths. A real {@link BanRepository} seeds active
  * {@link Ban} rows; {@code StringRedisTemplate} is mocked so every check is a
- * cache-miss → DB query.
+ * cache-miss â†’ DB query.
  *
  * <p>{@code @Transactional} at the class level rolls back all DB changes after
  * each test so ban rows, users, parcels, and auctions never leak between cases.
@@ -100,7 +100,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 1. Bid endpoint — AVATAR ban → 403 USER_BANNED
+    // 1. Bid endpoint â€” AVATAR ban â†’ 403 USER_BANNED
     // -------------------------------------------------------------------------
 
     @Test
@@ -130,7 +130,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 2. Bid endpoint — IP ban → 403
+    // 2. Bid endpoint â€” IP ban â†’ 403
     // -------------------------------------------------------------------------
 
     @Test
@@ -160,7 +160,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 3. Register endpoint — IP ban → 403
+    // 3. Register endpoint â€” IP ban â†’ 403
     // -------------------------------------------------------------------------
 
     @Test
@@ -181,7 +181,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 4. Login endpoint — IP ban → 403
+    // 4. Login endpoint â€” IP ban â†’ 403
     // -------------------------------------------------------------------------
 
     @Test
@@ -209,7 +209,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 5. Cancel endpoint — AVATAR ban on seller → 403
+    // 5. Cancel endpoint â€” AVATAR ban on seller â†’ 403
     // -------------------------------------------------------------------------
 
     @Test
@@ -237,7 +237,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 6. BOTH ban — blocks bid AND login
+    // 6. BOTH ban â€” blocks bid AND login
     // -------------------------------------------------------------------------
 
     @Test
@@ -283,7 +283,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 7. Lifted ban — action succeeds
+    // 7. Lifted ban â€” action succeeds
     // -------------------------------------------------------------------------
 
     @Test
@@ -305,7 +305,7 @@ class BanEnforcementIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // 8. Expired ban — action succeeds
+    // 8. Expired ban â€” action succeeds
     // -------------------------------------------------------------------------
 
     @Test
@@ -373,7 +373,7 @@ class BanEnforcementIntegrationTest {
     /**
      * Resolves a user entity by decoding the user ID from the access token returned
      * by registerAndVerifyUser. Since the JWT is opaque here, we load the most recently
-     * saved verified user with a matching avatar UUID — or just fetch the last-saved user.
+     * saved verified user with a matching avatar UUID â€” or just fetch the last-saved user.
      * Simpler: we look up by email encoded in the setup helpers.
      *
      * <p>This helper is only called for users whose email was passed in to the register
@@ -406,7 +406,6 @@ class BanEnforcementIntegrationTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .startsAt(now.minusHours(1))
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
@@ -439,7 +438,6 @@ class BanEnforcementIntegrationTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)

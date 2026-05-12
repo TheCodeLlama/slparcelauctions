@@ -53,8 +53,6 @@ function seedGroup(overrides: Record<string, unknown> = {}) {
             agentCommissionRate: null,
           },
         ],
-        agentFeeRate: "0.0000",
-        agentFeeSplit: "0.5000",
         memberSeatLimit: 50,
         memberCount: 2,
         ...overrides,

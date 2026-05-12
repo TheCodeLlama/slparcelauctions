@@ -200,7 +200,7 @@ class AdminDisputeServiceTest {
                 adminId);
 
         assertThat(resp.newState()).isEqualTo(EscrowState.EXPIRED);
-        // fundedAt is null → no refund to queue.
+        // fundedAt is null â†’ no refund to queue.
         assertThat(resp.refundQueued()).isFalse();
     }
 
@@ -316,7 +316,6 @@ class AdminDisputeServiceTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(3))
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))

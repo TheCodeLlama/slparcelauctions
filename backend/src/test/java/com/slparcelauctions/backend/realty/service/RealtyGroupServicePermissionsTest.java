@@ -39,7 +39,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 /**
  * Unit tests for {@link RealtyGroupService#updateMemberPermissions}.
  *
- * <p>Leader-only — delegating this would let an INVITE_AGENTS delegate escalate themselves
+ * <p>Leader-only â€” delegating this would let an INVITE_AGENTS delegate escalate themselves
  * by re-inviting + editing perms. Targeting the leader's own membership row is rejected
  * (leader perms are all-implicit and the column is unused for that row).
  */
@@ -59,8 +59,6 @@ class RealtyGroupServicePermissionsTest {
     private static RealtyGroup buildGroup(Long leaderId) {
         return RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 

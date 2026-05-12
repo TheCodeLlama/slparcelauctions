@@ -43,10 +43,10 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
 
 /**
- * Integration test: {@link EscrowService#createForEndedAuction} subtracts
- * {@code agent_fee_amt} from the payout when the auction has a group agent-fee
- * snapshot, and leaves the payout unchanged when {@code agent_fee_amt} is null.
- * Spec §7.1.
+ * Integration test: {@link EscrowService#createForEndedAuction} sets
+ * {@code payoutAmt = 0} for case-3 (SL-group-owned) auctions, where earnings
+ * stay in SLPA and are split into wallets by
+ * {@code AgentCommissionDistributor} at payout-success. Spec §8.5, §9.6.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -125,50 +125,6 @@ class EscrowServiceAgentFeePayoutTest {
         seededBidderId = null;
         seededRealtyGroupSlGroupId = null;
         seededRealtyGroupId = null;
-    }
-
-    /**
-     * When {@code agentFeeAmt=200} is snapshotted on the auction,
-     * {@code createForEndedAuction} must produce
-     * {@code payoutAmt = commission.payout(finalBid) - 200}.
-     */
-    @Test
-    void payoutAmt_isReducedByAgentFeeAmt() {
-        long finalBid = 10_000L;
-        long agentFeeAmt = 200L;
-        Auction auction = seedAuction(finalBid, agentFeeAmt);
-
-        TransactionTemplate tx = new TransactionTemplate(txManager);
-        tx.executeWithoutResult(status -> {
-            Auction managed = auctionRepo.findById(auction.getId()).orElseThrow();
-            escrowService.createForEndedAuction(managed, OffsetDateTime.now());
-        });
-
-        Escrow escrow = escrowRepo.findByAuctionId(auction.getId()).orElseThrow();
-        long expectedPayout = commissionCalculator.payout(finalBid) - agentFeeAmt;
-        assertThat(escrow.getPayoutAmt()).isEqualTo(expectedPayout);
-        // commission is unaffected
-        assertThat(escrow.getCommissionAmt()).isEqualTo(commissionCalculator.commission(finalBid));
-    }
-
-    /**
-     * When {@code agentFeeAmt} is null (individual listing, no realty group),
-     * {@code createForEndedAuction} must leave the payout unchanged:
-     * {@code payoutAmt = commission.payout(finalBid)}.
-     */
-    @Test
-    void payoutAmt_unchangedWhenAgentFeeAmtIsNull() {
-        long finalBid = 5_000L;
-        Auction auction = seedAuction(finalBid, null);
-
-        TransactionTemplate tx = new TransactionTemplate(txManager);
-        tx.executeWithoutResult(status -> {
-            Auction managed = auctionRepo.findById(auction.getId()).orElseThrow();
-            escrowService.createForEndedAuction(managed, OffsetDateTime.now());
-        });
-
-        Escrow escrow = escrowRepo.findByAuctionId(auction.getId()).orElseThrow();
-        assertThat(escrow.getPayoutAmt()).isEqualTo(commissionCalculator.payout(finalBid));
     }
 
     /**
@@ -258,7 +214,6 @@ class EscrowServiceAgentFeePayoutTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(3))
                     .endsAt(now.minusHours(1))
                     .originalEndsAt(now.minusHours(1))
@@ -288,72 +243,4 @@ class EscrowServiceAgentFeePayoutTest {
         });
     }
 
-    private Auction seedAuction(long finalBid, Long agentFeeAmt) {
-        TransactionTemplate tx = new TransactionTemplate(txManager);
-        return tx.execute(status -> {
-            UUID parcelUuid = UUID.randomUUID();
-            OffsetDateTime now = OffsetDateTime.now();
-
-            User seller = userRepo.save(User.builder()
-                    .username("u-" + UUID.randomUUID().toString().substring(0, 8))
-                    .email("agentfee-seller-" + UUID.randomUUID() + "@example.com")
-                    .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
-                    .displayName("AgentFee Seller")
-                    .slAvatarUuid(UUID.randomUUID())
-                    .verified(true)
-                    .build());
-
-            User bidder = userRepo.save(User.builder()
-                    .username("u-" + UUID.randomUUID().toString().substring(0, 8))
-                    .email("agentfee-bidder-" + UUID.randomUUID() + "@example.com")
-                    .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
-                    .displayName("AgentFee Bidder")
-                    .slAvatarUuid(UUID.randomUUID())
-                    .verified(true)
-                    .build());
-
-            Auction auction = auctionRepo.save(Auction.builder()
-                    .title("AgentFee Test Listing")
-                    .slParcelUuid(parcelUuid)
-                    .seller(seller)
-                    .status(AuctionStatus.ENDED)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
-                    .verificationTier(VerificationTier.SCRIPT)
-                    .startingBid(500L)
-                    .reservePrice(1_000L)
-                    .currentBid(finalBid)
-                    .bidCount(2)
-                    .durationHours(168)
-                    .snipeProtect(false)
-                    .listingFeePaid(true)
-                    .consecutiveWorldApiFailures(0)
-                    .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(agentFeeAmt != null ? new BigDecimal("0.02") : BigDecimal.ZERO)
-                    .agentFeeAmt(agentFeeAmt)
-                    .startsAt(now.minusHours(3))
-                    .endsAt(now.minusHours(1))
-                    .originalEndsAt(now.minusHours(1))
-                    .endedAt(now.minusHours(1))
-                    .endOutcome(AuctionEndOutcome.SOLD)
-                    .winnerUserId(bidder.getId())
-                    .finalBidAmount(finalBid)
-                    .build());
-            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
-                    .slParcelUuid(parcelUuid)
-                    .ownerUuid(seller.getSlAvatarUuid())
-                    .ownerType("agent")
-                    .parcelName("AgentFee Test Parcel")
-                    .regionName("Coniston")
-                    .regionMaturityRating("GENERAL")
-                    .areaSqm(1024)
-                    .positionX(128.0).positionY(64.0).positionZ(22.0)
-                    .build());
-            auctionRepo.save(auction);
-
-            seededSellerId = seller.getId();
-            seededBidderId = bidder.getId();
-            seededAuctionId = auction.getId();
-            return auction;
-        });
-    }
 }

@@ -215,7 +215,7 @@ class ParcelLockingRaceIntegrationTest {
             int s1 = f1.get(30, TimeUnit.SECONDS);
             int s2 = f2.get(30, TimeUnit.SECONDS);
 
-            // Expect exactly one 200 and one 409 — or both sequential 409/200, in which
+            // Expect exactly one 200 and one 409 â€” or both sequential 409/200, in which
             // case the first-saved auction wins and the second gets the service-layer
             // check. Either way, exactly one ends up ACTIVE.
             assertThat(sorted(s1, s2))
@@ -300,7 +300,6 @@ class ParcelLockingRaceIntegrationTest {
                     .bidCount(0)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .build();
             a = auctionRepository.save(a);
             a.setParcelSnapshot(AuctionParcelSnapshot.builder()

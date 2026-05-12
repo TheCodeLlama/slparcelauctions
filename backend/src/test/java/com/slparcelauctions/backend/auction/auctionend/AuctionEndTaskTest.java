@@ -35,7 +35,6 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.AuctionEndedEnvelope;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
-import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -65,7 +64,6 @@ class AuctionEndTaskTest {
     @Mock EscrowService escrowService;
     @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock NotificationPublisher notificationPublisher;
-    @Mock RealtyGroupRepository realtyGroupRepo;
 
     Clock fixed;
     AuctionEndTask task;
@@ -76,7 +74,7 @@ class AuctionEndTaskTest {
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-20T12:00:00Z"), ZoneOffset.UTC);
         task = new AuctionEndTask(auctionRepo, proxyBidRepo, bidRepo, userRepo, publisher,
-                escrowService, monitorLifecycle, notificationPublisher, realtyGroupRepo, fixed);
+                escrowService, monitorLifecycle, notificationPublisher, fixed);
         // Default stub for the new bidder-query method so SOLD-path tests don't blow up.
         lenient().when(bidRepo.findDistinctBidderUserIdsByAuctionId(anyLong()))
                 .thenReturn(List.of());

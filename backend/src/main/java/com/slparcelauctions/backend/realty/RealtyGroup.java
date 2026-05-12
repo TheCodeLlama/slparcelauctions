@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.realty;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 import com.slparcelauctions.backend.common.BaseMutableEntity;
@@ -78,14 +77,6 @@ public class RealtyGroup extends BaseMutableEntity {
 
     @Column(columnDefinition = "text")
     private String website;
-
-    @Builder.Default
-    @Column(name = "agent_fee_rate", precision = 5, scale = 4, nullable = false)
-    private BigDecimal agentFeeRate = BigDecimal.ZERO;
-
-    @Builder.Default
-    @Column(name = "agent_fee_split", precision = 5, scale = 4, nullable = false)
-    private BigDecimal agentFeeSplit = new BigDecimal("0.5000");
 
     @Builder.Default
     @Column(name = "member_seat_limit", nullable = false)

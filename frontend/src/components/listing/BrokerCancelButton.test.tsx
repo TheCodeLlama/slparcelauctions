@@ -61,8 +61,6 @@ function publicGroup(overrides: Partial<RealtyGroupPublicDto> = {}): RealtyGroup
     memberSince: "2026-01-01T00:00:00Z",
     leader: leaderCard(),
     agents: [],
-    agentFeeRate: "0.02",
-    agentFeeSplit: "0.5",
     memberSeatLimit: 25,
     memberCount: 2,
     ...overrides,

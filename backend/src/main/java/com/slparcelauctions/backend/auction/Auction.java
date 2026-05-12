@@ -249,16 +249,6 @@ public class Auction extends BaseMutableEntity {
     private Long commissionAmt;
 
     @Builder.Default
-    @Column(name = "agent_fee_rate", precision = 5, scale = 4)
-    private BigDecimal agentFeeRate = new BigDecimal("0.0000");
-
-    @Column(name = "agent_fee_split", precision = 5, scale = 4)
-    private BigDecimal agentFeeSplit;
-
-    @Column(name = "agent_fee_amt")
-    private Long agentFeeAmt;
-
-    @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "auction_tags",

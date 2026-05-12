@@ -110,8 +110,7 @@ public class AuctionDtoMapper {
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt(),
                 resolveGroupAttribution(a),
-                resolveListingAgent(a),
-                a.getAgentFeeRate());
+                resolveListingAgent(a));
     }
 
     public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending) {
@@ -162,8 +161,7 @@ public class AuctionDtoMapper {
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt(),
                 resolveGroupAttribution(a),
-                resolveListingAgent(a),
-                a.getAgentFeeRate());
+                resolveListingAgent(a));
     }
 
     /**

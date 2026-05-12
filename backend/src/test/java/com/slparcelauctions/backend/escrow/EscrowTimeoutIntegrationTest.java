@@ -53,21 +53,21 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
  * End-to-end coverage of {@link EscrowTimeoutJob}. Four scenarios:
  *
  * <ol>
- *   <li><b>ESCROW_PENDING past 48h</b> → state=EXPIRED, {@code expiredAt}
+ *   <li><b>ESCROW_PENDING past 48h</b> â†’ state=EXPIRED, {@code expiredAt}
  *       stamped, no refund {@code TerminalCommand} queued (no L$ was held),
  *       {@code ESCROW_EXPIRED} envelope with
  *       {@code reason=PAYMENT_TIMEOUT} captured.</li>
- *   <li><b>TRANSFER_PENDING past 72h</b> (no payout in flight) →
+ *   <li><b>TRANSFER_PENDING past 72h</b> (no payout in flight) â†’
  *       state=EXPIRED, {@code expiredAt} stamped, one REFUND
  *       {@code TerminalCommand} for the escrow exists,
  *       {@code ESCROW_EXPIRED} envelope with
  *       {@code reason=TRANSFER_TIMEOUT} captured.</li>
- *   <li><b>CRITICAL payout-in-flight guard</b> — TRANSFER_PENDING past
+ *   <li><b>CRITICAL payout-in-flight guard</b> â€” TRANSFER_PENDING past
  *       72h with an IN_FLIGHT PAYOUT command: escrow must remain
  *       TRANSFER_PENDING, no new refund queued, no envelope captured.
  *       Exercises the {@code NOT EXISTS} subquery in
  *       {@link EscrowRepository#findExpiredTransferPendingIds}.</li>
- *   <li><b>Deadline not yet past</b> → no-op.</li>
+ *   <li><b>Deadline not yet past</b> â†’ no-op.</li>
  * </ol>
  *
  * <p>Time is controlled by {@link ClockOverrideConfig.MutableFixedClock} so
@@ -184,7 +184,7 @@ class EscrowTimeoutIntegrationTest {
         assertThat(refreshed.getExpiredAt())
                 .isEqualTo(OffsetDateTime.now(testClock));
 
-        // No refund queued — the winner never paid, no L$ is held.
+        // No refund queued â€” the winner never paid, no L$ is held.
         List<TerminalCommand> commands = cmdRepo.findAll().stream()
                 .filter(c -> seededEscrowId.equals(c.getEscrowId()))
                 .toList();
@@ -198,9 +198,9 @@ class EscrowTimeoutIntegrationTest {
         assertThat(env.state()).isEqualTo(EscrowState.EXPIRED);
         assertThat(env.reason()).isEqualTo("PAYMENT_TIMEOUT");
 
-        // Epic 08 sub-spec 1 §6.1: a payment-timeout is buyer-fault, not
+        // Epic 08 sub-spec 1 Â§6.1: a payment-timeout is buyer-fault, not
         // seller-fault. The seller's escrowExpiredUnfulfilled counter must
-        // stay at zero — if it incremented here, a seller's completion rate
+        // stay at zero â€” if it incremented here, a seller's completion rate
         // would drop every time a winner failed to pay.
         User seller = userRepo.findById(seededSellerId).orElseThrow();
         assertThat(seller.getEscrowExpiredUnfulfilled()).isEqualTo(0);
@@ -237,7 +237,7 @@ class EscrowTimeoutIntegrationTest {
         assertThat(env.reason()).isEqualTo("TRANSFER_TIMEOUT");
         assertThat(env.state()).isEqualTo(EscrowState.EXPIRED);
 
-        // Epic 08 sub-spec 1 §3.4 / §6.1: a transfer-timeout is seller-fault
+        // Epic 08 sub-spec 1 Â§3.4 / Â§6.1: a transfer-timeout is seller-fault
         // (the seller never handed the parcel over inside the 72h window), so
         // the seller's escrowExpiredUnfulfilled counter must bump from 0 to 1.
         // This counter drops the seller's completion rate via the 3-arg
@@ -251,7 +251,7 @@ class EscrowTimeoutIntegrationTest {
         // CRITICAL INVARIANT: the repo query's NOT EXISTS subquery must
         // exclude escrows that already have a PAYOUT command mid-flight.
         // Once ownership is confirmed the 72h deadline is satisfied from
-        // the seller's side — expiring here would double-spend by refunding
+        // the seller's side â€” expiring here would double-spend by refunding
         // the winner while the payout is still attempting to deliver.
         OffsetDateTime base = OffsetDateTime.now(testClock);
         seedTransferPendingEscrow(base.plusHours(1), base.minusHours(2));
@@ -264,7 +264,7 @@ class EscrowTimeoutIntegrationTest {
         assertThat(refreshed.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
         assertThat(refreshed.getExpiredAt()).isNull();
 
-        // Only the original PAYOUT command — no REFUND queued.
+        // Only the original PAYOUT command â€” no REFUND queued.
         List<TerminalCommand> commands = cmdRepo.findAll().stream()
                 .filter(c -> seededEscrowId.equals(c.getEscrowId()))
                 .toList();
@@ -277,7 +277,7 @@ class EscrowTimeoutIntegrationTest {
     @Test
     void escrowPendingWithFutureDeadline_noop() {
         OffsetDateTime base = OffsetDateTime.now(testClock);
-        // paymentDeadline 100h ahead of base — well outside the sweep window.
+        // paymentDeadline 100h ahead of base â€” well outside the sweep window.
         seedPendingEscrow(base.plusHours(100));
 
         job.sweep();
@@ -321,7 +321,6 @@ class EscrowTimeoutIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(base.minusHours(3))
                     .endsAt(base.minusHours(1))
                     .originalEndsAt(base.minusHours(1))
@@ -385,7 +384,6 @@ class EscrowTimeoutIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(base.minusHours(75))
                     .endsAt(base.minusHours(73))
                     .originalEndsAt(base.minusHours(73))

@@ -26,7 +26,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  *   <li>ACTIVE auctions with null {@code lastOwnershipCheckAt} are returned
  *       (NULLS FIRST in the ORDER BY).</li>
  *   <li>Non-ACTIVE auctions are excluded even if their timestamp is stale.</li>
- *   <li>Results are ordered oldest-first (null → earliest timestamp → later).</li>
+ *   <li>Results are ordered oldest-first (null â†’ earliest timestamp â†’ later).</li>
  * </ul>
  */
 @SpringBootTest
@@ -66,13 +66,13 @@ class AuctionRepositoryOwnershipCheckTest {
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime cutoff = now.minusMinutes(30);
 
-        // 1) Stale (at cutoff boundary — should be included via <=)
+        // 1) Stale (at cutoff boundary â€” should be included via <=)
         Auction stale = auctionRepo.save(build(seller, u1, AuctionStatus.ACTIVE, cutoff));
-        // 2) Very stale (older — should also be included)
+        // 2) Very stale (older â€” should also be included)
         Auction veryStale = auctionRepo.save(build(seller, u2, AuctionStatus.ACTIVE, now.minusHours(3)));
-        // 3) Never checked (null timestamp — NULLS FIRST)
+        // 3) Never checked (null timestamp â€” NULLS FIRST)
         Auction neverChecked = auctionRepo.save(build(seller, u3, AuctionStatus.ACTIVE, null));
-        // 4) Fresh (after cutoff — excluded)
+        // 4) Fresh (after cutoff â€” excluded)
         Auction fresh = auctionRepo.save(build(seller, u4, AuctionStatus.ACTIVE, now.minusMinutes(5)));
         // 5) SUSPENDED (excluded regardless of timestamp)
         Auction suspended = auctionRepo.save(build(seller, u5, AuctionStatus.SUSPENDED, now.minusHours(5)));
@@ -92,7 +92,7 @@ class AuctionRepositoryOwnershipCheckTest {
 
     @Test
     void findDueForOwnershipCheck_includesPostCancelWatched_excludesExpired() {
-        // Epic 08 sub-spec 2 §6 — a CANCELLED auction with an open watch
+        // Epic 08 sub-spec 2 Â§6 â€” a CANCELLED auction with an open watch
         // window should be returned alongside ACTIVE due rows; one whose
         // watch window has expired must NOT.
         User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
@@ -110,14 +110,14 @@ class AuctionRepositoryOwnershipCheckTest {
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime cutoff = now.minusMinutes(30);
 
-        // ACTIVE, due — should be picked up.
+        // ACTIVE, due â€” should be picked up.
         Auction active = auctionRepo.save(buildWithWatch(seller, ua,
                 AuctionStatus.ACTIVE, now.minusHours(1), null));
-        // CANCELLED with open post-cancel watch — should be picked up.
+        // CANCELLED with open post-cancel watch â€” should be picked up.
         Auction watched = buildWithWatch(seller, ub,
                 AuctionStatus.CANCELLED, now.minusHours(1), now.plusHours(24));
         watched = auctionRepo.save(watched);
-        // CANCELLED with expired post-cancel watch — must be excluded even
+        // CANCELLED with expired post-cancel watch â€” must be excluded even
         // though lastOwnershipCheckAt is stale.
         Auction expired = buildWithWatch(seller, uc,
                 AuctionStatus.CANCELLED, now.minusHours(1), now.minusHours(1));
@@ -152,7 +152,6 @@ class AuctionRepositoryOwnershipCheckTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .lastOwnershipCheckAt(lastCheck)
                 .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()

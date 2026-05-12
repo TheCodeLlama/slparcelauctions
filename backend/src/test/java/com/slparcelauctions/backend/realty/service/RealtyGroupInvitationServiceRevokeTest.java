@@ -42,7 +42,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * Unit tests for {@link RealtyGroupInvitationService#revoke(UUID, UUID, Long)}.
  *
  * <p>INVITE_AGENTS-gated (or leader). PENDING-only. <b>No notification fires</b> per spec
- * §8 — revoke is silent; the invitee sees the pending invite disappear.
+ * Â§8 â€” revoke is silent; the invitee sees the pending invite disappear.
  */
 @ExtendWith(MockitoExtension.class)
 class RealtyGroupInvitationServiceRevokeTest {
@@ -60,8 +60,6 @@ class RealtyGroupInvitationServiceRevokeTest {
     private static RealtyGroup buildGroup(Long leaderId) {
         return RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
@@ -96,7 +94,7 @@ class RealtyGroupInvitationServiceRevokeTest {
         assertEquals(InvitationStatus.REVOKED, captor.getValue().getStatus());
         assertNotNull(captor.getValue().getRespondedAt());
 
-        // Revoke is silent per spec §8 — no notification fan-out.
+        // Revoke is silent per spec Â§8 â€” no notification fan-out.
         verify(notifications, never()).realtyGroupInvitationDeclined(any());
         verify(notifications, never()).realtyGroupInvitationAccepted(any());
         verify(notifications, never()).realtyGroupInvitationExpired(any());

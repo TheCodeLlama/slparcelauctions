@@ -14,7 +14,7 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
 /**
  * Public view of an auction. Notably excludes: winner_id, reservePrice (exposes only
  * hasReserve + reserveMet), listing fee fields, verification_notes, commission fields,
- * agent fee fields, assigned_bot_uuid, sale_sentinel_price, last_bot_check_at,
+ * assigned_bot_uuid, sale_sentinel_price, last_bot_check_at,
  * bot_check_failures, pendingVerification, seller's internal verification_method.
  *
  * <p>{@code escrowState} and {@code transferConfirmedAt} are populated when the
@@ -60,8 +60,7 @@ public record PublicAuctionResponse(
         EscrowState escrowState,
         OffsetDateTime transferConfirmedAt,
         GroupAttributionDto realtyGroup,
-        ListingAgentDto listingAgent,
-        java.math.BigDecimal agentFeeRate) {
+        ListingAgentDto listingAgent) {
 
     /**
      * Enriched seller card for the listing-detail page. {@code averageRating}

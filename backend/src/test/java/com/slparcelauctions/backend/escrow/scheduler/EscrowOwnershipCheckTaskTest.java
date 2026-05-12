@@ -107,7 +107,7 @@ class EscrowOwnershipCheckTaskTest {
     @Test
     void sellerStillOwns_withinReminderDelay_stampsChecked_noFreeze() {
         Escrow escrow = buildPending();
-        // Funded 2h ago — under the 24h reminder delay.
+        // Funded 2h ago â€” under the 24h reminder delay.
         escrow.setFundedAt(OffsetDateTime.now(fixed).minusHours(2));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
@@ -125,7 +125,7 @@ class EscrowOwnershipCheckTaskTest {
     @Test
     void sellerStillOwns_pastReminderDelay_stampsChecked_logsReminder_noFreeze() {
         Escrow escrow = buildPending();
-        // Funded 30h ago — well past the 24h reminder delay.
+        // Funded 30h ago â€” well past the 24h reminder delay.
         escrow.setFundedAt(OffsetDateTime.now(fixed).minusHours(30));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
@@ -135,7 +135,7 @@ class EscrowOwnershipCheckTaskTest {
 
         task.checkOne(ESCROW_ID);
 
-        // Log assertion skipped intentionally (per plan) — the important
+        // Log assertion skipped intentionally (per plan) â€” the important
         // state-machine side effects are stampChecked + no freeze.
         verify(escrowService).stampChecked(escrow, OffsetDateTime.now(fixed));
         verify(escrowService, never()).confirmTransfer(any(), any());
@@ -191,7 +191,7 @@ class EscrowOwnershipCheckTaskTest {
     @SuppressWarnings("unchecked")
     void timeoutAtThreshold_delegatesToFreezeForFraud_withWorldApiPersistentFailure() {
         Escrow escrow = buildPending();
-        // Counter one short of threshold — the about-to-happen failure pushes it over.
+        // Counter one short of threshold â€” the about-to-happen failure pushes it over.
         escrow.setConsecutiveWorldApiFailures(FAILURE_THRESHOLD - 1);
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
@@ -208,7 +208,7 @@ class EscrowOwnershipCheckTaskTest {
                 .containsEntry("consecutiveFailures", FAILURE_THRESHOLD)
                 .containsEntry("threshold", FAILURE_THRESHOLD);
         // The counter must be stamped on the entity before freezeForFraud
-        // saves it, so the persisted frozen row matches the evidence JSON —
+        // saves it, so the persisted frozen row matches the evidence JSON â€”
         // otherwise the row shows (threshold - 1) while the evidence says
         // (threshold), which misleads incident review. See I1 fixup.
         assertThat(frozen.getValue().getConsecutiveWorldApiFailures())
@@ -296,7 +296,6 @@ class EscrowOwnershipCheckTaskTest {
                 .currentBid(5000L).bidCount(2)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .finalBidAmount(5000L)
                 .endOutcome(AuctionEndOutcome.SOLD)

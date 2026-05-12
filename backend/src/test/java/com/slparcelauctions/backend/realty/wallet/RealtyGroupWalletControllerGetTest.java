@@ -34,9 +34,9 @@ import com.slparcelauctions.backend.user.UserRepository;
  *
  * <p>Covers:
  * <ul>
- *   <li>{@code GET /api/v1/realty/groups/{publicId}/wallet} — leader 200, delegate-with-perm 200,
+ *   <li>{@code GET /api/v1/realty/groups/{publicId}/wallet} â€” leader 200, delegate-with-perm 200,
  *       outsider 403, unknown publicId 404, recentLedger present.</li>
- *   <li>{@code GET /api/v1/realty/groups/{publicId}/wallet/ledger} — leader 200, outsider 403.</li>
+ *   <li>{@code GET /api/v1/realty/groups/{publicId}/wallet/ledger} â€” leader 200, outsider 403.</li>
  * </ul>
  */
 @SpringBootTest
@@ -82,7 +82,6 @@ class RealtyGroupWalletControllerGetTest {
             .name("Wallet Get Group " + slug)
             .slug(slug)
             .leaderId(leader.getId())
-            .agentFeeRate(BigDecimal.ZERO)
             .balanceLindens(5000L)
             .build());
 
@@ -94,9 +93,9 @@ class RealtyGroupWalletControllerGetTest {
             .build());
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // GET /api/v1/realty/groups/{publicId}/wallet
-    // ─────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void get_wallet_leader_returns_200_with_balance() throws Exception {
@@ -169,7 +168,7 @@ class RealtyGroupWalletControllerGetTest {
             .balanceAfter(6200L)
             .reservedAfter(0L)
             .refType("AUCTION")
-            .refId(99999L) // non-existent auction — resolves to null refPublicId
+            .refId(99999L) // non-existent auction â€” resolves to null refPublicId
             .build());
 
         mvc.perform(get("/api/v1/realty/groups/" + group.getPublicId() + "/wallet")
@@ -180,9 +179,9 @@ class RealtyGroupWalletControllerGetTest {
             .andExpect(jsonPath("$.recentLedger[0].amount").value(1200));
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // GET /api/v1/realty/groups/{publicId}/wallet/ledger
-    // ─────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void get_ledger_leader_returns_200_empty_array() throws Exception {

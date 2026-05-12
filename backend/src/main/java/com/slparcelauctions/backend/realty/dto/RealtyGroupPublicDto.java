@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.realty.dto;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -10,9 +9,8 @@ import com.slparcelauctions.backend.realty.rating.dto.GroupRatingDto;
 /**
  * Wire shape for the public group profile endpoint.
  *
- * <p>{@code memberSince} mirrors the group's {@code createdAt}. {@code agentFeeSplit} is
- * emitted now (consumed by sub-project C) so agents-considering-joining can see it on the
- * public page. {@code memberCount} is the count of active member rows
+ * <p>{@code memberSince} mirrors the group's {@code createdAt}. {@code memberCount} is
+ * the count of active member rows
  * ({@link com.slparcelauctions.backend.realty.RealtyGroupMember}). {@code logoUrl} and
  * {@code coverUrl} are relative paths pointing at the byte-serving endpoints (Phase 10);
  * the frontend wraps them with {@code apiUrl(...)} so the browser hits the backend rather
@@ -35,7 +33,6 @@ public record RealtyGroupPublicDto(
     OffsetDateTime memberSince,
     LeaderCardDto leader,
     List<AgentCardDto> agents,
-    BigDecimal agentFeeSplit,
     int memberSeatLimit,
     int memberCount,
     GroupRatingDto rating

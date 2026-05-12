@@ -44,7 +44,7 @@ import com.slparcelauctions.backend.testsupport.TestRegions;
  * auction in VERIFICATION_PENDING. The callback from the bot worker at
  * {@code PUT /api/v1/bot/tasks/{id}/verify} (or dev stub
  * {@code POST /api/v1/dev/bot/tasks/{id}/complete}) drives the transition to
- * ACTIVE — that flow is covered by {@code BotTaskServiceTest} and
+ * ACTIVE â€” that flow is covered by {@code BotTaskServiceTest} and
  * {@code BotTaskControllerIntegrationTest}.
  */
 @ExtendWith(MockitoExtension.class)
@@ -97,7 +97,7 @@ class AuctionVerificationServiceMethodCTest {
     }
 
     // -------------------------------------------------------------------------
-    // triggerVerification — enqueues bot task, stays pending
+    // triggerVerification â€” enqueues bot task, stays pending
     // -------------------------------------------------------------------------
 
     @Test
@@ -118,7 +118,7 @@ class AuctionVerificationServiceMethodCTest {
     @Test
     void verify_fromVerificationFailed_retry_enqueuesNewBotTask() {
         // On retry, BotTaskService.createForAuction is responsible for marking any
-        // prior PENDING/IN_PROGRESS task FAILED("Superseded by retry") — covered
+        // prior PENDING/IN_PROGRESS task FAILED("Superseded by retry") â€” covered
         // in BotTaskServiceTest. Here we assert the dispatch still calls it and
         // clears stale verificationNotes before re-entering PENDING.
         Auction a = build(AuctionStatus.VERIFICATION_FAILED);
@@ -133,7 +133,7 @@ class AuctionVerificationServiceMethodCTest {
     }
 
     // -------------------------------------------------------------------------
-    // buildPendingVerification — SALE_TO_BOT
+    // buildPendingVerification â€” SALE_TO_BOT
     // -------------------------------------------------------------------------
 
     @Test
@@ -158,7 +158,7 @@ class AuctionVerificationServiceMethodCTest {
 
     @Test
     void buildPendingVerification_saleToBot_picksLatestPendingTask() {
-        // Retry loop could leave a newer PENDING task — the seller response
+        // Retry loop could leave a newer PENDING task â€” the seller response
         // should show the latest one, not the oldest.
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
         BotTask older = botTask(100L, a, BotTaskStatus.PENDING,
@@ -239,7 +239,6 @@ class AuctionVerificationServiceMethodCTest {
                 .listingFeePaid(status != AuctionStatus.DRAFT)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))

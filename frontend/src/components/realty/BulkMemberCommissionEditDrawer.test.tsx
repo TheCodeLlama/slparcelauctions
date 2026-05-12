@@ -60,8 +60,6 @@ function makeGroup(
         agentCommissionRate: 0.2,
       }),
     ],
-    agentFeeRate: "0.0000",
-    agentFeeSplit: "0.5000",
     memberSeatLimit: 50,
     memberCount: 3,
     ...overrides,

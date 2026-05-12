@@ -28,7 +28,7 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * Success Criterion §1 regression test: two concurrent {@code placeBid}
+ * Success Criterion Â§1 regression test: two concurrent {@code placeBid}
  * calls for the same auction, each proposing the starting bid. Exactly one
  * must commit; the other must observe the committed {@code currentBid}
  * after the lock releases and trip
@@ -56,7 +56,7 @@ class BidBidRaceTest {
     @Autowired UserRepository userRepository;
     @Autowired PlatformTransactionManager txManager;
 
-    // Task 2 runs without a real STOMP broker — swap the publisher for a
+    // Task 2 runs without a real STOMP broker â€” swap the publisher for a
     // mock so the afterCommit callback doesn't blow up under concurrent
     // load with no broker registered.
     @MockitoBean AuctionBroadcastPublisher publisher;
@@ -152,7 +152,7 @@ class BidBidRaceTest {
                         successes.get(), errorA.get(), errorB.get())
                 .isEqualTo(1);
 
-        // Exactly one thread was rejected with BidTooLowException — the
+        // Exactly one thread was rejected with BidTooLowException â€” the
         // loser observed the winner's committed currentBid when it took
         // the lock.
         long bidTooLow = List.of(errorA, errorB).stream()
@@ -233,7 +233,6 @@ class BidBidRaceTest {
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)

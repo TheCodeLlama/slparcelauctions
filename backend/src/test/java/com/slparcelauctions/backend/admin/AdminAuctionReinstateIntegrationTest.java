@@ -109,7 +109,6 @@ class AdminAuctionReinstateIntegrationTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .startsAt(now.minusHours(2))
                 .endsAt(now.plusHours(2))
                 .originalEndsAt(now.plusHours(2))

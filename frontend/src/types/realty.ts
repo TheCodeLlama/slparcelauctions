@@ -84,7 +84,6 @@ export interface RealtyGroupPublicDto {
   memberSince: string;
   leader: LeaderCardDto;
   agents: AgentCardDto[];
-  agentFeeSplit: string;
   memberSeatLimit: number;
   memberCount: number;
 }
@@ -149,8 +148,6 @@ export interface UpdateRealtyGroupRequest {
   name?: string;
   description?: string;
   website?: string;
-  agentFeeRate?: string;
-  agentFeeSplit?: string;
 }
 
 export interface CreateInvitationRequest {

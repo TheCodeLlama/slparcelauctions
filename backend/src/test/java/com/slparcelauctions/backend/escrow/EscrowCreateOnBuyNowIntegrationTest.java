@@ -48,8 +48,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
  * End-to-end coverage for Escrow row creation on the inline buy-it-now close
  * path in {@link BidService#placeBid}. Complements {@code BidServiceBuyNowTest}
  * (unit-level Mockito coverage) by exercising the full transactional stack
- * against a real Postgres: pessimistic lock → bid insert → snipe + buy-now
- * evaluation → auction save → escrow stamp → afterCommit ESCROW_CREATED
+ * against a real Postgres: pessimistic lock â†’ bid insert â†’ snipe + buy-now
+ * evaluation â†’ auction save â†’ escrow stamp â†’ afterCommit ESCROW_CREATED
  * publish.
  *
  * <p>Unlike {@code SnipeAndBuyNowIntegrationTest} (which is {@code @Transactional}
@@ -60,7 +60,7 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
  * contents without a live STOMP broker.
  *
  * <p>Teardown deletes the escrow row before the auction row because of the
- * FK {@code escrows.auction_id → auctions.id}.
+ * FK {@code escrows.auction_id â†’ auctions.id}.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -163,11 +163,11 @@ class EscrowCreateOnBuyNowIntegrationTest {
         Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
         assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(bidAmount);
-        // Commission math lives in EscrowCommissionCalculator (spec §4.3 —
+        // Commission math lives in EscrowCommissionCalculator (spec Â§4.3 â€”
         // max(bid * 5%, L$50) floor). Assert against the calculator so
         // test expectations track the business rule instead of duplicating
         // its arithmetic. At Phase-1 rates 10000*0.05 = 500 clears the L$50
-        // floor, so commissionAmt=500 and payoutAmt=9500 — kept in the
+        // floor, so commissionAmt=500 and payoutAmt=9500 â€” kept in the
         // comment so a reviewer sees the expected numeric value too.
         assertThat(escrow.getCommissionAmt())
                 .isEqualTo(commissionCalculator.commission(bidAmount));
@@ -182,8 +182,8 @@ class EscrowCreateOnBuyNowIntegrationTest {
         // createForEndedAuction (paymentDeadline = now + 48h), and
         // AuctionEndedEnvelope.of(..., now) (serverTime). So
         // paymentDeadline == endedAt + 48h exactly, modulo Postgres
-        // TIMESTAMPTZ nanosecond→microsecond rounding on the persisted
-        // column (1μs tolerance covers it).
+        // TIMESTAMPTZ nanosecondâ†’microsecond rounding on the persisted
+        // column (1Î¼s tolerance covers it).
         assertThat(escrow.getPaymentDeadline())
                 .isCloseTo(refreshed.getEndedAt().plusHours(48), within(1, ChronoUnit.MICROS));
 
@@ -193,8 +193,8 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
         assertThat(env.escrowPublicId()).isEqualTo(escrow.getPublicId());
         assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
-        // Envelope serverTime + 48h = paymentDeadline — both derive from the
-        // SAME `now` read so this round-trips exactly (modulo 1μs Postgres
+        // Envelope serverTime + 48h = paymentDeadline â€” both derive from the
+        // SAME `now` read so this round-trips exactly (modulo 1Î¼s Postgres
         // TIMESTAMPTZ rounding on the persisted paymentDeadline side).
         assertThat(env.paymentDeadline())
                 .isCloseTo(escrow.getPaymentDeadline(), within(1, ChronoUnit.MICROS));
@@ -241,7 +241,6 @@ class EscrowCreateOnBuyNowIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(1))
                     .endsAt(now.plusHours(1))
                     .originalEndsAt(now.plusHours(1))

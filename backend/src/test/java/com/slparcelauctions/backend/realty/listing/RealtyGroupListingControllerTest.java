@@ -46,8 +46,8 @@ import reactor.core.publisher.Mono;
 /**
  * Integration tests for {@link RealtyGroupListingController}:
  * <ul>
- *   <li>{@code GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...} —
- *       parcel-aware (sub-project E §5.3)</li>
+ *   <li>{@code GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...} â€”
+ *       parcel-aware (sub-project E Â§5.3)</li>
  *   <li>{@code GET /api/v1/realty/groups/{publicId}/listings}</li>
  * </ul>
  *
@@ -83,7 +83,7 @@ class RealtyGroupListingControllerTest {
 
     @MockitoBean SlWorldApiClient worldApi;
 
-    // ─────────────────────── Shared fixtures ───────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Shared fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private User caller;
     private String callerJwt;
@@ -98,7 +98,7 @@ class RealtyGroupListingControllerTest {
             new AuthPrincipal(caller.getId(), caller.getPublicId(), caller.getEmail(), 0L, Role.USER));
     }
 
-    // ─────────────────────── Helpers ───────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private RealtyGroup saveGroup(String prefix, Long leaderId) {
         String slug = prefix + "-" + UUID.randomUUID().toString().substring(0, 8);
@@ -106,7 +106,6 @@ class RealtyGroupListingControllerTest {
             .name("Group " + slug)
             .slug(slug)
             .leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0200"))
             .build());
     }
 
@@ -116,7 +115,6 @@ class RealtyGroupListingControllerTest {
             .name("Dissolved " + slug)
             .slug(slug)
             .leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0200"))
             .dissolvedAt(OffsetDateTime.now().minusDays(1))
             .build());
     }
@@ -188,7 +186,6 @@ class RealtyGroupListingControllerTest {
             .bidCount(0)
             .consecutiveWorldApiFailures(0)
             .commissionRate(new BigDecimal("0.0500"))
-            .agentFeeRate(BigDecimal.ZERO)
             .realtyGroupId(group == null ? null : group.getId())
             .build();
         if (status == AuctionStatus.ACTIVE) {
@@ -211,9 +208,9 @@ class RealtyGroupListingControllerTest {
         return auctionRepository.save(a);
     }
 
-    // ═════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...
-    // ═════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     void getListingEligibleGroups_missingSlParcelUuid_400() throws Exception {
@@ -224,7 +221,7 @@ class RealtyGroupListingControllerTest {
 
     @Test
     void getListingEligibleGroups_validRequest_passesThroughParcelUuid() throws Exception {
-        // Parcel is agent-owned → endpoint returns empty array but with 200; this proves
+        // Parcel is agent-owned â†’ endpoint returns empty array but with 200; this proves
         // the parameter is parsed and routed.
         UUID parcelUuid = UUID.randomUUID();
         stubParcelOwnedBy(parcelUuid, "agent", UUID.randomUUID());
@@ -240,7 +237,7 @@ class RealtyGroupListingControllerTest {
     @Test
     void listing_eligible_groups_returns_leader_implicit_group() throws Exception {
         // Caller is leader of group A; group A has a verified registration for the SL
-        // group that owns the parcel → group A appears.
+        // group that owns the parcel â†’ group A appears.
         RealtyGroup groupA = saveGroup("leader", caller.getId());
         saveMemberRow(groupA.getId(), caller.getId(),
                 java.util.EnumSet.noneOf(RealtyGroupPermission.class));
@@ -259,7 +256,7 @@ class RealtyGroupListingControllerTest {
 
     @Test
     void listing_eligible_groups_excludes_member_without_create_listing_permission() throws Exception {
-        // Caller is a member of group B with only INVITE_AGENTS — must NOT appear even
+        // Caller is a member of group B with only INVITE_AGENTS â€” must NOT appear even
         // though group B has a verified registration for the parcel's owner SL group.
         User groupLeader = userRepository.save(User.builder()
             .username("bl-" + UUID.randomUUID().toString().substring(0, 8))
@@ -283,7 +280,7 @@ class RealtyGroupListingControllerTest {
     @Test
     void listing_eligible_groups_includes_member_with_create_listing_permission() throws Exception {
         // Caller is a member of group C with CREATE_LISTING; group C has a verified
-        // registration for the parcel's owner SL group → group C appears.
+        // registration for the parcel's owner SL group â†’ group C appears.
         User groupLeader = userRepository.save(User.builder()
             .username("cl-" + UUID.randomUUID().toString().substring(0, 8))
             .email("cl-" + UUID.randomUUID() + "@test.local")
@@ -302,14 +299,14 @@ class RealtyGroupListingControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.publicId == '" + groupC.getPublicId() + "')].name")
                 .value(groupC.getName()))
-            // Case-3 → agentFeeRate is null (per-member rate replaces it).
+            // Case-3 â†’ agentFeeRate is null (per-member rate replaces it).
             .andExpect(jsonPath("$[?(@.publicId == '" + groupC.getPublicId() + "')].agentFeeRate")
                 .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.nullValue())));
     }
 
     @Test
     void listing_eligible_groups_excludes_dissolved_group() throws Exception {
-        // Caller is leader of dissolved group D — even with a verified registration, the
+        // Caller is leader of dissolved group D â€” even with a verified registration, the
         // dissolved group must NOT appear.
         RealtyGroup groupD = saveDissolvedGroup("dissolved", caller.getId());
         saveMemberRow(groupD.getId(), caller.getId(),
@@ -329,7 +326,7 @@ class RealtyGroupListingControllerTest {
     @Test
     void listing_eligible_groups_returns_empty_for_agent_owned_parcel() throws Exception {
         // Even though caller is leader of group E with a verified registration, parcel is
-        // agent-owned → no group is eligible (personal-list path applies).
+        // agent-owned â†’ no group is eligible (personal-list path applies).
         RealtyGroup groupE = saveGroup("agentparcel", caller.getId());
         saveMemberRow(groupE.getId(), caller.getId(),
                 java.util.EnumSet.noneOf(RealtyGroupPermission.class));
@@ -348,7 +345,7 @@ class RealtyGroupListingControllerTest {
     @Test
     void listing_eligible_groups_returns_empty_when_no_verified_registration() throws Exception {
         // Caller is leader of group F, but no realty group has a verified registration
-        // for the parcel's owner SL group → empty.
+        // for the parcel's owner SL group â†’ empty.
         RealtyGroup groupF = saveGroup("nogeoreg", caller.getId());
         saveMemberRow(groupF.getId(), caller.getId(),
                 java.util.EnumSet.noneOf(RealtyGroupPermission.class));
@@ -371,9 +368,9 @@ class RealtyGroupListingControllerTest {
             .andExpect(status().isUnauthorized());
     }
 
-    // ═════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // GET /api/v1/realty/groups/{publicId}/listings
-    // ═════════════════════════════════════════════════════════════
+    // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     @Test
     void group_listings_returns_active_auctions_by_default() throws Exception {

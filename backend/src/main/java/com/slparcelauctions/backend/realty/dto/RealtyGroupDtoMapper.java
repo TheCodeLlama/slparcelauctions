@@ -83,7 +83,6 @@ public class RealtyGroupDtoMapper {
             group.getCreatedAt(),
             leader,
             agentCards,
-            group.getAgentFeeSplit(),
             group.getMemberSeatLimit() == null ? 0 : group.getMemberSeatLimit(),
             rows.size(),
             rating);

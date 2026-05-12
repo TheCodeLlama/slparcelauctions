@@ -38,16 +38,16 @@ import reactor.core.publisher.Mono;
 
 /**
  * Full-stack integration coverage for snipe-protection stacking and inline
- * buy-it-now. Three scenarios mirror the spec §6 example and its edge
+ * buy-it-now. Three scenarios mirror the spec Â§6 example and its edge
  * cases:
  *
  * <ol>
- *   <li>Snipe stacking across multiple placements — simulate time passage
+ *   <li>Snipe stacking across multiple placements â€” simulate time passage
  *       by mutating {@code auction.endsAt} between placements rather than
  *       standing up a mutable test clock mid-transaction.</li>
- *   <li>Inline buy-it-now — first bid at {@code buyNowPrice} closes the
+ *   <li>Inline buy-it-now â€” first bid at {@code buyNowPrice} closes the
  *       auction; a subsequent bid attempt returns 409 AUCTION_NOT_ACTIVE.</li>
- *   <li>Snipe + buy-now together — buy-now takes precedence; any snipe
+ *   <li>Snipe + buy-now together â€” buy-now takes precedence; any snipe
  *       extension that may have fired is irrelevant because the auction is
  *       already ENDED.</li>
  * </ol>
@@ -111,7 +111,7 @@ class SnipeAndBuyNowIntegrationTest {
     }
 
     // ------------------------------------------------------------------
-    // Scenario 1 — snipe stacking across multiple placements
+    // Scenario 1 â€” snipe stacking across multiple placements
     // ------------------------------------------------------------------
 
     @Test
@@ -126,7 +126,7 @@ class SnipeAndBuyNowIntegrationTest {
                 /* buyNowPrice */ null);
         OffsetDateTime firstEndsAt = auction.getEndsAt();
 
-        // Placement 1 — outside window, no extension.
+        // Placement 1 â€” outside window, no extension.
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -137,13 +137,13 @@ class SnipeAndBuyNowIntegrationTest {
         Auction reloaded = auctionRepository.findById(auction.getId()).orElseThrow();
         assertThat(reloaded.getEndsAt()).isEqualTo(firstEndsAt);
 
-        // Simulate time passage — move endsAt back by 6min so there are
+        // Simulate time passage â€” move endsAt back by 6min so there are
         // now only 9min remaining (inside the 10min window).
         reloaded.setEndsAt(OffsetDateTime.now().plusMinutes(9));
         auctionRepository.save(reloaded);
 
-        // Placement 2 — inside window, should extend. bidder2 takes over
-        // (avoids seller/self-outbid edge cases; increment L$1000→L$100).
+        // Placement 2 â€” inside window, should extend. bidder2 takes over
+        // (avoids seller/self-outbid edge cases; increment L$1000â†’L$100).
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder2AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -153,18 +153,18 @@ class SnipeAndBuyNowIntegrationTest {
 
         reloaded = auctionRepository.findById(auction.getId()).orElseThrow();
         OffsetDateTime afterSecond = reloaded.getEndsAt();
-        // Extension is bid.createdAt + 10min — should be roughly NOW + 10min
+        // Extension is bid.createdAt + 10min â€” should be roughly NOW + 10min
         // (the test executes within a few ms so a 9min lower bound holds).
         assertThat(afterSecond).isAfter(OffsetDateTime.now().plusMinutes(9));
 
-        // Simulate time passage again — pull endsAt inside the 10min window
+        // Simulate time passage again â€” pull endsAt inside the 10min window
         // again. Setting endsAt=now+5min means a third bid placed "now"
         // has 5min of remaining time, which is inside the 10min window.
         reloaded.setEndsAt(OffsetDateTime.now().plusMinutes(5));
         auctionRepository.save(reloaded);
         OffsetDateTime beforeThird = reloaded.getEndsAt();
 
-        // Placement 3 — still in window, stacks again. Increment remains
+        // Placement 3 â€” still in window, stacks again. Increment remains
         // L$100 (currentBid=1100 is still in the L$1000-L$9999 tier).
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
@@ -187,7 +187,7 @@ class SnipeAndBuyNowIntegrationTest {
     }
 
     // ------------------------------------------------------------------
-    // Scenario 2 — inline buy-it-now
+    // Scenario 2 â€” inline buy-it-now
     // ------------------------------------------------------------------
 
     @Test
@@ -197,7 +197,7 @@ class SnipeAndBuyNowIntegrationTest {
                 0L, 0, /* snipeProtect */ true, /* snipeWindowMin */ 15,
                 now.plusHours(1), /* buyNowPrice */ 10_000L);
 
-        // First bid hits the buyNowPrice exactly — closes the auction.
+        // First bid hits the buyNowPrice exactly â€” closes the auction.
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder1AccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -212,7 +212,7 @@ class SnipeAndBuyNowIntegrationTest {
         assertThat(reloaded.getFinalBidAmount()).isEqualTo(10_000L);
         assertThat(reloaded.getEndedAt()).isNotNull();
 
-        // Subsequent bid must be rejected with 409 AUCTION_NOT_ACTIVE — the
+        // Subsequent bid must be rejected with 409 AUCTION_NOT_ACTIVE â€” the
         // service hits the status != ACTIVE gate before any other check.
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidder2AccessToken)
@@ -224,12 +224,12 @@ class SnipeAndBuyNowIntegrationTest {
     }
 
     // ------------------------------------------------------------------
-    // Scenario 3 — snipe + buy-now precedence
+    // Scenario 3 â€” snipe + buy-now precedence
     // ------------------------------------------------------------------
 
     @Test
     void buyNowTakesPrecedence_evenWhenBidInsideSnipeWindow() throws Exception {
-        // Snipe window = 15min; endsAt = now + 5min → bid is inside the
+        // Snipe window = 15min; endsAt = now + 5min â†’ bid is inside the
         // window. Buy-now price matches bid exactly. The snipe loop runs
         // first and may extend endsAt, but the buy-now loop then flips
         // status=ENDED so the extension is irrelevant to the outcome.
@@ -342,7 +342,6 @@ class SnipeAndBuyNowIntegrationTest {
                 .bidCount(bidCount)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         OffsetDateTime now = OffsetDateTime.now();
         a.setStartsAt(now.minusHours(1));

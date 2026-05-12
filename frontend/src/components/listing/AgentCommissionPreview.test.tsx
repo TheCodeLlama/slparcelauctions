@@ -39,8 +39,6 @@ function group(
         agentCommissionRate: callerCommissionRate,
       },
     ],
-    agentFeeRate: "0.02",
-    agentFeeSplit: "0.5",
     memberSeatLimit: 25,
     memberCount: 2,
   };

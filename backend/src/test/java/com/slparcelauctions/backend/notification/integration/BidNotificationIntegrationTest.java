@@ -94,7 +94,7 @@ class BidNotificationIntegrationTest {
         sellerId = aliceId = bobId = auctionId = null;
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private User saveUser(String prefix) {
         return userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
@@ -122,7 +122,6 @@ class BidNotificationIntegrationTest {
                 .listingFeePaid(true)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .startsAt(now.minusMinutes(5))
                 .endsAt(now.plusHours(24))
                 .originalEndsAt(now.plusHours(24))
@@ -137,7 +136,7 @@ class BidNotificationIntegrationTest {
         return auctionRepo.save(a);
     }
 
-    // ── tests ────────────────────────────────────────────────────────────────
+    // â”€â”€ tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void outbid_publishesNotificationToDisplacedBidder() {
@@ -148,9 +147,9 @@ class BidNotificationIntegrationTest {
         Auction a = new TransactionTemplate(txManager).execute(s -> activeAuction(seller, 1000L));
         auctionId = a.getId();
 
-        // Alice bids first — she becomes high bidder.
+        // Alice bids first â€” she becomes high bidder.
         bidService.placeBid(auctionId, aliceId, 1000L, null);
-        // Bob outbids — Alice should receive OUTBID.
+        // Bob outbids â€” Alice should receive OUTBID.
         bidService.placeBid(auctionId, bobId, 1100L, null);
 
         List<Notification> aliceNotifs = notifRepo.findAllByUserId(aliceId).stream()
@@ -179,9 +178,9 @@ class BidNotificationIntegrationTest {
 
         // Alice bids first.
         bidService.placeBid(auctionId, aliceId, 1000L, null);
-        // Bob outbids Alice three times in succession — Alice is displaced each time.
+        // Bob outbids Alice three times in succession â€” Alice is displaced each time.
         bidService.placeBid(auctionId, bobId, 1100L, null);
-        // Bob is now high — Alice must outbid Bob to become high again, then Bob re-outbids.
+        // Bob is now high â€” Alice must outbid Bob to become high again, then Bob re-outbids.
         bidService.placeBid(auctionId, aliceId, 1200L, null);
         bidService.placeBid(auctionId, bobId, 1400L, null);
         bidService.placeBid(auctionId, aliceId, 1500L, null);

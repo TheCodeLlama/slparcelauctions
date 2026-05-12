@@ -138,7 +138,6 @@ export interface SellerAuctionResponse {
   // Realty group attribution — present when the listing was created under a group.
   realtyGroup?: GroupAttribution | null;
   listingAgent?: ListingAgent | null;
-  agentFeeRate?: number | null;
 }
 
 /** Duration choices permitted by the backend (hours). */
@@ -244,7 +243,6 @@ export interface PublicAuctionResponse {
   // Realty group attribution — present when the listing was created under a group.
   realtyGroup?: GroupAttribution | null;
   listingAgent?: ListingAgent | null;
-  agentFeeRate?: number | null;
 }
 
 /**

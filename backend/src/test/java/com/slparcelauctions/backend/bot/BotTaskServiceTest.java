@@ -50,7 +50,7 @@ import com.slparcelauctions.backend.user.User;
 
 /**
  * Unit coverage for {@link BotTaskService}. Covers Method C completion paths:
- * SUCCESS (auction → ACTIVE/BOT), FAILURE (auction → VERIFICATION_FAILED),
+ * SUCCESS (auction â†’ ACTIVE/BOT), FAILURE (auction â†’ VERIFICATION_FAILED),
  * parcel-lock conflict (task FAILED + exception), validation errors on
  * escrow UUID / sentinel price, and the timeout sweep.
  */
@@ -176,7 +176,7 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — SUCCESS
+    // complete â€” SUCCESS
     // -------------------------------------------------------------------------
 
     @Test
@@ -298,7 +298,7 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — case 3 (SL group listing) ownership check (spec §8.3)
+    // complete â€” case 3 (SL group listing) ownership check (spec Â§8.3)
     // -------------------------------------------------------------------------
 
     private static final Long REG_ID = 501L;
@@ -422,7 +422,7 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — FAILURE
+    // complete â€” FAILURE
     // -------------------------------------------------------------------------
 
     @Test
@@ -444,7 +444,7 @@ class BotTaskServiceTest {
         assertThat(a.getVerificationNotes())
                 .startsWith("Bot: ")
                 .contains("Seller did not list parcel for sale");
-        // No auction state beyond VERIFICATION_FAILED — no refund, no ACTIVE transition.
+        // No auction state beyond VERIFICATION_FAILED â€” no refund, no ACTIVE transition.
         assertThat(a.getStartsAt()).isNull();
     }
 
@@ -461,7 +461,7 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — validation failures
+    // complete â€” validation failures
     // -------------------------------------------------------------------------
 
     @Test
@@ -549,8 +549,8 @@ class BotTaskServiceTest {
 
     @Test
     void markTimedOut_pendingTask_failsAndTransitionsAuctionToVerificationFailed_withRetryFriendlyNotes() {
-        // Sub-spec 2 §7.3: retry-friendly verificationNotes consistent with
-        // ParcelCodeExpiryJob and synchronous Method A failures. No refund —
+        // Sub-spec 2 Â§7.3: retry-friendly verificationNotes consistent with
+        // ParcelCodeExpiryJob and synchronous Method A failures. No refund â€”
         // BotTaskService does not depend on ListingFeeRefundRepository, so
         // refund creation is structurally impossible from this path.
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
@@ -574,7 +574,7 @@ class BotTaskServiceTest {
     @Test
     void markTimedOut_doesNotMoveAuctionIfAlreadyCancelled() {
         // Defensive guard: if the seller cancelled the auction between the queue
-        // query and the timeout call, don't clobber CANCELLED → VERIFICATION_FAILED.
+        // query and the timeout call, don't clobber CANCELLED â†’ VERIFICATION_FAILED.
         Auction a = build(AuctionStatus.CANCELLED);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
         when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
@@ -612,7 +612,6 @@ class BotTaskServiceTest {
                 .listingFeePaid(status != AuctionStatus.DRAFT)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))

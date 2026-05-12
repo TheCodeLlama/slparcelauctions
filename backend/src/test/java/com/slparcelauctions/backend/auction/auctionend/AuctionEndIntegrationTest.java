@@ -47,8 +47,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 /**
  * End-to-end coverage for the auction-end sweep against a real database.
  * Exercises the dev trigger endpoint ({@code POST /api/v1/dev/auction-end/run-once})
- * so the full transactional stack runs: scheduler query → pessimistic lock
- * acquisition → outcome classification → status flip → proxy exhaust →
+ * so the full transactional stack runs: scheduler query â†’ pessimistic lock
+ * acquisition â†’ outcome classification â†’ status flip â†’ proxy exhaust â†’
  * afterCommit envelope publish.
  *
  * <p>The real scheduler is disabled via {@code slpa.auction-end.enabled=false}
@@ -119,7 +119,7 @@ class AuctionEndIntegrationTest {
      *       join-table rows as part of the entity delete.</li>
      *   <li>Deletes the parcel and users via their repositories, after
      *       draining any refresh-token / verification-code rows owned by the
-     *       seeded users (defensive — the test doesn't create them, but a
+     *       seeded users (defensive â€” the test doesn't create them, but a
      *       stray row must not block teardown of a parallel run).</li>
      * </ul>
      *
@@ -134,7 +134,7 @@ class AuctionEndIntegrationTest {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
             // Escrow row (Epic 05 Task 2+) must be deleted BEFORE the auction
-            // because of the FK from escrows.auction_id → auctions.id.
+            // because of the FK from escrows.auction_id â†’ auctions.id.
             escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
@@ -183,11 +183,11 @@ class AuctionEndIntegrationTest {
         assertThat(capturingPublisher.ended.get(0).winnerDisplayName()).isEqualTo("Winner Avatar");
         assertThat(capturingPublisher.ended.get(0).finalBid()).isEqualTo(currentBid);
         // Scheduler path must stamp serverTime from the same OffsetDateTime
-        // it wrote to auction.endedAt — otherwise two OffsetDateTime.now(clock)
+        // it wrote to auction.endedAt â€” otherwise two OffsetDateTime.now(clock)
         // calls can drift microseconds under Clock.systemUTC() and break
         // client-side cross-channel event ordering. Postgres TIMESTAMPTZ can
         // round nanoseconds to microseconds (half-up), while the in-memory
-        // envelope preserves nanoseconds — allow a 1μs tolerance so the
+        // envelope preserves nanoseconds â€” allow a 1Î¼s tolerance so the
         // assertion catches "different instant" regressions but not rounding.
         assertThat(capturingPublisher.ended.get(0).serverTime())
                 .isCloseTo(refreshed.getEndedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
@@ -272,9 +272,8 @@ class AuctionEndIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
-                    // Already expired — the run-once sweep must pick this up.
+                    // Already expired â€” the run-once sweep must pick this up.
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))
                     .build());

@@ -126,7 +126,6 @@ class ReviewNotificationIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(OffsetDateTime.now().minusDays(10))
                     .endsAt(OffsetDateTime.now().minusDays(9))
                     .originalEndsAt(OffsetDateTime.now().minusDays(9))

@@ -52,7 +52,7 @@ import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
 
 /**
- * End-to-end coverage for {@code EscrowService.acceptPayment} — the payment
+ * End-to-end coverage for {@code EscrowService.acceptPayment} â€” the payment
  * receiving flow behind {@code POST /api/v1/sl/escrow/payment}. Seeds a full
  * auction + ESCROW_PENDING escrow + registered terminal + winner with a known
  * {@code sl_avatar_uuid}, then exercises the happy path plus two domain
@@ -222,7 +222,7 @@ class EscrowPaymentIntegrationTest {
         assertThat(resp.reason()).isEqualTo(EscrowCallbackResponseReason.WRONG_PAYER);
         assertThat(resp.message()).contains("Payer does not match");
 
-        // State unchanged — still ESCROW_PENDING, not funded.
+        // State unchanged â€” still ESCROW_PENDING, not funded.
         Escrow persisted = escrowRepo.findById(seededEscrowId).orElseThrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
         assertThat(persisted.getFundedAt()).isNull();
@@ -253,7 +253,7 @@ class EscrowPaymentIntegrationTest {
 
     @Test
     void expiredDeadline_refundsWithoutTransition() {
-        // paymentDeadline 1h in the past → ESCROW_EXPIRED branch.
+        // paymentDeadline 1h in the past â†’ ESCROW_EXPIRED branch.
         seedAuctionWithPendingEscrow(OffsetDateTime.now().minusHours(1));
 
         SlCallbackResponse resp = escrowService.acceptPayment(new EscrowPaymentRequest(
@@ -280,7 +280,7 @@ class EscrowPaymentIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // Seeding — persists a full Auction + ESCROW_PENDING Escrow + Terminal
+    // Seeding â€” persists a full Auction + ESCROW_PENDING Escrow + Terminal
     // row plus a winner User with a known sl_avatar_uuid so acceptPayment
     // can cross-match the payerUuid.
     // -------------------------------------------------------------------------
@@ -322,7 +322,6 @@ class EscrowPaymentIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))
