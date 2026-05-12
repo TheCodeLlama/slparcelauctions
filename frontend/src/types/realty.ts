@@ -85,7 +85,6 @@ export interface RealtyGroupPublicDto {
   memberSince: string;
   leader: LeaderCardDto;
   agents: AgentCardDto[];
-  agentFeeRate: string;
   agentFeeSplit: string;
   memberSeatLimit: number;
   memberCount: number;
