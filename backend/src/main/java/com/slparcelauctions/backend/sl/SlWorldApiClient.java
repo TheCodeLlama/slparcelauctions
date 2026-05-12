@@ -17,6 +17,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.slparcelauctions.backend.region.dto.RegionPageData;
+import com.slparcelauctions.backend.sl.dto.GroupPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -28,20 +29,26 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 /**
- * Fetches and parses the two SL World API pages used by the parcel-lookup
- * flow:
+ * Fetches and parses the SL World API pages used by the parcel-lookup and
+ * realty-group SL-group verification flows:
  * <ul>
  *   <li>{@code world.secondlife.com/place/{parcelUuid}} — parcel metadata
  *       (owner, area, description, position) plus the region's SL UUID via
  *       a body link.</li>
  *   <li>{@code world.secondlife.com/region/{regionUuid}} — region metadata
  *       (name, grid coordinates in region units, maturity rating).</li>
+ *   <li>{@code world.secondlife.com/group/{slGroupUuid}} — group metadata
+ *       (display name, founder UUID, About/Charter text) used by the
+ *       realty-group SL-group registration + verification flow.</li>
  * </ul>
  *
- * <p>Both endpoints retry 5xx / network errors with exponential backoff,
+ * <p>All endpoints retry 5xx / network errors with exponential backoff,
  * fail fast on 404 (parcel doesn't exist / region doesn't exist), and
- * surface other failures as {@link ExternalApiTimeoutException}. Parsing
- * failures throw {@link ParcelIngestException} (mapped to 422).
+ * surface other failures as {@link ExternalApiTimeoutException}. Parcel /
+ * region parsing failures throw {@link ParcelIngestException} (mapped to
+ * 422). Group parsing tolerates missing fields — every field other than
+ * the input {@code slGroupUuid} may be {@code null}; the caller decides
+ * which absences are fatal.
  */
 @Component
 @Slf4j
@@ -49,6 +56,9 @@ public class SlWorldApiClient {
 
     private static final Pattern REGION_UUID_FROM_HREF = Pattern.compile(
             "/region/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
+
+    private static final Pattern RESIDENT_UUID_FROM_HREF = Pattern.compile(
+            "/resident/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
 
     private final WebClient webClient;
     private final int retryAttempts;
@@ -92,6 +102,41 @@ public class SlWorldApiClient {
                         throwable -> !(throwable instanceof RegionNotFoundException),
                         throwable -> new ExternalApiTimeoutException("World", throwable.getMessage()))
                 .map(this::parseRegionHtml);
+    }
+
+    /**
+     * Fetches {@code world.secondlife.com/group/{slGroupUuid}} and parses the fields
+     * the realty-group SL-group verification flow needs: display name, founder UUID,
+     * and About / Charter text. Any field the parser cannot extract is set to
+     * {@code null}; the caller decides whether that is fatal (e.g., About-text poll
+     * tolerates {@code aboutText == null} as a no-match, founder-terminal callback
+     * treats {@code founderUuid == null} as 422).
+     *
+     * <p><b>Parser fidelity:</b> the selectors mirror the parcel-page idiom (Jsoup
+     * meta + body element lookups) but have not been validated against a live
+     * {@code world.secondlife.com/group/{uuid}} response at the time of writing.
+     * If the parser returns {@code null} for fields that should be present, run
+     * {@code curl world.secondlife.com/group/{uuid}} against a real group and
+     * adjust {@link #parseGroupHtml(UUID, String)} accordingly.
+     */
+    public Mono<GroupPageData> fetchGroupPage(UUID slGroupUuid) {
+        return webClient.get()
+                .uri("/group/{uuid}", slGroupUuid)
+                .retrieve()
+                .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(retryAttempts, Duration.ofMillis(retryBackoffMs))
+                        .filter(this::isTransientGroupError))
+                .onErrorMap(
+                        throwable -> !(throwable instanceof ExternalApiTimeoutException),
+                        throwable -> new ExternalApiTimeoutException("World", throwable.getMessage()))
+                .map(html -> parseGroupHtml(slGroupUuid, html));
+    }
+
+    private boolean isTransientGroupError(Throwable t) {
+        if (t instanceof WebClientResponseException e) {
+            return e.getStatusCode().is5xxServerError();
+        }
+        return true;
     }
 
     private boolean isTransient(Throwable t, Class<? extends Throwable> nonTransient) {
@@ -143,6 +188,78 @@ public class SlWorldApiClient {
         }
         String maturityRaw = meta(doc, "name", "mat");
         return new RegionPageData(slUuid, name, gridX, gridY, maturityRaw);
+    }
+
+    /**
+     * Parse {@code world.secondlife.com/group/{uuid}} HTML into a {@link GroupPageData}.
+     * Defensive: every field other than the input UUID may be {@code null} if the
+     * selector misses. The selectors below try several common patterns to remain
+     * tolerant of small markup shifts:
+     * <ul>
+     *   <li><b>name</b> — prefer {@code <meta name="groupname">} if present; fall
+     *       back to {@code .groupname} / {@code .group-name} / {@code h1}.</li>
+     *   <li><b>aboutText</b> — prefer {@code <meta name="charter">} if present;
+     *       fall back to elements with class {@code groupcharter}, {@code group-charter},
+     *       {@code charter}, or {@code about}.</li>
+     *   <li><b>founderUuid</b> — prefer {@code <meta name="founderid">} if present;
+     *       fall back to any anchor matching {@code href^="/resident/<uuid>"}
+     *       (the canonical founder rendering on the SL group page).</li>
+     * </ul>
+     */
+    private GroupPageData parseGroupHtml(UUID slGroupUuid, String html) {
+        Document doc = Jsoup.parse(html);
+        return new GroupPageData(
+                slGroupUuid,
+                parseGroupName(doc),
+                parseGroupAboutText(doc),
+                parseGroupFounderUuid(doc));
+    }
+
+    private String parseGroupName(Document doc) {
+        String fromMeta = meta(doc, "name", "groupname");
+        if (fromMeta != null && !fromMeta.isBlank()) {
+            return fromMeta;
+        }
+        Element el = doc.selectFirst(".groupname, .group-name, h1.groupname, h1.group-name");
+        if (el != null) {
+            String text = el.text();
+            if (text != null && !text.isBlank()) {
+                return text;
+            }
+        }
+        return null;
+    }
+
+    private String parseGroupAboutText(Document doc) {
+        String fromMeta = meta(doc, "name", "charter");
+        if (fromMeta != null && !fromMeta.isBlank()) {
+            return fromMeta;
+        }
+        Element el = doc.selectFirst(".groupcharter, .group-charter, .charter, .about, p.charter");
+        if (el != null) {
+            String text = el.text();
+            if (text != null && !text.isBlank()) {
+                return text;
+            }
+        }
+        return null;
+    }
+
+    private UUID parseGroupFounderUuid(Document doc) {
+        String fromMeta = meta(doc, "name", "founderid");
+        UUID metaUuid = optionalUuid(fromMeta);
+        if (metaUuid != null) {
+            return metaUuid;
+        }
+        Element link = doc.selectFirst("a[href^=/resident/]");
+        if (link == null) {
+            return null;
+        }
+        Matcher m = RESIDENT_UUID_FROM_HREF.matcher(link.attr("href"));
+        if (!m.find()) {
+            return null;
+        }
+        return optionalUuid(m.group(1));
     }
 
     private UUID parseRegionUuidFromBody(Document doc) {
