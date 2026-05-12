@@ -5,14 +5,17 @@ import type {
   AdminActionType,
   AdminActionTargetType,
 } from "@/lib/admin/auditLog";
+import {
+  ACTION_TYPE_LABELS,
+  labelFor,
+} from "@/lib/admin/action-type-labels";
 
-const ACTION_TYPES: AdminActionType[] = [
-  "DISMISS_REPORT", "WARN_SELLER_FROM_REPORT", "SUSPEND_LISTING_FROM_REPORT",
-  "CANCEL_LISTING_FROM_REPORT", "CREATE_BAN", "LIFT_BAN", "PROMOTE_USER",
-  "DEMOTE_USER", "RESET_FRIVOLOUS_COUNTER", "REINSTATE_LISTING",
-  "DISPUTE_RESOLVED", "LISTING_CANCELLED_VIA_DISPUTE", "WITHDRAWAL_REQUESTED",
-  "OWNERSHIP_RECHECK_INVOKED", "TERMINAL_SECRET_ROTATED", "USER_DELETED_BY_ADMIN",
-];
+// Sourced from ACTION_TYPE_LABELS so this filter stays in sync with the
+// backend AdminActionType enum (sub-project G §15) -- any future enum value
+// added to the label map automatically appears here.
+const ACTION_TYPES: AdminActionType[] = (
+  Object.keys(ACTION_TYPE_LABELS) as AdminActionType[]
+).sort((a, b) => labelFor(a).localeCompare(labelFor(b)));
 
 const TARGET_TYPES: AdminActionTargetType[] = [
   "REPORT", "BAN", "USER", "AUCTION", "FRAUD_FLAG",
@@ -41,7 +44,7 @@ export function AdminAuditLogFilters({ filters, onChange, onDownloadCsv }: Props
         <option value="">All actions</option>
         {ACTION_TYPES.map((t) => (
           <option key={t} value={t}>
-            {t}
+            {labelFor(t)}
           </option>
         ))}
       </select>

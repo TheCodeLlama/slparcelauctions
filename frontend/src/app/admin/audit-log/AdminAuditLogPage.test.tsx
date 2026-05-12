@@ -32,10 +32,13 @@ describe("AdminAuditLogPage", () => {
     );
     renderWithProviders(<AdminAuditLogPage />);
     // The renderer now consumes labelFor(row.actionType) so the human label
-    // appears in the row's <td> instead of the raw enum name.
-    const tableCell = await screen.findByText("Resolve dispute");
-    expect(tableCell.tagName).toBe("TD");
-    await userEvent.click(tableCell);
+    // appears in the row's <td> instead of the raw enum name. The filter
+    // dropdown also renders the same label as an <option>, so disambiguate
+    // by tag.
+    const matches = await screen.findAllByText("Resolve dispute");
+    const tableCell = matches.find((el) => el.tagName === "TD");
+    expect(tableCell).toBeDefined();
+    await userEvent.click(tableCell!);
     expect(await screen.findByText(/"foo"/)).toBeInTheDocument();
   });
 });
