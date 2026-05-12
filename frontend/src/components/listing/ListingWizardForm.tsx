@@ -363,21 +363,28 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                       parcelIsSlGroupOwned ? (
                         // Case 3: agent listing group-owned land under a
                         // realty group. Earnings split agent ↔ group per
-                        // the agent's per-member commission rate.
+                        // the agent's per-member commission rate, which is
+                        // projected onto the eligible-list row by the
+                        // backend (no second round-trip).
                         <AgentCommissionPreview
                           startingBid={draft.state.startingBid}
                           groupName={selectedGroup.name}
                           groupPublicId={selectedGroup.publicId}
+                          agentCommissionRate={
+                            selectedGroup.agentCommissionRate
+                          }
                           onInsufficient={setGroupWalletInsufficient}
                         />
                       ) : (
                         // Legacy case 1: agent listing their own land under
                         // a group. Group takes a flat agent-fee slice off
-                        // the seller's payout.
+                        // the seller's payout — sized by the caller's
+                        // per-member commission rate (same number, just a
+                        // different formula).
                         <AgentFeePreview
                           startingBid={draft.state.startingBid}
                           groupName={selectedGroup.name}
-                          agentFeeRate={selectedGroup.agentFeeRate}
+                          agentFeeRate={selectedGroup.agentCommissionRate}
                           groupPublicId={selectedGroup.publicId}
                           onInsufficient={setGroupWalletInsufficient}
                         />

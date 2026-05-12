@@ -8,17 +8,18 @@ import java.util.UUID;
  * Drives the wizard's List-as picker; carries only what the picker needs to render +
  * compute its fee preview.
  *
- * <p>{@code agentFeeRate} is the group-level rate snapshotted into case-1 auctions
- * (agent == seller, agent's own parcel). For case-3 eligibility (sub-project E:
- * parcel owned by an SL group registered to the realty group), the per-listing rate
- * lives on the {@code RealtyGroupMember} row, not the group, so {@code agentFeeRate}
- * is {@code null} in case-3 results. The frontend reads the per-member rate from a
- * separate path when it needs to preview the fee.
+ * <p>{@code agentCommissionRate} is the calling user's per-member commission rate
+ * within this group, projected from {@code realty_group_members.agent_commission_rate}
+ * (sub-project G section 6.2). The wizard reads it directly off the eligible-list row,
+ * removing the prior per-parcel {@code useRealtyGroup} round-trip that previously
+ * sourced the rate from the public group DTO. If the caller has no member row for
+ * the group (defensive edge case) the rate is {@link BigDecimal#ZERO} so the preview
+ * still renders.
  */
 public record ListingEligibleGroupDto(
         UUID publicId,
         String name,
         String slug,
         String logoUrl,
-        BigDecimal agentFeeRate) {
+        BigDecimal agentCommissionRate) {
 }

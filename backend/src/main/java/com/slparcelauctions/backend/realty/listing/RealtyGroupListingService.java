@@ -112,8 +112,11 @@ public class RealtyGroupListingService {
      * </ol>
      *
      * <p>The per-member commission rate lives on the
-     * {@link RealtyGroupMember#getAgentCommissionRate()} row, not the group; frontend
-     * fetches the per-member rate via a separate path if it needs to preview the fee.
+     * {@link RealtyGroupMember#getAgentCommissionRate()} row, not the group, and is
+     * projected directly into each row's {@link ListingEligibleGroupDto#agentCommissionRate()}
+     * so the wizard's fee-preview renders without a second round-trip. Leaders also
+     * hold a member row by convention; if a caller is missing one (defensive edge case)
+     * the rate defaults to {@link BigDecimal#ZERO}.
      */
     @Transactional(readOnly = true)
     public List<ListingEligibleGroupDto> findEligibleForParcel(
@@ -122,7 +125,7 @@ public class RealtyGroupListingService {
         ParcelResponse parcel = lookup == null ? null : lookup.response();
         if (parcel == null || parcel.ownerType() == null
                 || !"group".equalsIgnoreCase(parcel.ownerType())) {
-            // Personal land (or unknown owner type) → no realty group is eligible.
+            // Personal land (or unknown owner type) -> no realty group is eligible.
             return List.of();
         }
         UUID slOwnerUuid = parcel.ownerUuid();
@@ -151,12 +154,14 @@ public class RealtyGroupListingService {
             if (!leader && !hasPerm) {
                 continue;
             }
+            BigDecimal commissionRate = members
+                    .findCommissionRate(g.getId(), callerUserId)
+                    .orElse(BigDecimal.ZERO);
             String logoUrl = g.getLogoObjectKey() == null
                     ? null
                     : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
-            // Per-member commission rate replaces any group-level fee preview here.
             out.add(new ListingEligibleGroupDto(
-                    g.getPublicId(), g.getName(), g.getSlug(), logoUrl, null));
+                    g.getPublicId(), g.getName(), g.getSlug(), logoUrl, commissionRate));
         }
         return out;
     }
