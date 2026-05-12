@@ -320,9 +320,11 @@ public class TerminalCommandService {
         // Realty-group payout splitting. Two mutually-exclusive code paths:
         //
         //   case 3 (E -- SL-group-owned): realty_group_sl_group_id IS NOT NULL.
-        //       The seller's payout amount IS the case-3 earnings (no reduction);
-        //       AgentCommissionDistributor splits earnings between listing agent
-        //       and group wallet using agent_commission_rate. Spec §9.6.
+        //       The escrow's payoutAmt is 0 (set by EscrowService.createForEndedAuction);
+        //       no L$ leaves SLPA via the terminal. AgentCommissionDistributor credits
+        //       the full earnings (finalBid - commission) to the listing agent's wallet
+        //       (agent_slice) and the group wallet (group_slice) using
+        //       agent_commission_rate. Spec §8.5, §9.6.
         //
         //   case 1 (D legacy -- group-listed but not SL-group-owned):
         //       realty_group_id IS NOT NULL AND realty_group_sl_group_id IS NULL.

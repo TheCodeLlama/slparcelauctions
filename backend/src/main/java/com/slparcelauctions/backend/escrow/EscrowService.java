@@ -140,12 +140,13 @@ public class EscrowService {
     @Transactional(propagation = Propagation.MANDATORY)
     public Escrow createForEndedAuction(Auction auction, OffsetDateTime endedAt) {
         long finalBid = auction.getFinalBidAmount();
+        long payoutAmt = computePayoutAmt(auction, finalBid);
         Escrow escrow = Escrow.builder()
                 .auction(auction)
                 .state(EscrowState.ESCROW_PENDING)
                 .finalBidAmount(finalBid)
                 .commissionAmt(commission.commission(finalBid))
-                .payoutAmt(commission.payout(finalBid) - nullToZero(auction.getAgentFeeAmt()))
+                .payoutAmt(payoutAmt)
                 .paymentDeadline(endedAt.plusHours(PAYMENT_DEADLINE_HOURS))
                 .consecutiveWorldApiFailures(0)
                 .build();
@@ -1013,6 +1014,46 @@ public class EscrowService {
      */
     private static long nullToZero(Long v) {
         return v == null ? 0L : v;
+    }
+
+    /**
+     * Computes the {@code escrow.payout_amt} for an ended auction, branching
+     * on the auction's realty-group shape. The three cases are mutually
+     * exclusive at the column level:
+     *
+     * <ul>
+     *   <li><b>Case 3 (E -- SL-group-owned)</b>: {@code realty_group_sl_group_id IS NOT NULL}.
+     *       {@code payoutAmt = 0}. The earnings (finalBid - commission) are credited
+     *       entirely via internal wallet routing at payout-success:
+     *       {@code AgentCommissionDistributor} credits the listing agent's wallet with
+     *       {@code agent_slice} and the realty group's wallet with {@code group_slice}.
+     *       No L$ leaves SLPA to an SL avatar from the escrow row, so the terminal
+     *       PAYOUT command carries amount=0 and is a SL-side no-op. Spec §8.5, §9.6.</li>
+     *   <li><b>Case 1 (D legacy -- group-listed, no SL group)</b>:
+     *       {@code realty_group_id IS NOT NULL AND realty_group_sl_group_id IS NULL}.
+     *       {@code payoutAmt = commission.payout(finalBid) - agent_fee_amt}. The terminal
+     *       pays the reduced amount to the seller's avatar; {@code AgentFeeDistributor}
+     *       splits the withheld {@code agent_fee_amt} at payout-success. Spec §7.1.</li>
+     *   <li><b>Individual</b>: both group columns null.
+     *       {@code payoutAmt = commission.payout(finalBid)}.</li>
+     * </ul>
+     *
+     * <p>The escrow's {@code payoutTargetUuid} is still the seller's SL avatar for
+     * case-3 — the column is set elsewhere from {@code auction.seller.slAvatarUuid}
+     * and remains correct. For case-3 it simply receives 0 L$ from the terminal,
+     * because all routing is internal.
+     */
+    private long computePayoutAmt(Auction auction, long finalBid) {
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            // Case 3: earnings stay in SLPA; AgentCommissionDistributor credits agent
+            // and group wallets internally at payout-success.
+            return 0L;
+        }
+        // Case 1 (legacy) and individual both go through D's existing formula:
+        // payout = commission.payout(finalBid) - agent_fee_amt; agent_fee_amt is NULL
+        // for individual listings (no realty group), so nullToZero collapses it to
+        // the unreduced payout in that branch.
+        return commission.payout(finalBid) - nullToZero(auction.getAgentFeeAmt());
     }
 
     /**
