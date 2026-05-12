@@ -313,11 +313,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Realty Groups: SL-group-owned listings (Sub-project E, 2026-05-12)
 
-- **Admin re-verify of an SL group registration** (after drift, e.g. SL changes the founder) — moved to F ([#240](https://github.com/TheCodeLlama/slparcelauctions/issues/240)). Spec §7.5.
-- **Admin force-unregister of an SL group** (compliance action) — moved to F (#240).
-- **Re-verify cadence for verified SL groups** (periodic re-poll of the About text / founder UUID) — moved to F (#240).
-- **Bulk per-member commission-rate edit** — UX polish; later. Leader currently edits one member at a time via the member edit drawer.
-- **Per-member commission-rate analytics dashboard** — F or later. No surface today shows "what each member earned across all closed listings".
 - **C-era code/column cleanup** — delete `AgentFeeDistributor`, drop `auctions.agent_fee_rate / agent_fee_split / agent_fee_amt`, drop `realty_groups.agent_fee_rate / agent_fee_split`, simplify `RealtyGroupListingService` once no case-1 rows remain in the wild. Tracked in [Realty Groups: G (#246)](https://github.com/TheCodeLlama/slparcelauctions/issues/246).
 - **`ListingEligibleGroupDto` does not carry per-member commission rate** — the listing wizard double-fetches via `useRealtyGroup` to surface the rate to the user. Adding `agentCommissionRate` to the eligible-groups DTO would save a round-trip on every parcel lookup. Moved to G.
 - **`AuctionGroupAttributionDto` does not expose `realtyGroupSlGroupId`** as an explicit case-3 marker. The frontend treats any non-null `realtyGroup` as case-3, which is sound after E (case-1 is unreachable from the wizard), but G can decide whether to add the marker for symmetric typing on the wire.
@@ -325,6 +320,20 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **PAYOUT TerminalCommand with amount=0 for case-3 auctions** — the escrow LSL script's behavior on $0 PAYOUTs has not been verified end-to-end. May need a "skip-terminal-for-case-3" branch or graceful $0 handling in the script. Track separately (in-world LSL touch).
 - **Seller notification on case-3 escrow payout fires with amount=0**, which is misleading copy ("L$0 payout received"). The agent commission credit + group wallet credit are the meaningful events; the seller-side notification message needs a case-3-aware tweak. Track separately.
 - **Postman variable wiring for `/sl/sl-group/verify` is approximate** — the new "SL group founder-terminal verify" request guesses `X-Slpa-Terminal-Auth` as the shared-secret header name; the exact header is whatever `SlTerminalAuthFilter` reads. Verify against the filter wiring before relying on the request.
+
+### Realty Groups: Admin Moderation (Sub-project F, 2026-05-12)
+
+- **Realtime ban broadcast / forced-logout WebSocket** for groups — deferred. Same posture as the User-side ban broadcast (FOOTGUNS §F.106). Members continue operating under the group until their next request after Redis cache eviction (5-min default TTL).
+- **Report-threshold notification fan-out** — when a group crosses N open reports, no proactive admin notification is sent. Same shape as the deferred listing-side counterpart.
+- **Per-listing admin-suspend timer** — existing indefinite per-listing admin-suspend stays untouched (deliberate). Could be unified later with the bulk-suspend 48h timer.
+- **Dedicated group-reviews page** — `GroupRatingBadge` links to the leader's user-side reviews page as a stopgap. A dedicated `/realty/groups/{publicId}/reviews` page is deferred.
+- **Reputation-driven bid-eligibility gating** — Phase 8 review-score thresholds for bidding. Not in F.
+- **Reverse-search by SL group UUID for ban evasion** — if a banned group's leader registers a new SLPA group with the same SL group UUID, F doesn't currently block. Tracked as a deferred fraud-signal item.
+- **`AdminActionType` UI label localization** — 13 new action types render raw enum names in the audit log; no localization for now.
+- **`SystemUserResolver` unused field on `BulkSuspendedListingExpiryTask`** — minor polish; resolver lookup happens inside `AdminActionService.recordSystemAction` so the task's own injection is unused. Drop in next cleanup pass.
+- **Drift-detection at-scale concerns** — `SlGroupReverifyTask` runs hourly with a 30d cadence; at large registration counts the per-row World API hits may rate-limit. Add `slpa.realty.sl-group.reverify-batch-size` to throttle if it becomes a problem.
+- **Empty-due audit row** — `BulkSuspendedListingExpiryTask` and `GroupSuspensionExpiryTask` deliberately skip writing an `_EXPIRY_RUN` audit row when no work was done. If audit completeness matters for compliance reporting, change to write one row per tick.
+- **`@Transactional` on the controller (Tasks 10 + 14)** — both admin moderation controllers carry `@Transactional` on the action methods. Works today; moving the transaction boundary into the service layer is the cleaner pattern. Decide once across the moderation package.
 
 ### Pre-existing test flake: ReconciliationServiceTest.staleBalanceRecordsErrorStatus
 
