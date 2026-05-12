@@ -610,7 +610,7 @@ describe("ListingWizardForm — List-as picker", () => {
           },
         ]),
       ),
-      // Sufficient balance so AgentFeePreview does not disable the submit button.
+      // Sufficient balance so AgentCommissionPreview does not disable the submit button.
       realtyGroupWalletHandlers.walletSuccess("g1", { balance: 10000, reserved: 0, available: 10000 }),
       http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
       http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
@@ -693,8 +693,6 @@ describe("ListingWizardForm — List-as picker", () => {
               agentCommissionRate: 0.1,
             },
           ],
-          agentFeeRate: "0.02",
-          agentFeeSplit: "0.5",
           memberSeatLimit: 25,
           memberCount: 2,
         }),
@@ -769,8 +767,6 @@ describe("ListingWizardForm — List-as picker", () => {
               agentCommissionRate: 0.1,
             },
           ],
-          agentFeeRate: "0.02",
-          agentFeeSplit: "0.5",
           memberSeatLimit: 25,
           memberCount: 2,
         }),
@@ -796,6 +792,54 @@ describe("ListingWizardForm — List-as picker", () => {
     // The starting bid prefilled at 500 from sellerResponse default; the
     // wizard's AuctionSettingsForm will load the same default. Verify the
     // case-3 preview renders with the L$/commission split copy.
+    expect(
+      await screen.findByTestId("agent-commission-preview"),
+    ).toBeInTheDocument();
+  });
+
+  // Realty Groups: G — case-1 ("agent listing their own land under a group")
+  // is gone. The wizard now renders AgentCommissionPreview unconditionally
+  // whenever an eligible group is selected and startingBid > 0, regardless
+  // of whether the parcel is SL-group-owned.
+  it("renders AgentCommissionPreview for a non-SL-group-owned parcel once a group is picked (post-G — case-1 removed)", async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+        HttpResponse.json([
+          {
+            publicId: "g1",
+            name: "Sunset Realty",
+            slug: "sunset",
+            logoUrl: null,
+            agentCommissionRate: 0.02,
+          },
+        ]),
+      ),
+      realtyGroupWalletHandlers.walletSuccess("g1", {
+        balance: 10000,
+        reserved: 0,
+        available: 10000,
+      }),
+      http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
+      http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<ListingWizardForm mode="create" />, {
+      auth: "authenticated",
+    });
+
+    await user.type(screen.getByLabelText(/Parcel UUID/i), VALID_UUID);
+    await user.click(screen.getByRole("button", { name: /Look up/i }));
+    await screen.findByText("Beachfront retreat");
+
+    // Parcel ownerType="agent" (default sampleParcel) -- pre-G this would
+    // have rendered AgentFeePreview. Post-G the wizard renders the
+    // commission preview regardless.
+    await user.click(await screen.findByText(/Sunset Realty/i));
+
+    // Default seller fixture starts at L$500 starting bid — the preview gates
+    // on startingBid > 0, which the AuctionSettingsForm provides out of the box.
     expect(
       await screen.findByTestId("agent-commission-preview"),
     ).toBeInTheDocument();

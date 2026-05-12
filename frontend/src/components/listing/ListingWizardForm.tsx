@@ -13,7 +13,6 @@ import { cn } from "@/lib/cn";
 import type { SellerAuctionResponse } from "@/types/auction";
 import type { SuspensionReasonCode } from "@/types/cancellation";
 import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
-import { AgentFeePreview } from "./AgentFeePreview";
 import { AgentCommissionPreview } from "./AgentCommissionPreview";
 import { ListAsGroupPicker } from "./ListAsGroupPicker";
 import { ListingWizardLayout } from "./ListingWizardLayout";
@@ -355,40 +354,23 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                       }
                       // SL-group-owned parcels: no Individual fallback —
                       // you cannot personally own group-owned land. Personal
-                      // (agent-owned) land keeps the Individual radio for
-                      // the legacy case-1 flow.
+                      // (agent-owned) land keeps the Individual radio so the
+                      // seller can list outside any group.
                       showIndividual={!parcelIsSlGroupOwned}
                     />
                     {selectedGroup && draft.state.startingBid > 0 && (
-                      parcelIsSlGroupOwned ? (
-                        // Case 3: agent listing group-owned land under a
-                        // realty group. Earnings split agent ↔ group per
-                        // the agent's per-member commission rate, which is
-                        // projected onto the eligible-list row by the
-                        // backend (no second round-trip).
-                        <AgentCommissionPreview
-                          startingBid={draft.state.startingBid}
-                          groupName={selectedGroup.name}
-                          groupPublicId={selectedGroup.publicId}
-                          agentCommissionRate={
-                            selectedGroup.agentCommissionRate
-                          }
-                          onInsufficient={setGroupWalletInsufficient}
-                        />
-                      ) : (
-                        // Legacy case 1: agent listing their own land under
-                        // a group. Group takes a flat agent-fee slice off
-                        // the seller's payout — sized by the caller's
-                        // per-member commission rate (same number, just a
-                        // different formula).
-                        <AgentFeePreview
-                          startingBid={draft.state.startingBid}
-                          groupName={selectedGroup.name}
-                          agentFeeRate={selectedGroup.agentCommissionRate}
-                          groupPublicId={selectedGroup.publicId}
-                          onInsufficient={setGroupWalletInsufficient}
-                        />
-                      )
+                      // Realty Groups: G — case-1 ("agent listing own land
+                      // under a group") is gone, so every group-attributed
+                      // listing renders the same case-3 preview: platform
+                      // commission off the top, then earnings split agent ↔
+                      // group per the caller's per-member commission rate.
+                      <AgentCommissionPreview
+                        startingBid={draft.state.startingBid}
+                        groupName={selectedGroup.name}
+                        groupPublicId={selectedGroup.publicId}
+                        agentCommissionRate={selectedGroup.agentCommissionRate}
+                        onInsufficient={setGroupWalletInsufficient}
+                      />
                     )}
                   </section>
                 )}
