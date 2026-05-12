@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalan
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderTermsNotAcceptedException;
+import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -271,6 +272,26 @@ public class RealtyExceptionHandler {
     // -------------------------------------------------------------------------
     // Sub-project E — SL group registration exceptions (spec §5.1, §5.5, §7)
     // -------------------------------------------------------------------------
+
+    /**
+     * Mirrors {@code SlExceptionHandler.handleInvalidHeaders} for the realty
+     * package. {@code SlGroupVerifyController} (in
+     * {@code com.slparcelauctions.backend.realty.slgroup}) calls
+     * {@link com.slparcelauctions.backend.sl.SlHeaderValidator#validate} per-handler
+     * because there is no global in-world filter; the throw must therefore be
+     * mapped here so the LSL caller sees {@code 403 SL_INVALID_HEADERS} (same
+     * wire shape as the other {@code /api/v1/sl/**} endpoints) instead of
+     * falling through to the 500 catch-all.
+     */
+    @ExceptionHandler(InvalidSlHeadersException.class)
+    public ProblemDetail handleInvalidSlHeaders(InvalidSlHeadersException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/sl/invalid-headers"));
+        pd.setTitle("Invalid SL headers");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_INVALID_HEADERS");
+        return pd;
+    }
 
     @ExceptionHandler(SlGroupAlreadyRegisteredException.class)
     public ProblemDetail handleSlGroupAlreadyRegistered(

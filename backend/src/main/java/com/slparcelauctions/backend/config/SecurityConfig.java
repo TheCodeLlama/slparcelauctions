@@ -83,6 +83,14 @@ public class SecurityConfig {
                         // /api/v1/sl/verify: header-validated inside the handler,
                         // no JWT (the SL grid cannot authenticate). FOOTGUNS §B.5.
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/parcel/verify").permitAll()
+                        // Realty groups sub-project E §7.3 founder-via-terminal
+                        // LSL callback. Same trust model as the other /api/v1/sl/**
+                        // permitAll matchers above: SL-injected headers
+                        // (X-SecondLife-Shard / X-SecondLife-Owner-Key) validated
+                        // by SlHeaderValidator inside SlGroupVerifyController; the
+                        // LSL caller cannot present a JWT. FOOTGUNS §B.5: this
+                        // MUST sit before the /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/sl-group/verify").permitAll()
                         // Escrow SL-facing endpoints (Epic 05 sub-spec 1 Tasks 4/5/7/9).
                         // Same dual-layer trust model as /api/v1/sl/verify: SL headers
                         // (X-SecondLife-Shard / X-SecondLife-Owner-Key) validated by
