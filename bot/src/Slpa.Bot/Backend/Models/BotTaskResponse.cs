@@ -23,4 +23,6 @@ public sealed record BotTaskResponse(
     DateTimeOffset? NextRunAt,
     int? RecurrenceIntervalSeconds,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? CompletedAt);
+    DateTimeOffset? CompletedAt,
+    Guid? RecipientUuid = null,
+    long? AmountL = null);

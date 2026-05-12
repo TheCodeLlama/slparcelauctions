@@ -20,6 +20,7 @@ public sealed class TaskLoop : BackgroundService
     private readonly IBotSession _session;
     private readonly Func<VerifyHandler> _verify;
     private readonly Func<MonitorHandler> _monitor;
+    private readonly Func<WithdrawGroupHandler> _withdrawGroup;
     private readonly IBackendClient _backend;
     private readonly ILogger<TaskLoop> _log;
 
@@ -31,8 +32,9 @@ public sealed class TaskLoop : BackgroundService
         IBackendClient backend,
         VerifyHandler verify,
         MonitorHandler monitor,
+        WithdrawGroupHandler withdrawGroup,
         ILogger<TaskLoop> log)
-        : this(session, backend, () => verify, () => monitor, log)
+        : this(session, backend, () => verify, () => monitor, () => withdrawGroup, log)
     {
     }
 
@@ -45,12 +47,14 @@ public sealed class TaskLoop : BackgroundService
         IBackendClient backend,
         Func<VerifyHandler> verify,
         Func<MonitorHandler> monitor,
+        Func<WithdrawGroupHandler> withdrawGroup,
         ILogger<TaskLoop> log)
     {
         _session = session;
         _backend = backend;
         _verify = verify;
         _monitor = monitor;
+        _withdrawGroup = withdrawGroup;
         _log = log;
     }
 
@@ -129,6 +133,7 @@ public sealed class TaskLoop : BackgroundService
             BotTaskType.VERIFY => _verify().HandleAsync(task, ct),
             BotTaskType.MONITOR_AUCTION => _monitor().HandleAsync(task, ct),
             BotTaskType.MONITOR_ESCROW => _monitor().HandleAsync(task, ct),
+            BotTaskType.WITHDRAW_GROUP => _withdrawGroup().HandleAsync(task, ct),
             _ => Task.CompletedTask
         };
     }
