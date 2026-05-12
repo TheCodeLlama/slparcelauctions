@@ -170,6 +170,52 @@ export interface ListingEligibleGroup {
   agentFeeRate: number;
 }
 
+// ─── Group wallet ──────────────────────────────────────────────────────────
+
+export interface LedgerActor {
+  publicId: string;
+  displayName: string;
+}
+
+export type GroupLedgerEntryType =
+  | "LISTING_FEE_DEBIT"
+  | "LISTING_FEE_REFUND"
+  | "AGENT_FEE_CREDIT"
+  | "WITHDRAW_QUEUED"
+  | "WITHDRAW_COMPLETED"
+  | "WITHDRAW_REVERSED"
+  | "DORMANCY_AUTO_RETURN"
+  | "ADJUSTMENT";
+
+export interface GroupLedgerEntry {
+  publicId: string;
+  entryType: GroupLedgerEntryType;
+  amount: number;
+  balanceAfter: number;
+  reservedAfter: number;
+  refType?: string;
+  refPublicId?: string;
+  actor?: LedgerActor;
+  createdAt: string;
+}
+
+export interface GroupWallet {
+  balance: number;
+  reserved: number;
+  available: number;
+  recentLedger: GroupLedgerEntry[];
+}
+
+export interface GroupWithdrawRequest {
+  amount: number;
+  idempotencyKey: string;
+}
+
+export interface GroupWithdrawResponse {
+  queueId: number;
+  estimatedFulfillmentSeconds: number;
+}
+
 // ─── Admin list filters ────────────────────────────────────────────────────
 
 export type AdminRealtyGroupsStatusFilter = "active" | "dissolved" | "all";

@@ -41,6 +41,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.LedgerRow;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.wallet.WalletService;
+import com.slparcelauctions.backend.realty.wallet.RealtyGroupWalletService;
 import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
 import com.slparcelauctions.backend.wallet.exception.WalletTermsNotAcceptedException;
 
@@ -64,6 +65,7 @@ public class MeWalletController {
     private static final int MAX_LEDGER_PAGE_SIZE = 100;
 
     private final WalletService walletService;
+    private final RealtyGroupWalletService realtyGroupWalletService;
     private final UserRepository userRepository;
     private final UserLedgerRepository ledgerRepository;
     private final AuctionRepository auctionRepository;
@@ -269,8 +271,14 @@ public class MeWalletController {
 
         Long amount = auction.getListingFeeAmt() != null ? auction.getListingFeeAmt() : defaultListingFee;
 
-        // WalletService.debitListingFee validates available >= amount.
-        walletService.debitListingFee(user, amount, auction.getId());
+        // Route debit: group wallet for group-listed auctions, user wallet otherwise.
+        // Spec §5.4.
+        if (auction.getRealtyGroupId() != null) {
+            realtyGroupWalletService.debitListingFee(
+                auction.getRealtyGroupId(), auction.getId(), amount, user.getId());
+        } else {
+            walletService.debitListingFee(user, amount, auction.getId());
+        }
 
         auction.setListingFeePaid(true);
         auction.setListingFeeAmt(amount);

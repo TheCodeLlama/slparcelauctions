@@ -7,6 +7,8 @@ import com.slparcelauctions.backend.auth.dto.RegisterRequest;
 import com.slparcelauctions.backend.auth.exception.InvalidCredentialsException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
 import com.slparcelauctions.backend.auth.exception.UsernameAlreadyExistsException;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
+import com.slparcelauctions.backend.realty.wallet.dormancy.GroupWalletDormancyTask;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -56,6 +58,12 @@ class AuthServiceTest {
     BanCheckService banCheckService;
 
     @Mock
+    RealtyGroupMemberRepository realtyGroupMemberRepository;
+
+    @Mock
+    GroupWalletDormancyTask groupWalletDormancyTask;
+
+    @Mock
     HttpServletRequest httpRequest;
 
     AuthService authService;
@@ -63,7 +71,8 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         authService = new AuthService(userService, userRepository, refreshTokenService,
-                jwtService, passwordEncoder, banCheckService);
+                jwtService, passwordEncoder, banCheckService,
+                realtyGroupMemberRepository, groupWalletDormancyTask);
         // lenient: these stubs are only consumed by tests that exercise HTTP paths
         lenient().when(httpRequest.getHeader("User-Agent")).thenReturn("TestAgent/1.0");
         lenient().when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");

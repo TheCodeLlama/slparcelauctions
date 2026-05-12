@@ -893,6 +893,96 @@ export const userDeletionHandlers = {
     ),
 };
 
+// ---------------------------------------------------------------------------
+// Realty group wallet handlers
+// ---------------------------------------------------------------------------
+
+export const realtyGroupWalletHandlers = {
+  /**
+   * Default GET wallet — zero-balance group with empty ledger.
+   * Matches any group public ID.
+   */
+  walletEmpty: () =>
+    http.get("*/api/v1/realty/groups/:publicId/wallet", () =>
+      HttpResponse.json({
+        balance: 0,
+        reserved: 0,
+        available: 0,
+        recentLedger: [],
+      }),
+    ),
+
+  walletSuccess: (publicId: string, overrides: Record<string, unknown> = {}) =>
+    http.get(`*/api/v1/realty/groups/${publicId}/wallet`, () =>
+      HttpResponse.json({
+        balance: 0,
+        reserved: 0,
+        available: 0,
+        recentLedger: [],
+        ...overrides,
+      }),
+    ),
+
+  /** Default GET ledger — empty array. Matches any group public ID. */
+  ledgerEmpty: () =>
+    http.get("*/api/v1/realty/groups/:publicId/wallet/ledger", () =>
+      HttpResponse.json([]),
+    ),
+
+  ledgerSuccess: <T>(publicId: string, entries: T[]) =>
+    http.get(`*/api/v1/realty/groups/${publicId}/wallet/ledger`, () =>
+      HttpResponse.json(entries),
+    ),
+
+  /** Default POST withdraw — 202 with queueId=1. */
+  withdrawSuccess: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        { queueId: 1, estimatedFulfillmentSeconds: 30 },
+        { status: 202 },
+      ),
+    ),
+
+  withdrawInsufficientBalance: (available: number, requested: number) =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 422,
+          code: "INSUFFICIENT_GROUP_BALANCE",
+          title: "Insufficient group balance",
+          detail: "The group wallet does not have enough available funds.",
+          available,
+          requested,
+        },
+        { status: 422 },
+      ),
+    ),
+
+  withdraw403: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "INSUFFICIENT_GROUP_PERMISSION",
+          title: "Insufficient group permission",
+        },
+        { status: 403 },
+      ),
+    ),
+
+  withdraw410: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 410,
+          code: "GROUP_DISSOLVED",
+          title: "Group is dissolved",
+        },
+        { status: 410 },
+      ),
+    ),
+};
+
 /**
  * Default handlers registered at server startup. Establishes the "no session"
  * baseline so tests that don't explicitly authenticate get the unauthenticated
@@ -906,4 +996,7 @@ export const userDeletionHandlers = {
 export const defaultHandlers = [
   authHandlers.refreshUnauthenticated(),
   http.get("*/api/v1/me/realty-groups", () => HttpResponse.json([])),
+  realtyGroupWalletHandlers.walletEmpty(),
+  realtyGroupWalletHandlers.ledgerEmpty(),
+  realtyGroupWalletHandlers.withdrawSuccess(),
 ];

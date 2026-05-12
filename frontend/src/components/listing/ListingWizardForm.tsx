@@ -86,6 +86,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [groupWalletInsufficient, setGroupWalletInsufficient] = useState(false);
   /**
    * Backend-driven suspension gate (Epic 08 sub-spec 2 §8.4). Set to a
    * {@link SuspensionReasonCode} when the wizard's save call returns a
@@ -105,6 +106,15 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
     eligibleGroupsQ.data?.find(
       (g) => g.publicId === draft.state.listAsGroupPublicId,
     ) ?? null;
+
+  // Reset the wallet-insufficient gate whenever the selected group is cleared
+  // (deselection back to Individual). Without this, switching from a low-balance
+  // group to Individual would leave the publish button disabled.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!selectedGroup) setGroupWalletInsufficient(false);
+  }, [selectedGroup]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Redirect edits of auctions whose status has progressed past
   // DRAFT_PAID to the activate page, per sub-spec 2 §4.4. We only
@@ -257,7 +267,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
             <Button
               onClick={handleSubmit}
               loading={submitting}
-              disabled={saving || submitting || !parcel}
+              disabled={saving || submitting || !parcel || groupWalletInsufficient}
             >
               Save & continue
             </Button>
@@ -321,6 +331,8 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                         startingBid={draft.state.startingBid}
                         groupName={selectedGroup.name}
                         agentFeeRate={selectedGroup.agentFeeRate}
+                        groupPublicId={selectedGroup.publicId}
+                        onInsufficient={setGroupWalletInsufficient}
                       />
                     )}
                   </section>

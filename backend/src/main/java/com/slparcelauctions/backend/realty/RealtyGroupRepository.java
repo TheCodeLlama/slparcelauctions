@@ -4,9 +4,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -81,4 +83,40 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
         @Param("includeDissolved") boolean includeDissolved,
         @Param("search") String search,
         Pageable pageable);
+
+    /** Pessimistic-write lock for wallet operations. Spec §5.3 step 6. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT g FROM RealtyGroup g WHERE g.id = :id")
+    Optional<RealtyGroup> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Sub-project D §10.1: groups with positive balance and no dormancy phase
+     * where no current member has rotated a refresh token within {@code windowDays}.
+     */
+    @Query(value = """
+        SELECT g.* FROM realty_groups g
+        WHERE g.dissolved_at IS NULL
+          AND g.balance_lindens > 0
+          AND g.wallet_dormancy_phase IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM realty_group_members m
+              JOIN refresh_tokens rt ON rt.user_id = m.user_id
+              WHERE m.group_id = g.id
+                AND rt.created_at > now() - make_interval(days => :windowDays)
+          )
+        """, nativeQuery = true)
+    List<RealtyGroup> findEligibleForDormancyFlag(@Param("windowDays") int windowDays);
+
+    /**
+     * Groups whose current dormancy phase is due for the next escalation
+     * (phase 1 to 2 etc) based on {@code phaseDurationDays} since
+     * wallet_dormancy_started_at.
+     */
+    @Query(value = """
+        SELECT g.* FROM realty_groups g
+        WHERE g.wallet_dormancy_phase BETWEEN 1 AND 4
+          AND g.wallet_dormancy_started_at < (now() - make_interval(days => :phaseDurationDays * g.wallet_dormancy_phase))
+        """, nativeQuery = true)
+    List<RealtyGroup> findDormancyPhaseDue(@Param("phaseDurationDays") int phaseDurationDays);
 }

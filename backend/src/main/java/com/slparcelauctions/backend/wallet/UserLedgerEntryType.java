@@ -93,5 +93,12 @@ public enum UserLedgerEntryType {
      * {@code WalletService.adminAdjustment}). Used for forensic corrections
      * after manual reconciliation, refunds-of-last-resort, etc.
      */
-    ADJUSTMENT
+    ADJUSTMENT,
+
+    /**
+     * Sub-project D -- listing-agent's slice of agent_fee_amt at escrow completion.
+     * Credited to the listing agent's user wallet after the seller's PAYOUT terminal
+     * command succeeds. See spec §7.2 (Site B).
+     */
+    AGENT_FEE_CREDIT
 }

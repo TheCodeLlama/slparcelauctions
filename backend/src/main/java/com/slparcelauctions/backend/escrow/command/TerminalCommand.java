@@ -68,6 +68,12 @@ public class TerminalCommand extends BaseMutableEntity {
     @Column(name = "listing_fee_refund_id")
     private Long listingFeeRefundId;
 
+    /** Non-null for {@code GROUP_WALLET_WITHDRAWAL} rows; null otherwise. Links the
+     *  completion handler to the correct ledger ({@code realty_group_ledger}) for
+     *  {@code WITHDRAW_COMPLETED} / {@code WITHDRAW_REVERSED} appends. */
+    @Column(name = "realty_group_id")
+    private Long realtyGroupId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TerminalCommandAction action;

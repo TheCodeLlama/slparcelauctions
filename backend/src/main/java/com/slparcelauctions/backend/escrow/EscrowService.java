@@ -145,7 +145,7 @@ public class EscrowService {
                 .state(EscrowState.ESCROW_PENDING)
                 .finalBidAmount(finalBid)
                 .commissionAmt(commission.commission(finalBid))
-                .payoutAmt(commission.payout(finalBid))
+                .payoutAmt(commission.payout(finalBid) - nullToZero(auction.getAgentFeeAmt()))
                 .paymentDeadline(endedAt.plusHours(PAYMENT_DEADLINE_HOURS))
                 .consecutiveWorldApiFailures(0)
                 .build();
@@ -1003,6 +1003,16 @@ public class EscrowService {
                     EscrowCallbackResponseReason.ESCROW_EXPIRED,
                     "Replay of previously-failed payment");
         }
+    }
+
+    /**
+     * Returns 0 when {@code v} is null; otherwise returns {@code v}.
+     * Used to safely subtract {@code agent_fee_amt} (which is NULL for
+     * individual listings) from the payout so the formula reads cleanly
+     * without a conditional at the call site. Spec §7.1.
+     */
+    private static long nullToZero(Long v) {
+        return v == null ? 0L : v;
     }
 
     /**

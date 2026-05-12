@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
@@ -36,6 +37,8 @@ import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -57,6 +60,7 @@ class RealtyGroupServiceDissolveTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock AuctionRepository auctions;
+    @Mock EscrowRepository escrows;
 
     @InjectMocks RealtyGroupService service;
 
@@ -236,5 +240,64 @@ class RealtyGroupServiceDissolveTest {
         RealtyGroup result = service.dissolveGroup(pid, 100L);
 
         assertNotNull(result.getDissolvedAt());
+    }
+
+    // ─────────────────── balance + escrow gates (Task 23) ───────────────────
+
+    @Test
+    void dissolveRejectsWhenGroupHasNonzeroBalance() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        g.setBalanceLindens(100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+
+        assertThrows(GroupHasNonzeroBalanceException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolveRejectsWhenGroupHasNonzeroReserved() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        g.setReservedLindens(50L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+
+        assertThrows(GroupHasNonzeroBalanceException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolveRejectsWhenInFlightEscrowsExist() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        // balance zero, reserved zero — only escrow gate fires
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(true);
+
+        assertThrows(GroupHasInFlightEscrowsException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolveSucceedsWhenAllGatesClear() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        // balance=0, reserved=0 (defaults from builder)
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
+
+        RealtyGroup result = service.dissolveGroup(pid, 100L);
+
+        assertNotNull(result.getDissolvedAt());
+        assertTrue(result.isDissolved());
     }
 }

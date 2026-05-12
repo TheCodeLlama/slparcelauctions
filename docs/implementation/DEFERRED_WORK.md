@@ -299,10 +299,25 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 
 ### Realty Groups: Listing Integration (Sub-project C, 2026-05-11)
 
-- **Agent-fee L$ distribution** — C calculates and snapshots `agent_fee_amt` on the auction row at SOLD close (spec §7), but no L$ moves. Sub-project D ([#238](https://github.com/TheCodeLlama/slparcelauctions/issues/238)) reads the snapshot and credits the group wallet + agent's user wallet. Backfill policy for C-era closed auctions is decided in D's brainstorm; default is go-live-forward.
 - **`MANAGE_OWN_LISTING` and `MANAGE_ALL_LISTINGS` permissions** — defined in the enum by C but not wired. Sub-project E ([#239](https://github.com/TheCodeLlama/slparcelauctions/issues/239)) wires them once case-2 (member-owned parcel) and broker-cancel/pause endpoints land.
 - **Postman collection updates** — the `SLPA -> Realty Groups -> List as Group` and `Dissolve gate` folders called for in plan Task 28 were not added in this PR. The automated test suite (backend + frontend) provides end-to-end coverage; Postman is a manual-test convenience surface that can be added in a follow-up.
 - **N+1 group lookup on batch auction reads** — `AuctionDtoMapper.resolveGroupAttribution` issues a `groups.findById` per auction on the batch overloads (used by listMine, search). Same shape as the existing N+1 photo / winner-publicId queries; deferred to the same future batch-hydrate refactor.
+
+### Realty Groups: Group Wallet (Sub-project D, 2026-05-11)
+
+- **Admin group-wallet ops** (force-credit, force-debit, manual ledger adjustments) — deferred to sub-project F (admin moderation). D ships with no admin wallet endpoints; leader-driven operations only. If a production incident demands admin intervention before F ships, a one-shot patch.
+- **`SPEND_FROM_GROUP_WALLET` wiring** — defined in `RealtyGroupPermission` by D but not wired to any endpoint. Deferred to the first discretionary-spend feature (advertising, penalty absorption, etc.) that justifies it.
+- **SL-group-destination withdrawals** — deferred to sub-project E. D ships leader-avatar withdraws only. E extends the withdraw modal with a recipient picker (leader's avatar vs. a verified registered SL group) and adds `TerminalCommand.action=WITHDRAW_GROUP` bot fulfillment.
+- **Leader-terms-block banner activation** — `LeaderTermsBlockBanner` is rendered conditionally in the group wallet page, but the condition depends on `leaderTermsAcceptedAt` which is not currently surfaced in the `GroupWalletDto`. The banner renders as if terms are accepted until the DTO is extended. Small follow-up: add `leaderTermsAcceptedAt` (or a boolean `leaderTermsAccepted`) to `GroupWalletDto` and `GroupWalletPage`.
+- **User-side `WalletDormancyJob`** — no dormancy job exists for the user wallet (as distinct from the group-wallet `GroupWalletDormancyJob` and `GroupWalletDormancyTask` shipped in D). If the user-wallet design spec called for a user-side dormancy sweep, it was not implemented. Flag as a separate work item.
+- **Postman collection updates for group wallet endpoints** — `GET /realty/groups/{publicId}/wallet`, `GET .../wallet/ledger`, `POST .../wallet/withdraw`, and `POST pay listing fee — group path` were not added to the `SLPA -> Realty Groups` folder in the Postman collection. Manual-test surface only; automated coverage provided by backend + frontend tests.
+
+### Pre-existing test flake: ReconciliationServiceTest.staleBalanceRecordsErrorStatus
+
+- **From:** Pre-dates sub-project D; already failing before D work began.
+- **Why:** Root cause not yet investigated. The test asserts that stale balance records trigger an `ERROR` reconciliation status, but the assertion fails in the current test run. No D code touches reconciliation logic beyond extending `ReconciliationRun` with two new nullable columns.
+- **When:** Investigate as a separate work item. Not blocking any D functionality.
+- **Notes:** Failing test: `com.slparcelauctions.backend.wallet.reconciliation.ReconciliationServiceTest#staleBalanceRecordsErrorStatus`. All other reconciliation tests pass.
 
 ---
 

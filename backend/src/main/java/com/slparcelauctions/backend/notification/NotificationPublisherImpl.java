@@ -842,6 +842,29 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         return out;
     }
 
+    // ── Group wallet withdrawal notifications (stub — fanout wired when Epic 09 dispatcher extended)
+
+    @Override
+    public void groupWalletWithdrawalCompleted(Long groupId, long amount, Long ledgerId) {
+        log.info("[NOTIF] group {} withdrawal completed L${} (ledger {})", groupId, amount, ledgerId);
+    }
+
+    @Override
+    public void groupWalletWithdrawalReversed(Long groupId, long amount, Long ledgerId, String reason) {
+        log.warn("[NOTIF] group {} withdrawal reversed L${} (ledger {}) reason={}",
+            groupId, amount, ledgerId, reason);
+    }
+
+    @Override
+    public void groupWalletDormancyFlagged(Long groupId, int phase, long balance) {
+        log.info("[NOTIF] group {} dormancy flagged phase={} balance=L${}", groupId, phase, balance);
+    }
+
+    @Override
+    public void groupWalletDormancyAutoReturned(Long groupId, long amount) {
+        log.info("[NOTIF] group {} dormancy auto-returned L${}", groupId, amount);
+    }
+
     /** Common per-recipient publish path for realty group notifications. */
     private void publishOne(long userId, NotificationCategory category,
                             String title, String body, Map<String, Object> data) {

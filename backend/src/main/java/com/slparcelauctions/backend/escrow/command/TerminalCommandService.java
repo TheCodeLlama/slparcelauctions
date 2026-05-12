@@ -74,6 +74,8 @@ public class TerminalCommandService {
     private final TerminalSecretService terminalSecretService;
     private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
+    private final com.slparcelauctions.backend.auction.agentfee.AgentFeeDistributor agentFeeDistributor;
+    private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -195,7 +197,8 @@ public class TerminalCommandService {
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
             if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL
-                    && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+                    && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL
+                    && cmd.getPurpose() != TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
                 ledgerRepo.save(buildFailedLedgerRow(
                         cmd, escrow, req.errorMessage(), req.slTransactionKey()));
             }
@@ -220,6 +223,8 @@ public class TerminalCommandService {
                     withdrawalCallbackHandler.onFailure(cmd.getId(), req.errorMessage());
                 } else if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
                     walletWithdrawalCallbackHandler.onStall(cmd, req.errorMessage());
+                } else if (cmd.getPurpose() == TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
+                    groupWalletWithdrawalCallbackHandler.onStall(cmd, req.errorMessage());
                 }
                 log.error("Terminal command {} STALLED after {} attempts: err={}",
                         cmd.getId(), cmd.getAttemptCount(), req.errorMessage());
@@ -240,6 +245,8 @@ public class TerminalCommandService {
             withdrawalCallbackHandler.onSuccess(cmd.getId());
         } else if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
             walletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
+            groupWalletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()
@@ -308,6 +315,16 @@ public class TerminalCommandService {
                 finalEscrow.getId(),
                 finalEscrow.getAuction().getTitle(),
                 cmd.getAmount());
+
+        // Sub-project D §7.2: now that the L$ has confirmed-departed SLPA for
+        // the reduced payoutAmt, the agent_fee_amt L$ left in our system is
+        // distributable. Split between group wallet and agent user wallet per
+        // agent_fee_split, snapshotted on the auction.
+        long agentFeeAmt = finalEscrow.getAuction().getAgentFeeAmt() == null
+                ? 0L : finalEscrow.getAuction().getAgentFeeAmt();
+        if (agentFeeAmt > 0) {
+            agentFeeDistributor.distribute(finalEscrow.getAuction(), agentFeeAmt);
+        }
     }
 
     private void handleEscrowRefundSuccess(TerminalCommand cmd, String slTxn, OffsetDateTime now) {
