@@ -943,6 +943,63 @@ export const realtyGroupWalletHandlers = {
       ),
     ),
 
+  /**
+   * Sub-project G §7.3 — happy-path POST withdraw that echoes the recipient
+   * back in the response so tests can assert the {@code recipient} field made
+   * it onto the wire. The echo is test-only and not part of the production
+   * wire shape (which is just {@code queueId} + {@code estimatedFulfillmentSeconds}).
+   */
+  withdrawSuccessEchoingRecipient: () =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/wallet/withdraw",
+      async ({ request }) => {
+        const body = (await request.json()) as { recipient?: string };
+        return HttpResponse.json(
+          {
+            queueId: 1,
+            estimatedFulfillmentSeconds: 60,
+            // Test-only echo — production response omits this field.
+            echoedRecipient: body.recipient ?? null,
+          },
+          { status: 202 },
+        );
+      },
+    ),
+
+  /** Sub-project G §7.3 — 422 when caller picks SL_GROUP but none is registered. */
+  withdrawSlGroupNotRegistered: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 422,
+          code: "SL_GROUP_NOT_REGISTERED",
+          title: "SL group not registered",
+          detail:
+            "This realty group has no currently-registered SL group. Choose the leader's avatar or register an SL group first.",
+        },
+        { status: 422 },
+      ),
+    ),
+
+  /**
+   * Sub-project G §7.3 — 422 when the realty group has an active suspension
+   * and the caller asked to route to SL_GROUP. The AVATAR recipient remains
+   * available.
+   */
+  withdrawSlGroupRegistrationSuspended: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 422,
+          code: "SL_GROUP_REGISTRATION_SUSPENDED",
+          title: "SL group registration suspended",
+          detail:
+            "SL-group withdrawals are blocked while the realty group is suspended.",
+        },
+        { status: 422 },
+      ),
+    ),
+
   withdrawInsufficientBalance: (available: number, requested: number) =>
     http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
       HttpResponse.json(

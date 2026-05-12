@@ -199,7 +199,38 @@ describe("withdrawFromGroupWallet", () => {
 
     expect(result.queueId).toBe(42);
     expect(result.estimatedFulfillmentSeconds).toBe(60);
-    expect(capturedBody).toMatchObject({ amount: 1000, idempotencyKey: "test-key-abc" });
+    expect(capturedBody).toMatchObject({
+      amount: 1000,
+      idempotencyKey: "test-key-abc",
+      recipient: "AVATAR",
+    });
+  });
+
+  // Sub-project G §7.3 — verify the recipient field round-trips for both
+  // values. The API client is a thin wrapper, but this guards against an
+  // accidental field rename that would silently fall back to AVATAR.
+  it("forwards recipient=SL_GROUP on the request body", async () => {
+    let capturedBody: unknown = null;
+    server.use(
+      http.post(
+        `*/api/v1/realty/groups/${GROUP_ID}/wallet/withdraw`,
+        async ({ request }) => {
+          capturedBody = await request.json();
+          return HttpResponse.json(
+            { queueId: 7, estimatedFulfillmentSeconds: 45 },
+            { status: 202 },
+          );
+        },
+      ),
+    );
+
+    await withdrawFromGroupWallet(GROUP_ID, {
+      amount: 250,
+      idempotencyKey: "sl-key",
+      recipient: "SL_GROUP",
+    });
+
+    expect(capturedBody).toMatchObject({ recipient: "SL_GROUP" });
   });
 
   it("throws ApiError with INSUFFICIENT_GROUP_BALANCE code on 422", async () => {
