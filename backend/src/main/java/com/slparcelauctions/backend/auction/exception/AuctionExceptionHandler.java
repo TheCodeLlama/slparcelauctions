@@ -287,6 +287,28 @@ public class AuctionExceptionHandler {
         return pd;
     }
 
+    /**
+     * Broker-cancel preconditions failed (Realty Groups E spec §5.5). 422 because
+     * the request is well-formed but the auction's case / status / broker linkage
+     * makes a broker-initiated cancellation inapplicable.
+     */
+    @ExceptionHandler(BrokerCancelNotApplicableException.class)
+    public ProblemDetail handleBrokerCancelNotApplicable(
+            BrokerCancelNotApplicableException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Broker Cancel Not Applicable");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", BrokerCancelNotApplicableException.CODE);
+        if (e.getAuctionPublicId() != null) {
+            pd.setProperty("auctionPublicId", e.getAuctionPublicId().toString());
+        }
+        if (e.getReason() != null) {
+            pd.setProperty("reason", e.getReason());
+        }
+        return pd;
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(

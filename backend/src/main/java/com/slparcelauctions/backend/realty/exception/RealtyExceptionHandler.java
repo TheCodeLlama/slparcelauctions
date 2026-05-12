@@ -9,6 +9,12 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
+import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMismatchException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotVerifiedException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
@@ -259,6 +265,111 @@ public class RealtyExceptionHandler {
         pd.setTitle("Group Has In-Flight Escrows");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "GROUP_HAS_INFLIGHT_ESCROWS");
+        return pd;
+    }
+
+    // -------------------------------------------------------------------------
+    // Sub-project E — SL group registration exceptions (spec §5.1, §5.5, §7)
+    // -------------------------------------------------------------------------
+
+    @ExceptionHandler(SlGroupAlreadyRegisteredException.class)
+    public ProblemDetail handleSlGroupAlreadyRegistered(
+            SlGroupAlreadyRegisteredException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("SL Group Already Registered");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupAlreadyRegisteredException.CODE);
+        if (e.getSlGroupUuid() != null) {
+            pd.setProperty("slGroupUuid", e.getSlGroupUuid().toString());
+        }
+        return pd;
+    }
+
+    @ExceptionHandler(SlGroupNotVerifiedException.class)
+    public ProblemDetail handleSlGroupNotVerified(
+            SlGroupNotVerifiedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("SL Group Not Verified");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupNotVerifiedException.CODE);
+        if (e.getPublicId() != null) {
+            pd.setProperty("publicId", e.getPublicId().toString());
+        }
+        return pd;
+    }
+
+    @ExceptionHandler(SlGroupVerificationExpiredException.class)
+    public ProblemDetail handleSlGroupVerificationExpired(
+            SlGroupVerificationExpiredException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.GONE, e.getMessage());
+        pd.setTitle("SL Group Verification Expired");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupVerificationExpiredException.CODE);
+        if (e.getPublicId() != null) {
+            pd.setProperty("publicId", e.getPublicId().toString());
+        }
+        return pd;
+    }
+
+    @ExceptionHandler(SlGroupFounderMismatchException.class)
+    public ProblemDetail handleSlGroupFounderMismatch(
+            SlGroupFounderMismatchException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("SL Group Founder Mismatch");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupFounderMismatchException.CODE);
+        if (e.getReportedAvatarUuid() != null) {
+            pd.setProperty("reportedAvatarUuid", e.getReportedAvatarUuid().toString());
+        }
+        if (e.getExpectedFounderUuid() != null) {
+            pd.setProperty("expectedFounderUuid", e.getExpectedFounderUuid().toString());
+        }
+        return pd;
+    }
+
+    @ExceptionHandler(ParcelNotOwnedByRegisteredSlGroupException.class)
+    public ProblemDetail handleParcelNotOwnedByRegisteredSlGroup(
+            ParcelNotOwnedByRegisteredSlGroupException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Parcel Not Owned By Registered SL Group");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", ParcelNotOwnedByRegisteredSlGroupException.CODE);
+        if (e.getParcelUuid() != null) {
+            pd.setProperty("parcelUuid", e.getParcelUuid().toString());
+        }
+        if (e.getRealtyGroupPublicId() != null) {
+            pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
+        }
+        return pd;
+    }
+
+    @ExceptionHandler(RegisteredSlGroupHasListingsException.class)
+    public ProblemDetail handleRegisteredSlGroupHasListings(
+            RegisteredSlGroupHasListingsException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Registered SL Group Has Listings");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", RegisteredSlGroupHasListingsException.CODE);
+        if (e.getSlGroupPublicId() != null) {
+            pd.setProperty("slGroupPublicId", e.getSlGroupPublicId().toString());
+        }
+        return pd;
+    }
+
+    @ExceptionHandler(SlGroupRegisteredBlocksDissolveException.class)
+    public ProblemDetail handleSlGroupRegisteredBlocksDissolve(
+            SlGroupRegisteredBlocksDissolveException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("SL Groups Block Dissolve");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupRegisteredBlocksDissolveException.CODE);
+        if (e.getRealtyGroupPublicId() != null) {
+            pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
+        }
+        pd.setProperty("count", e.getCount());
         return pd;
     }
 }
