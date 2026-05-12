@@ -15,14 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * Persistence-level verification of the two realty-group repository methods:
+ * Persistence-level verification of the realty-group repository methods:
  * <ul>
  *   <li>{@link AuctionRepository#existsActiveListingsByGroupId(Long)}</li>
- *   <li>{@link AuctionRepository#reassignListingAgentForGroup(Long, Long, Long)}</li>
+ *   <li>{@link AuctionRepository#reassignListingAgentToLeaderForCase1(Long, Long, Long)}</li>
+ *   <li>{@link AuctionRepository#reassignSellerToLeaderForCase3(Long, Long, Long)}</li>
  * </ul>
  *
  * <p>Uses {@code @Transactional} so each test auto-rolls back with no manual cleanup.
@@ -47,6 +50,7 @@ class AuctionRepositoryRealtyTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired RealtyGroupRepository groupRepo;
     @Autowired UserRepository userRepo;
+    @Autowired RealtyGroupSlGroupRepository slGroupRepo;
 
     // ── existsActiveListingsByGroupId ──────────────────────────────────────
 
@@ -81,34 +85,121 @@ class AuctionRepositoryRealtyTest {
         assertThat(auctionRepo.existsActiveListingsByGroupId(g.getId())).isTrue();
     }
 
-    // ── reassignListingAgentForGroup ───────────────────────────────────────
+    // ── reassignListingAgentToLeaderForCase1 ───────────────────────────────
 
     @Test
-    void reassignListingAgentForGroup_updates_active_only() {
+    void reassignListingAgentToLeaderForCase1_updates_active_only_and_skips_case3() {
         User leader = userRepo.save(buildUser("reassign-leader"));
         User agent  = userRepo.save(buildUser("reassign-agent"));
         RealtyGroup g = groupRepo.save(buildGroup("Reassign Group", "reassign-group", leader.getId()));
 
-        Auction active = buildAuction(agent, g.getId(), AuctionStatus.ACTIVE);
-        active.setListingAgent(agent);
-        active = auctionRepo.save(active);
+        // Case-1 legacy: realty_group_id set, realty_group_sl_group_id NULL.
+        Auction case1Active = buildAuction(agent, g.getId(), AuctionStatus.ACTIVE);
+        case1Active.setListingAgent(agent);
+        case1Active = auctionRepo.save(case1Active);
 
-        Auction ended = buildAuction(agent, g.getId(), AuctionStatus.ENDED);
-        ended.setListingAgent(agent);
-        ended = auctionRepo.save(ended);
+        // Case-1 ENDED — outside the pre-terminal status set.
+        Auction case1Ended = buildAuction(agent, g.getId(), AuctionStatus.ENDED);
+        case1Ended.setListingAgent(agent);
+        case1Ended = auctionRepo.save(case1Ended);
 
-        int rowsUpdated = auctionRepo.reassignListingAgentForGroup(
-                g.getId(), agent.getId(), leader.getId());
+        // Case-3: realty_group_sl_group_id set. Must NOT have listing_agent_id reassigned
+        // by the case-1 query.
+        RealtyGroupSlGroup slGroup = slGroupRepo.save(buildSlGroup(g.getId()));
+        Auction case3Active = buildAuction(agent, g.getId(), AuctionStatus.ACTIVE);
+        case3Active.setListingAgent(agent);
+        case3Active.setRealtyGroupSlGroupId(slGroup.getId());
+        case3Active = auctionRepo.save(case3Active);
+
+        int rowsUpdated = auctionRepo.reassignListingAgentToLeaderForCase1(
+                agent.getId(), g.getId(), leader.getId());
 
         assertThat(rowsUpdated).isEqualTo(1);
 
-        // Active auction's listing agent must now be the leader.
-        Auction updatedActive = auctionRepo.findById(active.getId()).orElseThrow();
-        assertThat(updatedActive.getListingAgent().getId()).isEqualTo(leader.getId());
+        // Case-1 ACTIVE flipped.
+        Auction updatedCase1 = auctionRepo.findById(case1Active.getId()).orElseThrow();
+        assertThat(updatedCase1.getListingAgent().getId()).isEqualTo(leader.getId());
 
-        // Ended auction must be untouched — still points at the original agent.
-        Auction untouchedEnded = auctionRepo.findById(ended.getId()).orElseThrow();
+        // Case-1 ENDED untouched.
+        Auction untouchedEnded = auctionRepo.findById(case1Ended.getId()).orElseThrow();
         assertThat(untouchedEnded.getListingAgent().getId()).isEqualTo(agent.getId());
+
+        // Case-3 untouched by the case-1 query — listing_agent_id stable.
+        Auction untouchedCase3 = auctionRepo.findById(case3Active.getId()).orElseThrow();
+        assertThat(untouchedCase3.getListingAgent().getId()).isEqualTo(agent.getId());
+    }
+
+    // ── reassignSellerToLeaderForCase3 ─────────────────────────────────────
+
+    @Test
+    void reassignSellerToLeaderForCase3_updates_active_only_and_skips_case1() {
+        User leader = userRepo.save(buildUser("case3-leader"));
+        User member = userRepo.save(buildUser("case3-member"));
+        RealtyGroup g = groupRepo.save(buildGroup("Case3 Group", "case3-group", leader.getId()));
+
+        RealtyGroupSlGroup slGroup = slGroupRepo.save(buildSlGroup(g.getId()));
+
+        // Case-3 ACTIVE: seller is the departing member, realty_group_sl_group_id set.
+        Auction case3Active = buildAuction(member, g.getId(), AuctionStatus.ACTIVE);
+        case3Active.setListingAgent(member);
+        case3Active.setRealtyGroupSlGroupId(slGroup.getId());
+        case3Active = auctionRepo.save(case3Active);
+
+        // Case-3 ENDED — outside the pre-terminal status set.
+        Auction case3Ended = buildAuction(member, g.getId(), AuctionStatus.ENDED);
+        case3Ended.setListingAgent(member);
+        case3Ended.setRealtyGroupSlGroupId(slGroup.getId());
+        case3Ended = auctionRepo.save(case3Ended);
+
+        // Case-1 legacy: realty_group_sl_group_id NULL. Must NOT have seller_id reassigned.
+        Auction case1Active = buildAuction(member, g.getId(), AuctionStatus.ACTIVE);
+        case1Active.setListingAgent(member);
+        case1Active = auctionRepo.save(case1Active);
+
+        int rowsUpdated = auctionRepo.reassignSellerToLeaderForCase3(
+                member.getId(), g.getId(), leader.getId());
+
+        assertThat(rowsUpdated).isEqualTo(1);
+
+        // Case-3 ACTIVE: seller_id flipped to leader; listing_agent_id stays the member
+        // (commission attribution preserved).
+        Auction updatedCase3 = auctionRepo.findById(case3Active.getId()).orElseThrow();
+        assertThat(updatedCase3.getSeller().getId()).isEqualTo(leader.getId());
+        assertThat(updatedCase3.getListingAgent().getId()).isEqualTo(member.getId());
+
+        // Case-3 ENDED untouched.
+        Auction untouchedEnded = auctionRepo.findById(case3Ended.getId()).orElseThrow();
+        assertThat(untouchedEnded.getSeller().getId()).isEqualTo(member.getId());
+
+        // Case-1 untouched by the case-3 query — seller_id stable.
+        Auction untouchedCase1 = auctionRepo.findById(case1Active.getId()).orElseThrow();
+        assertThat(untouchedCase1.getSeller().getId()).isEqualTo(member.getId());
+    }
+
+    @Test
+    void reassignQueries_skip_individual_auctions_without_realty_group() {
+        // Individual auction has realty_group_id NULL — neither query's WHERE clause
+        // matches, so both leave it untouched even when the departing user is its seller
+        // and listing agent.
+        User leader = userRepo.save(buildUser("indiv-leader"));
+        User member = userRepo.save(buildUser("indiv-member"));
+        RealtyGroup g = groupRepo.save(buildGroup("Indiv Group", "indiv-group", leader.getId()));
+
+        Auction individual = buildAuction(member, null, AuctionStatus.ACTIVE);
+        individual.setListingAgent(member);
+        individual = auctionRepo.save(individual);
+
+        int case3Rows = auctionRepo.reassignSellerToLeaderForCase3(
+                member.getId(), g.getId(), leader.getId());
+        int case1Rows = auctionRepo.reassignListingAgentToLeaderForCase1(
+                member.getId(), g.getId(), leader.getId());
+
+        assertThat(case3Rows).isEqualTo(0);
+        assertThat(case1Rows).isEqualTo(0);
+
+        Auction reloaded = auctionRepo.findById(individual.getId()).orElseThrow();
+        assertThat(reloaded.getSeller().getId()).isEqualTo(member.getId());
+        assertThat(reloaded.getListingAgent().getId()).isEqualTo(member.getId());
     }
 
     // ── builders ──────────────────────────────────────────────────────────
@@ -130,6 +221,17 @@ class AuctionRepositoryRealtyTest {
                 .leaderId(leaderId)
                 .agentFeeRate(new BigDecimal("0.0200"))
                 .agentFeeSplit(new BigDecimal("0.5000"))
+                .build();
+    }
+
+    private static RealtyGroupSlGroup buildSlGroup(Long realtyGroupId) {
+        return RealtyGroupSlGroup.builder()
+                .realtyGroupId(realtyGroupId)
+                .slGroupUuid(UUID.randomUUID())
+                .slGroupName("Test SL Group")
+                .verified(true)
+                .verifiedAt(OffsetDateTime.now())
+                .pollAttempts(0)
                 .build();
     }
 

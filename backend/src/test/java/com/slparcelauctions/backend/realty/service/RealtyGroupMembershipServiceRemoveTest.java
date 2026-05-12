@@ -168,6 +168,10 @@ class RealtyGroupMembershipServiceRemoveTest {
 
         service.removeMember(groupPid, memberPid, 100L);
 
-        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
+        // E §10: both reassignment queries fire. Case-3 flips seller_id; case-1 flips
+        // listing_agent_id. The repo's realty_group_sl_group_id predicates partition
+        // which rows each query actually touches.
+        verify(auctions).reassignSellerToLeaderForCase3(200L, g.getId(), g.getLeaderId());
+        verify(auctions).reassignListingAgentToLeaderForCase1(200L, g.getId(), g.getLeaderId());
     }
 }

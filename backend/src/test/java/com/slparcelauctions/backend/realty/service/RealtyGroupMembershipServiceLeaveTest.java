@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -132,14 +133,20 @@ class RealtyGroupMembershipServiceLeaveTest {
 
         service.leave(pid, 200L);
 
-        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
+        // E §10: both reassignment queries fire side-by-side. The repo's WHERE-clause
+        // filters (realty_group_sl_group_id IS NOT NULL vs IS NULL) decide which rows
+        // each query actually touches at the DB layer; the service just calls both.
+        verify(auctions).reassignSellerToLeaderForCase3(200L, g.getId(), g.getLeaderId());
+        verify(auctions).reassignListingAgentToLeaderForCase1(200L, g.getId(), g.getLeaderId());
     }
 
     @Test
-    void leave_does_not_touch_ended_auctions() {
-        // reassignListingAgentForGroup only modifies DRAFT/VERIFICATION_PENDING/ACTIVE rows
-        // per the query contract; the service just calls it — the repo's JPQL handles the
-        // filtering. This test confirms the call is made exactly once (not guarded by status).
+    void leave_case3Listings_seller_idReassignedToLeader_listingAgent_idStable() {
+        // Service-layer contract: the case-3 query is invoked with the departing user as
+        // the old user and the leader as the new seller. The repo's
+        // realty_group_sl_group_id IS NOT NULL predicate restricts the update to case-3
+        // rows — listing_agent_id is untouched by this query, so commission attribution
+        // for the departing member is preserved.
         UUID pid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L);
         when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
@@ -152,9 +159,53 @@ class RealtyGroupMembershipServiceLeaveTest {
 
         service.leave(pid, 200L);
 
-        // The repo query filters pre-terminal auctions; ended auctions are untouched by its
-        // WHERE clause. We verify the call fires and let the existing AuctionRepository
-        // tests verify the query predicate.
-        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
+        verify(auctions).reassignSellerToLeaderForCase3(200L, g.getId(), g.getLeaderId());
+    }
+
+    @Test
+    void leave_case1LegacyListings_listingAgent_idReassignedToLeader_seller_idUnchanged() {
+        // Service-layer contract: the case-1 query is invoked with the departing user as
+        // the old listing agent and the leader as the new listing agent. The repo's
+        // realty_group_sl_group_id IS NULL predicate restricts the update to case-1
+        // legacy rows — seller_id is untouched by this query.
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        RealtyGroupMember agent = RealtyGroupMember.builder()
+            .groupId(g.getId()).userId(200L).joinedAt(OffsetDateTime.now()).build();
+        when(members.findByGroupIdAndUserId(g.getId(), 200L)).thenReturn(Optional.of(agent));
+        User u = new User();
+        u.setUsername("agent");
+        when(users.findById(200L)).thenReturn(Optional.of(u));
+
+        service.leave(pid, 200L);
+
+        verify(auctions).reassignListingAgentToLeaderForCase1(200L, g.getId(), g.getLeaderId());
+    }
+
+    @Test
+    void leave_individualListings_unaffected() {
+        // Service-layer contract: both queries are scoped by realty_group_id = :groupId.
+        // Auctions with realty_group_id IS NULL fall outside both predicates, so they're
+        // untouched regardless of what the service does. The service can't know which
+        // individual rows exist — the predicate enforces it. We verify the only writes
+        // the service issues are the two scoped reassignments (no broad UPDATE).
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        RealtyGroupMember agent = RealtyGroupMember.builder()
+            .groupId(g.getId()).userId(200L).joinedAt(OffsetDateTime.now()).build();
+        when(members.findByGroupIdAndUserId(g.getId(), 200L)).thenReturn(Optional.of(agent));
+        User u = new User();
+        u.setUsername("agent");
+        when(users.findById(200L)).thenReturn(Optional.of(u));
+
+        service.leave(pid, 200L);
+
+        // Both reassignment queries pass groupId — neither can touch realty_group_id IS NULL
+        // rows. No other AuctionRepository writes fire from the leave path.
+        verify(auctions).reassignSellerToLeaderForCase3(200L, g.getId(), g.getLeaderId());
+        verify(auctions).reassignListingAgentToLeaderForCase1(200L, g.getId(), g.getLeaderId());
+        verifyNoMoreInteractions(auctions);
     }
 }
