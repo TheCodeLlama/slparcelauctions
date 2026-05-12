@@ -81,11 +81,12 @@ export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="group-wallet-page">
-      {/* Leader ToS block banner — only shown when the wallet DTO indicates
-          the leader hasn't accepted terms. In D scope the DTO doesn't include
-          a leaderTermsAcceptedAt field directly, so we pass undefined which
-          suppresses the banner. If a future DTO revision adds this field the
-          banner will start working automatically. */}
+      {/* Leader ToS block banner — gated on {@code wallet.leaderTermsAcceptedAt}.
+          The banner renders iff the wallet payload reports the leader has NOT
+          accepted wallet ToS ({@code leaderTermsAcceptedAt == null}). The
+          field is being added to the {@code GroupWallet} TS type by Task 18
+          in parallel; until that lands we narrow it here via a local cast.
+          Once Task 18 is merged, drop the cast and rely on the type. */}
       <LeaderTermsBlockBanner
         leaderTermsAcceptedAt={
           (wallet as unknown as { leaderTermsAcceptedAt?: string | null })
