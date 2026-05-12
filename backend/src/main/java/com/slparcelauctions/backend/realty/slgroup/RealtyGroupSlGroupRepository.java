@@ -58,6 +58,23 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
     long countByRealtyGroupId(Long realtyGroupId);
 
     /**
+     * Sub-project F §13.1 — rows due for periodic re-validation against the SL World API.
+     *
+     * <p>Returns verified, still-registered ({@code unregistered_at IS NULL}) rows whose
+     * {@code last_revalidated_at} is older than the cadence threshold (or NULL, meaning
+     * they've never been revalidated). The {@code SlGroupReverifyTask} computes
+     * {@code threshold = now - reverifyCadenceDays} and hands it in; this query then
+     * filters everything that's still within cadence.
+     */
+    @Query("""
+        SELECT r FROM RealtyGroupSlGroup r
+         WHERE r.verified = true
+           AND r.unregisteredAt IS NULL
+           AND (r.lastRevalidatedAt IS NULL OR r.lastRevalidatedAt < :threshold)
+        """)
+    List<RealtyGroupSlGroup> findDueForReverify(@Param("threshold") OffsetDateTime threshold);
+
+    /**
      * Sub-project E §5.3 — parcel-aware listing-eligible-groups.
      *
      * <p>Returns the (active) realty groups that:
