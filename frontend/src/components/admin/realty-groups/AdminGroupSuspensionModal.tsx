@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { isApiError } from "@/lib/api";
@@ -41,11 +41,25 @@ type DurationMode = "TIMED" | "PERMANENT";
  * underlying hook invalidates the suspension list so the parent Suspensions
  * tab re-renders against the freshly-issued row. Errors surface inline.
  */
-export function AdminGroupSuspensionModal({
-  open,
+export function AdminGroupSuspensionModal(props: AdminGroupSuspensionModalProps) {
+  // Form state lives on the inner component so each open mounts a fresh form;
+  // closing the modal unmounts the form and discards its state without needing
+  // a setState-in-effect reset (forbidden by react-hooks/set-state-in-effect).
+  return (
+    <Modal
+      open={props.open}
+      title="Issue suspension or ban"
+      onClose={props.onClose}
+    >
+      {props.open ? <AdminGroupSuspensionModalBody {...props} /> : null}
+    </Modal>
+  );
+}
+
+function AdminGroupSuspensionModalBody({
   groupPublicId,
   onClose,
-}: AdminGroupSuspensionModalProps) {
+}: Omit<AdminGroupSuspensionModalProps, "open">) {
   const [reason, setReason] = useState<SuspensionReason>("TOS_VIOLATION");
   const [notes, setNotes] = useState("");
   const [mode, setMode] = useState<DurationMode>("TIMED");
@@ -54,17 +68,6 @@ export function AdminGroupSuspensionModal({
   const [error, setError] = useState<string | null>(null);
 
   const issue = useIssueGroupSuspension(groupPublicId);
-
-  useEffect(() => {
-    if (!open) {
-      setReason("TOS_VIOLATION");
-      setNotes("");
-      setMode("TIMED");
-      setExpiresAt("");
-      setBulkSuspend(false);
-      setError(null);
-    }
-  }, [open]);
 
   function handleSubmit() {
     setError(null);
@@ -109,30 +112,7 @@ export function AdminGroupSuspensionModal({
   }
 
   return (
-    <Modal
-      open={open}
-      title="Issue suspension or ban"
-      onClose={onClose}
-      footer={
-        <>
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            disabled={issue.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleSubmit}
-            loading={issue.isPending}
-            data-testid="admin-group-suspension-modal-submit"
-          >
-            Issue
-          </Button>
-        </>
-      }
-    >
+    <>
       <div
         className="flex flex-col gap-3"
         data-testid="admin-group-suspension-modal"
@@ -222,6 +202,23 @@ export function AdminGroupSuspensionModal({
           </p>
         )}
       </div>
-    </Modal>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button
+          variant="secondary"
+          onClick={onClose}
+          disabled={issue.isPending}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={handleSubmit}
+          loading={issue.isPending}
+          data-testid="admin-group-suspension-modal-submit"
+        >
+          Issue
+        </Button>
+      </div>
+    </>
   );
 }
