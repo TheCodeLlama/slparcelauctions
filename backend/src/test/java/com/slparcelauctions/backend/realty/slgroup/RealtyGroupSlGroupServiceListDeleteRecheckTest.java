@@ -35,13 +35,14 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
     @Mock SlWorldApiClient worldApi;
     @Mock SlGroupVerificationCodeGenerator codeGen;
     @Mock AuctionRepository auctionRepo;
+    @Mock SlGroupAboutTextPollTask aboutTextPoller;
 
     private final Clock clock = Clock.fixed(
             Instant.parse("2026-05-12T12:00:00Z"), ZoneOffset.UTC);
 
     private RealtyGroupSlGroupService newService() {
         return new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, clock);
+                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
     }
 
     private RealtyGroup groupWithId(Long id, UUID publicId) {
@@ -209,8 +210,9 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
 
         assertThat(result).isSameAs(row);
         assertThat(result.isVerified()).isTrue();
-        // No save / no poll attempt — Task 11 will wire the actual poll call.
+        // No save / no poll attempt — guard short-circuits before delegation.
         verify(repo, never()).save(any(RealtyGroupSlGroup.class));
+        verifyNoInteractions(aboutTextPoller);
     }
 
     @Test
@@ -230,5 +232,6 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
 
         assertThat(result).isSameAs(row);
         verify(repo, never()).save(any(RealtyGroupSlGroup.class));
+        verifyNoInteractions(aboutTextPoller);
     }
 }

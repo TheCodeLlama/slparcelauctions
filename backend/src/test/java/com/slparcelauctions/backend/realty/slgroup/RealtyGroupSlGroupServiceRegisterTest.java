@@ -35,6 +35,7 @@ class RealtyGroupSlGroupServiceRegisterTest {
     @Mock SlWorldApiClient worldApi;
     @Mock SlGroupVerificationCodeGenerator codeGen;
     @Mock com.slparcelauctions.backend.auction.AuctionRepository auctionRepo;
+    @Mock SlGroupAboutTextPollTask aboutTextPoller;
 
     private final Clock clock = Clock.fixed(
             Instant.parse("2026-05-12T12:00:00Z"), ZoneOffset.UTC);
@@ -70,7 +71,7 @@ class RealtyGroupSlGroupServiceRegisterTest {
         when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, clock);
+                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
 
         RealtyGroupSlGroup result = svc.register(callerId, groupPublic, slGroupUuid);
 
@@ -93,7 +94,7 @@ class RealtyGroupSlGroupServiceRegisterTest {
                 .thenReturn(Optional.of(RealtyGroupSlGroup.builder().build()));
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, clock);
+                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
 
         assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
                 .isInstanceOf(SlGroupAlreadyRegisteredException.class);

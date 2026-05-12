@@ -40,6 +40,7 @@ public class RealtyGroupSlGroupService {
     private final SlWorldApiClient worldApi;
     private final SlGroupVerificationCodeGenerator codeGen;
     private final AuctionRepository auctionRepo;
+    private final SlGroupAboutTextPollTask aboutTextPoller;
     private final Clock clock;
 
     @Transactional
@@ -123,9 +124,7 @@ public class RealtyGroupSlGroupService {
      * to a different realty group are treated as a no-op success (row returned
      * unchanged) so the caller cannot probe existence.
      *
-     * <p>The actual poll delegation will be wired in by Task 11 (about-text poll
-     * helper). For now this stub returns the row unchanged when a poll would have
-     * been attempted.
+     * <p>Delegates the actual poll to {@link SlGroupAboutTextPollTask#pollOne}.
      */
     @Transactional
     public RealtyGroupSlGroup recheck(Long callerUserId, UUID realtyGroupPublicId,
@@ -139,9 +138,6 @@ public class RealtyGroupSlGroupService {
             // already verified or wrong realty group -- caller treats as no-op success
             return row;
         }
-        // Task 11 (about-text poll task) will provide a pollOne(row, now) method we can
-        // delegate to here. For now, this is a no-op: the row is returned unchanged. The
-        // implementer of Task 11 will replace this stub with delegation to that task helper.
-        return row;
+        return aboutTextPoller.pollOne(row, OffsetDateTime.now(clock));
     }
 }
