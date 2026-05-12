@@ -217,6 +217,17 @@ export const adminApi = {
       targetType?: AdminActionTargetType;
       targetId?: number;
       adminUserId?: number;
+      /**
+       * Entity-scoped filter — backend `entityType` query param. Currently the
+       * only supported value is `REALTY_GROUP`, which filters to action_types
+       * matching `REALTY_GROUP_*`. Spec §17.
+       */
+      entityType?: "REALTY_GROUP";
+      /**
+       * Wire-stable UUID of the entity scoped via `entityType`. For
+       * `entityType=REALTY_GROUP` this is the group's `publicId`.
+       */
+      entityId?: string;
       page: number;
       size: number;
     }): Promise<Page<AdminUserModerationRow>> {
@@ -224,6 +235,8 @@ export const adminApi = {
       if (params.targetType) sp.set("targetType", params.targetType);
       if (params.targetId !== undefined) sp.set("targetId", String(params.targetId));
       if (params.adminUserId !== undefined) sp.set("adminUserId", String(params.adminUserId));
+      if (params.entityType) sp.set("entityType", params.entityType);
+      if (params.entityId) sp.set("entityId", params.entityId);
       return api.get(`/api/v1/admin/audit?${sp.toString()}`);
     },
   },
