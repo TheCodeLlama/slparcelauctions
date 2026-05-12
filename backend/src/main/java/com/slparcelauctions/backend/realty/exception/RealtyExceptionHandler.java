@@ -1,17 +1,29 @@
 package com.slparcelauctions.backend.realty.exception;
 
 import java.net.URI;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
 import com.slparcelauctions.backend.realty.moderation.exception.SuspensionAlreadyActiveException;
 import com.slparcelauctions.backend.realty.moderation.exception.SuspensionNotFoundException;
+import com.slparcelauctions.backend.realty.reports.exception.AlreadyReportedException;
+import com.slparcelauctions.backend.realty.reports.exception.CannotReportOwnGroupException;
+import com.slparcelauctions.backend.realty.reports.exception.ReportNotFoundException;
+import com.slparcelauctions.backend.realty.reports.exception.ReportRateLimitedException;
 import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
@@ -27,6 +39,7 @@ import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -35,8 +48,17 @@ import lombok.extern.slf4j.Slf4j;
  */
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.realty")
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
+@RequiredArgsConstructor
 @Slf4j
 public class RealtyExceptionHandler {
+
+    /**
+     * Injected so {@link #handleReportRateLimited} can compute the next UTC-midnight
+     * reset for the {@code Retry-After} header. {@code RealtyGroupReportRateLimiter}
+     * uses {@code LocalDate.now(clock)} for its bucket key, so anchoring the retry
+     * hint to the same clock keeps the two consistent under test.
+     */
+    private final Clock clock;
 
     @ExceptionHandler(RealtyGroupNotFoundException.class)
     public ProblemDetail handleNotFound(RealtyGroupNotFoundException e, HttpServletRequest req) {
@@ -455,5 +477,113 @@ public class RealtyExceptionHandler {
             pd.setProperty("suspensionPublicId", e.getSuspensionPublicId().toString());
         }
         return pd;
+    }
+
+    /**
+     * Surfaces {@link ReportNotFoundException} as 404 Not Found. Thrown by
+     * {@code RealtyGroupReportService.find/resolve/dismiss} when the supplied
+     * report public id resolves to nothing or the row is already triaged
+     * (resolve/dismiss only act on OPEN rows; non-OPEN rows surface as not-found
+     * so the admin UI shows a consistent stale-row state).
+     */
+    @ExceptionHandler(ReportNotFoundException.class)
+    public ProblemDetail handleReportNotFound(
+            ReportNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/realty/report-not-found"));
+        pd.setTitle("Report Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REPORT_NOT_FOUND");
+        if (e.getReportPublicId() != null) {
+            pd.setProperty("reportPublicId", e.getReportPublicId().toString());
+        }
+        return pd;
+    }
+
+    // -------------------------------------------------------------------------
+    // Sub-project F — public report submission exceptions (spec §6.1, §12.1)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Surfaces {@link AlreadyReportedException} as 409 Conflict. Thrown when a
+     * reporter races a second submission past the in-service pre-check and trips
+     * the {@code uq_rg_reports_one_open_per_reporter} partial-unique index, or
+     * when the pre-check itself caught the existing OPEN row (post-Task 16, the
+     * service exclusively translates the {@code DataIntegrityViolationException}
+     * path — the pre-check raises this exception too if it gets added).
+     */
+    @ExceptionHandler(AlreadyReportedException.class)
+    public ProblemDetail handleAlreadyReported(
+            AlreadyReportedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/realty/already-reported"));
+        pd.setTitle("Already Reported");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "ALREADY_REPORTED");
+        if (e.getGroupPublicId() != null) {
+            pd.setProperty("groupPublicId", e.getGroupPublicId().toString());
+        }
+        return pd;
+    }
+
+    /**
+     * Surfaces {@link CannotReportOwnGroupException} as 409 Conflict. Members
+     * (including the leader) of a realty group cannot file user-reports against
+     * their own group — they have richer recourse paths (fraud flags, leadership
+     * transfer, dispute the listing) and shouldn't funnel internal disputes
+     * through the public report queue. Mapped here instead of 422 because the
+     * reporter and group are both perfectly valid; what's in conflict is the
+     * implied relationship (membership) between them.
+     */
+    @ExceptionHandler(CannotReportOwnGroupException.class)
+    public ProblemDetail handleCannotReportOwnGroup(
+            CannotReportOwnGroupException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/realty/cannot-report-own-group"));
+        pd.setTitle("Cannot Report Own Group");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "CANNOT_REPORT_OWN_GROUP");
+        if (e.getGroupPublicId() != null) {
+            pd.setProperty("groupPublicId", e.getGroupPublicId().toString());
+        }
+        return pd;
+    }
+
+    /**
+     * Surfaces {@link ReportRateLimitedException} as 429 Too Many Requests. Sets
+     * a {@code Retry-After} header (delta-seconds form) pointing to the next
+     * UTC-midnight bucket reset — that's when {@link com.slparcelauctions.backend
+     * .realty.reports.RealtyGroupReportRateLimiter}'s {@code yyyy-mm-dd}-keyed
+     * counter rolls over. The body's {@code retryAfterSeconds} mirrors the
+     * header so callers that parse the JSON envelope (instead of the header) get
+     * the same value.
+     *
+     * <p>Returns {@link ResponseEntity} (not bare {@link ProblemDetail}) so the
+     * header can ride alongside the body; explicit {@code Content-Type:
+     * application/problem+json} preserves the wire convention the rest of the
+     * handler shares via the default {@code ProblemDetail} return type.
+     */
+    @ExceptionHandler(ReportRateLimitedException.class)
+    public ResponseEntity<ProblemDetail> handleReportRateLimited(
+            ReportRateLimitedException e, HttpServletRequest req) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        OffsetDateTime nextResetUtc = LocalDate.now(clock)
+            .plusDays(1)
+            .atStartOfDay()
+            .atOffset(ZoneOffset.UTC);
+        long retryAfterSeconds = Math.max(1L, Duration.between(now, nextResetUtc).getSeconds());
+
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/realty/report-rate-limited"));
+        pd.setTitle("Report Rate Limited");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REPORT_RATE_LIMITED");
+        pd.setProperty("dailyLimit", e.getDailyLimit());
+        pd.setProperty("retryAfterSeconds", retryAfterSeconds);
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .header(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds))
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .body(pd);
     }
 }
