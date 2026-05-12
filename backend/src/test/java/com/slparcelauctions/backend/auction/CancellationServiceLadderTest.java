@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,6 +32,8 @@ import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
+import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
@@ -56,6 +59,8 @@ class CancellationServiceLadderTest {
     @Mock NotificationPublisher notificationPublisher;
     @Mock BanCheckService banCheckService;
     @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
+    @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
+    @Mock WalletService walletService;
 
     CancellationService service;
 
@@ -74,7 +79,7 @@ class CancellationServiceLadderTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
-                realtyGroupAuthorizer, fixed);
+                realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -113,6 +118,10 @@ class CancellationServiceLadderTest {
         assertThat(seller.getListingSuspensionUntil()).isNull();
         assertThat(seller.getBannedFromListing()).isFalse();
         assertThat(a.getPostCancelWatchUntil()).isEqualTo(now.plusHours(48));
+        // Wallet reservation release runs on every cancel path -- spec §10.2
+        // step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
+        verify(walletService).releaseReservationsForAuction(
+                eq(a.getId()), eq(BidReservationReleaseReason.AUCTION_CANCELLED));
     }
 
     @Test

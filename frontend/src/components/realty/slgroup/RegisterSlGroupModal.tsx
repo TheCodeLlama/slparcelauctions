@@ -24,9 +24,9 @@ export interface RegisterSlGroupModalProps {
  *     {@link useRegisterSlGroup}.
  *  2. Instructions — on a 201 response we render
  *     {@link SlGroupVerificationInstructionsCard} inline with the returned
- *     verification code and the dual instructions (About text / founder via
- *     terminal). The row also appears in the page table via TanStack
- *     invalidation in {@link useRegisterSlGroup}.
+ *     verification code and the founder-via-terminal instructions. The row
+ *     also appears in the page table via TanStack invalidation in
+ *     {@link useRegisterSlGroup}.
  *
  * Error handling:
  *  - 409 {@code SL_GROUP_ALREADY_REGISTERED} → inline "already registered"
@@ -133,7 +133,7 @@ export function RegisterSlGroupModal({
           <p className="text-sm text-fg-muted">
             Enter the UUID of the SL group you want to register. After
             registration you will receive a verification code to confirm
-            ownership through one of two methods.
+            ownership through your group&apos;s founder.
           </p>
           <Input
             type="text"
@@ -154,8 +154,8 @@ export function RegisterSlGroupModal({
           data-testid="register-instructions-stage"
         >
           <p className="text-sm text-fg-muted">
-            Registration created. Complete one of the verification steps below
-            to activate this SL group.
+            Registration created. Complete the verification step below to
+            activate this SL group.
           </p>
           <SlGroupVerificationInstructionsCard
             code={registered.pending.verificationCode}

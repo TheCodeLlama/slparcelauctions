@@ -39,7 +39,6 @@ class SlGroupRegistrationExpiryTaskTest {
                 .slGroupUuid(UUID.randomUUID())
                 .verified(false)
                 .verificationCode(code)
-                .pollAttempts(0)
                 .build();
     }
 

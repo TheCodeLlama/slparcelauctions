@@ -1,0 +1,139 @@
+package com.slparcelauctions.backend.realty.rating;
+
+import java.time.Duration;
+
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.slparcelauctions.backend.realty.rating.dto.GroupRatingDto;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Tuple;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Aggregated star-rating computation for a realty group, with a Redis
+ * read-through cache keyed by the group's internal id. Reads pull from
+ * {@code reviews} via the auction-&gt;group linkage described in spec
+ * §16.1 (both case-1 direct {@code auctions.realty_group_id} and case-3
+ * indirect {@code realty_group_sl_groups} coverage).
+ *
+ * <p>The cached value is a tiny {@code "{avg}|{count}"} string — small
+ * enough that a dedicated JSON serializer would add more risk (cache
+ * shape drift across redeploys) than value. {@code averageRating} is
+ * {@code null} when no reviews exist; the cache encoding represents that
+ * as the literal string {@code "null"} so a parse round-trip is
+ * unambiguous.
+ *
+ * <p>Cache invalidation is the {@link GroupRatingCacheInvalidator}'s job;
+ * this service exposes {@link #invalidate(Long)} for that listener and
+ * does not invalidate on its own.
+ *
+ * <p>Spec: {@code docs/superpowers/specs/2026-05-12-realty-groups-admin-moderation-design.md} §16.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class GroupRatingService {
+
+    /** Redis key prefix. The full key is {@code realty_groups_rating:{groupId}}. */
+    static final String CACHE_KEY_PREFIX = "realty_groups_rating:";
+
+    /** Redis entry TTL. Long enough to absorb a profile-page-traffic spike, short enough
+     *  that a missed invalidation event self-heals within an hour. */
+    static final Duration TTL = Duration.ofHours(1);
+
+    private final EntityManager em;
+    private final StringRedisTemplate redis;
+
+    /**
+     * Compute or read-through the rating for a group. Returns an empty
+     * DTO ({@code averageRating=null, reviewCount=0}) when no qualifying
+     * reviews exist; never throws on cache failure — a Redis hiccup falls
+     * back to a fresh DB read and the write-back is best-effort.
+     */
+    @Transactional(readOnly = true)
+    public GroupRatingDto computeRating(Long groupId) {
+        String cacheKey = CACHE_KEY_PREFIX + groupId;
+
+        String cached = null;
+        try {
+            cached = redis.opsForValue().get(cacheKey);
+        } catch (RuntimeException e) {
+            log.warn("Failed to read group rating cache for group {}: {}", groupId, e.toString());
+        }
+        if (cached != null) {
+            GroupRatingDto parsed = parse(cached);
+            if (parsed != null) {
+                return parsed;
+            }
+            log.warn("Unparseable cached rating for group {}: {}", groupId, cached);
+        }
+
+        // Case-1 (auction.realty_group_id) UNION case-3 (auction.realty_group_sl_group_id ->
+        // realty_group_sl_groups.realty_group_id). Column name is `rating` on this codebase's
+        // `reviews` table (not `star_rating` as some spec snippets use). Cast AVG to double
+        // precision so Hibernate returns Double, not BigDecimal — keeps the DTO shape simple.
+        Tuple result = (Tuple) em.createNativeQuery("""
+            SELECT AVG(r.rating)::double precision AS avg_rating,
+                   COUNT(*)                         AS review_count
+              FROM reviews r
+              JOIN auctions a ON a.id = r.auction_id
+             WHERE a.realty_group_id = :groupId
+                OR EXISTS (
+                  SELECT 1 FROM realty_group_sl_groups rsg
+                   WHERE rsg.id = a.realty_group_sl_group_id
+                     AND rsg.realty_group_id = :groupId
+                )
+            """, Tuple.class)
+            .setParameter("groupId", groupId)
+            .getSingleResult();
+
+        Double avg = result.get(0) == null ? null : ((Number) result.get(0)).doubleValue();
+        long count = result.get(1) == null ? 0L : ((Number) result.get(1)).longValue();
+        GroupRatingDto dto = new GroupRatingDto(avg, count);
+
+        try {
+            redis.opsForValue().set(cacheKey, serialize(dto), TTL);
+        } catch (RuntimeException e) {
+            log.warn("Failed to cache group rating for group {}: {}", groupId, e.toString());
+        }
+        return dto;
+    }
+
+    /**
+     * Evict the cached entry for one group. No-op if no entry was
+     * cached. Safe to call from outside a transaction.
+     */
+    public void invalidate(Long groupId) {
+        try {
+            redis.delete(CACHE_KEY_PREFIX + groupId);
+        } catch (RuntimeException e) {
+            log.warn("Failed to invalidate group rating cache for group {}: {}", groupId, e.toString());
+        }
+    }
+
+    /** Encode {@code "{avg}|{count}"}; uses the literal {@code "null"} for an absent average. */
+    static String serialize(GroupRatingDto dto) {
+        String avgPart = dto.averageRating() == null ? "null" : Double.toString(dto.averageRating());
+        return avgPart + "|" + dto.reviewCount();
+    }
+
+    /** Decode the cache string back to a DTO. Returns {@code null} when the encoding is
+     *  unrecognised (e.g. left over from a prior schema). Caller falls back to a DB read. */
+    static GroupRatingDto parse(String cached) {
+        int sep = cached.indexOf('|');
+        if (sep < 0) return null;
+        String avgPart = cached.substring(0, sep);
+        String countPart = cached.substring(sep + 1);
+        try {
+            Double avg = "null".equals(avgPart) ? null : Double.valueOf(avgPart);
+            long count = Long.parseLong(countPart);
+            return new GroupRatingDto(avg, count);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+}

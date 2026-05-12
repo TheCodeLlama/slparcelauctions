@@ -84,6 +84,16 @@ public interface NotificationPublisher {
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);
 
+    /**
+     * Sub-project F §10.2 -- seller-facing notification fired when the
+     * bulk-suspend auto-cancel timer (default 48 h) expires without admin
+     * reinstatement and the parent listing is auto-cancelled. Carries the
+     * specific {@code BULK_SUSPEND_TIMER_EXPIRED} reason; bidders receive the
+     * cause-neutral {@link #listingCancelledBySellerFanout} envelope instead so
+     * admin attribution does not leak.
+     */
+    void listingAutoCancelledFromBulkSuspend(long sellerUserId, long auctionId, String parcelName);
+
     // Admin infrastructure
     void reconciliationMismatch(List<Long> adminUserIds, long drift, String date);
 
@@ -126,4 +136,44 @@ public interface NotificationPublisher {
     void realtyGroupPermissionsChanged(RealtyGroup group, RealtyGroupMember member,
                                        Set<RealtyGroupPermission> added,
                                        Set<RealtyGroupPermission> removed);
+
+    // ── Realty groups — admin moderation (sub-project F §8, §9). Phase 4 stubs
+    // route through the existing in-app notification mechanism; Task 28 will
+    // refine the body copy and add SL IM integration.
+
+    /**
+     * Notify every current member of {@code group} that an admin has issued a
+     * suspension (or permanent ban when {@code expiresAt} is null). {@code reason}
+     * is the audit-facing {@code SuspensionReason}; copy is generated from it.
+     */
+    void realtyGroupSuspended(RealtyGroup group, String reason,
+                              java.time.OffsetDateTime expiresAt);
+
+    /**
+     * Notify every current member of {@code group} that an admin (or the expiry
+     * sweep) has lifted an active suspension.
+     */
+    void realtyGroupUnsuspended(RealtyGroup group);
+
+    /**
+     * Sub-project F §13.2 — the periodic reverify task detected that an SL
+     * group registration has drifted from its claimed state on the SL side.
+     * Routes to {@code leaderUserId} (the realty group's current leader) so
+     * they can re-register or contact admin. Body copy + SL IM channel
+     * dispatch are refined in Task 28; the Phase 4 wiring routes through the
+     * existing in-app notification publish primitive.
+     *
+     * @param leaderUserId  recipient: the realty group's leader
+     * @param groupId       internal id of the realty group (used for log /
+     *                      audit context; the data blob carries the public id
+     *                      for the frontend)
+     * @param slGroupName   display name of the SL group that drifted (may be
+     *                      {@code null} if it was never parsed onto the row)
+     * @param driftReason   {@link com.slparcelauctions.backend.realty.slgroup
+     *                       .SlGroupDriftReason} name — one of
+     *                       {@code FOUNDER_CHANGED}, {@code GROUP_NOT_FOUND},
+     *                       {@code FETCH_FAILED_REPEATEDLY}
+     */
+    void realtyGroupSlGroupDriftDetected(long leaderUserId, long groupId,
+                                         String slGroupName, String driftReason);
 }

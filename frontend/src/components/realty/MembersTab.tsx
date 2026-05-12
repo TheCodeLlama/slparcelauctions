@@ -13,6 +13,7 @@ import type {
 } from "@/types/realty";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { BulkMemberCommissionEditDrawer } from "./BulkMemberCommissionEditDrawer";
 import { EditPermissionsForm } from "./EditPermissionsForm";
 
 export interface MembersTabProps {
@@ -63,8 +64,15 @@ export function MembersTab({
   const [removeTarget, setRemoveTarget] = useState<AgentCardDto | null>(null);
   const [editTarget, setEditTarget] = useState<AgentCardDto | null>(null);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [bulkRatesOpen, setBulkRatesOpen] = useState(false);
 
   const canRemove = isLeader || callerPermissions.has("REMOVE_AGENTS");
+  // Bulk commission edit is leader-only (MANAGE_MEMBERS holders also
+  // qualify per spec §15.1). The button only renders when the group has
+  // at least one agent — there's nothing to edit in an empty roster.
+  const canBulkEditRates =
+    (isLeader || callerPermissions.has("MANAGE_MEMBERS")) &&
+    group.agents.length > 0;
 
   const rows = useMemo(() => buildRows(group), [group]);
 
@@ -88,7 +96,20 @@ export function MembersTab({
   return (
     <Card>
       <Card.Header>
-        <h2 className="text-sm font-semibold tracking-tight">Members</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold tracking-tight">Members</h2>
+          {canBulkEditRates && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setBulkRatesOpen(true)}
+              data-testid="members-bulk-edit-rates"
+            >
+              Bulk edit commission rates
+            </Button>
+          )}
+        </div>
       </Card.Header>
       <Card.Body>
         <ul className="flex flex-col gap-2" data-testid="members-list">
@@ -231,6 +252,12 @@ export function MembersTab({
           />
         )}
       </Modal>
+
+      <BulkMemberCommissionEditDrawer
+        open={bulkRatesOpen}
+        group={group}
+        onClose={() => setBulkRatesOpen(false)}
+      />
 
       <Modal
         open={leaveConfirm}

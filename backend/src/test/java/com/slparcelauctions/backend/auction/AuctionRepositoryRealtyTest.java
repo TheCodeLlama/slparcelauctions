@@ -231,7 +231,6 @@ class AuctionRepositoryRealtyTest {
                 .slGroupName("Test SL Group")
                 .verified(true)
                 .verifiedAt(OffsetDateTime.now())
-                .pollAttempts(0)
                 .build();
     }
 

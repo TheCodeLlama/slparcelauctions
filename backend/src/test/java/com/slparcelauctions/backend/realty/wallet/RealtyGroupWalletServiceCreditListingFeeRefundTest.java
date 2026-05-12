@@ -34,7 +34,7 @@ class RealtyGroupWalletServiceCreditListingFeeRefundTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-05-12T10:00:00Z"), ZoneOffset.UTC);
 
     private final RealtyGroupWalletService svc =
-        new RealtyGroupWalletService(groupRepo, ledgerRepo, null, null, null, pub, clock);
+        new RealtyGroupWalletService(groupRepo, ledgerRepo, null, null, null, pub, null, clock);
 
     @Test
     void creditsBalanceAndAppendsRefundLedger() throws Exception {

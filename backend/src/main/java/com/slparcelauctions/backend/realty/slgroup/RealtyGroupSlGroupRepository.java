@@ -35,22 +35,6 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
             @Param("realtyGroupId") Long realtyGroupId,
             @Param("slGroupUuid") UUID slGroupUuid);
 
-    /**
-     * Pending rows due for an about-text poll. The partial index
-     * ix_rg_sl_groups_pending_poll covers this query (verified=false AND
-     * verified_via IS NULL).
-     */
-    @Query("""
-        SELECT r FROM RealtyGroupSlGroup r
-         WHERE r.verified = false
-           AND r.verifiedVia IS NULL
-           AND r.verificationCodeExpiresAt > :now
-           AND (r.lastPolledAt IS NULL OR r.lastPolledAt < :pollCutoff)
-        """)
-    List<RealtyGroupSlGroup> findDueForAboutTextPoll(
-            @Param("now") OffsetDateTime now,
-            @Param("pollCutoff") OffsetDateTime pollCutoff);
-
     /** Pending rows whose verification window has expired. Used by the hourly cleanup task. */
     @Query("""
         SELECT r FROM RealtyGroupSlGroup r
@@ -72,6 +56,23 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
 
     /** Used by dissolve gate. */
     long countByRealtyGroupId(Long realtyGroupId);
+
+    /**
+     * Sub-project F §13.1 — rows due for periodic re-validation against the SL World API.
+     *
+     * <p>Returns verified, still-registered ({@code unregistered_at IS NULL}) rows whose
+     * {@code last_revalidated_at} is older than the cadence threshold (or NULL, meaning
+     * they've never been revalidated). The {@code SlGroupReverifyTask} computes
+     * {@code threshold = now - reverifyCadenceDays} and hands it in; this query then
+     * filters everything that's still within cadence.
+     */
+    @Query("""
+        SELECT r FROM RealtyGroupSlGroup r
+         WHERE r.verified = true
+           AND r.unregisteredAt IS NULL
+           AND (r.lastRevalidatedAt IS NULL OR r.lastRevalidatedAt < :threshold)
+        """)
+    List<RealtyGroupSlGroup> findDueForReverify(@Param("threshold") OffsetDateTime threshold);
 
     /**
      * Sub-project E §5.3 — parcel-aware listing-eligible-groups.

@@ -10,9 +10,7 @@ public class RealtyGroupSlGroupDtoMapper {
     public RealtyGroupSlGroupDto toDto(RealtyGroupSlGroup row) {
         SlGroupPendingDto pending = row.isVerified() ? null : new SlGroupPendingDto(
                 row.getVerificationCode(),
-                row.getVerificationCodeExpiresAt(),
-                row.getLastPolledAt(),
-                row.getPollAttempts());
+                row.getVerificationCodeExpiresAt());
         return new RealtyGroupSlGroupDto(
                 row.getPublicId(),
                 row.getSlGroupUuid(),

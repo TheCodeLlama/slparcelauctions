@@ -33,5 +33,14 @@ public enum CancellationOffenseKind {
      * penalty ladder. Like {@code NONE} and {@code WARNING} it carries no
      * L$ amount.
      */
-    BROKER_CANCEL
+    BROKER_CANCEL,
+    /**
+     * Sub-project F §4.4 -- listing auto-cancelled by the 48 h bulk-suspend
+     * expiry timer after its parent realty group's bulk suspension lapsed
+     * without admin reinstatement. Excluded from
+     * {@code countPriorOffensesWithBids} so it never advances the seller's
+     * penalty ladder — the cancellation is administrative, not a seller
+     * offence. Carries no L$ amount.
+     */
+    ADMIN_BULK_EXPIRED
 }

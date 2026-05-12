@@ -1774,3 +1774,42 @@ from `AdminRoleService.demote`. The 409 is intentional — they have
 permission to call the endpoint (they're an admin), but the operation
 is forbidden by business rule. The frontend toast surfaces "You cannot
 demote yourself."
+
+### F.109 — Pre-F About-text SL group verifications were re-labelled to FOUNDER_TERMINAL
+
+The V28 migration normalized `sl_group.verified_via = 'FOUNDER_TERMINAL'`
+for any pre-F row that had been verified via the now-retired About-text
+path. The verification itself is still valid (the SL group existed and a
+marker was found at the original registration time), but the audit trail
+is slightly fictionalized — those rows weren't actually
+founder-terminal-verified. Visible footprint: any historical audit-log
+analysis treating `verified_via = 'FOUNDER_TERMINAL'` as ground truth for
+which verification method was actually used will overcount
+founder-terminal verifications by however many were originally About-text
+in dev/staging. Prod had no About-text rows at F ship, so prod analytics
+are unaffected — only dev/staging snapshots carry the re-labelled rows.
+
+### F.110 — SL group page parser was broken from E ship to F ship
+
+The `.details h1` / `.details p.desc` selectors that work against the live
+`world.secondlife.com/group/{uuid}` HTML are not the ones E shipped — E
+used `meta name="groupname"` / `meta name="charter"`, which don't exist
+on the real page. Founder UUID extraction was always correct (different
+selector path), so registration-time founder-match still worked. Visible
+footprint: any `aboutText` field on `GroupPageData` returned `null`
+between E and F — only impacts code paths that read `aboutText`, which
+were primarily the About-text verification poll task (now removed in F).
+If anything in future re-introduces an About-text style poll, do not
+trust pre-F parser output as evidence the selectors worked.
+
+### F.111 — 48h bulk-suspend timer has no seller-side countdown UI
+
+Sellers whose listings are admin-suspended via the bulk-suspend path see
+"Auction paused by admin" on the listing detail page but no countdown to
+auto-cancel. The 48h cutoff (configurable via
+`slpa.realty.group-bulk-suspend.auto-cancel-hours`) is enforced
+server-side by `BulkSuspendedListingExpiryTask` — sellers learn about it
+via the suspend-time notification and have to check back manually. If
+sellers start complaining about surprise cancellations, add a countdown
+indicator to the seller's listing detail page. Until then, operations
+can dial the cutoff up before user-facing UI lands.

@@ -62,6 +62,7 @@ class RealtyGroupInvitationServiceInviteTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupInvitationService service;
 
@@ -79,6 +80,31 @@ class RealtyGroupInvitationServiceInviteTest {
         User u = new User();
         u.setUsername(username);
         return u;
+    }
+
+    @Test
+    void invite_groupSuspended_throwsAndDoesNotPersist() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        org.mockito.Mockito.doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(g.getId());
+
+        CreateInvitationRequest req = new CreateInvitationRequest(
+            "agent", EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            com.slparcelauctions.backend.realty.moderation.exception
+                .RealtyGroupSuspendedException.class,
+            () -> service.invite(pid, req, 100L));
+
+        verify(authorizer, never()).assertCan(any(), any(), any());
+        verify(invitations, never()).save(any(RealtyGroupInvitation.class));
+        verify(notifications, never()).realtyGroupInvitationSent(any());
     }
 
     @Test

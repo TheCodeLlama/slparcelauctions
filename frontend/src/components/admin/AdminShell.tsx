@@ -31,6 +31,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Parcel tags", href: "/admin/parcel-tags" },
     { label: "Parcel categories", href: "/admin/parcel-tag-categories" },
     { label: "Realty Groups", href: "/admin/realty-groups" },
+    { label: "Group Reports", href: "/admin/realty-groups/reports" },
     { label: "Users", href: "/admin/users" },
     { label: "Infrastructure", href: "/admin/infrastructure" },
     { label: "Audit log", href: "/admin/audit-log" },
@@ -40,30 +41,39 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="grid grid-cols-[200px_1fr] min-h-[calc(100vh-4rem)]">
       <aside className="bg-bg-muted border-r border-border-subtle px-4 py-5 flex flex-col gap-1">
         <div className="text-[11px] uppercase tracking-wider opacity-50 mb-3">Admin</div>
-        {items.map((item) => {
-          const active =
-            pathname === item.href ||
-            (item.href !== "/admin" && pathname?.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center justify-between rounded-md px-3 py-2 text-sm",
-                active
-                  ? "bg-info-bg text-info font-medium"
-                  : "opacity-85 hover:opacity-100"
-              )}
-            >
-              <span>{item.label}</span>
-              {item.badge !== undefined && item.badge > 0 && (
-                <span className="bg-danger text-white rounded-full px-1.5 py-0.5 text-[10px] ml-1">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {(() => {
+          // Pick the longest-prefix match so a nested route (e.g.
+          // `/admin/realty-groups/reports`) highlights its own item, not the
+          // parent's, when one href is a prefix of another.
+          const candidates = items
+            .filter(
+              (i) => pathname === i.href || (i.href !== "/admin" && pathname?.startsWith(i.href)),
+            )
+            .sort((a, b) => b.href.length - a.href.length);
+          const activeHref = candidates[0]?.href ?? null;
+          return items.map((item) => {
+            const active = item.href === activeHref;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center justify-between rounded-md px-3 py-2 text-sm",
+                  active
+                    ? "bg-info-bg text-info font-medium"
+                    : "opacity-85 hover:opacity-100",
+                )}
+              >
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="bg-danger text-white rounded-full px-1.5 py-0.5 text-[10px] ml-1">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          });
+        })()}
         <div className="mt-auto px-3 py-2 text-[11px] opacity-50">
           {user?.displayName ?? user?.email}
           <br />

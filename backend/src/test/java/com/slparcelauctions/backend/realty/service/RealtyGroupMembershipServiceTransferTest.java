@@ -52,6 +52,8 @@ class RealtyGroupMembershipServiceTransferTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock com.slparcelauctions.backend.auction.AuctionRepository auctions;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupMembershipService service;
 

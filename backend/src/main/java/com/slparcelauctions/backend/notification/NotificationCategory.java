@@ -53,7 +53,18 @@ public enum NotificationCategory {
     REALTY_GROUP_MEMBER_LEFT(NotificationGroup.REALTY_GROUP),
     REALTY_GROUP_LEADERSHIP_TRANSFERRED(NotificationGroup.REALTY_GROUP),
     REALTY_GROUP_DISSOLVED(NotificationGroup.REALTY_GROUP),
-    REALTY_GROUP_PERMISSIONS_CHANGED(NotificationGroup.REALTY_GROUP);
+    REALTY_GROUP_PERMISSIONS_CHANGED(NotificationGroup.REALTY_GROUP),
+
+    // Realty groups — admin moderation (sub-project F §8, §9). Fired to every member
+    // when an admin suspends/bans a group (and when the suspension is lifted).
+    REALTY_GROUP_SUSPENDED(NotificationGroup.REALTY_GROUP),
+    REALTY_GROUP_UNSUSPENDED(NotificationGroup.REALTY_GROUP),
+
+    // Realty groups — SL group drift detected by the periodic reverify task
+    // (sub-project F §13.2). Routes to the realty group's leader so they can
+    // re-register or contact admin. Drift reasons: FOUNDER_CHANGED,
+    // GROUP_NOT_FOUND, FETCH_FAILED_REPEATEDLY.
+    REALTY_GROUP_SL_GROUP_DRIFT_DETECTED(NotificationGroup.REALTY_GROUP);
 
     private final NotificationGroup group;
 

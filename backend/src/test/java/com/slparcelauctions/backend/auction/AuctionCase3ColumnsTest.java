@@ -99,7 +99,6 @@ class AuctionCase3ColumnsTest {
             .slGroupName("SL Group " + suffix())
             .verified(true)
             .verifiedAt(OffsetDateTime.now())
-            .pollAttempts(0)
             .build());
 
         Auction saved = auctionRepository.save(buildDraftAuction(seller));

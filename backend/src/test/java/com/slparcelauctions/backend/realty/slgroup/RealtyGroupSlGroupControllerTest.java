@@ -75,7 +75,7 @@ class RealtyGroupSlGroupControllerTest {
                 "Test SL Group",
                 verified,
                 verified ? OffsetDateTime.now() : null,
-                verified ? SlGroupVerifyMethod.ABOUT_TEXT : null,
+                verified ? SlGroupVerifyMethod.FOUNDER_TERMINAL : null,
                 null,
                 null);
     }

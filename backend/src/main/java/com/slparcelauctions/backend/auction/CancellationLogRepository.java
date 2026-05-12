@@ -20,19 +20,22 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
      * transaction prevents two concurrent cancellations from racing on this
      * count.
      *
-     * <p>Excludes admin-cancel rows ({@code cancelledByAdminId IS NOT NULL}) and
-     * sub-project E broker-cancel rows ({@code penaltyKind = BROKER_CANCEL}) —
-     * neither path represents a seller offense. The explicit
-     * {@code penaltyKind} filter is belt-and-braces alongside the admin-id
-     * predicate: broker-cancel rows have a {@code null} admin id but must
-     * still be excluded.
+     * <p>Excludes admin-cancel rows ({@code cancelledByAdminId IS NOT NULL}),
+     * sub-project E broker-cancel rows ({@code penaltyKind = BROKER_CANCEL}),
+     * and sub-project F bulk-suspend-expiry auto-cancellations
+     * ({@code penaltyKind = ADMIN_BULK_EXPIRED}) — none of these paths
+     * represents a seller offense. The explicit {@code penaltyKind} filter is
+     * belt-and-braces alongside the admin-id predicate: broker-cancel and
+     * bulk-expired rows can have a {@code null} admin id but must still be
+     * excluded.
      */
     @Query("SELECT count(c) FROM CancellationLog c "
             + "WHERE c.seller.id = :sellerId "
             + "AND c.hadBids = true "
             + "AND c.cancelledByAdminId IS NULL "
-            + "AND (c.penaltyKind IS NULL OR c.penaltyKind <> "
-            + "com.slparcelauctions.backend.auction.CancellationOffenseKind.BROKER_CANCEL)")
+            + "AND (c.penaltyKind IS NULL OR c.penaltyKind NOT IN ("
+            + "com.slparcelauctions.backend.auction.CancellationOffenseKind.BROKER_CANCEL, "
+            + "com.slparcelauctions.backend.auction.CancellationOffenseKind.ADMIN_BULK_EXPIRED))")
     long countPriorOffensesWithBids(@Param("sellerId") Long sellerId);
 
     /**

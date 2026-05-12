@@ -126,8 +126,14 @@ public class SlWorldApiClient {
                 .bodyToMono(String.class)
                 .retryWhen(Retry.backoff(retryAttempts, Duration.ofMillis(retryBackoffMs))
                         .filter(this::isTransientGroupError))
+                // Pass {@link WebClientResponseException.NotFound} through unwrapped so
+                // {@code SlGroupReverifyService} (sub-project F §13.2) can distinguish
+                // "SL group has been deleted" (404 → GROUP_NOT_FOUND drift) from
+                // "World API timed out" (other failures → fetch-failure counter /
+                // FETCH_FAILED_REPEATEDLY after threshold).
                 .onErrorMap(
-                        throwable -> !(throwable instanceof ExternalApiTimeoutException),
+                        throwable -> !(throwable instanceof ExternalApiTimeoutException)
+                                && !(throwable instanceof WebClientResponseException.NotFound),
                         throwable -> new ExternalApiTimeoutException("World", throwable.getMessage()))
                 .map(html -> parseGroupHtml(slGroupUuid, html));
     }
@@ -193,20 +199,25 @@ public class SlWorldApiClient {
     /**
      * Parse {@code world.secondlife.com/group/{uuid}} HTML into a {@link GroupPageData}.
      * Defensive: every field other than the input UUID may be {@code null} if the
-     * selector misses. The selectors below try several common patterns to remain
-     * tolerant of small markup shifts:
+     * selector misses. Selectors are validated against a live capture of
+     * {@code world.secondlife.com/group/79f06955-38f4-3124-25b3-f5506c85828f} (the
+     * SLParcels group); the corresponding test fixture lives at
+     * {@code backend/src/test/resources/sl/group-page-slparcels.html}.
+     *
      * <ul>
-     *   <li><b>name</b> — prefer {@code <meta name="groupname">} if present; fall
-     *       back to {@code .groupname} / {@code .group-name} / {@code h1}.</li>
-     *   <li><b>aboutText</b> — prefer {@code <meta name="charter">} if present;
-     *       fall back to elements with class {@code groupcharter}, {@code group-charter},
-     *       {@code charter}, or {@code about}.</li>
-     *   <li><b>founderUuid</b> — prefer {@code <meta name="founderid">} if present;
-     *       fall back to any anchor matching {@code href^="/resident/<uuid>"}
-     *       (the canonical founder rendering on the SL group page).</li>
+     *   <li><b>name</b> — {@code .details h1}; fallback to the {@code <title>}
+     *       element text content.</li>
+     *   <li><b>aboutText</b> — {@code .details p.desc}; {@code null} when blank
+     *       (the live SL page emits an empty {@code <p class="desc">} for groups
+     *       with no charter).</li>
+     *   <li><b>founderUuid</b> — {@code <meta name="founderid">}; fallback to
+     *       any anchor matching {@code href^="/resident/<uuid>"}.</li>
      * </ul>
+     *
+     * <p>Package-private static so the parser test can exercise it without going
+     * through a live {@link WebClient}.
      */
-    private GroupPageData parseGroupHtml(UUID slGroupUuid, String html) {
+    static GroupPageData parseGroupHtml(UUID slGroupUuid, String html) {
         Document doc = Jsoup.parse(html);
         return new GroupPageData(
                 slGroupUuid,
@@ -215,14 +226,17 @@ public class SlWorldApiClient {
                 parseGroupFounderUuid(doc));
     }
 
-    private String parseGroupName(Document doc) {
-        String fromMeta = meta(doc, "name", "groupname");
-        if (fromMeta != null && !fromMeta.isBlank()) {
-            return fromMeta;
-        }
-        Element el = doc.selectFirst(".groupname, .group-name, h1.groupname, h1.group-name");
+    private static String parseGroupName(Document doc) {
+        Element el = doc.selectFirst(".details h1");
         if (el != null) {
             String text = el.text();
+            if (text != null && !text.isBlank()) {
+                return text;
+            }
+        }
+        Element titleEl = doc.selectFirst("title");
+        if (titleEl != null) {
+            String text = titleEl.text();
             if (text != null && !text.isBlank()) {
                 return text;
             }
@@ -230,24 +244,19 @@ public class SlWorldApiClient {
         return null;
     }
 
-    private String parseGroupAboutText(Document doc) {
-        String fromMeta = meta(doc, "name", "charter");
-        if (fromMeta != null && !fromMeta.isBlank()) {
-            return fromMeta;
+    private static String parseGroupAboutText(Document doc) {
+        Element el = doc.selectFirst(".details p.desc");
+        if (el == null) {
+            return null;
         }
-        Element el = doc.selectFirst(".groupcharter, .group-charter, .charter, .about, p.charter");
-        if (el != null) {
-            String text = el.text();
-            if (text != null && !text.isBlank()) {
-                return text;
-            }
-        }
-        return null;
+        String text = el.text();
+        return (text != null && !text.isBlank()) ? text : null;
     }
 
-    private UUID parseGroupFounderUuid(Document doc) {
-        String fromMeta = meta(doc, "name", "founderid");
-        UUID metaUuid = optionalUuid(fromMeta);
+    private static UUID parseGroupFounderUuid(Document doc) {
+        Element metaEl = doc.selectFirst("meta[name=founderid]");
+        String fromMeta = metaEl != null ? metaEl.attr("content") : null;
+        UUID metaUuid = optionalUuidStatic(fromMeta);
         if (metaUuid != null) {
             return metaUuid;
         }
@@ -259,7 +268,17 @@ public class SlWorldApiClient {
         if (!m.find()) {
             return null;
         }
-        return optionalUuid(m.group(1));
+        return optionalUuidStatic(m.group(1));
+    }
+
+    private static UUID optionalUuidStatic(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return UUID.fromString(s);
+        } catch (IllegalArgumentException ignored) {
+            log.warn("World API returned unparseable UUID: {}", s);
+            return null;
+        }
     }
 
     private UUID parseRegionUuidFromBody(Document doc) {

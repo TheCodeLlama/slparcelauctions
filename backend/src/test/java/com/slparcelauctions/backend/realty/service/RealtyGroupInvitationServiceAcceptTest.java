@@ -53,6 +53,7 @@ class RealtyGroupInvitationServiceAcceptTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupInvitationService service;
 
@@ -76,6 +77,29 @@ class RealtyGroupInvitationServiceAcceptTest {
             .build();
         inv.setPermissionSet(perms);
         return inv;
+    }
+
+    @Test
+    void accept_groupSuspended_throwsAndDoesNotPersist() {
+        UUID invPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        RealtyGroupInvitation inv = buildPendingInvite(
+            g.getId(), 200L, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS));
+        when(invitations.findByPublicId(invPid)).thenReturn(Optional.of(inv));
+        org.mockito.Mockito.doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    java.time.OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(g.getId());
+
+        assertThrows(
+            com.slparcelauctions.backend.realty.moderation.exception
+                .RealtyGroupSuspendedException.class,
+            () -> service.accept(invPid, 200L));
+
+        verify(members, never()).save(any(RealtyGroupMember.class));
+        verify(notifications, never()).realtyGroupInvitationAccepted(any());
     }
 
     @Test

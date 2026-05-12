@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { IconButton } from "@/components/ui/IconButton";
-import { Check, Copy, MessageSquare, ShieldCheck } from "@/components/ui/icons";
+import { Check, Copy, ShieldCheck } from "@/components/ui/icons";
 
 export interface SlGroupVerificationInstructionsCardProps {
   /**
@@ -22,13 +22,9 @@ export interface SlGroupVerificationInstructionsCardProps {
  * registration, and reused in any "show instructions again" affordance.
  *
  * Displays the {@code SLPA-XXXXXXXXXXXX} code with a clipboard button and
- * the two acceptable verification paths:
- *
- *  1. About text — paste the code into the SL group's About field. The
- *     backend poller sweeps every 5 minutes; the "Check now" button in the
- *     parent row triggers an on-demand recheck.
- *  2. Founder via terminal — the SL group's founder taps any SLPA terminal,
- *     picks "SL Group Verify", and types the code.
+ * the founder-via-terminal verification instructions. Sub-project F retired
+ * the About-text polling path; founder-terminal is now the only verification
+ * method.
  *
  * Spec §6.2.
  */
@@ -69,29 +65,11 @@ export function SlGroupVerificationInstructionsCard({
         </div>
 
         <p className="text-xs text-fg-muted mb-4">
-          Complete one of the two verification steps below. The registration
-          activates as soon as either path succeeds.
+          Complete the verification step below to activate this SL group
+          registration.
         </p>
 
         <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <MessageSquare
-              className="h-5 w-5 text-brand mt-0.5 shrink-0"
-              aria-hidden="true"
-            />
-            <div>
-              <h4 className="text-sm font-medium text-fg">
-                Option 1 — About text
-              </h4>
-              <p className="text-sm text-fg-muted mt-1">
-                Set your SL group&apos;s About text to include{" "}
-                <code className="font-mono text-xs text-fg">{code}</code>.
-                SLParcels rechecks every 5 minutes. Click &quot;Check now&quot;
-                next to the row in the table to poll immediately.
-              </p>
-            </div>
-          </div>
-
           <div className="flex items-start gap-3">
             <ShieldCheck
               className="h-5 w-5 text-brand mt-0.5 shrink-0"
@@ -99,7 +77,7 @@ export function SlGroupVerificationInstructionsCard({
             />
             <div>
               <h4 className="text-sm font-medium text-fg">
-                Option 2 — Founder via terminal
+                Founder via terminal
               </h4>
               <p className="text-sm text-fg-muted mt-1">
                 Hand{" "}

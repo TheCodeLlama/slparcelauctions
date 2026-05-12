@@ -85,7 +85,6 @@ class RealtyGroupSlGroupRepositoryTest {
             .verified(false)
             .verificationCode("ABC123")
             .verificationCodeExpiresAt(OffsetDateTime.now().plusHours(24))
-            .pollAttempts(0)
             .build();
         UUID capturedPublicId = row.getPublicId();
 
@@ -112,7 +111,6 @@ class RealtyGroupSlGroupRepositoryTest {
             .verified(false)
             .verificationCode("XYZ789")
             .verificationCodeExpiresAt(OffsetDateTime.now().plusHours(24))
-            .pollAttempts(0)
             .build();
         pending = repository.save(pending);
 
@@ -122,7 +120,7 @@ class RealtyGroupSlGroupRepositoryTest {
 
         pending.setVerified(true);
         pending.setVerifiedAt(OffsetDateTime.now());
-        pending.setVerifiedVia(SlGroupVerifyMethod.ABOUT_TEXT);
+        pending.setVerifiedVia(SlGroupVerifyMethod.FOUNDER_TERMINAL);
         repository.save(pending);
 
         assertThat(repository.findVerifiedForListing(group.getId(), slGroupUuid))

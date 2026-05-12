@@ -59,6 +59,17 @@ public class FraudFlag extends BaseMutableEntity {
     @Column(nullable = false, length = 40)
     private FraudFlagReason reason;
 
+    /**
+     * Discriminator for the kind of entity the flag is raised against. Added in V28 for
+     * sub-project F (admin moderation): pre-F all rows were implicitly LISTING; F flows
+     * write rows with {@code REALTY_GROUP}. Defaults to LISTING at the Java level so
+     * the long tail of existing flag-raising sites keep working unchanged.
+     */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "entity_type", nullable = false, length = 20)
+    private FraudFlagEntityKind entityType = FraudFlagEntityKind.LISTING;
+
     @Column(name = "detected_at", nullable = false)
     private OffsetDateTime detectedAt;
 

@@ -30,5 +30,12 @@ public enum RealtyGroupPermission {
     VIEW_GROUP_TRANSACTIONS,
 
     /** Sub-project E -- register/unregister SL groups this realty group manages land for. */
-    REGISTER_SL_GROUP;
+    REGISTER_SL_GROUP,
+
+    /**
+     * Sub-project F -- per-member operations gated below the leader: bulk-edit member
+     * commission rates (§6.7) and view per-member commission analytics (§6.8). Leader
+     * holds this implicitly via the authorizer short-circuit.
+     */
+    MANAGE_MEMBERS;
 }

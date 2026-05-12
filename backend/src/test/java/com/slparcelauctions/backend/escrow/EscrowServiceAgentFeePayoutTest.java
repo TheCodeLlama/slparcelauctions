@@ -236,7 +236,6 @@ class EscrowServiceAgentFeePayoutTest {
                     .slGroupName("Case3 SL Group " + suffix)
                     .verified(true)
                     .verifiedAt(now)
-                    .pollAttempts(0)
                     .build());
 
             Auction auction = auctionRepo.save(Auction.builder()

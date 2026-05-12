@@ -32,17 +32,18 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
     @Mock RealtyGroupSlGroupRepository repo;
     @Mock RealtyGroupRepository groupRepo;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
     @Mock SlWorldApiClient worldApi;
     @Mock SlGroupVerificationCodeGenerator codeGen;
     @Mock AuctionRepository auctionRepo;
-    @Mock SlGroupAboutTextPollTask aboutTextPoller;
 
     private final Clock clock = Clock.fixed(
             Instant.parse("2026-05-12T12:00:00Z"), ZoneOffset.UTC);
 
     private RealtyGroupSlGroupService newService() {
         return new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
+                repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
+                auctionRepo, clock);
     }
 
     private RealtyGroup groupWithId(Long id, UUID publicId) {
@@ -56,7 +57,6 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
                 .realtyGroupId(realtyGroupId)
                 .slGroupUuid(UUID.randomUUID())
                 .verified(verified)
-                .pollAttempts(0)
                 .build();
         setBaseFields(row, id, publicId);
         return row;
@@ -210,9 +210,30 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
 
         assertThat(result).isSameAs(row);
         assertThat(result.isVerified()).isTrue();
-        // No save / no poll attempt — guard short-circuits before delegation.
+        // Sub-project F retired the about-text poll; recheck is a no-op now.
         verify(repo, never()).save(any(RealtyGroupSlGroup.class));
-        verifyNoInteractions(aboutTextPoller);
+    }
+
+    @Test
+    void recheck_pendingRow_isNoop() {
+        Long callerId = 7L;
+        UUID groupPublic = UUID.randomUUID();
+        UUID slGroupPublic = UUID.randomUUID();
+        RealtyGroup group = groupWithId(42L, groupPublic);
+        RealtyGroupSlGroup row = rowWithId(100L, slGroupPublic, 42L, false);
+
+        when(groupRepo.findByPublicIdAndDissolvedAtIsNull(groupPublic))
+                .thenReturn(Optional.of(group));
+        when(repo.findByPublicId(slGroupPublic)).thenReturn(Optional.of(row));
+
+        RealtyGroupSlGroup result = newService().recheck(callerId, groupPublic, slGroupPublic);
+
+        // Sub-project F retired the about-text poll; recheck no longer mutates
+        // pending rows -- FOUNDER_TERMINAL is the only verification path and is
+        // driven by the in-world LSL callback, not by recheck.
+        assertThat(result).isSameAs(row);
+        assertThat(result.isVerified()).isFalse();
+        verify(repo, never()).save(any(RealtyGroupSlGroup.class));
     }
 
     @Test
@@ -221,7 +242,7 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
         UUID groupPublic = UUID.randomUUID();
         UUID slGroupPublic = UUID.randomUUID();
         RealtyGroup group = groupWithId(42L, groupPublic);
-        // Different group id (999) — recheck returns the row without polling or surfacing existence.
+        // Different group id (999) — recheck returns the row without surfacing existence.
         RealtyGroupSlGroup row = rowWithId(100L, slGroupPublic, 999L, false);
 
         when(groupRepo.findByPublicIdAndDissolvedAtIsNull(groupPublic))
@@ -232,6 +253,5 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
 
         assertThat(result).isSameAs(row);
         verify(repo, never()).save(any(RealtyGroupSlGroup.class));
-        verifyNoInteractions(aboutTextPoller);
     }
 }

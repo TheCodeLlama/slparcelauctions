@@ -48,6 +48,7 @@ class RealtyGroupListingServiceTest {
     @Mock RealtyGroupMemberRepository members;
     @Mock RealtyGroupSlGroupRepository slGroups;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
     @Mock AuctionService auctionService;
     @Mock ParcelLookupService parcelLookupService;
 
@@ -210,6 +211,33 @@ class RealtyGroupListingServiceTest {
 
         assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
                 .isInstanceOf(RealtyGroupNotFoundException.class);
+    }
+
+    @Test
+    void createGroupListing_groupSuspended_throwsAndDoesNotPersist() {
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(GROUP_ID);
+
+        assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
+                .isInstanceOf(com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException.class);
+
+        // Guard fires before authorizer / parcel lookup / auction create.
+        verify(authorizer, never()).assertCan(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any());
+        verify(parcelLookupService, never()).lookup(org.mockito.ArgumentMatchers.any());
+        verify(auctionService, never()).create(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

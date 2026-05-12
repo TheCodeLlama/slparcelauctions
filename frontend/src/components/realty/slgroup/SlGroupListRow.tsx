@@ -37,8 +37,6 @@ function truncateUuid(uuid: string): string {
 
 function verifiedViaLabel(method: SlGroupVerifyMethod): string {
   switch (method) {
-    case "ABOUT_TEXT":
-      return "About text";
     case "FOUNDER_TERMINAL":
       return "Founder terminal";
   }

@@ -319,6 +319,49 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     List<Long> findIdsByCurrentBidderIdAndActive(@Param("userId") Long userId);
 
     /**
+     * Active listings attributed to the given realty group, covering both
+     * case-1 (direct {@code realty_group_id} attribution) and case-3 (the
+     * auction's {@code realty_group_sl_group_id} resolves to a
+     * {@link com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup}
+     * whose {@code realty_group_id} matches). Consumed by the bulk-suspend
+     * path so an admin acting against a realty group can sweep every live
+     * listing the group is responsible for in one shot.
+     *
+     * <p>JPQL note: {@code Auction} stores its parent group as a plain
+     * {@code Long realtyGroupId} column rather than a {@code @ManyToOne}
+     * association (and {@code RealtyGroupSlGroup} does the same), so navigation
+     * uses {@code a.realtyGroupId} / {@code rsg.realtyGroupId} rather than
+     * {@code a.realtyGroup.id} / {@code rsg.realtyGroup.id}.
+     */
+    @Query("""
+            SELECT a FROM Auction a
+             LEFT JOIN com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup rsg
+                    ON rsg.id = a.realtyGroupSlGroupId
+             WHERE a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+               AND (a.realtyGroupId = :groupId OR rsg.realtyGroupId = :groupId)
+            """)
+    List<Auction> findActiveListingsForGroup(@Param("groupId") Long groupId);
+
+    /**
+     * Sub-project F §13.5 — admin force-unregister cascade. Returns every
+     * {@link AuctionStatus#ACTIVE} case-3 auction attached to the given SL
+     * group registration. Used by
+     * {@link com.slparcelauctions.backend.realty.slgroup.SlGroupForceUnregisterService}
+     * to decide whether the bulk-suspend cascade needs to run when an admin
+     * force-unregisters the SL group claim. Pre-ACTIVE statuses (DRAFT,
+     * DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED) and terminal
+     * statuses are excluded — only live listings carry the 48 h bulk-suspend
+     * timer, and pre-ACTIVE rows fall out naturally when the registration is
+     * marked unregistered.
+     */
+    @Query("""
+            SELECT a FROM Auction a
+             WHERE a.realtyGroupSlGroupId = :slGroupId
+               AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+            """)
+    List<Auction> findActiveCase3ListingsForSlGroup(@Param("slGroupId") Long slGroupId);
+
+    /**
      * Returns {@code true} when any non-terminal case-3 auction references the
      * given {@code realty_group_sl_group_id}. Used by
      * {@link com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupService#unregister}

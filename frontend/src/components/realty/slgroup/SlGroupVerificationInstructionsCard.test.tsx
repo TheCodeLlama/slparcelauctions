@@ -11,14 +11,11 @@ describe("SlGroupVerificationInstructionsCard", () => {
     expect(display.textContent).toBe("SLPA-1A2B3C4D5E6F");
   });
 
-  it("renders both verification options", () => {
+  it("renders the founder-via-terminal verification option", () => {
     renderWithProviders(
       <SlGroupVerificationInstructionsCard code="SLPA-1A2B3C4D5E6F" />,
     );
-    expect(screen.getByText(/Option 1 — About text/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Option 2 — Founder via terminal/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Founder via terminal/)).toBeInTheDocument();
   });
 
   it("copies the verification code to the clipboard when the copy button is clicked", async () => {

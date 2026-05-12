@@ -30,6 +30,7 @@ import com.slparcelauctions.backend.realty.exception.InvitationNotFoundException
 import com.slparcelauctions.backend.realty.exception.MemberSeatLimitReachedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserNotFoundException;
@@ -61,6 +62,7 @@ public class RealtyGroupInvitationService {
     private final RealtyGroupAuthorizer authorizer;
     private final NotificationPublisher notifications;
     private final UserRepository users;
+    private final RealtyGroupGuard realtyGroupGuard;
 
     /**
      * Issue a new invitation. Caller needs {@link RealtyGroupPermission#INVITE_AGENTS} or
@@ -85,6 +87,7 @@ public class RealtyGroupInvitationService {
     public RealtyGroupInvitation invite(UUID groupPublicId, CreateInvitationRequest req,
                                          Long callerUserId) {
         RealtyGroup group = loadActive(groupPublicId);
+        realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.INVITE_AGENTS);
 
         User invitee = users.findByUsername(req.invitedUsername())
@@ -151,6 +154,8 @@ public class RealtyGroupInvitationService {
             || (inv.getExpiresAt() != null && inv.getExpiresAt().isBefore(OffsetDateTime.now()))) {
             throw new InvitationExpiredException(invitationPublicId);
         }
+
+        realtyGroupGuard.requireGroupCanOperate(inv.getGroupId());
 
         RealtyGroup group = groups.findById(inv.getGroupId())
             .orElseThrow(() -> new RealtyGroupNotFoundException((UUID) null));

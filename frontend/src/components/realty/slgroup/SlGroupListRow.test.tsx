@@ -36,7 +36,7 @@ function verifiedRow(overrides: Partial<RealtyGroupSlGroup> = {}): RealtyGroupSl
     slGroupName: "Sunset Estates",
     verified: true,
     verifiedAt: "2026-05-12T20:00:00Z",
-    verifiedVia: "ABOUT_TEXT",
+    verifiedVia: "FOUNDER_TERMINAL",
     pending: null,
     founderAvatarUuid: "33333333-3333-3333-3333-333333333333",
     ...overrides,
@@ -71,7 +71,9 @@ describe("SlGroupListRow", () => {
     expect(screen.getByTestId("sl-group-name").textContent).toContain(
       "Sunset Estates",
     );
-    expect(screen.getByTestId("verified-via").textContent).toBe("About text");
+    expect(screen.getByTestId("verified-via").textContent).toBe(
+      "Founder terminal",
+    );
     expect(screen.queryByTestId("recheck-button")).not.toBeInTheDocument();
     expect(screen.getByTestId("unregister-button")).toBeInTheDocument();
   });

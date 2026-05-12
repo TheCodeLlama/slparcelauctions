@@ -64,6 +64,7 @@ class RealtyGroupServiceDissolveTest {
     @Mock AuctionRepository auctions;
     @Mock EscrowRepository escrows;
     @Mock RealtyGroupSlGroupRepository slGroupRepo;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupService service;
 
