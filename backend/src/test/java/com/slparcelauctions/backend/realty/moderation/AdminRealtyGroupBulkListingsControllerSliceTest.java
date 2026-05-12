@@ -136,7 +136,8 @@ class AdminRealtyGroupBulkListingsControllerSliceTest {
 
     @Test
     void postSuspendAll_returns200WithCountAndBulkActionId() throws Exception {
-        when(bulkService.suspendAll(eq(groupDbId), eq(adminDbId), eq("spam listings"), eq(null)))
+        when(bulkService.suspendAll(eq(groupDbId), eq(adminDbId), eq("spam listings"),
+                eq("ad-hoc bulk suspend"), eq(null)))
             .thenReturn(new BulkSuspendResult(BULK_ACTION_ID, 7));
 
         mvc.perform(post("/api/v1/admin/realty-groups/" + GROUP_PUBLIC_ID + "/listings/suspend-all")
@@ -152,7 +153,10 @@ class AdminRealtyGroupBulkListingsControllerSliceTest {
            .andExpect(jsonPath("$.bulkActionId").value(BULK_ACTION_ID.toString()))
            .andExpect(jsonPath("$.suspendedCount").value(7));
 
-        verify(bulkService).suspendAll(eq(groupDbId), eq(adminDbId), eq("spam listings"), eq(null));
+        // Controller must thread `notes` through to the service so the audit
+        // row carries the admin commentary alongside reason + bulkActionId.
+        verify(bulkService).suspendAll(eq(groupDbId), eq(adminDbId), eq("spam listings"),
+            eq("ad-hoc bulk suspend"), eq(null));
     }
 
     @Test
@@ -169,7 +173,8 @@ class AdminRealtyGroupBulkListingsControllerSliceTest {
         when(suspensionRepository.findByPublicId(GROUP_SUSPENSION_PUBLIC_ID))
             .thenReturn(Optional.of(linked));
         when(bulkService.suspendAll(
-                eq(groupDbId), eq(adminDbId), eq("tied to suspension"), eq(linkedSuspensionDbId)))
+                eq(groupDbId), eq(adminDbId), eq("tied to suspension"),
+                eq("cascade from group suspension row"), eq(linkedSuspensionDbId)))
             .thenReturn(new BulkSuspendResult(BULK_ACTION_ID, 3));
 
         mvc.perform(post("/api/v1/admin/realty-groups/" + GROUP_PUBLIC_ID + "/listings/suspend-all")
@@ -186,12 +191,14 @@ class AdminRealtyGroupBulkListingsControllerSliceTest {
            .andExpect(jsonPath("$.suspendedCount").value(3));
 
         // The controller must translate the UUID to the entity's internal id and
-        // pass that as the linkedGroupSuspensionId — verifying with the literal
-        // Long value pins both legs of the resolution.
+        // pass that as the linkedGroupSuspensionId -- verifying with the literal
+        // Long value pins both legs of the resolution. The `notes` body field
+        // is also threaded through so the audit row carries the admin context.
         verify(bulkService).suspendAll(
             eq(groupDbId),
             eq(adminDbId),
             eq("tied to suspension"),
+            eq("cascade from group suspension row"),
             eq(linkedSuspensionDbId));
     }
 

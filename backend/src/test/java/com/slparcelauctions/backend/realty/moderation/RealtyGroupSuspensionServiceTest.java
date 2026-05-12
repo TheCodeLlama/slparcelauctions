@@ -179,7 +179,7 @@ class RealtyGroupSuspensionServiceTest {
         verify(valueOps).set(eq("realty_group_suspended:42"), eq(expires.toString()), any(Duration.class));
 
         // Bulk path NOT invoked
-        verify(bulkListingSuspendService, never()).suspendAll(any(), any(), any(), any());
+        verify(bulkListingSuspendService, never()).suspendAll(any(), any(), any(), any(), any());
 
         assertThat(result).isSameAs(saved);
     }
@@ -205,7 +205,7 @@ class RealtyGroupSuspensionServiceTest {
         verify(suspensions, never()).save(any());
         verify(adminActionService, never()).record(any(), any(), any(), any(), any(), any());
         verify(notificationPublisher, never()).realtyGroupSuspended(any(), any(), any());
-        verify(bulkListingSuspendService, never()).suspendAll(any(), any(), any(), any());
+        verify(bulkListingSuspendService, never()).suspendAll(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -221,12 +221,15 @@ class RealtyGroupSuspensionServiceTest {
                 setId(r, 999L);
                 return r;
             });
-        when(bulkListingSuspendService.suspendAll(eq(42L), eq(9L), eq("FRAUD"), eq(999L)))
+        when(bulkListingSuspendService.suspendAll(eq(42L), eq(9L), eq("FRAUD"), eq("fraud"), eq(999L)))
             .thenReturn(new BulkSuspendResult(UUID.randomUUID(), 7));
 
         service.issue(groupPid, 9L, SuspensionReason.FRAUD, "fraud", FIXED_NOW.plusHours(24), true);
 
-        verify(bulkListingSuspendService).suspendAll(eq(42L), eq(9L), eq("FRAUD"), eq(999L));
+        // The group-level notes ("fraud") must cascade into the bulk-listings
+        // service so listing-level audit rows carry the same admin context as
+        // the group-level audit row.
+        verify(bulkListingSuspendService).suspendAll(eq(42L), eq(9L), eq("FRAUD"), eq("fraud"), eq(999L));
     }
 
     @Test

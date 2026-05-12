@@ -135,8 +135,11 @@ public class RealtyGroupSuspensionService {
         notificationPublisher.realtyGroupSuspended(group, reason.name(), expiresAt);
 
         if (bulkSuspendListings) {
+            // Thread the same admin notes onto the bulk-listings cascade so the
+            // listing-level audit row carries the same admin context as the
+            // group-level audit row (spec §6.3 / §8).
             BulkSuspendResult bulk = bulkListingSuspendService.suspendAll(
-                group.getId(), adminUserId, reason.name(), saved.getId());
+                group.getId(), adminUserId, reason.name(), notes, saved.getId());
             log.info("Bulk-suspended {} listings for group id={} (bulk_action_id={})",
                 bulk.suspendedCount(), group.getId(), bulk.bulkActionId());
         }

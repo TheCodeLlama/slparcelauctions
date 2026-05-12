@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -38,6 +37,8 @@ import com.slparcelauctions.backend.auction.monitoring.ListingSuspensionCause;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
+import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,6 +55,7 @@ class CancellationServiceTest {
     @Mock BanCheckService banCheckService;
     @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
     @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
+    @Mock WalletService walletService;
 
     CancellationService service;
 
@@ -70,7 +72,7 @@ class CancellationServiceTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
-                realtyGroupAuthorizer, listingSuspensionRepo, fixed);
+                realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -254,6 +256,20 @@ class CancellationServiceTest {
         assertThat(log.getReason()).isEqualTo("manual test reason");
     }
 
+    @Test
+    void cancel_releasesBidReservationsForAuction() {
+        // Spec §10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4:
+        // every cancel path must release any active wallet reservations so
+        // bidders never see a stale "held" L$ row after the listing is gone.
+        Auction a = build(AuctionStatus.ACTIVE, true, 5);
+        a.setEndsAt(OffsetDateTime.now(fixed).plusHours(10));
+
+        cancel(a, "release reservations");
+
+        verify(walletService).releaseReservationsForAuction(
+                eq(a.getId()), eq(BidReservationReleaseReason.AUCTION_CANCELLED));
+    }
+
     // -------------------------------------------------------------------------
     // adminCancelExpiredBulkSuspend -- Sub-project F §10.2
     // -------------------------------------------------------------------------
@@ -295,12 +311,16 @@ class CancellationServiceTest {
 
         service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
 
-        // Bidder fan-out is the cause-neutral mechanism that releases proxy
-        // intent on the bidder side -- mirroring how cancel() and cancelByAdmin
-        // surface "your bid is no longer held" to bidders. Verifying the
-        // fan-out is the unit-test-level proxy for the refund pathway.
+        // Wallet reservation release is the centralized refund mechanism --
+        // spec §10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
+        verify(walletService).releaseReservationsForAuction(
+                eq(a.getId()), eq(BidReservationReleaseReason.AUCTION_CANCELLED));
+        // Bidder fan-out surfaces "your bid is no longer held" to bidders.
+        // Cause-neutral non-null body per FOOTGUNS §F.104; the publisher
+        // interpolates the reason verbatim so it must not be null.
         verify(notificationPublisher).listingCancelledBySellerFanout(
-                eq(a.getId()), eq(List.of(101L, 102L, 103L)), eq(a.getTitle()), isNull());
+                eq(a.getId()), eq(List.of(101L, 102L, 103L)), eq(a.getTitle()),
+                eq("Suspended too long without admin action"));
     }
 
     @Test
@@ -357,10 +377,13 @@ class CancellationServiceTest {
 
         service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
 
-        // Bidder fan-out is cause-neutral (null reason) so bidders never see
-        // admin attribution per FOOTGUNS §F.104.
+        // Bidder fan-out is cause-neutral so bidders never see admin
+        // attribution per FOOTGUNS §F.104. The reason argument must be a
+        // non-null user-readable phrase -- the publisher interpolates it into
+        // the bidder body verbatim, so null would render the literal "null".
         verify(notificationPublisher).listingCancelledBySellerFanout(
-                eq(a.getId()), eq(List.of(201L, 202L)), eq(a.getTitle()), isNull());
+                eq(a.getId()), eq(List.of(201L, 202L)), eq(a.getTitle()),
+                eq("Suspended too long without admin action"));
         // Seller gets the F-specific helper with BULK_SUSPEND_TIMER_EXPIRED reason.
         verify(notificationPublisher).listingAutoCancelledFromBulkSuspend(
                 seller.getId(), a.getId(), a.getTitle());

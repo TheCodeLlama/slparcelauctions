@@ -24,6 +24,8 @@ import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
+import com.slparcelauctions.backend.wallet.WalletService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,8 +40,8 @@ import lombok.extern.slf4j.Slf4j;
  * pre-loaded entity and re-fetches under {@link AuctionRepository#findByIdForUpdate}
  * so that a cancellation racing against {@code BidService.placeBid} or
  * {@code AuctionEndTask.closeOne} serialises at the database row lock. The
- * loser sees whichever status the winner committed (ACTIVE → CANCELLED or
- * ACTIVE → ENDED) and surfaces a {@link InvalidAuctionStateException}. See
+ * loser sees whichever status the winner committed (ACTIVE -> CANCELLED or
+ * ACTIVE -> ENDED) and surfaces a {@link InvalidAuctionStateException}. See
  * {@code BidCancelRaceTest} for the pin.
  *
  * <p><strong>Penalty ladder (Epic 08 sub-spec 2).</strong> When an
@@ -50,6 +52,14 @@ import lombok.extern.slf4j.Slf4j;
  * seller serialise and observe distinct ladder indices. The selected
  * {@link CancellationOffenseKind} and L$ amount are snapshotted onto the
  * {@link CancellationLog} row as immutable historical fact.
+ *
+ * <p><strong>Wallet reservations.</strong> Every cancel path releases any
+ * active {@link com.slparcelauctions.backend.wallet.BidReservation} rows for
+ * the auction (via {@link WalletService#releaseReservationsForAuction}) before
+ * flipping status. Runs inside the cancellation tx so a rollback restores
+ * reservations alongside the status flip. Centralised across every cancel
+ * method so bidders never observe a stale "held" L$ row after the listing is
+ * gone -- spec §10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
  */
 @Service
 @RequiredArgsConstructor
@@ -75,6 +85,7 @@ public class CancellationService {
     private final BanCheckService banCheckService;
     private final RealtyGroupAuthorizer realtyGroupAuthorizer;
     private final ListingSuspensionRepository listingSuspensionRepo;
+    private final WalletService walletService;
     private final Clock clock;
 
     @Transactional
@@ -94,7 +105,7 @@ public class CancellationService {
         boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
         boolean activeWithBids = from == AuctionStatus.ACTIVE && hadBids;
 
-        // Pessimistic lock on the seller row — must precede the COUNT so two
+        // Pessimistic lock on the seller row -- must precede the COUNT so two
         // concurrent cancellations on the same seller serialise here and
         // observe distinct prior-offense counts. Pre-active and active-without-
         // bids cancellations also acquire the lock to keep the path uniform;
@@ -105,7 +116,7 @@ public class CancellationService {
 
         banCheckService.assertNotBanned(ipAddress, seller.getSlAvatarUuid());
 
-        // Pre-INSERT count → ladder index → consequence snapshot. Indices are
+        // Pre-INSERT count -> ladder index -> consequence snapshot. Indices are
         // clamped at 3 so the 4th-and-beyond offenses all snapshot
         // PERMANENT_BAN. This call MUST run before saving the new log row
         // (off-by-one trap).
@@ -137,7 +148,7 @@ public class CancellationService {
             amountL = null;
         }
 
-        // Snapshot the consequence onto the log row — immutable historical
+        // Snapshot the consequence onto the log row -- immutable historical
         // fact, never recomputed from live state.
         logRepo.save(CancellationLog.builder()
                 .auction(a)
@@ -164,7 +175,7 @@ public class CancellationService {
                 }
                 case PERMANENT_BAN -> seller.setBannedFromListing(true);
                 default -> {
-                    // WARNING / NONE — log only, no consequence.
+                    // WARNING / NONE -- log only, no consequence.
                 }
             }
             userRepo.save(seller);
@@ -182,6 +193,12 @@ public class CancellationService {
             log.info("Listing fee refund (PENDING) created for auction {}", a.getId());
         }
 
+        // Release any active wallet reservations for this auction before
+        // flipping status. Centralised across every cancel path so bidders
+        // never see a stale "held" L$ row after the listing is gone.
+        walletService.releaseReservationsForAuction(a.getId(),
+                BidReservationReleaseReason.AUCTION_CANCELLED);
+
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
         monitorLifecycle.onAuctionClosed(saved);
@@ -198,7 +215,7 @@ public class CancellationService {
         log.info("Auction {} cancelled from {} (hadBids={}, kind={})",
                 a.getId(), from, hadBids, kind);
 
-        // Register the WS broadcast for afterCommit only — never inside the
+        // Register the WS broadcast for afterCommit only -- never inside the
         // tx. Subscribers must never observe a cancellation that rolls back
         // on a late DB failure. Mirrors the pattern used by ReviewService.
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
@@ -212,7 +229,7 @@ public class CancellationService {
                         }
                     });
         } else {
-            // Slice tests / non-tx callers — fire immediately.
+            // Slice tests / non-tx callers -- fire immediately.
             broadcastPublisher.publishCancelled(envelope);
         }
 
@@ -220,7 +237,7 @@ public class CancellationService {
     }
 
     /**
-     * Admin-initiated cancellation. Skips the penalty ladder entirely —
+     * Admin-initiated cancellation. Skips the penalty ladder entirely --
      * staff removal is not a seller offense. The {@link CancellationLog} row
      * is written with {@code cancelledByAdminId} set so that
      * {@code countPriorOffensesWithBids} (which filters {@code IS NULL}) does
@@ -243,7 +260,7 @@ public class CancellationService {
         boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
         AuctionStatus from = a.getStatus();
 
-        // No penalty ladder. No seller-row lock — no seller-side state changes.
+        // No penalty ladder. No seller-row lock -- no seller-side state changes.
         logRepo.save(CancellationLog.builder()
                 .auction(a)
                 .seller(a.getSeller())
@@ -254,6 +271,12 @@ public class CancellationService {
                 .penaltyAmountL(null)
                 .cancelledByAdminId(adminUserId)
                 .build());
+
+        // Release any active wallet reservations for this auction before
+        // flipping status. Centralised across every cancel path so bidders
+        // never see a stale "held" L$ row after the listing is gone.
+        walletService.releaseReservationsForAuction(a.getId(),
+                BidReservationReleaseReason.AUCTION_CANCELLED);
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
@@ -304,7 +327,7 @@ public class CancellationService {
      * surface where broker authority overrides seller agency.
      *
      * <p>Listing-fee refund is created in every state when {@code listingFeePaid}
-     * is true — including {@code ACTIVE}. This differs from the seller path
+     * is true -- including {@code ACTIVE}. This differs from the seller path
      * (which refunds only on pre-active cancels) because case-3 listing fees
      * are paid out of the group wallet at create-time; the group must be made
      * whole even on an active-state cancel. Existing
@@ -345,7 +368,7 @@ public class CancellationService {
         boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
 
         // Skip the seller penalty ladder. No seller-row lock, no ban check on
-        // the seller — the broker is the actor, not the seller. Snapshot the
+        // the seller -- the broker is the actor, not the seller. Snapshot the
         // log row with kind=BROKER_CANCEL, actor_user_id=broker, realty_group_id=group.
         logRepo.save(CancellationLog.builder()
                 .auction(a)
@@ -359,6 +382,12 @@ public class CancellationService {
                 .realtyGroupId(groupId)
                 .build());
 
+        // Release any active wallet reservations for this auction before
+        // flipping status. Centralised across every cancel path so bidders
+        // never see a stale "held" L$ row after the listing is gone.
+        walletService.releaseReservationsForAuction(a.getId(),
+                BidReservationReleaseReason.AUCTION_CANCELLED);
+
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
         monitorLifecycle.onAuctionClosed(saved);
@@ -366,7 +395,7 @@ public class CancellationService {
         // Listing-fee refund: D's existing ListingFeeRefundProcessorJob routes
         // by originating ledger row, so case-3 refunds credit back to the group
         // wallet without explicit routing here. Issued regardless of from-status
-        // because the group paid the fee — they must be made whole.
+        // because the group paid the fee -- they must be made whole.
         if (Boolean.TRUE.equals(a.getListingFeePaid())) {
             refundRepo.save(ListingFeeRefund.builder()
                     .auction(saved)
@@ -376,7 +405,7 @@ public class CancellationService {
             log.info("Listing fee refund (PENDING) created for case-3 auction {} broker-cancel", a.getId());
         }
 
-        // Notify the original listing agent — the commission recipient, which
+        // Notify the original listing agent -- the commission recipient, which
         // can differ from the current seller_id over time. Notifies the agent
         // even when they are the broker themselves; the stub is log-only.
         User listingAgent = saved.getListingAgent() != null ? saved.getListingAgent() : saved.getSeller();
@@ -415,7 +444,7 @@ public class CancellationService {
     /**
      * Dispute-resolution-initiated cancellation. Used by
      * {@code AdminDisputeService.resolve} when {@code alsoCancelListing} fires.
-     * Skips the CANCELLABLE precondition entirely — the auction may be in
+     * Skips the CANCELLABLE precondition entirely -- the auction may be in
      * DISPUTED (post-escrow) state, which {@link #cancelByAdmin} rejects.
      * The orchestrator is responsible for validating that the dispute is open
      * before calling this method; no re-validation is performed here.
@@ -432,7 +461,7 @@ public class CancellationService {
         Auction a = auctionRepo.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new AuctionNotFoundException(auctionId));
 
-        // No CANCELLABLE precondition check — this path is reached only via
+        // No CANCELLABLE precondition check -- this path is reached only via
         // AdminDisputeService.resolve when alsoCancelListing fires, which
         // already validates the dispute is open. Trust the orchestrator.
 
@@ -449,6 +478,12 @@ public class CancellationService {
                 .penaltyAmountL(null)
                 .cancelledByAdminId(adminUserId)
                 .build());
+
+        // Release any active wallet reservations for this auction before
+        // flipping status. Centralised across every cancel path so bidders
+        // never see a stale "held" L$ row after the listing is gone.
+        walletService.releaseReservationsForAuction(a.getId(),
+                BidReservationReleaseReason.AUCTION_CANCELLED);
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
@@ -532,6 +567,12 @@ public class CancellationService {
                 .penaltyAmountL(null)
                 .build());
 
+        // Release any active wallet reservations for this auction before
+        // flipping status. Centralised across every cancel path so bidders
+        // never see a stale "held" L$ row after the listing is gone.
+        walletService.releaseReservationsForAuction(a.getId(),
+                BidReservationReleaseReason.AUCTION_CANCELLED);
+
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
         monitorLifecycle.onAuctionClosed(saved);
@@ -544,10 +585,13 @@ public class CancellationService {
 
         // Bidder fan-out -- cause-neutral copy per FOOTGUNS §F.104. Bidders
         // never see admin attribution. Empty list is a no-op; stale bidder ids
-        // log a contained warning per the publisher's contract.
+        // log a contained warning per the publisher's contract. A non-null
+        // cause-neutral reason avoids the publisher's body interpolation
+        // rendering the literal string "null" at the end of the bidder body.
         List<Long> bidderIds = bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId());
         notificationPublisher.listingCancelledBySellerFanout(
-                a.getId(), bidderIds, a.getTitle(), null);
+                a.getId(), bidderIds, a.getTitle(),
+                "Suspended too long without admin action");
 
         // Seller-facing notification with the specific BULK_SUSPEND_TIMER_EXPIRED reason.
         notificationPublisher.listingAutoCancelledFromBulkSuspend(

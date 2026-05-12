@@ -39,6 +39,8 @@ import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
+import com.slparcelauctions.backend.wallet.WalletService;
 
 /**
  * Mockito-only unit tests for
@@ -78,6 +80,7 @@ class CancellationServiceBrokerCancelTest {
     @Mock BanCheckService banCheckService;
     @Mock RealtyGroupAuthorizer realtyGroupAuthorizer;
     @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
+    @Mock WalletService walletService;
 
     CancellationService service;
 
@@ -104,7 +107,7 @@ class CancellationServiceBrokerCancelTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
-                realtyGroupAuthorizer, listingSuspensionRepo, fixed);
+                realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
 
         seller = User.builder().id(SELLER_ID).email("s@example.com").username("s")
                 .cancelledWithBids(0)
@@ -160,6 +163,11 @@ class CancellationServiceBrokerCancelTest {
                 eq(LISTING_AGENT_ID), eq(AUCTION_ID), eq("Case 3 Test Lot"),
                 eq(BROKER_ID), eq("agent removed listing"));
         verify(broadcastPublisher).publishCancelled(any(AuctionCancelledEnvelope.class));
+
+        // Wallet reservation release runs on every cancel path -- spec §10.2
+        // step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
+        verify(walletService).releaseReservationsForAuction(
+                eq(AUCTION_ID), eq(BidReservationReleaseReason.AUCTION_CANCELLED));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

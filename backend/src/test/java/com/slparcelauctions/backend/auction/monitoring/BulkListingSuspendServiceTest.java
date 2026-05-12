@@ -102,7 +102,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(case1, case3));
 
-        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         assertThat(result.suspendedCount()).isEqualTo(2);
         assertThat(result.bulkActionId()).isNotNull();
@@ -140,7 +140,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(active, sneakySuspended));
 
-        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         assertThat(result.suspendedCount()).isEqualTo(1);
         verify(listingSuspensionRepo, times(1)).save(any(ListingSuspension.class));
@@ -159,7 +159,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(active, draft));
 
-        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         assertThat(result.suspendedCount()).isEqualTo(1);
         verify(listingSuspensionRepo, times(1)).save(any(ListingSuspension.class));
@@ -173,7 +173,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(a1, a2, a3));
 
-        service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         verify(botMonitorLifecycleService).onAuctionClosed(a1);
         verify(botMonitorLifecycleService).onAuctionClosed(a2);
@@ -187,7 +187,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(a1, a2));
 
-        service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         verify(notificationPublisher).listingSuspended(7L, 101L, "Parcel A", "ADMIN_GROUP_BULK_SUSPEND");
         verify(notificationPublisher).listingSuspended(8L, 102L, "Parcel B", "ADMIN_GROUP_BULK_SUSPEND");
@@ -200,7 +200,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(a1, a2));
 
-        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> detailsCap = ArgumentCaptor.forClass(Map.class);
@@ -215,6 +215,50 @@ class BulkListingSuspendServiceTest {
         assertThat(details).containsEntry("count", 2);
         assertThat(details).containsEntry("groupId", GROUP_ID);
         assertThat(details).containsEntry("bulkActionId", result.bulkActionId().toString());
+        // notes is null in this call -- omit from details map.
+        assertThat(details).doesNotContainKey("notes");
+    }
+
+    @Test
+    void suspendAll_writesNotesIntoAdminActionDetails_whenProvided() {
+        Auction a = buildActive(101L, "Parcel A", buildSeller(7L));
+        when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
+            .thenReturn(List.of(a));
+
+        service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD",
+            "Multiple bid-rigging reports filed", null);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> detailsCap = ArgumentCaptor.forClass(Map.class);
+        verify(adminActionService).record(
+            eq(ADMIN_USER_ID),
+            eq(AdminActionType.REALTY_GROUP_BULK_SUSPEND),
+            eq(AdminActionTargetType.REALTY_GROUP),
+            eq(GROUP_ID),
+            any(),
+            detailsCap.capture());
+        assertThat(detailsCap.getValue())
+            .containsEntry("notes", "Multiple bid-rigging reports filed");
+    }
+
+    @Test
+    void suspendAll_blankNotes_omittedFromAdminActionDetails() {
+        Auction a = buildActive(101L, "Parcel A", buildSeller(7L));
+        when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
+            .thenReturn(List.of(a));
+
+        service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", "   ", null);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> detailsCap = ArgumentCaptor.forClass(Map.class);
+        verify(adminActionService).record(
+            eq(ADMIN_USER_ID),
+            eq(AdminActionType.REALTY_GROUP_BULK_SUSPEND),
+            eq(AdminActionTargetType.REALTY_GROUP),
+            eq(GROUP_ID),
+            any(),
+            detailsCap.capture());
+        assertThat(detailsCap.getValue()).doesNotContainKey("notes");
     }
 
     @Test
@@ -223,7 +267,7 @@ class BulkListingSuspendServiceTest {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID))
             .thenReturn(List.of(a));
 
-        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         assertThat(result.bulkActionId()).isNotNull();
         assertThat(result.suspendedCount()).isEqualTo(1);
@@ -233,7 +277,7 @@ class BulkListingSuspendServiceTest {
     void suspendAll_zeroActiveListings_returnsZeroCountAndStillRecordsAudit() {
         when(auctionRepo.findActiveListingsForGroup(GROUP_ID)).thenReturn(List.of());
 
-        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null);
+        BulkSuspendResult result = service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
         assertThat(result.suspendedCount()).isEqualTo(0);
         verify(listingSuspensionRepo, never()).save(any(ListingSuspension.class));

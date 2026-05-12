@@ -93,6 +93,7 @@ public class AdminRealtyGroupBulkListingsController {
             group.getId(),
             admin.userId(),
             body.reason(),
+            body.notes(),
             linkedGroupSuspensionId);
         return new BulkSuspendResultDto(result.bulkActionId(), result.suspendedCount());
     }

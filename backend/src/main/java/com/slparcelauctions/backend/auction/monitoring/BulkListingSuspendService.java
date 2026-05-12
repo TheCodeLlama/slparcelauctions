@@ -108,13 +108,16 @@ public class BulkListingSuspendService {
      * @param groupId                  the realty group whose listings to suspend
      * @param adminUserId              the admin issuing the bulk action
      * @param reason                   audit-facing reason (typically the suspension reason)
+     * @param notes                    free-form admin commentary surfaced on the
+     *                                 batched audit row's {@code notes} key; nullable /
+     *                                 blank entries are omitted from the details map
      * @param linkedGroupSuspensionId  FK back into {@code realty_group_suspensions};
      *                                 nullable for ad-hoc admin bulk suspends invoked
      *                                 directly via the bulk-listings controller (Task 14)
      */
     @Transactional
     public BulkSuspendResult suspendAll(Long groupId, Long adminUserId, String reason,
-                                        Long linkedGroupSuspensionId) {
+                                        String notes, Long linkedGroupSuspensionId) {
         UUID bulkActionId = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now(clock);
         List<Auction> targets = auctionRepo.findActiveListingsForGroup(groupId);
@@ -164,6 +167,9 @@ public class BulkListingSuspendService {
         details.put("count", count);
         details.put("groupId", groupId);
         details.put("bulkActionId", bulkActionId.toString());
+        if (notes != null && !notes.isBlank()) {
+            details.put("notes", notes);
+        }
         if (linkedGroupSuspensionId != null) {
             details.put("groupSuspensionId", linkedGroupSuspensionId);
         }
