@@ -380,6 +380,23 @@ public class WalletService {
                 UserLedgerEntryType.ESCROW_REFUND.name(), entry.getPublicId());
     }
 
+    /**
+     * Credit the listing agent's user wallet with their share of agent_fee_amt.
+     * Called from {@code AgentFeeDistributor} inside the escrow-payout-success
+     * transaction. Spec §7.2.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void creditAgentFee(Long userId, Long auctionId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow();
+        UserLedgerEntry entry = creditCommon(user, amount,
+            UserLedgerEntryType.AGENT_FEE_CREDIT, "AUCTION", auctionId);
+        walletBroadcastPublisher.publish(user,
+            UserLedgerEntryType.AGENT_FEE_CREDIT.name(), entry.getPublicId());
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void creditListingFeeRefund(User user, long amount, Long listingFeeRefundId) {
         UserLedgerEntry entry = creditCommon(user, amount,
