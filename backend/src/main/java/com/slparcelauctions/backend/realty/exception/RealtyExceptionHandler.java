@@ -409,7 +409,7 @@ public class RealtyExceptionHandler {
     public ProblemDetail handleRealtyGroupSuspended(
             RealtyGroupSuspendedException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
-        pd.setType(URI.create("https://slpa.dev/errors/realty-group-suspended"));
+        pd.setType(URI.create("https://slpa.example/problems/realty/group-suspended"));
         pd.setTitle("Realty group is suspended or banned");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "REALTY_GROUP_SUSPENDED");
