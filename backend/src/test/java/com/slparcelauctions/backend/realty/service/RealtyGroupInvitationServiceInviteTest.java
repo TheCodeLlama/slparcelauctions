@@ -96,7 +96,7 @@ class RealtyGroupInvitationServiceInviteTest {
             .thenAnswer(inv -> inv.getArgument(0));
 
         Set<RealtyGroupPermission> perms = EnumSet.of(RealtyGroupPermission.INVITE_AGENTS);
-        CreateInvitationRequest req = new CreateInvitationRequest("agent", perms);
+        CreateInvitationRequest req = new CreateInvitationRequest("agent", perms, null);
 
         RealtyGroupInvitation result = service.invite(pid, req, 100L);
 
@@ -126,7 +126,7 @@ class RealtyGroupInvitationServiceInviteTest {
             .when(authorizer).assertCan(150L, g.getId(), RealtyGroupPermission.INVITE_AGENTS);
 
         assertThrows(RealtyGroupPermissionDeniedException.class,
-            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class)), 150L));
+            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class), null), 150L));
         verify(invitations, never()).save(any());
     }
 
@@ -140,7 +140,7 @@ class RealtyGroupInvitationServiceInviteTest {
         when(members.existsByGroupIdAndUserId(any(), any())).thenReturn(true);
 
         assertThrows(AlreadyMemberException.class,
-            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class)), 100L));
+            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class), null), 100L));
         verify(invitations, never()).save(any());
         verify(notifications, never()).realtyGroupInvitationSent(any());
     }
@@ -162,7 +162,7 @@ class RealtyGroupInvitationServiceInviteTest {
                 any(), any(), any())).thenReturn(Optional.of(existing));
 
         assertThrows(InvitationAlreadyPendingException.class,
-            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class)), 100L));
+            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class), null), 100L));
         verify(invitations, never()).save(any());
     }
 
@@ -179,7 +179,7 @@ class RealtyGroupInvitationServiceInviteTest {
         when(members.countByGroupId(any())).thenReturn(50L);
 
         assertThrows(MemberSeatLimitReachedException.class,
-            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class)), 100L));
+            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class), null), 100L));
         verify(invitations, never()).save(any());
     }
 
@@ -191,8 +191,59 @@ class RealtyGroupInvitationServiceInviteTest {
         when(users.findByUsername("ghost")).thenReturn(Optional.empty());
 
         assertThrows(UserNotFoundException.class,
-            () -> service.invite(pid, new CreateInvitationRequest("ghost", EnumSet.noneOf(RealtyGroupPermission.class)), 100L));
+            () -> service.invite(pid, new CreateInvitationRequest("ghost", EnumSet.noneOf(RealtyGroupPermission.class), null), 100L));
         verify(invitations, never()).save(any());
+    }
+
+    @Test
+    void createInvitation_persistsCommissionRate() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        User invitee = buildUser("agent");
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(users.findByUsername("agent")).thenReturn(Optional.of(invitee));
+        when(members.existsByGroupIdAndUserId(any(), any())).thenReturn(false);
+        when(invitations.findByGroupIdAndInvitedUserIdAndStatus(
+                any(), any(), any())).thenReturn(Optional.empty());
+        when(members.countByGroupId(any())).thenReturn(0L);
+        when(invitations.save(any(RealtyGroupInvitation.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        BigDecimal rate = new BigDecimal("0.0750");
+        CreateInvitationRequest req = new CreateInvitationRequest(
+            "agent", EnumSet.noneOf(RealtyGroupPermission.class), rate);
+
+        service.invite(pid, req, 100L);
+
+        ArgumentCaptor<RealtyGroupInvitation> captor = ArgumentCaptor.forClass(RealtyGroupInvitation.class);
+        verify(invitations).save(captor.capture());
+        assertEquals(0, rate.compareTo(captor.getValue().getAgentCommissionRate()),
+            "invitation row should carry the requested commission rate");
+    }
+
+    @Test
+    void createInvitation_nullRate_defaultsToZero() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        User invitee = buildUser("agent");
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(users.findByUsername("agent")).thenReturn(Optional.of(invitee));
+        when(members.existsByGroupIdAndUserId(any(), any())).thenReturn(false);
+        when(invitations.findByGroupIdAndInvitedUserIdAndStatus(
+                any(), any(), any())).thenReturn(Optional.empty());
+        when(members.countByGroupId(any())).thenReturn(0L);
+        when(invitations.save(any(RealtyGroupInvitation.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        CreateInvitationRequest req = new CreateInvitationRequest(
+            "agent", EnumSet.noneOf(RealtyGroupPermission.class), null);
+
+        service.invite(pid, req, 100L);
+
+        ArgumentCaptor<RealtyGroupInvitation> captor = ArgumentCaptor.forClass(RealtyGroupInvitation.class);
+        verify(invitations).save(captor.capture());
+        assertEquals(0, BigDecimal.ZERO.compareTo(captor.getValue().getAgentCommissionRate()),
+            "null rate on the request defaults to ZERO on the invitation row");
     }
 
     @Test
@@ -203,7 +254,7 @@ class RealtyGroupInvitationServiceInviteTest {
         when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
 
         assertThrows(GroupDissolvedException.class,
-            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class)), 100L));
+            () -> service.invite(pid, new CreateInvitationRequest("agent", EnumSet.noneOf(RealtyGroupPermission.class), null), 100L));
         verify(authorizer, never()).assertCan(anyLong(), anyLong(), any());
     }
 }

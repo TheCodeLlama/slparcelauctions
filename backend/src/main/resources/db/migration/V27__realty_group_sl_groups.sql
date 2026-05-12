@@ -52,3 +52,13 @@ CREATE INDEX ix_auctions_realty_group_sl_group_id
 UPDATE realty_group_members
    SET permissions = array_remove(permissions, 'MANAGE_OWN_LISTING')
  WHERE 'MANAGE_OWN_LISTING' = ANY(permissions);
+
+-- Per-member commission rate is also carried on the invitation row so a leader can
+-- set the rate at invite time and have it copied verbatim onto the member row at
+-- accept time. Default 0 keeps existing-invite semantics unchanged (no implicit rate).
+ALTER TABLE realty_group_invitations
+  ADD COLUMN agent_commission_rate DECIMAL(5,4) NOT NULL DEFAULT 0;
+
+ALTER TABLE realty_group_invitations
+  ADD CONSTRAINT ck_rg_invitations_commission_rate_nonneg
+    CHECK (agent_commission_rate >= 0);

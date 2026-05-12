@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.realty.service;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -228,10 +229,15 @@ public class RealtyGroupService {
      * misleading state if a future caller starts trusting it).
      *
      * <p>A {@code null} permission set is treated as empty (revoke all flags).
+     *
+     * <p>When {@code newCommissionRate} is non-null it replaces the member's stored
+     * commission rate. A {@code null} value leaves the rate unchanged, so a leader can
+     * patch the permission flags without touching the rate.
      */
     public RealtyGroupMember updateMemberPermissions(UUID groupPublicId,
                                                      UUID memberPublicId,
                                                      Set<RealtyGroupPermission> newPerms,
+                                                     BigDecimal newCommissionRate,
                                                      Long callerUserId) {
         RealtyGroup group = loadActive(groupPublicId);
         authorizer.assertLeader(callerUserId, group.getId());
@@ -258,6 +264,9 @@ public class RealtyGroupService {
         removed.addAll(previous);
         removed.removeAll(effective);
         member.setPermissionSet(effective);
+        if (newCommissionRate != null) {
+            member.setAgentCommissionRate(newCommissionRate);
+        }
         RealtyGroupMember saved = members.save(member);
         // Skip the notification fire when nothing actually changed; same-set PATCH should
         // not spam the member.

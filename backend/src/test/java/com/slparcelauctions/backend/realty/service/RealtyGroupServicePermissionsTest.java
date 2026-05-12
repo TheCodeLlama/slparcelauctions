@@ -83,7 +83,7 @@ class RealtyGroupServicePermissionsTest {
         Set<RealtyGroupPermission> newPerms = EnumSet.of(
             RealtyGroupPermission.INVITE_AGENTS, RealtyGroupPermission.REMOVE_AGENTS);
         RealtyGroupMember result = service.updateMemberPermissions(
-            groupPid, memberPid, newPerms, 100L);
+            groupPid, memberPid, newPerms, null, 100L);
 
         verify(authorizer).assertLeader(100L, g.getId());
         verify(notifications).realtyGroupPermissionsChanged(
@@ -104,7 +104,7 @@ class RealtyGroupServicePermissionsTest {
         when(members.save(any(RealtyGroupMember.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.updateMemberPermissions(
-            groupPid, memberPid, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L);
+            groupPid, memberPid, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L);
 
         verify(notifications, never()).realtyGroupPermissionsChanged(
             any(), any(), any(), any());
@@ -123,7 +123,7 @@ class RealtyGroupServicePermissionsTest {
         when(members.save(any(RealtyGroupMember.class))).thenAnswer(inv -> inv.getArgument(0));
 
         RealtyGroupMember result = service.updateMemberPermissions(
-            groupPid, memberPid, EnumSet.noneOf(RealtyGroupPermission.class), 100L);
+            groupPid, memberPid, EnumSet.noneOf(RealtyGroupPermission.class), null, 100L);
 
         assertTrue(result.permissionSet().isEmpty());
     }
@@ -140,7 +140,7 @@ class RealtyGroupServicePermissionsTest {
 
         assertThrows(RealtyGroupPermissionDeniedException.class,
             () -> service.updateMemberPermissions(
-                groupPid, memberPid, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 999L));
+                groupPid, memberPid, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 999L));
         verify(members, never()).save(any());
     }
 
@@ -159,7 +159,7 @@ class RealtyGroupServicePermissionsTest {
             RealtyGroupPermissionDeniedException.class,
             () -> service.updateMemberPermissions(
                 groupPid, memberPid,
-                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L));
+                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L));
         assertTrue(ex.getMessage().toLowerCase().contains("leader"),
             "rejection should mention leader-perm-immutability");
         verify(members, never()).save(any());
@@ -183,7 +183,7 @@ class RealtyGroupServicePermissionsTest {
         assertThrows(RealtyGroupNotFoundException.class,
             () -> service.updateMemberPermissions(
                 groupPid, memberPid,
-                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L));
+                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L));
         verify(members, never()).save(any());
     }
 
@@ -199,7 +199,7 @@ class RealtyGroupServicePermissionsTest {
         assertThrows(RealtyGroupNotFoundException.class,
             () -> service.updateMemberPermissions(
                 groupPid, memberPid,
-                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L));
+                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L));
     }
 
     @Test
@@ -211,7 +211,7 @@ class RealtyGroupServicePermissionsTest {
         assertThrows(RealtyGroupNotFoundException.class,
             () -> service.updateMemberPermissions(
                 groupPid, memberPid,
-                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L));
+                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L));
         verify(authorizer, never()).assertLeader(anyLong(), anyLong());
     }
 
@@ -226,8 +226,50 @@ class RealtyGroupServicePermissionsTest {
         assertThrows(GroupDissolvedException.class,
             () -> service.updateMemberPermissions(
                 groupPid, memberPid,
-                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), 100L));
+                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L));
         verify(authorizer, never()).assertLeader(anyLong(), anyLong());
+    }
+
+    @Test
+    void updatePermissions_updatesCommissionRate() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        RealtyGroupMember agent = buildMember(g.getId(), 200L);
+        agent.setAgentCommissionRate(BigDecimal.ZERO);
+
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        when(members.findByPublicId(memberPid)).thenReturn(Optional.of(agent));
+        when(members.save(any(RealtyGroupMember.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        BigDecimal newRate = new BigDecimal("0.1500");
+        RealtyGroupMember result = service.updateMemberPermissions(
+            groupPid, memberPid,
+            EnumSet.noneOf(RealtyGroupPermission.class), newRate, 100L);
+
+        assertEquals(0, newRate.compareTo(result.getAgentCommissionRate()),
+            "rate on the saved row should match the requested rate");
+    }
+
+    @Test
+    void updatePermissions_nullRate_leavesRateUnchanged() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        RealtyGroupMember agent = buildMember(g.getId(), 200L);
+        BigDecimal existingRate = new BigDecimal("0.0500");
+        agent.setAgentCommissionRate(existingRate);
+
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        when(members.findByPublicId(memberPid)).thenReturn(Optional.of(agent));
+        when(members.save(any(RealtyGroupMember.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        RealtyGroupMember result = service.updateMemberPermissions(
+            groupPid, memberPid,
+            EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L);
+
+        assertEquals(0, existingRate.compareTo(result.getAgentCommissionRate()),
+            "null rate on the request should leave the existing rate untouched");
     }
 
     @Test
@@ -243,7 +285,7 @@ class RealtyGroupServicePermissionsTest {
         when(members.save(any(RealtyGroupMember.class))).thenAnswer(inv -> inv.getArgument(0));
 
         RealtyGroupMember result = service.updateMemberPermissions(
-            groupPid, memberPid, null, 100L);
+            groupPid, memberPid, null, null, 100L);
         assertTrue(result.permissionSet().isEmpty());
     }
 }

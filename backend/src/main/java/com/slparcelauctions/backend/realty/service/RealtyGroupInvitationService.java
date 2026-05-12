@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.realty.service;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.EnumSet;
@@ -106,12 +107,17 @@ public class RealtyGroupInvitationService {
             ? EnumSet.noneOf(RealtyGroupPermission.class)
             : req.permissions();
 
+        BigDecimal commissionRate = req.agentCommissionRate() == null
+            ? BigDecimal.ZERO
+            : req.agentCommissionRate();
+
         RealtyGroupInvitation invitation = RealtyGroupInvitation.builder()
             .groupId(group.getId())
             .invitedUserId(invitee.getId())
             .invitedById(callerUserId)
             .status(InvitationStatus.PENDING)
             .expiresAt(OffsetDateTime.now().plus(INVITATION_TTL))
+            .agentCommissionRate(commissionRate)
             .build();
         invitation.setPermissionSet(perms);
 
@@ -161,10 +167,14 @@ public class RealtyGroupInvitationService {
             throw new MemberSeatLimitReachedException(group.getMemberSeatLimit(), currentMembers);
         }
 
+        BigDecimal copiedRate = inv.getAgentCommissionRate() == null
+            ? BigDecimal.ZERO
+            : inv.getAgentCommissionRate();
         RealtyGroupMember row = RealtyGroupMember.builder()
             .groupId(group.getId())
             .userId(callerUserId)
             .joinedAt(OffsetDateTime.now())
+            .agentCommissionRate(copiedRate)
             .build();
         row.setPermissionSet(inv.permissionSet());
         RealtyGroupMember savedMember = members.save(row);
