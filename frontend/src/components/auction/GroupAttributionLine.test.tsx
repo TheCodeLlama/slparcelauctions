@@ -3,19 +3,41 @@ import { render, screen } from "@testing-library/react";
 import { GroupAttributionLine } from "./GroupAttributionLine";
 
 describe("GroupAttributionLine", () => {
-  it("renders 'Listed by X of Group' with a link to /group/{slug}", () => {
+  it("renders 'Sold by Group' heading + 'Listed by X of Group' subline with link to /group/{slug}", () => {
     render(
       <GroupAttributionLine
         agent={{ publicId: "u1", displayName: "Alice", avatarUrl: null }}
         group={{ publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: false }}
       />,
     );
+    // Case-3 "Sold by" heading from Realty Groups: E §6.4.
+    expect(screen.getByTestId("group-attribution-sold-by")).toHaveTextContent(
+      /Sold by/i,
+    );
     expect(screen.getByText(/Listed by/i)).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Sunset Realty/i })).toHaveAttribute(
+    // The group name appears in both the heading link and the subline copy,
+    // so query by role with the explicit slug-derived href to pin it down.
+    const groupLinks = screen.getAllByRole("link", { name: /Sunset Realty/i });
+    expect(groupLinks.length).toBeGreaterThanOrEqual(1);
+    expect(groupLinks[0]).toHaveAttribute("href", "/group/sunset");
+    // Listing-agent display name is also linked to /users/{publicId}.
+    expect(screen.getByRole("link", { name: /Alice/i })).toHaveAttribute(
       "href",
-      "/group/sunset",
+      "/users/u1",
     );
+  });
+
+  it("renders only the agent-of-group line when no group is present (individual listing)", () => {
+    // Individual listings have no group attribution at all — the component
+    // should still return null per the dissolved-or-missing-group gate.
+    const { container } = render(
+      <GroupAttributionLine
+        agent={{ publicId: "u1", displayName: "Alice", avatarUrl: null }}
+        group={null}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("renders nothing when group is dissolved", () => {

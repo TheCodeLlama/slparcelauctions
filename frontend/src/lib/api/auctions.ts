@@ -94,6 +94,33 @@ export function cancelAuction(
   return api.put<SellerAuctionResponse>(`/api/v1/auctions/${id}/cancel`, body);
 }
 
+/**
+ * Request body for {@link brokerCancelAuction}. The reason is required —
+ * the broker is a third party cancelling someone else's listing, so the
+ * group ledger keeps the rationale for audit. The backend rejects empty
+ * strings; the frontend gate is the modal's disabled-confirm button.
+ */
+export interface BrokerCancelRequest {
+  reason: string;
+}
+
+/**
+ * POST /api/v1/auctions/{publicId}/broker-cancel — case-3 broker
+ * cancellation. Caller must hold {@code MANAGE_ALL_LISTINGS} on the
+ * auction's realty group; backend gates that. The listing fee refund
+ * lands back in the group wallet, not the agent's personal wallet, since
+ * the wallet paid the fee in the first place. Realty Groups: E §6.5.
+ */
+export function brokerCancelAuction(
+  publicId: string,
+  body: BrokerCancelRequest,
+): Promise<SellerAuctionResponse> {
+  return api.post<SellerAuctionResponse>(
+    `/api/v1/auctions/${publicId}/broker-cancel`,
+    body,
+  );
+}
+
 // ---------- Bids, proxy bids, and user-scoped active listings (Epic 04 sub-2) ----------
 
 /**

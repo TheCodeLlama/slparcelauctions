@@ -136,6 +136,14 @@ export function MembersTab({
                       ))}
                     </ul>
                   )}
+                  {m.agentCommissionRate != null && (
+                    <span
+                      className="text-[11px] text-fg-muted"
+                      data-testid={`member-commission-rate-${m.userPublicId}`}
+                    >
+                      Commission: {(m.agentCommissionRate * 100).toFixed(2)}%
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {showEditPerms && (

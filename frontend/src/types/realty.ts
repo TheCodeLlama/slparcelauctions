@@ -27,15 +27,24 @@ export type InvitationStatus =
 export type OldLeaderAction = "STAY" | "LEAVE";
 
 /**
- * The 4-value permission enum landing in this slice. Sub-projects C/D/E/F
- * each append their own values when they ship. Keep this in lockstep with
- * `backend/.../realty/permission/RealtyGroupPermission.java`.
+ * Permission flag set. Backend enum at
+ * `backend/.../realty/permission/RealtyGroupPermission.java` — keep this
+ * in lockstep with that file. Sub-projects C/D/E/F each appended their
+ * own values; Realty Groups: E added {@code CREATE_LISTING},
+ * {@code MANAGE_ALL_LISTINGS}, the wallet flags, and
+ * {@code REGISTER_SL_GROUP}.
  */
 export type RealtyGroupPermission =
   | "INVITE_AGENTS"
   | "REMOVE_AGENTS"
   | "EDIT_GROUP_PROFILE"
-  | "CONFIGURE_FEES";
+  | "CONFIGURE_FEES"
+  | "CREATE_LISTING"
+  | "MANAGE_ALL_LISTINGS"
+  | "SPEND_FROM_GROUP_WALLET"
+  | "WITHDRAW_FROM_GROUP_WALLET"
+  | "VIEW_GROUP_TRANSACTIONS"
+  | "REGISTER_SL_GROUP";
 
 // ─── Public / read DTOs ────────────────────────────────────────────────────
 
@@ -149,6 +158,13 @@ export interface UpdateRealtyGroupRequest {
 export interface CreateInvitationRequest {
   invitedUsername: string;
   permissions: RealtyGroupPermission[];
+  /**
+   * Decimal commission rate (0.0 .. 1.0) the invited agent will earn on
+   * group listings — backend wire type is BigDecimal, accepted as number or
+   * string. Optional; absence means the leader did not opt in to a custom
+   * rate. {@code 0} is a legal value (group keeps 100% of earnings).
+   */
+  agentCommissionRate?: number;
 }
 
 export interface TransferLeadershipRequest {
@@ -158,6 +174,12 @@ export interface TransferLeadershipRequest {
 
 export interface UpdatePermissionsRequest {
   permissions: RealtyGroupPermission[];
+  /**
+   * Optional commission rate update — when present it replaces the
+   * member's current rate; when {@code undefined} the rate stays
+   * unchanged. {@code 0} is a legal value.
+   */
+  agentCommissionRate?: number;
 }
 
 // ─── Listing-eligible groups ───────────────────────────────────────────────
