@@ -17,6 +17,8 @@ import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
 import com.slparcelauctions.backend.realty.wallet.broadcast.GroupWalletBroadcastPublisher;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException;
@@ -29,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,10 +51,11 @@ class RealtyGroupWalletServiceWithdrawTest {
     private final TerminalCommandRepository cmdRepo = mock(TerminalCommandRepository.class);
     private final NotificationPublisher notif = mock(NotificationPublisher.class);
     private final GroupWalletBroadcastPublisher pub = mock(GroupWalletBroadcastPublisher.class);
+    private final RealtyGroupGuard guard = mock(RealtyGroupGuard.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-05-12T10:00:00Z"), ZoneOffset.UTC);
 
     private final RealtyGroupWalletService svc = new RealtyGroupWalletService(
-        groupRepo, ledgerRepo, userRepo, cmdRepo, notif, pub, clock);
+        groupRepo, ledgerRepo, userRepo, cmdRepo, notif, pub, guard, clock);
 
     // ---- withdraw happy path ----
 
@@ -103,6 +107,25 @@ class RealtyGroupWalletServiceWithdrawTest {
         assertThat(ledgerEntry.getRefType()).isEqualTo("TERMINAL_COMMAND");
 
         verify(pub).publish(any(UUID.class), anyLong(), anyLong(), anyLong(), anyString(), any(UUID.class));
+    }
+
+    // ---- suspension guard ----
+
+    @Test
+    void rejectsWithdrawWhenGroupSuspended_doesNotMutate() {
+        doThrow(new RealtyGroupSuspendedException(
+                    RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now(clock).plusDays(7), "TOS"))
+            .when(guard).requireGroupCanOperate(42L);
+        UUID idem = UUID.randomUUID();
+
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L))
+            .isInstanceOf(RealtyGroupSuspendedException.class);
+
+        verify(groupRepo, never()).findByIdForUpdate(any());
+        verify(ledgerRepo, never()).save(any());
+        verify(cmdRepo, never()).save(any());
+        verify(ledgerRepo, never()).findByIdempotencyKey(anyString());
     }
 
     // ---- leader validation ----

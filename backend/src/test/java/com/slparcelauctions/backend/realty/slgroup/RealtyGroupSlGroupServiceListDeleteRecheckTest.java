@@ -32,6 +32,7 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
     @Mock RealtyGroupSlGroupRepository repo;
     @Mock RealtyGroupRepository groupRepo;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
     @Mock SlWorldApiClient worldApi;
     @Mock SlGroupVerificationCodeGenerator codeGen;
     @Mock AuctionRepository auctionRepo;
@@ -42,7 +43,8 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
 
     private RealtyGroupSlGroupService newService() {
         return new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
+                repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
+                auctionRepo, aboutTextPoller, clock);
     }
 
     private RealtyGroup groupWithId(Long id, UUID publicId) {

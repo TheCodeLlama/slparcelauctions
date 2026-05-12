@@ -19,6 +19,8 @@ import com.slparcelauctions.backend.common.BaseEntity;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
@@ -32,6 +34,7 @@ class RealtyGroupSlGroupServiceRegisterTest {
     @Mock RealtyGroupSlGroupRepository repo;
     @Mock RealtyGroupRepository groupRepo;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock RealtyGroupGuard realtyGroupGuard;
     @Mock SlWorldApiClient worldApi;
     @Mock SlGroupVerificationCodeGenerator codeGen;
     @Mock com.slparcelauctions.backend.auction.AuctionRepository auctionRepo;
@@ -71,7 +74,8 @@ class RealtyGroupSlGroupServiceRegisterTest {
         when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
+                repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
+                auctionRepo, aboutTextPoller, clock);
 
         RealtyGroupSlGroup result = svc.register(callerId, groupPublic, slGroupUuid);
 
@@ -80,6 +84,31 @@ class RealtyGroupSlGroupServiceRegisterTest {
         assertThat(result.getSlGroupName()).isEqualTo("Sunset Realty");
         assertThat(result.isVerified()).isFalse();
         assertThat(result.getRealtyGroupId()).isEqualTo(42L);
+    }
+
+    @Test
+    void register_groupSuspended_throwsAndDoesNotPersist() {
+        UUID groupPublic = UUID.randomUUID();
+        UUID slGroupUuid = UUID.randomUUID();
+        RealtyGroup group = groupWithId(42L, groupPublic);
+
+        when(groupRepo.findByPublicIdAndDissolvedAtIsNull(groupPublic))
+                .thenReturn(Optional.of(group));
+        doThrow(new RealtyGroupSuspendedException(
+                    RealtyGroupSuspendedException.Status.SUSPENDED,
+                    java.time.OffsetDateTime.now(clock).plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(42L);
+
+        RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
+                repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
+                auctionRepo, aboutTextPoller, clock);
+
+        assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
+                .isInstanceOf(RealtyGroupSuspendedException.class);
+
+        verify(authorizer, never()).assertCan(anyLong(), anyLong(), any());
+        verify(repo, never()).save(any());
+        verify(repo, never()).findBySlGroupUuid(any());
     }
 
     @Test
@@ -94,7 +123,8 @@ class RealtyGroupSlGroupServiceRegisterTest {
                 .thenReturn(Optional.of(RealtyGroupSlGroup.builder().build()));
 
         RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
-                repo, groupRepo, authorizer, worldApi, codeGen, auctionRepo, aboutTextPoller, clock);
+                repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
+                auctionRepo, aboutTextPoller, clock);
 
         assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
                 .isInstanceOf(SlGroupAlreadyRegisteredException.class);

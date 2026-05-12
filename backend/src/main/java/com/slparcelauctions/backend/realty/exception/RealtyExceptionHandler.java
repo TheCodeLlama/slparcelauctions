@@ -9,6 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
 import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
@@ -391,6 +392,30 @@ public class RealtyExceptionHandler {
             pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
         }
         pd.setProperty("count", e.getCount());
+        return pd;
+    }
+
+    // -------------------------------------------------------------------------
+    // Sub-project F — admin moderation: suspension/ban guard rejection (spec §5.2)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Surfaces {@link RealtyGroupGuard}-rejected operations as 409 Conflict with
+     * a {@code ProblemDetail} body that names the suspension status (SUSPENDED or
+     * BANNED), the expiry timestamp (null for permanent ban), and the reason.
+     * Frontend uses the {@code groupStatus} field to render a guard banner.
+     */
+    @ExceptionHandler(RealtyGroupSuspendedException.class)
+    public ProblemDetail handleRealtyGroupSuspended(
+            RealtyGroupSuspendedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setType(URI.create("https://slpa.dev/errors/realty-group-suspended"));
+        pd.setTitle("Realty group is suspended or banned");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REALTY_GROUP_SUSPENDED");
+        pd.setProperty("groupStatus", e.getStatus().name());
+        pd.setProperty("expiresAt", e.getExpiresAt() == null ? null : e.getExpiresAt().toString());
+        pd.setProperty("reason", e.getReason());
         return pd;
     }
 }

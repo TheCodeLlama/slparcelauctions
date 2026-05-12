@@ -49,6 +49,7 @@ class RealtyGroupMembershipServiceLeaveTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock AuctionRepository auctions;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupMembershipService service;
 

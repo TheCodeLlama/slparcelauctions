@@ -51,6 +51,7 @@ class RealtyGroupMembershipServiceRemoveTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock AuctionRepository auctions;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupMembershipService service;
 
@@ -65,6 +66,29 @@ class RealtyGroupMembershipServiceRemoveTest {
     private static RealtyGroupMember buildMember(Long groupId, Long userId) {
         return RealtyGroupMember.builder()
             .groupId(groupId).userId(userId).joinedAt(OffsetDateTime.now()).build();
+    }
+
+    @Test
+    void removeMember_groupSuspended_throwsAndDoesNotMutate() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(g.getId());
+
+        assertThrows(
+            com.slparcelauctions.backend.realty.moderation.exception
+                .RealtyGroupSuspendedException.class,
+            () -> service.removeMember(groupPid, memberPid, 150L));
+
+        verify(authorizer, never()).assertCan(any(), any(), any());
+        verify(members, never()).deleteByGroupIdAndUserId(any(), any());
+        verify(notifications, never()).realtyGroupMemberRemoved(any(), any());
     }
 
     @Test

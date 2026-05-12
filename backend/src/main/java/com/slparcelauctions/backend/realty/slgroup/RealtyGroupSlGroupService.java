@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
@@ -39,6 +40,7 @@ public class RealtyGroupSlGroupService {
     private final RealtyGroupSlGroupRepository repo;
     private final RealtyGroupRepository groupRepo;
     private final RealtyGroupAuthorizer authorizer;
+    private final RealtyGroupGuard realtyGroupGuard;
     private final SlWorldApiClient worldApi;
     private final SlGroupVerificationCodeGenerator codeGen;
     private final AuctionRepository auctionRepo;
@@ -49,6 +51,7 @@ public class RealtyGroupSlGroupService {
     public RealtyGroupSlGroup register(Long callerUserId, UUID realtyGroupPublicId, UUID slGroupUuid) {
         RealtyGroup group = groupRepo.findByPublicIdAndDissolvedAtIsNull(realtyGroupPublicId)
                 .orElseThrow(() -> new RealtyGroupNotFoundException(realtyGroupPublicId));
+        realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.REGISTER_SL_GROUP);
 
         repo.findBySlGroupUuid(slGroupUuid).ifPresent(existing -> {

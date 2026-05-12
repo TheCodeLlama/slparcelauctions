@@ -45,6 +45,7 @@ class RealtyGroupServiceUpdateTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock com.slparcelauctions.backend.notification.NotificationPublisher notifications;
     @Mock com.slparcelauctions.backend.user.UserRepository users;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupService service;
 

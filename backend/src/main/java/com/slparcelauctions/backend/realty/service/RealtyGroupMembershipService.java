@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.LeaderCannotLeaveException;
 import com.slparcelauctions.backend.realty.exception.LeaderTransferTargetNotMemberException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -51,6 +52,7 @@ public class RealtyGroupMembershipService {
     private final NotificationPublisher notifications;
     private final UserRepository users;
     private final AuctionRepository auctions;
+    private final RealtyGroupGuard realtyGroupGuard;
 
     /**
      * Caller leaves the group. Deletes their own member row. Leader cannot leave — must
@@ -93,6 +95,7 @@ public class RealtyGroupMembershipService {
      */
     public void removeMember(UUID groupPublicId, UUID memberPublicId, Long callerUserId) {
         RealtyGroup group = loadActive(groupPublicId);
+        realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.REMOVE_AGENTS);
 
         RealtyGroupMember row = members.findByPublicId(memberPublicId)

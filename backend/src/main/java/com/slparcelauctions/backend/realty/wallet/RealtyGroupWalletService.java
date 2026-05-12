@@ -17,6 +17,7 @@ import com.slparcelauctions.backend.escrow.command.TerminalCommandStatus;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.wallet.broadcast.GroupWalletBroadcastPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -42,6 +43,7 @@ public class RealtyGroupWalletService {
     private final TerminalCommandRepository terminalCommandRepository;
     private final NotificationPublisher notificationPublisher;
     private final GroupWalletBroadcastPublisher broadcastPublisher;
+    private final RealtyGroupGuard realtyGroupGuard;
     private final Clock clock;
 
     /* ============================================================ */
@@ -239,6 +241,7 @@ public class RealtyGroupWalletService {
      */
     @Transactional
     public WithdrawResult withdraw(Long groupId, long amount, UUID idempotencyKey, Long callerUserId) {
+        realtyGroupGuard.requireGroupCanOperate(groupId);
         if (amount <= 0) {
             throw new IllegalArgumentException("amount must be positive: " + amount);
         }

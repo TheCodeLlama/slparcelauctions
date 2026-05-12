@@ -34,6 +34,7 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundExceptio
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
 import com.slparcelauctions.backend.realty.exception.SlGroupRegisteredBlocksDissolveException;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
@@ -72,6 +73,7 @@ public class RealtyGroupService {
     private final AuctionRepository auctions;
     private final EscrowRepository escrows;
     private final RealtyGroupSlGroupRepository slGroupRepo;
+    private final RealtyGroupGuard realtyGroupGuard;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -243,6 +245,7 @@ public class RealtyGroupService {
                                                      BigDecimal newCommissionRate,
                                                      Long callerUserId) {
         RealtyGroup group = loadActive(groupPublicId);
+        realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertLeader(callerUserId, group.getId());
 
         RealtyGroupMember member = members.findByPublicId(memberPublicId)

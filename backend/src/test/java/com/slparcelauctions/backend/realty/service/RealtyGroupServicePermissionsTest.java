@@ -52,6 +52,7 @@ class RealtyGroupServicePermissionsTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupService service;
 
@@ -67,6 +68,31 @@ class RealtyGroupServicePermissionsTest {
         return RealtyGroupMember.builder()
             .groupId(groupId).userId(userId).joinedAt(OffsetDateTime.now())
             .build();
+    }
+
+    @Test
+    void updateMemberPermissions_groupSuspended_throwsAndDoesNotMutate() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        org.mockito.Mockito.doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(g.getId());
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            com.slparcelauctions.backend.realty.moderation.exception
+                .RealtyGroupSuspendedException.class,
+            () -> service.updateMemberPermissions(
+                groupPid, memberPid,
+                EnumSet.of(RealtyGroupPermission.INVITE_AGENTS), null, 100L));
+
+        verify(authorizer, never()).assertLeader(any(), any());
+        verify(members, never()).save(any(RealtyGroupMember.class));
+        verify(notifications, never()).realtyGroupPermissionsChanged(any(), any(), any(), any());
     }
 
     @Test

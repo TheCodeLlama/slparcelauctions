@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
@@ -52,6 +53,7 @@ public class RealtyGroupListingService {
     private final RealtyGroupMemberRepository members;
     private final RealtyGroupSlGroupRepository slGroups;
     private final RealtyGroupAuthorizer authorizer;
+    private final RealtyGroupGuard realtyGroupGuard;
     private final AuctionService auctionService;
     private final ParcelLookupService parcelLookupService;
 
@@ -60,6 +62,7 @@ public class RealtyGroupListingService {
         UUID groupPublicId = req.listAsGroupPublicId();
         RealtyGroup group = groups.findByPublicIdAndDissolvedAtIsNull(groupPublicId)
                 .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
+        realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.CREATE_LISTING);
 
         // Look up the parcel up-front so we can validate ownership before any side effects.
