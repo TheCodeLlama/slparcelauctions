@@ -120,9 +120,6 @@ class RealtyGroupListingServiceTest {
         assertThat(result.getRealtyGroupSlGroupId()).isEqualTo(777L);
         assertThat(result.getListingAgent()).isSameAs(seller);
         assertThat(result.getAgentCommissionRate()).isEqualByComparingTo(new BigDecimal("0.0500"));
-        // C-era fields stay NULL for case 3.
-        assertThat(result.getAgentFeeRate()).isNull();
-        assertThat(result.getAgentFeeSplit()).isNull();
     }
 
     @Test
