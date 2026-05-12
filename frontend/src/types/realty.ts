@@ -312,3 +312,332 @@ export interface AdminRealtyGroupsFilters {
   /** `property,direction[;...]` — same format the admin listings table uses. */
   sort?: string;
 }
+
+// ─── Realty Groups: F — Admin moderation ───────────────────────────────────
+
+/**
+ * Compact admin summary embedded in admin-facing DTOs (suspension records,
+ * report rows, drift-ack rows). Mirrors the backend
+ * {@code com.slparcelauctions.backend.admin.dto.AdminSummaryDto} record.
+ */
+export interface AdminSummaryDto {
+  publicId: string;
+  displayName: string;
+}
+
+/**
+ * Why an admin issued a {@link RealtyGroupSuspension}. Backend enum at
+ * {@code com.slparcelauctions.backend.realty.moderation.SuspensionReason} —
+ * informational only; suspension lifecycle is driven by {@code expiresAt}.
+ */
+export type SuspensionReason =
+  | "FRAUD"
+  | "REPORTS_RESOLVED_AGAINST"
+  | "TOS_VIOLATION"
+  | "ABUSE"
+  | "OTHER";
+
+/**
+ * Lifecycle status of a {@link RealtyGroupSuspension}. Computed by the backend
+ * from the row's {@code issuedAt} / {@code expiresAt} / {@code liftedAt}
+ * timestamps; rendered as a status pill in the admin UI.
+ *
+ * - {@code ACTIVE_TIMED}     — not lifted, has expiry in the future.
+ * - {@code ACTIVE_PERMANENT} — not lifted, no expiry (permanent ban).
+ * - {@code LIFTED}           — {@code liftedAt} is set.
+ * - {@code EXPIRED}          — terminal state: expiry passed but the sweep
+ *                              task has not yet stamped {@code liftedAt}.
+ */
+export type SuspensionStatus =
+  | "ACTIVE_TIMED"
+  | "ACTIVE_PERMANENT"
+  | "LIFTED"
+  | "EXPIRED";
+
+/**
+ * Wire shape from the suspension list/issue/lift endpoints. Backend record
+ * {@code com.slparcelauctions.backend.realty.moderation.dto.SuspensionDto}.
+ *
+ * <p>{@code expiresAt} is null for permanent bans; {@code liftedAt} +
+ * {@code liftedByAdmin} + {@code liftedNotes} are non-null iff the row has
+ * been lifted (manually or by the expiry sweep).
+ */
+export interface RealtyGroupSuspension {
+  publicId: string;
+  reason: SuspensionReason;
+  notes: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  liftedAt: string | null;
+  liftedNotes: string | null;
+  issuedByAdmin: AdminSummaryDto;
+  liftedByAdmin: AdminSummaryDto | null;
+  status: SuspensionStatus;
+}
+
+/**
+ * Request body for {@code POST /api/v1/admin/realty-groups/{publicId}/suspensions}.
+ * A null {@code expiresAt} is a permanent ban; otherwise must be in the future.
+ * {@code bulkSuspendListings} opts into the cascading bulk-listing-suspend flow.
+ */
+export interface IssueSuspensionRequest {
+  reason: SuspensionReason;
+  notes: string;
+  /** ISO-8601; omit / null for permanent ban. */
+  expiresAt?: string | null;
+  bulkSuspendListings: boolean;
+}
+
+/**
+ * Request body for
+ * {@code DELETE /api/v1/admin/realty-groups/{publicId}/suspensions/{suspensionPublicId}}.
+ *
+ * <p>{@code notes} is optional; {@code bulkReinstateListings} opts into the
+ * cascading bulk-listing-reinstate flow.
+ */
+export interface LiftSuspensionRequest {
+  notes?: string;
+  bulkReinstateListings: boolean;
+}
+
+/**
+ * Why a user submitted a {@link RealtyGroupReport}. Backend enum at
+ * {@code com.slparcelauctions.backend.realty.reports.RealtyGroupReportReason}.
+ */
+export type RealtyGroupReportReason =
+  | "FRAUDULENT_LISTINGS"
+  | "MISLEADING_ATTRIBUTION"
+  | "HARASSMENT"
+  | "IMPERSONATION"
+  | "SPAM"
+  | "OTHER";
+
+/** Lifecycle status of a {@link RealtyGroupReport}. */
+export type RealtyGroupReportStatus = "OPEN" | "RESOLVED" | "DISMISSED";
+
+/**
+ * Reporter-facing wire shape from {@code POST /api/v1/realty-groups/{publicId}/reports}
+ * (status 201). Backend record
+ * {@code com.slparcelauctions.backend.realty.reports.dto.ReportDto}.
+ *
+ * <p>Narrower than the admin row — reporters see existence + status, not the
+ * resolution fields.
+ */
+export interface RealtyGroupReport {
+  publicId: string;
+  groupPublicId: string;
+  reason: RealtyGroupReportReason;
+  status: RealtyGroupReportStatus;
+  createdAt: string;
+}
+
+/** Request body for {@code POST /api/v1/realty-groups/{publicId}/reports}. */
+export interface SubmitReportRequest {
+  reason: RealtyGroupReportReason;
+  /** 10–2000 chars; backend validates via {@code @Size(min=10, max=2000)}. */
+  details: string;
+}
+
+/**
+ * Compact wire-shape for a single row in the admin realty-group reports queue.
+ * Backend record
+ * {@code com.slparcelauctions.backend.realty.reports.dto.AdminReportRowDto}.
+ */
+export interface AdminRealtyGroupReportRow {
+  publicId: string;
+  groupPublicId: string;
+  groupName: string;
+  reporter: AdminSummaryDto;
+  reason: RealtyGroupReportReason;
+  status: RealtyGroupReportStatus;
+  createdAt: string;
+}
+
+/**
+ * Full report detail returned by the admin detail / resolve / dismiss endpoints.
+ * Backend record
+ * {@code com.slparcelauctions.backend.realty.reports.dto.AdminReportDetailDto}.
+ */
+export interface AdminRealtyGroupReportDetail {
+  publicId: string;
+  group: {
+    publicId: string;
+    name: string;
+  };
+  reporter: AdminSummaryDto;
+  reason: RealtyGroupReportReason;
+  details: string;
+  status: RealtyGroupReportStatus;
+  resolvedByAdmin: AdminSummaryDto | null;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
+  createdAt: string;
+}
+
+/**
+ * Request body for {@code POST /api/v1/admin/realty-groups/reports/{publicId}/resolve}.
+ *
+ * <p>{@code escalateTo} is informational only — the backend never acts on it.
+ * The frontend uses it to decide whether to chain into a suspension modal
+ * after resolve returns.
+ */
+export interface AdminResolveReportRequest {
+  notes: string;
+  escalateTo?: "SUSPEND_GROUP" | "BAN_GROUP" | null;
+}
+
+/** Request body for {@code POST /api/v1/admin/realty-groups/reports/{publicId}/dismiss}. */
+export interface AdminDismissReportRequest {
+  notes: string;
+}
+
+/** Filters threaded through the admin reports queue list query. */
+export interface AdminRealtyGroupReportsFilters {
+  status?: RealtyGroupReportStatus;
+  page: number;
+  size: number;
+  /** `property,direction[;...]` — Spring sort format. */
+  sort?: string;
+}
+
+/**
+ * Response body for
+ * {@code POST /api/v1/admin/realty-groups/{publicId}/listings/suspend-all}.
+ * Backend record
+ * {@code com.slparcelauctions.backend.realty.moderation.dto.BulkSuspendResultDto}.
+ */
+export interface BulkSuspendResult {
+  bulkActionId: string;
+  suspendedCount: number;
+}
+
+/**
+ * Request body for the bulk suspend cascade. {@code groupSuspensionPublicId}
+ * links the cascade back to an existing suspension row (optional).
+ */
+export interface BulkSuspendListingsRequest {
+  reason: string;
+  notes?: string;
+  groupSuspensionPublicId?: string | null;
+}
+
+/**
+ * Response body for
+ * {@code POST /api/v1/admin/realty-groups/{publicId}/listings/reinstate-all}.
+ */
+export interface BulkReinstateResult {
+  reinstatedCount: number;
+}
+
+/** Request body for the bulk reinstate cascade. */
+export interface BulkReinstateListingsRequest {
+  notes?: string;
+}
+
+/**
+ * Why an SL-group registration has been flagged as drifted. Backend uses raw
+ * strings on {@code AdminSlGroupRowDto.driftReason} / {@code SlGroupRecheckResultDto.driftReason} —
+ * keep this union as the canonical set of values.
+ */
+export type SlGroupDriftReason =
+  | "FOUNDER_CHANGED"
+  | "GROUP_NOT_FOUND"
+  | "FETCH_FAILED_REPEATEDLY";
+
+/**
+ * Admin-facing wire shape for an SL-group registration row. Backend record
+ * {@code com.slparcelauctions.backend.realty.slgroup.admin.dto.AdminSlGroupRowDto}.
+ *
+ * <p>Distinct from {@link RealtyGroupSlGroup} (the public surface) because
+ * admins see the full drift/unregister provenance that group members do not.
+ */
+export interface AdminRealtyGroupSlGroup {
+  publicId: string;
+  slGroupUuid: string;
+  slGroupName: string | null;
+  verified: boolean;
+  verifiedAt: string | null;
+  verifiedVia: SlGroupVerifyMethod | null;
+  founderAvatarUuid: string | null;
+  currentFounderUuid: string | null;
+  lastRevalidatedAt: string | null;
+  consecutiveFetchFailures: number;
+  driftDetectedAt: string | null;
+  driftReason: SlGroupDriftReason | string | null;
+  driftAcknowledgedAt: string | null;
+  driftAcknowledgedByAdmin: AdminSummaryDto | null;
+  unregisteredAt: string | null;
+  unregisteredByAdmin: AdminSummaryDto | null;
+  unregisterReason: string | null;
+}
+
+/**
+ * Response body for
+ * {@code POST /api/v1/admin/realty-groups/{publicId}/sl-groups/{slGroupPublicId}/recheck}.
+ * Mirrors the backend {@code SlGroupRecheckResultDto}.
+ */
+export interface SlGroupRecheckResult {
+  driftDetected: boolean;
+  driftReason: SlGroupDriftReason | string | null;
+  currentFounderUuid: string | null;
+}
+
+/** Request body for ack-drift admin action. */
+export interface AckDriftRequest {
+  notes?: string;
+}
+
+/**
+ * Request body for the force-unregister admin action (DELETE with body).
+ * {@code reason} is required; recorded on the row's {@code unregister_reason}
+ * column and the audit row.
+ */
+export interface ForceUnregisterRequest {
+  reason: string;
+}
+
+/**
+ * Atomic-batch payload for
+ * {@code PATCH /api/v1/realty-groups/{publicId}/members/commission-rates}.
+ *
+ * <p>Every entry's {@code rate} replaces that member's stored agent
+ * commission rate. Backend wire type is {@code BigDecimal}; we send it as
+ * a string to preserve precision (e.g. {@code "0.025"} for 2.5%).
+ */
+export interface BulkCommissionRatesRequest {
+  memberRates: BulkCommissionRateEntry[];
+}
+
+export interface BulkCommissionRateEntry {
+  memberPublicId: string;
+  /** Decimal as string, {@code >= "0"}. */
+  rate: string;
+}
+
+/**
+ * Per-member row of the realty-group commission analytics view (spec §6.8,
+ * §15.2). Backend record {@code MemberCommissionRowDto}.
+ *
+ * <p>Both totals are integer L$ amounts ({@code >= 0}). One row per current
+ * member; empty groups still return a row per member with zero totals.
+ */
+export interface MemberCommissionRow {
+  memberPublicId: string;
+  displayName: string;
+  lifetimeLindens: number;
+  last30DaysLindens: number;
+}
+
+/**
+ * Aggregated star rating for a realty group, derived from {@code reviews}
+ * rows joined via case-1 / case-3 auction linkage. Backend record
+ * {@code GroupRatingDto}.
+ *
+ * <p>{@code averageRating} is null when no reviews exist — the "No reviews
+ * yet" empty state is driven by that signal (a 0.0 placeholder would be
+ * visually indistinguishable from a one-star group).
+ */
+export interface GroupRating {
+  averageRating: number | null;
+  reviewCount: number;
+}
