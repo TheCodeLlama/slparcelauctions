@@ -26,9 +26,13 @@ import com.slparcelauctions.backend.admin.exception.FraudFlagNotFoundException;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
+import com.slparcelauctions.backend.auction.fraud.FraudFlagEntityKind;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.common.PagedResponse;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -40,8 +44,89 @@ public class AdminFraudFlagService {
 
     private final FraudFlagRepository fraudFlagRepository;
     private final UserRepository userRepository;
+    private final RealtyGroupRepository realtyGroupRepository;
     private final AdminAuctionService adminAuctionService;
     private final Clock clock;
+
+    /**
+     * Admin-issued fraud flag against a non-listing entity. Slice 3 of realty-groups
+     * sub-project F adds REALTY_GROUP support; spec §11. The historical listing-side
+     * flag-raising sites (ownership monitor, bot monitors, escrow monitor) still
+     * write directly via {@link FraudFlagRepository} with an Auction attached and
+     * the default {@code entityType = LISTING}.
+     *
+     * <p>The resolver below converts the public-facing {@code entityPublicId} (UUID)
+     * to the internal Long id of the target entity. The Long id is stashed in
+     * {@code evidenceJson} under {@code realtyGroupId} / {@code realtyGroupPublicId}
+     * because {@code fraud_flags} has no dedicated foreign key for non-listing
+     * entities (the table widened {@code entity_type} in V28 without adding a
+     * polymorphic id column — see V28 §4.5). The {@code auction} association is
+     * left null on REALTY_GROUP rows.
+     */
+    @Transactional
+    public AdminFraudFlagDetailDto createFraudFlag(
+            FraudFlagEntityKind entityType,
+            UUID entityPublicId,
+            FraudFlagReason reason,
+            Long adminUserId,
+            Map<String, Object> evidenceJson,
+            String adminNotes) {
+
+        User admin = userRepository.findById(adminUserId)
+            .orElseThrow(() -> new IllegalStateException("Admin user not found: " + adminUserId));
+
+        Map<String, Object> evidence = new HashMap<>();
+        if (evidenceJson != null) {
+            evidence.putAll(evidenceJson);
+        }
+
+        Long resolvedEntityId = resolveEntityId(entityType, entityPublicId, evidence);
+
+        FraudFlag flag = FraudFlag.builder()
+            .reason(reason)
+            .entityType(entityType)
+            .detectedAt(OffsetDateTime.now(clock))
+            .evidenceJson(evidence)
+            .adminNotes(adminNotes)
+            .resolved(false)
+            .build();
+
+        // Tuck the resolved internal id alongside the evidence so the admin UI can
+        // jump straight to the linked entity without a second round trip. Kept as a
+        // typed field-style key for forward compatibility.
+        if (resolvedEntityId != null) {
+            evidence.put("entityInternalId", resolvedEntityId);
+        }
+
+        fraudFlagRepository.save(flag);
+        return detail(flag.getId());
+    }
+
+    /**
+     * Resolves the public-facing {@code entityPublicId} of a non-listing flag target to
+     * the internal Long id. Throws an appropriate not-found exception when the entity
+     * doesn't exist. As of Slice 3 only REALTY_GROUP is wired; USER and LISTING are
+     * not yet routed through this method (their flag-issue paths remain the existing
+     * auction-keyed flow). Throws {@link IllegalArgumentException} for those until a
+     * later slice extends the resolver.
+     */
+    private Long resolveEntityId(
+            FraudFlagEntityKind entityType,
+            UUID entityPublicId,
+            Map<String, Object> evidence) {
+        return switch (entityType) {
+            case REALTY_GROUP -> {
+                RealtyGroup group = realtyGroupRepository.findByPublicId(entityPublicId)
+                    .orElseThrow(() -> new RealtyGroupNotFoundException(entityPublicId));
+                evidence.putIfAbsent("realtyGroupId", group.getId());
+                evidence.putIfAbsent("realtyGroupPublicId", entityPublicId.toString());
+                yield group.getId();
+            }
+            case LISTING, USER -> throw new IllegalArgumentException(
+                "AdminFraudFlagService.createFraudFlag does not yet support entityType=" + entityType
+                + "; LISTING flags are raised via the auction-keyed monitors and USER is not yet routed.");
+        };
+    }
 
     @Transactional(readOnly = true)
     public PagedResponse<AdminFraudFlagSummaryDto> list(
