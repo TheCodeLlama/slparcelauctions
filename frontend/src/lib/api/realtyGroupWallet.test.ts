@@ -15,6 +15,7 @@ function fakeWallet(overrides: Partial<GroupWallet> = {}): GroupWallet {
     balance: 5000,
     reserved: 0,
     available: 5000,
+    leaderTermsAcceptedAt: null,
     recentLedger: [],
     ...overrides,
   };
