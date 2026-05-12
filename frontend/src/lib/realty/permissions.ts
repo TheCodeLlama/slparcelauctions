@@ -13,7 +13,6 @@ export const ALL_PERMISSIONS: readonly RealtyGroupPermission[] = [
   "CONFIGURE_FEES",
   "CREATE_LISTING",
   "MANAGE_ALL_LISTINGS",
-  "SPEND_FROM_GROUP_WALLET",
   "WITHDRAW_FROM_GROUP_WALLET",
   "VIEW_GROUP_TRANSACTIONS",
   "REGISTER_SL_GROUP",
@@ -38,8 +37,6 @@ export function permissionLabel(p: RealtyGroupPermission): string {
       return "Create listings";
     case "MANAGE_ALL_LISTINGS":
       return "Manage all listings";
-    case "SPEND_FROM_GROUP_WALLET":
-      return "Spend from group wallet";
     case "WITHDRAW_FROM_GROUP_WALLET":
       return "Withdraw from group wallet";
     case "VIEW_GROUP_TRANSACTIONS":
@@ -68,8 +65,6 @@ export function permissionDescription(p: RealtyGroupPermission): string {
       return "Publish auction listings on behalf of this group.";
     case "MANAGE_ALL_LISTINGS":
       return "Cancel any group listing, regardless of who created it.";
-    case "SPEND_FROM_GROUP_WALLET":
-      return "Pay listing fees and other expenses from the group wallet.";
     case "WITHDRAW_FROM_GROUP_WALLET":
       return "Initiate withdrawals from the group wallet to a Linden Lab account.";
     case "VIEW_GROUP_TRANSACTIONS":
