@@ -68,6 +68,12 @@ auth:
     enabled: true
 
 slpa:
+  system:
+    # Internal user id that scheduled jobs stamp on rows where the data model requires
+    # a user FK but no human admin took the action. Resolved via SystemUserResolver.
+    # Default 1 maps to the seed admin created by UserBootstrap on a fresh DB (the
+    # users.id sequence starts at 1).
+    user-id: 1
   sl:
     expected-shard: Production
     trusted-owner-keys: []
