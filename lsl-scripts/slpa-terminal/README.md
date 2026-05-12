@@ -126,6 +126,13 @@ In steady state with `DEBUG_MODE=true`:
 - `SLParcels Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
 - `SLParcels Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
   dispatched a wallet-withdrawal fulfillment to this terminal.
+- `SLParcels Terminal: ignoring 0-L$ PAYOUT for ikey=...` — sub-project G §8.2
+  graceful-skip behaviour. The backend's post-G `runZeroPayoutSuccessInline`
+  path never emits amount=0 PAYOUT commands, but a stale command from before
+  the deploy can still arrive in-world. The script acks the command as
+  success with memo `skipped-zero-amount` so the backend clears it on the
+  next callback round-trip rather than letting it stall. No L$ moves; no
+  refund needed.
 - `SLParcels Terminal: payout-result acknowledged.` — backend received our async result.
 - `SLParcels Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
 - `SLParcels Terminal: heartbeat failed status=...` — heartbeat POST failed; will

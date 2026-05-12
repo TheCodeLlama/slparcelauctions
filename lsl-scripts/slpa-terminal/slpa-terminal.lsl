@@ -659,6 +659,34 @@ default {
             return;
         }
 
+        // Sub-project G §8.2 -- graceful skip for stale $0 PAYOUT commands. After
+        // the backend's runZeroPayoutSuccessInline short-circuit ships, backend
+        // never emits amount=0; but a command queued before the deploy can still
+        // arrive. Ack as success so the backend clears the command on the
+        // callback path rather than letting it stall.
+        if (action == "PAYOUT" && amount <= 0) {
+            llOwnerSay("SLParcels Terminal: ignoring 0-L$ PAYOUT for ikey=" + ikey);
+            // Ack receipt to the dispatcher first so it doesn't retry the POST.
+            llHTTPResponse(id, 200, "{\"status\":\"ACCEPTED\"}");
+            // Post the synthetic success callback. slTransactionKey "0" signals
+            // "no SL transaction happened" -- backend's ledger code treats it as
+            // an opaque string and stores it on the AUCTION_ESCROW_PAYOUT row.
+            string skipBody = "{"
+                + "\"idempotencyKey\":\"" + escapeJson(ikey) + "\","
+                + "\"success\":true,"
+                + "\"slTransactionKey\":\"0\","
+                + "\"memo\":\"skipped-zero-amount\","
+                + "\"terminalId\":\"" + escapeJson(TERMINAL_ID) + "\","
+                + "\"sharedSecret\":\"" + escapeJson(SHARED_SECRET) + "\""
+                + "}";
+            payoutResultReqId = llHTTPRequest(PAYOUT_RESULT_URL,
+                [HTTP_METHOD, "POST",
+                 HTTP_MIMETYPE, "application/json",
+                 HTTP_BODY_MAXLENGTH, 16384],
+                skipBody);
+            return;
+        }
+
         if (recipient == JSON_INVALID || amount <= 0) {
             llHTTPResponse(id, 400, "{\"error\":\"missing recipient or amount\"}");
             return;
