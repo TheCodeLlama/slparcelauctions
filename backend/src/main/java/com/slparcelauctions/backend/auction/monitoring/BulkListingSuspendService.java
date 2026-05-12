@@ -187,6 +187,16 @@ public class BulkListingSuspendService {
      * suspension duration, fires the bot-monitor resume hook, and publishes the
      * reinstated notification — keeping the bulk path's per-row semantics identical
      * to the individual {@code /admin/auctions/{id}/reinstate} endpoint.
+     *
+     * <p>Atomic batch: any per-row reinstate failure rolls back the entire batch
+     * (including any successful {@code liftedAt} stamps and the audit row). The
+     * earlier per-row try/catch was misleading — under Spring's transaction
+     * propagation model, {@code AdminAuctionService#reinstate} joins the outer
+     * {@code @Transactional} and any RuntimeException flips the shared transaction
+     * to rollback-only, so swallowing it here only hid the {@code
+     * UnexpectedRollbackException} at commit while still rolling back everything.
+     * If best-effort batching is ever required, switch
+     * {@code AdminAuctionService#reinstate} to {@code Propagation.REQUIRES_NEW}.
      */
     @Transactional
     public int reinstateAll(Long groupId, Long adminUserId, String notes) {
@@ -194,14 +204,11 @@ public class BulkListingSuspendService {
         OffsetDateTime now = OffsetDateTime.now(clock);
         int count = 0;
         for (ListingSuspension ls : active) {
-            Long auctionId = ls.getAuction().getId();
-            try {
-                adminAuctionService.reinstate(auctionId, Optional.of(ls.getSuspendedAt()));
-            } catch (RuntimeException e) {
-                log.error("Failed to reinstate auction id={} during bulk reinstate for group id={}",
-                    auctionId, groupId, e);
-                continue;
-            }
+            // Reinstate joins the outer @Transactional; a failure here rolls back the
+            // entire batch (including any liftedAt stamps already applied and the
+            // audit row). Per-row try/catch can't deliver best-effort semantics under
+            // Spring's transaction propagation model.
+            adminAuctionService.reinstate(ls.getAuction().getId(), Optional.of(ls.getSuspendedAt()));
             ls.setLiftedAt(now);
             count++;
         }
