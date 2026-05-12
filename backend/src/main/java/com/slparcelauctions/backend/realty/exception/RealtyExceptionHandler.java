@@ -32,6 +32,7 @@ import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMisma
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotFoundException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotVerifiedException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
+import com.slparcelauctions.backend.realty.wallet.exception.AdminAdjustAmountOutOfRangeException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
@@ -262,6 +263,28 @@ public class RealtyExceptionHandler {
         pd.setProperty("code", "INSUFFICIENT_GROUP_BALANCE");
         pd.setProperty("available", e.getAvailable());
         pd.setProperty("requested", e.getRequested());
+        return pd;
+    }
+
+    /**
+     * Sub-project G section 7.2 -- surfaces {@link AdminAdjustAmountOutOfRangeException}
+     * as 422 Unprocessable Entity. Thrown by
+     * {@code AdminRealtyGroupWalletService.adjust} when {@code |amount|} exceeds the
+     * sanity ceiling configured by {@code slpa.realty.admin-wallet-adjust-max-l}.
+     * Body carries the offending {@code amount} and {@code ceiling} so the admin UI
+     * can render an actionable message (which value tripped the gate and what the
+     * configured limit is).
+     */
+    @ExceptionHandler(AdminAdjustAmountOutOfRangeException.class)
+    public ProblemDetail handleAdminAdjustOutOfRange(
+            AdminAdjustAmountOutOfRangeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Admin Adjust Amount Out Of Range");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "ADMIN_ADJUST_AMOUNT_OUT_OF_RANGE");
+        pd.setProperty("amount", e.getAmount());
+        pd.setProperty("ceiling", e.getCeiling());
         return pd;
     }
 
