@@ -36,7 +36,7 @@ Items deliberately left deferred and the rationale for each are listed in §18.
 
 | Layer | Touchpoints |
 |---|---|
-| Schema (Flyway V29) | Drops 5 columns + adds widened CHECK on `realty_group_ledger.entry_type` (for `ADMIN_ADJUSTMENT`) + 1 new column on `realty_groups` (`open_reports_threshold_notified` boolean) + 1 new column on `realty_groups` (`leader_terms_accepted_at_cache` — derivable but materialised; see §7.4). |
+| Schema (Flyway V29) | Drops 5 columns + adds widened CHECK on `realty_group_ledger.entry_type` (for `ADMIN_ADJUSTMENT`) + 1 new column on `realty_groups` (`reports_threshold_notified` boolean) + `array_remove` scrub for the deleted `SPEND_FROM_GROUP_WALLET` permission. No new column for leader-terms — §7.5 reads the existing `User.realtyGroupLeaderTermsAcceptedAt`. |
 | Java entities | `RealtyGroupLedgerEntryType`, `AdminActionType`, `RealtyGroupPermission`, `TerminalCommandAction`. |
 | Backend services | `TerminalCommandService` (PAYOUT skip-for-case-3), `RealtyGroupWalletService` (admin adjust + SL-group withdraw destination), `RealtyGroupSlGroupService` (reverse-search gate), `RealtyGroupReportService` (threshold notification), `AuctionDtoMapper` (three N+1 fixes), `RealtyGroupListingService.listingEligibleGroups` (per-member rate in DTO), `RealtyGroupService` (delete case-1 paths). |
 | Backend controllers | `AdminRealtyGroupWalletController` (new), `RealtyGroupWalletController` (withdraw extended), `RealtyGroupReviewsController` (new). `@Transactional` boundary moved from F's two moderation controllers down to their services. |
@@ -90,7 +90,7 @@ ALTER TABLE realty_groups ADD COLUMN IF NOT EXISTS reports_threshold_notified BO
 
 The migration runs **after** every Java reference to the dropped columns is gone in the same PR (commit-order discipline; see §15.2).
 
-`EnumCheckConstraintSync` for `realty_group_ledger.entry_type` is updated to mirror the widened CHECK (so subsequent enum additions stay consistent without another migration).
+Project convention (mirrored by V28) is to widen CHECKs manually in the migration. `EnumCheckConstraintSync` (`backend/src/main/java/com/slparcelauctions/backend/common/EnumCheckConstraintSync.java`) runs at startup and is idempotent against an already-correct CHECK — both layers running is safe.
 
 ### 4.3 Acceptance for §4
 
@@ -247,7 +247,7 @@ public record GroupWithdrawRequest(
 public enum GroupWithdrawRecipient { AVATAR, SL_GROUP }
 ```
 
-Default for any old client that omits the field: `AVATAR` (handled in the controller layer as a backward-compat default; remove the default after one release cycle, tracked in the PR description rather than `DEFERRED_WORK.md` since the cycle resolves before any G follow-up issue exists).
+No backward-compat default. The field is required (`@NotNull`). Slpa is pre-launch with no production clients, so all callers update atomically with this PR. Frontend wraps the existing withdraw modal with the picker; bot side doesn't read this field (server already resolves the destination before enqueuing the `TerminalCommandAction.WITHDRAW_GROUP`).
 
 Backend behavior in `RealtyGroupWalletService.withdraw`:
 
@@ -285,7 +285,9 @@ Wire the handler into the task-type dispatch table next to the existing `Withdra
 
 ### 7.5 `leaderTermsAcceptedAt` on `GroupWalletDto`
 
-`GroupWalletDto` gains `leaderTermsAcceptedAt: Instant?` populated from `User.realtyGroupLeaderTermsAcceptedAt` (already exists from D — it's the *user's* terms acceptance timestamp; the wallet DTO surfaces the leader's value via the group's `leaderUserId`).
+`GroupWalletDto` gains `leaderTermsAcceptedAt: Instant?` populated from `User.walletTermsAcceptedAt` (the field already on the `User` entity from D's wallet plumbing — `User.java` line 347, column `wallet_terms_accepted_at`). The wallet DTO surfaces the leader's value by resolving the group's `leaderUserId` to the corresponding `User` row.
+
+`GroupWalletDtoMapper` (or wherever `GroupWalletDto` is built — verify in `backend/src/main/java/com/slparcelauctions/backend/realty/wallet/dto/GroupWalletDtoMapper.java`) takes a `User leader` parameter and copies the timestamp.
 
 Frontend `LeaderTermsBlockBanner` condition flips from "always render" to `wallet.leaderTermsAcceptedAt == null`. The banner now correctly hides for leaders who have accepted terms.
 
@@ -315,9 +317,9 @@ if (escrow.getPayoutAmt() == 0L) {
 }
 ```
 
-`runZeroPayoutSuccessInline` mirrors `handleEscrowPayoutSuccess`'s post-payout work (ledger write of `AUCTION_ESCROW_PAYOUT` with amount=0, escrow state transition to COMPLETED, seller notification, downstream `AgentCommissionDistributor` invocation), minus the bot/LSL interactions. Behavior must remain idempotent — entry is gated by the same idempotency-key check the normal callback path uses.
+`runZeroPayoutSuccessInline` mirrors `handleEscrowPayoutSuccess`'s post-payout work (ledger write of `AUCTION_ESCROW_PAYOUT` with amount=0, escrow state transition to COMPLETED, seller notification, downstream `AgentCommissionDistributor` invocation), minus the bot/LSL interactions. Idempotency: gate on the escrow's current state — if `escrow.getState() == COMPLETED` already, no-op. This replaces the TerminalCommand-row idempotency check used on the normal callback path.
 
-Callers of `queuePayout` that read the returned `TerminalCommand` must handle null. There's only one caller today (`EscrowPayoutService`); update its expectation.
+`queuePayout`'s return type changes from `TerminalCommand` to `Optional<TerminalCommand>` (empty for the case-3 zero-payout branch, present otherwise). The single caller (`EscrowPayoutService`) updates to handle `Optional`.
 
 ### 8.2 LSL defensive fallback
 
@@ -607,19 +609,21 @@ if (conflictingSuspended) {
 }
 ```
 
-New repository method on `RealtyGroupSlGroupRepository`:
+The "is suspended" state of a realty group is determined by an active row in `realty_group_suspensions` (F's pattern: `WHERE lifted_at IS NULL`), not a boolean column on `realty_groups`. New repository method on `RealtyGroupSlGroupRepository`:
 
 ```java
 @Query("""
-    SELECT count(s) > 0
+    SELECT CASE WHEN COUNT(s) > 0 THEN TRUE ELSE FALSE END
       FROM RealtyGroupSlGroup s
      WHERE s.slGroupUuid = :slGroupUuid
-       AND s.realtyGroup.suspended = true
+       AND EXISTS (
+           SELECT 1 FROM RealtyGroupSuspension sus
+            WHERE sus.realtyGroup = s.realtyGroup
+              AND sus.liftedAt IS NULL
+       )
     """)
-boolean existsBySlGroupUuidAndRealtyGroupSuspended(UUID slGroupUuid);
+boolean existsForSuspendedRealtyGroup(UUID slGroupUuid);
 ```
-
-(`realty_groups.suspended` is the boolean flag F shipped — verify exact name.)
 
 ### 14.2 New exception + handler
 
@@ -681,7 +685,7 @@ PR body must include:
 
 - Manual ops steps for in-world LSL deployment of `slpa-terminal.lsl` (Section 8.2).
 - Postman collection additions if the collection isn't git-tracked.
-- A note that the `GroupWithdrawRequest.recipient` field has a backward-compat default that should be removed after one release cycle.
+- An acknowledgement that the `slpa.realty.admin-wallet-adjust-max-l` ceiling is a sanity gate, not a policy lever — operators tune via config if a legitimate large adjustment is ever blocked.
 
 ## 17. Migration concerns
 
