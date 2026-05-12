@@ -2,7 +2,9 @@ package com.slparcelauctions.backend.admin.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -133,5 +135,92 @@ class AdminActionRepositoryTest {
 
         assertThat(page.getContent())
             .allMatch(a -> a.getDetails() != null && a.getDetails().isEmpty());
+    }
+
+    @Test
+    void findRealtyGroupActions_groupIdNull_returnsAllRealtyGroupRows() {
+        // Seed a REALTY_GROUP_* row and a non-realty-group row; verify the prefix filter.
+        AdminAction realty = adminActionService.record(
+            adminId,
+            AdminActionType.REALTY_GROUP_SUSPEND,
+            AdminActionTargetType.REALTY_GROUP,
+            5001L,
+            "rg suspend",
+            null);
+
+        Page<AdminAction> page = adminActionRepository.findRealtyGroupActions(
+            null, PageRequest.of(0, 50));
+
+        // Non-realty rows in the page (CREATE_BAN / LIFT_BAN / PROMOTE_USER from @BeforeEach)
+        // must be excluded by the action_type LIKE 'REALTY_GROUP_%' prefix filter.
+        assertThat(page.getContent())
+            .allMatch(a -> a.getActionType().name().startsWith("REALTY_GROUP_"));
+        assertThat(page.getContent()).anyMatch(a -> a.getId().equals(realty.getId()));
+
+        // Cleanup
+        adminActionRepository.delete(realty);
+    }
+
+    @Test
+    void findRealtyGroupActions_byTargetId_matchesRealtyGroupTargetedRows() {
+        Long groupId = 6001L;
+        AdminAction matched = adminActionService.record(
+            adminId,
+            AdminActionType.REALTY_GROUP_BAN,
+            AdminActionTargetType.REALTY_GROUP,
+            groupId,
+            "ban",
+            null);
+        AdminAction otherGroup = adminActionService.record(
+            adminId,
+            AdminActionType.REALTY_GROUP_SUSPEND,
+            AdminActionTargetType.REALTY_GROUP,
+            6002L,
+            "different group",
+            null);
+
+        Page<AdminAction> page = adminActionRepository.findRealtyGroupActions(
+            groupId, PageRequest.of(0, 50));
+
+        assertThat(page.getContent()).extracting(AdminAction::getId)
+            .contains(matched.getId())
+            .doesNotContain(otherGroup.getId());
+
+        adminActionRepository.delete(matched);
+        adminActionRepository.delete(otherGroup);
+    }
+
+    @Test
+    void findRealtyGroupActions_byEvidenceJsonGroupId_matchesReportRows() {
+        Long groupId = 7001L;
+        // REPORT_RESOLVE writers store target_type=REPORT but put groupId in evidence;
+        // the entityId narrowing must still pick the row up.
+        Map<String, Object> evidence = new HashMap<>();
+        evidence.put("reportPublicId", UUID.randomUUID().toString());
+        evidence.put("groupId", groupId);
+        AdminAction reportRow = adminActionService.record(
+            adminId,
+            AdminActionType.REALTY_GROUP_REPORT_RESOLVE,
+            AdminActionTargetType.REPORT,
+            8001L, // report row id, not group id
+            "report resolved",
+            evidence);
+        AdminAction unrelatedReport = adminActionService.record(
+            adminId,
+            AdminActionType.REALTY_GROUP_REPORT_DISMISS,
+            AdminActionTargetType.REPORT,
+            8002L,
+            "different group's report",
+            Map.of("reportPublicId", UUID.randomUUID().toString(), "groupId", 9999L));
+
+        Page<AdminAction> page = adminActionRepository.findRealtyGroupActions(
+            groupId, PageRequest.of(0, 50));
+
+        assertThat(page.getContent()).extracting(AdminAction::getId)
+            .contains(reportRow.getId())
+            .doesNotContain(unrelatedReport.getId());
+
+        adminActionRepository.delete(reportRow);
+        adminActionRepository.delete(unrelatedReport);
     }
 }
