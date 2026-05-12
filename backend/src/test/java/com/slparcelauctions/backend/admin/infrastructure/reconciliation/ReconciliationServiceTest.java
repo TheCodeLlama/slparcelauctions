@@ -56,10 +56,18 @@ class ReconciliationServiceTest {
     @Test
     void staleBalanceRecordsErrorStatus() {
         // No terminal heartbeats in DB — freshestBalance() returns empty
-        // → service records ERROR and does NOT publish a mismatch notification
+        // → service records ERROR and does NOT publish a mismatch notification.
+        //
+        // Note: filter on rows newer than testStart so pre-existing rows left
+        // behind by prior tests in the same JVM (committed before this
+        // @Transactional test acquired its rollback boundary) do not flake the
+        // size assertion. This used to be a pre-D order-dependent flake.
+        var testStart = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC);
         service.runDaily();
 
-        var runs = runRepo.findAll();
+        var runs = runRepo.findAll().stream()
+                .filter(r -> !r.getRanAt().isBefore(testStart))
+                .toList();
         assertThat(runs).hasSize(1);
         ReconciliationRun row = runs.get(0);
         assertThat(row.getStatus()).isEqualTo(ReconciliationStatus.ERROR);
