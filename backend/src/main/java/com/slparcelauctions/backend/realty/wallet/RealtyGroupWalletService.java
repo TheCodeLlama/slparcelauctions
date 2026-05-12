@@ -83,6 +83,56 @@ public class RealtyGroupWalletService {
     }
 
     /* ============================================================ */
+    /* CASE-3 LISTING PAYOUT (called from AgentCommissionDistributor) */
+    /* ============================================================ */
+
+    /**
+     * Credit the group wallet with its case-3 share of earnings (after platform
+     * commission and the listing agent's commission slice). Called from
+     * {@code AgentCommissionDistributor} inside the escrow-payout-success
+     * transaction for case-3 (SL-group-owned) auctions. Spec §9.6.
+     *
+     * <p>Idempotency key {@code LP-{auctionId}} prevents a duplicate credit if
+     * the payout callback ever fires twice for the same auction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void creditPayout(Long realtyGroupId, Long auctionId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        String idempotencyKey = "LP-" + auctionId;
+        Optional<RealtyGroupLedgerEntry> existing = ledgerRepository.findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            log.debug("group listing payout replay for auctionId={} (existing entry id={})",
+                auctionId, existing.get().getId());
+            return;
+        }
+        RealtyGroup group = groupRepository.findByIdForUpdate(realtyGroupId).orElseThrow();
+        long newBalance = group.getBalanceLindens() + amount;
+        group.setBalanceLindens(newBalance);
+        clearDormancyOnActivity(group);
+        groupRepository.save(group);
+
+        RealtyGroupLedgerEntry entry = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(realtyGroupId)
+            .entryType(RealtyGroupLedgerEntryType.LISTING_PAYOUT)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(group.getReservedLindens())
+            .refType("AUCTION")
+            .refId(auctionId)
+            .idempotencyKey(idempotencyKey)
+            .build());
+
+        broadcastPublisher.publish(group.getPublicId(),
+            newBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.LISTING_PAYOUT.name(), entry.getPublicId());
+
+        log.info("group listing payout credit: groupId={}, auctionId={}, amount={}, balanceAfter={}",
+            realtyGroupId, auctionId, amount, newBalance);
+    }
+
+    /* ============================================================ */
     /* LISTING FEE DEBIT                                             */
     /* ============================================================ */
 

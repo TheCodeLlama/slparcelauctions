@@ -75,6 +75,7 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final com.slparcelauctions.backend.auction.agentfee.AgentFeeDistributor agentFeeDistributor;
+    private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -316,14 +317,31 @@ public class TerminalCommandService {
                 finalEscrow.getAuction().getTitle(),
                 cmd.getAmount());
 
-        // Sub-project D §7.2: now that the L$ has confirmed-departed SLPA for
-        // the reduced payoutAmt, the agent_fee_amt L$ left in our system is
-        // distributable. Split between group wallet and agent user wallet per
-        // agent_fee_split, snapshotted on the auction.
-        long agentFeeAmt = finalEscrow.getAuction().getAgentFeeAmt() == null
-                ? 0L : finalEscrow.getAuction().getAgentFeeAmt();
-        if (agentFeeAmt > 0) {
-            agentFeeDistributor.distribute(finalEscrow.getAuction(), agentFeeAmt);
+        // Realty-group payout splitting. Two mutually-exclusive code paths:
+        //
+        //   case 3 (E -- SL-group-owned): realty_group_sl_group_id IS NOT NULL.
+        //       The seller's payout amount IS the case-3 earnings (no reduction);
+        //       AgentCommissionDistributor splits earnings between listing agent
+        //       and group wallet using agent_commission_rate. Spec §9.6.
+        //
+        //   case 1 (D legacy -- group-listed but not SL-group-owned):
+        //       realty_group_id IS NOT NULL AND realty_group_sl_group_id IS NULL.
+        //       The escrow has already withheld agent_fee_amt from payoutAmt;
+        //       AgentFeeDistributor splits agent_fee_amt by agent_fee_split.
+        //       Spec §7.2.
+        //
+        //   individual: realty_group_id IS NULL -- nothing to split.
+        if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
+            agentCommissionDistributor.distribute(
+                finalEscrow.getAuction(),
+                finalEscrow.getFinalBidAmount(),
+                finalEscrow.getCommissionAmt());
+        } else if (finalEscrow.getAuction().getRealtyGroupId() != null) {
+            long agentFeeAmt = finalEscrow.getAuction().getAgentFeeAmt() == null
+                    ? 0L : finalEscrow.getAuction().getAgentFeeAmt();
+            if (agentFeeAmt > 0) {
+                agentFeeDistributor.distribute(finalEscrow.getAuction(), agentFeeAmt);
+            }
         }
     }
 

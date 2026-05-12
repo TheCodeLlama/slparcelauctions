@@ -62,3 +62,33 @@ ALTER TABLE realty_group_invitations
 ALTER TABLE realty_group_invitations
   ADD CONSTRAINT ck_rg_invitations_commission_rate_nonneg
     CHECK (agent_commission_rate >= 0);
+
+-- Widen ledger CHECK constraints to admit E's new entry-type values. The case-3
+-- payout splitter (AgentCommissionDistributor) writes AGENT_COMMISSION_CREDIT to
+-- user_ledger and LISTING_PAYOUT to realty_group_ledger. See spec §9.6.
+ALTER TABLE user_ledger DROP CONSTRAINT user_ledger_entry_type_check;
+ALTER TABLE user_ledger ADD CONSTRAINT user_ledger_entry_type_check CHECK (
+    entry_type IN (
+        'DEPOSIT',
+        'WITHDRAW_QUEUED', 'WITHDRAW_COMPLETED', 'WITHDRAW_REVERSED',
+        'BID_RESERVED', 'BID_RELEASED',
+        'ESCROW_DEBIT', 'ESCROW_REFUND',
+        'LISTING_FEE_DEBIT', 'LISTING_FEE_REFUND',
+        'PENALTY_DEBIT',
+        'AGENT_FEE_CREDIT',
+        'AGENT_COMMISSION_CREDIT',
+        'ADJUSTMENT'
+    )
+);
+
+ALTER TABLE realty_group_ledger DROP CONSTRAINT realty_group_ledger_entry_type_check;
+ALTER TABLE realty_group_ledger ADD CONSTRAINT realty_group_ledger_entry_type_check CHECK (
+    entry_type IN (
+        'LISTING_FEE_DEBIT', 'LISTING_FEE_REFUND',
+        'AGENT_FEE_CREDIT',
+        'LISTING_PAYOUT',
+        'WITHDRAW_QUEUED', 'WITHDRAW_COMPLETED', 'WITHDRAW_REVERSED',
+        'DORMANCY_AUTO_RETURN',
+        'ADJUSTMENT'
+    )
+);
