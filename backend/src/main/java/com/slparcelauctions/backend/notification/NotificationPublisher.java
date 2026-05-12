@@ -100,6 +100,10 @@ public interface NotificationPublisher {
     void groupWalletWithdrawalCompleted(Long groupId, long amount, Long ledgerId);
     void groupWalletWithdrawalReversed(Long groupId, long amount, Long ledgerId, String reason);
 
+    // ── Realty groups — dormancy notifications (stub; Epic 09 will add SL IM body).
+    void groupWalletDormancyFlagged(Long groupId, int phase, long balance);
+    void groupWalletDormancyAutoReturned(Long groupId, long amount);
+
     // ── Realty groups — lifecycle events (Phase 6 fleshes out fan-out + body copy).
     // Stubs land here so Phase 4 services can call them while compiling.
     void realtyGroupInvitationSent(RealtyGroupInvitation invitation);

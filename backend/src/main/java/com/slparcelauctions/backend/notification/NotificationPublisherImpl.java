@@ -855,6 +855,16 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             groupId, amount, ledgerId, reason);
     }
 
+    @Override
+    public void groupWalletDormancyFlagged(Long groupId, int phase, long balance) {
+        log.info("[NOTIF] group {} dormancy flagged phase={} balance=L${}", groupId, phase, balance);
+    }
+
+    @Override
+    public void groupWalletDormancyAutoReturned(Long groupId, long amount) {
+        log.info("[NOTIF] group {} dormancy auto-returned L${}", groupId, amount);
+    }
+
     /** Common per-recipient publish path for realty group notifications. */
     private void publishOne(long userId, NotificationCategory category,
                             String title, String body, Map<String, Object> data) {

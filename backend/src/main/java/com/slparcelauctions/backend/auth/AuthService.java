@@ -7,6 +7,8 @@ import com.slparcelauctions.backend.auth.dto.RegisterRequest;
 import com.slparcelauctions.backend.auth.exception.InvalidCredentialsException;
 import com.slparcelauctions.backend.auth.exception.TokenInvalidException;
 import com.slparcelauctions.backend.auth.exception.UsernameAlreadyExistsException;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
+import com.slparcelauctions.backend.realty.wallet.dormancy.GroupWalletDormancyTask;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserAlreadyExistsException;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -41,6 +43,8 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final BanCheckService banCheckService;
+    private final RealtyGroupMemberRepository realtyGroupMemberRepository;
+    private final GroupWalletDormancyTask groupWalletDormancyTask;
 
     // -------------------------------------------------------------------------
     // Register
@@ -141,6 +145,8 @@ public class AuthService {
         AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getUsername(), user.getTokenVersion(), user.getRole());
         String newAccessToken = jwtService.issueAccessToken(principal);
 
+        clearGroupDormancyForUser(user.getId());
+
         return new AuthResult(newAccessToken, rotation.rawToken(), UserResponse.from(user));
     }
 
@@ -180,6 +186,9 @@ public class AuthService {
     /**
      * Builds an {@link AuthResult} from a fully-loaded {@link User} entity.
      * Extracts {@code User-Agent} and remote IP from the HTTP request for the refresh-token row.
+     *
+     * <p>Also clears group-wallet dormancy state for any group the user belongs to (spec §10.4
+     * reset path 1 — member login). Most users are in 0 groups so this is a lightweight no-op.
      */
     private AuthResult buildResult(User user, HttpServletRequest httpReq) {
         String userAgent = httpReq.getHeader("User-Agent");
@@ -191,6 +200,25 @@ public class AuthService {
         RefreshTokenService.IssuedRefreshToken issued =
                 refreshTokenService.issueForUser(user.getId(), userAgent, ipAddress);
 
+        clearGroupDormancyForUser(user.getId());
+
         return new AuthResult(accessToken, issued.rawToken(), UserResponse.from(user));
+    }
+
+    /**
+     * Clears group-wallet dormancy for every group the given user belongs to.
+     * Called on login and refresh-token rotation so any member activity resets the
+     * group's dormancy clock (spec §10.4 reset path 1).
+     *
+     * <p>Failures are caught and logged; a dormancy-clear failure must never block a login.
+     */
+    private void clearGroupDormancyForUser(Long userId) {
+        try {
+            for (Long groupId : realtyGroupMemberRepository.findGroupIdsByUserId(userId)) {
+                groupWalletDormancyTask.clearForGroup(groupId);
+            }
+        } catch (Exception ex) {
+            log.warn("failed to clear group dormancy on login for userId={}: {}", userId, ex.toString());
+        }
     }
 }

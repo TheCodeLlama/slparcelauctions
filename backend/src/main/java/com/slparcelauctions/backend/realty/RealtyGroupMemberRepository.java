@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RealtyGroupMemberRepository extends JpaRepository<RealtyGroupMember, Long> {
 
@@ -23,4 +25,12 @@ public interface RealtyGroupMemberRepository extends JpaRepository<RealtyGroupMe
     /** Deletion path used by leadership-transfer (when oldLeaderAction = LEAVE) and by
      *  remove/leave flows. */
     void deleteByGroupIdAndUserId(Long groupId, Long userId);
+
+    /**
+     * Returns the group IDs of every group the given user currently belongs to.
+     * Used by the login/refresh-token dormancy-reset hook to clear dormancy state
+     * on any group the user is a member of (spec §10.4 reset path 1).
+     */
+    @Query("SELECT m.groupId FROM RealtyGroupMember m WHERE m.userId = :userId")
+    List<Long> findGroupIdsByUserId(@Param("userId") Long userId);
 }
