@@ -9,6 +9,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import java.time.OffsetDateTime;
@@ -932,6 +933,27 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
             publishOne(m.getUserId(),
                 NotificationCategory.REALTY_GROUP_UNSUSPENDED, title, body, data);
+        }
+    }
+
+    @Override
+    public void groupReportThresholdReached(RealtyGroup group, int threshold) {
+        if (group == null) return;
+        String title = "Realty group \"" + group.getName()
+            + "\" reached " + threshold + " open reports";
+        String body = "Review the queue at /admin/realty-groups/"
+            + group.getPublicId() + "/reports";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        data.put("threshold", threshold);
+        // Fan-out target is the full set of admin role-holders -- mirrors the
+        // ReconciliationService pattern (NotificationCategory.RECONCILIATION_MISMATCH
+        // also uses findByRole). Group members are NOT recipients; this category
+        // routes through NotificationGroup.ADMIN_OPS.
+        for (User admin : userRepository.findByRole(Role.ADMIN)) {
+            publishOne(admin.getId(),
+                NotificationCategory.GROUP_REPORT_THRESHOLD_REACHED,
+                title, body, data);
         }
     }
 

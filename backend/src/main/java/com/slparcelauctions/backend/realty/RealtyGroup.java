@@ -15,7 +15,7 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Realty Group entity — represents a brokerage-style group on SLParcels.
+ * Realty Group entity -- represents a brokerage-style group on SLParcels.
  *
  * <p>A group has one transferable leader seat ({@link #leaderId}) and any number of agents
  * (rows in {@code realty_group_members}). The leader holds every permission implicitly;
@@ -43,7 +43,7 @@ public class RealtyGroup extends BaseMutableEntity {
 
     // Note: the DB also has a `name_lower CITEXT` generated column carrying
     // `lower(name)`, indexed UNIQUE WHERE dissolved_at IS NULL for case-insensitive
-    // name uniqueness. We intentionally do NOT map it as a Java field — Hibernate's
+    // name uniqueness. We intentionally do NOT map it as a Java field -- Hibernate's
     // schema validator can't reconcile the CITEXT column type with a String field, and
     // application code uses the LOWER()-based JPQL query in the repository for
     // case-insensitive lookups. The column exists only for the partial unique index.
@@ -104,7 +104,7 @@ public class RealtyGroup extends BaseMutableEntity {
     }
 
     // -------------------------------------------------------------------------
-    // Sub-project D — group wallet columns (spec §3.1)
+    // Sub-project D -- group wallet columns (spec section 3.1)
     // -------------------------------------------------------------------------
 
     @Builder.Default
@@ -120,7 +120,7 @@ public class RealtyGroup extends BaseMutableEntity {
     private OffsetDateTime walletDormancyStartedAt;
 
     /**
-     * Dormancy phase: 1–4 = escalating IMs, 99 = COMPLETED (auto-return fired).
+     * Dormancy phase: 1-4 = escalating IMs, 99 = COMPLETED (auto-return fired).
      * NULL means not dormant.
      */
     @Column(name = "wallet_dormancy_phase")
@@ -128,10 +128,26 @@ public class RealtyGroup extends BaseMutableEntity {
 
     /**
      * Spendable balance: balance minus any reserved amount.
-     * Computed at read time; not stored (spec §3.1).
+     * Computed at read time; not stored (spec section 3.1).
      */
     @jakarta.persistence.Transient
     public long availableLindens() {
         return balanceLindens - reservedLindens;
     }
+
+    // -------------------------------------------------------------------------
+    // Sub-project G section 12 -- one-shot-per-cycle report-threshold notification flag
+    // -------------------------------------------------------------------------
+
+    /**
+     * One-shot-per-cycle flag for
+     * {@link com.slparcelauctions.backend.notification.NotificationCategory#GROUP_REPORT_THRESHOLD_REACHED}.
+     * Set when the group's open-report count crosses the configured threshold; cleared by
+     * {@code RealtyGroupReportService.resolve} / {@code dismiss} once the open count returns
+     * to zero (re-arms next cycle). See spec section 12.3. V29 added the column with
+     * {@code DEFAULT FALSE} so existing rows start un-set.
+     */
+    @Builder.Default
+    @Column(name = "reports_threshold_notified", nullable = false)
+    private boolean reportsThresholdNotified = false;
 }

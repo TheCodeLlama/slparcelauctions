@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.slparcelauctions.backend.admin.audit.AdminActionService;
 import com.slparcelauctions.backend.admin.audit.AdminActionTargetType;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
@@ -32,22 +33,28 @@ import lombok.extern.slf4j.Slf4j;
  * Submit / resolve / dismiss user-filed reports against a realty group. Single source
  * of truth for the {@code realty_group_reports} table.
  *
- * <p>Behaviour per spec §8, §12.1, §12.3:
+ * <p>Behaviour per spec section 8, 12.1, 12.3:
  * <ul>
  *   <li>{@link #submit} enforces three pre-conditions before insert: target group must
  *       exist, reporter must not be a member of the group, and the reporter must be
  *       under the shared daily quota. A unique-violation on
  *       {@code uq_rg_reports_one_open_per_reporter} (when two requests race past the
- *       pre-check) is translated to {@link AlreadyReportedException}.</li>
+ *       pre-check) is translated to {@link AlreadyReportedException}. After insert,
+ *       {@link #tryFireThresholdNotification} fires the admin fan-out iff the new
+ *       open-report count crossed {@code slpa.reports.group-alert-threshold} for the
+ *       first time in the current cycle (sub-project G section 12.3, one-shot per cycle).</li>
  *   <li>{@link #resolve} flips an OPEN report to RESOLVED, stamps resolver/resolution
- *       fields, and records a {@code REALTY_GROUP_REPORT_RESOLVE} admin action.</li>
+ *       fields, records a {@code REALTY_GROUP_REPORT_RESOLVE} admin action, and clears
+ *       the threshold-notified flag when the open count returns to zero (re-arms the
+ *       next cycle).</li>
  *   <li>{@link #dismiss} flips an OPEN report to DISMISSED, stamps resolver fields,
  *       increments {@link User#getDismissedReportsCount()} for the reporter (used by
- *       the frivolous-reporter counter), and records a
- *       {@code REALTY_GROUP_REPORT_DISMISS} admin action.</li>
+ *       the frivolous-reporter counter), records a
+ *       {@code REALTY_GROUP_REPORT_DISMISS} admin action, and clears the threshold-
+ *       notified flag when the open count returns to zero.</li>
  * </ul>
  *
- * <p>Sub-project F spec §8, §12.1, §12.3.
+ * <p>Sub-project F spec section 8, 12.1, 12.3; sub-project G spec section 12.
  */
 @Service
 @RequiredArgsConstructor
@@ -60,11 +67,13 @@ public class RealtyGroupReportService {
     private final UserRepository userRepo;
     private final RealtyGroupReportRateLimiter rateLimiter;
     private final AdminActionService adminActionService;
+    private final NotificationPublisher notificationPublisher;
+    private final ReportsProperties reportsProps;
     private final Clock clock;
 
     /**
      * Look up a single report by its public id. Used by the admin detail endpoint.
-     * Read-only — does not change report state.
+     * Read-only -- does not change report state.
      *
      * @throws ReportNotFoundException if {@code reportPublicId} resolves to nothing
      */
@@ -116,7 +125,7 @@ public class RealtyGroupReportService {
             throw new CannotReportOwnGroupException(groupPublicId);
         }
 
-        // Rate limit BEFORE we issue any DB write — over-limit requests should
+        // Rate limit BEFORE we issue any DB write -- over-limit requests should
         // short-circuit before touching the transaction.
         rateLimiter.checkAndIncrement(reporterId);
 
@@ -131,14 +140,58 @@ public class RealtyGroupReportService {
 
         try {
             RealtyGroupReport saved = reportRepo.saveAndFlush(row);
+            // Sub-project G section 12.3 -- fire the threshold fan-out iff this submission
+            // pushed the open-report count across the configured threshold for the
+            // first time in the current cycle. Idempotent inside the submit tx; no-op
+            // when the flag is already set or the count is below threshold.
+            tryFireThresholdNotification(group);
             log.info("Realty group report submitted: groupPublicId={} reporterId={} reason={} reportPublicId={}",
                 groupPublicId, reporterId, reason, saved.getPublicId());
             return saved;
         } catch (DataIntegrityViolationException e) {
-            // Partial-unique index uq_rg_reports_one_open_per_reporter — racy second
+            // Partial-unique index uq_rg_reports_one_open_per_reporter -- racy second
             // submission past the pre-check trips this. Translate to a domain
             // exception so callers see a clean 409.
             throw new AlreadyReportedException(groupPublicId);
+        }
+    }
+
+    /**
+     * Sub-project G section 12.3 -- one-shot fan-out when the group's open-report count
+     * crosses the configured threshold. The flag stays set until {@link #resolve}
+     * or {@link #dismiss} returns {@code openReportCount} to zero, at which point
+     * the flag clears and the next cycle can fire again.
+     */
+    private void tryFireThresholdNotification(RealtyGroup group) {
+        if (group.isReportsThresholdNotified()) {
+            return;
+        }
+        long openReports = reportRepo
+            .countByRealtyGroupIdAndStatus(group.getId(), RealtyGroupReportStatus.OPEN);
+        int threshold = reportsProps.getGroupAlertThreshold();
+        if (openReports < threshold) {
+            return;
+        }
+        group.setReportsThresholdNotified(true);
+        groupRepo.save(group);
+        notificationPublisher.groupReportThresholdReached(group, threshold);
+    }
+
+    /**
+     * Sub-project G section 12.3 -- clear the threshold-notified flag when the last
+     * open report on the group is triaged. Shared by {@link #resolve} and
+     * {@link #dismiss}; idempotent -- only writes when the flag is set and
+     * the open count has returned to zero.
+     */
+    private void maybeResetThresholdFlag(RealtyGroup group) {
+        if (group == null || !group.isReportsThresholdNotified()) {
+            return;
+        }
+        long openReports = reportRepo
+            .countByRealtyGroupIdAndStatus(group.getId(), RealtyGroupReportStatus.OPEN);
+        if (openReports == 0L) {
+            group.setReportsThresholdNotified(false);
+            groupRepo.save(group);
         }
     }
 
@@ -168,6 +221,10 @@ public class RealtyGroupReportService {
         report.setResolvedAt(now);
         report.setResolutionNotes(notes);
         RealtyGroupReport saved = reportRepo.save(report);
+
+        // Sub-project G section 12.3 -- re-arm the threshold notification when the
+        // last open report on the group is closed.
+        maybeResetThresholdFlag(report.getRealtyGroup());
 
         Long groupId = report.getRealtyGroup() == null ? null : report.getRealtyGroup().getId();
         Map<String, Object> evidence = new HashMap<>();
@@ -210,6 +267,10 @@ public class RealtyGroupReportService {
         report.setResolvedAt(now);
         report.setResolutionNotes(notes);
         RealtyGroupReport saved = reportRepo.save(report);
+
+        // Sub-project G section 12.3 -- re-arm the threshold notification when the
+        // last open report on the group is closed.
+        maybeResetThresholdFlag(report.getRealtyGroup());
 
         // Bump the reporter's dismissed-counter. We re-fetch through findById so the
         // update is on a managed entity (vs. the lazy reporter proxy on the report row)

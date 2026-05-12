@@ -18,11 +18,11 @@ public interface NotificationPublisher {
     void proxyExhausted(long bidderUserId, long auctionId, String parcelName,
                         long proxyMaxL, OffsetDateTime endsAt);
 
-    // Auction result — winner/loser
+    // Auction result -- winner/loser
     void auctionWon(long winnerUserId, long auctionId, String parcelName, long winningBidL);
     void auctionLost(long bidderUserId, long auctionId, String parcelName, long winningBidL);
 
-    // Auction result — seller's perspective
+    // Auction result -- seller's perspective
     void auctionEndedSold(long sellerUserId, long auctionId, String parcelName, long winningBidL);
     void auctionEndedReserveNotMet(long sellerUserId, long auctionId, String parcelName, long highestBidL);
     void auctionEndedNoBids(long sellerUserId, long auctionId, String parcelName);
@@ -36,7 +36,7 @@ public interface NotificationPublisher {
     /**
      * Seller-facing payout-completed notification.
      *
-     * <p>Sub-project G §8.3: copy differs by case. For case-3 (SL-group-owned;
+     * <p>Sub-project G section 8.3: copy differs by case. For case-3 (SL-group-owned;
      * {@code groupName != null}) the body surfaces the commission slice and
      * group slice instead of "L$0 payout received". For case-1 / individual
      * the body is the legacy "payout received" copy. Subject ("Auction payout
@@ -76,21 +76,21 @@ public interface NotificationPublisher {
     void escrowTransferReminder(long sellerUserId, long auctionId, long escrowId,
                                  String parcelName, OffsetDateTime transferDeadline);
 
-    // Listing status — seller-facing
+    // Listing status -- seller-facing
     void listingVerified(long sellerUserId, long auctionId, String parcelName);
     void listingSuspended(long sellerUserId, long auctionId, String parcelName, String reason);
     void listingReinstated(long sellerUserId, long auctionId, String parcelName, OffsetDateTime newEndsAt);
     void listingReviewRequired(long sellerUserId, long auctionId, String parcelName, String reason);
 
-    // Listing status — admin-facing actions
+    // Listing status -- admin-facing actions
     void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason);
     void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes);
 
     /**
-     * Sub-project E §11.5 -- the broker cancelled the listing on behalf of the
+     * Sub-project E section 11.5 -- the broker cancelled the listing on behalf of the
      * realty group. Notifies the original listing agent (commission recipient,
      * may differ from current seller_id). Body copy + fan-out will be fleshed
-     * out in E §11 follow-on tasks; the Phase 4 stub logs only.
+     * out in E section 11 follow-on tasks; the Phase 4 stub logs only.
      */
     void brokerCancelled(Long listingAgentUserId, Long auctionId, String auctionTitle,
                          Long brokerUserId, String reason);
@@ -113,12 +113,12 @@ public interface NotificationPublisher {
                           com.slparcelauctions.backend.admin.disputes.AdminDisputeAction action,
                           boolean alsoCancelListing);
 
-    // Fan-out (afterCommit batch — see §3.9)
+    // Fan-out (afterCommit batch -- see section 3.9)
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);
 
     /**
-     * Sub-project F §10.2 -- seller-facing notification fired when the
+     * Sub-project F section 10.2 -- seller-facing notification fired when the
      * bulk-suspend auto-cancel timer (default 48 h) expires without admin
      * reinstatement and the parent listing is auto-cancelled. Carries the
      * specific {@code BULK_SUSPEND_TIMER_EXPIRED} reason; bidders receive the
@@ -138,7 +138,7 @@ public interface NotificationPublisher {
     void walletWithdrawalCompleted(long userId, long amountL, Long ledgerEntryId);
     void walletWithdrawalReversed(long userId, long amountL, Long ledgerEntryId, String reason);
 
-    // Admin wallet ops — material decisions about a user's funds. Always-on (SYSTEM group).
+    // Admin wallet ops -- material decisions about a user's funds. Always-on (SYSTEM group).
     void walletAdjusted(long userId, long deltaL, String notes);
     void walletFrozen(long userId, String notes);
     void walletUnfrozen(long userId, String notes);
@@ -148,15 +148,15 @@ public interface NotificationPublisher {
     void walletWithdrawalForceCompleted(long userId, long amountL, Long ledgerEntryId, String notes);
     void walletWithdrawalForceFailed(long userId, long amountL, Long ledgerEntryId, String notes);
 
-    // ── Realty groups — group wallet notifications (stub; Epic 09 dispatcher fanout wired later).
+    // -- Realty groups -- group wallet notifications (stub; Epic 09 dispatcher fanout wired later).
     void groupWalletWithdrawalCompleted(Long groupId, long amount, Long ledgerId);
     void groupWalletWithdrawalReversed(Long groupId, long amount, Long ledgerId, String reason);
 
-    // ── Realty groups — dormancy notifications (stub; Epic 09 will add SL IM body).
+    // -- Realty groups -- dormancy notifications (stub; Epic 09 will add SL IM body).
     void groupWalletDormancyFlagged(Long groupId, int phase, long balance);
     void groupWalletDormancyAutoReturned(Long groupId, long amount);
 
-    // ── Realty groups — lifecycle events (Phase 6 fleshes out fan-out + body copy).
+    // -- Realty groups -- lifecycle events (Phase 6 fleshes out fan-out + body copy).
     // Stubs land here so Phase 4 services can call them while compiling.
     void realtyGroupInvitationSent(RealtyGroupInvitation invitation);
     void realtyGroupInvitationAccepted(RealtyGroupInvitation invitation);
@@ -170,7 +170,7 @@ public interface NotificationPublisher {
                                        Set<RealtyGroupPermission> added,
                                        Set<RealtyGroupPermission> removed);
 
-    // ── Realty groups — admin moderation (sub-project F §8, §9). Phase 4 stubs
+    // -- Realty groups -- admin moderation (sub-project F section 8, section 9). Phase 4 stubs
     // route through the existing in-app notification mechanism; Task 28 will
     // refine the body copy and add SL IM integration.
 
@@ -189,7 +189,19 @@ public interface NotificationPublisher {
     void realtyGroupUnsuspended(RealtyGroup group);
 
     /**
-     * Sub-project F §13.2 — the periodic reverify task detected that an SL
+     * Sub-project G section 12 -- fan-out to every admin when a realty group's
+     * open-report count crosses {@code slpa.reports.group-alert-threshold} for the
+     * first time in the current cycle. One-shot per cycle: the caller
+     * ({@link com.slparcelauctions.backend.realty.reports.RealtyGroupReportService})
+     * gates by checking {@code group.isReportsThresholdNotified()} and sets the
+     * flag before invoking this method. {@code threshold} is the value that
+     * actually fired so the body copy doesn't drift if config is changed
+     * between submissions.
+     */
+    void groupReportThresholdReached(RealtyGroup group, int threshold);
+
+    /**
+     * Sub-project F section 13.2 -- the periodic reverify task detected that an SL
      * group registration has drifted from its claimed state on the SL side.
      * Routes to {@code leaderUserId} (the realty group's current leader) so
      * they can re-register or contact admin. Body copy + SL IM channel
@@ -203,7 +215,7 @@ public interface NotificationPublisher {
      * @param slGroupName   display name of the SL group that drifted (may be
      *                      {@code null} if it was never parsed onto the row)
      * @param driftReason   {@link com.slparcelauctions.backend.realty.slgroup
-     *                       .SlGroupDriftReason} name — one of
+     *                       .SlGroupDriftReason} name -- one of
      *                       {@code FOUNDER_CHANGED}, {@code GROUP_NOT_FOUND},
      *                       {@code FETCH_FAILED_REPEATEDLY}
      */
