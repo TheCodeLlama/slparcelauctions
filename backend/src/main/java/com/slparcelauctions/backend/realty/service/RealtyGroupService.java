@@ -133,9 +133,8 @@ public class RealtyGroupService {
 
     /**
      * Non-admin profile edit. Profile fields (name/description/website) are gated by
-     * {@link RealtyGroupPermission#EDIT_GROUP_PROFILE}; fee fields by {@link
-     * RealtyGroupPermission#CONFIGURE_FEES}. A rename is on a 30-day cooldown: if
-     * {@code lastRenamedAt + 30 days > now}, rejected with {@link
+     * {@link RealtyGroupPermission#EDIT_GROUP_PROFILE}. A rename is on a 30-day
+     * cooldown: if {@code lastRenamedAt + 30 days > now}, rejected with {@link
      * RealtyGroupRenameCooldownException}. On a successful rename the slug is
      * recomputed via the slug factory (excluding self) and {@code lastRenamedAt} is
      * bumped to now. Same-name updates (no-op renames) skip the cooldown check.
@@ -144,22 +143,18 @@ public class RealtyGroupService {
         RealtyGroup group = loadActive(publicId);
 
         boolean touchesProfile = req.name() != null || req.description() != null || req.website() != null;
-        boolean touchesFees = req.agentFeeRate() != null || req.agentFeeSplit() != null;
         if (touchesProfile) {
             authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.EDIT_GROUP_PROFILE);
-        }
-        if (touchesFees) {
-            authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.CONFIGURE_FEES);
         }
 
         return applyUpdate(group, req, /* admin = */ false);
     }
 
     /**
-     * Admin profile edit. Bypasses both the EDIT_GROUP_PROFILE/CONFIGURE_FEES gates and
-     * the 30-day rename cooldown. Intentionally does NOT bump {@code lastRenamedAt} so
-     * a leader is not punished by an admin-initiated rename — the leader's cooldown
-     * ledger is only advanced by their own renames.
+     * Admin profile edit. Bypasses both the EDIT_GROUP_PROFILE gate and the 30-day
+     * rename cooldown. Intentionally does NOT bump {@code lastRenamedAt} so a leader
+     * is not punished by an admin-initiated rename — the leader's cooldown ledger is
+     * only advanced by their own renames.
      */
     public RealtyGroup updateGroupAsAdmin(UUID publicId, UpdateRealtyGroupRequest req, Long adminUserId) {
         RealtyGroup group = loadActive(publicId);
@@ -211,12 +206,6 @@ public class RealtyGroupService {
         }
         if (req.website() != null) {
             group.setWebsite(normalizeAndValidateWebsite(req.website()));
-        }
-        if (req.agentFeeRate() != null) {
-            group.setAgentFeeRate(req.agentFeeRate());
-        }
-        if (req.agentFeeSplit() != null) {
-            group.setAgentFeeSplit(req.agentFeeSplit());
         }
         return groups.save(group);
     }
