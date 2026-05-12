@@ -46,23 +46,24 @@ class SlWorldApiClientGroupTest {
     }
 
     /**
-     * Best-effort fixture for {@code world.secondlife.com/group/{uuid}}. The real shape
-     * is not yet validated against a live response, so the parser tolerates several
-     * patterns — this fixture exercises the "meta + body anchor" preferred path with
-     * a charter element on the body.
+     * Fixture for {@code world.secondlife.com/group/{uuid}} that mirrors the live
+     * markup shape (validated against the SLParcels group capture): a {@code .details}
+     * wrapper with an unclassed {@code <h1>} for the name and a {@code <p class="desc">}
+     * for the charter, plus the {@code meta[name="founderid"]} the parser prefers.
      */
     private static String fixtureHtml(String groupName, String charter, String founderUuid) {
         return """
                 <html><head>
-                <meta name="groupname" content="%s">
-                <meta name="charter" content="%s">
+                <title>%s</title>
                 <meta name="founderid" content="%s">
                 </head><body>
-                  <h1 class="groupname">%s</h1>
-                  <p class="charter">%s</p>
-                  <a href="/resident/%s">Founder Resident</a>
+                  <div class="details">
+                    <h1>%s</h1>
+                    <p class="desc">%s</p>
+                    <a href="/resident/%s">Founder Resident</a>
+                  </div>
                 </body></html>
-                """.formatted(groupName, charter, founderUuid, groupName, charter, founderUuid);
+                """.formatted(groupName, founderUuid, groupName, charter, founderUuid);
     }
 
     @Test
@@ -89,16 +90,21 @@ class SlWorldApiClientGroupTest {
 
     @Test
     void fetchGroup_aboutTextMissing_returnsNullAboutTextWithOtherFieldsPopulated() {
-        // No charter meta, no body charter element — about-text-flow callers
-        // treat aboutText == null as a no-match-yet, not as an error.
+        // Empty <p class="desc"> mirrors the live SL page for a group with no
+        // charter set (see group-page-slparcels.html fixture). About-text-flow
+        // callers treat aboutText == null as a no-match-yet, not as an error.
         UUID slGroupUuid = UUID.randomUUID();
         UUID founderUuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
         String html = """
                 <html><head>
-                <meta name="groupname" content="Founders-only Group">
+                <title>Founders-only Group</title>
                 <meta name="founderid" content="%s">
                 </head><body>
-                  <a href="/resident/%s">Founder Resident</a>
+                  <div class="details">
+                    <h1>Founders-only Group</h1>
+                    <p class="desc"></p>
+                    <a href="/resident/%s">Founder Resident</a>
+                  </div>
                 </body></html>
                 """.formatted(founderUuid, founderUuid);
         wireMock.stubFor(get(urlPathMatching("/group/.*"))
@@ -115,16 +121,16 @@ class SlWorldApiClientGroupTest {
     }
 
     @Test
-    void fetchGroup_metaMissingButBodyPresent_fallsBackToBodySelectors() {
-        // If SL ever drops the head meta block but keeps the rendered body,
-        // the body-class selectors should still pick up name + charter, and
-        // the /resident/ anchor pattern picks up the founder UUID.
+    void fetchGroup_detailsMissingButTitleAndResidentAnchorPresent_fallsBack() {
+        // If SL ever drops the .details wrapper, the parser falls back to the
+        // <title> element for the group name and the /resident/ anchor pattern
+        // for the founder UUID. aboutText stays null (no .details p.desc).
         UUID slGroupUuid = UUID.randomUUID();
         UUID founderUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
         String html = """
-                <html><head></head><body>
-                  <h1 class="groupname">Body-only Group</h1>
-                  <div class="groupcharter">Charter body text with SLPA-12345678ABCD inside.</div>
+                <html><head>
+                <title>Title-only Group</title>
+                </head><body>
                   <a href="/resident/%s">Founder Resident</a>
                 </body></html>
                 """.formatted(founderUuid);
@@ -135,8 +141,8 @@ class SlWorldApiClientGroupTest {
         GroupPageData result = client.fetchGroupPage(slGroupUuid).block();
 
         assertThat(result).isNotNull();
-        assertThat(result.name()).isEqualTo("Body-only Group");
-        assertThat(result.aboutText()).isEqualTo("Charter body text with SLPA-12345678ABCD inside.");
+        assertThat(result.name()).isEqualTo("Title-only Group");
+        assertThat(result.aboutText()).isNull();
         assertThat(result.founderUuid()).isEqualTo(founderUuid);
     }
 
