@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
@@ -33,6 +34,8 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDenied
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -64,6 +67,7 @@ public class RealtyGroupService {
     private final NotificationPublisher notifications;
     private final UserRepository users;
     private final AuctionRepository auctions;
+    private final EscrowRepository escrows;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -279,6 +283,12 @@ public class RealtyGroupService {
         authorizer.assertLeader(callerUserId, group.getId());
         if (auctions.existsActiveListingsByGroupId(group.getId())) {
             throw new ActiveListingsBlockDissolveException();
+        }
+        if (group.getBalanceLindens() != 0L || group.getReservedLindens() != 0L) {
+            throw new GroupHasNonzeroBalanceException();
+        }
+        if (escrows.existsInFlightForGroup(group.getId())) {
+            throw new GroupHasInFlightEscrowsException();
         }
         List<User> formerMembers = loadCurrentMembersAsUsers(group.getId());
         group.setDissolvedAt(OffsetDateTime.now());
