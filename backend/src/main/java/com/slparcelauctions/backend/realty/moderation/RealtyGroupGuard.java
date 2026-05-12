@@ -19,8 +19,8 @@ import lombok.extern.slf4j.Slf4j;
  * falling back to a DB query against {@code realty_group_suspensions}.
  *
  * <p>Wire-aligned with {@link RealtyGroupSuspensionService}'s write pattern (spec §8):
- * the suspension hash at key {@code realty_group_suspended:{groupId}} carries an
- * {@code expiresAt} field whose value is either:
+ * the suspension entry at key {@code realty_group_suspended:{groupId}} is a plain
+ * Redis string whose value is either:
  * <ul>
  *   <li>{@code "PERMANENT"} — permanent ban, throw with {@link RealtyGroupSuspendedException.Status#BANNED}.</li>
  *   <li>An ISO-8601 timestamp strictly after {@code now} — timed suspension, throw with
@@ -36,12 +36,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RealtyGroupGuard {
 
-    /** Prefix for the Redis short-circuit hash key; mirrors {@link RealtyGroupSuspensionService#REDIS_KEY_PREFIX}. */
+    /** Prefix for the Redis short-circuit key; mirrors {@link RealtyGroupSuspensionService#REDIS_KEY_PREFIX}. */
     static final String REDIS_KEY_PREFIX = "realty_group_suspended:";
-    /** Marker stored in the hash when the suspension is a permanent ban. */
+    /** Marker stored at the key when the suspension is a permanent ban. */
     static final String REDIS_PERMANENT_MARKER = "PERMANENT";
-    /** Hash field name carrying the expiry / permanent marker. */
-    static final String REDIS_FIELD_EXPIRES_AT = "expiresAt";
 
     private final RealtyGroupSuspensionRepository suspensions;
     private final StringRedisTemplate redis;
@@ -57,8 +55,7 @@ public class RealtyGroupGuard {
         String redisKey = REDIS_KEY_PREFIX + groupId;
         OffsetDateTime now = OffsetDateTime.now(clock);
 
-        Object cachedRaw = redis.opsForHash().get(redisKey, REDIS_FIELD_EXPIRES_AT);
-        String cached = cachedRaw == null ? null : cachedRaw.toString();
+        String cached = redis.opsForValue().get(redisKey);
         if (cached != null) {
             if (REDIS_PERMANENT_MARKER.equals(cached)) {
                 throw new RealtyGroupSuspendedException(
@@ -70,7 +67,7 @@ public class RealtyGroupGuard {
                     throw new RealtyGroupSuspendedException(
                         RealtyGroupSuspendedException.Status.SUSPENDED, expiresAt, null);
                 }
-                // Stale entry — Redis hash hasn't been swept yet. Fall through to DB.
+                // Stale entry — Redis key hasn't been swept yet. Fall through to DB.
             } catch (DateTimeParseException ex) {
                 // Corrupt value — log and fall through to DB so a bad cache row doesn't
                 // strand callers in a permanent 409.

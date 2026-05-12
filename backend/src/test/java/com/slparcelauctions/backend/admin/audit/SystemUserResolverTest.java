@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Field;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -38,8 +37,9 @@ class SystemUserResolverTest {
 
     @Test
     void getSystemUser_returnsConfiguredUser() {
+        // Identity-only stub — the resolver returns whatever the repo returned. No
+        // need to mutate the id; the test only asserts referential equality.
         User u = User.builder().username("system").build();
-        setId(u, 1L);
         when(userRepo.findById(1L)).thenReturn(Optional.of(u));
 
         User result = resolver.getSystemUser();
@@ -55,16 +55,5 @@ class SystemUserResolverTest {
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("System user not seeded")
             .hasMessageContaining("id=1");
-    }
-
-    /** Identical reflective id-setter used elsewhere; BaseEntity hides id from the builder. */
-    private static void setId(User user, Long id) {
-        try {
-            Field f = User.class.getSuperclass().getSuperclass().getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(user, id);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

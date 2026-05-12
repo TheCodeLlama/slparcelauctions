@@ -3,7 +3,6 @@ package com.slparcelauctions.backend.realty.moderation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -13,13 +12,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,16 +38,17 @@ import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.moderation.exception.SuspensionAlreadyActiveException;
 import com.slparcelauctions.backend.realty.moderation.exception.SuspensionNotFoundException;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
-import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 /**
  * Unit tests for {@link RealtyGroupSuspensionService}. Mockito-driven, fixed clock for
  * determinism. Covers spec §8, §9 behaviours: issue/lift writes the row, fires admin
  * action + notification, optionally invokes the bulk listings service, and writes a
- * Redis short-circuit hash. The {@code BulkListingSuspendService} is mocked here — the
- * real implementation lands in Task 11.
+ * Redis short-circuit string with TTL. The {@code BulkListingSuspendService} is mocked
+ * here — the real implementation lands in Task 11.
  */
 @ExtendWith(MockitoExtension.class)
 class RealtyGroupSuspensionServiceTest {
@@ -61,8 +61,9 @@ class RealtyGroupSuspensionServiceTest {
     @Mock AdminActionService adminActionService;
     @Mock NotificationPublisher notificationPublisher;
     @Mock BulkListingSuspendService bulkListingSuspendService;
+    @Mock UserRepository userRepository;
     @Mock StringRedisTemplate redis;
-    @Mock HashOperations<String, Object, Object> hashOps;
+    @Mock ValueOperations<String, String> valueOps;
 
     Clock clock;
     RealtyGroupSuspensionService service;
@@ -72,10 +73,19 @@ class RealtyGroupSuspensionServiceTest {
         clock = Clock.fixed(FIXED_NOW.toInstant(), ZoneOffset.UTC);
         service = new RealtyGroupSuspensionService(
             groups, suspensions, adminActionService, notificationPublisher,
-            bulkListingSuspendService, redis, clock);
-        // Most tests use the redis hash + expire calls; stub leniently so happy-path
+            bulkListingSuspendService, userRepository, redis, clock);
+        // Most tests use the redis opsForValue.set call; stub leniently so happy-path
         // tests don't NPE and unrelated tests don't complain about unused stubs.
-        lenient().when(redis.opsForHash()).thenReturn(hashOps);
+        lenient().when(redis.opsForValue()).thenReturn(valueOps);
+        // The service uses a Hibernate proxy to populate admin FK columns without a
+        // SELECT. Mock it to return a User stamped with the requested id.
+        lenient().when(userRepository.getReferenceById(any(Long.class)))
+            .thenAnswer(inv -> {
+                Long adminId = inv.getArgument(0);
+                User u = User.builder().build();
+                setId(u, adminId);
+                return u;
+            });
     }
 
     private RealtyGroup buildGroup(Long id) {
@@ -165,9 +175,8 @@ class RealtyGroupSuspensionServiceTest {
         // Notification: per-member fanout helper.
         verify(notificationPublisher).realtyGroupSuspended(eq(group), eq("FRAUD"), eq(expires));
 
-        // Redis short-circuit hash
-        verify(hashOps).put(eq("realty_group_suspended:42"), eq("expiresAt"), eq(expires.toString()));
-        verify(redis).expire(eq("realty_group_suspended:42"), anyLong(), any(TimeUnit.class));
+        // Redis short-circuit string with TTL written atomically via opsForValue.set
+        verify(valueOps).set(eq("realty_group_suspended:42"), eq(expires.toString()), any(Duration.class));
 
         // Bulk path NOT invoked
         verify(bulkListingSuspendService, never()).suspendAll(any(), any(), any(), any());
@@ -242,9 +251,9 @@ class RealtyGroupSuspensionServiceTest {
             any(), any());
         verify(notificationPublisher).realtyGroupSuspended(eq(group), eq("TOS_VIOLATION"), isNull());
 
-        // Redis hash for a permanent ban uses the "PERMANENT" marker.
-        verify(hashOps).put(eq("realty_group_suspended:42"), eq("expiresAt"), eq("PERMANENT"));
-        verify(redis).expire(eq("realty_group_suspended:42"), anyLong(), any(TimeUnit.class));
+        // Redis string for a permanent ban uses the "PERMANENT" marker; TTL is capped
+        // at REDIS_MAX_TTL (5 minutes) per spec §8.
+        verify(valueOps).set(eq("realty_group_suspended:42"), eq("PERMANENT"), eq(Duration.ofMinutes(5)));
     }
 
     // ─────────────────── lift() ───────────────────

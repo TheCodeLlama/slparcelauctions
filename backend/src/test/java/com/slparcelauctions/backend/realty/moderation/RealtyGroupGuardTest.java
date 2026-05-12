@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
@@ -39,11 +39,10 @@ class RealtyGroupGuardTest {
     private static final OffsetDateTime FIXED_NOW =
         OffsetDateTime.of(2026, 5, 12, 10, 0, 0, 0, ZoneOffset.UTC);
     private static final String REDIS_KEY = "realty_group_suspended:42";
-    private static final String REDIS_FIELD = "expiresAt";
 
     @Mock RealtyGroupSuspensionRepository suspensions;
     @Mock StringRedisTemplate redis;
-    @Mock HashOperations<String, Object, Object> hashOps;
+    @Mock ValueOperations<String, String> valueOps;
 
     Clock clock;
     RealtyGroupGuard guard;
@@ -52,9 +51,9 @@ class RealtyGroupGuardTest {
     void setUp() {
         clock = Clock.fixed(FIXED_NOW.toInstant(), ZoneOffset.UTC);
         guard = new RealtyGroupGuard(suspensions, redis, clock);
-        // Every code path consults the Redis hash first; stub leniently so individual
+        // Every code path consults the Redis value first; stub leniently so individual
         // tests don't have to repeat the boilerplate.
-        lenient().when(redis.opsForHash()).thenReturn(hashOps);
+        lenient().when(redis.opsForValue()).thenReturn(valueOps);
     }
 
     private RealtyGroup buildGroup(Long id) {
@@ -89,7 +88,7 @@ class RealtyGroupGuardTest {
 
     @Test
     void requireGroupCanOperate_whenNoSuspensionRow_passes() {
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn(null);
+        when(valueOps.get(REDIS_KEY)).thenReturn(null);
         when(suspensions.findActiveByGroupId(eq(42L), any(OffsetDateTime.class)))
             .thenReturn(Optional.empty());
 
@@ -108,7 +107,7 @@ class RealtyGroupGuardTest {
             .issuedAt(FIXED_NOW.minusHours(1))
             .expiresAt(expiresAt)
             .build();
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn(null);
+        when(valueOps.get(REDIS_KEY)).thenReturn(null);
         when(suspensions.findActiveByGroupId(eq(42L), any(OffsetDateTime.class)))
             .thenReturn(Optional.of(active));
 
@@ -129,7 +128,7 @@ class RealtyGroupGuardTest {
             .issuedAt(FIXED_NOW.minusHours(2))
             .expiresAt(null)
             .build();
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn(null);
+        when(valueOps.get(REDIS_KEY)).thenReturn(null);
         when(suspensions.findActiveByGroupId(eq(42L), any(OffsetDateTime.class)))
             .thenReturn(Optional.of(permanent));
 
@@ -146,7 +145,7 @@ class RealtyGroupGuardTest {
         // The repository's findActiveByGroupId query filters lifted rows out, so a
         // lifted suspension surfaces as Optional.empty() to the guard. Stubbing the
         // post-filter result is the right level of abstraction for a unit test.
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn(null);
+        when(valueOps.get(REDIS_KEY)).thenReturn(null);
         when(suspensions.findActiveByGroupId(eq(42L), any(OffsetDateTime.class)))
             .thenReturn(Optional.empty());
 
@@ -158,7 +157,7 @@ class RealtyGroupGuardTest {
     @Test
     void requireGroupCanOperate_usesRedisShortCircuitWhenPresent() {
         OffsetDateTime expiresAt = FIXED_NOW.plusHours(24);
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn(expiresAt.toString());
+        when(valueOps.get(REDIS_KEY)).thenReturn(expiresAt.toString());
 
         assertThatThrownBy(() -> guard.requireGroupCanOperate(42L))
             .isInstanceOfSatisfying(RealtyGroupSuspendedException.class, ex -> {
@@ -172,7 +171,7 @@ class RealtyGroupGuardTest {
 
     @Test
     void requireGroupCanOperate_redisPermanentMarker_throwsBanned() {
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn("PERMANENT");
+        when(valueOps.get(REDIS_KEY)).thenReturn("PERMANENT");
 
         assertThatThrownBy(() -> guard.requireGroupCanOperate(42L))
             .isInstanceOfSatisfying(RealtyGroupSuspendedException.class, ex -> {
@@ -185,7 +184,7 @@ class RealtyGroupGuardTest {
 
     @Test
     void requireGroupCanOperate_redisCorruptValue_fallsThroughToDbQuery() {
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn("not-a-timestamp-and-not-PERMANENT");
+        when(valueOps.get(REDIS_KEY)).thenReturn("not-a-timestamp-and-not-PERMANENT");
         when(suspensions.findActiveByGroupId(eq(42L), any(OffsetDateTime.class)))
             .thenReturn(Optional.empty());
 
@@ -201,7 +200,7 @@ class RealtyGroupGuardTest {
         // the fixed clock — the entry is stale or hasn't been swept yet. The guard
         // must NOT throw based on the stale value; it must fall through to the DB.
         OffsetDateTime stale = FIXED_NOW.minusHours(1);
-        when(hashOps.get(REDIS_KEY, REDIS_FIELD)).thenReturn(stale.toString());
+        when(valueOps.get(REDIS_KEY)).thenReturn(stale.toString());
         when(suspensions.findActiveByGroupId(eq(42L), any(OffsetDateTime.class)))
             .thenReturn(Optional.empty());
 

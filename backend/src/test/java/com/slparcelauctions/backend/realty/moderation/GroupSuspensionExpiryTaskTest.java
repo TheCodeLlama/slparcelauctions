@@ -6,7 +6,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -56,8 +55,9 @@ class GroupSuspensionExpiryTaskTest {
     void setUp() {
         clock = Clock.fixed(FIXED_NOW.toInstant(), ZoneOffset.UTC);
         task = new GroupSuspensionExpiryTask(suspensionRepo, systemUserResolver, clock);
-        systemUser = User.builder().build();
-        setId(systemUser, 1L);
+        // Identity-only sentinel — the task assigns this exact instance to
+        // liftedByAdmin, so isSameAs assertions are sufficient. No id mutation needed.
+        systemUser = User.builder().username("system").build();
     }
 
     @Test
@@ -156,21 +156,5 @@ class GroupSuspensionExpiryTaskTest {
             .issuedAt(expiresAt.minusDays(7))
             .expiresAt(expiresAt)
             .build();
-    }
-
-    /**
-     * Sets {@code BaseEntity.id} via reflection — Lombok's {@code @SuperBuilder} on the
-     * entity hierarchy does not expose {@code id} (it's inherited from {@code BaseEntity}
-     * and managed by JPA). Same trick the production code in
-     * {@code RealtyGroupSuspensionService} uses for admin-user references.
-     */
-    private static void setId(User user, Long id) {
-        try {
-            Field f = User.class.getSuperclass().getSuperclass().getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(user, id);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

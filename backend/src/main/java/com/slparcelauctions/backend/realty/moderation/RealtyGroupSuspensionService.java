@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -26,6 +25,7 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundExceptio
 import com.slparcelauctions.backend.realty.moderation.exception.SuspensionAlreadyActiveException;
 import com.slparcelauctions.backend.realty.moderation.exception.SuspensionNotFoundException;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
  *       corresponding {@code AdminAction} (SUSPEND for timed, BAN for permanent),
  *       fires the per-member notification fan-out via
  *       {@link NotificationPublisher#realtyGroupSuspended}, and writes a Redis
- *       short-circuit hash at {@code realty_group_suspended:{groupId}} so
+ *       short-circuit string at {@code realty_group_suspended:{groupId}} so
  *       {@code RealtyGroupGuard} (Task 7) can skip the DB query on the hot path.</li>
  *   <li>{@link #lift} stamps {@code lifted_at} / {@code lifted_by_admin_id} /
  *       {@code lifted_notes}, records UNSUSPEND/UNBAN, fires the lifted notification,
@@ -57,12 +57,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RealtyGroupSuspensionService {
 
-    /** Prefix for the Redis short-circuit hash used by {@code RealtyGroupGuard}. */
+    /** Prefix for the Redis short-circuit string key used by {@code RealtyGroupGuard}. */
     static final String REDIS_KEY_PREFIX = "realty_group_suspended:";
-    /** Marker value stored in the Redis hash when the suspension is a permanent ban. */
+    /** Marker value stored at the Redis key when the suspension is a permanent ban. */
     static final String REDIS_PERMANENT_MARKER = "PERMANENT";
-    /** Field name inside the Redis hash. */
-    static final String REDIS_FIELD_EXPIRES_AT = "expiresAt";
     /** Upper bound on the Redis short-circuit TTL. Spec §8: "min(duration, 5 minutes)". */
     static final Duration REDIS_MAX_TTL = Duration.ofMinutes(5);
 
@@ -71,6 +69,7 @@ public class RealtyGroupSuspensionService {
     private final AdminActionService adminActionService;
     private final NotificationPublisher notificationPublisher;
     private final BulkListingSuspendService bulkListingSuspendService;
+    private final UserRepository userRepository;
     private final StringRedisTemplate redis;
     private final Clock clock;
 
@@ -99,11 +98,10 @@ public class RealtyGroupSuspensionService {
             throw new SuspensionAlreadyActiveException(groupPublicId);
         });
 
-        User admin = User.builder().build();
-        // Use a reference-only User so the FK column gets populated without a round-trip
+        // Use a Hibernate proxy so the FK column gets populated without a round-trip
         // fetch. The audit-action service does its own admin lookup; for the suspension
         // row we only need the id on the User reference.
-        adminReference(admin, adminUserId);
+        User admin = userRepository.getReferenceById(adminUserId);
 
         RealtyGroupSuspension row = RealtyGroupSuspension.builder()
             .realtyGroup(group)
@@ -181,8 +179,7 @@ public class RealtyGroupSuspensionService {
         OffsetDateTime now = OffsetDateTime.now(clock);
         boolean permanent = (row.getExpiresAt() == null);
 
-        User admin = User.builder().build();
-        adminReference(admin, adminUserId);
+        User admin = userRepository.getReferenceById(adminUserId);
         row.setLiftedAt(now);
         row.setLiftedByAdmin(admin);
         row.setLiftedNotes(liftedNotes);
@@ -236,27 +233,9 @@ public class RealtyGroupSuspensionService {
 
     // ─────────────────────── helpers ───────────────────────
 
-    /**
-     * Sets the inherited {@code id} field on a reference-only User. The FK column on
-     * {@code realty_group_suspensions} only needs the id; we avoid an extra round-trip
-     * to the users table since {@code AdminActionService.record} already fetches the
-     * admin user for its own row.
-     */
-    private static void adminReference(User user, Long adminUserId) {
-        try {
-            java.lang.reflect.Field f = User.class.getSuperclass()
-                .getSuperclass().getDeclaredField("id");
-            f.setAccessible(true);
-            f.set(user, adminUserId);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Could not set User.id via reflection", e);
-        }
-    }
-
     private void writeRedisShortCircuit(Long groupId, OffsetDateTime expiresAt, OffsetDateTime now) {
         String key = REDIS_KEY_PREFIX + groupId;
         String value = (expiresAt == null) ? REDIS_PERMANENT_MARKER : expiresAt.toString();
-        redis.opsForHash().put(key, REDIS_FIELD_EXPIRES_AT, value);
         Duration ttl;
         if (expiresAt == null) {
             ttl = REDIS_MAX_TTL;
@@ -265,7 +244,7 @@ public class RealtyGroupSuspensionService {
             if (untilExpiry.isNegative() || untilExpiry.isZero()) {
                 // Defensive — should not happen since findActive already filtered, but if a
                 // caller passes a past expiry we still set a minimum-positive TTL so the
-                // hash doesn't linger forever.
+                // key doesn't linger forever.
                 ttl = Duration.ofSeconds(1);
             } else if (untilExpiry.compareTo(REDIS_MAX_TTL) > 0) {
                 ttl = REDIS_MAX_TTL;
@@ -273,6 +252,8 @@ public class RealtyGroupSuspensionService {
                 ttl = untilExpiry;
             }
         }
-        redis.expire(key, ttl.toSeconds(), TimeUnit.SECONDS);
+        // Single round-trip: value + TTL committed atomically so a crash between the two
+        // can't leave a no-TTL ghost key in Redis.
+        redis.opsForValue().set(key, value, ttl);
     }
 }
