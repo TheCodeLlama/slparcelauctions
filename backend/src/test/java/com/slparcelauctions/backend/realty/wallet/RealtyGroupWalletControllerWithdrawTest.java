@@ -104,7 +104,8 @@ class RealtyGroupWalletControllerWithdrawTest {
     void withdraw_leader_202_happy_path() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -139,7 +140,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + delegateJwt)
@@ -160,7 +162,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -178,7 +181,8 @@ class RealtyGroupWalletControllerWithdrawTest {
     void withdraw_insufficient_balance_returns_422() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 99999,  // group only has 10000
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -200,7 +204,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -222,7 +227,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -240,7 +246,8 @@ class RealtyGroupWalletControllerWithdrawTest {
     void withdraw_unknown_publicId_returns_404() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + UUID.randomUUID() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -257,7 +264,8 @@ class RealtyGroupWalletControllerWithdrawTest {
     void withdraw_zero_amount_returns_400() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 0,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)

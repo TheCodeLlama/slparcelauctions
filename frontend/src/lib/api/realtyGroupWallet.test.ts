@@ -194,6 +194,7 @@ describe("withdrawFromGroupWallet", () => {
     const result = await withdrawFromGroupWallet(GROUP_ID, {
       amount: 1000,
       idempotencyKey: "test-key-abc",
+      recipient: "AVATAR",
     });
 
     expect(result.queueId).toBe(42);
@@ -221,7 +222,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 1000, idempotencyKey: "k" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 1000,
+        idempotencyKey: "k",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({
       status: 422,
       problem: {
@@ -249,7 +254,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 500, idempotencyKey: "k2" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 500,
+        idempotencyKey: "k2",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({
       status: 422,
       problem: { code: "LEADER_TERMS_NOT_ACCEPTED" },
@@ -269,7 +278,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 100, idempotencyKey: "k3" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 100,
+        idempotencyKey: "k3",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({ status: 403 });
   });
 
@@ -286,7 +299,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 100, idempotencyKey: "k4" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 100,
+        idempotencyKey: "k4",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({ status: 410, problem: { code: "GROUP_DISSOLVED" } });
   });
 });
