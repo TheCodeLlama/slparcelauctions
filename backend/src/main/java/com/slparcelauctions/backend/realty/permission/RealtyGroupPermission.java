@@ -41,5 +41,18 @@ public enum RealtyGroupPermission {
     /** Broker-level: manage (pause/cancel) any of the group's listings regardless of who
      *  created them. Defined here so the enum is whole; wired by sub-project E. No-op in
      *  sub-project C. */
-    MANAGE_ALL_LISTINGS;
+    MANAGE_ALL_LISTINGS,
+
+    /** Sub-project D -- defined but not wired. Reserved for future discretionary group
+     *  spend (advertising, paying member penalties, sponsored auctions). Listing-fee
+     *  debits under CREATE_LISTING do not require this permission -- the spend is
+     *  intrinsic to the listing. */
+    SPEND_FROM_GROUP_WALLET,
+
+    /** Sub-project D -- initiate a withdrawal from the group wallet. Recipient is always
+     *  the group leader's verified SL avatar regardless of caller. */
+    WITHDRAW_FROM_GROUP_WALLET,
+
+    /** Sub-project D -- view the group's wallet balance + ledger. */
+    VIEW_GROUP_TRANSACTIONS;
 }
