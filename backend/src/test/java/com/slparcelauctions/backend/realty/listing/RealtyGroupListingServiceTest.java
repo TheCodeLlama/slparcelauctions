@@ -2,12 +2,16 @@ package com.slparcelauctions.backend.realty.listing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -22,25 +26,37 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionService;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
+import com.slparcelauctions.backend.parcel.ParcelLookupService;
+import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
 import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupMember;
+import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
+import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
 import com.slparcelauctions.backend.user.User;
 
 @ExtendWith(MockitoExtension.class)
 class RealtyGroupListingServiceTest {
 
     @Mock RealtyGroupRepository groups;
+    @Mock RealtyGroupMemberRepository members;
+    @Mock RealtyGroupSlGroupRepository slGroups;
     @Mock RealtyGroupAuthorizer authorizer;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
     @Mock AuctionService auctionService;
+    @Mock ParcelLookupService parcelLookupService;
 
     @InjectMocks RealtyGroupListingService service;
 
     private static final UUID GROUP_PUBLIC_ID = UUID.randomUUID();
     private static final UUID PARCEL_UUID = UUID.randomUUID();
+    private static final UUID SL_GROUP_UUID = UUID.randomUUID();
     private static final Long CALLER_USER_ID = 42L;
     private static final Long GROUP_ID = 99L;
 
@@ -54,8 +70,6 @@ class RealtyGroupListingServiceTest {
                 .name("Mainland Realty Co.")
                 .slug("mainland-realty-co")
                 .leaderId(CALLER_USER_ID)
-                .agentFeeRate(new BigDecimal("0.0300"))
-                .agentFeeSplit(new BigDecimal("0.6000"))
                 .build();
 
         req = new AuctionCreateRequest(
@@ -63,27 +77,126 @@ class RealtyGroupListingServiceTest {
                 168, false, null, null, Set.of(), GROUP_PUBLIC_ID);
     }
 
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ createGroupListing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private RealtyGroupSlGroup verifiedSlGroupReg(Long id) {
+        RealtyGroupSlGroup r = RealtyGroupSlGroup.builder()
+                .id(id)
+                .realtyGroupId(GROUP_ID)
+                .slGroupUuid(SL_GROUP_UUID)
+                .verified(true)
+                .verifiedAt(OffsetDateTime.now())
+                .build();
+        return r;
+    }
+
     @Test
-    void create_group_listing_snapshots_rate_and_split() {
+    void createGroupListing_case3HappyPath_setsAllFields() {
         User seller = new User();
         seller.setUsername("testseller");
 
         Auction created = Auction.builder()
                 .seller(seller)
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
+        RealtyGroupSlGroup slGroupReg = verifiedSlGroupReg(777L);
 
         when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
                 .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.of(slGroupReg));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.0500")));
         when(auctionService.create(CALLER_USER_ID, req, "127.0.0.1"))
                 .thenReturn(created);
 
         Auction result = service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1");
 
         assertThat(result.getRealtyGroupId()).isEqualTo(GROUP_ID);
-        assertThat(result.getAgentFeeRate()).isEqualByComparingTo(new BigDecimal("0.0300"));
-        assertThat(result.getAgentFeeSplit()).isEqualByComparingTo(new BigDecimal("0.6000"));
+        assertThat(result.getRealtyGroupSlGroupId()).isEqualTo(777L);
         assertThat(result.getListingAgent()).isSameAs(seller);
+        assertThat(result.getAgentCommissionRate()).isEqualByComparingTo(new BigDecimal("0.0500"));
+    }
+
+    @Test
+    void createGroupListing_parcelAgentOwned_throws() {
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("agent", UUID.randomUUID()), null));
+
+        assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
+                .isInstanceOf(ParcelNotOwnedByRegisteredSlGroupException.class)
+                .hasMessageContaining("Personal land");
+        verify(auctionService, never()).create(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void createGroupListing_parcelGroupOwned_noVerifiedRegistration_throws() {
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
+                .isInstanceOf(ParcelNotOwnedByRegisteredSlGroupException.class)
+                .hasMessageContaining("not registered/verified");
+        verify(auctionService, never()).create(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void createGroupListing_snapshotsMemberCommissionRate() {
+        User seller = new User();
+        Auction created = Auction.builder().seller(seller).build();
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.of(verifiedSlGroupReg(1L)));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.1234")));
+        when(auctionService.create(CALLER_USER_ID, req, "127.0.0.1"))
+                .thenReturn(created);
+
+        Auction result = service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1");
+
+        assertThat(result.getAgentCommissionRate())
+                .isEqualByComparingTo(new BigDecimal("0.1234"));
+    }
+
+    @Test
+    void createGroupListing_memberHasNoRate_snapshotsZero() {
+        User seller = new User();
+        Auction created = Auction.builder().seller(seller).build();
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.of(verifiedSlGroupReg(1L)));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.empty());
+        when(auctionService.create(CALLER_USER_ID, req, "127.0.0.1"))
+                .thenReturn(created);
+
+        Auction result = service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1");
+
+        assertThat(result.getAgentCommissionRate()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
@@ -96,6 +209,33 @@ class RealtyGroupListingServiceTest {
     }
 
     @Test
+    void createGroupListing_groupSuspended_throwsAndDoesNotPersist() {
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(GROUP_ID);
+
+        assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
+                .isInstanceOf(com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException.class);
+
+        // Guard fires before authorizer / parcel lookup / auction create.
+        verify(authorizer, never()).assertCan(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any());
+        verify(parcelLookupService, never()).lookup(org.mockito.ArgumentMatchers.any());
+        verify(auctionService, never()).create(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     void create_group_listing_403_when_no_permission() {
         when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
                 .thenReturn(Optional.of(group));
@@ -104,5 +244,215 @@ class RealtyGroupListingServiceTest {
 
         assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
                 .isInstanceOf(RealtyGroupPermissionDeniedException.class);
+    }
+
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ findEligibleForParcel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private ParcelResponse parcelOwnedBy(String ownerType, UUID ownerUuid) {
+        return new ParcelResponse(
+                PARCEL_UUID, ownerUuid, ownerType, "Owner Name", "Parcel Name",
+                1L, "Coniston", "GENERAL", 1000.0, 2000.0,
+                128.0, 64.0, 22.0, 1024, "desc", null, "slurl",
+                true, OffsetDateTime.now(), OffsetDateTime.now());
+    }
+
+    private RealtyGroupMember memberWithPerms(Long groupId, Long userId,
+            Set<RealtyGroupPermission> perms) {
+        RealtyGroupMember m = RealtyGroupMember.builder()
+                .groupId(groupId)
+                .userId(userId)
+                .joinedAt(OffsetDateTime.now())
+                .build();
+        m.setPermissionSet(perms);
+        return m;
+    }
+
+    @Test
+    void findEligibleForParcel_groupOwned_returnsMatchingGroups() {
+        // Parcel is owned by an SL group; the realty group has a verified registration
+        // for that SL group; the caller is the leader -> returned as eligible.
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of(group));
+        // Leader still has a member row by convention; project their per-member rate.
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.0800")));
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).hasSize(1);
+        ListingEligibleGroupDto dto = result.get(0);
+        assertThat(dto.publicId()).isEqualTo(group.getPublicId());
+        assertThat(dto.name()).isEqualTo("Mainland Realty Co.");
+        assertThat(dto.slug()).isEqualTo("mainland-realty-co");
+        assertThat(dto.logoUrl()).isNull();
+        // Per-caller commission rate replaces the prior C-era group-wide agentFeeRate.
+        assertThat(dto.agentCommissionRate()).isEqualByComparingTo(new BigDecimal("0.0800"));
+    }
+
+    @Test
+    void findEligibleForParcel_callerHasCreateListingPermission_returnsGroup() {
+        // Caller is not the leader but has CREATE_LISTING -> returned as eligible.
+        RealtyGroup notLeaderGroup = RealtyGroup.builder()
+                .id(GROUP_ID)
+                .name("Other Realty")
+                .slug("other-realty")
+                .leaderId(999L) // someone else
+                .build();
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of(notLeaderGroup));
+        when(members.findByGroupIdAndUserId(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(memberWithPerms(GROUP_ID, CALLER_USER_ID,
+                        EnumSet.of(RealtyGroupPermission.CREATE_LISTING))));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.1500")));
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).slug()).isEqualTo("other-realty");
+        assertThat(result.get(0).agentCommissionRate())
+                .isEqualByComparingTo(new BigDecimal("0.1500"));
+    }
+
+    @Test
+    void findEligibleForParcel_returnsCallerSpecificCommissionRate_whenMultipleCallersHaveDifferentRates() {
+        // Sub-project G section 6.2: per-caller rate from realty_group_members.agent_commission_rate.
+        // Same group, two different callers, each sees their OWN rate.
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of(group));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.1000")));
+
+        Long otherUserId = 4242L;
+        when(slGroups.findRealtyGroupsForListingCaller(otherUserId, SL_GROUP_UUID))
+                .thenReturn(List.of(group));
+        // Other user is not the leader -> permission check; give them CREATE_LISTING.
+        when(members.findByGroupIdAndUserId(GROUP_ID, otherUserId))
+                .thenReturn(Optional.of(memberWithPerms(GROUP_ID, otherUserId,
+                        EnumSet.of(RealtyGroupPermission.CREATE_LISTING))));
+        when(members.findCommissionRate(GROUP_ID, otherUserId))
+                .thenReturn(Optional.of(new BigDecimal("0.1500")));
+
+        List<ListingEligibleGroupDto> asCaller = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+        List<ListingEligibleGroupDto> asOther = service.findEligibleForParcel(otherUserId, PARCEL_UUID);
+
+        assertThat(asCaller).hasSize(1);
+        assertThat(asCaller.get(0).agentCommissionRate())
+                .isEqualByComparingTo(new BigDecimal("0.1000"));
+        assertThat(asOther).hasSize(1);
+        assertThat(asOther.get(0).agentCommissionRate())
+                .isEqualByComparingTo(new BigDecimal("0.1500"));
+    }
+
+    @Test
+    void findEligibleForParcel_callerMissingMemberRow_defaultsToZeroCommission() {
+        // Defensive: leader without a member row (shouldn't happen but tolerated)
+        // -> rate defaults to ZERO so the preview still renders.
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of(group));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.empty());
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).agentCommissionRate()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void findEligibleForParcel_agentOwned_returnsEmpty() {
+        // Personal land (ownerType == "agent") â†’ no group is eligible, no DB lookup.
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("agent", UUID.randomUUID()), null));
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).isEmpty();
+        verify(slGroups, never()).findRealtyGroupsForListingCaller(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void findEligibleForParcel_groupOwned_butNoMatchingRegistration_returnsEmpty() {
+        // The parcel is group-owned but no realty group has a verified registration for it
+        // (and/or the caller is not a member of any such realty group).
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of());
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findEligibleForParcel_callerHasNoCreateListing_returnsEmpty() {
+        // Caller is a non-leader member without CREATE_LISTING â†’ filtered out in Java.
+        RealtyGroup notLeaderGroup = RealtyGroup.builder()
+                .id(GROUP_ID)
+                .name("Other Realty")
+                .slug("other-realty")
+                .leaderId(999L) // someone else
+                .build();
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of(notLeaderGroup));
+        when(members.findByGroupIdAndUserId(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(memberWithPerms(GROUP_ID, CALLER_USER_ID,
+                        EnumSet.of(RealtyGroupPermission.INVITE_AGENTS))));
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findEligibleForParcel_ownerUuidNull_returnsEmpty() {
+        // Defensive: ownerType=group but ownerUuid is null (SL world API hiccup) â†’ empty.
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", null), null));
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).isEmpty();
+        verify(slGroups, never()).findRealtyGroupsForListingCaller(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void findEligibleForParcel_caseInsensitiveOwnerTypeMatch() {
+        // ownerType comparison is case-insensitive â€” "Group" should match too.
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("Group", SL_GROUP_UUID), null));
+        when(slGroups.findRealtyGroupsForListingCaller(CALLER_USER_ID, SL_GROUP_UUID))
+                .thenReturn(List.of(group));
+
+        List<ListingEligibleGroupDto> result = service.findEligibleForParcel(CALLER_USER_ID, PARCEL_UUID);
+
+        assertThat(result).hasSize(1);
+        // Silence unused-stub warnings if any path skips them.
+        lenient().when(members.findByGroupIdAndUserId(group.getId(), CALLER_USER_ID))
+                .thenReturn(Optional.empty());
     }
 }

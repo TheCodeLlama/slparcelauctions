@@ -25,5 +25,22 @@ public enum CancellationOffenseKind {
     WARNING,
     PENALTY,
     PENALTY_AND_30D,
-    PERMANENT_BAN
+    PERMANENT_BAN,
+    /**
+     * Sub-project E §11.4 -- broker-initiated cancellation on a case-3
+     * (SL-group-owned) listing. Excluded from
+     * {@code countPriorOffensesWithBids} so it never advances the seller's
+     * penalty ladder. Like {@code NONE} and {@code WARNING} it carries no
+     * L$ amount.
+     */
+    BROKER_CANCEL,
+    /**
+     * Sub-project F §4.4 -- listing auto-cancelled by the 48 h bulk-suspend
+     * expiry timer after its parent realty group's bulk suspension lapsed
+     * without admin reinstatement. Excluded from
+     * {@code countPriorOffensesWithBids} so it never advances the seller's
+     * penalty ladder — the cancellation is administrative, not a seller
+     * offence. Carries no L$ amount.
+     */
+    ADMIN_BULK_EXPIRED
 }

@@ -94,3 +94,9 @@ export { MoreVertical, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 // Realty groups additions (Phase 14 dashboard pages)
 export { Mail, UserPlus, UserMinus, Users2, Inbox } from "lucide-react";
+
+// Realty groups admin moderation (Sub-project F) — GroupRatingBadge
+export { StarHalf } from "lucide-react";
+
+// Realty groups final cleanup (Sub-project G §7.2) — admin wallet adjust card
+export { Minus } from "lucide-react";

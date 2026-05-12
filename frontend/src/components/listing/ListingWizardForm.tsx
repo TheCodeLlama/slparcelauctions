@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 import type { SellerAuctionResponse } from "@/types/auction";
 import type { SuspensionReasonCode } from "@/types/cancellation";
 import { AuctionSettingsForm, type AuctionSettingsValue } from "./AuctionSettingsForm";
-import { AgentFeePreview } from "./AgentFeePreview";
+import { AgentCommissionPreview } from "./AgentCommissionPreview";
 import { ListAsGroupPicker } from "./ListAsGroupPicker";
 import { ListingWizardLayout } from "./ListingWizardLayout";
 import { ParcelLookupField } from "./ParcelLookupField";
@@ -86,6 +86,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [groupWalletInsufficient, setGroupWalletInsufficient] = useState(false);
   /**
    * Backend-driven suspension gate (Epic 08 sub-spec 2 §8.4). Set to a
    * {@link SuspensionReasonCode} when the wizard's save call returns a
@@ -100,11 +101,47 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
 
   // Listing-eligible groups — only relevant in create mode. The picker is
   // hidden in edit mode because group attribution is immutable after creation.
-  const eligibleGroupsQ = useListingEligibleGroups();
+  // From Realty Groups: E onwards the eligibility filter requires the
+  // parcel UUID, so the query is disabled until a parcel is selected.
+  const eligibleGroupsQ = useListingEligibleGroups(
+    draft.state.parcel?.slParcelUuid,
+  );
   const selectedGroup =
     eligibleGroupsQ.data?.find(
       (g) => g.publicId === draft.state.listAsGroupPublicId,
     ) ?? null;
+
+  // Reset the wallet-insufficient gate whenever the selected group is cleared
+  // (deselection back to Individual). Without this, switching from a low-balance
+  // group to Individual would leave the publish button disabled.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!selectedGroup) setGroupWalletInsufficient(false);
+  }, [selectedGroup]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Realty Groups: E — SL-group-owned parcels have no Individual fallback in
+  // the picker (you cannot personally own group-owned land). Auto-select the
+  // first eligible group when the parcel is group-owned and the seller has
+  // not picked one yet, so the form is never left in an invalid "no group +
+  // no Individual" state. Tests assert the picker only renders with the
+  // group selected.
+  const parcelIsSlGroupOwned = draft.state.parcel?.ownerType === "group";
+  useEffect(() => {
+    if (isEdit) return;
+    if (!parcelIsSlGroupOwned) return;
+    if (draft.state.listAsGroupPublicId) return;
+    const first = eligibleGroupsQ.data?.[0];
+    if (first) {
+      draft.update("listAsGroupPublicId", first.publicId);
+    }
+  }, [
+    isEdit,
+    parcelIsSlGroupOwned,
+    draft.state.listAsGroupPublicId,
+    eligibleGroupsQ.data,
+    draft,
+  ]);
 
   // Redirect edits of auctions whose status has progressed past
   // DRAFT_PAID to the activate page, per sub-spec 2 §4.4. We only
@@ -257,7 +294,7 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
             <Button
               onClick={handleSubmit}
               loading={submitting}
-              disabled={saving || submitting || !parcel}
+              disabled={saving || submitting || !parcel || groupWalletInsufficient}
             >
               Save & continue
             </Button>
@@ -315,12 +352,24 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                       onChange={(id) =>
                         draft.update("listAsGroupPublicId", id)
                       }
+                      // SL-group-owned parcels: no Individual fallback —
+                      // you cannot personally own group-owned land. Personal
+                      // (agent-owned) land keeps the Individual radio so the
+                      // seller can list outside any group.
+                      showIndividual={!parcelIsSlGroupOwned}
                     />
                     {selectedGroup && draft.state.startingBid > 0 && (
-                      <AgentFeePreview
+                      // Realty Groups: G — case-1 ("agent listing own land
+                      // under a group") is gone, so every group-attributed
+                      // listing renders the same case-3 preview: platform
+                      // commission off the top, then earnings split agent ↔
+                      // group per the caller's per-member commission rate.
+                      <AgentCommissionPreview
                         startingBid={draft.state.startingBid}
                         groupName={selectedGroup.name}
-                        agentFeeRate={selectedGroup.agentFeeRate}
+                        groupPublicId={selectedGroup.publicId}
+                        agentCommissionRate={selectedGroup.agentCommissionRate}
+                        onInsufficient={setGroupWalletInsufficient}
                       />
                     )}
                   </section>

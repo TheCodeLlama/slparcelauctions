@@ -15,14 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * Persistence-level verification of the two realty-group repository methods:
+ * Persistence-level verification of the realty-group repository methods:
  * <ul>
  *   <li>{@link AuctionRepository#existsActiveListingsByGroupId(Long)}</li>
- *   <li>{@link AuctionRepository#reassignListingAgentForGroup(Long, Long, Long)}</li>
+ *   <li>{@link AuctionRepository#reassignSellerToLeaderForCase3(Long, Long, Long)}</li>
  * </ul>
  *
  * <p>Uses {@code @Transactional} so each test auto-rolls back with no manual cleanup.
@@ -47,8 +49,9 @@ class AuctionRepositoryRealtyTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired RealtyGroupRepository groupRepo;
     @Autowired UserRepository userRepo;
+    @Autowired RealtyGroupSlGroupRepository slGroupRepo;
 
-    // ── existsActiveListingsByGroupId ──────────────────────────────────────
+    // â”€â”€ existsActiveListingsByGroupId â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void existsActiveListingsByGroupId_true_when_active() {
@@ -81,37 +84,77 @@ class AuctionRepositoryRealtyTest {
         assertThat(auctionRepo.existsActiveListingsByGroupId(g.getId())).isTrue();
     }
 
-    // ── reassignListingAgentForGroup ───────────────────────────────────────
+    // â”€â”€ reassignSellerToLeaderForCase3 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
-    void reassignListingAgentForGroup_updates_active_only() {
-        User leader = userRepo.save(buildUser("reassign-leader"));
-        User agent  = userRepo.save(buildUser("reassign-agent"));
-        RealtyGroup g = groupRepo.save(buildGroup("Reassign Group", "reassign-group", leader.getId()));
+    void reassignSellerToLeaderForCase3_updates_active_only_and_skips_non_case3() {
+        User leader = userRepo.save(buildUser("case3-leader"));
+        User member = userRepo.save(buildUser("case3-member"));
+        RealtyGroup g = groupRepo.save(buildGroup("Case3 Group", "case3-group", leader.getId()));
 
-        Auction active = buildAuction(agent, g.getId(), AuctionStatus.ACTIVE);
-        active.setListingAgent(agent);
-        active = auctionRepo.save(active);
+        RealtyGroupSlGroup slGroup = slGroupRepo.save(buildSlGroup(g.getId()));
 
-        Auction ended = buildAuction(agent, g.getId(), AuctionStatus.ENDED);
-        ended.setListingAgent(agent);
-        ended = auctionRepo.save(ended);
+        // Case-3 ACTIVE: seller is the departing member, realty_group_sl_group_id set.
+        Auction case3Active = buildAuction(member, g.getId(), AuctionStatus.ACTIVE);
+        case3Active.setListingAgent(member);
+        case3Active.setRealtyGroupSlGroupId(slGroup.getId());
+        case3Active = auctionRepo.save(case3Active);
 
-        int rowsUpdated = auctionRepo.reassignListingAgentForGroup(
-                g.getId(), agent.getId(), leader.getId());
+        // Case-3 ENDED â€” outside the pre-terminal status set.
+        Auction case3Ended = buildAuction(member, g.getId(), AuctionStatus.ENDED);
+        case3Ended.setListingAgent(member);
+        case3Ended.setRealtyGroupSlGroupId(slGroup.getId());
+        case3Ended = auctionRepo.save(case3Ended);
+
+        // Non-case-3 row (realty_group_sl_group_id NULL). Must NOT have seller_id reassigned.
+        Auction nonCase3Active = buildAuction(member, g.getId(), AuctionStatus.ACTIVE);
+        nonCase3Active.setListingAgent(member);
+        nonCase3Active = auctionRepo.save(nonCase3Active);
+
+        int rowsUpdated = auctionRepo.reassignSellerToLeaderForCase3(
+                member.getId(), g.getId(), leader.getId());
 
         assertThat(rowsUpdated).isEqualTo(1);
 
-        // Active auction's listing agent must now be the leader.
-        Auction updatedActive = auctionRepo.findById(active.getId()).orElseThrow();
-        assertThat(updatedActive.getListingAgent().getId()).isEqualTo(leader.getId());
+        // Case-3 ACTIVE: seller_id flipped to leader; listing_agent_id stays the member
+        // (commission attribution preserved).
+        Auction updatedCase3 = auctionRepo.findById(case3Active.getId()).orElseThrow();
+        assertThat(updatedCase3.getSeller().getId()).isEqualTo(leader.getId());
+        assertThat(updatedCase3.getListingAgent().getId()).isEqualTo(member.getId());
 
-        // Ended auction must be untouched — still points at the original agent.
-        Auction untouchedEnded = auctionRepo.findById(ended.getId()).orElseThrow();
-        assertThat(untouchedEnded.getListingAgent().getId()).isEqualTo(agent.getId());
+        // Case-3 ENDED untouched.
+        Auction untouchedEnded = auctionRepo.findById(case3Ended.getId()).orElseThrow();
+        assertThat(untouchedEnded.getSeller().getId()).isEqualTo(member.getId());
+
+        // Non-case-3 untouched â€” seller_id stable.
+        Auction untouchedNonCase3 = auctionRepo.findById(nonCase3Active.getId()).orElseThrow();
+        assertThat(untouchedNonCase3.getSeller().getId()).isEqualTo(member.getId());
     }
 
-    // ── builders ──────────────────────────────────────────────────────────
+    @Test
+    void reassignSellerToLeaderForCase3_skips_individual_auctions_without_realty_group() {
+        // Individual auction has realty_group_id NULL â€” the case-3 query's WHERE clause
+        // doesn't match, so it leaves the row untouched even when the departing user
+        // is its seller.
+        User leader = userRepo.save(buildUser("indiv-leader"));
+        User member = userRepo.save(buildUser("indiv-member"));
+        RealtyGroup g = groupRepo.save(buildGroup("Indiv Group", "indiv-group", leader.getId()));
+
+        Auction individual = buildAuction(member, null, AuctionStatus.ACTIVE);
+        individual.setListingAgent(member);
+        individual = auctionRepo.save(individual);
+
+        int case3Rows = auctionRepo.reassignSellerToLeaderForCase3(
+                member.getId(), g.getId(), leader.getId());
+
+        assertThat(case3Rows).isEqualTo(0);
+
+        Auction reloaded = auctionRepo.findById(individual.getId()).orElseThrow();
+        assertThat(reloaded.getSeller().getId()).isEqualTo(member.getId());
+        assertThat(reloaded.getListingAgent().getId()).isEqualTo(member.getId());
+    }
+
+    // â”€â”€ builders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static User buildUser(String tag) {
         return User.builder()
@@ -128,8 +171,16 @@ class AuctionRepositoryRealtyTest {
                 .name(name)
                 .slug(slug + "-" + UUID.randomUUID().toString().substring(0, 6))
                 .leaderId(leaderId)
-                .agentFeeRate(new BigDecimal("0.0200"))
-                .agentFeeSplit(new BigDecimal("0.5000"))
+                .build();
+    }
+
+    private static RealtyGroupSlGroup buildSlGroup(Long realtyGroupId) {
+        return RealtyGroupSlGroup.builder()
+                .realtyGroupId(realtyGroupId)
+                .slGroupUuid(UUID.randomUUID())
+                .slGroupName("Test SL Group")
+                .verified(true)
+                .verifiedAt(OffsetDateTime.now())
                 .build();
     }
 
@@ -150,7 +201,6 @@ class AuctionRepositoryRealtyTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(new BigDecimal("0.0200"))
                 .build();
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)

@@ -224,31 +224,34 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     boolean existsActiveListingsByGroupId(@Param("groupId") Long groupId);
 
     /**
-     * Bulk-reassigns the listing agent on all pre-terminal auctions for a
-     * group when an agent departs (leave or remove). Only DRAFT,
-     * VERIFICATION_PENDING, and ACTIVE rows are touched — completed /
-     * cancelled / suspended auctions preserve their historical attribution.
-     * Returns the number of rows updated.
+     * Sub-project E §10.2 — case-3 reassignment. Updates {@code seller_id} to the
+     * leader for the departing member's pre-terminal listings (DRAFT, DRAFT_PAID,
+     * VERIFICATION_PENDING, VERIFICATION_FAILED, ACTIVE) under the given group.
+     * {@code listing_agent_id} stays stable so commission attribution is
+     * preserved; the management/notification surface flips to the leader.
      *
-     * <p>Called from {@code RealtyGroupMemberService.leave} and
-     * {@code RealtyGroupMemberService.removeMember} inside their existing
-     * {@code @Transactional} boundary.
+     * <p>Scoped to case-3 only via {@code realty_group_sl_group_id IS NOT NULL}.
+     * Called from {@code RealtyGroupMembershipService.leave} and
+     * {@code RealtyGroupMembershipService.removeMember}.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Auction a
-               SET a.listingAgent.id = :newAgentId
-             WHERE a.realtyGroupId = :groupId
-               AND a.listingAgent.id = :oldAgentId
+               SET a.seller.id = :leaderId
+             WHERE a.seller.id = :oldUserId
+               AND a.realtyGroupSlGroupId IS NOT NULL
+               AND a.realtyGroupId = :groupId
                AND a.status IN (
                     com.slparcelauctions.backend.auction.AuctionStatus.DRAFT,
+                    com.slparcelauctions.backend.auction.AuctionStatus.DRAFT_PAID,
                     com.slparcelauctions.backend.auction.AuctionStatus.VERIFICATION_PENDING,
+                    com.slparcelauctions.backend.auction.AuctionStatus.VERIFICATION_FAILED,
                     com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE)
             """)
-    int reassignListingAgentForGroup(
+    int reassignSellerToLeaderForCase3(
+            @Param("oldUserId") Long oldUserId,
             @Param("groupId") Long groupId,
-            @Param("oldAgentId") Long oldAgentId,
-            @Param("newAgentId") Long newAgentId);
+            @Param("leaderId") Long leaderId);
 
     /**
      * Paged list of auctions belonging to the given realty group, filtered by status.
@@ -281,4 +284,70 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      */
     @Query("SELECT a.id FROM Auction a WHERE a.currentBidderId = :userId AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE")
     List<Long> findIdsByCurrentBidderIdAndActive(@Param("userId") Long userId);
+
+    /**
+     * Active listings attributed to the given realty group, covering both
+     * case-1 (direct {@code realty_group_id} attribution) and case-3 (the
+     * auction's {@code realty_group_sl_group_id} resolves to a
+     * {@link com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup}
+     * whose {@code realty_group_id} matches). Consumed by the bulk-suspend
+     * path so an admin acting against a realty group can sweep every live
+     * listing the group is responsible for in one shot.
+     *
+     * <p>JPQL note: {@code Auction} stores its parent group as a plain
+     * {@code Long realtyGroupId} column rather than a {@code @ManyToOne}
+     * association (and {@code RealtyGroupSlGroup} does the same), so navigation
+     * uses {@code a.realtyGroupId} / {@code rsg.realtyGroupId} rather than
+     * {@code a.realtyGroup.id} / {@code rsg.realtyGroup.id}.
+     */
+    @Query("""
+            SELECT a FROM Auction a
+             LEFT JOIN com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup rsg
+                    ON rsg.id = a.realtyGroupSlGroupId
+             WHERE a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+               AND (a.realtyGroupId = :groupId OR rsg.realtyGroupId = :groupId)
+            """)
+    List<Auction> findActiveListingsForGroup(@Param("groupId") Long groupId);
+
+    /**
+     * Sub-project F §13.5 — admin force-unregister cascade. Returns every
+     * {@link AuctionStatus#ACTIVE} case-3 auction attached to the given SL
+     * group registration. Used by
+     * {@link com.slparcelauctions.backend.realty.slgroup.SlGroupForceUnregisterService}
+     * to decide whether the bulk-suspend cascade needs to run when an admin
+     * force-unregisters the SL group claim. Pre-ACTIVE statuses (DRAFT,
+     * DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED) and terminal
+     * statuses are excluded — only live listings carry the 48 h bulk-suspend
+     * timer, and pre-ACTIVE rows fall out naturally when the registration is
+     * marked unregistered.
+     */
+    @Query("""
+            SELECT a FROM Auction a
+             WHERE a.realtyGroupSlGroupId = :slGroupId
+               AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+            """)
+    List<Auction> findActiveCase3ListingsForSlGroup(@Param("slGroupId") Long slGroupId);
+
+    /**
+     * Returns {@code true} when any non-terminal case-3 auction references the
+     * given {@code realty_group_sl_group_id}. Used by
+     * {@link com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupService#unregister}
+     * to block removal of an SL group registration while live listings still
+     * reference it (spec §12.2).
+     *
+     * <p>Terminal statuses (COMPLETED, CANCELLED, EXPIRED, DISPUTED, SUSPENDED)
+     * are excluded — once a listing has reached one of those, the SL group
+     * registration is no longer load-bearing for it.
+     */
+    @Query("""
+            SELECT (COUNT(a) > 0) FROM Auction a
+             WHERE a.realtyGroupSlGroupId = :slGroupId
+               AND a.status NOT IN (
+                    com.slparcelauctions.backend.auction.AuctionStatus.COMPLETED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.CANCELLED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.EXPIRED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.DISPUTED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.SUSPENDED)
+            """)
+    boolean existsCase3ForSlGroup(@Param("slGroupId") Long slGroupId);
 }

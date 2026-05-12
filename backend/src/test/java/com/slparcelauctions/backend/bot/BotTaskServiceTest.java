@@ -44,11 +44,13 @@ import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
 import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.user.User;
 
 /**
  * Unit coverage for {@link BotTaskService}. Covers Method C completion paths:
- * SUCCESS (auction → ACTIVE/BOT), FAILURE (auction → VERIFICATION_FAILED),
+ * SUCCESS (auction â†’ ACTIVE/BOT), FAILURE (auction â†’ VERIFICATION_FAILED),
  * parcel-lock conflict (task FAILED + exception), validation errors on
  * escrow UUID / sentinel price, and the timeout sweep.
  */
@@ -67,6 +69,7 @@ class BotTaskServiceTest {
     @Mock AuctionRepository auctionRepo;
     @Mock BotMonitorDispatcher dispatcher;
     @Mock BotMonitorLifecycleService monitorLifecycle;
+    @Mock RealtyGroupSlGroupRepository slGroupRepo;
 
     BotTaskService service;
 
@@ -81,7 +84,7 @@ class BotTaskServiceTest {
                 new OwnershipCheckTimestampInitializer(ownershipProps, fixed);
         service = new BotTaskService(
                 botTaskRepo, auctionRepo, ownershipInit, dispatcher,
-                monitorLifecycle, fixed);
+                monitorLifecycle, slGroupRepo, fixed);
         injectConfig(service, "sentinelPrice", SENTINEL_PRICE);
         injectConfig(service, "primaryEscrowUuid", ESCROW_UUID);
 
@@ -173,7 +176,7 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — SUCCESS
+    // complete â€” SUCCESS
     // -------------------------------------------------------------------------
 
     @Test
@@ -295,7 +298,131 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — FAILURE
+    // complete â€” case 3 (SL group listing) ownership check (spec Â§8.3)
+    // -------------------------------------------------------------------------
+
+    private static final Long REG_ID = 501L;
+    private static final UUID SL_GROUP_UUID =
+            UUID.fromString("c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1");
+
+    @Test
+    void complete_case3_parcelOwnerMatchesRegistration_succeeds() {
+        Auction a = build(AuctionStatus.VERIFICATION_PENDING);
+        a.setRealtyGroupSlGroupId(REG_ID);
+        BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+                .realtyGroupId(7L)
+                .slGroupUuid(SL_GROUP_UUID)
+                .verified(true)
+                .build();
+        when(slGroupRepo.findById(REG_ID)).thenReturn(Optional.of(reg));
+
+        BotTaskCompleteRequest req = new BotTaskCompleteRequest(
+                "SUCCESS", ESCROW_UUID, SENTINEL_PRICE, SL_GROUP_UUID,
+                "Test Parcel", 2048, "Coniston", 128.0, 64.0, 22.0, null);
+
+        BotTask out = service.complete(TASK_ID, req);
+
+        assertThat(out.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
+        assertThat(a.getVerificationTier()).isEqualTo(VerificationTier.BOT);
+        assertThat(a.getParcelSnapshot().getOwnerUuid()).isEqualTo(SL_GROUP_UUID);
+    }
+
+    @Test
+    void complete_case3_parcelOwnerMismatch_failsVerification() {
+        Auction a = build(AuctionStatus.VERIFICATION_PENDING);
+        a.setRealtyGroupSlGroupId(REG_ID);
+        BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+                .realtyGroupId(7L)
+                .slGroupUuid(SL_GROUP_UUID)
+                .verified(true)
+                .build();
+        when(slGroupRepo.findById(REG_ID)).thenReturn(Optional.of(reg));
+
+        UUID wrongOwner = UUID.fromString("d2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2");
+        BotTaskCompleteRequest req = new BotTaskCompleteRequest(
+                "SUCCESS", ESCROW_UUID, SENTINEL_PRICE, wrongOwner,
+                "Test Parcel", 2048, "Coniston", 128.0, 64.0, 22.0, null);
+
+        BotTask out = service.complete(TASK_ID, req);
+
+        assertThat(out.getStatus()).isEqualTo(BotTaskStatus.FAILED);
+        assertThat(out.getFailureReason()).isEqualTo("SL_GROUP_OWNERSHIP_MISMATCH");
+        assertThat(out.getCompletedAt()).isEqualTo(OffsetDateTime.now(fixed));
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
+        assertThat(a.getVerificationNotes())
+                .contains("not owned by the registered SL group");
+        // Did not proceed into snapshot refresh / ACTIVE transition.
+        assertThat(a.getStartsAt()).isNull();
+        verify(auctionRepo, never()).saveAndFlush(any(Auction.class));
+    }
+
+    @Test
+    void complete_case3_nullReportedOwner_failsVerification() {
+        Auction a = build(AuctionStatus.VERIFICATION_PENDING);
+        a.setRealtyGroupSlGroupId(REG_ID);
+        BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+                .realtyGroupId(7L)
+                .slGroupUuid(SL_GROUP_UUID)
+                .verified(true)
+                .build();
+        when(slGroupRepo.findById(REG_ID)).thenReturn(Optional.of(reg));
+
+        BotTaskCompleteRequest req = new BotTaskCompleteRequest(
+                "SUCCESS", ESCROW_UUID, SENTINEL_PRICE, null,
+                "Test Parcel", 2048, "Coniston", 128.0, 64.0, 22.0, null);
+
+        BotTask out = service.complete(TASK_ID, req);
+
+        assertThat(out.getStatus()).isEqualTo(BotTaskStatus.FAILED);
+        assertThat(out.getFailureReason()).isEqualTo("SL_GROUP_OWNERSHIP_MISMATCH");
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
+    }
+
+    @Test
+    void complete_case3_registrationDeleted_failsVerification() {
+        Auction a = build(AuctionStatus.VERIFICATION_PENDING);
+        a.setRealtyGroupSlGroupId(REG_ID);
+        BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+        when(slGroupRepo.findById(REG_ID)).thenReturn(Optional.empty());
+
+        BotTaskCompleteRequest req = new BotTaskCompleteRequest(
+                "SUCCESS", ESCROW_UUID, SENTINEL_PRICE, SL_GROUP_UUID,
+                "Test Parcel", 2048, "Coniston", 128.0, 64.0, 22.0, null);
+
+        BotTask out = service.complete(TASK_ID, req);
+
+        assertThat(out.getStatus()).isEqualTo(BotTaskStatus.FAILED);
+        assertThat(out.getFailureReason()).isEqualTo("SL_GROUP_OWNERSHIP_MISMATCH");
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_FAILED);
+    }
+
+    @Test
+    void complete_individual_unchanged() {
+        // Sanity: when auction.realtyGroupSlGroupId is null (individual listing),
+        // the case-3 branch is a no-op and the existing SUCCESS flow runs.
+        Auction a = build(AuctionStatus.VERIFICATION_PENDING);
+        assertThat(a.getRealtyGroupSlGroupId()).isNull();
+        BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+
+        BotTask out = service.complete(TASK_ID, success());
+
+        assertThat(out.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
+        // slGroupRepo never touched on individual listings.
+        verify(slGroupRepo, never()).findById(any());
+    }
+
+    // -------------------------------------------------------------------------
+    // complete â€” FAILURE
     // -------------------------------------------------------------------------
 
     @Test
@@ -317,7 +444,7 @@ class BotTaskServiceTest {
         assertThat(a.getVerificationNotes())
                 .startsWith("Bot: ")
                 .contains("Seller did not list parcel for sale");
-        // No auction state beyond VERIFICATION_FAILED — no refund, no ACTIVE transition.
+        // No auction state beyond VERIFICATION_FAILED â€” no refund, no ACTIVE transition.
         assertThat(a.getStartsAt()).isNull();
     }
 
@@ -334,7 +461,7 @@ class BotTaskServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // complete — validation failures
+    // complete â€” validation failures
     // -------------------------------------------------------------------------
 
     @Test
@@ -422,8 +549,8 @@ class BotTaskServiceTest {
 
     @Test
     void markTimedOut_pendingTask_failsAndTransitionsAuctionToVerificationFailed_withRetryFriendlyNotes() {
-        // Sub-spec 2 §7.3: retry-friendly verificationNotes consistent with
-        // ParcelCodeExpiryJob and synchronous Method A failures. No refund —
+        // Sub-spec 2 Â§7.3: retry-friendly verificationNotes consistent with
+        // ParcelCodeExpiryJob and synchronous Method A failures. No refund â€”
         // BotTaskService does not depend on ListingFeeRefundRepository, so
         // refund creation is structurally impossible from this path.
         Auction a = build(AuctionStatus.VERIFICATION_PENDING);
@@ -447,7 +574,7 @@ class BotTaskServiceTest {
     @Test
     void markTimedOut_doesNotMoveAuctionIfAlreadyCancelled() {
         // Defensive guard: if the seller cancelled the auction between the queue
-        // query and the timeout call, don't clobber CANCELLED → VERIFICATION_FAILED.
+        // query and the timeout call, don't clobber CANCELLED â†’ VERIFICATION_FAILED.
         Auction a = build(AuctionStatus.CANCELLED);
         BotTask task = botTask(TASK_ID, a, BotTaskStatus.PENDING);
         when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
@@ -485,7 +612,6 @@ class BotTaskServiceTest {
                 .listingFeePaid(status != AuctionStatus.DRAFT)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))

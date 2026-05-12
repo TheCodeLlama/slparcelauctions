@@ -714,7 +714,7 @@ export const adminHandlers = {
     );
   },
 
-  demoteUser409SelfForbidden(userId: number) {
+  demoteUser409SelfForbidden(userId: string | number) {
     return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
       HttpResponse.json(
         { code: "SELF_DEMOTE_FORBIDDEN", message: "Cannot demote yourself", details: {} },
@@ -723,7 +723,7 @@ export const adminHandlers = {
     );
   },
 
-  demoteUser409NotAdmin(userId: number) {
+  demoteUser409NotAdmin(userId: string | number) {
     return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
       HttpResponse.json(
         { code: "NOT_ADMIN", message: "User is not an admin", details: {} },
@@ -893,6 +893,839 @@ export const userDeletionHandlers = {
     ),
 };
 
+// ---------------------------------------------------------------------------
+// Realty group wallet handlers
+// ---------------------------------------------------------------------------
+
+export const realtyGroupWalletHandlers = {
+  /**
+   * Default GET wallet — zero-balance group with empty ledger.
+   * Matches any group public ID.
+   */
+  walletEmpty: () =>
+    http.get("*/api/v1/realty/groups/:publicId/wallet", () =>
+      HttpResponse.json({
+        balance: 0,
+        reserved: 0,
+        available: 0,
+        recentLedger: [],
+      }),
+    ),
+
+  walletSuccess: (publicId: string, overrides: Record<string, unknown> = {}) =>
+    http.get(`*/api/v1/realty/groups/${publicId}/wallet`, () =>
+      HttpResponse.json({
+        balance: 0,
+        reserved: 0,
+        available: 0,
+        recentLedger: [],
+        ...overrides,
+      }),
+    ),
+
+  /** Default GET ledger — empty array. Matches any group public ID. */
+  ledgerEmpty: () =>
+    http.get("*/api/v1/realty/groups/:publicId/wallet/ledger", () =>
+      HttpResponse.json([]),
+    ),
+
+  ledgerSuccess: <T>(publicId: string, entries: T[]) =>
+    http.get(`*/api/v1/realty/groups/${publicId}/wallet/ledger`, () =>
+      HttpResponse.json(entries),
+    ),
+
+  /** Default POST withdraw — 202 with queueId=1. */
+  withdrawSuccess: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        { queueId: 1, estimatedFulfillmentSeconds: 30 },
+        { status: 202 },
+      ),
+    ),
+
+  /**
+   * Sub-project G §7.3 — happy-path POST withdraw that echoes the recipient
+   * back in the response so tests can assert the {@code recipient} field made
+   * it onto the wire. The echo is test-only and not part of the production
+   * wire shape (which is just {@code queueId} + {@code estimatedFulfillmentSeconds}).
+   */
+  withdrawSuccessEchoingRecipient: () =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/wallet/withdraw",
+      async ({ request }) => {
+        const body = (await request.json()) as { recipient?: string };
+        return HttpResponse.json(
+          {
+            queueId: 1,
+            estimatedFulfillmentSeconds: 60,
+            // Test-only echo — production response omits this field.
+            echoedRecipient: body.recipient ?? null,
+          },
+          { status: 202 },
+        );
+      },
+    ),
+
+  /** Sub-project G §7.3 — 422 when caller picks SL_GROUP but none is registered. */
+  withdrawSlGroupNotRegistered: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 422,
+          code: "SL_GROUP_NOT_REGISTERED",
+          title: "SL group not registered",
+          detail:
+            "This realty group has no currently-registered SL group. Choose the leader's avatar or register an SL group first.",
+        },
+        { status: 422 },
+      ),
+    ),
+
+  /**
+   * Sub-project G §7.3 — 422 when the realty group has an active suspension
+   * and the caller asked to route to SL_GROUP. The AVATAR recipient remains
+   * available.
+   */
+  withdrawSlGroupRegistrationSuspended: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 422,
+          code: "SL_GROUP_REGISTRATION_SUSPENDED",
+          title: "SL group registration suspended",
+          detail:
+            "SL-group withdrawals are blocked while the realty group is suspended.",
+        },
+        { status: 422 },
+      ),
+    ),
+
+  withdrawInsufficientBalance: (available: number, requested: number) =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 422,
+          code: "INSUFFICIENT_GROUP_BALANCE",
+          title: "Insufficient group balance",
+          detail: "The group wallet does not have enough available funds.",
+          available,
+          requested,
+        },
+        { status: 422 },
+      ),
+    ),
+
+  withdraw403: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "INSUFFICIENT_GROUP_PERMISSION",
+          title: "Insufficient group permission",
+        },
+        { status: 403 },
+      ),
+    ),
+
+  withdraw410: () =>
+    http.post("*/api/v1/realty/groups/:publicId/wallet/withdraw", () =>
+      HttpResponse.json(
+        {
+          status: 410,
+          code: "GROUP_DISSOLVED",
+          title: "Group is dissolved",
+        },
+        { status: 410 },
+      ),
+    ),
+};
+
+// ---------------------------------------------------------------------------
+// Realty group SL-group registration handlers (Realty Groups: E)
+// ---------------------------------------------------------------------------
+
+/**
+ * MSW factories for the four endpoints under
+ * {@code /api/v1/realty/groups/:publicId/sl-groups}, plus the updated
+ * {@code GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...}
+ * variant. Pattern mirrors {@code realtyGroupWalletHandlers}: a default
+ * happy-path factory per endpoint and named error variants that tests opt
+ * into via {@code server.use(...)}.
+ *
+ * Default GET list resolves to an empty array so any component that mounts
+ * the {@code useRealtyGroupSlGroups} hook doesn't have to register a
+ * handler in tests that don't exercise the SL-group surface.
+ */
+export const realtySlGroupHandlers = {
+  /** GET list — empty by default. */
+  listEmpty: () =>
+    http.get("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json([]),
+    ),
+
+  listSuccess: <T>(entries: T[]) =>
+    http.get("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(entries),
+    ),
+
+  /** POST register — returns a pending entry by default. */
+  registerSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/sl-groups",
+      async ({ request }) => {
+        const body = (await request.json()) as { slGroupUuid: string };
+        return HttpResponse.json(
+          {
+            publicId: "11111111-1111-1111-1111-111111111111",
+            slGroupUuid: body.slGroupUuid,
+            slGroupName: null,
+            verified: false,
+            verifiedAt: null,
+            verifiedVia: null,
+            pending: {
+              verificationCode: "SLPA-1A2B3C4D5E6F",
+              verificationCodeExpiresAt: "2026-05-12T21:00:00Z",
+              lastPolledAt: null,
+              pollAttempts: 0,
+            },
+            founderAvatarUuid: null,
+            ...overrides,
+          },
+          { status: 201 },
+        );
+      },
+    ),
+
+  registerAlreadyRegistered: () =>
+    http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "SL_GROUP_ALREADY_REGISTERED",
+          title: "Already registered",
+          detail: "This SL group is already registered on the realty group.",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  /**
+   * Sub-project G section 14 -- reverse-search ban-evasion gate. The SL group
+   * UUID is currently registered to a realty group with an active (unlifted)
+   * suspension row. Distinct {@code code} so the modal can render a
+   * "contact support" copy instead of the generic "already registered" one.
+   */
+  registerToSuspendedGroup: () =>
+    http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP",
+          title: "SL Group Registered To Suspended Group",
+          detail:
+            "This SL group is registered to a suspended SLPA realty group. Contact support.",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  registerForbidden: () =>
+    http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "INSUFFICIENT_GROUP_PERMISSION",
+          title: "Insufficient group permission",
+        },
+        { status: 403 },
+      ),
+    ),
+
+  /** DELETE unregister — 204 by default. */
+  unregisterSuccess: () =>
+    http.delete(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId",
+      () => new HttpResponse(null, { status: 204 }),
+    ),
+
+  unregisterBlockedByListings: () =>
+    http.delete(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId",
+      () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "SL_GROUP_HAS_ACTIVE_LISTINGS",
+            title: "Active listings depend on this SL group",
+          },
+          { status: 409 },
+        ),
+    ),
+
+  /** POST recheck — returns the row as still-pending by default. */
+  recheckPending: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          publicId: "11111111-1111-1111-1111-111111111111",
+          slGroupUuid: "22222222-2222-2222-2222-222222222222",
+          slGroupName: null,
+          verified: false,
+          verifiedAt: null,
+          verifiedVia: null,
+          pending: {
+            verificationCode: "SLPA-1A2B3C4D5E6F",
+            verificationCodeExpiresAt: "2026-05-12T21:00:00Z",
+            lastPolledAt: "2026-05-12T20:35:00Z",
+            pollAttempts: 1,
+          },
+          founderAvatarUuid: null,
+          ...overrides,
+        }),
+    ),
+
+  /** POST recheck — returns a now-verified row. */
+  recheckVerified: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          publicId: "11111111-1111-1111-1111-111111111111",
+          slGroupUuid: "22222222-2222-2222-2222-222222222222",
+          slGroupName: "Sunset Estates",
+          verified: true,
+          verifiedAt: "2026-05-12T20:36:00Z",
+          verifiedVia: "FOUNDER_TERMINAL",
+          pending: null,
+          founderAvatarUuid: "33333333-3333-3333-3333-333333333333",
+          ...overrides,
+        }),
+    ),
+
+  /**
+   * Updated listing-eligible-groups handler — asserts {@code slParcelUuid}
+   * is present in the query string and returns an empty list by default.
+   * Tests that need specific groups pass the {@code entries} param.
+   */
+  listingEligibleGroupsEmpty: () =>
+    http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+      HttpResponse.json([]),
+    ),
+
+  listingEligibleGroupsSuccess: <T>(entries: T[]) =>
+    http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+      HttpResponse.json(entries),
+    ),
+};
+
+// ---------------------------------------------------------------------------
+// Broker-cancel handler (Realty Groups: E, Task 25)
+// ---------------------------------------------------------------------------
+
+export const brokerCancelHandlers = {
+  /** Echoes the auction back in CANCELLED state. */
+  cancelSuccess: (
+    auctionPublicId: string,
+    response: Record<string, unknown>,
+  ) =>
+    http.post(`*/api/v1/auctions/${auctionPublicId}/broker-cancel`, () =>
+      HttpResponse.json(response),
+    ),
+
+  /** 409 — the auction isn't in a state where a broker can cancel it. */
+  notApplicable: (auctionPublicId: string) =>
+    http.post(`*/api/v1/auctions/${auctionPublicId}/broker-cancel`, () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "BROKER_CANCEL_NOT_APPLICABLE",
+          title: "Broker cancel not applicable",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  /** 403 — caller is not a broker on this auction's group. */
+  forbidden: (auctionPublicId: string) =>
+    http.post(`*/api/v1/auctions/${auctionPublicId}/broker-cancel`, () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "INSUFFICIENT_GROUP_PERMISSION",
+          title: "Insufficient group permission",
+        },
+        { status: 403 },
+      ),
+    ),
+};
+
+// ---------------------------------------------------------------------------
+// Realty Groups: F — Admin moderation MSW handlers
+// ---------------------------------------------------------------------------
+
+/**
+ * MSW factories for {@code /api/v1/admin/realty-groups/:publicId/suspensions}.
+ * Pattern mirrors {@code realtySlGroupHandlers}: a default happy-path factory
+ * per endpoint plus named error variants.
+ */
+export const realtyGroupSuspensionHandlers = {
+  /** GET list — empty by default. */
+  listEmpty: () =>
+    http.get(
+      "*/api/v1/admin/realty-groups/:publicId/suspensions",
+      () => HttpResponse.json([]),
+    ),
+
+  listSuccess: <T>(rows: T[]) =>
+    http.get(
+      "*/api/v1/admin/realty-groups/:publicId/suspensions",
+      () => HttpResponse.json(rows),
+    ),
+
+  /** POST issue — returns an ACTIVE_TIMED suspension by default. */
+  issueSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/suspensions",
+      () =>
+        HttpResponse.json(
+          {
+            publicId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            reason: "TOS_VIOLATION",
+            notes: "Repeated TOS violations",
+            issuedAt: "2026-05-12T12:00:00Z",
+            expiresAt: "2026-05-19T12:00:00Z",
+            liftedAt: null,
+            liftedNotes: null,
+            issuedByAdmin: {
+              publicId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+              displayName: "Admin User",
+            },
+            liftedByAdmin: null,
+            status: "ACTIVE_TIMED",
+            ...overrides,
+          },
+          { status: 201 },
+        ),
+    ),
+
+  issueForbidden: () =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/suspensions",
+      () =>
+        HttpResponse.json(
+          { status: 401, title: "Unauthorized" },
+          { status: 401 },
+        ),
+    ),
+
+  /** DELETE lift — 204 by default. */
+  liftSuccess: () =>
+    http.delete(
+      "*/api/v1/admin/realty-groups/:publicId/suspensions/:suspensionPublicId",
+      () => new HttpResponse(null, { status: 204 }),
+    ),
+
+  liftAlreadyLifted: () =>
+    http.delete(
+      "*/api/v1/admin/realty-groups/:publicId/suspensions/:suspensionPublicId",
+      () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "SUSPENSION_ALREADY_LIFTED",
+            title: "Suspension already lifted",
+          },
+          { status: 409 },
+        ),
+    ),
+};
+
+/**
+ * MSW factories for the realty-group reports surface — public submit plus
+ * the four admin endpoints (queue, detail, resolve, dismiss).
+ */
+export const realtyGroupReportHandlers = {
+  /** POST public submit — 201 with a narrow {@code ReportDto}. */
+  submitSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post("*/api/v1/realty-groups/:publicId/reports", () =>
+      HttpResponse.json(
+        {
+          publicId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+          groupPublicId: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          reason: "FRAUDULENT_LISTINGS",
+          status: "OPEN",
+          createdAt: "2026-05-12T12:00:00Z",
+          ...overrides,
+        },
+        { status: 201 },
+      ),
+    ),
+
+  submitAlreadyReported: () =>
+    http.post("*/api/v1/realty-groups/:publicId/reports", () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "ALREADY_REPORTED",
+          title: "Already reported",
+          detail: "You already have an open report against this group.",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  submitOwnGroup: () =>
+    http.post("*/api/v1/realty-groups/:publicId/reports", () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "CANNOT_REPORT_OWN_GROUP",
+          title: "Cannot report own group",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  submitRateLimited: () =>
+    http.post("*/api/v1/realty-groups/:publicId/reports", () =>
+      HttpResponse.json(
+        {
+          status: 429,
+          code: "REPORT_RATE_LIMITED",
+          title: "Report rate limited",
+          detail: "Daily report quota exhausted.",
+        },
+        { status: 429 },
+      ),
+    ),
+
+  /** GET admin queue — empty page by default. */
+  adminListEmpty: () =>
+    http.get("*/api/v1/admin/realty-groups/reports", () =>
+      HttpResponse.json({
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        number: 0,
+        size: 20,
+      }),
+    ),
+
+  adminListSuccess: <T>(rows: T[]) =>
+    http.get("*/api/v1/admin/realty-groups/reports", () =>
+      HttpResponse.json({
+        content: rows,
+        totalElements: rows.length,
+        totalPages: 1,
+        number: 0,
+        size: 20,
+      }),
+    ),
+
+  /** GET admin detail — happy path with an OPEN report. */
+  adminDetailSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.get("*/api/v1/admin/realty-groups/reports/:publicId", () =>
+      HttpResponse.json({
+        publicId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        group: {
+          publicId: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          name: "Sunset Estates",
+        },
+        reporter: {
+          publicId: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+          displayName: "Reporter User",
+        },
+        reason: "FRAUDULENT_LISTINGS",
+        details: "Listings claim regions the group does not actually own.",
+        status: "OPEN",
+        resolvedByAdmin: null,
+        resolvedAt: null,
+        resolutionNotes: null,
+        createdAt: "2026-05-12T12:00:00Z",
+        ...overrides,
+      }),
+    ),
+
+  /** POST resolve — returns the report as RESOLVED. */
+  resolveSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post("*/api/v1/admin/realty-groups/reports/:publicId/resolve", () =>
+      HttpResponse.json({
+        publicId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        group: {
+          publicId: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          name: "Sunset Estates",
+        },
+        reporter: {
+          publicId: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+          displayName: "Reporter User",
+        },
+        reason: "FRAUDULENT_LISTINGS",
+        details: "Listings claim regions the group does not actually own.",
+        status: "RESOLVED",
+        resolvedByAdmin: {
+          publicId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          displayName: "Admin User",
+        },
+        resolvedAt: "2026-05-12T13:00:00Z",
+        resolutionNotes: "Confirmed; suspending group.",
+        createdAt: "2026-05-12T12:00:00Z",
+        ...overrides,
+      }),
+    ),
+
+  /** POST dismiss — returns the report as DISMISSED. */
+  dismissSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post("*/api/v1/admin/realty-groups/reports/:publicId/dismiss", () =>
+      HttpResponse.json({
+        publicId: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        group: {
+          publicId: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+          name: "Sunset Estates",
+        },
+        reporter: {
+          publicId: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+          displayName: "Reporter User",
+        },
+        reason: "FRAUDULENT_LISTINGS",
+        details: "Listings claim regions the group does not actually own.",
+        status: "DISMISSED",
+        resolvedByAdmin: {
+          publicId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+          displayName: "Admin User",
+        },
+        resolvedAt: "2026-05-12T13:00:00Z",
+        resolutionNotes: "Not actionable.",
+        createdAt: "2026-05-12T12:00:00Z",
+        ...overrides,
+      }),
+    ),
+};
+
+/**
+ * MSW factories for {@code /api/v1/admin/realty-groups/:publicId/listings/*}.
+ */
+export const bulkSuspendListingsHandlers = {
+  suspendAllSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/listings/suspend-all",
+      () =>
+        HttpResponse.json({
+          bulkActionId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+          suspendedCount: 3,
+          ...overrides,
+        }),
+    ),
+
+  suspendAllEmpty: () =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/listings/suspend-all",
+      () =>
+        HttpResponse.json({
+          bulkActionId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+          suspendedCount: 0,
+        }),
+    ),
+
+  suspendAllForbidden: () =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/listings/suspend-all",
+      () =>
+        HttpResponse.json(
+          { status: 401, title: "Unauthorized" },
+          { status: 401 },
+        ),
+    ),
+
+  reinstateAllSuccess: (count = 3) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/listings/reinstate-all",
+      () => HttpResponse.json({ reinstatedCount: count }),
+    ),
+};
+
+/**
+ * MSW factories for {@code /api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId/*}.
+ *
+ * <p>Recheck has three default outcomes (no-drift, drifted, fetch-failed)
+ * so tests can opt into the scenario they want without recomputing the
+ * payload from scratch.
+ */
+export const slGroupAdminHandlers = {
+  recheckNoDrift: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          driftDetected: false,
+          driftReason: null,
+          currentFounderUuid: "33333333-3333-3333-3333-333333333333",
+          ...overrides,
+        }),
+    ),
+
+  recheckFounderChanged: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          driftDetected: true,
+          driftReason: "FOUNDER_CHANGED",
+          currentFounderUuid: "44444444-4444-4444-4444-444444444444",
+          ...overrides,
+        }),
+    ),
+
+  recheckFetchFailed: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          driftDetected: true,
+          driftReason: "FETCH_FAILED_REPEATEDLY",
+          currentFounderUuid: null,
+          ...overrides,
+        }),
+    ),
+
+  ackDriftSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId/ack-drift",
+      () =>
+        HttpResponse.json({
+          publicId: "11111111-1111-1111-1111-111111111111",
+          slGroupUuid: "22222222-2222-2222-2222-222222222222",
+          slGroupName: "Sunset Estates",
+          verified: true,
+          verifiedAt: "2026-05-01T12:00:00Z",
+          verifiedVia: "FOUNDER_TERMINAL",
+          founderAvatarUuid: "44444444-4444-4444-4444-444444444444",
+          currentFounderUuid: "44444444-4444-4444-4444-444444444444",
+          lastRevalidatedAt: "2026-05-12T12:00:00Z",
+          consecutiveFetchFailures: 0,
+          driftDetectedAt: null,
+          driftReason: null,
+          driftAcknowledgedAt: "2026-05-12T13:00:00Z",
+          driftAcknowledgedByAdmin: {
+            publicId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            displayName: "Admin User",
+          },
+          unregisteredAt: null,
+          unregisteredByAdmin: null,
+          unregisterReason: null,
+          ...overrides,
+        }),
+    ),
+
+  ackDriftNoDrift: () =>
+    http.post(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId/ack-drift",
+      () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "NO_DRIFT_DETECTED",
+            title: "No drift detected",
+          },
+          { status: 409 },
+        ),
+    ),
+
+  forceUnregisterSuccess: () =>
+    http.delete(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId",
+      () => new HttpResponse(null, { status: 204 }),
+    ),
+
+  forceUnregisterActiveListings: () =>
+    http.delete(
+      "*/api/v1/admin/realty-groups/:publicId/sl-groups/:slGroupPublicId",
+      () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "SL_GROUP_HAS_ACTIVE_LISTINGS",
+            title: "Active listings depend on this SL group",
+          },
+          { status: 409 },
+        ),
+    ),
+};
+
+/**
+ * MSW factory for the leader bulk commission-rates PATCH endpoint.
+ * Returns 204 on success.
+ */
+export const bulkCommissionHandlers = {
+  updateSuccess: () =>
+    http.patch(
+      "*/api/v1/realty-groups/:publicId/members/commission-rates",
+      () => new HttpResponse(null, { status: 204 }),
+    ),
+
+  updateMemberNotInGroup: (memberPublicId: string) =>
+    http.patch(
+      "*/api/v1/realty-groups/:publicId/members/commission-rates",
+      () =>
+        HttpResponse.json(
+          {
+            status: 400,
+            code: "MEMBER_NOT_IN_GROUP",
+            title: "Member not in group",
+            detail: `No member with publicId ${memberPublicId}.`,
+          },
+          { status: 400 },
+        ),
+    ),
+
+  updateForbidden: () =>
+    http.patch(
+      "*/api/v1/realty-groups/:publicId/members/commission-rates",
+      () =>
+        HttpResponse.json(
+          {
+            status: 403,
+            code: "INSUFFICIENT_GROUP_PERMISSION",
+            title: "Insufficient group permission",
+          },
+          { status: 403 },
+        ),
+    ),
+};
+
+/**
+ * MSW factory for the leader commission analytics GET endpoint. The
+ * server returns one row per current member (zero-totals for members
+ * with no qualifying ledger entries).
+ */
+export const commissionAnalyticsHandlers = {
+  getEmpty: () =>
+    http.get(
+      "*/api/v1/realty-groups/:publicId/analytics/commissions",
+      () => HttpResponse.json([]),
+    ),
+
+  getSuccess: <T>(rows: T[]) =>
+    http.get(
+      "*/api/v1/realty-groups/:publicId/analytics/commissions",
+      () => HttpResponse.json(rows),
+    ),
+
+  getForbidden: () =>
+    http.get(
+      "*/api/v1/realty-groups/:publicId/analytics/commissions",
+      () =>
+        HttpResponse.json(
+          {
+            status: 403,
+            code: "INSUFFICIENT_GROUP_PERMISSION",
+            title: "Insufficient group permission",
+          },
+          { status: 403 },
+        ),
+    ),
+};
+
 /**
  * Default handlers registered at server startup. Establishes the "no session"
  * baseline so tests that don't explicitly authenticate get the unauthenticated
@@ -906,4 +1739,8 @@ export const userDeletionHandlers = {
 export const defaultHandlers = [
   authHandlers.refreshUnauthenticated(),
   http.get("*/api/v1/me/realty-groups", () => HttpResponse.json([])),
+  realtyGroupWalletHandlers.walletEmpty(),
+  realtyGroupWalletHandlers.ledgerEmpty(),
+  realtyGroupWalletHandlers.withdrawSuccess(),
+  realtySlGroupHandlers.listEmpty(),
 ];

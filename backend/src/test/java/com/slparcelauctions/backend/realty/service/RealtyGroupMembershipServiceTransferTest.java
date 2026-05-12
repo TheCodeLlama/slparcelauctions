@@ -52,14 +52,14 @@ class RealtyGroupMembershipServiceTransferTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock com.slparcelauctions.backend.auction.AuctionRepository auctions;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupMembershipService service;
 
     private static RealtyGroup buildGroup(Long leaderId) {
         return RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
@@ -190,7 +190,7 @@ class RealtyGroupMembershipServiceTransferTest {
     void rejectsSelfTransfer() {
         UUID groupPid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L);
-        // The "new leader" row IS the current leader — disallow.
+        // The "new leader" row IS the current leader â€” disallow.
         RealtyGroupMember selfRow = buildMember(g.getId(), 100L);
         UUID newLeaderPid = selfRow.getPublicId();
         when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));

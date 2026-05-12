@@ -60,7 +60,7 @@ import reactor.core.publisher.Mono;
  * End-to-end coverage of {@link EscrowOwnershipMonitorJob}. Unlike the
  * auction-side integration test (which uses WireMock to exercise the real
  * {@code SlWorldApiClient}), this test uses {@link MockitoBean} to stub
- * {@code SlWorldApiClient.fetchParcel} — the underlying client is already
+ * {@code SlWorldApiClient.fetchParcel} â€” the underlying client is already
  * covered at that level in {@code OwnershipMonitorIntegrationTest} and the
  * escrow monitor's value-add is the per-outcome delegation to
  * {@link EscrowService#confirmTransfer} /
@@ -68,13 +68,13 @@ import reactor.core.publisher.Mono;
  *
  * <p>Three scenarios:
  * <ol>
- *   <li>Winner UUID returned — escrow stamps {@code transferConfirmedAt},
+ *   <li>Winner UUID returned â€” escrow stamps {@code transferConfirmedAt},
  *       state stays {@code TRANSFER_PENDING}, {@code ESCROW_TRANSFER_CONFIRMED}
  *       envelope captured.</li>
- *   <li>Stranger UUID returned — escrow moves to {@code FROZEN},
+ *   <li>Stranger UUID returned â€” escrow moves to {@code FROZEN},
  *       {@code FraudFlag} with {@code ESCROW_UNKNOWN_OWNER} created,
  *       {@code ESCROW_FROZEN} envelope captured.</li>
- *   <li>{@link ParcelNotFoundInSlException} — escrow moves to
+ *   <li>{@link ParcelNotFoundInSlException} â€” escrow moves to
  *       {@code FROZEN}, {@code FraudFlag} with {@code ESCROW_PARCEL_DELETED}
  *       created.</li>
  * </ol>
@@ -95,7 +95,7 @@ import reactor.core.publisher.Mono;
         // @Scheduled tick so the sweep only runs when we call it explicitly.
         "slpa.escrow.ownership-monitor-job.enabled=true",
         "slpa.escrow.ownership-monitor-job.fixed-delay=PT24H",
-        // Low threshold is irrelevant for these scenarios — none exercise
+        // Low threshold is irrelevant for these scenarios â€” none exercise
         // the World API failure counter branch.
         "slpa.escrow.ownership-api-failure-threshold=5",
         "slpa.notifications.cleanup.enabled=false",
@@ -310,7 +310,6 @@ class EscrowOwnershipMonitorIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(3))
                     .endsAt(now.minusHours(1))
                     .originalEndsAt(now.minusHours(1))

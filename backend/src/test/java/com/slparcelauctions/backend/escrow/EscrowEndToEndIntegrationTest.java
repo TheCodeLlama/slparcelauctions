@@ -66,7 +66,7 @@ import reactor.core.publisher.Mono;
 
 /**
  * End-to-end coverage from TRANSFER_PENDING onwards: ownership monitor
- * confirm → payout queued → dispatcher POSTs → callback success → state
+ * confirm â†’ payout queued â†’ dispatcher POSTs â†’ callback success â†’ state
  * COMPLETED + ledger (PAYOUT + COMMISSION) + envelope. The earlier stages
  * (auction-end Escrow creation + payment receipt) have their own
  * integration tests (EscrowCreateOnAuctionEndIntegrationTest,
@@ -185,12 +185,12 @@ class EscrowEndToEndIntegrationTest {
     void fullHappyPath_transferConfirmDispatchCompleteCallback_rowsAndEnvelopesLineUp() {
         seedTransferPendingWithFundedEscrowAndTerminal();
 
-        // World API reports the winner owns the parcel → monitor stamps
+        // World API reports the winner owns the parcel â†’ monitor stamps
         // transferConfirmedAt and queues the PAYOUT command.
         when(worldApi.fetchParcelPage(seededParcelUuid))
                 .thenReturn(
                 Mono.just(new ParcelPageData(meta(seededWinnerAvatar, "agent"), java.util.UUID.randomUUID())));
-        // Dispatcher's HTTP POST ACKs → command flips to IN_FLIGHT.
+        // Dispatcher's HTTP POST ACKs â†’ command flips to IN_FLIGHT.
         when(terminalHttp.post(anyString(), any()))
                 .thenReturn(TerminalHttpClient.TerminalHttpResult.ok());
 
@@ -211,7 +211,7 @@ class EscrowEndToEndIntegrationTest {
         assertThat(cmd.getStatus()).isEqualTo(TerminalCommandStatus.QUEUED);
         assertThat(cmd.getAmount()).isEqualTo(seededPayout);
 
-        // Dispatcher sweep: QUEUED → IN_FLIGHT.
+        // Dispatcher sweep: QUEUED â†’ IN_FLIGHT.
         dispatcherJob.dispatch();
         TerminalCommand afterDispatch = cmdRepo.findById(cmd.getId()).orElseThrow();
         assertThat(afterDispatch.getStatus()).isEqualTo(TerminalCommandStatus.IN_FLIGHT);
@@ -263,7 +263,7 @@ class EscrowEndToEndIntegrationTest {
         assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.COMPLETED);
 
-        // Epic 08 sub-spec 1 §3.4 / §6.1: the seller's completedSales
+        // Epic 08 sub-spec 1 Â§3.4 / Â§6.1: the seller's completedSales
         // counter must bump in the same transaction that flipped the escrow
         // to COMPLETED. Prior to sub-spec 1 this counter was declared but
         // never written; the reputation & completion-rate pipeline hangs
@@ -329,7 +329,6 @@ class EscrowEndToEndIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(3))
                     .endsAt(now.minusHours(1))
                     .originalEndsAt(now.minusHours(1))

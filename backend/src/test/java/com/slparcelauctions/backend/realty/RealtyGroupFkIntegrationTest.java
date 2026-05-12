@@ -26,11 +26,11 @@ import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * FK behavior integration test: dissolving a group via the normal soft-delete path leaves
- * any auctions tied to the group untouched (no FK trigger fires — dissolve is an UPDATE,
+ * any auctions tied to the group untouched (no FK trigger fires â€” dissolve is an UPDATE,
  * not a DELETE), and a hard-delete of the group row (admin-only, not a normal path)
  * triggers the {@code ON DELETE SET NULL} on {@code auctions.realty_group_id}.
  *
- * <p>This validates the migration's FK declaration from spec §3.4 / V24:
+ * <p>This validates the migration's FK declaration from spec Â§3.4 / V24:
  *
  * <pre>{@code
  *   ALTER TABLE auctions
@@ -75,7 +75,7 @@ class RealtyGroupFkIntegrationTest {
             auctionRepository.deleteById(auctionIdForCleanup);
             auctionIdForCleanup = null;
         }
-        // Seller delete is deferred to the raw-SQL sweep below — Hibernate's batched delete
+        // Seller delete is deferred to the raw-SQL sweep below â€” Hibernate's batched delete
         // can fail noisily on the FK chain (realty_groups.leader_id), and the raw sweep
         // already handles ordering correctly.
         sellerIdForCleanup = null;
@@ -124,7 +124,7 @@ class RealtyGroupFkIntegrationTest {
 
         Auction reloaded = auctionRepository.findById(auction.getId()).orElseThrow();
         assertThat(reloaded.getRealtyGroupId())
-            .as("soft-delete (UPDATE) must not cascade through the FK — the auction column "
+            .as("soft-delete (UPDATE) must not cascade through the FK â€” the auction column "
                 + "retains the original group id")
             .isEqualTo(g.getId());
     }
@@ -145,7 +145,7 @@ class RealtyGroupFkIntegrationTest {
             }
         }
 
-        // Fresh read — the audited FK contract is "SET NULL" on hard delete.
+        // Fresh read â€” the audited FK contract is "SET NULL" on hard delete.
         Auction reloaded = auctionRepository.findById(auction.getId()).orElseThrow();
         assertThat(reloaded.getRealtyGroupId())
             .as("hard-delete on realty_groups must SET NULL on auctions.realty_group_id "
@@ -156,7 +156,7 @@ class RealtyGroupFkIntegrationTest {
         assertThat(groupRepository.findById(g.getId())).isEmpty();
     }
 
-    // ─────────────────────── helpers ───────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private User persistSeller(String label) {
         User u = userRepository.save(User.builder()
@@ -201,7 +201,6 @@ class RealtyGroupFkIntegrationTest {
             .bidCount(0)
             .consecutiveWorldApiFailures(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(BigDecimal.ZERO)
             .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
             .slParcelUuid(parcelUuid)

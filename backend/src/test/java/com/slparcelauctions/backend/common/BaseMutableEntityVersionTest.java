@@ -92,7 +92,6 @@ class BaseMutableEntityVersionTest {
                     .bidCount(0)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .build();
             a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                     .slParcelUuid(parcelUuid)
@@ -111,14 +110,14 @@ class BaseMutableEntityVersionTest {
 
         Auction stale = staleRef.get();          // detached, version=0
 
-        // TX2: "winning" update — loads fresh (version=0) and flushes (version becomes 1 in DB).
+        // TX2: "winning" update â€” loads fresh (version=0) and flushes (version becomes 1 in DB).
         tx.executeWithoutResult(status -> {
             Auction winner = auctionRepository.findById(savedAuctionId.get()).orElseThrow();
             winner.setTitle("updated by winner");
             auctionRepository.saveAndFlush(winner);
         });
 
-        // TX3: attempt to flush the stale copy — version=0 vs DB version=1 → must raise.
+        // TX3: attempt to flush the stale copy â€” version=0 vs DB version=1 â†’ must raise.
         assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
             stale.setTitle("updated by stale");
             auctionRepository.saveAndFlush(stale);

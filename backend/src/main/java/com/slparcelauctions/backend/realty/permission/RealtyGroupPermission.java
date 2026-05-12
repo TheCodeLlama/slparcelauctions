@@ -7,39 +7,32 @@ package com.slparcelauctions.backend.realty.permission;
  * names. The leader of a group holds every permission implicitly (the authorizer short-circuits
  * to {@code true} when {@code user_id == realty_groups.leader_id}); a non-leader member only
  * holds the permissions present in their array.
- *
- * <p>Future sub-projects (D/E/F) append new values here:
- * <ul>
- *   <li>D — {@code SPEND_FROM_GROUP_WALLET}, {@code WITHDRAW_FROM_GROUP_WALLET}, {@code VIEW_GROUP_TRANSACTIONS}</li>
- *   <li>E — {@code REGISTER_SL_GROUP}</li>
- * </ul>
- * Each new value lands in the sub-project's PR, not here.
  */
 public enum RealtyGroupPermission {
-    /** Issue + revoke invitations on this group. */
     INVITE_AGENTS,
-
-    /** Remove non-leader members from this group. */
     REMOVE_AGENTS,
-
-    /** Edit the group's profile (name, description, website, logo, cover). Rename remains
-     *  gated by the 30-day cooldown for non-admins regardless of this flag. */
     EDIT_GROUP_PROFILE,
-
-    /** Edit the group's {@code agent_fee_rate} and {@code agent_fee_split}. */
     CONFIGURE_FEES,
 
-    /** Create an auction listing under this group. Snapshot of the group's fee terms is
-     *  written onto the auction at create time; consumed at SOLD close. */
+    /** Create an auction listing under this group. */
     CREATE_LISTING,
 
-    /** Manage (edit/pause/cancel) listings the holder personally created on the group's
-     *  behalf when they are not the seller. Defined here so the enum is whole; wired by
-     *  sub-project E when case-2 (member-owned parcel) ships. No-op in sub-project C. */
-    MANAGE_OWN_LISTING,
+    /** Broker-level: cancel any case-3 listing of this group regardless of who created it. */
+    MANAGE_ALL_LISTINGS,
 
-    /** Broker-level: manage (pause/cancel) any of the group's listings regardless of who
-     *  created them. Defined here so the enum is whole; wired by sub-project E. No-op in
-     *  sub-project C. */
-    MANAGE_ALL_LISTINGS;
+    /** Initiate a withdrawal from the group wallet. */
+    WITHDRAW_FROM_GROUP_WALLET,
+
+    /** View the group's wallet balance + ledger. */
+    VIEW_GROUP_TRANSACTIONS,
+
+    /** Sub-project E -- register/unregister SL groups this realty group manages land for. */
+    REGISTER_SL_GROUP,
+
+    /**
+     * Sub-project F -- per-member operations gated below the leader: bulk-edit member
+     * commission rates (§6.7) and view per-member commission analytics (§6.8). Leader
+     * holds this implicitly via the authorizer short-circuit.
+     */
+    MANAGE_MEMBERS;
 }

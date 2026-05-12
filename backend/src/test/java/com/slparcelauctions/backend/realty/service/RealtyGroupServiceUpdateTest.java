@@ -11,7 +11,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,14 +44,13 @@ class RealtyGroupServiceUpdateTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock com.slparcelauctions.backend.notification.NotificationPublisher notifications;
     @Mock com.slparcelauctions.backend.user.UserRepository users;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupService service;
 
     private static RealtyGroup buildGroup(String name, String slug, Long leaderId) {
         return RealtyGroup.builder()
             .name(name).slug(slug).leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
@@ -66,7 +64,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, "Updated description.", "https://new.example.com", null, null);
+            null, "Updated description.", "https://new.example.com");
         RealtyGroup result = service.updateGroup(pid, req, 200L);
 
         assertEquals("Updated description.", result.getDescription());
@@ -83,22 +81,7 @@ class RealtyGroupServiceUpdateTest {
             .when(authorizer).assertCan(200L, g.getId(), RealtyGroupPermission.EDIT_GROUP_PROFILE);
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "New Name", null, null, null, null);
-        assertThrows(RealtyGroupPermissionDeniedException.class,
-            () -> service.updateGroup(pid, req, 200L));
-        verify(groups, never()).save(any());
-    }
-
-    @Test
-    void updateGroupRequiresConfigureFeesForFeeFields() {
-        UUID pid = UUID.randomUUID();
-        RealtyGroup g = buildGroup("G", "g", 100L);
-        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
-        doThrow(new RealtyGroupPermissionDeniedException(RealtyGroupPermission.CONFIGURE_FEES))
-            .when(authorizer).assertCan(200L, g.getId(), RealtyGroupPermission.CONFIGURE_FEES);
-
-        UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, null, null, new BigDecimal("0.1000"), null);
+            "New Name", null, null);
         assertThrows(RealtyGroupPermissionDeniedException.class,
             () -> service.updateGroup(pid, req, 200L));
         verify(groups, never()).save(any());
@@ -112,7 +95,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Brand New", null, null, null, null);
+            "Brand New", null, null);
 
         RealtyGroupRenameCooldownException ex = assertThrows(
             RealtyGroupRenameCooldownException.class,
@@ -134,7 +117,7 @@ class RealtyGroupServiceUpdateTest {
 
         OffsetDateTime before = OffsetDateTime.now().minusSeconds(1);
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Brand New", null, null, null, null);
+            "Brand New", null, null);
         RealtyGroup result = service.updateGroup(pid, req, 200L);
         OffsetDateTime after = OffsetDateTime.now().plusSeconds(1);
 
@@ -157,7 +140,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Brand New", null, null, null, null);
+            "Brand New", null, null);
         RealtyGroup result = service.updateGroup(pid, req, 200L);
 
         assertEquals("Brand New", result.getName());
@@ -175,7 +158,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Same", null, null, null, null);
+            "Same", null, null);
         RealtyGroup result = service.updateGroup(pid, req, 200L);
 
         assertEquals(originalRenamedAt, result.getLastRenamedAt(),
@@ -192,7 +175,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.findByNameIgnoreCaseActive("Brand New")).thenReturn(Optional.of(other));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Brand New", null, null, null, null);
+            "Brand New", null, null);
         assertThrows(RealtyGroupNameTakenException.class,
             () -> service.updateGroup(pid, req, 200L));
         verify(groups, never()).save(any());
@@ -205,7 +188,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, null, "not-a-url", null, null);
+            null, null, "not-a-url");
         assertThrows(InvalidWebsiteUrlException.class,
             () -> service.updateGroup(pid, req, 200L));
     }
@@ -219,26 +202,9 @@ class RealtyGroupServiceUpdateTest {
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, "   ", null, null, null);
+            null, "   ", null);
         RealtyGroup result = service.updateGroup(pid, req, 200L);
         assertNull(result.getDescription());
-    }
-
-    @Test
-    void updateGroupSetsFeesWhenConfigureFeesGranted() {
-        UUID pid = UUID.randomUUID();
-        RealtyGroup g = buildGroup("G", "g", 100L);
-        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
-        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, null, null,
-            new BigDecimal("0.1500"), new BigDecimal("0.6000"));
-        RealtyGroup result = service.updateGroup(pid, req, 200L);
-
-        assertEquals(new BigDecimal("0.1500"), result.getAgentFeeRate());
-        assertEquals(new BigDecimal("0.6000"), result.getAgentFeeSplit());
-        verify(authorizer).assertCan(200L, g.getId(), RealtyGroupPermission.CONFIGURE_FEES);
     }
 
     @Test
@@ -249,7 +215,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, "x", null, null, null);
+            null, "x", null);
         assertThrows(GroupDissolvedException.class,
             () -> service.updateGroup(pid, req, 200L));
     }
@@ -260,7 +226,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.findByPublicId(pid)).thenReturn(Optional.empty());
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, "x", null, null, null);
+            null, "x", null);
         assertThrows(RealtyGroupNotFoundException.class,
             () -> service.updateGroup(pid, req, 200L));
     }
@@ -275,7 +241,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            null, "admin-set", null, new BigDecimal("0.2000"), null);
+            null, "admin-set", null);
         service.updateGroupAsAdmin(pid, req, 9999L);
 
         verify(authorizer, never()).assertCan(anyLong(), any(), any());
@@ -293,7 +259,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Forced", null, null, null, null);
+            "Forced", null, null);
         RealtyGroup result = service.updateGroupAsAdmin(pid, req, 9999L);
 
         assertEquals("Forced", result.getName());
@@ -311,7 +277,7 @@ class RealtyGroupServiceUpdateTest {
         when(groups.findByNameIgnoreCaseActive("Taken")).thenReturn(Optional.of(other));
 
         UpdateRealtyGroupRequest req = new UpdateRealtyGroupRequest(
-            "Taken", null, null, null, null);
+            "Taken", null, null);
         assertThrows(RealtyGroupNameTakenException.class,
             () -> service.updateGroupAsAdmin(pid, req, 9999L));
     }

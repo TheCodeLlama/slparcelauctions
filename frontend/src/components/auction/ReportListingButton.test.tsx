@@ -11,6 +11,7 @@ const SELLER_ID = "00000000-0000-0000-0000-000000000007";
 // Verified user — different from seller
 const verifiedUser: AuthUser = {
   publicId: "00000000-0000-0000-0000-00000000002a",
+  username: "buyer",
   email: "user@example.com",
   displayName: "Buyer",
   slAvatarUuid: "some-uuid",

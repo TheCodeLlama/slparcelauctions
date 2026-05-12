@@ -51,20 +51,42 @@ class RealtyGroupMembershipServiceRemoveTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock AuctionRepository auctions;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupMembershipService service;
 
     private static RealtyGroup buildGroup(Long leaderId) {
         return RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
     private static RealtyGroupMember buildMember(Long groupId, Long userId) {
         return RealtyGroupMember.builder()
             .groupId(groupId).userId(userId).joinedAt(OffsetDateTime.now()).build();
+    }
+
+    @Test
+    void removeMember_groupSuspended_throwsAndDoesNotMutate() {
+        UUID groupPid = UUID.randomUUID();
+        UUID memberPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L);
+        when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
+        doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(g.getId());
+
+        assertThrows(
+            com.slparcelauctions.backend.realty.moderation.exception
+                .RealtyGroupSuspendedException.class,
+            () -> service.removeMember(groupPid, memberPid, 150L));
+
+        verify(authorizer, never()).assertCan(any(), any(), any());
+        verify(members, never()).deleteByGroupIdAndUserId(any(), any());
+        verify(notifications, never()).realtyGroupMemberRemoved(any(), any());
     }
 
     @Test
@@ -105,7 +127,7 @@ class RealtyGroupMembershipServiceRemoveTest {
         UUID groupPid = UUID.randomUUID();
         UUID memberPid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L);
-        // Leader's own member row — userId equals leaderId.
+        // Leader's own member row â€” userId equals leaderId.
         RealtyGroupMember leaderRow = buildMember(g.getId(), 100L);
         when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
         when(members.findByPublicId(memberPid)).thenReturn(Optional.of(leaderRow));
@@ -155,7 +177,7 @@ class RealtyGroupMembershipServiceRemoveTest {
     }
 
     @Test
-    void removeMember_reassigns_listing_agent_to_leader_on_active_auctions() {
+    void removeMember_reassigns_seller_to_leader_on_active_auctions() {
         UUID groupPid = UUID.randomUUID();
         UUID memberPid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L);
@@ -168,6 +190,9 @@ class RealtyGroupMembershipServiceRemoveTest {
 
         service.removeMember(groupPid, memberPid, 100L);
 
-        verify(auctions).reassignListingAgentForGroup(g.getId(), 200L, g.getLeaderId());
+        // E Â§10: case-3 reassignment flips seller_id on pre-terminal listings.
+        // listing_agent_id is preserved so commission attribution stays with the
+        // departing agent.
+        verify(auctions).reassignSellerToLeaderForCase3(200L, g.getId(), g.getLeaderId());
     }
 }

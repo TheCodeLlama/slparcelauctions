@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.admin.audit;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +27,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.auth.JwtService;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -54,6 +58,7 @@ class AdminAuditControllerSliceTest {
     @Autowired UserRepository userRepository;
 
     @MockitoBean AdminActionRepository adminActionRepo;
+    @MockitoBean RealtyGroupRepository realtyGroupRepository;
 
     private Long adminDbId;
     private Long userDbId;
@@ -158,5 +163,93 @@ class AdminAuditControllerSliceTest {
             .header("Authorization", "Bearer " + adminToken()))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // -------------------------------------------------------------------------
+    // entityType / entityId filters — spec §17 (Task 32, Realty Groups F)
+    // -------------------------------------------------------------------------
+
+    private AdminAction buildRealtyGroupAction() {
+        User admin = User.builder()
+            .email("admin@x.com").username("admin")
+            .passwordHash("x")
+            .displayName("Admin")
+            .build();
+        return AdminAction.builder()
+            .id(2L)
+            .adminUser(admin)
+            .actionType(AdminActionType.REALTY_GROUP_SUSPEND)
+            .targetType(AdminActionTargetType.REALTY_GROUP)
+            .targetId(42L)
+            .notes("group suspended")
+            .createdAt(OffsetDateTime.now())
+            .build();
+    }
+
+    @Test
+    void list_filterByEntityTypeRealtyGroup_returnsOnlyRealtyGroupActions() throws Exception {
+        AdminAction action = buildRealtyGroupAction();
+        // groupId=null means "entityType filter only, no specific group".
+        when(adminActionRepo.findRealtyGroupActions(isNull(), any()))
+            .thenReturn(new PageImpl<>(List.of(action)));
+
+        mvc.perform(get("/api/v1/admin/audit?entityType=REALTY_GROUP")
+            .header("Authorization", "Bearer " + adminToken()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.totalElements").value(1))
+           .andExpect(jsonPath("$.content[0].actionType").value("REALTY_GROUP_SUSPEND"));
+    }
+
+    @Test
+    void list_filterByEntityId_narrowsToSpecificGroup() throws Exception {
+        UUID groupPublicId = UUID.fromString("00000000-0000-bbbb-0001-000000000001");
+        RealtyGroup group = RealtyGroup.builder().id(42L).publicId(groupPublicId).build();
+        when(realtyGroupRepository.findByPublicId(groupPublicId)).thenReturn(Optional.of(group));
+
+        AdminAction action = buildRealtyGroupAction();
+        when(adminActionRepo.findRealtyGroupActions(eq(42L), any()))
+            .thenReturn(new PageImpl<>(List.of(action)));
+
+        mvc.perform(get("/api/v1/admin/audit?entityType=REALTY_GROUP&entityId=" + groupPublicId)
+            .header("Authorization", "Bearer " + adminToken()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.totalElements").value(1))
+           .andExpect(jsonPath("$.content[0].actionType").value("REALTY_GROUP_SUSPEND"));
+    }
+
+    @Test
+    void list_filterByEntityIdUnknown_returnsEmptyPage() throws Exception {
+        UUID unknown = UUID.fromString("00000000-0000-bbbb-0001-0000000000ff");
+        when(realtyGroupRepository.findByPublicId(unknown)).thenReturn(Optional.empty());
+
+        mvc.perform(get("/api/v1/admin/audit?entityType=REALTY_GROUP&entityId=" + unknown)
+            .header("Authorization", "Bearer " + adminToken()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.totalElements").value(0))
+           .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void list_combinedEntityFilters_appliesBoth() throws Exception {
+        UUID groupPublicId = UUID.fromString("00000000-0000-bbbb-0001-000000000002");
+        RealtyGroup group = RealtyGroup.builder().id(99L).publicId(groupPublicId).build();
+        when(realtyGroupRepository.findByPublicId(groupPublicId)).thenReturn(Optional.of(group));
+
+        AdminAction action = buildRealtyGroupAction();
+        when(adminActionRepo.findRealtyGroupActions(eq(99L), any()))
+            .thenReturn(new PageImpl<>(List.of(action)));
+
+        mvc.perform(get("/api/v1/admin/audit?entityType=REALTY_GROUP&entityId=" + groupPublicId)
+            .header("Authorization", "Bearer " + adminToken()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.totalElements").value(1));
+
+        // Regression: the unfiltered path is unaffected by the new branch.
+        when(adminActionRepo.findAll(any(org.springframework.data.domain.Pageable.class)))
+            .thenReturn(new PageImpl<>(Collections.emptyList()));
+        mvc.perform(get("/api/v1/admin/audit")
+            .header("Authorization", "Bearer " + adminToken()))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.totalElements").value(0));
     }
 }

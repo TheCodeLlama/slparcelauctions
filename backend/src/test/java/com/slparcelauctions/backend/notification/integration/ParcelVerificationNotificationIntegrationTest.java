@@ -126,7 +126,6 @@ class ParcelVerificationNotificationIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(OffsetDateTime.now().minusMinutes(5))
                     .endsAt(OffsetDateTime.now().plusHours(24))
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))
@@ -152,7 +151,7 @@ class ParcelVerificationNotificationIntegrationTest {
                     .build());
         });
 
-        // Drive the SL callback — using "Production" shard and seller avatar as owner
+        // Drive the SL callback â€” using "Production" shard and seller avatar as owner
         String trustedOwnerKey = "00000000-0000-0000-0000-000000000001";
         SlParcelVerifyRequest req = new SlParcelVerifyRequest(
                 codeStr, parcelUuid, sellerAvatar,

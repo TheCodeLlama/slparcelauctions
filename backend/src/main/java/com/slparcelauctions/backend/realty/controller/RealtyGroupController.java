@@ -19,12 +19,14 @@ import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.dto.AgentCardDto;
+import com.slparcelauctions.backend.realty.dto.BulkCommissionRatesRequest;
 import com.slparcelauctions.backend.realty.dto.CreateRealtyGroupRequest;
 import com.slparcelauctions.backend.realty.dto.RealtyGroupDtoMapper;
 import com.slparcelauctions.backend.realty.dto.RealtyGroupPublicDto;
 import com.slparcelauctions.backend.realty.dto.TransferLeadershipRequest;
 import com.slparcelauctions.backend.realty.dto.UpdatePermissionsRequest;
 import com.slparcelauctions.backend.realty.dto.UpdateRealtyGroupRequest;
+import com.slparcelauctions.backend.realty.service.RealtyGroupBulkCommissionService;
 import com.slparcelauctions.backend.realty.service.RealtyGroupMembershipService;
 import com.slparcelauctions.backend.realty.service.RealtyGroupService;
 
@@ -48,6 +50,7 @@ public class RealtyGroupController {
 
     private final RealtyGroupService groupService;
     private final RealtyGroupMembershipService membershipService;
+    private final RealtyGroupBulkCommissionService bulkCommissionService;
     private final RealtyGroupDtoMapper mapper;
 
     @PostMapping
@@ -123,8 +126,23 @@ public class RealtyGroupController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody UpdatePermissionsRequest req) {
         RealtyGroupMember updated = groupService.updateMemberPermissions(
-            publicId, memberPublicId, req.permissions(), principal.userId());
+            publicId, memberPublicId, req.permissions(), req.agentCommissionRate(),
+            principal.userId());
         RealtyGroup group = groupService.loadActiveByPublicId(publicId);
         return ResponseEntity.ok(mapper.toAgentCard(group, updated));
+    }
+
+    /**
+     * Bulk per-member commission-rate edit. Atomic: any failed entry (member not in
+     * group, negative rate, suspended group) rolls back the whole batch. Spec §6.7,
+     * §15.1. Permission: {@code MANAGE_MEMBERS} (leader holds implicitly).
+     */
+    @PatchMapping("/{publicId}/members/commission-rates")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateCommissionRates(
+            @PathVariable UUID publicId,
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody BulkCommissionRatesRequest req) {
+        bulkCommissionService.updateRates(publicId, principal.userId(), req);
     }
 }

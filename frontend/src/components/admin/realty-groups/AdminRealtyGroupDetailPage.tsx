@@ -4,13 +4,40 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { cn } from "@/lib/cn";
 import { useAdminDissolveGroup, useAdminRealtyGroup } from "@/hooks/realty/useRealtyGroups";
 import { RealtyGroupHeroBanner } from "@/components/realty/RealtyGroupHeroBanner";
 import { AdminGroupProfileForm } from "./AdminGroupProfileForm";
 import { AdminGroupMembersList } from "./AdminGroupMembersList";
+import { AdminGroupSuspensionsTab } from "./AdminGroupSuspensionsTab";
+import { AdminGroupBulkListingsTab } from "./AdminGroupBulkListingsTab";
+import { AdminGroupReportsTab } from "./AdminGroupReportsTab";
+import { AdminGroupSlGroupsTab } from "./AdminGroupSlGroupsTab";
+import { AdminGroupAuditTab } from "./AdminGroupAuditTab";
+import { AdminGroupWalletTab } from "./AdminGroupWalletTab";
+
+type DetailTab =
+  | "profile"
+  | "members"
+  | "wallet"
+  | "suspensions"
+  | "bulk-listings"
+  | "reports"
+  | "sl-groups"
+  | "audit";
+
+const TAB_LABELS: { id: DetailTab; label: string }[] = [
+  { id: "profile", label: "Profile" },
+  { id: "members", label: "Members" },
+  { id: "wallet", label: "Wallet" },
+  { id: "suspensions", label: "Suspensions" },
+  { id: "bulk-listings", label: "Bulk listings" },
+  { id: "reports", label: "Reports" },
+  { id: "sl-groups", label: "SL groups" },
+  { id: "audit", label: "Audit" },
+];
 
 export interface AdminRealtyGroupDetailPageProps {
   publicId: string;
@@ -43,6 +70,7 @@ export function AdminRealtyGroupDetailPage({
   const dissolve = useAdminDissolveGroup();
   const [dissolveOpen, setDissolveOpen] = useState(false);
   const [dissolveText, setDissolveText] = useState("");
+  const [activeTab, setActiveTab] = useState<DetailTab>("profile");
 
   if (isLoading) {
     return (
@@ -112,58 +140,80 @@ export function AdminRealtyGroupDetailPage({
         logoUrl={group.logoUrl}
       />
 
-      <section aria-label="Group profile">
-        <AdminGroupProfileForm group={group} />
-      </section>
-
-      <section aria-label="Members">
-        <AdminGroupMembersList group={group} />
-      </section>
-
-      <section aria-label="Audit log">
-        <Card>
-          <Card.Header>
-            <h2 className="text-sm font-semibold tracking-tight">
-              Audit log
-            </h2>
-          </Card.Header>
-          <Card.Body>
-            <p className="text-xs text-fg-muted mb-3">
-              A dedicated per-group audit log is deferred to sub-project F
-              (admin moderation). The global admin audit log already records
-              every realty group action; filter by target type for a
-              cross-cutting view.
-            </p>
-            <Link
-              href="/admin/audit-log"
-              className="text-xs text-fg hover:underline"
-              data-testid="admin-realty-audit-log-link"
+      <nav
+        role="tablist"
+        aria-label="Realty group admin sections"
+        className="flex gap-1 border-b border-border overflow-x-auto"
+        data-testid="admin-realty-detail-tabs"
+      >
+        {TAB_LABELS.map((tab) => {
+          const isActive = tab.id === activeTab;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`admin-realty-tab-panel-${tab.id}`}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+                isActive
+                  ? "text-brand border-b-2 border-brand"
+                  : "text-fg-muted hover:text-fg",
+              )}
+              data-testid={`admin-realty-tab-${tab.id}`}
             >
-              Open admin audit log &rarr;
-            </Link>
-          </Card.Body>
-        </Card>
-      </section>
+              {tab.label}
+            </button>
+          );
+        })}
+      </nav>
 
-      <section aria-label="Invitations">
-        <Card>
-          <Card.Header>
-            <h2 className="text-sm font-semibold tracking-tight">
-              Invitations
-            </h2>
-          </Card.Header>
-          <Card.Body>
-            <p
-              className="text-xs text-fg-muted"
-              data-testid="admin-realty-invitations-placeholder"
-            >
-              A read-only admin invitations surface is deferred to
-              sub-project F. Leaders and {`{INVITE_AGENTS}`}-delegates can
-              review live invitations from the manage page.
-            </p>
-          </Card.Body>
-        </Card>
-      </section>
+      <div
+        role="tabpanel"
+        id={`admin-realty-tab-panel-${activeTab}`}
+        aria-labelledby={`admin-realty-tab-${activeTab}`}
+        data-testid={`admin-realty-tab-panel-${activeTab}`}
+      >
+        {activeTab === "profile" && <AdminGroupProfileForm group={group} />}
+        {activeTab === "members" && <AdminGroupMembersList group={group} />}
+        {activeTab === "wallet" && (
+          <AdminGroupWalletTab groupPublicId={group.publicId} />
+        )}
+        {activeTab === "suspensions" && (
+          <AdminGroupSuspensionsTab groupPublicId={group.publicId} />
+        )}
+        {activeTab === "bulk-listings" && (
+          <AdminGroupBulkListingsTab groupPublicId={group.publicId} />
+        )}
+        {activeTab === "reports" && (
+          <AdminGroupReportsTab groupPublicId={group.publicId} />
+        )}
+        {activeTab === "sl-groups" && (
+          <AdminGroupSlGroupsTab groupPublicId={group.publicId} />
+        )}
+        {activeTab === "audit" && (
+          <AdminGroupAuditTab groupPublicId={group.publicId} />
+        )}
+      </div>
+
+      <p
+        className="text-xs text-fg-muted"
+        data-testid="admin-realty-invitations-placeholder"
+      >
+        A read-only admin invitations surface is deferred. Leaders and
+        {" "}
+        {`{INVITE_AGENTS}`}-delegates can review live invitations from the
+        manage page.
+      </p>
+      <Link
+        href="/admin/audit-log"
+        className="text-xs text-fg hover:underline"
+        data-testid="admin-realty-audit-log-link"
+      >
+        Open global admin audit log &rarr;
+      </Link>
 
       {dissolveOpen && (
         <div

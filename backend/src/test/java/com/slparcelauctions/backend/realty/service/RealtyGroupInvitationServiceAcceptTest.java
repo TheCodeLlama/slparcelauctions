@@ -53,6 +53,7 @@ class RealtyGroupInvitationServiceAcceptTest {
     @Mock RealtyGroupAuthorizer authorizer;
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupInvitationService service;
 
@@ -60,8 +61,6 @@ class RealtyGroupInvitationServiceAcceptTest {
         return RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
             .memberSeatLimit(seatLimit)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
@@ -76,6 +75,29 @@ class RealtyGroupInvitationServiceAcceptTest {
             .build();
         inv.setPermissionSet(perms);
         return inv;
+    }
+
+    @Test
+    void accept_groupSuspended_throwsAndDoesNotPersist() {
+        UUID invPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        RealtyGroupInvitation inv = buildPendingInvite(
+            g.getId(), 200L, EnumSet.of(RealtyGroupPermission.INVITE_AGENTS));
+        when(invitations.findByPublicId(invPid)).thenReturn(Optional.of(inv));
+        org.mockito.Mockito.doThrow(new com.slparcelauctions.backend.realty.moderation.exception
+                    .RealtyGroupSuspendedException(
+                    com.slparcelauctions.backend.realty.moderation.exception
+                        .RealtyGroupSuspendedException.Status.SUSPENDED,
+                    java.time.OffsetDateTime.now().plusDays(7), "TOS"))
+            .when(realtyGroupGuard).requireGroupCanOperate(g.getId());
+
+        assertThrows(
+            com.slparcelauctions.backend.realty.moderation.exception
+                .RealtyGroupSuspendedException.class,
+            () -> service.accept(invPid, 200L));
+
+        verify(members, never()).save(any(RealtyGroupMember.class));
+        verify(notifications, never()).realtyGroupInvitationAccepted(any());
     }
 
     @Test
@@ -188,6 +210,28 @@ class RealtyGroupInvitationServiceAcceptTest {
         assertThrows(MemberSeatLimitReachedException.class,
             () -> service.accept(invPid, 200L));
         verify(members, never()).save(any());
+    }
+
+    @Test
+    void acceptInvitation_copiesRateOntoMember() {
+        UUID invPid = UUID.randomUUID();
+        RealtyGroup g = buildGroup(100L, 50);
+        RealtyGroupInvitation inv = buildPendingInvite(
+            g.getId(), 200L, EnumSet.noneOf(RealtyGroupPermission.class));
+        BigDecimal invitationRate = new BigDecimal("0.1250");
+        inv.setAgentCommissionRate(invitationRate);
+
+        when(invitations.findByPublicId(invPid)).thenReturn(Optional.of(inv));
+        when(groups.findById(g.getId())).thenReturn(Optional.of(g));
+        when(members.existsByGroupIdAndUserId(g.getId(), 200L)).thenReturn(false);
+        when(members.countByGroupId(g.getId())).thenReturn(0L);
+        when(members.save(any(RealtyGroupMember.class))).thenAnswer(i -> i.getArgument(0));
+        when(invitations.save(any(RealtyGroupInvitation.class))).thenAnswer(i -> i.getArgument(0));
+
+        RealtyGroupMember saved = service.accept(invPid, 200L);
+
+        assertEquals(0, invitationRate.compareTo(saved.getAgentCommissionRate()),
+            "member row should carry the invitation's commission rate verbatim");
     }
 
     @Test

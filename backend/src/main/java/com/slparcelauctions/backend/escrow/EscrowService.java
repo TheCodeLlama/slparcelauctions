@@ -140,12 +140,13 @@ public class EscrowService {
     @Transactional(propagation = Propagation.MANDATORY)
     public Escrow createForEndedAuction(Auction auction, OffsetDateTime endedAt) {
         long finalBid = auction.getFinalBidAmount();
+        long payoutAmt = computePayoutAmt(auction, finalBid);
         Escrow escrow = Escrow.builder()
                 .auction(auction)
                 .state(EscrowState.ESCROW_PENDING)
                 .finalBidAmount(finalBid)
                 .commissionAmt(commission.commission(finalBid))
-                .payoutAmt(commission.payout(finalBid))
+                .payoutAmt(payoutAmt)
                 .paymentDeadline(endedAt.plusHours(PAYMENT_DEADLINE_HOURS))
                 .consecutiveWorldApiFailures(0)
                 .build();
@@ -434,10 +435,17 @@ public class EscrowService {
     /**
      * Delegates to {@link TerminalCommandService#queuePayout} once the
      * ownership monitor confirms the seller has transferred the parcel to
-     * the winner. The state flip from {@code TRANSFER_PENDING} to
-     * {@code COMPLETED} is owned by the callback path in
-     * {@code TerminalCommandService.applyCallback}, not this hook — queuing
-     * the command merely schedules the terminal POST.
+     * the winner. For non-zero payouts (individual / non-group), the state
+     * flip from {@code TRANSFER_PENDING} to {@code COMPLETED} is owned by the
+     * callback path in {@code TerminalCommandService.applyCallback}, not this
+     * hook — queuing the command merely schedules the terminal POST.
+     *
+     * <p>Sub-project G §8.1: for case-3 (SL-group-owned, payoutAmt = 0),
+     * {@code queuePayout} short-circuits and runs the success path inline,
+     * returning {@link java.util.Optional#empty()}. The state flip to
+     * {@code COMPLETED} has already happened by the time this method returns.
+     * We discard the return value either way — the contract is
+     * fire-and-forget; the caller doesn't care which branch ran.
      */
     void queuePayoutOnConfirm(Escrow escrow) {
         terminalCommandService.queuePayout(escrow);
@@ -1003,6 +1011,37 @@ public class EscrowService {
                     EscrowCallbackResponseReason.ESCROW_EXPIRED,
                     "Replay of previously-failed payment");
         }
+    }
+
+    /**
+     * Computes the {@code escrow.payout_amt} for an ended auction, branching
+     * on the auction's realty-group shape. The two cases are mutually
+     * exclusive at the column level:
+     *
+     * <ul>
+     *   <li><b>Case 3 (E -- SL-group-owned)</b>: {@code realty_group_sl_group_id IS NOT NULL}.
+     *       {@code payoutAmt = 0}. The earnings (finalBid - commission) are credited
+     *       entirely via internal wallet routing at payout-success:
+     *       {@code AgentCommissionDistributor} credits the listing agent's wallet with
+     *       {@code agent_slice} and the realty group's wallet with {@code group_slice}.
+     *       No L$ leaves SLPA to an SL avatar from the escrow row, so the terminal
+     *       PAYOUT command carries amount=0 and is a SL-side no-op. Spec §8.5, §9.6.</li>
+     *   <li><b>Individual</b>: both group columns null.
+     *       {@code payoutAmt = commission.payout(finalBid)}.</li>
+     * </ul>
+     *
+     * <p>The escrow's {@code payoutTargetUuid} is still the seller's SL avatar for
+     * case-3 — the column is set elsewhere from {@code auction.seller.slAvatarUuid}
+     * and remains correct. For case-3 it simply receives 0 L$ from the terminal,
+     * because all routing is internal.
+     */
+    private long computePayoutAmt(Auction auction, long finalBid) {
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            // Case 3: earnings stay in SLPA; AgentCommissionDistributor credits agent
+            // and group wallets internally at payout-success.
+            return 0L;
+        }
+        return commission.payout(finalBid);
     }
 
     /**

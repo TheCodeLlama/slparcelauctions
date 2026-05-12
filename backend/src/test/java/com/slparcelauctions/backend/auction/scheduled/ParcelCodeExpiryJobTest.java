@@ -54,10 +54,10 @@ class ParcelCodeExpiryJobTest {
 
     @Test
     void stuckRezzableWithExpiredCode_transitionsToVerificationFailed_withNotes() {
-        // Sub-spec 2 §7.3: all verification-failure paths (Method A sync
+        // Sub-spec 2 Â§7.3: all verification-failure paths (Method A sync
         // mismatch, Method B code expiry, Method C 48-hour timeout) converge on
         // VERIFICATION_FAILED with retry-friendly verificationNotes. No
-        // ListingFeeRefund is created — the job doesn't depend on
+        // ListingFeeRefund is created â€” the job doesn't depend on
         // ListingFeeRefundRepository, so refund creation is structurally
         // impossible from this path.
         Auction stuck = buildAuction(1L, VerificationMethod.REZZABLE);
@@ -82,7 +82,7 @@ class ParcelCodeExpiryJobTest {
 
     @Test
     void stuckRezzableWithNoCodes_transitionsToVerificationFailed() {
-        // Orphaned PENDING with no codes at all — still treated as "no active code"
+        // Orphaned PENDING with no codes at all â€” still treated as "no active code"
         // and failed. Shouldn't happen in practice (dispatchMethodB always issues
         // one) but the sweep must not hang on edge-case inconsistency.
         Auction stuck = buildAuction(2L, VerificationMethod.REZZABLE);
@@ -176,7 +176,6 @@ class ParcelCodeExpiryJobTest {
                 .snipeProtect(false).listingFeePaid(true)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .build();
     }

@@ -23,6 +23,7 @@ function buildRows(group: RealtyGroupPublicDto): AgentCardDto[] {
     role: "LEADER",
     permissions: null,
     joinedAt: null,
+    agentCommissionRate: null,
   };
   const all = [leaderRow, ...group.agents];
   return all.sort((a, b) =>

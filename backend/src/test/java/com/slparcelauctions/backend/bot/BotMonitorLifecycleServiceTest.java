@@ -30,14 +30,14 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * Integration coverage for {@link BotMonitorLifecycleService} — the lifecycle
+ * Integration coverage for {@link BotMonitorLifecycleService} â€” the lifecycle
  * hooks that create MONITOR_AUCTION / MONITOR_ESCROW rows on activation and
  * cancel them on terminal state. Exercises the real Flyway schema so the
  * {@code @Modifying} bulk-cancel queries fire against Postgres and the
  * {@code lastUpdatedAt} SET-clause keeps the column NOT-NULL-safe.
  *
  * <p>Uses raw-JDBC cleanup (dev Postgres) rather than {@code @Transactional}
- * rollback — the lifecycle service methods carry their own transactions and
+ * rollback â€” the lifecycle service methods carry their own transactions and
  * {@code @Modifying} queries commit outside any caller-rolled-back boundary.
  */
 @SpringBootTest
@@ -230,7 +230,6 @@ class BotMonitorLifecycleServiceTest {
                     .bidCount(0)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
                     .endsAt(now.plusHours(166))
                     .originalEndsAt(now.plusHours(166))

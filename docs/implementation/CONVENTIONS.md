@@ -99,6 +99,30 @@ return PagedResponse.from(page.map(dtoMapper::toDto));
 
 A reviewer who sees `ResponseEntity<Page<T>>` or `Page<T>` as a controller return type in a new PR should reject it and ask for `PagedResponse<T>`. See FOOTGUNS §F.73 for the full story.
 
+### Transaction boundaries
+
+**Default transaction boundary is the service entrypoint.** Controller methods
+should not carry `@Transactional` unless they compose multiple service calls in
+one transaction. Controllers that DO carry `@Transactional` must add a single
+adjacent comment naming the composition:
+
+```java
+// tx spans <ServiceA>.<methodA> + <ServiceB>.<methodB>
+@Transactional
+public ResultDto endpoint(...) { ... }
+```
+
+Reviewers reject controller-level `@Transactional` without that comment. The
+rule is enforced by review, not tooling — no static-analysis check exists.
+
+The rationale: keeping the boundary at the service makes the transaction's
+extent legible from the call site, lets service-layer tests exercise rollback
+semantics directly, and prevents accidental "controller-as-orchestrator"
+patterns that hide multi-step writes behind a single HTTP endpoint.
+
+Spec cross-link: `docs/superpowers/specs/2026-05-12-realty-groups-final-cleanup-design.md` §9.3
+(sub-project G introduced this rule after auditing F's two moderation controllers).
+
 ---
 
 ## Frontend (Next.js)

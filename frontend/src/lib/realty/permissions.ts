@@ -11,6 +11,12 @@ export const ALL_PERMISSIONS: readonly RealtyGroupPermission[] = [
   "REMOVE_AGENTS",
   "EDIT_GROUP_PROFILE",
   "CONFIGURE_FEES",
+  "CREATE_LISTING",
+  "MANAGE_ALL_LISTINGS",
+  "WITHDRAW_FROM_GROUP_WALLET",
+  "VIEW_GROUP_TRANSACTIONS",
+  "REGISTER_SL_GROUP",
+  "MANAGE_MEMBERS",
 ] as const;
 
 /**
@@ -28,6 +34,18 @@ export function permissionLabel(p: RealtyGroupPermission): string {
       return "Edit group profile";
     case "CONFIGURE_FEES":
       return "Configure fees";
+    case "CREATE_LISTING":
+      return "Create listings";
+    case "MANAGE_ALL_LISTINGS":
+      return "Manage all listings";
+    case "WITHDRAW_FROM_GROUP_WALLET":
+      return "Withdraw from group wallet";
+    case "VIEW_GROUP_TRANSACTIONS":
+      return "View group transactions";
+    case "REGISTER_SL_GROUP":
+      return "Register SL groups";
+    case "MANAGE_MEMBERS":
+      return "Manage members";
   }
 }
 
@@ -46,5 +64,17 @@ export function permissionDescription(p: RealtyGroupPermission): string {
       return "Update the group's name, description, logo, cover, and website.";
     case "CONFIGURE_FEES":
       return "Adjust the agent fee rate and split.";
+    case "CREATE_LISTING":
+      return "Publish auction listings on behalf of this group.";
+    case "MANAGE_ALL_LISTINGS":
+      return "Cancel any group listing, regardless of who created it.";
+    case "WITHDRAW_FROM_GROUP_WALLET":
+      return "Initiate withdrawals from the group wallet to a Linden Lab account.";
+    case "VIEW_GROUP_TRANSACTIONS":
+      return "View the group wallet balance and ledger history.";
+    case "REGISTER_SL_GROUP":
+      return "Register and unregister the in-world SL groups this realty group manages.";
+    case "MANAGE_MEMBERS":
+      return "Bulk-edit per-member commission rates and view per-member commission analytics.";
   }
 }

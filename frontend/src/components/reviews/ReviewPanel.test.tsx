@@ -25,6 +25,7 @@ import {
 
 const partyUser: AuthUser = {
   publicId: "00000000-0000-0000-0000-00000000002a",
+  username: "party",
   email: "party@example.com",
   displayName: "Party",
   slAvatarUuid: null,

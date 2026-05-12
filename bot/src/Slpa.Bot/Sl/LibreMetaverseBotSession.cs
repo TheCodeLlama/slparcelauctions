@@ -385,6 +385,19 @@ public sealed class LibreMetaverseBotSession : IBotSession
             Flags: (uint)parcel.Flags);
     }
 
+    public void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo)
+    {
+        if (State != SessionState.Online)
+        {
+            throw new SessionLostException(
+                $"Cannot give group money in state {State}");
+        }
+        _client.Self.GiveGroupMoney(new UUID(slGroupUuid.ToString()), amountL, memo);
+        _log.LogInformation(
+            "GiveGroupMoney issued: group={Group}, L${Amount}, memo='{Memo}'",
+            slGroupUuid, amountL, memo);
+    }
+
     private static TeleportFailureKind ClassifyFailure(string? message)
     {
         if (string.IsNullOrEmpty(message)) return TeleportFailureKind.Other;

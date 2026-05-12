@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.realty;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.Set;
@@ -65,6 +66,17 @@ public class RealtyGroupInvitation extends BaseMutableEntity {
 
     @Column(name = "responded_at")
     private OffsetDateTime respondedAt;
+
+    /**
+     * Per-member commission rate proposed at invite time. Copied verbatim onto the
+     * {@link RealtyGroupMember#getAgentCommissionRate()} field at accept time. Stored as a
+     * fraction ({@code 0.10} = 10%). Defaults to {@link BigDecimal#ZERO} so callers that
+     * omit the field continue to issue zero-rate invitations (the leader can edit the rate
+     * post-accept via the edit-permissions surface).
+     */
+    @Builder.Default
+    @Column(name = "agent_commission_rate", nullable = false, precision = 5, scale = 4)
+    private BigDecimal agentCommissionRate = BigDecimal.ZERO;
 
     @Transient
     public boolean isPending() {

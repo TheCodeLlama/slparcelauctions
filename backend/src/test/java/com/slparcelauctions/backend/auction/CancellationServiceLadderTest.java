@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,15 +32,17 @@ import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservationReleaseReason;
+import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
 /**
  * Boundary coverage for the cancellation-penalty ladder
- * (Epic 08 sub-spec 2 §2). Each test pins a single ladder index and
+ * (Epic 08 sub-spec 2 Â§2). Each test pins a single ladder index and
  * asserts the snapshot on the {@link CancellationLog} row plus the live
  * consequence applied to {@link User} (debt, suspension, ban) and
  * {@link Auction#getPostCancelWatchUntil()}. The {@code countPriorOffensesWithBids}
- * stub drives the ladder index — the test deliberately runs against the
+ * stub drives the ladder index â€” the test deliberately runs against the
  * real {@link CancellationService#cancel} so the COUNT-before-INSERT
  * ordering and the snapshot semantics are both exercised.
  */
@@ -55,6 +58,9 @@ class CancellationServiceLadderTest {
     @Mock AuctionBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
     @Mock BanCheckService banCheckService;
+    @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
+    @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
+    @Mock WalletService walletService;
 
     CancellationService service;
 
@@ -72,7 +78,8 @@ class CancellationServiceLadderTest {
                 48);
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
-                broadcastPublisher, notificationPublisher, penaltyProps, banCheckService, fixed);
+                broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
+                realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -111,6 +118,10 @@ class CancellationServiceLadderTest {
         assertThat(seller.getListingSuspensionUntil()).isNull();
         assertThat(seller.getBannedFromListing()).isFalse();
         assertThat(a.getPostCancelWatchUntil()).isEqualTo(now.plusHours(48));
+        // Wallet reservation release runs on every cancel path -- spec Â§10.2
+        // step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
+        verify(walletService).releaseReservationsForAuction(
+                eq(a.getId()), eq(BidReservationReleaseReason.AUCTION_CANCELLED));
     }
 
     @Test
@@ -175,7 +186,7 @@ class CancellationServiceLadderTest {
 
         CancellationLog log = capturedLog();
         assertThat(log.getPenaltyKind()).isEqualTo(CancellationOffenseKind.PERMANENT_BAN);
-        // Idempotent — already true.
+        // Idempotent â€” already true.
         assertThat(seller.getBannedFromListing()).isTrue();
     }
 
@@ -233,7 +244,7 @@ class CancellationServiceLadderTest {
     }
 
     // -------------------------------------------------------------------------
-    // WS broadcast — afterCommit registration
+    // WS broadcast â€” afterCommit registration
     // -------------------------------------------------------------------------
 
     @Test
@@ -245,7 +256,7 @@ class CancellationServiceLadderTest {
 
         ArgumentCaptor<AuctionCancelledEnvelope> cap =
                 ArgumentCaptor.forClass(AuctionCancelledEnvelope.class);
-        // No tx active → service publishes synchronously (mirrors ReviewService).
+        // No tx active â†’ service publishes synchronously (mirrors ReviewService).
         verify(broadcastPublisher).publishCancelled(cap.capture());
         AuctionCancelledEnvelope env = cap.getValue();
         assertThat(env.type()).isEqualTo("AUCTION_CANCELLED");
@@ -289,7 +300,6 @@ class CancellationServiceLadderTest {
                 .listingFeePaid(listingFeePaid)
                 .currentBid(0L).bidCount(bidCount)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(now)
                 .updatedAt(now)

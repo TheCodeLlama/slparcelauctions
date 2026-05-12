@@ -47,12 +47,12 @@ import com.slparcelauctions.backend.user.UserRepository;
 
 /**
  * Full-stack coverage for {@code GET /api/v1/users/me/bids}. Seeds one bidder
- * across seven auctions — one per {@link MyBidStatus} bucket — and verifies
+ * across seven auctions â€” one per {@link MyBidStatus} bucket â€” and verifies
  * the derived-status output across the four supported {@code ?status=} filters
  * (unspecified/all, active, won, lost).
  *
  * <p>Bids and proxy rows are seeded via direct JPA saves rather than the
- * {@link com.slparcelauctions.backend.auction.BidService} flow — buckets like
+ * {@link com.slparcelauctions.backend.auction.BidService} flow â€” buckets like
  * CANCELLED, SUSPENDED, and RESERVE_NOT_MET are terminal states that the
  * service refuses to let bids through. The point of this test is the
  * read-side query + derivation, not the write-side lifecycle.
@@ -256,7 +256,7 @@ class MyBidsIntegrationTest {
             higherPublicId = auctionA.getPublicId().toString();
         }
 
-        // Invoke the endpoint twice and assert stable ordering across calls —
+        // Invoke the endpoint twice and assert stable ordering across calls â€”
         // the two new auctions must appear in id-ascending order both times.
         for (int i = 0; i < 2; i++) {
             MvcResult result = mockMvc.perform(get("/api/v1/users/me/bids")
@@ -299,7 +299,6 @@ class MyBidsIntegrationTest {
                 .bidCount(1)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setStartsAt(now.minusHours(1));
         a.setEndsAt(endsAt);
@@ -319,8 +318,8 @@ class MyBidsIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // Non-ACTIVE rows sort by endedAt (not endsAt). Spec §10 conditional
-    // ORDER BY — earlier deviation surfaced as DEFERRED_WORK ledger entry.
+    // Non-ACTIVE rows sort by endedAt (not endsAt). Spec Â§10 conditional
+    // ORDER BY â€” earlier deviation surfaced as DEFERRED_WORK ledger entry.
     // -------------------------------------------------------------------------
 
     @Test
@@ -386,7 +385,6 @@ class MyBidsIntegrationTest {
                 .bidCount(1)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setStartsAt(startsAt);
         a.setEndsAt(endsAt);
@@ -429,7 +427,7 @@ class MyBidsIntegrationTest {
         // (one per id) and User 7 additional times (lazy seller fetch per
         // row). The bulk-load path entity-loads Auction 7 times too (once
         // per row in the result set), but seller is in the EntityGraph so
-        // User loads come from the same SELECT — they do not show up as
+        // User loads come from the same SELECT â€” they do not show up as
         // additional load events. The strict guard here is on the entity
         // *fetch* (= lazy initialization) count, which the old path drove
         // up via lazy seller hydration and the new path leaves at zero.
@@ -456,7 +454,7 @@ class MyBidsIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // Seeding helpers — direct JPA saves so we can create terminal states
+    // Seeding helpers â€” direct JPA saves so we can create terminal states
     // (CANCELLED, SUSPENDED) that BidService wouldn't let bids through.
     // -------------------------------------------------------------------------
 
@@ -512,7 +510,7 @@ class MyBidsIntegrationTest {
         a.setReservePrice(5000L);
         a.setEndOutcome(AuctionEndOutcome.RESERVE_NOT_MET);
         a.setCurrentBidderId(bidderId);
-        // No winner set — reserve wasn't met.
+        // No winner set â€” reserve wasn't met.
         a.setEndedAt(OffsetDateTime.now().minusHours(3));
         auctionRepository.save(a);
         saveBid(a, bidderId, 1200L);
@@ -558,7 +556,6 @@ class MyBidsIntegrationTest {
                 .bidCount(bidCount)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setStartsAt(now.minusHours(1));
         if (status == AuctionStatus.ACTIVE) {

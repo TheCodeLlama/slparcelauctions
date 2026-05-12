@@ -42,7 +42,7 @@ import reactor.core.publisher.Mono;
  * HTTP-facing tests for {@link ProxyBidController}. Uses {@code @SpringBootTest}
  * so JWT auth, validation, and the global exception handler are all live.
  *
- * <p>Covers every route / status combination in the spec §4 table plus the
+ * <p>Covers every route / status combination in the spec Â§4 table plus the
  * auth negatives. Live resolution edge cases (resurrection, tie-flip, counter
  * emission) are pinned in the sibling {@code ProxyBid*IntegrationTest} /
  * {@code BidVsProxyCounterIntegrationTest} classes; here we just assert the
@@ -203,7 +203,7 @@ class ProxyBidControllerTest {
 
     @Test
     void put_activeWinning_returns200_silentRaise() throws Exception {
-        // Bidder creates proxy (no competitor) → becomes winning at startingBid.
+        // Bidder creates proxy (no competitor) â†’ becomes winning at startingBid.
         Auction a = seedAuction(AuctionStatus.ACTIVE);
         createProxy(bidderAccessToken, a.getPublicId(), 5000L);
 
@@ -232,7 +232,7 @@ class ProxyBidControllerTest {
         Auction a = seedAuction(AuctionStatus.ACTIVE);
         // Direct repo-level seam: materialize a CANCELLED proxy row without going through
         // the normal DELETE flow. The natural flow cannot reach CANCELLED when the caller
-        // isn't winning, because cancel is restricted to ACTIVE rows — DELETE on an
+        // isn't winning, because cancel is restricted to ACTIVE rows â€” DELETE on an
         // EXHAUSTED/CANCELLED proxy returns 404. Seed two proxies so bidder's row lands
         // in EXHAUSTED via the losing path, then flip it to CANCELLED directly. This test
         // pins the PUT-on-CANCELLED behavior; DELETE-while-winning is exercised separately
@@ -286,11 +286,11 @@ class ProxyBidControllerTest {
     @Test
     void delete_whileNotWinning_returns204() throws Exception {
         // Other bidder wins (larger proxy). bidder ends up EXHAUSTED, which
-        // means their row isn't ACTIVE anymore — so to test DELETE on an
+        // means their row isn't ACTIVE anymore â€” so to test DELETE on an
         // ACTIVE non-winning proxy we need a specific setup. We'll bypass the
         // exhaust flow by building it directly: userA creates small proxy
         // then userB creates bigger proxy (userA exhausted). userB cancels
-        // not possible as winning. So: rely on the repo-level guarantee —
+        // not possible as winning. So: rely on the repo-level guarantee â€”
         // a cancellable proxy by definition is ACTIVE + not winning. Simplest
         // clean case: create proxy, manually move currentBidderId off caller.
         Auction a = seedAuction(AuctionStatus.ACTIVE);
@@ -454,7 +454,6 @@ class ProxyBidControllerTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         OffsetDateTime now = OffsetDateTime.now();
         a.setStartsAt(now.minusHours(1));

@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +26,7 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.realty.rating.ReviewCreatedEvent;
 import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.AuctionReviewsResponse;
 import com.slparcelauctions.backend.review.dto.PendingReviewDto;
@@ -84,6 +86,7 @@ public class ReviewService {
     private final UserRepository userRepo;
     private final ReviewBroadcastPublisher broadcastPublisher;
     private final NotificationPublisher notificationPublisher;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     /**
@@ -175,6 +178,14 @@ public class ReviewService {
 
         log.info("Review {} submitted on auction {}: reviewer={}, reviewedRole={}, visible=false",
                 mine.getId(), auctionId, callerId, reviewedRole);
+
+        // Fire ReviewCreatedEvent so the realty-group rating cache invalidator
+        // (sub-project F §16.2) can drop the affected group's Redis entry. Listener
+        // resolves the auction->group linkage on its end; this slice only cares that
+        // a row landed. Published unconditionally — for non-group auctions the
+        // listener is a cheap no-op.
+        eventPublisher.publishEvent(new ReviewCreatedEvent(
+                auctionId, mine.getId(), mine.getRating()));
 
         // Simultaneous-reveal branch (spec §5 Q9 blind-on-fact). If the
         // counterparty already submitted a pending review, flip both

@@ -47,7 +47,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  *   <li>POST is idempotent (duplicate returns existing row, same {@code savedAt}).</li>
  *   <li>POST against pre-active (DRAFT) returns 403 + {@code CANNOT_SAVE_PRE_ACTIVE}.</li>
  *   <li>POST without a JWT returns 401 (per {@code JwtAuthenticationEntryPoint}).</li>
- *   <li>DELETE is idempotent — 204 whether the row existed or not.</li>
+ *   <li>DELETE is idempotent â€” 204 whether the row existed or not.</li>
  *   <li>GET /ids returns a JSON array (empty for fresh users; populated post-save).</li>
  *   <li>GET /auctions returns the saved-list page envelope; {@code statusFilter}
  *       toggles between active-only (default) and ended-only correctly.</li>
@@ -334,7 +334,6 @@ class SavedAuctionControllerIntegrationTest {
                 .bidCount(1)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setStartsAt(now.minusHours(1));
         if (status == AuctionStatus.ACTIVE) {

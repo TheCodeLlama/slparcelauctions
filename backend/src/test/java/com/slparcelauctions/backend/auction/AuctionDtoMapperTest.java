@@ -78,7 +78,7 @@ class AuctionDtoMapperTest {
         // Reserve fields: boolean flags, NOT the raw amount
         assertThat(public_.hasReserve()).isTrue();
         assertThat(public_.reserveMet()).isFalse();
-        // DTO has no raw reservePrice field — compile-time enforced
+        // DTO has no raw reservePrice field â€” compile-time enforced
     }
 
     @Test
@@ -166,8 +166,6 @@ class AuctionDtoMapperTest {
                 .name("Mainland Realty Co")
                 .slug("mainland-realty-co")
                 .logoObjectKey("logos/10/logo.webp")
-                .agentFeeRate(new BigDecimal("0.0300"))
-                .agentFeeSplit(new BigDecimal("0.5000"))
                 .memberSeatLimit(50)
                 .build();
         // Override auto-generated publicId via reflection would be complex; use the
@@ -182,7 +180,6 @@ class AuctionDtoMapperTest {
         Auction a = buildAuction(AuctionStatus.ACTIVE);
         a.setRealtyGroupId(10L);
         a.setListingAgent(agent);
-        a.setAgentFeeRate(new BigDecimal("0.0300"));
 
         PublicAuctionResponse dto = mapper.toPublicResponse(a);
 
@@ -194,7 +191,6 @@ class AuctionDtoMapperTest {
         assertThat(dto.realtyGroup().dissolved()).isFalse();
         assertThat(dto.listingAgent()).isNotNull();
         assertThat(dto.listingAgent().displayName()).isEqualTo("Alice Agent");
-        assertThat(dto.agentFeeRate()).isEqualByComparingTo(new BigDecimal("0.0300"));
     }
 
     @Test
@@ -206,7 +202,6 @@ class AuctionDtoMapperTest {
 
         assertThat(dto.realtyGroup()).isNull();
         assertThat(dto.listingAgent()).isNull();
-        assertThat(dto.agentFeeRate()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     private Auction buildAuction(AuctionStatus status) {
@@ -222,7 +217,6 @@ class AuctionDtoMapperTest {
                 .listingFeePaid(false)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.0500"))
-                .agentFeeRate(new BigDecimal("0.0000"))
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())

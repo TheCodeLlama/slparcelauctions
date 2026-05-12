@@ -38,7 +38,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * different auctions for the SAME seller must serialise on the seller-row
  * pessimistic lock acquired inside {@link CancellationService#cancel}. The
  * critical invariant is that the COUNT-before-INSERT ladder evaluation
- * observes consistent prior-offense counts — without the seller-row lock,
+ * observes consistent prior-offense counts â€” without the seller-row lock,
  * both transactions could read {@code countPriorOffensesWithBids = 0}
  * concurrently and both snapshot the same ladder index (WARNING + WARNING),
  * skipping the PENALTY rung.
@@ -57,7 +57,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  *       {@code 2}.</li>
  * </ol>
  * If the lock were missing, both threads could serialise as WARNING+WARNING
- * (debt would be 0 — the spec violation we're guarding against).
+ * (debt would be 0 â€” the spec violation we're guarding against).
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -171,7 +171,7 @@ class CancelLadderRaceTest {
                 .isEqualTo(2);
 
         // The seller-row lock must serialise the COUNT, so the two log rows
-        // must record DISTINCT ladder kinds — one WARNING, one PENALTY. The
+        // must record DISTINCT ladder kinds â€” one WARNING, one PENALTY. The
         // PENALTY contributes 1000 L$ debt; WARNING contributes nothing.
         long warningCount = cancellationLogRepository.findAll().stream()
                 .filter(l -> l.getSeller().getId().equals(sellerId))
@@ -185,7 +185,7 @@ class CancelLadderRaceTest {
                 .as("exactly one WARNING ladder snapshot must land")
                 .isEqualTo(1);
         assertThat(penaltyCount)
-                .as("exactly one PENALTY ladder snapshot must land — without the seller-row lock both could land as WARNING")
+                .as("exactly one PENALTY ladder snapshot must land â€” without the seller-row lock both could land as WARNING")
                 .isEqualTo(1);
 
         assertThat(reloaded.getPenaltyBalanceOwed())
@@ -222,7 +222,6 @@ class CancelLadderRaceTest {
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         a1.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid1)
@@ -251,7 +250,6 @@ class CancelLadderRaceTest {
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         a2.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid2)

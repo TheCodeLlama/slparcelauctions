@@ -130,7 +130,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void create_whenSellerOwesPenalty_returns403WithCodePenaltyOwed() throws Exception {
-        // Epic 08 sub-spec 2 §7.7 — suspension gate on listing creation.
+        // Epic 08 sub-spec 2 Â§7.7 â€” suspension gate on listing creation.
         // Mark the seller as owing a penalty balance and assert the create
         // path 403s with the right ProblemDetail code.
         User seller = userRepository.findById(sellerId).orElseThrow();
@@ -170,7 +170,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void create_whenSellerBanned_returns403WithCodePermanentBan() throws Exception {
-        // Ban shadows penalty + timed — the gate evaluates ban first.
+        // Ban shadows penalty + timed â€” the gate evaluates ban first.
         User seller = userRepository.findById(sellerId).orElseThrow();
         seller.setBannedFromListing(true);
         seller.setListingSuspensionUntil(OffsetDateTime.now().plusDays(20));
@@ -288,17 +288,17 @@ class AuctionControllerIntegrationTest {
     @Test
     void getAuction_includesTitleInResponse() throws Exception {
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
-        a.setTitle("Seaside cottage — rare find");
+        a.setTitle("Seaside cottage â€” rare find");
         auctionRepository.save(a);
 
         mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                         .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Seaside cottage — rare find"));
+                .andExpect(jsonPath("$.title").value("Seaside cottage â€” rare find"));
     }
 
     // -------------------------------------------------------------------------
-    // GET /auctions/{id} — listing-detail enrichments (Epic 07 sub-spec 1)
+    // GET /auctions/{id} â€” listing-detail enrichments (Epic 07 sub-spec 1)
     // -------------------------------------------------------------------------
 
     @Test
@@ -402,7 +402,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void get_activeAnonymous_returnsPublicView() throws Exception {
-        // The public auction page is anonymous-safe — viewers can hit the
+        // The public auction page is anonymous-safe â€” viewers can hit the
         // detail endpoint without an Authorization header.
         Auction a = seedAuction(AuctionStatus.ACTIVE, false, 0);
 
@@ -434,7 +434,7 @@ class AuctionControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/auctions/" + a.getPublicId())
                 .header("Authorization", "Bearer " + otherAccessToken))
                 .andExpect(status().isOk())
-                // CANCELLED collapses to ENDED in public view — privacy guarantee
+                // CANCELLED collapses to ENDED in public view â€” privacy guarantee
                 .andExpect(jsonPath("$.status").value("ENDED"))
                 .andExpect(jsonPath("$.winnerId").doesNotExist())
                 .andExpect(jsonPath("$.listingFeeAmt").doesNotExist())
@@ -443,7 +443,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void get_suspendedAuction_viewedByNonSeller_returns404() throws Exception {
-        // Spec §6.4 — suspended listings are hidden from public browse, and
+        // Spec Â§6.4 â€” suspended listings are hidden from public browse, and
         // direct URL access must match (404, not a public view collapsed to ENDED)
         // so that a bookmarked URL stops resolving once ownership monitoring
         // suspends the listing.
@@ -508,7 +508,7 @@ class AuctionControllerIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // PUT /auctions/{id}/verify — group-land gate (sub-spec 2 §7.2)
+    // PUT /auctions/{id}/verify â€” group-land gate (sub-spec 2 Â§7.2)
     // -------------------------------------------------------------------------
 
     @Test
@@ -591,7 +591,7 @@ class AuctionControllerIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET /users/{userId}/auctions — public active-listings (spec §14)
+    // GET /users/{userId}/auctions â€” public active-listings (spec Â§14)
     // -------------------------------------------------------------------------
 
     @Test
@@ -611,7 +611,7 @@ class AuctionControllerIntegrationTest {
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$.content[1].status").value("ACTIVE"))
-                // PublicAuctionResponse shape — no seller-only fields leak
+                // PublicAuctionResponse shape â€” no seller-only fields leak
                 .andExpect(jsonPath("$.content[0].listingFeePaid").doesNotExist())
                 .andExpect(jsonPath("$.content[0].commissionRate").doesNotExist())
                 .andExpect(jsonPath("$.content[0].winnerId").doesNotExist())
@@ -634,7 +634,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_emptyWhenNoActive() throws Exception {
-        // Seller has only DRAFT listings — no ACTIVE — so the page is empty.
+        // Seller has only DRAFT listings â€” no ACTIVE â€” so the page is empty.
         seedAuctionFor(seedExtraParcel(0x91), AuctionStatus.DRAFT, false, 0,
                 VerificationMethod.UUID_ENTRY);
 
@@ -671,7 +671,7 @@ class AuctionControllerIntegrationTest {
         seedAuctionFor(seedExtraParcel(0xB1), AuctionStatus.ACTIVE, false, 0,
                 VerificationMethod.UUID_ENTRY);
 
-        // No Authorization header — spec §14 marks this endpoint public.
+        // No Authorization header â€” spec Â§14 marks this endpoint public.
         mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
                 .andExpect(status().isOk())
@@ -688,7 +688,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_orderedByEndsAtAscending() throws Exception {
-        // Stagger endsAt across three ACTIVE auctions — the public profile
+        // Stagger endsAt across three ACTIVE auctions â€” the public profile
         // surfaces soonest-ending first, so the content array must be in
         // ascending endsAt order regardless of insertion order. Seed them
         // out-of-order to make sure the ORDER BY is actually doing the work.
@@ -807,7 +807,7 @@ class AuctionControllerIntegrationTest {
     }
 
     private Auction seedAuctionFor(UUID parcelUuid, AuctionStatus status, boolean listingFeePaid) {
-        // Sub-spec 2 §7.1 — verificationMethod is null until the seller picks
+        // Sub-spec 2 Â§7.1 â€” verificationMethod is null until the seller picks
         // one at the verify trigger. Group-owned parcel tests rely on this.
         return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, 0, null);
     }
@@ -834,7 +834,6 @@ class AuctionControllerIntegrationTest {
                 .bidCount(bidCount)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         if (status == AuctionStatus.ACTIVE) {
             OffsetDateTime now = OffsetDateTime.now();
@@ -880,7 +879,7 @@ class AuctionControllerIntegrationTest {
      * Seeds an ACTIVE auction and primes the seller's reputation counters so
      * the listing-detail endpoint's seller card has values to surface. The
      * {@code cancelledWithBids} arg is set on the user but must NOT appear in
-     * the response — a regression-guard test asserts that explicitly.
+     * the response â€” a regression-guard test asserts that explicitly.
      */
     private UUID seedActiveAuctionWithSellerRating(
             BigDecimal avgRating, int reviewCount,

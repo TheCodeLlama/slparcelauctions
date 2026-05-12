@@ -47,7 +47,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  *       {@code lastOwnershipCheckAt} is old enough to be due.</li>
  *   <li>Stub the World API via WireMock (ok / mismatch / 404 / repeated 504
  *       depending on the scenario).</li>
- *   <li>Invoke {@link OwnershipMonitorScheduler#dispatchDueChecks} — the
+ *   <li>Invoke {@link OwnershipMonitorScheduler#dispatchDueChecks} â€” the
  *       scheduler queries the repository and hands each due id to the
  *       {@link OwnershipCheckTask}, which runs on Spring's async executor.
  *       We poll with Awaitility until the expected outcome is committed.</li>
@@ -73,7 +73,7 @@ import com.slparcelauctions.backend.user.UserRepository;
         "slpa.ownership-monitor.enabled=true",
         "slpa.ownership-monitor.scheduler-frequency=PT24H",
         "slpa.ownership-monitor.check-interval-minutes=30",
-        // Fast retry/timeout for the World API timeout scenario — 3 attempts
+        // Fast retry/timeout for the World API timeout scenario â€” 3 attempts
         // with 25ms backoff against a 504 stub surfaces as
         // ExternalApiTimeoutException in well under a second.
         "slpa.world-api.retry-attempts=2",
@@ -208,7 +208,7 @@ class OwnershipMonitorIntegrationTest {
         UUID parcelUuid = UUID.randomUUID();
 
         Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid);
-        // 504 Gateway Timeout repeatedly — the SlWorldApiClient treats 5xx as
+        // 504 Gateway Timeout repeatedly â€” the SlWorldApiClient treats 5xx as
         // transient and retries, so exhausting retries surfaces as
         // ExternalApiTimeoutException and the task increments the failure
         // counter without suspending.
@@ -222,7 +222,7 @@ class OwnershipMonitorIntegrationTest {
             Auction refreshed = auctionRepo.findById(auctionId).orElseThrow();
             assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
             assertThat(refreshed.getConsecutiveWorldApiFailures()).isEqualTo(1);
-            // Timestamp must be stamped even on failure — otherwise the next
+            // Timestamp must be stamped even on failure â€” otherwise the next
             // sweep would re-pick this row immediately (hot loop).
             assertThat(refreshed.getLastOwnershipCheckAt()).isNotNull();
             assertThat(refreshed.getLastOwnershipCheckAt()).isAfterOrEqualTo(before);
@@ -291,7 +291,6 @@ class OwnershipMonitorIntegrationTest {
                     .bidCount(0)
                     .consecutiveWorldApiFailures(consecutiveFailures)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(1))
                     .endsAt(now.plusHours(167))
                     .originalEndsAt(now.plusHours(167))

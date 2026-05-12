@@ -16,6 +16,8 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.CancellationLog;
 import com.slparcelauctions.backend.auction.CancellationLogRepository;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -64,6 +66,7 @@ public class OwnershipCheckTask {
     private final SlWorldApiClient worldApi;
     private final SuspensionService suspensionService;
     private final CancellationLogRepository cancellationLogRepo;
+    private final RealtyGroupSlGroupRepository slGroupRepo;
     private final Clock clock;
 
     @Async
@@ -135,7 +138,23 @@ public class OwnershipCheckTask {
     private OwnershipCheckResult doCheck(Auction auction) {
         UUID parcelUuid = auction.getSlParcelUuid();
         OffsetDateTime now = OffsetDateTime.now(clock);
-        UUID expected = auction.getSeller().getSlAvatarUuid();
+        UUID expected;
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            // Case 3: parcel must remain owned by the registered SL group.
+            RealtyGroupSlGroup reg =
+                    slGroupRepo.findById(auction.getRealtyGroupSlGroupId()).orElse(null);
+            expected = (reg == null) ? null : reg.getSlGroupUuid();
+        } else {
+            // Cases 1, individual: seller's avatar.
+            expected = auction.getSeller() == null ? null : auction.getSeller().getSlAvatarUuid();
+        }
+
+        if (expected == null) {
+            log.warn("OwnershipCheck skipping auction {} -- expected owner unresolvable",
+                    auction.getId());
+            return new OwnershipCheckResult(false, null, null, now, auction.getStatus());
+        }
+
         UUID observed = null;
         boolean ownerMatch = false;
 
@@ -156,9 +175,11 @@ public class OwnershipCheckTask {
                 handleTimeout(auction, "empty World API response");
             } else {
                 observed = result.ownerUuid();
-                ownerMatch = expected != null
-                        && expected.equals(observed)
-                        && "agent".equalsIgnoreCase(result.ownerType());
+                // Case 3 expects the parcel to be group-owned by the registered SL group;
+                // cases 1/individual expect agent-owned by the seller's avatar.
+                String expectedOwnerType = auction.getRealtyGroupSlGroupId() != null ? "group" : "agent";
+                ownerMatch = expected.equals(observed)
+                        && expectedOwnerType.equalsIgnoreCase(result.ownerType());
 
                 if (ownerMatch) {
                     auction.setLastOwnershipCheckAt(now);

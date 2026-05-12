@@ -50,10 +50,9 @@ function seedGroup(overrides: Record<string, unknown> = {}) {
             role: "AGENT",
             permissions: [],
             joinedAt: "2026-04-15T10:00:00Z",
+            agentCommissionRate: null,
           },
         ],
-        agentFeeRate: "0.0000",
-        agentFeeSplit: "0.5000",
         memberSeatLimit: 50,
         memberCount: 2,
         ...overrides,
@@ -107,6 +106,10 @@ describe("AdminRealtyGroupDetailPage", () => {
     seedGroup();
     renderWithProviders(<AdminRealtyGroupDetailPage publicId={GROUP_ID} />);
     await waitFor(() =>
+      expect(screen.getByTestId("admin-realty-tab-members")).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByTestId("admin-realty-tab-members"));
+    await waitFor(() =>
       expect(
         screen.getByTestId("admin-group-members-list"),
       ).toBeInTheDocument(),
@@ -123,6 +126,10 @@ describe("AdminRealtyGroupDetailPage", () => {
     seedGroup();
     renderWithProviders(<AdminRealtyGroupDetailPage publicId={GROUP_ID} />);
     await waitFor(() =>
+      expect(screen.getByTestId("admin-realty-tab-members")).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByTestId("admin-realty-tab-members"));
+    await waitFor(() =>
       expect(
         screen.getByTestId(`admin-member-remove-${LEADER_ID}`),
       ).toBeInTheDocument(),
@@ -138,6 +145,10 @@ describe("AdminRealtyGroupDetailPage", () => {
   it("blocks leader force-remove when no other agents exist", async () => {
     seedGroup({ agents: [], memberCount: 1 });
     renderWithProviders(<AdminRealtyGroupDetailPage publicId={GROUP_ID} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("admin-realty-tab-members")).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByTestId("admin-realty-tab-members"));
     await waitFor(() =>
       expect(
         screen.getByTestId(`admin-member-remove-${LEADER_ID}`),
@@ -161,6 +172,21 @@ describe("AdminRealtyGroupDetailPage", () => {
     );
     const link = screen.getByTestId("admin-realty-audit-log-link");
     expect(link).toHaveAttribute("href", "/admin/audit-log");
+  });
+
+  it("renders all five F admin tabs alongside Profile + Members", async () => {
+    seedGroup();
+    renderWithProviders(<AdminRealtyGroupDetailPage publicId={GROUP_ID} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("admin-realty-detail-tabs")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("admin-realty-tab-profile")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-realty-tab-members")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-realty-tab-suspensions")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-realty-tab-bulk-listings")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-realty-tab-reports")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-realty-tab-sl-groups")).toBeInTheDocument();
+    expect(screen.getByTestId("admin-realty-tab-audit")).toBeInTheDocument();
   });
 
   it("shows the invitations placeholder copy", async () => {

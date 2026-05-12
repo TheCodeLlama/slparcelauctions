@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
@@ -35,7 +36,11 @@ import com.slparcelauctions.backend.realty.exception.ActiveListingsBlockDissolve
 import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
+import com.slparcelauctions.backend.realty.exception.SlGroupRegisteredBlocksDissolveException;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -57,18 +62,19 @@ class RealtyGroupServiceDissolveTest {
     @Mock NotificationPublisher notifications;
     @Mock UserRepository users;
     @Mock AuctionRepository auctions;
+    @Mock EscrowRepository escrows;
+    @Mock RealtyGroupSlGroupRepository slGroupRepo;
+    @Mock com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard realtyGroupGuard;
 
     @InjectMocks RealtyGroupService service;
 
     private static RealtyGroup buildGroup(String name, String slug, Long leaderId) {
         return RealtyGroup.builder()
             .name(name).slug(slug).leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
-    // ─────────────────── non-admin dissolveGroup ───────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ non-admin dissolveGroup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void dissolveGroupAsLeaderSetsDissolvedAt() {
@@ -107,7 +113,7 @@ class RealtyGroupServiceDissolveTest {
         User agent = new User();
         agent.setUsername("agent");
         // We can't set id on a BaseEntity, so emulate the User#getId() side via Mockito spy
-        // — but findAllById signature returns Iterable<User>; the service maps by getId()
+        // â€” but findAllById signature returns Iterable<User>; the service maps by getId()
         // which is null on un-persisted entities. So just verify the publisher was invoked
         // (the empty-id path skips users from the ordered list). The behaviour-under-test
         // here is that the call DOES fire, not the contents of the list.
@@ -155,7 +161,7 @@ class RealtyGroupServiceDissolveTest {
         verify(authorizer, never()).assertLeader(anyLong(), anyLong());
     }
 
-    // ─────────────────── admin dissolveGroupAsAdmin ───────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ admin dissolveGroupAsAdmin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void dissolveGroupAsAdminBypassesLeaderGate() {
@@ -193,7 +199,7 @@ class RealtyGroupServiceDissolveTest {
             () -> service.dissolveGroupAsAdmin(pid, 9999L));
     }
 
-    // ─────────────────── active-listings guard ───────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ active-listings guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void leader_dissolve_blocked_by_active_listing() {
@@ -209,7 +215,7 @@ class RealtyGroupServiceDissolveTest {
 
     @Test
     void admin_force_dissolve_bypasses_active_listings_guard() {
-        // The admin path does NOT call existsActiveListingsByGroupId at all — bypasses
+        // The admin path does NOT call existsActiveListingsByGroupId at all â€” bypasses
         // the guard entirely. No auctions stub needed; the test asserts the admin path
         // succeeds and never calls the leader gate.
         UUID pid = UUID.randomUUID();
@@ -236,5 +242,119 @@ class RealtyGroupServiceDissolveTest {
         RealtyGroup result = service.dissolveGroup(pid, 100L);
 
         assertNotNull(result.getDissolvedAt());
+    }
+
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ balance + escrow gates (Task 23) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    @Test
+    void dissolveRejectsWhenGroupHasNonzeroBalance() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        g.setBalanceLindens(100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+
+        assertThrows(GroupHasNonzeroBalanceException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolveRejectsWhenGroupHasNonzeroReserved() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        g.setReservedLindens(50L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+
+        assertThrows(GroupHasNonzeroBalanceException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolveRejectsWhenInFlightEscrowsExist() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        // balance zero, reserved zero â€” only escrow gate fires
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(true);
+
+        assertThrows(GroupHasInFlightEscrowsException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolveSucceedsWhenAllGatesClear() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        // balance=0, reserved=0 (defaults from builder)
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
+
+        RealtyGroup result = service.dissolveGroup(pid, 100L);
+
+        assertNotNull(result.getDissolvedAt());
+        assertTrue(result.isDissolved());
+    }
+
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ SL-group registrations gate (Task 23 / spec Â§12) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    @Test
+    void dissolve_blocksWhenVerifiedSlGroupExists() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        // countByRealtyGroupId counts both verified and pending; here a verified row exists.
+        when(slGroupRepo.countByRealtyGroupId(g.getId())).thenReturn(1L);
+
+        SlGroupRegisteredBlocksDissolveException ex = assertThrows(
+            SlGroupRegisteredBlocksDissolveException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        assertEquals(g.getPublicId(), ex.getRealtyGroupPublicId());
+        assertEquals(1L, ex.getCount());
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolve_blocksWhenPendingSlGroupExists() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        // A pending (unverified) registration row still counts â€” countByRealtyGroupId is
+        // agnostic to the `verified` flag.
+        when(slGroupRepo.countByRealtyGroupId(g.getId())).thenReturn(2L);
+
+        SlGroupRegisteredBlocksDissolveException ex = assertThrows(
+            SlGroupRegisteredBlocksDissolveException.class,
+            () -> service.dissolveGroup(pid, 100L));
+        assertEquals(2L, ex.getCount());
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void dissolve_succeedsAfterAllSlGroupsUnregistered() {
+        UUID pid = UUID.randomUUID();
+        RealtyGroup g = buildGroup("G", "g", 100L);
+        when(groups.findByPublicId(pid)).thenReturn(Optional.of(g));
+        when(auctions.existsActiveListingsByGroupId(g.getId())).thenReturn(false);
+        when(escrows.existsInFlightForGroup(g.getId())).thenReturn(false);
+        when(slGroupRepo.countByRealtyGroupId(g.getId())).thenReturn(0L);
+        when(groups.save(any(RealtyGroup.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(members.findByGroupIdOrderByJoinedAtAsc(g.getId())).thenReturn(Collections.emptyList());
+
+        RealtyGroup result = service.dissolveGroup(pid, 100L);
+
+        assertNotNull(result.getDissolvedAt());
+        assertTrue(result.isDissolved());
     }
 }

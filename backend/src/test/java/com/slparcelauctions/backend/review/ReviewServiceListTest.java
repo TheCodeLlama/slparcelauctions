@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -56,6 +57,7 @@ class ReviewServiceListTest {
     @Mock UserRepository userRepo;
     @Mock ReviewBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     ReviewService service;
 
@@ -69,7 +71,8 @@ class ReviewServiceListTest {
     void setUp() {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
-                escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
+                escrowRepo, userRepo, broadcastPublisher, notificationPublisher,
+                eventPublisher, clock);
 
         seller = User.builder().id(10L).email("seller@example.com").username("seller").passwordHash("x").displayName("Sally").build();
         winner = User.builder().id(20L).email("winner@example.com").username("winner").passwordHash("x").displayName("Willy").build();

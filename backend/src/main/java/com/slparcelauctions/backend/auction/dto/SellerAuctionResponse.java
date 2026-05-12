@@ -61,6 +61,5 @@ public record SellerAuctionResponse(
         EscrowState escrowState,
         OffsetDateTime transferConfirmedAt,
         GroupAttributionDto realtyGroup,
-        ListingAgentDto listingAgent,
-        java.math.BigDecimal agentFeeRate) {
+        ListingAgentDto listingAgent) {
 }

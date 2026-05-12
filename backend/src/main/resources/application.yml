@@ -68,6 +68,12 @@ auth:
     enabled: true
 
 slpa:
+  system:
+    # Internal user id that scheduled jobs stamp on rows where the data model requires
+    # a user FK but no human admin took the action. Resolved via SystemUserResolver.
+    # Default 1 maps to the seed admin created by UserBootstrap on a fresh DB (the
+    # users.id sequence starts at 1).
+    user-id: 1
   sl:
     expected-shard: Production
     trusted-owner-keys: []
@@ -204,3 +210,25 @@ slpa:
       - Heath Onyx
   web:
     base-url: ${SLPA_WEB_BASE_URL:http://localhost:3000}
+  realty:
+    # Sub-project F (admin moderation). Bound to RealtyGroupModerationProperties.
+    # See spec §20.2 for the knob semantics; each `enabled` flag is a kill-switch
+    # for its scheduled task and gets flipped off via @TestPropertySource in
+    # integration tests, consistent with the codebase-wide scheduler-disable
+    # pattern.
+    group-bulk-suspend:
+      auto-cancel-hours: 48
+      enabled: true
+    sl-group:
+      reverify-cadence-days: 30
+      reverify-fetch-failure-threshold: 3
+      reverify:
+        enabled: true
+    group-suspension-expiry:
+      enabled: true
+  reports:
+    # Sub-project G section 12 -- threshold of open user-submitted reports against
+    # a single realty group before the admin fan-out notification fires. Bound to
+    # ReportsProperties (slpa.reports.*). One-shot per cycle: re-arms when the
+    # open count returns to zero. Default 3; minimum 1.
+    group-alert-threshold: 3

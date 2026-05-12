@@ -61,6 +61,12 @@ public sealed class FakeBotSession : IBotSession
     public Func<double, double, ParcelSnapshot?> ReadPolicy { get; set; } =
         (_, _) => null;
 
+    /// <summary>
+    /// Captures every <see cref="GiveGroupMoney"/> call so handler tests can
+    /// assert on recipient / amount / memo without touching LibreMetaverse.
+    /// </summary>
+    public List<GiveGroupMoneyCall> GiveGroupMoneyCalls { get; } = new();
+
     public Task StartAsync(CancellationToken ct)
     {
         State = SessionState.Starting;
@@ -81,6 +87,12 @@ public sealed class FakeBotSession : IBotSession
         double x, double y, CancellationToken ct)
         => Task.FromResult(ReadPolicy(x, y));
 
+    public void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo)
+        => GiveGroupMoneyCalls.Add(new GiveGroupMoneyCall(slGroupUuid, amountL, memo));
+
     public void SimulateLoginSuccess() => State = SessionState.Online;
     public void SimulateDisconnect() => State = SessionState.Reconnecting;
 }
+
+/// <summary>Argument capture for <see cref="FakeBotSession.GiveGroupMoney"/>.</summary>
+public sealed record GiveGroupMoneyCall(Guid GroupUuid, int AmountL, string Memo);

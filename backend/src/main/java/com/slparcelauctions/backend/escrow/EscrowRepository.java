@@ -166,6 +166,29 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
     long sumAmountByStateIn(@Param("states") java.util.Collection<EscrowState> states);
 
     /**
+     * Returns {@code true} when the group has at least one escrow still in a state where
+     * L$ is present and movement is ahead: {@link EscrowState#FUNDED},
+     * {@link EscrowState#TRANSFER_PENDING}, {@link EscrowState#DISPUTED}, or
+     * {@link EscrowState#FROZEN}. Used by the dissolution gate to block dissolve until
+     * all group-listed auctions' escrows have settled.
+     *
+     * <p>{@link EscrowState#ESCROW_PENDING} is intentionally excluded — that state means
+     * the winner has not yet paid, so no L$ is held. {@link EscrowState#COMPLETED} and
+     * {@link EscrowState#EXPIRED} are terminal/settled and also excluded.
+     */
+    @Query("""
+            SELECT CASE WHEN COUNT(e) > 0 THEN true ELSE false END
+            FROM Escrow e
+            WHERE e.auction.realtyGroupId = :groupId
+              AND e.state IN (
+                  com.slparcelauctions.backend.escrow.EscrowState.FUNDED,
+                  com.slparcelauctions.backend.escrow.EscrowState.TRANSFER_PENDING,
+                  com.slparcelauctions.backend.escrow.EscrowState.DISPUTED,
+                  com.slparcelauctions.backend.escrow.EscrowState.FROZEN)
+            """)
+    boolean existsInFlightForGroup(@Param("groupId") Long groupId);
+
+    /**
      * Returns the IDs of escrows where the given user is involved (as either
      * seller or winner) and the escrow state is one of the supplied open
      * states. Used by

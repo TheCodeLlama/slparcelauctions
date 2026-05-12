@@ -9,6 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.user.exception.ImageTooLargeException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
@@ -284,6 +285,52 @@ public class AuctionExceptionHandler {
             case PERMANENT_BAN ->
                     "Your listing privileges have been permanently suspended.";
         });
+        return pd;
+    }
+
+    /**
+     * The realty-group permission check inside
+     * {@code CancellationService.brokerCancel} (Realty Groups E spec §5.2)
+     * throws {@link RealtyGroupPermissionDeniedException}. The realty
+     * package's {@code RealtyExceptionHandler} only catches exceptions raised
+     * from controllers under {@code com.slparcelauctions.backend.realty}, so
+     * we need a mirror mapping here for the auction-controller surface.
+     * Keep the {@code code} / {@code missingPermission} extensions identical
+     * to the realty handler so the frontend sees a uniform contract.
+     */
+    @ExceptionHandler(RealtyGroupPermissionDeniedException.class)
+    public ProblemDetail handleRealtyPermissionDenied(
+            RealtyGroupPermissionDeniedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, e.getMessage());
+        pd.setTitle("Realty Group Permission Denied");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "REALTY_GROUP_PERMISSION_DENIED");
+        if (e.getMissingPermission() != null) {
+            pd.setProperty("missingPermission", e.getMissingPermission().name());
+        }
+        return pd;
+    }
+
+    /**
+     * Broker-cancel preconditions failed (Realty Groups E spec §5.5). 422 because
+     * the request is well-formed but the auction's case / status / broker linkage
+     * makes a broker-initiated cancellation inapplicable.
+     */
+    @ExceptionHandler(BrokerCancelNotApplicableException.class)
+    public ProblemDetail handleBrokerCancelNotApplicable(
+            BrokerCancelNotApplicableException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Broker Cancel Not Applicable");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", BrokerCancelNotApplicableException.CODE);
+        if (e.getAuctionPublicId() != null) {
+            pd.setProperty("auctionPublicId", e.getAuctionPublicId().toString());
+        }
+        if (e.getReason() != null) {
+            pd.setProperty("reason", e.getReason());
+        }
         return pd;
     }
 

@@ -1,6 +1,8 @@
 package com.slparcelauctions.backend.user;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -62,6 +64,33 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     @Query("SELECT u.id FROM User u WHERE u.slAvatarUuid = :slAvatarUuid")
     Optional<Long> findIdBySlAvatarUuid(@Param("slAvatarUuid") UUID slAvatarUuid);
+
+    /**
+     * Sub-project G section 6.1 -- batch resolver for {@code id -> publicId} used by
+     * {@link com.slparcelauctions.backend.auction.AuctionDtoMapper.MapperBatchContext}
+     * when projecting the winner's {@code publicId} into many DTOs at once.
+     *
+     * <p>One query per call regardless of input cardinality. Empty input is
+     * accepted and returns an empty map.
+     */
+    @Query("SELECT u.id AS id, u.publicId AS publicId FROM User u WHERE u.id IN :ids")
+    List<UserIdPublicIdProjection> findIdPublicIdProjections(@Param("ids") Set<Long> ids);
+
+    default Map<Long, UUID> findPublicIdsByIds(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, UUID> out = new HashMap<>(ids.size());
+        for (UserIdPublicIdProjection p : findIdPublicIdProjections(ids)) {
+            out.put(p.getId(), p.getPublicId());
+        }
+        return out;
+    }
+
+    interface UserIdPublicIdProjection {
+        Long getId();
+        UUID getPublicId();
+    }
 
     @Modifying
     @Transactional

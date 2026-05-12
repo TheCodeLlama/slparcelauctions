@@ -226,7 +226,7 @@ class EscrowDisputeIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // Seeding — directly persists an Auction + Escrow row in the requested
+    // Seeding â€” directly persists an Auction + Escrow row in the requested
     // starting state so dispute transitions can be exercised without driving
     // the full auction lifecycle each test.
     // -------------------------------------------------------------------------
@@ -267,7 +267,6 @@ class EscrowDisputeIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))

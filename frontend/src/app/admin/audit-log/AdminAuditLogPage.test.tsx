@@ -31,10 +31,13 @@ describe("AdminAuditLogPage", () => {
       ])
     );
     renderWithProviders(<AdminAuditLogPage />);
-    // Use getAllByText — the action type appears in both the filter <option> and the table <td>.
-    const cells = await screen.findAllByText("DISPUTE_RESOLVED");
-    const tableCell = cells.find((el) => el.tagName === "TD");
-    expect(tableCell).toBeInTheDocument();
+    // The renderer now consumes labelFor(row.actionType) so the human label
+    // appears in the row's <td> instead of the raw enum name. The filter
+    // dropdown also renders the same label as an <option>, so disambiguate
+    // by tag.
+    const matches = await screen.findAllByText("Resolve dispute");
+    const tableCell = matches.find((el) => el.tagName === "TD");
+    expect(tableCell).toBeDefined();
     await userEvent.click(tableCell!);
     expect(await screen.findByText(/"foo"/)).toBeInTheDocument();
   });

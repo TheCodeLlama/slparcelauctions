@@ -3,6 +3,7 @@
 import { useState, Fragment } from "react";
 import Link from "next/link";
 import type { AdminAuditLogRow, AdminActionTargetType } from "@/lib/admin/auditLog";
+import { labelFor } from "@/lib/admin/action-type-labels";
 import { AuditLogRowDetails } from "./AuditLogRowDetails";
 
 function targetUrlFor(
@@ -68,7 +69,7 @@ export function AdminAuditLogTable({ rows }: Props) {
                 <td className="py-2 px-2 opacity-70">
                   {new Date(row.occurredAt).toLocaleString()}
                 </td>
-                <td className="py-2 px-2 text-brand">{row.actionType}</td>
+                <td className="py-2 px-2 text-brand">{labelFor(row.actionType)}</td>
                 <td className="py-2 px-2">
                   {row.adminEmail ?? `#${row.adminUserId}`}
                 </td>

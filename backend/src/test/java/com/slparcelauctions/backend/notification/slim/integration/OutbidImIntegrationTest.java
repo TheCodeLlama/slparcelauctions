@@ -227,7 +227,6 @@ class OutbidImIntegrationTest {
             .listingFeePaid(true)
             .consecutiveWorldApiFailures(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(BigDecimal.ZERO)
             .startsAt(now.minusMinutes(5))
             .endsAt(now.plusHours(24))
             .originalEndsAt(now.plusHours(24))

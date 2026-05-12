@@ -42,8 +42,6 @@ function makeGroup(
       avatarUrl: null,
     },
     agents: [],
-    agentFeeRate: "0.0000",
-    agentFeeSplit: "0.5000",
     memberSeatLimit: 50,
     memberCount: 1,
     ...overrides,
@@ -101,6 +99,7 @@ describe("RealtyGroupPublicPage server component", () => {
                   role: "AGENT",
                   permissions: null,
                   joinedAt: null,
+                  agentCommissionRate: null,
                 },
                 {
                   memberPublicId: "44444444-4444-4444-4444-444444444444",
@@ -110,6 +109,7 @@ describe("RealtyGroupPublicPage server component", () => {
                   role: "AGENT",
                   permissions: null,
                   joinedAt: null,
+                  agentCommissionRate: null,
                 },
                 // Backend includes the leader row in `agents` for query
                 // convenience; the page strips it so the leader is only
@@ -122,6 +122,7 @@ describe("RealtyGroupPublicPage server component", () => {
                   role: "LEADER",
                   permissions: null,
                   joinedAt: null,
+                  agentCommissionRate: null,
                 },
               ],
             }),

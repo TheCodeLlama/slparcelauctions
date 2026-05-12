@@ -24,6 +24,7 @@ class AdminActionServiceTest {
 
     @Mock AdminActionRepository repository;
     @Mock UserRepository userRepository;
+    @Mock SystemUserResolver systemUserResolver;
 
     @InjectMocks AdminActionService service;
 
@@ -90,5 +91,43 @@ class AdminActionServiceTest {
         )
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("999");
+    }
+
+    @Test
+    void recordSystemAction_attributesToSystemUserAsBothActorAndTarget() {
+        User system = User.builder().id(1L).email("system@x.com").username("system").passwordHash("x").build();
+        when(systemUserResolver.getSystemUser()).thenReturn(system);
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ArgumentCaptor<AdminAction> captor = ArgumentCaptor.forClass(AdminAction.class);
+
+        service.recordSystemAction(
+            AdminActionType.REALTY_GROUP_BULK_SUSPEND_EXPIRY_RUN,
+            Map.of("cancelledCount", 3)
+        );
+
+        verify(repository).save(captor.capture());
+        AdminAction captured = captor.getValue();
+
+        assertThat(captured.getAdminUser()).isSameAs(system);
+        assertThat(captured.getActionType()).isEqualTo(AdminActionType.REALTY_GROUP_BULK_SUSPEND_EXPIRY_RUN);
+        assertThat(captured.getTargetType()).isEqualTo(AdminActionTargetType.USER);
+        assertThat(captured.getTargetId()).isEqualTo(1L);
+        assertThat(captured.getDetails()).containsEntry("cancelledCount", 3);
+        assertThat(captured.getNotes()).isNull();
+    }
+
+    @Test
+    void recordSystemAction_nullDetails_storedAsEmptyMap() {
+        User system = User.builder().id(1L).email("system@x.com").username("system").passwordHash("x").build();
+        when(systemUserResolver.getSystemUser()).thenReturn(system);
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ArgumentCaptor<AdminAction> captor = ArgumentCaptor.forClass(AdminAction.class);
+
+        service.recordSystemAction(AdminActionType.REALTY_GROUP_BULK_SUSPEND_EXPIRY_RUN, null);
+
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getDetails()).isEmpty();
     }
 }

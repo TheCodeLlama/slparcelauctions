@@ -1774,3 +1774,67 @@ from `AdminRoleService.demote`. The 409 is intentional — they have
 permission to call the endpoint (they're an admin), but the operation
 is forbidden by business rule. The frontend toast surfaces "You cannot
 demote yourself."
+
+### F.109 — Pre-F About-text SL group verifications were re-labelled to FOUNDER_TERMINAL
+
+The V28 migration normalized `sl_group.verified_via = 'FOUNDER_TERMINAL'`
+for any pre-F row that had been verified via the now-retired About-text
+path. The verification itself is still valid (the SL group existed and a
+marker was found at the original registration time), but the audit trail
+is slightly fictionalized — those rows weren't actually
+founder-terminal-verified. Visible footprint: any historical audit-log
+analysis treating `verified_via = 'FOUNDER_TERMINAL'` as ground truth for
+which verification method was actually used will overcount
+founder-terminal verifications by however many were originally About-text
+in dev/staging. Prod had no About-text rows at F ship, so prod analytics
+are unaffected — only dev/staging snapshots carry the re-labelled rows.
+
+### F.110 — SL group page parser was broken from E ship to F ship
+
+The `.details h1` / `.details p.desc` selectors that work against the live
+`world.secondlife.com/group/{uuid}` HTML are not the ones E shipped — E
+used `meta name="groupname"` / `meta name="charter"`, which don't exist
+on the real page. Founder UUID extraction was always correct (different
+selector path), so registration-time founder-match still worked. Visible
+footprint: any `aboutText` field on `GroupPageData` returned `null`
+between E and F — only impacts code paths that read `aboutText`, which
+were primarily the About-text verification poll task (now removed in F).
+If anything in future re-introduces an About-text style poll, do not
+trust pre-F parser output as evidence the selectors worked.
+
+### F.111 — 48h bulk-suspend timer has no seller-side countdown UI
+
+Sellers whose listings are admin-suspended via the bulk-suspend path see
+"Auction paused by admin" on the listing detail page but no countdown to
+auto-cancel. The 48h cutoff (configurable via
+`slpa.realty.group-bulk-suspend.auto-cancel-hours`) is enforced
+server-side by `BulkSuspendedListingExpiryTask` — sellers learn about it
+via the suspend-time notification and have to check back manually. If
+sellers start complaining about surprise cancellations, add a countdown
+indicator to the seller's listing detail page. Until then, operations
+can dial the cutoff up before user-facing UI lands.
+
+## §G Realty groups
+
+### G.1 `runZeroPayoutSuccessInline` is the entire post-payout work for case-3 escrows
+
+**Why:** Sub-project G §8.1 split the escrow payout flow. For case-1 the existing terminal-round-trip path runs; for case-3 (`payoutAmt = 0`) `TerminalCommandService.queuePayout` short-circuits and calls `runZeroPayoutSuccessInline` directly, which mirrors the post-payout work (ledger write, escrow → COMPLETED, seller notification, `AgentCommissionDistributor` invocation) without the bot/LSL round-trip.
+
+**How to apply:** If you add a new post-payout side effect (analytics ping, reconciliation row, dispute-window timer) put it in BOTH `handleEscrowPayoutSuccess` (the terminal-callback path) AND `runZeroPayoutSuccessInline` (the zero-payout path) — or refactor the shared bits into a private method both call. Forgetting the inline path silently breaks the case-3 codepath.
+
+**Idempotency:** `runZeroPayoutSuccessInline` is gated on `escrow.getState() == COMPLETED` for the no-op check — the normal callback path uses a `TerminalCommand`-row check, which doesn't apply when no command was enqueued.
+
+### G.2 `GroupWithdrawRecipient.SL_GROUP` rejects suspended registrations, allows drift-flagged ones
+
+**Why:** Sub-project G §7.3. The withdraw path checks two distinct registration states:
+
+- An SL group registration with `liftedAt IS NULL` row in `realty_group_suspensions` for its realty group → 422 `SL_GROUP_REGISTRATION_SUSPENDED`. No L$ moves.
+- An SL group registration whose `drift_reason` is set but the realty group itself is not suspended → the withdraw is allowed. The drift is informational; SL group ownership has changed in-world but the group still operates from SLPA's POV.
+
+**How to apply:** The two states are independent — a registration can be both suspended AND drift-flagged. The suspended-check fires first. Don't conflate them in test fixtures.
+
+### G.3 `realty_groups.suspended` does NOT exist as a column
+
+**Why:** F shipped suspension state as a separate `realty_group_suspensions` table with one row per suspension event. "Is suspended" is determined by `EXISTS (SELECT 1 FROM realty_group_suspensions WHERE realty_group_id = ? AND lifted_at IS NULL)`, not by a boolean column on the parent. The reverse-search ban-evasion gate in G §14 specifically joins on this pattern.
+
+**How to apply:** When writing any "is this group suspended right now?" query, never `SELECT g.suspended FROM realty_groups g` — the column will not exist and your query will throw. Use the active-suspension-row EXISTS pattern instead. `RealtyGroupGuard.requireGroupCanOperate` is the canonical Java-side check.

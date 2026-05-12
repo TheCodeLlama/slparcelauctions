@@ -380,6 +380,66 @@ public class WalletService {
                 UserLedgerEntryType.ESCROW_REFUND.name(), entry.getPublicId());
     }
 
+    /**
+     * Credit the listing agent's user wallet with their share of agent_fee_amt.
+     * Spec §7.2.
+     *
+     * <p>The pre-G case-1 distributor that drove this method was deleted by
+     * sub-project G. The method and the {@code AGENT_FEE_CREDIT} ledger entry
+     * type remain for backwards compatibility with historical ledger rows.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void creditAgentFee(Long userId, Long auctionId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow();
+        UserLedgerEntry entry = creditCommon(user, amount,
+            UserLedgerEntryType.AGENT_FEE_CREDIT, "AUCTION", auctionId);
+        walletBroadcastPublisher.publish(user,
+            UserLedgerEntryType.AGENT_FEE_CREDIT.name(), entry.getPublicId());
+    }
+
+    /**
+     * Credit the listing agent's user wallet with their case-3 commission slice.
+     * Called from {@code AgentCommissionDistributor} inside the escrow-payout-success
+     * transaction for case-3 (SL-group-owned) auctions. Spec §9.6.
+     *
+     * <p>Idempotency key {@code AGCOMM-{auctionId}} prevents a duplicate credit if
+     * the payout callback ever fires twice for the same auction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void creditAgentCommission(Long userId, Long auctionId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        String idempotencyKey = "AGCOMM-" + auctionId;
+        Optional<UserLedgerEntry> existing = ledgerRepository.findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            log.debug("agent commission credit replay for auctionId={} (existing entry id={})",
+                auctionId, existing.get().getId());
+            return;
+        }
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow();
+        long newBalance = user.getBalanceLindens() + amount;
+        user.setBalanceLindens(newBalance);
+        userRepository.save(user);
+        UserLedgerEntry entry = ledgerRepository.save(UserLedgerEntry.builder()
+            .userId(user.getId())
+            .entryType(UserLedgerEntryType.AGENT_COMMISSION_CREDIT)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(user.getReservedLindens())
+            .refType("AUCTION")
+            .refId(auctionId)
+            .idempotencyKey(idempotencyKey)
+            .build());
+        walletBroadcastPublisher.publish(user,
+            UserLedgerEntryType.AGENT_COMMISSION_CREDIT.name(), entry.getPublicId());
+        log.info("agent commission credit: userId={}, auctionId={}, amount={}, balanceAfter={}",
+            userId, auctionId, amount, newBalance);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void creditListingFeeRefund(User user, long amount, Long listingFeeRefundId) {
         UserLedgerEntry entry = creditCommon(user, amount,

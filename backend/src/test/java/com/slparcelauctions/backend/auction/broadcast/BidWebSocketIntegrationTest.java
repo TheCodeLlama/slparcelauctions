@@ -48,9 +48,9 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * End-to-end WebSocket broadcast test — connects a real STOMP client to
+ * End-to-end WebSocket broadcast test â€” connects a real STOMP client to
  * {@code /ws}, subscribes to {@code /topic/auction/{publicId}} without
- * authentication (per sub-spec §4 the topic is public), places a bid via
+ * authentication (per sub-spec Â§4 the topic is public), places a bid via
  * {@link BidService#placeBid}, and asserts the
  * {@link BidSettlementEnvelope} is delivered within 2 seconds of commit.
  *
@@ -67,7 +67,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * <p><strong>Anonymous CONNECT:</strong> the test opens a CONNECT frame
  * without an {@code Authorization} header. The
  * {@code JwtChannelInterceptor} allows anonymous CONNECTs and gates each
- * SUBSCRIBE against a public-prefix allowlist — {@code /topic/auction/**}
+ * SUBSCRIBE against a public-prefix allowlist â€” {@code /topic/auction/**}
  * is on that list.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -120,7 +120,7 @@ class BidWebSocketIntegrationTest {
             @Override
             public Type getPayloadType(StompHeaders headers) {
                 // Spring's default Jackson converter needs a concrete type
-                // hint. The STOMP message arrives as JSON — decode into a
+                // hint. The STOMP message arrives as JSON â€” decode into a
                 // generic Map so the test does not depend on the runtime
                 // classpath exposing BidSettlementEnvelope as a
                 // deserialization target. Field-level assertions are done
@@ -204,7 +204,7 @@ class BidWebSocketIntegrationTest {
     }
 
     // ---------------------------------------------------------------------
-    // Fixture management — committed OUTSIDE the test so the bid-placement
+    // Fixture management â€” committed OUTSIDE the test so the bid-placement
     // transaction can see the rows. Deleted in @AfterEach.
     // ---------------------------------------------------------------------
 
@@ -246,7 +246,6 @@ class BidWebSocketIntegrationTest {
                     .endsAt(now.plusDays(1))
                     .originalEndsAt(now.plusDays(1))
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .build());
 
             auction.setParcelSnapshot(AuctionParcelSnapshot.builder()

@@ -18,9 +18,12 @@ vi.mock("next/navigation", () => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
+const USER_PUBLIC_ID = "00000000-0000-0000-0000-00000000000a";
+
 function makeUser(overrides: Partial<AdminUserDetail> = {}): AdminUserDetail {
   return {
-    id: 10,
+    publicId: USER_PUBLIC_ID,
+    username: "detailuser",
     email: "detail@example.com",
     displayName: "Detail User",
     slAvatarUuid: "aaaabbbb-cccc-dddd-eeee-ffffaaaabbbb",
@@ -44,7 +47,7 @@ function makeUser(overrides: Partial<AdminUserDetail> = {}): AdminUserDetail {
 describe("AdminUserDetailPage", () => {
   it("renders loading state before data arrives", () => {
     // Don't register the handler — let it hang
-    renderWithProviders(<AdminUserDetailPage userId={10} />);
+    renderWithProviders(<AdminUserDetailPage publicId={USER_PUBLIC_ID} />);
     // Should show loading indicator initially since query hasn't resolved
     expect(screen.getByTestId("user-detail-loading")).toBeInTheDocument();
   });
@@ -52,9 +55,9 @@ describe("AdminUserDetailPage", () => {
   it("renders profile header, stats, and tabs after data loads", async () => {
     const user = makeUser();
     server.use(adminHandlers.userDetailSuccess(user));
-    server.use(adminHandlers.userListingsSuccess(10, []));
+    server.use(adminHandlers.userListingsSuccess(USER_PUBLIC_ID, []));
 
-    renderWithProviders(<AdminUserDetailPage userId={10} />);
+    renderWithProviders(<AdminUserDetailPage publicId={USER_PUBLIC_ID} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("user-detail-page")).toBeInTheDocument()
@@ -68,9 +71,9 @@ describe("AdminUserDetailPage", () => {
 
   it("shows display name in profile header", async () => {
     server.use(adminHandlers.userDetailSuccess(makeUser({ displayName: "Specific Name" })));
-    server.use(adminHandlers.userListingsSuccess(10, []));
+    server.use(adminHandlers.userListingsSuccess(USER_PUBLIC_ID, []));
 
-    renderWithProviders(<AdminUserDetailPage userId={10} />);
+    renderWithProviders(<AdminUserDetailPage publicId={USER_PUBLIC_ID} />);
 
     await waitFor(() =>
       expect(screen.getByText("Specific Name")).toBeInTheDocument()
@@ -79,9 +82,9 @@ describe("AdminUserDetailPage", () => {
 
   it("shows ADMIN chip when user is admin", async () => {
     server.use(adminHandlers.userDetailSuccess(makeUser({ role: "ADMIN" })));
-    server.use(adminHandlers.userListingsSuccess(10, []));
+    server.use(adminHandlers.userListingsSuccess(USER_PUBLIC_ID, []));
 
-    renderWithProviders(<AdminUserDetailPage userId={10} />);
+    renderWithProviders(<AdminUserDetailPage publicId={USER_PUBLIC_ID} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("admin-chip")).toBeInTheDocument()
@@ -101,9 +104,9 @@ describe("AdminUserDetailPage", () => {
         })
       )
     );
-    server.use(adminHandlers.userListingsSuccess(10, []));
+    server.use(adminHandlers.userListingsSuccess(USER_PUBLIC_ID, []));
 
-    renderWithProviders(<AdminUserDetailPage userId={10} />);
+    renderWithProviders(<AdminUserDetailPage publicId={USER_PUBLIC_ID} />);
 
     await waitFor(() =>
       expect(screen.getByTestId("banned-chip")).toBeInTheDocument()

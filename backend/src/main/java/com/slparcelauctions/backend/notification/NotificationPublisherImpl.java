@@ -9,6 +9,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import java.time.OffsetDateTime;
@@ -193,9 +194,25 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     @Override
     public void escrowPayout(long sellerUserId, long auctionId, long escrowId,
-                              String parcelName, long payoutL) {
-        String title = String.format("Payout received: L$%,d", payoutL);
-        String body = parcelName + " escrow completed successfully.";
+                              String parcelName, long payoutL,
+                              String groupName, long commissionAmt, long groupSliceAmt) {
+        // Subject is identical for both cases (spec §8.3). Body diverges so the
+        // case-3 "L$0 payout received" misread is replaced with the commission
+        // + group-slice breakdown.
+        String title = "Auction payout processed";
+        String body;
+        if (groupName != null) {
+            // Sub-project G §8.3 -- case-3 (SL-group-owned). payoutL is 0 by
+            // construction; surface the slices instead so the seller sees the
+            // actual L$ movement.
+            body = String.format(
+                "Your auction payout is complete. L$%d agent commission paid; "
+                + "L$%d credited to %s group wallet.",
+                commissionAmt, groupSliceAmt, groupName);
+        } else {
+            // Legacy / case-1 / individual.
+            body = String.format("L$%d payout received for %s.", payoutL, parcelName);
+        }
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT, title, body,
             NotificationDataBuilder.escrowPayout(auctionId, escrowId, parcelName, payoutL),
@@ -292,6 +309,15 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             NotificationDataBuilder.listingRemovedByAdmin(auctionId, parcelName, reason),
             null
         ));
+    }
+
+    @Override
+    public void brokerCancelled(Long listingAgentUserId, Long auctionId, String auctionTitle,
+                                Long brokerUserId, String reason) {
+        // Phase 4 stub — log-only, matching the pattern used for group wallet
+        // notifications (Epic 09 will wire the dispatcher fan-out + body copy).
+        log.info("[NOTIF] brokerCancelled to user={} auction={} title='{}' broker={} reason='{}'",
+                listingAgentUserId, auctionId, auctionTitle, brokerUserId, reason);
     }
 
     @Override
@@ -595,6 +621,24 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         );
     }
 
+    @Override
+    public void listingAutoCancelledFromBulkSuspend(long sellerUserId, long auctionId, String parcelName) {
+        // Reuse the LISTING_CANCELLED_BY_SELLER envelope so the seller's listing
+        // feed groups the auto-cancel alongside other listing-cancellation
+        // notifications. The specific BULK_SUSPEND_TIMER_EXPIRED reason is
+        // surfaced both in the body copy and the data blob so downstream UIs
+        // can distinguish this from a self-cancel.
+        String title = "Auction auto-cancelled: " + parcelName;
+        String body = "Your listing " + parcelName
+            + " was auto-cancelled because the group suspension on this auction lapsed"
+            + " without admin reinstatement. Active bids have been released.";
+        Map<String, Object> data = NotificationDataBuilder.listingCancelledBySeller(
+            auctionId, parcelName, "BULK_SUSPEND_TIMER_EXPIRED");
+        notificationService.publish(new NotificationEvent(
+            sellerUserId, NotificationCategory.LISTING_CANCELLED_BY_SELLER, title, body, data,
+            /* coalesceKey */ null));
+    }
+
     // ─────────────────── Realty groups — lifecycle dispatch (spec §8) ───────────────────
     //
     // Each method composes a Notification with category REALTY_GROUP_* and dispatches
@@ -840,6 +884,136 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             }
         }
         return out;
+    }
+
+    // ── Realty groups — admin moderation (sub-project F §8, §9). Fan-out to every
+    // current member. Task 28 will refine body copy + SL IM integration; for now
+    // this routes through the existing in-app publish primitive so callers can
+    // compile and the audit trail flows.
+
+    @Override
+    public void realtyGroupSuspended(RealtyGroup group, String reason,
+                                     OffsetDateTime expiresAt) {
+        if (group == null) return;
+        boolean permanent = expiresAt == null;
+        String title = (permanent ? "Group banned: " : "Group suspended: ") + group.getName();
+        StringBuilder body = new StringBuilder();
+        if (permanent) {
+            body.append("An admin has banned ").append(group.getName())
+                .append(". The group can no longer create listings, manage memberships, ")
+                .append("or move wallet funds.");
+        } else {
+            body.append("An admin has suspended ").append(group.getName())
+                .append(" until ").append(expiresAt)
+                .append(". The group cannot create listings, manage memberships, ")
+                .append("or move wallet funds until the suspension lifts.");
+        }
+        if (reason != null && !reason.isBlank()) {
+            body.append(" Reason: ").append(reason).append('.');
+        }
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        data.put("reason", reason);
+        data.put("expiresAt", expiresAt == null ? null : expiresAt.toString());
+        data.put("permanent", permanent);
+        for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
+            publishOne(m.getUserId(),
+                NotificationCategory.REALTY_GROUP_SUSPENDED, title, body.toString(), data);
+        }
+    }
+
+    @Override
+    public void realtyGroupUnsuspended(RealtyGroup group) {
+        if (group == null) return;
+        String title = "Group reinstated: " + group.getName();
+        String body = "The suspension on " + group.getName()
+            + " has been lifted. The group can resume normal operations.";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
+            publishOne(m.getUserId(),
+                NotificationCategory.REALTY_GROUP_UNSUSPENDED, title, body, data);
+        }
+    }
+
+    @Override
+    public void groupReportThresholdReached(RealtyGroup group, int threshold) {
+        if (group == null) return;
+        String title = "Realty group \"" + group.getName()
+            + "\" reached " + threshold + " open reports";
+        String body = "Review the queue at /admin/realty-groups/"
+            + group.getPublicId() + "/reports";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        data.put("threshold", threshold);
+        // Fan-out target is the full set of admin role-holders -- mirrors the
+        // ReconciliationService pattern (NotificationCategory.RECONCILIATION_MISMATCH
+        // also uses findByRole). Group members are NOT recipients; this category
+        // routes through NotificationGroup.ADMIN_OPS.
+        for (User admin : userRepository.findByRole(Role.ADMIN)) {
+            publishOne(admin.getId(),
+                NotificationCategory.GROUP_REPORT_THRESHOLD_REACHED,
+                title, body, data);
+        }
+    }
+
+    @Override
+    public void realtyGroupSlGroupDriftDetected(long leaderUserId, long groupId,
+                                                String slGroupName, String driftReason) {
+        // Phase 4 wiring — route through the existing in-app publish primitive so the
+        // group leader gets notified the moment the reverify task flags drift. Body
+        // copy + SL IM channel dispatch are refined in Task 28; carrying groupId +
+        // driftReason on the data blob is enough for the frontend feed today.
+        RealtyGroup group = realtyGroupRepository.findById(groupId).orElse(null);
+        String groupName = group == null ? "your realty group" : group.getName();
+        String slLabel = slGroupName == null || slGroupName.isBlank() ? "an SL group" : slGroupName;
+        String title = "SL group drift detected: " + slLabel;
+        String body = switch (driftReason) {
+            case "FOUNDER_CHANGED" -> "The founder of " + slLabel
+                + " (registered to " + groupName + ") has changed. The realty group may have lost"
+                + " in-world ownership of this SL group. Re-verify or unregister it from your"
+                + " group's SL groups tab.";
+            case "GROUP_NOT_FOUND" -> "The SL group " + slLabel + " (registered to "
+                + groupName + ") could not be found on Second Life. It may have been deleted."
+                + " Unregister it from your group's SL groups tab.";
+            case "FETCH_FAILED_REPEATEDLY" -> "Repeated attempts to re-verify " + slLabel
+                + " (registered to " + groupName + ") against Second Life failed. The group"
+                + " may have become unreachable. Re-verify from your group's SL groups tab once"
+                + " SL is responsive again.";
+            default -> "Drift was detected on " + slLabel + " (registered to "
+                + groupName + "). Review the group's SL groups tab.";
+        };
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group == null ? null : group.getPublicId(),
+            group == null ? null : group.getName(),
+            group == null ? null : group.getSlug());
+        data.put("slGroupName", slGroupName);
+        data.put("driftReason", driftReason);
+        publishOne(leaderUserId,
+            NotificationCategory.REALTY_GROUP_SL_GROUP_DRIFT_DETECTED, title, body, data);
+    }
+
+    // ── Group wallet withdrawal notifications (stub — fanout wired when Epic 09 dispatcher extended)
+
+    @Override
+    public void groupWalletWithdrawalCompleted(Long groupId, long amount, Long ledgerId) {
+        log.info("[NOTIF] group {} withdrawal completed L${} (ledger {})", groupId, amount, ledgerId);
+    }
+
+    @Override
+    public void groupWalletWithdrawalReversed(Long groupId, long amount, Long ledgerId, String reason) {
+        log.warn("[NOTIF] group {} withdrawal reversed L${} (ledger {}) reason={}",
+            groupId, amount, ledgerId, reason);
+    }
+
+    @Override
+    public void groupWalletDormancyFlagged(Long groupId, int phase, long balance) {
+        log.info("[NOTIF] group {} dormancy flagged phase={} balance=L${}", groupId, phase, balance);
+    }
+
+    @Override
+    public void groupWalletDormancyAutoReturned(Long groupId, long amount) {
+        log.info("[NOTIF] group {} dormancy auto-returned L${}", groupId, amount);
     }
 
     /** Common per-recipient publish path for realty group notifications. */

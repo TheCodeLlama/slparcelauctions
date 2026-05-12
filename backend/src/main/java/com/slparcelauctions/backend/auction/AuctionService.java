@@ -99,7 +99,6 @@ public class AuctionService {
                 .sellerDesc(req.sellerDesc())
                 .tags(tags)
                 .commissionRate(defaultCommissionRate)
-                .agentFeeRate(BigDecimal.ZERO)
                 .currentBid(0L)
                 .bidCount(0)
                 .listingFeePaid(false)
@@ -204,6 +203,20 @@ public class AuctionService {
     @Transactional(readOnly = true)
     public Auction loadForSellerByPublicId(java.util.UUID publicId, Long sellerId) {
         return auctionRepo.findByPublicIdAndSellerId(publicId, sellerId)
+                .orElseThrow(() -> new AuctionNotFoundException(publicId));
+    }
+
+    /**
+     * Non-seller-scoped auction lookup by public id. Used by the broker-cancel
+     * endpoint (Realty Groups E §5.2) where the acting broker is not the
+     * auction's seller — the seller-scoped variant above would 404 the broker
+     * to themselves. Authorization (broker holds {@code MANAGE_ALL_LISTINGS}
+     * on the owning realty group) is enforced downstream by
+     * {@code CancellationService.brokerCancel}.
+     */
+    @Transactional(readOnly = true)
+    public Auction loadAnyByPublicId(java.util.UUID publicId) {
+        return auctionRepo.findByPublicId(publicId)
                 .orElseThrow(() -> new AuctionNotFoundException(publicId));
     }
 

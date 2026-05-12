@@ -5,8 +5,8 @@ import { ListAsGroupPicker } from "./ListAsGroupPicker";
 import type { ListingEligibleGroup } from "@/types/realty";
 
 const groups: ListingEligibleGroup[] = [
-  { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, agentFeeRate: 0.02 },
-  { publicId: "g2", name: "Sunrise Lands", slug: "sunrise", logoUrl: null, agentFeeRate: 0.01 },
+  { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, agentCommissionRate: 0.02 },
+  { publicId: "g2", name: "Sunrise Lands", slug: "sunrise", logoUrl: null, agentCommissionRate: 0.01 },
 ];
 
 describe("ListAsGroupPicker", () => {

@@ -10,6 +10,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
+import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.sl.ParcelIngestException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.NotMainlandException;
@@ -75,6 +77,20 @@ public class GlobalExceptionHandler {
         pd.setTitle("Type mismatch");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "TYPE_MISMATCH");
+        return pd;
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ProblemDetail handleMissingParameter(MissingServletRequestParameterException e,
+                                                 HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Required parameter '" + e.getParameterName() + "' is missing.");
+        pd.setType(URI.create("https://slpa.example/problems/missing-parameter"));
+        pd.setTitle("Missing parameter");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "MISSING_PARAMETER");
+        pd.setProperty("parameter", e.getParameterName());
         return pd;
     }
 
@@ -143,6 +159,27 @@ public class GlobalExceptionHandler {
         pd.setTitle("Not Verified");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "NOT_VERIFIED");
+        return pd;
+    }
+
+    /**
+     * Global catch for {@link InsufficientGroupBalanceException} thrown from
+     * non-realty controllers (e.g. {@code MeWalletController.payListingFee} when
+     * routing a group-listed auction's fee to the group wallet). The package-scoped
+     * {@code RealtyExceptionHandler} handles the same exception for realty controllers;
+     * this global mapping is the safety net for any controller outside that package.
+     */
+    @ExceptionHandler(InsufficientGroupBalanceException.class)
+    public ProblemDetail handleInsufficientGroupBalance(InsufficientGroupBalanceException e,
+                                                        HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/insufficient-group-balance"));
+        pd.setTitle("Insufficient Group Balance");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INSUFFICIENT_GROUP_BALANCE");
+        pd.setProperty("available", e.getAvailable());
+        pd.setProperty("requested", e.getRequested());
         return pd;
     }
 

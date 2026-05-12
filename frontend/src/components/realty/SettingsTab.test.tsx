@@ -15,6 +15,7 @@ function makeAgent(overrides: Partial<AgentCardDto> = {}): AgentCardDto {
     role: "AGENT",
     permissions: [],
     joinedAt: "2026-04-15T10:00:00Z",
+    agentCommissionRate: null,
     ...overrides,
   };
 }
@@ -37,8 +38,6 @@ function makeGroup(
       avatarUrl: null,
     },
     agents: [makeAgent()],
-    agentFeeRate: "0.0000",
-    agentFeeSplit: "0.5000",
     memberSeatLimit: 50,
     memberCount: 2,
     ...overrides,

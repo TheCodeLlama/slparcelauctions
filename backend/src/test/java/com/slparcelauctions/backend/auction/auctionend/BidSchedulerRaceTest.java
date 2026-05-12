@@ -38,24 +38,24 @@ import com.slparcelauctions.backend.user.UserRepository;
  * Race regression for the Task 6 close path vs the snipe-extending bid path.
  * Two threads drive their own transactions against the same auction:
  * <ul>
- *   <li>Thread A — {@link BidService#placeBid} inside the snipe window, which
+ *   <li>Thread A â€” {@link BidService#placeBid} inside the snipe window, which
  *       pushes {@code endsAt} forward by the window size.</li>
- *   <li>Thread B — {@link AuctionEndTask#closeOne}, which re-checks the three
+ *   <li>Thread B â€” {@link AuctionEndTask#closeOne}, which re-checks the three
  *       gates under a pessimistic lock before closing.</li>
  * </ul>
  *
  * <p>Both orderings are valid outcomes:
  * <ol>
- *   <li>Bid commits first → scheduler re-reads the extended {@code endsAt},
+ *   <li>Bid commits first â†’ scheduler re-reads the extended {@code endsAt},
  *       sees it in the future, skips the close. Auction stays ACTIVE.</li>
- *   <li>Scheduler commits first → bid path takes the lock after commit, sees
+ *   <li>Scheduler commits first â†’ bid path takes the lock after commit, sees
  *       status=ENDED, throws {@link InvalidAuctionStateException} (or if the
  *       scheduler had not yet flipped the status but endsAt was already in
  *       the past, {@link AuctionAlreadyEndedException}).</li>
  * </ol>
  *
  * <p>Exactly one operation must succeed. The other must surface a deterministic
- * failure — never a double close or a silent no-op on both sides.
+ * failure â€” never a double close or a silent no-op on both sides.
  *
  * <p><strong>Critical:</strong> this class is NOT {@code @Transactional};
  * both threads use explicit {@link TransactionTemplate}s. The fixture rows
@@ -120,8 +120,8 @@ class BidSchedulerRaceTest {
 
     @Test
     void snipeBid_vs_schedulerClose_exactlyOneSucceeds() throws Exception {
-        // Auction endsAt is ONE SECOND AWAY — well inside a 5-minute snipe
-        // window — so the bid will extend it. The scheduler's query sees the
+        // Auction endsAt is ONE SECOND AWAY â€” well inside a 5-minute snipe
+        // window â€” so the bid will extend it. The scheduler's query sees the
         // row as due the moment now() crosses endsAt, racing the bid's lock
         // acquisition.
         setup(/* snipeMinutes */ 5);
@@ -140,7 +140,7 @@ class BidSchedulerRaceTest {
             try {
                 go.await();
                 // Sleep a touch so endsAt is confidently in the past from
-                // the scheduler's perspective — BidService uses the server
+                // the scheduler's perspective â€” BidService uses the server
                 // clock for its own re-check.
                 Thread.sleep(1200);
                 txTemplate.execute(tx -> {
@@ -187,7 +187,7 @@ class BidSchedulerRaceTest {
         // InvalidAuctionStateException).
         if (reloaded.getStatus() == AuctionStatus.ACTIVE) {
             // Bid won the race. The scheduler's re-check must have seen
-            // endsAt in the future and skipped — closeOne returned cleanly,
+            // endsAt in the future and skipped â€” closeOne returned cleanly,
             // so closeSucceeded is true but no mutation occurred.
             assertThat(bidSucceeded.get())
                     .as("bid must have succeeded when auction stays ACTIVE")
@@ -273,7 +273,6 @@ class BidSchedulerRaceTest {
                 .endsAt(endsAt)
                 .originalEndsAt(endsAt)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
 
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()

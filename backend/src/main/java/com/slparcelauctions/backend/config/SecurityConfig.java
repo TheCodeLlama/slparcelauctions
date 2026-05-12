@@ -83,6 +83,14 @@ public class SecurityConfig {
                         // /api/v1/sl/verify: header-validated inside the handler,
                         // no JWT (the SL grid cannot authenticate). FOOTGUNS §B.5.
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/parcel/verify").permitAll()
+                        // Realty groups sub-project E §7.3 founder-via-terminal
+                        // LSL callback. Same trust model as the other /api/v1/sl/**
+                        // permitAll matchers above: SL-injected headers
+                        // (X-SecondLife-Shard / X-SecondLife-Owner-Key) validated
+                        // by SlHeaderValidator inside SlGroupVerifyController; the
+                        // LSL caller cannot present a JWT. FOOTGUNS §B.5: this
+                        // MUST sit before the /api/v1/** catch-all (first-match-wins).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/sl-group/verify").permitAll()
                         // Escrow SL-facing endpoints (Epic 05 sub-spec 1 Tasks 4/5/7/9).
                         // Same dual-layer trust model as /api/v1/sl/verify: SL headers
                         // (X-SecondLife-Shard / X-SecondLife-Owner-Key) validated by
@@ -269,6 +277,12 @@ public class SecurityConfig {
                         // unauthenticated browse pages consume this endpoint.
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty/groups/*/listings").permitAll()
+                        // Realty group public reviews list (sub-project G §13).
+                        // Auth: public — mirrors the user-side public reviews endpoint
+                        // ({@code GET /api/v1/users/{publicId}/reviews}). Dedicated group
+                        // reviews page is anonymous-accessible per spec.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty/groups/*/reviews").permitAll()
                         // Admin surface (Epic 10 sub-spec 1 Task 1).
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

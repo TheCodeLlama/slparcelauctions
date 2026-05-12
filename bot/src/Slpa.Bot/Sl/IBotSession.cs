@@ -32,4 +32,13 @@ public interface IBotSession : IAsyncDisposable
     /// timeout. Returns null on timeout; throws on session loss.
     /// </summary>
     Task<ParcelSnapshot?> ReadParcelAsync(double x, double y, CancellationToken ct);
+
+    /// <summary>
+    /// Issues a Self.GiveGroupMoney transfer from the logged-in avatar to the
+    /// supplied SL group UUID. Returns synchronously -- LibreMetaverse fires the
+    /// transfer and the caller has no acknowledgement to await locally; success
+    /// vs. failure surfaces via the in-world money-tracker callback, which the
+    /// backend ingests separately. Sub-project G §7.4.
+    /// </summary>
+    void GiveGroupMoney(Guid slGroupUuid, int amountL, string memo);
 }

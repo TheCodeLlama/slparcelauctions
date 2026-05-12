@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.LeaderCannotLeaveException;
 import com.slparcelauctions.backend.realty.exception.LeaderTransferTargetNotMemberException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -51,6 +52,7 @@ public class RealtyGroupMembershipService {
     private final NotificationPublisher notifications;
     private final UserRepository users;
     private final AuctionRepository auctions;
+    private final RealtyGroupGuard realtyGroupGuard;
 
     /**
      * Caller leaves the group. Deletes their own member row. Leader cannot leave — must
@@ -69,7 +71,9 @@ public class RealtyGroupMembershipService {
             .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
 
         members.deleteByGroupIdAndUserId(group.getId(), callerUserId);
-        auctions.reassignListingAgentForGroup(group.getId(), callerUserId, group.getLeaderId());
+        // E §10: case-3 reassigns seller_id on pre-terminal listings; commission
+        // attribution (listing_agent_id) is preserved by leaving the original agent.
+        auctions.reassignSellerToLeaderForCase3(callerUserId, group.getId(), group.getLeaderId());
         // Resolve the User entity for the notification payload. Skip the fire if the row
         // somehow vanished mid-tx (defensive — same defensive posture as the dissolve path).
         Optional<User> leftUser = users.findById(callerUserId);
@@ -91,6 +95,7 @@ public class RealtyGroupMembershipService {
      */
     public void removeMember(UUID groupPublicId, UUID memberPublicId, Long callerUserId) {
         RealtyGroup group = loadActive(groupPublicId);
+        realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.REMOVE_AGENTS);
 
         RealtyGroupMember row = members.findByPublicId(memberPublicId)
@@ -104,7 +109,9 @@ public class RealtyGroupMembershipService {
         }
 
         members.deleteByGroupIdAndUserId(group.getId(), row.getUserId());
-        auctions.reassignListingAgentForGroup(group.getId(), row.getUserId(), group.getLeaderId());
+        // E §10: case-3 reassigns seller_id on pre-terminal listings; commission
+        // attribution (listing_agent_id) is preserved by leaving the original agent.
+        auctions.reassignSellerToLeaderForCase3(row.getUserId(), group.getId(), group.getLeaderId());
         Optional<User> removedUser = users.findById(row.getUserId());
         removedUser.ifPresent(u -> notifications.realtyGroupMemberRemoved(group, u));
         log.info("Realty group member removed: groupPublicId={} memberPublicId={} callerUserId={}",

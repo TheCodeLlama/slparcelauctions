@@ -43,20 +43,20 @@ import javax.sql.DataSource;
  * retrofitted onto {@link AuctionRepository#findByIdForUpdate}, both writers
  * serialise on the row lock so the loser observes the winner's committed
  * state and surfaces a deterministic failure (or commits cleanly when the
- * sequence is legal per spec §5).
+ * sequence is legal per spec Â§5).
  *
  * <p>Accepted orderings:
  * <ol>
  *   <li>Bid commits first, cancel takes the lock with status=ACTIVE and
- *       bidCount=1 → cancel succeeds; {@code cancelled_with_bids} counter
+ *       bidCount=1 â†’ cancel succeeds; {@code cancelled_with_bids} counter
  *       increments on the seller.</li>
- *   <li>Cancel commits first, bid takes the lock with status=CANCELLED →
+ *   <li>Cancel commits first, bid takes the lock with status=CANCELLED â†’
  *       bid surfaces {@link InvalidAuctionStateException}.</li>
  * </ol>
  *
  * <p>The critical invariant is that <em>exactly one of</em>
  * {@code bidCount} and {@code status=CANCELLED} came from the other writer
- * — they are never both silently no-ops and the auction's committed
+ * â€” they are never both silently no-ops and the auction's committed
  * {@code currentBid}/{@code bidCount} is never divorced from the
  * {@code bid} rows on disk.
  *
@@ -187,14 +187,14 @@ class BidCancelRaceTest {
 
         if (reloaded.getStatus() == AuctionStatus.CANCELLED) {
             // Exactly one of the two orderings:
-            //   (a) cancel commits first, bid then sees CANCELLED → rejected.
-            //   (b) bid commits first, cancel then runs on ACTIVE-with-bids →
+            //   (a) cancel commits first, bid then sees CANCELLED â†’ rejected.
+            //   (b) bid commits first, cancel then runs on ACTIVE-with-bids â†’
             //       succeeds; the counter bumps and the bid row survives.
             assertThat(cancelSucceeded.get())
                     .as("cancel must have committed when final status=CANCELLED")
                     .isTrue();
             if (bidSucceeded.get()) {
-                // (b) — bid won the lock first, cancel followed.
+                // (b) â€” bid won the lock first, cancel followed.
                 assertThat(reloaded.getBidCount())
                         .as("bid that committed first must persist bidCount=1")
                         .isEqualTo(1);
@@ -205,7 +205,7 @@ class BidCancelRaceTest {
                         .as("cancelled_with_bids counter must bump when cancel runs on ACTIVE with bids")
                         .isEqualTo(1);
             } else {
-                // (a) — cancel won the lock first, bid then failed 409.
+                // (a) â€” cancel won the lock first, bid then failed 409.
                 assertThat(bidError.get())
                         .as("bid must have surfaced a deterministic 4xx when cancel committed first; got %s",
                                 bidError.get())
@@ -223,7 +223,7 @@ class BidCancelRaceTest {
                         .isZero();
             }
         } else {
-            // The auction is still ACTIVE — only possible if the cancel threw
+            // The auction is still ACTIVE â€” only possible if the cancel threw
             // (e.g. its own validation tripped) and bid committed cleanly.
             // This is not an expected orderings outcome for this fixture:
             // both operations are legal from ACTIVE, so at least one should
@@ -294,7 +294,6 @@ class BidCancelRaceTest {
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
 
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
