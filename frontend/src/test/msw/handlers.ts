@@ -714,7 +714,7 @@ export const adminHandlers = {
     );
   },
 
-  demoteUser409SelfForbidden(userId: number) {
+  demoteUser409SelfForbidden(userId: string | number) {
     return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
       HttpResponse.json(
         { code: "SELF_DEMOTE_FORBIDDEN", message: "Cannot demote yourself", details: {} },
@@ -723,7 +723,7 @@ export const adminHandlers = {
     );
   },
 
-  demoteUser409NotAdmin(userId: number) {
+  demoteUser409NotAdmin(userId: string | number) {
     return http.post(`*/api/v1/admin/users/${userId}/demote`, () =>
       HttpResponse.json(
         { code: "NOT_ADMIN", message: "User is not an admin", details: {} },

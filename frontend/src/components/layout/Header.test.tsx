@@ -47,6 +47,7 @@ describe("Header", () => {
       status: "authenticated",
       user: {
         publicId: "00000000-0000-0000-0000-000000000001",
+        username: "heath",
         email: "heath@example.com",
         displayName: "Heath Barcus",
         slAvatarUuid: null,

@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
-const USER_ID = 7;
+const USER_ID = "00000000-0000-0000-0000-000000000007";
 
 function makeWrapper(qc: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {

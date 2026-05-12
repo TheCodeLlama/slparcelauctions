@@ -38,6 +38,7 @@ vi.mock("next/navigation", () => ({
 // the form's primary user flow.
 const winnerUser: AuthUser = {
   publicId: "00000000-0000-0000-0000-0000000003e7",
+  username: "winner",
   email: "winner@example.com",
   displayName: "Winner",
   slAvatarUuid: "99999999-9999-9999-9999-999999999999",

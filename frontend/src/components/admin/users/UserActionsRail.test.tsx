@@ -18,7 +18,8 @@ vi.mock("next/navigation", () => ({
 
 function makeUser(overrides: Partial<AdminUserDetail> = {}): AdminUserDetail {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
+    username: "testuser",
     email: "user@example.com",
     displayName: "Test User",
     slAvatarUuid: "11111111-2222-3333-4444-555555555555",

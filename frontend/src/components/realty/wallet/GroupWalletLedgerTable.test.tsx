@@ -18,7 +18,7 @@ function makeLedgerEntry(
     reservedAfter: 0,
     refType: "AUCTION",
     refPublicId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    actor: null,
+    actor: undefined,
     createdAt: "2026-05-10T10:00:00Z",
     ...overrides,
   };

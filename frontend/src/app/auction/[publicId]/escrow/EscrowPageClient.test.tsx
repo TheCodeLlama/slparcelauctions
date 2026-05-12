@@ -64,6 +64,7 @@ vi.mock("next/navigation", () => ({
 // session cache directly, so session.user.publicId drives role derivation.
 const winnerUser: AuthUser = {
   publicId: "00000000-0000-0000-0000-0000000003e7",
+  username: "winner",
   email: "winner@example.com",
   displayName: "Winner",
   slAvatarUuid: "99999999-9999-9999-9999-999999999999",
@@ -74,6 +75,7 @@ const winnerUser: AuthUser = {
 // Seller fixture with a publicId that matches the fixture sellerPublicId.
 const sellerUser: AuthUser = {
   publicId: "00000000-0000-0000-0000-00000000002a",
+  username: "seller",
   email: "seller@example.com",
   displayName: "Seller",
   slAvatarUuid: "42424242-4242-4242-4242-424242424242",

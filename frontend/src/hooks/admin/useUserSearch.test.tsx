@@ -23,7 +23,8 @@ vi.mock("next/navigation", () => ({
 
 function makeUser(overrides: Partial<AdminUserSummary> = {}): AdminUserSummary {
   return {
-    id: 1,
+    publicId: "00000000-0000-0000-0000-000000000001",
+    username: "alice",
     email: "alice@example.com",
     displayName: "Alice",
     slAvatarUuid: "aaaa-1111",
@@ -75,7 +76,7 @@ describe("useUserSearch", () => {
   });
 
   it("enables and fetches when query is 2+ chars", async () => {
-    const user = makeUser({ id: 5, displayName: "Alice" });
+    const user = makeUser({ publicId: "00000000-0000-0000-0000-000000000005", displayName: "Alice" });
     server.use(adminHandlers.usersSearchSuccess([user]));
 
     const qc = new QueryClient({
