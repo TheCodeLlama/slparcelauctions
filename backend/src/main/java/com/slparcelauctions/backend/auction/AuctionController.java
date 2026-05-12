@@ -122,9 +122,10 @@ public class AuctionController {
         // get LazyInitializationException at JSON serialization time.
         List<Auction> auctions = auctionService.loadOwnedBy(principal.userId());
         Map<Long, Escrow> escrows = loadEscrowsFor(auctions);
-        return auctions.stream()
-                .map(a -> mapper.toSellerResponse(a, null, escrows.get(a.getId())))
-                .toList();
+        // Sub-project G section 6.1 -- batch entry point pre-loads
+        // group + primary photo + winner publicId via three batched queries
+        // instead of one query per auction per dimension.
+        return mapper.toBatchSellerResponses(auctions, null, escrows);
     }
 
     @PutMapping("/auctions/{publicId}")
@@ -245,8 +246,16 @@ public class AuctionController {
         // per row once ENDED variants become reachable here.
         var page = auctionService.loadActiveBySeller(sellerId, pageable);
         Map<Long, Escrow> escrows = loadEscrowsFor(page.getContent());
-        return PagedResponse.from(page.map(a ->
-                mapper.toPublicResponse(a, escrows.get(a.getId()))));
+        // Sub-project G section 6.1 -- batch entry point pre-loads
+        // group + primary photo + winner publicId via three batched queries
+        // instead of one query per auction per dimension.
+        List<PublicAuctionResponse> rows = mapper.toBatchPublicResponses(page.getContent(), escrows);
+        return new PagedResponse<>(
+                rows,
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.getNumber(),
+                page.getSize());
     }
 
     /**

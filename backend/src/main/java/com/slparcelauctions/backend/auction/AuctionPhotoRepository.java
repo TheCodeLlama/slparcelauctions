@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -29,4 +30,27 @@ public interface AuctionPhotoRepository extends JpaRepository<AuctionPhoto, Long
      */
     @Query("select coalesce(max(p.sortOrder), -1) from AuctionPhoto p where p.auction.id = :auctionId")
     int findMaxSortOrderByAuctionId(@Param("auctionId") Long auctionId);
+
+    /**
+     * Sub-project G section 6.1 -- batch resolver for "primary photo" used by
+     * {@link com.slparcelauctions.backend.auction.AuctionDtoMapper.MapperBatchContext}.
+     *
+     * <p>Returns one {@link AuctionPhoto} per supplied auction id: the row with
+     * the lowest {@code sortOrder} on each auction (matches the per-row
+     * resolution that {@code photoList} used to do via
+     * {@code findByAuctionIdOrderBySortOrderAsc(...).get(0)}). Auctions with no
+     * photos return no row.
+     *
+     * <p>One query per call regardless of input cardinality. Empty input is
+     * accepted and returns an empty list (no SQL emitted; Spring Data short-
+     * circuits the empty {@code IN ()} case).
+     */
+    @Query("""
+        SELECT p FROM AuctionPhoto p
+         WHERE p.auction.id IN :auctionIds
+           AND p.sortOrder = (
+               SELECT MIN(p2.sortOrder) FROM AuctionPhoto p2
+                WHERE p2.auction.id = p.auction.id)
+        """)
+    List<AuctionPhoto> findPrimaryForAuctions(@Param("auctionIds") Set<Long> auctionIds);
 }

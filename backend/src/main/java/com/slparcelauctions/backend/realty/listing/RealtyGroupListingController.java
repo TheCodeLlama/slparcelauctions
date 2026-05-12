@@ -70,6 +70,11 @@ public class RealtyGroupListingController {
                 .orElseThrow(() -> new RealtyGroupNotFoundException(publicId));
         Set<AuctionStatus> statuses = parseStatuses(status);
         Page<Auction> page = auctions.findByRealtyGroupIdAndStatusIn(g.getId(), statuses, pageable);
+        // Sub-project G section 6.1 batch wiring for this controller is
+        // deferred -- it needs an EscrowRepository injection to drive the
+        // batch entry point without regressing per-row escrow resolution.
+        // Single-DTO mapper still runs (single per-row group/photo/winner
+        // queries) here.
         return page.map(auctionMapper::toPublicResponse);
     }
 
