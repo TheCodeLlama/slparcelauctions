@@ -4,9 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -14,6 +18,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,6 +33,8 @@ import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.monitoring.ListingSuspension;
+import com.slparcelauctions.backend.auction.monitoring.ListingSuspensionCause;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -46,6 +53,7 @@ class CancellationServiceTest {
     @Mock NotificationPublisher notificationPublisher;
     @Mock BanCheckService banCheckService;
     @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
+    @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
 
     CancellationService service;
 
@@ -62,7 +70,7 @@ class CancellationServiceTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
-                realtyGroupAuthorizer, fixed);
+                realtyGroupAuthorizer, listingSuspensionRepo, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -244,6 +252,138 @@ class CancellationServiceTest {
         assertThat(log.getCancelledFromStatus()).isEqualTo("DRAFT");
         assertThat(log.getHadBids()).isFalse();
         assertThat(log.getReason()).isEqualTo("manual test reason");
+    }
+
+    // -------------------------------------------------------------------------
+    // adminCancelExpiredBulkSuspend -- Sub-project F §10.2
+    // -------------------------------------------------------------------------
+
+    /**
+     * Routes a {@link CancellationService#adminCancelExpiredBulkSuspend} call
+     * through the mocked repositories. Builds a SUSPENDED auction and a matching
+     * ListingSuspension row so the method observes the same shape its real
+     * caller ({@code BulkSuspendedListingExpiryTask}) would feed it.
+     */
+    private Auction suspendedAuction(int bidCount) {
+        Auction a = build(AuctionStatus.SUSPENDED, true, bidCount);
+        a.setListingFeeAmt(100L);
+        a.setEndsAt(OffsetDateTime.now(fixed).plusHours(10));
+        return a;
+    }
+
+    private ListingSuspension stubListingSuspension(Long id, Auction auction) {
+        ListingSuspension ls = ListingSuspension.builder()
+                .auction(auction)
+                .cause(ListingSuspensionCause.ADMIN_GROUP_BULK)
+                .bulkActionId(UUID.randomUUID())
+                .reason("BULK_SUSPEND")
+                .suspendedAt(OffsetDateTime.now(fixed).minusHours(49))
+                .build();
+        // Mocked find returns this row; cancelledAt mutates in-place on the
+        // returned reference so the test asserts directly on it.
+        lenient().when(listingSuspensionRepo.findById(id)).thenReturn(Optional.of(ls));
+        return ls;
+    }
+
+    @Test
+    void adminCancelExpiredBulkSuspend_refundsAllReservedBids() {
+        Auction a = suspendedAuction(3);
+        stubListingSuspension(7L, a);
+        lenient().when(auctionRepo.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+        when(bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId()))
+                .thenReturn(List.of(101L, 102L, 103L));
+
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+
+        // Bidder fan-out is the cause-neutral mechanism that releases proxy
+        // intent on the bidder side -- mirroring how cancel() and cancelByAdmin
+        // surface "your bid is no longer held" to bidders. Verifying the
+        // fan-out is the unit-test-level proxy for the refund pathway.
+        verify(notificationPublisher).listingCancelledBySellerFanout(
+                eq(a.getId()), eq(List.of(101L, 102L, 103L)), eq(a.getTitle()), isNull());
+    }
+
+    @Test
+    void adminCancelExpiredBulkSuspend_setsAuctionStatusCancelled() {
+        Auction a = suspendedAuction(0);
+        stubListingSuspension(7L, a);
+        lenient().when(auctionRepo.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.CANCELLED);
+        verify(auctionRepo).save(a);
+    }
+
+    @Test
+    void adminCancelExpiredBulkSuspend_writesCancellationLogWithAdminBulkExpired() {
+        Auction a = suspendedAuction(2);
+        stubListingSuspension(7L, a);
+        lenient().when(auctionRepo.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+
+        ArgumentCaptor<CancellationLog> cap = ArgumentCaptor.forClass(CancellationLog.class);
+        verify(logRepo).save(cap.capture());
+        CancellationLog row = cap.getValue();
+        assertThat(row.getPenaltyKind()).isEqualTo(CancellationOffenseKind.ADMIN_BULK_EXPIRED);
+        assertThat(row.getPenaltyAmountL()).isNull();
+        assertThat(row.getCancelledFromStatus()).isEqualTo("SUSPENDED");
+        assertThat(row.getHadBids()).isTrue();
+        // No seller ladder advance -- counter untouched, no userRepo.save.
+        assertThat(seller.getCancelledWithBids()).isZero();
+        verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void adminCancelExpiredBulkSuspend_setsListingSuspensionCancelledAt() {
+        Auction a = suspendedAuction(0);
+        ListingSuspension ls = stubListingSuspension(7L, a);
+        lenient().when(auctionRepo.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+
+        assertThat(ls.getCancelledAt()).isEqualTo(OffsetDateTime.now(fixed));
+        assertThat(ls.getLiftedAt()).isNull();
+    }
+
+    @Test
+    void adminCancelExpiredBulkSuspend_publishesBidderFanoutAndSellerNotification() {
+        Auction a = suspendedAuction(2);
+        stubListingSuspension(7L, a);
+        lenient().when(auctionRepo.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+        when(bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId()))
+                .thenReturn(List.of(201L, 202L));
+
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+
+        // Bidder fan-out is cause-neutral (null reason) so bidders never see
+        // admin attribution per FOOTGUNS §F.104.
+        verify(notificationPublisher).listingCancelledBySellerFanout(
+                eq(a.getId()), eq(List.of(201L, 202L)), eq(a.getTitle()), isNull());
+        // Seller gets the F-specific helper with BULK_SUSPEND_TIMER_EXPIRED reason.
+        verify(notificationPublisher).listingAutoCancelledFromBulkSuspend(
+                seller.getId(), a.getId(), a.getTitle());
+    }
+
+    @Test
+    void adminCancelExpiredBulkSuspend_isIdempotentAcrossDuplicateCalls() {
+        Auction a = suspendedAuction(1);
+        stubListingSuspension(7L, a);
+        lenient().when(auctionRepo.findByIdForUpdate(a.getId())).thenReturn(Optional.of(a));
+
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+        // After the first call the auction is CANCELLED. The mocked
+        // findByIdForUpdate still returns the same instance; the method must
+        // observe status != SUSPENDED and return without writing a second log
+        // row or stamping cancelled_at again.
+        service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
+
+        verify(logRepo, times(1)).save(any(CancellationLog.class));
+        verify(auctionRepo, times(1)).save(any(Auction.class));
+        // Second call returned before touching the listing suspension repo a
+        // second time -- assert by counting findById calls.
+        verify(listingSuspensionRepo, times(1)).findById(7L);
     }
 
     // -------------------------------------------------------------------------

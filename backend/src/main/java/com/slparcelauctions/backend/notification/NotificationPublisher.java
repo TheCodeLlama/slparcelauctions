@@ -84,6 +84,16 @@ public interface NotificationPublisher {
     void listingCancelledBySellerFanout(long auctionId, List<Long> activeBidderUserIds,
                                          String parcelName, String reason);
 
+    /**
+     * Sub-project F §10.2 -- seller-facing notification fired when the
+     * bulk-suspend auto-cancel timer (default 48 h) expires without admin
+     * reinstatement and the parent listing is auto-cancelled. Carries the
+     * specific {@code BULK_SUSPEND_TIMER_EXPIRED} reason; bidders receive the
+     * cause-neutral {@link #listingCancelledBySellerFanout} envelope instead so
+     * admin attribution does not leak.
+     */
+    void listingAutoCancelledFromBulkSuspend(long sellerUserId, long auctionId, String parcelName);
+
     // Admin infrastructure
     void reconciliationMismatch(List<Long> adminUserIds, long drift, String date);
 

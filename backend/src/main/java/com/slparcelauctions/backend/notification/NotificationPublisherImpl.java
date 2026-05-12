@@ -604,6 +604,24 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         );
     }
 
+    @Override
+    public void listingAutoCancelledFromBulkSuspend(long sellerUserId, long auctionId, String parcelName) {
+        // Reuse the LISTING_CANCELLED_BY_SELLER envelope so the seller's listing
+        // feed groups the auto-cancel alongside other listing-cancellation
+        // notifications. The specific BULK_SUSPEND_TIMER_EXPIRED reason is
+        // surfaced both in the body copy and the data blob so downstream UIs
+        // can distinguish this from a self-cancel.
+        String title = "Auction auto-cancelled: " + parcelName;
+        String body = "Your listing " + parcelName
+            + " was auto-cancelled because the group suspension on this auction lapsed"
+            + " without admin reinstatement. Active bids have been released.";
+        Map<String, Object> data = NotificationDataBuilder.listingCancelledBySeller(
+            auctionId, parcelName, "BULK_SUSPEND_TIMER_EXPIRED");
+        notificationService.publish(new NotificationEvent(
+            sellerUserId, NotificationCategory.LISTING_CANCELLED_BY_SELLER, title, body, data,
+            /* coalesceKey */ null));
+    }
+
     // ─────────────────── Realty groups — lifecycle dispatch (spec §8) ───────────────────
     //
     // Each method composes a Notification with category REALTY_GROUP_* and dispatches

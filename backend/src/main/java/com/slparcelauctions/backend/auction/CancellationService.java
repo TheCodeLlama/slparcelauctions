@@ -16,6 +16,8 @@ import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.BrokerCancelNotApplicableException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
+import com.slparcelauctions.backend.auction.monitoring.ListingSuspension;
+import com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
@@ -72,6 +74,7 @@ public class CancellationService {
     private final CancellationPenaltyProperties penaltyProps;
     private final BanCheckService banCheckService;
     private final RealtyGroupAuthorizer realtyGroupAuthorizer;
+    private final ListingSuspensionRepository listingSuspensionRepo;
     private final Clock clock;
 
     @Transactional
@@ -478,5 +481,93 @@ public class CancellationService {
         }
 
         return saved;
+    }
+
+    /**
+     * Sub-project F §10.2 -- per-row callback invoked by
+     * {@code BulkSuspendedListingExpiryTask} for each {@code listing_suspensions}
+     * row older than the configured bulk-suspend auto-cancel window. Cancels the
+     * still-{@code SUSPENDED} listing administratively: no seller penalty, no
+     * ladder bump, no ownership-watcher arm.
+     *
+     * <p>The method is idempotent: a second call observes {@code status !=
+     * SUSPENDED} and returns without writing a log row or flipping the listing.
+     * This matches the safety the expiry task needs: a re-run that races with
+     * an admin manual reinstate (or another concurrent expiry tick) leaves the
+     * auction in whichever state the first writer committed.
+     *
+     * <p>Bidder fan-out reuses {@link NotificationPublisher#listingCancelledBySellerFanout}
+     * with a cause-neutral envelope (no admin attribution leaks to bidders); the
+     * seller receives the F-specific
+     * {@link NotificationPublisher#listingAutoCancelledFromBulkSuspend} helper
+     * which carries the {@code BULK_SUSPEND_TIMER_EXPIRED} reason. The
+     * {@link CancellationLog} row is stamped with
+     * {@link CancellationOffenseKind#ADMIN_BULK_EXPIRED} -- excluded from
+     * {@code countPriorOffensesWithBids} so the seller's penalty ladder never
+     * advances.
+     */
+    @Transactional
+    public void adminCancelExpiredBulkSuspend(Long auctionId, Long listingSuspensionId) {
+        Auction a = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+        if (a.getStatus() != AuctionStatus.SUSPENDED) {
+            log.info("auction {} not SUSPENDED at expiry-cancel time (was {}); skipping",
+                    auctionId, a.getStatus());
+            return; // idempotent
+        }
+
+        AuctionStatus from = a.getStatus();
+        boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
+
+        // Write the cancellation log row first. ADMIN_BULK_EXPIRED is excluded
+        // from countPriorOffensesWithBids so the seller's ladder never advances.
+        // No penalty ladder; no seller-row lock; no cancelledWithBids bump.
+        logRepo.save(CancellationLog.builder()
+                .auction(a)
+                .seller(a.getSeller())
+                .cancelledFromStatus(from.name())
+                .hadBids(hadBids)
+                .reason("BULK_SUSPEND_TIMER_EXPIRED")
+                .penaltyKind(CancellationOffenseKind.ADMIN_BULK_EXPIRED)
+                .penaltyAmountL(null)
+                .build());
+
+        a.setStatus(AuctionStatus.CANCELLED);
+        Auction saved = auctionRepo.save(a);
+        monitorLifecycle.onAuctionClosed(saved);
+
+        // Stamp the listing_suspensions row so the expiry sweep does not retry
+        // it on the next tick and so audit-trail reconciliation reports show
+        // the row resolved via auto-cancel rather than admin reinstate.
+        ListingSuspension ls = listingSuspensionRepo.findById(listingSuspensionId).orElseThrow();
+        ls.setCancelledAt(OffsetDateTime.now(clock));
+
+        // Bidder fan-out -- cause-neutral copy per FOOTGUNS §F.104. Bidders
+        // never see admin attribution. Empty list is a no-op; stale bidder ids
+        // log a contained warning per the publisher's contract.
+        List<Long> bidderIds = bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId());
+        notificationPublisher.listingCancelledBySellerFanout(
+                a.getId(), bidderIds, a.getTitle(), null);
+
+        // Seller-facing notification with the specific BULK_SUSPEND_TIMER_EXPIRED reason.
+        notificationPublisher.listingAutoCancelledFromBulkSuspend(
+                a.getSeller().getId(), a.getId(), a.getTitle());
+
+        log.info("Auction {} auto-cancelled from {} via bulk-suspend timer expiry (hadBids={})",
+                a.getId(), from, hadBids);
+
+        AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
+                saved, hadBids, OffsetDateTime.now(clock));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcastPublisher.publishCancelled(envelope);
+                        }
+                    });
+        } else {
+            broadcastPublisher.publishCancelled(envelope);
+        }
     }
 }
