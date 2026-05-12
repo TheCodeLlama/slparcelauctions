@@ -56,7 +56,6 @@ class RealtyGroupSlGroupServiceListDeleteRecheckTest {
                 .realtyGroupId(realtyGroupId)
                 .slGroupUuid(UUID.randomUUID())
                 .verified(verified)
-                .pollAttempts(0)
                 .build();
         setBaseFields(row, id, publicId);
         return row;

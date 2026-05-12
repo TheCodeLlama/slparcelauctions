@@ -4,7 +4,5 @@ import java.time.OffsetDateTime;
 
 public record SlGroupPendingDto(
         String verificationCode,
-        OffsetDateTime verificationCodeExpiresAt,
-        OffsetDateTime lastPolledAt,
-        int pollAttempts
+        OffsetDateTime verificationCodeExpiresAt
 ) {}

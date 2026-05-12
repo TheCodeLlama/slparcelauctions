@@ -69,7 +69,6 @@ public class RealtyGroupSlGroupService {
                 .verified(false)
                 .verificationCode(codeGen.generate())
                 .verificationCodeExpiresAt(now.plus(VERIFICATION_TTL))
-                .pollAttempts(0)
                 .build();
         RealtyGroupSlGroup saved = repo.save(row);
         log.info("SL group registered (pending): realtyGroupId={} slGroupUuid={} code={}",

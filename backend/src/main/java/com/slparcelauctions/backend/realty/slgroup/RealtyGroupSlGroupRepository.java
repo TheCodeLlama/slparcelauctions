@@ -35,21 +35,13 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
             @Param("realtyGroupId") Long realtyGroupId,
             @Param("slGroupUuid") UUID slGroupUuid);
 
-    /**
-     * Pending rows due for an about-text poll. The partial index
-     * ix_rg_sl_groups_pending_poll covers this query (verified=false AND
-     * verified_via IS NULL).
-     */
-    @Query("""
-        SELECT r FROM RealtyGroupSlGroup r
-         WHERE r.verified = false
-           AND r.verifiedVia IS NULL
-           AND r.verificationCodeExpiresAt > :now
-           AND (r.lastPolledAt IS NULL OR r.lastPolledAt < :pollCutoff)
-        """)
-    List<RealtyGroupSlGroup> findDueForAboutTextPoll(
-            @Param("now") OffsetDateTime now,
-            @Param("pollCutoff") OffsetDateTime pollCutoff);
+    // TODO Task 21 will delete SlGroupAboutTextPollTask along with this query. The
+    // partial index ix_rg_sl_groups_pending_poll was already dropped by V28; the
+    // lastPolledAt/pollAttempts columns the previous JPQL referenced no longer exist.
+    // Returning an empty list here keeps the poll task a no-op until it is removed.
+    default List<RealtyGroupSlGroup> findDueForAboutTextPoll(OffsetDateTime now, OffsetDateTime pollCutoff) {
+        return java.util.Collections.emptyList();
+    }
 
     /** Pending rows whose verification window has expired. Used by the hourly cleanup task. */
     @Query("""

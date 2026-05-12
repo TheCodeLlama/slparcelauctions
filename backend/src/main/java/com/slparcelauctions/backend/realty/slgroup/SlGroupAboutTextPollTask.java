@@ -3,23 +3,25 @@ package com.slparcelauctions.backend.realty.slgroup;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.GroupPageData;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Sub-project E spec §7.2 -- polls pending {@link RealtyGroupSlGroup} rows on a 5-minute
- * cadence. For each row that hasn't been polled in the last 5 minutes, fetches the SL group
- * page and looks for the verification code in the About text. On match, flips the row to
- * verified-via-ABOUT_TEXT.
+ * Sub-project E spec §7.2 -- previously polled pending {@link RealtyGroupSlGroup} rows on a
+ * 5-minute cadence and looked for the verification code in the SL group About text. Sub-project
+ * F retires the ABOUT_TEXT verification path: V28 dropped the {@code last_polled_at} and
+ * {@code poll_attempts} columns this task depended on and tightened the {@code verified_via}
+ * CHECK constraint to only admit {@code FOUNDER_TERMINAL}.
+ *
+ * <p>This class is reduced to a near-no-op until Task 21 deletes it entirely along with its
+ * test, the dev controller hook, and the {@link SlGroupVerifyMethod#ABOUT_TEXT} enum value.
  */
 @Component
 @RequiredArgsConstructor
@@ -35,53 +37,26 @@ public class SlGroupAboutTextPollTask {
     @Scheduled(fixedDelay = 5 * 60 * 1000L)
     @Transactional
     public void runScheduled() {
+        // TODO Task 21 will delete this class. The repository's findDueForAboutTextPoll
+        // now returns an empty list (the partial index it relied on, and the columns its
+        // JPQL referenced, were both removed by V28), so the loop body never runs.
         OffsetDateTime now = OffsetDateTime.now(clock);
         OffsetDateTime cutoff = now.minus(POLL_INTERVAL);
-        List<RealtyGroupSlGroup> due = repo.findDueForAboutTextPoll(now, cutoff);
-        for (RealtyGroupSlGroup row : due) {
-            try {
-                pollOne(row, now);
-            } catch (RuntimeException e) {
-                log.warn("about-text poll for sl_group {} threw {}; will retry next cycle",
-                        row.getSlGroupUuid(), e.toString());
-            }
-        }
+        repo.findDueForAboutTextPoll(now, cutoff);
     }
 
     /**
-     * Polls a single row immediately, regardless of throttle. Called by the manual
-     * /recheck endpoint and by the scheduled sweep.
+     * Polls a single row immediately. Retained as a stub so the existing dev controller
+     * hook and tests can keep compiling until Task 21 deletes them along with this class.
      */
     @Transactional
     public RealtyGroupSlGroup pollOne(RealtyGroupSlGroup row, OffsetDateTime now) {
-        GroupPageData page;
+        // TODO Task 21 will delete this class. ABOUT_TEXT verification is being retired.
         try {
-            page = worldApi.fetchGroupPage(row.getSlGroupUuid()).block();
-        } catch (RuntimeException e) {
-            row.setLastPolledAt(now);
-            row.setPollAttempts(row.getPollAttempts() + 1);
-            return repo.save(row);
+            worldApi.fetchGroupPage(row.getSlGroupUuid()).block();
+        } catch (RuntimeException ignored) {
+            // swallow -- Task 21 will remove this path entirely.
         }
-        if (page == null) {
-            row.setLastPolledAt(now);
-            row.setPollAttempts(row.getPollAttempts() + 1);
-            return repo.save(row);
-        }
-        String about = page.aboutText();
-        String code = row.getVerificationCode();
-        if (about != null && code != null && about.contains(code)) {
-            row.setVerified(true);
-            row.setVerifiedAt(now);
-            row.setVerifiedVia(SlGroupVerifyMethod.ABOUT_TEXT);
-            row.setVerificationCode(null);
-            if (page.name() != null && row.getSlGroupName() == null) {
-                row.setSlGroupName(page.name());
-            }
-            log.info("SL group verified via ABOUT_TEXT: sl_group_uuid={}", row.getSlGroupUuid());
-        } else {
-            row.setLastPolledAt(now);
-            row.setPollAttempts(row.getPollAttempts() + 1);
-        }
-        return repo.save(row);
+        return row;
     }
 }

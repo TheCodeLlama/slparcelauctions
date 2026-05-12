@@ -143,7 +143,6 @@ class RealtyGroupListingControllerTest {
             .slGroupName("SL Group " + slGroupUuid.toString().substring(0, 6))
             .verified(true)
             .verifiedAt(OffsetDateTime.now())
-            .pollAttempts(0)
             .build());
     }
 

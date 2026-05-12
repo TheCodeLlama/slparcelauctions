@@ -207,9 +207,9 @@ git commit -m "feat(realty-f): V28 migration — moderation tables + sl_groups c
 
 ---
 
-## Task 2: Domain entities (RealtyGroupSuspension, RealtyGroupReport, ListingSuspension)
+## Task 2: Domain entities (new + sync existing to V28)
 
-**Files:**
+**Files (new):**
 - Create: `backend/src/main/java/com/slparcelauctions/backend/realty/moderation/RealtyGroupSuspension.java`
 - Create: `backend/src/main/java/com/slparcelauctions/backend/realty/moderation/SuspensionReason.java`
 - Create: `backend/src/main/java/com/slparcelauctions/backend/realty/reports/RealtyGroupReport.java`
@@ -218,7 +218,17 @@ git commit -m "feat(realty-f): V28 migration — moderation tables + sl_groups c
 - Create: `backend/src/main/java/com/slparcelauctions/backend/auction/monitoring/ListingSuspension.java`
 - Create: `backend/src/main/java/com/slparcelauctions/backend/auction/monitoring/ListingSuspensionCause.java`
 
-**Spec references:** §4.1–§4.3.
+**Files (modify to sync entities with V28 schema changes):**
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/realty/slgroup/RealtyGroupSlGroup.java`
+  - **Remove fields:** `lastPolledAt`, `pollAttempts` (V28 dropped these columns).
+  - **Add fields:** `lastRevalidatedAt: OffsetDateTime`, `currentFounderUuid: UUID`, `consecutiveFetchFailures: int` (default 0), `driftDetectedAt: OffsetDateTime`, `driftReason: String`, `driftAcknowledgedAt: OffsetDateTime`, `driftAcknowledgedByAdmin: User` (ManyToOne), `unregisteredAt: OffsetDateTime`, `unregisteredByAdmin: User` (ManyToOne), `unregisterReason: String`.
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/fraud/FraudFlag.java`
+  - **Add field:** `entityType: FraudFlagEntityKind` (Enumerated, STRING). Defaults to `LISTING` for backwards compatibility (the V28 migration set the column default; this matches at the Java level).
+- Modify: any existing repository / DTO / mapper that touches these dropped fields. Likely impacted: `RealtyGroupSlGroupRepository`, `SlGroupRegistrationExpiryTask`, `SlGroupAboutTextPollTask` (this will be deleted in Task 21; for Task 2, comment-out references that don't compile and add a TODO marker noting Task 21 deletion). Better: temporarily delete the broken references inline since Task 21 is going to remove them anyway — but ONLY remove imports/usages that no longer compile, not the broader About-text path code (that's Task 21).
+
+**Spec references:** §4.1–§4.3 (new entities), §4.4 (RealtyGroupSlGroup sync), §4.5 (FraudFlag entity_type added by V28).
+
+**Important:** Hibernate `ddl-auto: validate` (which Spring Boot 4 + Flyway sets by default) will fail to start the backend if the entity fields don't match the V28 schema. This task MUST sync the existing entities, not just create new ones.
 
 - [ ] **Step 1: Write entity classes following the BaseMutableEntity convention**
 
