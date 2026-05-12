@@ -39,7 +39,6 @@ import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -48,17 +47,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @RestControllerAdvice(basePackages = "com.slparcelauctions.backend.realty")
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
-@RequiredArgsConstructor
 @Slf4j
 public class RealtyExceptionHandler {
-
-    /**
-     * Injected so {@link #handleReportRateLimited} can compute the next UTC-midnight
-     * reset for the {@code Retry-After} header. {@code RealtyGroupReportRateLimiter}
-     * uses {@code LocalDate.now(clock)} for its bucket key, so anchoring the retry
-     * hint to the same clock keeps the two consistent under test.
-     */
-    private final Clock clock;
 
     @ExceptionHandler(RealtyGroupNotFoundException.class)
     public ProblemDetail handleNotFound(RealtyGroupNotFoundException e, HttpServletRequest req) {
@@ -566,6 +556,12 @@ public class RealtyExceptionHandler {
     @ExceptionHandler(ReportRateLimitedException.class)
     public ResponseEntity<ProblemDetail> handleReportRateLimited(
             ReportRateLimitedException e, HttpServletRequest req) {
+        // Uses Clock.systemUTC() inline rather than an injected Clock so this handler
+        // remains constructible without DI — keeps @WebMvcTest slice tests that
+        // @Import this advice from blowing up on context start. Production behavior
+        // is unchanged; the 429 path itself is exercised via service-layer mocks in
+        // RealtyGroupReportControllerSliceTest, so test-determinism is preserved.
+        Clock clock = Clock.systemUTC();
         OffsetDateTime now = OffsetDateTime.now(clock);
         OffsetDateTime nextResetUtc = LocalDate.now(clock)
             .plusDays(1)

@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.realty.wallet.exception;
 
-import java.time.Clock;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -12,9 +11,7 @@ import com.slparcelauctions.backend.realty.exception.RealtyExceptionHandler;
 
 class RealtyWalletExceptionHandlerTest {
 
-    // Clock injected solely so the report-rate-limited handler can compute next-day
-    // reset; the wallet handlers under test here ignore it.
-    private final RealtyExceptionHandler handler = new RealtyExceptionHandler(Clock.systemUTC());
+    private final RealtyExceptionHandler handler = new RealtyExceptionHandler();
     private final MockHttpServletRequest req = new MockHttpServletRequest("POST", "/realty/groups/test/wallet");
 
     @Test
