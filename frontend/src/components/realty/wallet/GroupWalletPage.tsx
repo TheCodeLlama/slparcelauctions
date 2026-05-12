@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useGroupWallet } from "@/hooks/realty/useGroupWallet";
+import { useRealtyGroupSlGroups } from "@/hooks/realty/useRealtyGroupSlGroups";
 import { GroupWalletBalanceCard } from "./GroupWalletBalanceCard";
 import { GroupWalletLedgerTable } from "./GroupWalletLedgerTable";
-import { GroupWithdrawModal } from "./GroupWithdrawModal";
+import {
+  GroupWithdrawModal,
+  type GroupWithdrawSlGroupOption,
+} from "./GroupWithdrawModal";
 import { LeaderTermsBlockBanner } from "./LeaderTermsBlockBanner";
 
 export interface GroupWalletPageProps {
@@ -35,7 +39,21 @@ export interface GroupWalletPageProps {
  */
 export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
   const { data: wallet, isPending, error } = useGroupWallet(publicId);
+  const { data: slGroups } = useRealtyGroupSlGroups(publicId);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+
+  // Find the realty group's currently-registered + verified SL group, if any.
+  // The wallet endpoint already enforces non-suspension (RealtyGroupGuard short-
+  // circuits on active suspensions); a successful wallet fetch means the group
+  // is operable, so we pass suspended: false. Drift is allowed per §7.3.
+  const slGroupOption = useMemo<GroupWithdrawSlGroupOption | null>(() => {
+    const verified = slGroups?.find((g) => g.verified) ?? null;
+    if (!verified) return null;
+    return {
+      name: verified.slGroupName ?? verified.slGroupUuid,
+      suspended: false,
+    };
+  }, [slGroups]);
 
   if (isPending) {
     return <LoadingSpinner label="Loading wallet..." />;
@@ -81,17 +99,8 @@ export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="group-wallet-page">
-      {/* Leader ToS block banner — gated on {@code wallet.leaderTermsAcceptedAt}.
-          The banner renders iff the wallet payload reports the leader has NOT
-          accepted wallet ToS ({@code leaderTermsAcceptedAt == null}). The
-          field is being added to the {@code GroupWallet} TS type by Task 18
-          in parallel; until that lands we narrow it here via a local cast.
-          Once Task 18 is merged, drop the cast and rely on the type. */}
       <LeaderTermsBlockBanner
-        leaderTermsAcceptedAt={
-          (wallet as unknown as { leaderTermsAcceptedAt?: string | null })
-            .leaderTermsAcceptedAt
-        }
+        leaderTermsAcceptedAt={wallet.leaderTermsAcceptedAt}
       />
 
       <GroupWalletBalanceCard
@@ -118,6 +127,7 @@ export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
         onClose={() => setWithdrawOpen(false)}
         publicId={publicId}
         available={wallet.available}
+        slGroup={slGroupOption}
       />
     </div>
   );
