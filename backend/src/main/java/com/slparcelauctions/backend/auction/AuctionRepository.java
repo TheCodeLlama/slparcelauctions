@@ -281,4 +281,27 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
      */
     @Query("SELECT a.id FROM Auction a WHERE a.currentBidderId = :userId AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE")
     List<Long> findIdsByCurrentBidderIdAndActive(@Param("userId") Long userId);
+
+    /**
+     * Returns {@code true} when any non-terminal case-3 auction references the
+     * given {@code realty_group_sl_group_id}. Used by
+     * {@link com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupService#unregister}
+     * to block removal of an SL group registration while live listings still
+     * reference it (spec §12.2).
+     *
+     * <p>Terminal statuses (COMPLETED, CANCELLED, EXPIRED, DISPUTED, SUSPENDED)
+     * are excluded — once a listing has reached one of those, the SL group
+     * registration is no longer load-bearing for it.
+     */
+    @Query("""
+            SELECT (COUNT(a) > 0) FROM Auction a
+             WHERE a.realtyGroupSlGroupId = :slGroupId
+               AND a.status NOT IN (
+                    com.slparcelauctions.backend.auction.AuctionStatus.COMPLETED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.CANCELLED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.EXPIRED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.DISPUTED,
+                    com.slparcelauctions.backend.auction.AuctionStatus.SUSPENDED)
+            """)
+    boolean existsCase3ForSlGroup(@Param("slGroupId") Long slGroupId);
 }
