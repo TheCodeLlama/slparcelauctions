@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +61,33 @@ public class RealtyGroupReportService {
     private final RealtyGroupReportRateLimiter rateLimiter;
     private final AdminActionService adminActionService;
     private final Clock clock;
+
+    /**
+     * Look up a single report by its public id. Used by the admin detail endpoint.
+     * Read-only — does not change report state.
+     *
+     * @throws ReportNotFoundException if {@code reportPublicId} resolves to nothing
+     */
+    @Transactional(readOnly = true)
+    public RealtyGroupReport find(UUID reportPublicId) {
+        return reportRepo.findByPublicId(reportPublicId)
+            .orElseThrow(() -> new ReportNotFoundException(reportPublicId));
+    }
+
+    /**
+     * Paginated query of reports filtered by status. When {@code status} is null the
+     * full table is returned, ordered by {@code Pageable}'s sort. Used by the admin
+     * moderation queue.
+     */
+    @Transactional(readOnly = true)
+    public Page<RealtyGroupReport> findAll(
+            RealtyGroupReportStatus status,
+            Pageable pageable) {
+        if (status == null) {
+            return reportRepo.findAll(pageable);
+        }
+        return reportRepo.findByStatus(status, pageable);
+    }
 
     /**
      * Submit a new report against a realty group. The reporter must be authenticated
