@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.escrow.command;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -77,13 +78,40 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
 
+    /**
+     * Queues an escrow payout to the seller's SL terminal. Sub-project G §8.1
+     * short-circuit: when {@code escrow.getPayoutAmt() == 0L} (case-3
+     * SL-group-owned auctions; the agent commission and group slice both flow
+     * through {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor}
+     * inside the success path), the terminal round-trip is skipped and the
+     * post-payout work runs inline via {@link #runZeroPayoutSuccessInline}.
+     * Returns {@link Optional#empty()} in that case so the caller knows no
+     * {@link TerminalCommand} was enqueued.
+     *
+     * @return the enqueued command, or {@link Optional#empty()} when the
+     *         payout amount is zero and the success path ran inline.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public TerminalCommand queuePayout(Escrow escrow) {
+    public Optional<TerminalCommand> queuePayout(Escrow escrow) {
+        if (escrow.getPayoutAmt() != null && escrow.getPayoutAmt() == 0L) {
+            if (escrow.getState() == EscrowState.COMPLETED) {
+                // Idempotent replay: a previous call already ran the inline
+                // success path. No-op so we don't double-write the ledger row,
+                // double-notify the seller, or double-credit commissions.
+                log.info("queuePayout: escrow {} already COMPLETED, no-op", escrow.getId());
+                return Optional.empty();
+            }
+            log.info("queuePayout: escrow {} payoutAmt=0 (case-3), running success path inline",
+                    escrow.getId());
+            runZeroPayoutSuccessInline(escrow, OffsetDateTime.now(clock));
+            return Optional.empty();
+        }
         String recipientUuid = escrow.getAuction().getSeller().getSlAvatarUuid().toString();
-        return queue(escrow.getId(), null,
+        TerminalCommand cmd = queue(escrow.getId(), null,
                 TerminalCommandAction.PAYOUT, TerminalCommandPurpose.AUCTION_ESCROW,
                 recipientUuid, escrow.getPayoutAmt(),
                 idempotencyKey("ESC", escrow.getId(), TerminalCommandAction.PAYOUT, 1));
+        return Optional.of(cmd);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -329,6 +357,82 @@ public class TerminalCommandService {
         //
         //   (The pre-G case-1 path -- realty_group_id set but realty_group_sl_group_id
         //   null -- was removed when sub-project G deleted the case-1 distributor.)
+        if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
+            agentCommissionDistributor.distribute(
+                finalEscrow.getAuction(),
+                finalEscrow.getFinalBidAmount(),
+                finalEscrow.getCommissionAmt());
+        }
+    }
+
+    /**
+     * Sub-project G §8.1 -- post-payout success path for the case-3 zero-payout
+     * branch. Mirrors {@link #handleEscrowPayoutSuccess}'s body but is driven
+     * directly from {@link #queuePayout} (no terminal callback because no
+     * terminal round-trip happened). Writes the {@code AUCTION_ESCROW_PAYOUT}
+     * ledger row with amount=0, transitions the escrow to COMPLETED, bumps the
+     * seller's completedSales counter, broadcasts the
+     * {@link EscrowCompletedEnvelope} after commit, notifies the seller, and
+     * invokes
+     * {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor#distribute}
+     * so the agent slice and group slice land in their respective wallets.
+     *
+     * <p>Idempotency is enforced by the caller -- {@link #queuePayout} short-
+     * circuits when the escrow is already COMPLETED.
+     */
+    private void runZeroPayoutSuccessInline(Escrow escrow, OffsetDateTime now) {
+        EscrowService.enforceTransitionAllowed(
+                escrow.getId(), escrow.getState(), EscrowState.COMPLETED);
+        escrow.setState(EscrowState.COMPLETED);
+        escrow.setCompletedAt(now);
+        escrow = escrowRepo.save(escrow);
+
+        monitorLifecycle.onEscrowTerminal(escrow);
+
+        User seller = escrow.getAuction().getSeller();
+        int prior = seller.getCompletedSales() == null ? 0 : seller.getCompletedSales();
+        seller.setCompletedSales(prior + 1);
+        userRepo.save(seller);
+
+        // Same shape as the terminal-callback path; amount = 0, no slTxn, no
+        // terminalId. Reconciliation by type (AUCTION_ESCROW_PAYOUT) still works.
+        ledgerRepo.save(EscrowTransaction.builder()
+                .escrow(escrow)
+                .auction(escrow.getAuction())
+                .type(EscrowTransactionType.AUCTION_ESCROW_PAYOUT)
+                .status(EscrowTransactionStatus.COMPLETED)
+                .amount(0L)
+                .payee(escrow.getAuction().getSeller())
+                .completedAt(now)
+                .build());
+        ledgerRepo.save(EscrowTransaction.builder()
+                .escrow(escrow)
+                .auction(escrow.getAuction())
+                .type(EscrowTransactionType.AUCTION_ESCROW_COMMISSION)
+                .status(EscrowTransactionStatus.COMPLETED)
+                .amount(escrow.getCommissionAmt())
+                .completedAt(now)
+                .build());
+
+        final Escrow finalEscrow = escrow;
+        final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
+        registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
+
+        // Seller payout notification; Task 24 tweaks the body copy so case-3
+        // doesn't say "L$0 payout received". Amount is still 0 here -- the
+        // builder decides the body string based on realtyGroupId.
+        notificationPublisher.escrowPayout(
+                finalEscrow.getAuction().getSeller().getId(),
+                finalEscrow.getAuction().getId(),
+                finalEscrow.getId(),
+                finalEscrow.getAuction().getTitle(),
+                0L);
+
+        // Case-3 distributor: credits agent_slice to the listing agent's wallet,
+        // group_slice to the group wallet. Both flow through here because
+        // payoutAmt = 0 meant no L$ left SLPA via the terminal. By construction
+        // (Sub-project E spec §9.6 post-G), case-3 is the only branch that
+        // reaches this method.
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
             agentCommissionDistributor.distribute(
                 finalEscrow.getAuction(),

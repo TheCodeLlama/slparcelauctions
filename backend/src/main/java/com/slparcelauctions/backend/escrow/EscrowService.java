@@ -435,10 +435,17 @@ public class EscrowService {
     /**
      * Delegates to {@link TerminalCommandService#queuePayout} once the
      * ownership monitor confirms the seller has transferred the parcel to
-     * the winner. The state flip from {@code TRANSFER_PENDING} to
-     * {@code COMPLETED} is owned by the callback path in
-     * {@code TerminalCommandService.applyCallback}, not this hook — queuing
-     * the command merely schedules the terminal POST.
+     * the winner. For non-zero payouts (individual / non-group), the state
+     * flip from {@code TRANSFER_PENDING} to {@code COMPLETED} is owned by the
+     * callback path in {@code TerminalCommandService.applyCallback}, not this
+     * hook — queuing the command merely schedules the terminal POST.
+     *
+     * <p>Sub-project G §8.1: for case-3 (SL-group-owned, payoutAmt = 0),
+     * {@code queuePayout} short-circuits and runs the success path inline,
+     * returning {@link java.util.Optional#empty()}. The state flip to
+     * {@code COMPLETED} has already happened by the time this method returns.
+     * We discard the return value either way — the contract is
+     * fire-and-forget; the caller doesn't care which branch ran.
      */
     void queuePayoutOnConfirm(Escrow escrow) {
         terminalCommandService.queuePayout(escrow);
