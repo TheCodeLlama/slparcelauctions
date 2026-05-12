@@ -111,4 +111,36 @@ public class RealtyGroup extends BaseMutableEntity {
     public boolean isDissolved() {
         return dissolvedAt != null;
     }
+
+    // -------------------------------------------------------------------------
+    // Sub-project D — group wallet columns (spec §3.1)
+    // -------------------------------------------------------------------------
+
+    @Builder.Default
+    @Column(name = "balance_lindens", nullable = false)
+    private long balanceLindens = 0L;
+
+    @Builder.Default
+    @Column(name = "reserved_lindens", nullable = false)
+    private long reservedLindens = 0L;
+
+    /** Set by the group dormancy job when no member has been active for 30 days. */
+    @Column(name = "wallet_dormancy_started_at")
+    private OffsetDateTime walletDormancyStartedAt;
+
+    /**
+     * Dormancy phase: 1–4 = escalating IMs, 99 = COMPLETED (auto-return fired).
+     * NULL means not dormant.
+     */
+    @Column(name = "wallet_dormancy_phase")
+    private Short walletDormancyPhase;
+
+    /**
+     * Spendable balance: balance minus any reserved amount.
+     * Computed at read time; not stored (spec §3.1).
+     */
+    @jakarta.persistence.Transient
+    public long availableLindens() {
+        return balanceLindens - reservedLindens;
+    }
 }
