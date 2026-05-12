@@ -3,8 +3,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getGroupWallet } from "@/lib/api/realtyGroupWallet";
-import { useRealtyGroup } from "@/hooks/realty/useRealtyGroups";
-import { useAuth } from "@/lib/auth";
 
 const PLATFORM_COMMISSION_RATE = 0.05;
 
@@ -22,6 +20,13 @@ export interface AgentCommissionPreviewProps {
   /** publicId of the realty group the listing is being created under. */
   groupPublicId: string;
   /**
+   * Caller's per-member commission rate within the group, sourced directly
+   * from the {@code listing-eligible-groups} row (sub-project G section 6.2).
+   * The wizard hands it in so this component no longer round-trips through
+   * {@code useRealtyGroup}.
+   */
+  agentCommissionRate: number;
+  /**
    * Called whenever the "insufficient balance" state changes. The parent
    * uses this to gate the publish button. The listing fee == platform
    * commission == floor(startingBid * 0.05) in Phase 1.
@@ -38,37 +43,19 @@ export interface AgentCommissionPreviewProps {
  * agent's per-member {@code agentCommissionRate}. The group wallet pays the
  * listing fee (which equals the platform commission in Phase 1).
  *
- * The agent's commission rate is sourced from the {@link useRealtyGroup}
- * fetch — the public group DTO embeds each member's {@code agentCommissionRate}
- * on {@code AgentCardDto} (visible to members because the caller is one).
- * The leader's commission rate is null on the leader card; that's never a
- * case-3 flow (leaders don't list under themselves through the agent
- * preview) so we treat a missing rate as 0 conservatively — the preview
- * still renders and shows the group taking the full earnings slice.
+ * The agent's commission rate arrives as a prop from the wizard, which
+ * reads it off the eligible-list row the user picked in
+ * {@code ListAsGroupPicker}. This removes the prior {@code useRealtyGroup}
+ * round-trip that re-fetched the public group DTO solely to read the
+ * caller's member row.
  */
 export function AgentCommissionPreview({
   startingBid,
   groupName,
   groupPublicId,
+  agentCommissionRate,
   onInsufficient,
 }: AgentCommissionPreviewProps) {
-  const session = useAuth();
-  const callerUserPublicId =
-    session.status === "authenticated" ? session.user.publicId : null;
-
-  const groupQ = useRealtyGroup(groupPublicId);
-
-  // Find the caller's member row to pull their per-member commission rate.
-  // Leaders surface as the group's {@code leader} block (no commission rate
-  // field there); regular members live in {@code agents}. Default to 0 when
-  // the caller can't be found in either bucket — the preview renders the
-  // safest split (group keeps everything).
-  const callerAgent =
-    groupQ.data?.agents.find(
-      (a) => a.userPublicId === callerUserPublicId,
-    ) ?? null;
-  const agentCommissionRate = callerAgent?.agentCommissionRate ?? 0;
-
   const walletQuery = useQuery({
     queryKey: ["realty", "group", groupPublicId, "wallet"],
     queryFn: () => getGroupWallet(groupPublicId),

@@ -266,7 +266,6 @@ class DevAuctionControllerTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         if (status == AuctionStatus.ACTIVE) {
             OffsetDateTime now = OffsetDateTime.now();

@@ -127,7 +127,6 @@ class CancellationFanoutIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(OffsetDateTime.now().minusHours(1))
                     .endsAt(OffsetDateTime.now().plusHours(24))
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))
@@ -188,7 +187,7 @@ class CancellationFanoutIntegrationTest {
 
         cancellationService.cancel(auctionId, "testing", null);
 
-        // No bidders → no LISTING_CANCELLED_BY_SELLER notifications for anyone.
+        // No bidders â†’ no LISTING_CANCELLED_BY_SELLER notifications for anyone.
         // Check specifically: no notification for the seller and no other recipients
         // (we can't assert the total table since other tests may leave rows).
         // We verify there's no notification for the seller (who doesn't get this category anyway).

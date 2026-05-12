@@ -36,6 +36,7 @@ import com.slparcelauctions.backend.realty.slgroup.dto.RealtyGroupSlGroupDtoMapp
 import com.slparcelauctions.backend.realty.slgroup.dto.RegisterSlGroupRequest;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupRegisteredToSuspendedGroupException;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
@@ -130,6 +131,27 @@ class RealtyGroupSlGroupControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("SL_GROUP_ALREADY_REGISTERED"))
+                .andExpect(jsonPath("$.slGroupUuid").value(SL_GROUP_UUID.toString()));
+    }
+
+    /**
+     * Sub-project G section 14 -- the reverse-search gate maps to 409 with the
+     * distinct {@code SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP} code and carries
+     * the offending {@code slGroupUuid} in the body. Frontend surfaces a
+     * "contact support" message.
+     */
+    @Test
+    @WithMockAuthPrincipal(userId = CALLER_USER_ID)
+    void register_409WhenRegisteredToSuspendedGroup() throws Exception {
+        when(service.register(eq(CALLER_USER_ID), eq(GROUP_PUBLIC_ID), eq(SL_GROUP_UUID)))
+                .thenThrow(new SlGroupRegisteredToSuspendedGroupException(SL_GROUP_UUID));
+
+        RegisterSlGroupRequest req = new RegisterSlGroupRequest(SL_GROUP_UUID);
+        mockMvc.perform(post("/api/v1/realty/groups/" + GROUP_PUBLIC_ID + "/sl-groups")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP"))
                 .andExpect(jsonPath("$.slGroupUuid").value(SL_GROUP_UUID.toString()));
     }
 

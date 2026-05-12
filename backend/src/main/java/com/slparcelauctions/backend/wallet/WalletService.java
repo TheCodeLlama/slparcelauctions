@@ -382,8 +382,11 @@ public class WalletService {
 
     /**
      * Credit the listing agent's user wallet with their share of agent_fee_amt.
-     * Called from {@code AgentFeeDistributor} inside the escrow-payout-success
-     * transaction. Spec §7.2.
+     * Spec §7.2.
+     *
+     * <p>The pre-G case-1 distributor that drove this method was deleted by
+     * sub-project G. The method and the {@code AGENT_FEE_CREDIT} ledger entry
+     * type remain for backwards compatibility with historical ledger rows.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void creditAgentFee(Long userId, Long auctionId, long amount) {

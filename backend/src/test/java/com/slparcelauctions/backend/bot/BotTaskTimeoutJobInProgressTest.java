@@ -134,7 +134,7 @@ class BotTaskTimeoutJobInProgressTest {
         assertThat(reloaded.getCompletedAt()).isNull();
         assertThat(reloaded.getFailureReason()).isNull();
 
-        // Auction must be untouched — MONITOR re-arm is a retry, not a failure.
+        // Auction must be untouched â€” MONITOR re-arm is a retry, not a failure.
         Auction reloadedAuction = auctionRepo.findById(auction.getId()).orElseThrow();
         assertThat(reloadedAuction.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
     }
@@ -168,7 +168,6 @@ class BotTaskTimeoutJobInProgressTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .createdAt(now)
                 .updatedAt(now)
                 .build());

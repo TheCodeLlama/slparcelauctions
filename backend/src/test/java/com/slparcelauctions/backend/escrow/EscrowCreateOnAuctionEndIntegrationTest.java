@@ -49,8 +49,8 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
 /**
  * End-to-end coverage for Escrow row creation on auction-end (SOLD outcome).
  * Exercises the dev trigger endpoint {@code POST /api/v1/dev/auction-end/run-once}
- * so the full transactional stack runs: scheduler query → pessimistic lock →
- * outcome classification → status flip → escrow stamp → afterCommit
+ * so the full transactional stack runs: scheduler query â†’ pessimistic lock â†’
+ * outcome classification â†’ status flip â†’ escrow stamp â†’ afterCommit
  * ESCROW_CREATED publish.
  *
  * <p>The real scheduler is disabled via {@code slpa.auction-end.enabled=false}
@@ -117,7 +117,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
             // Escrow row (if any) must be deleted BEFORE the auction because
-            // of the FK from escrows.auction_id → auctions.id.
+            // of the FK from escrows.auction_id â†’ auctions.id.
             escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
@@ -143,7 +143,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
 
     @Test
     void soldOutcomeCreatesEscrowRowAndBroadcasts() throws Exception {
-        // L$5000 > L$1000 reserve → SOLD. Commission: floor(5000*5/100)=250
+        // L$5000 > L$1000 reserve â†’ SOLD. Commission: floor(5000*5/100)=250
         // clears the L$50 floor, so commissionAmt=250, payoutAmt=4750.
         long currentBid = 5_000L;
         long reserve = 1_000L;
@@ -162,19 +162,19 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
         assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(currentBid);
-        // Commission math lives in EscrowCommissionCalculator (spec §4.3 —
+        // Commission math lives in EscrowCommissionCalculator (spec Â§4.3 â€”
         // max(bid * 5%, L$50) floor). Assert against the calculator so
         // test expectations track the business rule instead of duplicating
         // its arithmetic. At Phase-1 rates 5000*0.05 = 250 clears the L$50
-        // floor, so commissionAmt=250 and payoutAmt=4750 — kept in the
+        // floor, so commissionAmt=250 and payoutAmt=4750 â€” kept in the
         // comment so a reviewer sees the expected numeric value too.
         assertThat(escrow.getCommissionAmt())
                 .isEqualTo(commissionCalculator.commission(currentBid));
         assertThat(escrow.getPayoutAmt())
                 .isEqualTo(commissionCalculator.payout(currentBid));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
-        // paymentDeadline = endedAt + 48h. Allow 1μs tolerance for Postgres
-        // TIMESTAMPTZ nanosecond→microsecond rounding.
+        // paymentDeadline = endedAt + 48h. Allow 1Î¼s tolerance for Postgres
+        // TIMESTAMPTZ nanosecondâ†’microsecond rounding.
         assertThat(escrow.getPaymentDeadline())
                 .isCloseTo(refreshed.getEndedAt().plusHours(48), within(1, ChronoUnit.MICROS));
         assertThat(escrow.getTransferDeadline()).isNull();
@@ -188,7 +188,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
         assertThat(env.paymentDeadline())
                 .isCloseTo(escrow.getPaymentDeadline(), within(1, ChronoUnit.MICROS));
-        // serverTime should match the auction's endedAt exactly — both come
+        // serverTime should match the auction's endedAt exactly â€” both come
         // from the same OffsetDateTime.now(clock) call in closeOne.
         assertThat(env.serverTime())
                 .isCloseTo(refreshed.getEndedAt(), within(1, ChronoUnit.MICROS));
@@ -196,7 +196,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
 
     @Test
     void noBidsOutcomeDoesNotCreateEscrow() throws Exception {
-        // bidCount=0 classifies as NO_BIDS — no escrow row, no envelope.
+        // bidCount=0 classifies as NO_BIDS â€” no escrow row, no envelope.
         seedExpiredAuction(0L, 1_000L, 0, "No Bidder");
 
         mockMvc.perform(post("/api/v1/dev/auction-end/run-once"))
@@ -212,7 +212,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
 
     @Test
     void reserveNotMetOutcomeDoesNotCreateEscrow() throws Exception {
-        // currentBid=500 < reserve=2000 → RESERVE_NOT_MET. No escrow row.
+        // currentBid=500 < reserve=2000 â†’ RESERVE_NOT_MET. No escrow row.
         seedExpiredAuction(500L, 2_000L, 1, "Below Reserve");
 
         mockMvc.perform(post("/api/v1/dev/auction-end/run-once"))
@@ -227,7 +227,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // Seeding — mirrors AuctionEndIntegrationTest so the fixture shape stays
+    // Seeding â€” mirrors AuctionEndIntegrationTest so the fixture shape stays
     // consistent across close-path coverage.
     // -------------------------------------------------------------------------
 
@@ -268,7 +268,6 @@ class EscrowCreateOnAuctionEndIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))

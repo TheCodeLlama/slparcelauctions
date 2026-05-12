@@ -22,6 +22,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifyHandler>.Instance),
             () => new MonitorHandler(session, backend.Object,
                     NullLogger<MonitorHandler>.Instance),
+            () => new WithdrawGroupHandler(session, backend.Object,
+                    NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
@@ -45,6 +47,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifyHandler>.Instance),
             () => new MonitorHandler(session, backend.Object,
                     NullLogger<MonitorHandler>.Instance),
+            () => new WithdrawGroupHandler(session, backend.Object,
+                    NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -75,6 +79,8 @@ public sealed class TaskLoopTests
                     NullLogger<VerifyHandler>.Instance),
             () => new MonitorHandler(session, backend.Object,
                     NullLogger<MonitorHandler>.Instance),
+            () => new WithdrawGroupHandler(session, backend.Object,
+                    NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));

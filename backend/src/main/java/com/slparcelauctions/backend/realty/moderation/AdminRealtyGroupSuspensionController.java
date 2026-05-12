@@ -6,7 +6,6 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -54,7 +53,6 @@ public class AdminRealtyGroupSuspensionController {
     private final SuspensionDtoMapper mapper;
 
     @GetMapping
-    @Transactional(readOnly = true)
     public List<SuspensionDto> list(@PathVariable UUID publicId) {
         return service.listHistory(publicId).stream()
             .map(mapper::toDto)
@@ -63,7 +61,6 @@ public class AdminRealtyGroupSuspensionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Transactional
     public SuspensionDto issue(
             @PathVariable UUID publicId,
             @Valid @RequestBody AdminSuspensionRequest body,
@@ -80,7 +77,6 @@ public class AdminRealtyGroupSuspensionController {
 
     @DeleteMapping("/{suspensionPublicId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Transactional
     public void lift(
             @PathVariable UUID publicId,
             @PathVariable UUID suspensionPublicId,

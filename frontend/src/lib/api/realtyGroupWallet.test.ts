@@ -15,6 +15,7 @@ function fakeWallet(overrides: Partial<GroupWallet> = {}): GroupWallet {
     balance: 5000,
     reserved: 0,
     available: 5000,
+    leaderTermsAcceptedAt: null,
     recentLedger: [],
     ...overrides,
   };
@@ -194,11 +195,43 @@ describe("withdrawFromGroupWallet", () => {
     const result = await withdrawFromGroupWallet(GROUP_ID, {
       amount: 1000,
       idempotencyKey: "test-key-abc",
+      recipient: "AVATAR",
     });
 
     expect(result.queueId).toBe(42);
     expect(result.estimatedFulfillmentSeconds).toBe(60);
-    expect(capturedBody).toMatchObject({ amount: 1000, idempotencyKey: "test-key-abc" });
+    expect(capturedBody).toMatchObject({
+      amount: 1000,
+      idempotencyKey: "test-key-abc",
+      recipient: "AVATAR",
+    });
+  });
+
+  // Sub-project G §7.3 — verify the recipient field round-trips for both
+  // values. The API client is a thin wrapper, but this guards against an
+  // accidental field rename that would silently fall back to AVATAR.
+  it("forwards recipient=SL_GROUP on the request body", async () => {
+    let capturedBody: unknown = null;
+    server.use(
+      http.post(
+        `*/api/v1/realty/groups/${GROUP_ID}/wallet/withdraw`,
+        async ({ request }) => {
+          capturedBody = await request.json();
+          return HttpResponse.json(
+            { queueId: 7, estimatedFulfillmentSeconds: 45 },
+            { status: 202 },
+          );
+        },
+      ),
+    );
+
+    await withdrawFromGroupWallet(GROUP_ID, {
+      amount: 250,
+      idempotencyKey: "sl-key",
+      recipient: "SL_GROUP",
+    });
+
+    expect(capturedBody).toMatchObject({ recipient: "SL_GROUP" });
   });
 
   it("throws ApiError with INSUFFICIENT_GROUP_BALANCE code on 422", async () => {
@@ -221,7 +254,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 1000, idempotencyKey: "k" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 1000,
+        idempotencyKey: "k",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({
       status: 422,
       problem: {
@@ -249,7 +286,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 500, idempotencyKey: "k2" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 500,
+        idempotencyKey: "k2",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({
       status: 422,
       problem: { code: "LEADER_TERMS_NOT_ACCEPTED" },
@@ -269,7 +310,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 100, idempotencyKey: "k3" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 100,
+        idempotencyKey: "k3",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({ status: 403 });
   });
 
@@ -286,7 +331,11 @@ describe("withdrawFromGroupWallet", () => {
     );
 
     await expect(
-      withdrawFromGroupWallet(GROUP_ID, { amount: 100, idempotencyKey: "k4" }),
+      withdrawFromGroupWallet(GROUP_ID, {
+        amount: 100,
+        idempotencyKey: "k4",
+        recipient: "AVATAR",
+      }),
     ).rejects.toMatchObject({ status: 410, problem: { code: "GROUP_DISSOLVED" } });
   });
 });

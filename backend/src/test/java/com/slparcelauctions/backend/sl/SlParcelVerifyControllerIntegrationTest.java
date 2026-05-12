@@ -229,7 +229,6 @@ class SlParcelVerifyControllerIntegrationTest {
         a.setListingFeeTxn("test-txn");
         a.setListingFeePaidAt(OffsetDateTime.now());
         a.setCommissionRate(new BigDecimal("0.05"));
-        a.setAgentFeeRate(BigDecimal.ZERO);
         auctionRepository.save(a);
         return new AuctionRefs(auctionId, auctionPublicId);
     }

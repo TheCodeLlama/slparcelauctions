@@ -269,7 +269,6 @@ class EscrowTimeoutTaskTest {
                 .currentBid(5000L).bidCount(2)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .finalBidAmount(5000L)
                 .endOutcome(AuctionEndOutcome.SOLD)

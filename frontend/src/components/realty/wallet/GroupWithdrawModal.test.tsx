@@ -144,3 +144,147 @@ describe("GroupWithdrawModal", () => {
     );
   });
 });
+
+// Sub-project G §7.3 — recipient picker. The modal exposes a binary radio
+// group so the leader can route a withdrawal to either their verified avatar
+// (the pre-G default) or the realty group's currently-registered SL group
+// (bot-fulfilled via Self.GiveGroupMoney). When no SL group is registered the
+// radio is omitted entirely; when the realty group has an active suspension
+// the SL_GROUP option is rendered but disabled with a tooltip pointing the
+// leader at the avatar fallback.
+describe("GroupWithdrawModal recipient picker", () => {
+  it("submits with recipient=AVATAR by default", async () => {
+    let capturedBody: { recipient?: string } | null = null;
+    server.use(
+      http.post(
+        "*/api/v1/realty/groups/*/wallet/withdraw",
+        async ({ request }) => {
+          capturedBody = (await request.json()) as { recipient?: string };
+          return HttpResponse.json(
+            { queueId: 1, estimatedFulfillmentSeconds: 30 },
+            { status: 202 },
+          );
+        },
+      ),
+    );
+    let closed = false;
+    renderModal({
+      onClose: () => {
+        closed = true;
+      },
+      slGroup: { name: "Test Estate", suspended: false },
+    });
+    await userEvent.type(screen.getByTestId("withdraw-amount-input"), "1000");
+    await userEvent.click(screen.getByTestId("withdraw-submit"));
+    await waitFor(() => expect(closed).toBe(true));
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody!.recipient).toBe("AVATAR");
+  });
+
+  it("submits with recipient=SL_GROUP when 'SL group' is selected", async () => {
+    let capturedBody: { recipient?: string } | null = null;
+    server.use(
+      http.post(
+        "*/api/v1/realty/groups/*/wallet/withdraw",
+        async ({ request }) => {
+          capturedBody = (await request.json()) as { recipient?: string };
+          return HttpResponse.json(
+            { queueId: 2, estimatedFulfillmentSeconds: 30 },
+            { status: 202 },
+          );
+        },
+      ),
+    );
+    let closed = false;
+    renderModal({
+      onClose: () => {
+        closed = true;
+      },
+      slGroup: { name: "Test Estate", suspended: false },
+    });
+    await userEvent.click(
+      screen.getByLabelText(/SL group: Test Estate/i),
+    );
+    await userEvent.type(screen.getByTestId("withdraw-amount-input"), "1000");
+    await userEvent.click(screen.getByTestId("withdraw-submit"));
+    await waitFor(() => expect(closed).toBe(true));
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody!.recipient).toBe("SL_GROUP");
+  });
+
+  it("disables the SL group radio with a tooltip when suspended", () => {
+    renderModal({
+      slGroup: { name: "Test Estate", suspended: true },
+    });
+    const slRadio = screen.getByLabelText(
+      /SL group: Test Estate/i,
+    ) as HTMLInputElement;
+    expect(slRadio.disabled).toBe(true);
+    expect(
+      screen.getByText(/group registration suspended/i),
+    ).toBeInTheDocument();
+  });
+
+  it("omits the SL group radio entirely when no SL group is registered", () => {
+    renderModal({ slGroup: null });
+    expect(
+      screen.queryByLabelText(/SL group/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("maps SL_GROUP_NOT_REGISTERED to friendly copy", async () => {
+    server.use(
+      http.post(
+        "*/api/v1/realty/groups/*/wallet/withdraw",
+        () =>
+          HttpResponse.json(
+            {
+              status: 422,
+              code: "SL_GROUP_NOT_REGISTERED",
+              title: "SL group not registered",
+            },
+            { status: 422 },
+          ),
+      ),
+    );
+    renderModal({ slGroup: { name: "Test Estate", suspended: false } });
+    await userEvent.click(
+      screen.getByLabelText(/SL group: Test Estate/i),
+    );
+    await userEvent.type(screen.getByTestId("withdraw-amount-input"), "500");
+    await userEvent.click(screen.getByTestId("withdraw-submit"));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/has no registered SL group/i),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("maps SL_GROUP_REGISTRATION_SUSPENDED to friendly copy", async () => {
+    server.use(
+      http.post(
+        "*/api/v1/realty/groups/*/wallet/withdraw",
+        () =>
+          HttpResponse.json(
+            {
+              status: 422,
+              code: "SL_GROUP_REGISTRATION_SUSPENDED",
+              title: "SL group registration suspended",
+            },
+            { status: 422 },
+          ),
+      ),
+    );
+    renderModal({ slGroup: { name: "Test Estate", suspended: false } });
+    await userEvent.click(
+      screen.getByLabelText(/SL group: Test Estate/i),
+    );
+    await userEvent.type(screen.getByTestId("withdraw-amount-input"), "500");
+    await userEvent.click(screen.getByTestId("withdraw-submit"));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/SL-group withdrawals are blocked/i),
+      ).toBeInTheDocument(),
+    );
+  });
+});

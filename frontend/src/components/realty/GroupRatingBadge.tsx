@@ -11,13 +11,13 @@ export interface GroupRatingBadgeProps {
    */
   rating: GroupRating | null;
   /**
-   * Stopgap link target: a dedicated group-reviews page is deferred (see
-   * {@code DEFERRED_WORK.md} — Sub-project F). Until that lands, clicking
-   * the badge routes to the group leader's existing user-reviews page so
-   * users can at least see one signal of the leader's reputation. Omit to
-   * render a non-link span.
+   * Public id of the realty group. When provided, the badge renders as a
+   * link to the dedicated group-reviews page (sub-project G §13). Omit to
+   * render a non-link span (e.g. inside the reviews page header itself,
+   * where the badge is decorative and the surrounding page is already the
+   * reviews list).
    */
-  leaderPublicId?: string;
+  groupPublicId?: string;
   className?: string;
 }
 
@@ -60,13 +60,13 @@ function StarRow({ rating }: { rating: number }) {
  * line so the badge can be mounted unconditionally without spec'ing every
  * caller around the empty case.
  *
- * <p>Clicking the badge follows the stopgap leader-reviews link when
- * {@code leaderPublicId} is supplied; otherwise renders as a non-link span.
- * A dedicated {@code /groups/{slug}/reviews} page is on the deferred list.
+ * <p>Clicking the badge follows the dedicated group-reviews link
+ * ({@code /realty/groups/{groupPublicId}/reviews}) when {@code groupPublicId}
+ * is supplied; otherwise renders as a non-link span.
  */
 export function GroupRatingBadge({
   rating,
-  leaderPublicId,
+  groupPublicId,
   className,
 }: GroupRatingBadgeProps) {
   if (
@@ -101,10 +101,10 @@ export function GroupRatingBadge({
 
   const baseClasses = "inline-flex items-center gap-1.5";
 
-  if (leaderPublicId) {
+  if (groupPublicId) {
     return (
       <Link
-        href={`/users/${encodeURIComponent(leaderPublicId)}/reviews`}
+        href={`/realty/groups/${encodeURIComponent(groupPublicId)}/reviews`}
         className={cn(baseClasses, "hover:underline", className)}
         data-testid="group-rating-badge"
         data-variant="populated"

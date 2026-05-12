@@ -58,8 +58,6 @@ class RealtyGroupMembershipServiceRemoveTest {
     private static RealtyGroup buildGroup(Long leaderId) {
         return RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
     }
 
@@ -129,7 +127,7 @@ class RealtyGroupMembershipServiceRemoveTest {
         UUID groupPid = UUID.randomUUID();
         UUID memberPid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L);
-        // Leader's own member row — userId equals leaderId.
+        // Leader's own member row â€” userId equals leaderId.
         RealtyGroupMember leaderRow = buildMember(g.getId(), 100L);
         when(groups.findByPublicId(groupPid)).thenReturn(Optional.of(g));
         when(members.findByPublicId(memberPid)).thenReturn(Optional.of(leaderRow));
@@ -179,7 +177,7 @@ class RealtyGroupMembershipServiceRemoveTest {
     }
 
     @Test
-    void removeMember_reassigns_listing_agent_to_leader_on_active_auctions() {
+    void removeMember_reassigns_seller_to_leader_on_active_auctions() {
         UUID groupPid = UUID.randomUUID();
         UUID memberPid = UUID.randomUUID();
         RealtyGroup g = buildGroup(100L);
@@ -192,10 +190,9 @@ class RealtyGroupMembershipServiceRemoveTest {
 
         service.removeMember(groupPid, memberPid, 100L);
 
-        // E §10: both reassignment queries fire. Case-3 flips seller_id; case-1 flips
-        // listing_agent_id. The repo's realty_group_sl_group_id predicates partition
-        // which rows each query actually touches.
+        // E Â§10: case-3 reassignment flips seller_id on pre-terminal listings.
+        // listing_agent_id is preserved so commission attribution stays with the
+        // departing agent.
         verify(auctions).reassignSellerToLeaderForCase3(200L, g.getId(), g.getLeaderId());
-        verify(auctions).reassignListingAgentToLeaderForCase1(200L, g.getId(), g.getLeaderId());
     }
 }

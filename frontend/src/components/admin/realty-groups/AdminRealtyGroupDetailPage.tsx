@@ -16,10 +16,12 @@ import { AdminGroupBulkListingsTab } from "./AdminGroupBulkListingsTab";
 import { AdminGroupReportsTab } from "./AdminGroupReportsTab";
 import { AdminGroupSlGroupsTab } from "./AdminGroupSlGroupsTab";
 import { AdminGroupAuditTab } from "./AdminGroupAuditTab";
+import { AdminGroupWalletTab } from "./AdminGroupWalletTab";
 
 type DetailTab =
   | "profile"
   | "members"
+  | "wallet"
   | "suspensions"
   | "bulk-listings"
   | "reports"
@@ -29,6 +31,7 @@ type DetailTab =
 const TAB_LABELS: { id: DetailTab; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "members", label: "Members" },
+  { id: "wallet", label: "Wallet" },
   { id: "suspensions", label: "Suspensions" },
   { id: "bulk-listings", label: "Bulk listings" },
   { id: "reports", label: "Reports" },
@@ -175,6 +178,9 @@ export function AdminRealtyGroupDetailPage({
       >
         {activeTab === "profile" && <AdminGroupProfileForm group={group} />}
         {activeTab === "members" && <AdminGroupMembersList group={group} />}
+        {activeTab === "wallet" && (
+          <AdminGroupWalletTab groupPublicId={group.publicId} />
+        )}
         {activeTab === "suspensions" && (
           <AdminGroupSuspensionsTab groupPublicId={group.publicId} />
         )}

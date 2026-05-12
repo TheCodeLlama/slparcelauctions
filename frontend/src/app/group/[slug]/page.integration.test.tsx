@@ -42,8 +42,6 @@ function makeGroup(
       avatarUrl: null,
     },
     agents: [],
-    agentFeeRate: "0.0000",
-    agentFeeSplit: "0.5000",
     memberSeatLimit: 50,
     memberCount: 1,
     ...overrides,

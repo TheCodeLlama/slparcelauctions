@@ -27,7 +27,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * {@code realty_group_sl_group_id} and {@code agent_commission_rate}. Verifies
  * the JPA mapping survives a write/clear/reload cycle, both populated and NULL.
  *
- * <p>Spec: §3.2, §3.3, plan Task 5.
+ * <p>Spec: Â§3.2, Â§3.3, plan Task 5.
  *
  * <p>Test cleanup uses the {@code auctioncase3-%@test.local} email pattern to
  * scope test-row deletion to this class.
@@ -126,7 +126,7 @@ class AuctionCase3ColumnsTest {
         assertThat(reloaded.getAgentCommissionRate()).isNull();
     }
 
-    // ─────────────────────── helpers ───────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static User buildUser(String tag) {
         return User.builder()
@@ -155,7 +155,6 @@ class AuctionCase3ColumnsTest {
             .bidCount(0)
             .consecutiveWorldApiFailures(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(new BigDecimal("0.0000"))
             .build();
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
             .slParcelUuid(parcelUuid)

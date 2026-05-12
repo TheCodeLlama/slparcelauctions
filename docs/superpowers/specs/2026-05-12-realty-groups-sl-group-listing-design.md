@@ -436,15 +436,29 @@ Because `listing_agent_id` is stable (§10), the commission credit lands in the 
 
 ### 9.6 Distributor wiring
 
+For case 3, `payoutAmt = 0`. The agent slice and the group slice both flow
+through `AgentCommissionDistributor` inside the payout-success path -- see
+`TerminalCommandService.runZeroPayoutSuccessInline` (sub-project G §8.1) for
+the post-G flow. The terminal round-trip is skipped because no L$ leaves
+SLPA in-world; both wallet credits happen entirely inside backend.
+
 ```java
+\ Sub-project G §8.1, inside TerminalCommandService.runZeroPayoutSuccessInline:
 if (auction.getRealtyGroupSlGroupId() != null) {
-    agentCommissionDistributor.distribute(auction, finalBid);    // case 3
-} else if (auction.getRealtyGroupId() != null) {
-    agentFeeDistributor.distribute(auction, finalBid);           // legacy case 1
+    agentCommissionDistributor.distribute(
+        auction, finalBidAmount, commissionAmt);  // credits agent_slice + group_slice
 }
 ```
 
-Invoked from the same `handleEscrowPayoutSuccess` callback in `TerminalCommandService`. D's two-site pattern (escrow creation reduces `payoutAmt`; payout-success callback credits wallets) extends cleanly: `EscrowService.createForEndedAuction` subtracts `agent_slice` from the buyer-pays amount for case-3, routing the residual `group_slice` to the payout target which is the group wallet.
+Case-1 has been removed by sub-project G §4 (`AgentFeeDistributor` deleted; the
+group-listed-not-SL-group-owned branch no longer exists). All realty-group
+listings post-G are case 3.
+
+`EscrowService.createForEndedAuction` sets `payoutAmt = 0` for case 3 at escrow
+creation time (unchanged from E). The success-path inline branch in
+`TerminalCommandService.queuePayout` is what triggers
+`AgentCommissionDistributor`; the terminal callback path is reserved for
+non-case-3 escrows.
 
 ---
 

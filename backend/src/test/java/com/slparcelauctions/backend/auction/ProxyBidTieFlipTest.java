@@ -39,7 +39,7 @@ import reactor.core.publisher.Mono;
 /**
  * Q3 tie-flip regression pin. When a manual bid lands at exactly the
  * competing proxy's maxAmount, the comparison must be strict greater-than
- * ({@code amount > P_max}) — so the proxy is <strong>not</strong> exhausted
+ * ({@code amount > P_max}) â€” so the proxy is <strong>not</strong> exhausted
  * and instead counters at {@code min(amount + increment, P_max) = P_max}.
  * Both rows are persisted; the proxy's row (emitted LAST) is the
  * post-resolution top. The bid is <strong>not</strong> rejected.
@@ -103,7 +103,7 @@ class ProxyBidTieFlipTest {
 
     @Test
     void manualBidAtExactlyProxyMax_proxyCountersAndRetains() throws Exception {
-        // Step 1 — A creates proxy max=1000. Auction startingBid=500.
+        // Step 1 â€” A creates proxy max=1000. Auction startingBid=500.
         // A opens at 500 and is winning.
         Auction a = seedAuction();
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
@@ -117,7 +117,7 @@ class ProxyBidTieFlipTest {
         assertThat(afterA.getCurrentBid()).isEqualTo(500L);
         assertThat(afterA.getCurrentBidderId()).isEqualTo(aId);
 
-        // Step 2 — B places a manual bid at exactly 1000 (== A.proxy.max).
+        // Step 2 â€” B places a manual bid at exactly 1000 (== A.proxy.max).
         // Strict-> semantics: proxy is NOT exhausted; counter fires.
         // counterAmount = min(1000 + 100, 1000) = 1000. Both rows emitted.
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
@@ -164,7 +164,7 @@ class ProxyBidTieFlipTest {
                         .content("{\"maxAmount\":1000}"))
                 .andExpect(status().isCreated());
 
-        // B places 1050 — strictly greater than A's cap of 1000.
+        // B places 1050 â€” strictly greater than A's cap of 1000.
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -266,7 +266,6 @@ class ProxyBidTieFlipTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         OffsetDateTime now = OffsetDateTime.now();
         a.setStartsAt(now.minusHours(1));

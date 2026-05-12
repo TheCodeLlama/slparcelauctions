@@ -102,7 +102,7 @@ class AuctionEndNotificationIntegrationTest {
         sellerId = bidderId = loserBidderId = auctionId = null;
     }
 
-    // ── helpers ──────────────────────────────────────────────────────────────
+    // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private User saveUser(String prefix) {
         return new TransactionTemplate(txManager).execute(s -> userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
@@ -135,7 +135,6 @@ class AuctionEndNotificationIntegrationTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(now.minusHours(2))
                     .endsAt(now.minusSeconds(1))
                     .originalEndsAt(now.minusSeconds(1))
@@ -165,7 +164,7 @@ class AuctionEndNotificationIntegrationTest {
                 .toList();
     }
 
-    // ── tests ────────────────────────────────────────────────────────────────
+    // â”€â”€ tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void sold_winnerGetsWon_sellerGetsEndedSold_loserGetsLost() throws Exception {

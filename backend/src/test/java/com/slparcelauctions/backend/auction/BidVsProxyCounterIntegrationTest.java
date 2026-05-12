@@ -37,7 +37,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 import reactor.core.publisher.Mono;
 
 /**
- * End-to-end coverage for the manual-bid-vs-proxy-counter branch of spec §6
+ * End-to-end coverage for the manual-bid-vs-proxy-counter branch of spec Â§6
  * steps 7-8 ({@link BidService#placeBid}). A proxy owner (A) has set a
  * maximum of L$1000; another bidder (B) places a manual bid at L$500. The
  * service should emit:
@@ -107,7 +107,7 @@ class BidVsProxyCounterIntegrationTest {
     void manualBid_withCompetingProxy_emitsManualPlusCounter() throws Exception {
         Auction a = seedAuction();
 
-        // Step 1 — A creates proxy max=1000 → opens at startingBid=500.
+        // Step 1 â€” A creates proxy max=1000 â†’ opens at startingBid=500.
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -120,17 +120,17 @@ class BidVsProxyCounterIntegrationTest {
         assertThat(afterA.getCurrentBidderId()).isEqualTo(aId);
         assertThat(afterA.getBidCount()).isEqualTo(1);
 
-        // Step 2 — B places a manual bid of L$500. Current bid is 500, so the
+        // Step 2 â€” B places a manual bid of L$500. Current bid is 500, so the
         // minimum valid bid would be 500+50=550; but the min floor is applied
         // to the manual amount. To test a strict below-cap scenario we need
         // the manual to be >= minRequired AND < P_max. So: first raise the
-        // floor by starting from currentBid=500 → minRequired for next is
+        // floor by starting from currentBid=500 â†’ minRequired for next is
         // 550. We need B to bid 550 (the minimum), and the proxy counter
         // computes min(550+50, 1000) = 600.
         //
         // This matches the task spec's expected values: counter at 600
         // (500+100 would be wrong because increment at currentBid=500 is L$50,
-        // not L$100). The bidCount goes from 1 → 3 (opening + manual + counter).
+        // not L$100). The bidCount goes from 1 â†’ 3 (opening + manual + counter).
 
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bAccessToken)
@@ -261,7 +261,6 @@ class BidVsProxyCounterIntegrationTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(sellerParcelUuid)

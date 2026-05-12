@@ -100,7 +100,6 @@ class SlParcelVerifyServiceTest {
                 .snipeProtect(false).listingFeePaid(true)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .build();
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()

@@ -277,6 +277,12 @@ public class SecurityConfig {
                         // unauthenticated browse pages consume this endpoint.
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty/groups/*/listings").permitAll()
+                        // Realty group public reviews list (sub-project G §13).
+                        // Auth: public — mirrors the user-side public reviews endpoint
+                        // ({@code GET /api/v1/users/{publicId}/reviews}). Dedicated group
+                        // reviews page is anonymous-accessible per spec.
+                        // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty/groups/*/reviews").permitAll()
                         // Admin surface (Epic 10 sub-spec 1 Task 1).
                         // FOOTGUNS §B.5: MUST sit before the /api/v1/** catch-all.
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

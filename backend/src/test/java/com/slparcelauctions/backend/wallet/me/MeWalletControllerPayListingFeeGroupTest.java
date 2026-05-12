@@ -40,13 +40,13 @@ import com.slparcelauctions.backend.user.UserRepository;
  * Integration tests for the group-wallet branch in
  * {@code POST /api/v1/me/auctions/{publicId}/pay-listing-fee}.
  *
- * <p>Three cases (spec §5.4):
+ * <p>Three cases (spec Â§5.4):
  * <ol>
- *   <li>Group-listed auction with sufficient group balance — group balance decreases,
+ *   <li>Group-listed auction with sufficient group balance â€” group balance decreases,
  *       user balance unchanged, realty_group_ledger has a LISTING_FEE_DEBIT row with
  *       actor=agent, auction status = DRAFT_PAID.</li>
- *   <li>Individual auction — user balance decreases (existing behavior), no group ledger row.</li>
- *   <li>Group-listed auction with insufficient group balance — 422 INSUFFICIENT_GROUP_BALANCE.</li>
+ *   <li>Individual auction â€” user balance decreases (existing behavior), no group ledger row.</li>
+ *   <li>Group-listed auction with insufficient group balance â€” 422 INSUFFICIENT_GROUP_BALANCE.</li>
  * </ol>
  */
 @SpringBootTest
@@ -97,7 +97,7 @@ class MeWalletControllerPayListingFeeGroupTest {
     }
 
     // -------------------------------------------------------------------------
-    // Case 1: group-listed auction — group wallet debited, user wallet untouched
+    // Case 1: group-listed auction â€” group wallet debited, user wallet untouched
     // -------------------------------------------------------------------------
 
     @Test
@@ -138,7 +138,7 @@ class MeWalletControllerPayListingFeeGroupTest {
     }
 
     // -------------------------------------------------------------------------
-    // Case 2: individual auction — user wallet debited, no group ledger row
+    // Case 2: individual auction â€” user wallet debited, no group ledger row
     // -------------------------------------------------------------------------
 
     @Test
@@ -162,13 +162,13 @@ class MeWalletControllerPayListingFeeGroupTest {
         assertThat(reloaded.getBalanceLindens()).isEqualTo(500L - LISTING_FEE);
 
         // No group ledger rows at all for the auction
-        // (We haven't created any group, so no group to check — just verify no crash)
+        // (We haven't created any group, so no group to check â€” just verify no crash)
         Auction reloadedAuction = auctionRepository.findById(auction.getId()).orElseThrow();
         assertThat(reloadedAuction.getStatus()).isEqualTo(AuctionStatus.DRAFT_PAID);
     }
 
     // -------------------------------------------------------------------------
-    // Case 3: group-listed auction, group balance insufficient — 422
+    // Case 3: group-listed auction, group balance insufficient â€” 422
     // -------------------------------------------------------------------------
 
     @Test
@@ -201,7 +201,6 @@ class MeWalletControllerPayListingFeeGroupTest {
             .name("Test Group " + slug)
             .slug(slug)
             .leaderId(leaderId)
-            .agentFeeRate(new BigDecimal("0.0200"))
             .balanceLindens(balance)
             .reservedLindens(0L)
             .build());
@@ -222,7 +221,6 @@ class MeWalletControllerPayListingFeeGroupTest {
             .currentBid(0L)
             .bidCount(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(BigDecimal.ZERO)
             .realtyGroupId(group == null ? null : group.getId())
             .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()

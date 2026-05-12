@@ -99,7 +99,6 @@ public class AuctionService {
                 .sellerDesc(req.sellerDesc())
                 .tags(tags)
                 .commissionRate(defaultCommissionRate)
-                .agentFeeRate(BigDecimal.ZERO)
                 .currentBid(0L)
                 .bidCount(0)
                 .listingFeePaid(false)

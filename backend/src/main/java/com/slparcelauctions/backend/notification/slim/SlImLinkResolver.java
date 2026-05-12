@@ -58,6 +58,10 @@ public class SlImLinkResolver {
                 base + "/group/" + data.get("groupSlug");
             case REALTY_GROUP_MEMBER_REMOVED, REALTY_GROUP_DISSOLVED ->
                 base + "/dashboard/groups";
+            // Sub-project G section 12 -- admin-side fan-out. Deeplink to the
+            // per-group admin reports queue using groupPublicId from the data blob.
+            case GROUP_REPORT_THRESHOLD_REACHED ->
+                base + "/admin/realty-groups/" + data.get("groupPublicId") + "/reports";
         };
     }
 }

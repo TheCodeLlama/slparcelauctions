@@ -258,7 +258,7 @@ class CancellationServiceTest {
 
     @Test
     void cancel_releasesBidReservationsForAuction() {
-        // Spec §10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4:
+        // Spec Â§10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4:
         // every cancel path must release any active wallet reservations so
         // bidders never see a stale "held" L$ row after the listing is gone.
         Auction a = build(AuctionStatus.ACTIVE, true, 5);
@@ -271,7 +271,7 @@ class CancellationServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // adminCancelExpiredBulkSuspend -- Sub-project F §10.2
+    // adminCancelExpiredBulkSuspend -- Sub-project F Â§10.2
     // -------------------------------------------------------------------------
 
     /**
@@ -312,11 +312,11 @@ class CancellationServiceTest {
         service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
 
         // Wallet reservation release is the centralized refund mechanism --
-        // spec §10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
+        // spec Â§10.2 step 2 / Epic 08 sub-spec 2 acceptance criterion #4.
         verify(walletService).releaseReservationsForAuction(
                 eq(a.getId()), eq(BidReservationReleaseReason.AUCTION_CANCELLED));
         // Bidder fan-out surfaces "your bid is no longer held" to bidders.
-        // Cause-neutral non-null body per FOOTGUNS §F.104; the publisher
+        // Cause-neutral non-null body per FOOTGUNS Â§F.104; the publisher
         // interpolates the reason verbatim so it must not be null.
         verify(notificationPublisher).listingCancelledBySellerFanout(
                 eq(a.getId()), eq(List.of(101L, 102L, 103L)), eq(a.getTitle()),
@@ -378,7 +378,7 @@ class CancellationServiceTest {
         service.adminCancelExpiredBulkSuspend(a.getId(), 7L);
 
         // Bidder fan-out is cause-neutral so bidders never see admin
-        // attribution per FOOTGUNS §F.104. The reason argument must be a
+        // attribution per FOOTGUNS Â§F.104. The reason argument must be a
         // non-null user-readable phrase -- the publisher interpolates it into
         // the bidder body verbatim, so null would render the literal "null".
         verify(notificationPublisher).listingCancelledBySellerFanout(
@@ -425,7 +425,6 @@ class CancellationServiceTest {
                 .listingFeePaid(listingFeePaid)
                 .currentBid(0L).bidCount(bidCount)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))

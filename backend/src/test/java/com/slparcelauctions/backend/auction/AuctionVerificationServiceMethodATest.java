@@ -190,10 +190,10 @@ class AuctionVerificationServiceMethodATest {
 
     @Test
     void verify_withOwnerUuidMismatch_transitionsToVerificationFailed_withRetryFriendlyNotes() {
-        // Sub-spec 2 §7.3: synchronous Method A failures land in
+        // Sub-spec 2 Â§7.3: synchronous Method A failures land in
         // VERIFICATION_FAILED with human-readable verificationNotes explaining
         // what went wrong and that the seller can retry. No ListingFeeRefund
-        // is created — AuctionVerificationService doesn't even hold a reference
+        // is created â€” AuctionVerificationService doesn't even hold a reference
         // to ListingFeeRefundRepository, so refund creation is structurally
         // impossible from this path (refunds only happen via explicit cancel).
         Auction a = build(AuctionStatus.DRAFT_PAID);
@@ -224,7 +224,7 @@ class AuctionVerificationServiceMethodATest {
     }
 
     // -------------------------------------------------------------------------
-    // Sub-spec 2 §7.2 — method is chosen on the verify trigger, not at create
+    // Sub-spec 2 Â§7.2 â€” method is chosen on the verify trigger, not at create
     // -------------------------------------------------------------------------
 
     @Test
@@ -247,7 +247,7 @@ class AuctionVerificationServiceMethodATest {
 
     @Test
     void triggerVerification_groupOwned_nonSaleToBotMethod_throws422() {
-        // Parcel owned by a group — UUID_ENTRY cannot resolve to a single
+        // Parcel owned by a group â€” UUID_ENTRY cannot resolve to a single
         // seller avatar, so the service rejects the request with 422.
         Auction a = build(AuctionStatus.DRAFT_PAID);
         a.getParcelSnapshot().setOwnerType("group");
@@ -260,7 +260,7 @@ class AuctionVerificationServiceMethodATest {
 
     @Test
     void triggerVerification_groupOwned_rezzableMethod_throws422() {
-        // REZZABLE also fails for group land — the in-world object sees the
+        // REZZABLE also fails for group land â€” the in-world object sees the
         // group key, not the seller. Only SALE_TO_BOT can transfer group land.
         Auction a = build(AuctionStatus.DRAFT_PAID);
         a.getParcelSnapshot().setOwnerType("group");
@@ -273,7 +273,7 @@ class AuctionVerificationServiceMethodATest {
 
     @Test
     void triggerVerification_groupOwned_saleToBot_succeedsAndStaysPending() {
-        // Group-owned parcel + SALE_TO_BOT — the only permitted combination.
+        // Group-owned parcel + SALE_TO_BOT â€” the only permitted combination.
         // Leaves the auction in VERIFICATION_PENDING (Method C is async; bot
         // worker callback drives the ACTIVE transition).
         Auction a = build(AuctionStatus.DRAFT_PAID);
@@ -362,7 +362,6 @@ class AuctionVerificationServiceMethodATest {
                 .listingFeePaid(status != AuctionStatus.DRAFT)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))

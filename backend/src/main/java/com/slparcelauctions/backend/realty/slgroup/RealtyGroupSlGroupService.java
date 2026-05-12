@@ -20,6 +20,7 @@ import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMismatchException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupRegisteredToSuspendedGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.GroupPageData;
@@ -52,6 +53,16 @@ public class RealtyGroupSlGroupService {
                 .orElseThrow(() -> new RealtyGroupNotFoundException(realtyGroupPublicId));
         realtyGroupGuard.requireGroupCanOperate(group.getId());
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.REGISTER_SL_GROUP);
+
+        // Sub-project G section 14 -- reverse-search ban-evasion gate. If the SL
+        // group UUID is currently registered to any realty group that has an
+        // active (unlifted) suspension row, hard-block the registration with a
+        // distinct error code so the UI can surface a "contact support" message
+        // rather than the generic "already registered" copy. This gate fires
+        // before the uniqueness check so the stronger constraint wins.
+        if (repo.existsForSuspendedRealtyGroup(slGroupUuid)) {
+            throw new SlGroupRegisteredToSuspendedGroupException(slGroupUuid);
+        }
 
         repo.findBySlGroupUuid(slGroupUuid).ifPresent(existing -> {
             throw new SlGroupAlreadyRegisteredException(slGroupUuid);

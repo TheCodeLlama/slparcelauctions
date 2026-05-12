@@ -33,9 +33,9 @@ import com.slparcelauctions.backend.user.UserRepository;
 /**
  * Verifies that two parallel {@code claim()} calls race cleanly over
  * {@code SELECT ... FOR UPDATE SKIP LOCKED}: one gets task A, the other
- * gets task B, neither blocks. Regression guard for FOOTGUNS §F.86.
+ * gets task B, neither blocks. Regression guard for FOOTGUNS Â§F.86.
  *
- * <p>Uses the shared dev Postgres — {@code FOR UPDATE SKIP LOCKED} is
+ * <p>Uses the shared dev Postgres â€” {@code FOR UPDATE SKIP LOCKED} is
  * Postgres-specific syntax, which the project runs exclusively on. Each
  * service.claim() call opens its own transaction (propagation REQUIRED
  * inside a daemon thread with no enclosing tx), so the row lock acquired
@@ -72,7 +72,7 @@ class BotTaskClaimRaceIntegrationTest {
 
     @AfterEach
     void cleanup() throws Exception {
-        // Raw JDBC cleanup — the test itself is not @Transactional because
+        // Raw JDBC cleanup â€” the test itself is not @Transactional because
         // the two claim threads need their own independent transactions.
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
@@ -180,7 +180,6 @@ class BotTaskClaimRaceIntegrationTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .createdAt(now)
                 .updatedAt(now)
                 .build());

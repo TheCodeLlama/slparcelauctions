@@ -29,13 +29,16 @@ export interface RegisterSlGroupModalProps {
  *     {@link useRegisterSlGroup}.
  *
  * Error handling:
- *  - 409 {@code SL_GROUP_ALREADY_REGISTERED} → inline "already registered"
+ *  - 409 {@code SL_GROUP_ALREADY_REGISTERED} -> inline "already registered"
  *    message.
- *  - 422 / world API failure → inline error message with the backend's
+ *  - 409 {@code SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP} -> inline
+ *    "registered to a suspended SLPA realty group; contact support" message
+ *    (sub-project G spec section 14 reverse-search ban-evasion gate).
+ *  - 422 / world API failure -> inline error message with the backend's
  *    {@code detail}/{@code title}.
- *  - All other errors → inline message from the error's {@code message}.
+ *  - All other errors -> inline message from the error's {@code message}.
  *
- * Spec §6.2.
+ * Spec section 6.2.
  */
 export function RegisterSlGroupModal({
   open,
@@ -71,6 +74,15 @@ export function RegisterSlGroupModal({
         if (code === "SL_GROUP_ALREADY_REGISTERED") {
           setError(
             "This SL group is already registered on the realty group.",
+          );
+        } else if (code === "SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP") {
+          // Sub-project G section 14 -- reverse-search ban-evasion gate. The SL
+          // group UUID is attached to a realty group with an active (unlifted)
+          // suspension. Direct the leader to support rather than the generic
+          // "already registered" copy so the underlying moderation context is
+          // explicit.
+          setError(
+            "This SL group is registered to a suspended SLPA realty group. Contact support for help.",
           );
         } else if (code === "INSUFFICIENT_GROUP_PERMISSION") {
           setError(

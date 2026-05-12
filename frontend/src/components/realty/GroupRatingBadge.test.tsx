@@ -58,19 +58,21 @@ describe("GroupRatingBadge", () => {
     expect(svgs.length).toBe(5);
   });
 
-  it("links to /users/{leaderPublicId}/reviews when leaderPublicId provided", () => {
+  it("links to /realty/groups/{groupPublicId}/reviews when groupPublicId provided", () => {
     renderWithProviders(
       <GroupRatingBadge
         rating={{ averageRating: 4.2, reviewCount: 12 }}
-        leaderPublicId="user-abc-123"
+        groupPublicId="group-abc-123"
       />,
     );
     const link = screen.getByTestId("group-rating-badge");
     expect(link.tagName).toBe("A");
-    expect(link.getAttribute("href")).toBe("/users/user-abc-123/reviews");
+    expect(link.getAttribute("href")).toBe(
+      "/realty/groups/group-abc-123/reviews",
+    );
   });
 
-  it("renders as non-link span when leaderPublicId is omitted", () => {
+  it("renders as non-link span when groupPublicId is omitted", () => {
     renderWithProviders(
       <GroupRatingBadge
         rating={{ averageRating: 4.2, reviewCount: 12 }}

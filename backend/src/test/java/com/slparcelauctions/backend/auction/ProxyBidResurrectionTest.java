@@ -38,18 +38,18 @@ import com.slparcelauctions.backend.user.UserRepository;
 import reactor.core.publisher.Mono;
 
 /**
- * Pin test for the EXHAUSTED → ACTIVE resurrection branch of
+ * Pin test for the EXHAUSTED â†’ ACTIVE resurrection branch of
  * {@code PUT /proxy-bid}. Scenario:
  *
  * <ol>
  *   <li>User A creates proxy max=600 on a startingBid=500 auction. No
- *       competitor — A opens at 500 and is winning.</li>
+ *       competitor â€” A opens at 500 and is winning.</li>
  *   <li>User B creates proxy max=1000. Branch 2 fires: A's proxy is
  *       exhausted, B wins at {@code min(600 + 50, 1000) = 650}.</li>
  *   <li>User A PUTs max=2000. Resurrection: A flips to ACTIVE, runs
- *       resolution. Branch 2 again — A's new max (2000) &gt; B's max (1000),
+ *       resolution. Branch 2 again â€” A's new max (2000) &gt; B's max (1000),
  *       so B is exhausted and A wins at {@code min(1000 + 100, 2000) = 1100}
- *       (tier-break: currentBid=1000 → L$100 increment).</li>
+ *       (tier-break: currentBid=1000 â†’ L$100 increment).</li>
  * </ol>
  */
 @SpringBootTest
@@ -109,7 +109,7 @@ class ProxyBidResurrectionTest {
     void exhaustedProxy_whenMaxIncreased_resurrectsAndWins() throws Exception {
         Auction a = seedAuction(500L);
 
-        // Step 1 — A creates proxy max=600 → opens at 500, A winning.
+        // Step 1 â€” A creates proxy max=600 â†’ opens at 500, A winning.
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -120,7 +120,7 @@ class ProxyBidResurrectionTest {
         assertThat(afterA.getCurrentBid()).isEqualTo(500L);
         assertThat(afterA.getCurrentBidderId()).isEqualTo(aId);
 
-        // Step 2 — B creates proxy max=1000. A exhausted, B wins at 650.
+        // Step 2 â€” B creates proxy max=1000. A exhausted, B wins at 650.
         mockMvc.perform(post("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + bAccessToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -134,7 +134,7 @@ class ProxyBidResurrectionTest {
                 a.getId(), aId).orElseThrow();
         assertThat(aProxy.getStatus()).isEqualTo(ProxyBidStatus.EXHAUSTED);
 
-        // Step 3 — A PUTs max=2000 → resurrects. A's new max (2000) > B's (1000).
+        // Step 3 â€” A PUTs max=2000 â†’ resurrects. A's new max (2000) > B's (1000).
         // settleAmount = min(1000 + 100, 2000) = 1100. A wins at 1100.
         mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/proxy-bid")
                         .header("Authorization", "Bearer " + aAccessToken)
@@ -250,7 +250,6 @@ class ProxyBidResurrectionTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         OffsetDateTime now = OffsetDateTime.now();
         a.setStartsAt(now.minusHours(1));

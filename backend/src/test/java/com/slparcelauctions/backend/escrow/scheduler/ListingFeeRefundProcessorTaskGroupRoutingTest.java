@@ -34,14 +34,14 @@ import com.slparcelauctions.backend.wallet.UserLedgerRepository;
  * Integration tests for the group-wallet routing in
  * {@link ListingFeeRefundProcessorTask#queueOne}.
  *
- * <p>Three cases (spec §8.1):
+ * <p>Three cases (spec Â§8.1):
  * <ol>
- *   <li>D-era group listing — {@code realty_group_ledger.LISTING_FEE_DEBIT} exists → refund
+ *   <li>D-era group listing â€” {@code realty_group_ledger.LISTING_FEE_DEBIT} exists â†’ refund
  *       credits the group wallet; seller's user wallet is unchanged.</li>
- *   <li>C-era group listing — auction has {@code realty_group_id} set but the original
- *       listing-fee debit was from the user wallet (no group ledger row) → refund credits
+ *   <li>C-era group listing â€” auction has {@code realty_group_id} set but the original
+ *       listing-fee debit was from the user wallet (no group ledger row) â†’ refund credits
  *       the user wallet; group balance unchanged.</li>
- *   <li>Individual listing — no group at all → refund credits the user wallet.</li>
+ *   <li>Individual listing â€” no group at all â†’ refund credits the user wallet.</li>
  * </ol>
  *
  * <p>Note: {@link ListingFeeRefundProcessorTask#queueOne} runs with
@@ -75,7 +75,7 @@ class ListingFeeRefundProcessorTaskGroupRoutingTest {
     @Autowired RealtyGroupLedgerRepository groupLedgerRepository;
     @Autowired UserLedgerRepository userLedgerRepository;
 
-    /** IDs of rows created by each test — deleted in @AfterEach. */
+    /** IDs of rows created by each test â€” deleted in @AfterEach. */
     private Long refundId;
     private Long auctionId;
     private Long groupId;
@@ -118,7 +118,7 @@ class ListingFeeRefundProcessorTaskGroupRoutingTest {
     }
 
     // -------------------------------------------------------------------------
-    // Case 1: D-era group listing → group wallet route
+    // Case 1: D-era group listing â†’ group wallet route
     // -------------------------------------------------------------------------
 
     @Test
@@ -159,7 +159,7 @@ class ListingFeeRefundProcessorTaskGroupRoutingTest {
     }
 
     // -------------------------------------------------------------------------
-    // Case 2: C-era group listing → user wallet route
+    // Case 2: C-era group listing â†’ user wallet route
     // -------------------------------------------------------------------------
 
     @Test
@@ -194,7 +194,7 @@ class ListingFeeRefundProcessorTaskGroupRoutingTest {
     }
 
     // -------------------------------------------------------------------------
-    // Case 3: Individual listing → user wallet route
+    // Case 3: Individual listing â†’ user wallet route
     // -------------------------------------------------------------------------
 
     @Test
@@ -241,7 +241,6 @@ class ListingFeeRefundProcessorTaskGroupRoutingTest {
             .name("Refund Test Group " + slug)
             .slug(slug)
             .leaderId(leaderId)
-            .agentFeeRate(BigDecimal.ZERO)
             .balanceLindens(balance)
             .reservedLindens(0L)
             .build());
@@ -264,7 +263,6 @@ class ListingFeeRefundProcessorTaskGroupRoutingTest {
             .currentBid(0L)
             .bidCount(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(BigDecimal.ZERO)
             .realtyGroupId(groupId)
             .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()

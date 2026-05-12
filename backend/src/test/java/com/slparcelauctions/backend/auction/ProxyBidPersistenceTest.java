@@ -32,7 +32,7 @@ import jakarta.persistence.PersistenceContext;
  *
  * <p>The partial unique index is created by
  * {@link com.slparcelauctions.backend.auction.config.ProxyBidPartialUniqueIndexInitializer} on
- * {@link org.springframework.boot.context.event.ApplicationReadyEvent} — so
+ * {@link org.springframework.boot.context.event.ApplicationReadyEvent} â€” so
  * loading the Spring context is sufficient to see it.
  */
 @SpringBootTest
@@ -81,7 +81,7 @@ class ProxyBidPersistenceTest {
     /**
      * Exercises the partial unique index directly: non-active rows stack
      * freely, a second ACTIVE row is rejected. Cleans up after itself via
-     * {@code deleteAll} on each repository — this test is intentionally NOT
+     * {@code deleteAll} on each repository â€” this test is intentionally NOT
      * wrapped in {@code @Transactional} so the DB actually commits the inserts
      * and the unique-index collision surfaces as
      * {@link DataIntegrityViolationException}.
@@ -163,7 +163,6 @@ class ProxyBidPersistenceTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)

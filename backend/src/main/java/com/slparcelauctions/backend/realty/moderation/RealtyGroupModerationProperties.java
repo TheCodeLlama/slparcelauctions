@@ -53,6 +53,17 @@ public class RealtyGroupModerationProperties {
     public static class SlGroupReverify {
         private int reverifyCadenceDays = 30;
         private int reverifyFetchFailureThreshold = 3;
+        /**
+         * Sub-project G §9.2 — per-tick cap on the number of due rows fetched
+         * by {@link com.slparcelauctions.backend.realty.slgroup.SlGroupReverifyTask}.
+         * Default {@link Integer#MAX_VALUE} (effectively unbounded, matching the
+         * pre-G behaviour). Operators dial down via
+         * {@code slpa.realty.sl-group.reverify-batch-size} + redeploy if a sweep
+         * starts starving other transactions on the same connection pool.
+         */
+        @jakarta.validation.constraints.Min(1)
+        private int reverifyBatchSize = Integer.MAX_VALUE;
+
         private Enabled reverify = new Enabled();
 
         @Getter

@@ -10,12 +10,6 @@ import { useAdminUpdateGroup } from "@/hooks/realty/useRealtyGroups";
 import { cn } from "@/lib/cn";
 import type { RealtyGroupPublicDto } from "@/types/realty";
 
-const decimalString = z
-  .string()
-  .regex(/^\d+(\.\d{1,4})?$/, "Use a decimal value like 0.1500")
-  .optional()
-  .or(z.literal(""));
-
 const profileSchema = z.object({
   name: z
     .string()
@@ -31,8 +25,6 @@ const profileSchema = z.object({
     .url("Enter a valid URL")
     .optional()
     .or(z.literal("")),
-  agentFeeRate: decimalString,
-  agentFeeSplit: decimalString,
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -65,8 +57,6 @@ export function AdminGroupProfileForm({ group }: AdminGroupProfileFormProps) {
       name: group.name,
       description: group.description ?? "",
       website: group.website ?? "",
-      agentFeeRate: group.agentFeeRate,
-      agentFeeSplit: group.agentFeeSplit,
     },
   });
 
@@ -75,8 +65,6 @@ export function AdminGroupProfileForm({ group }: AdminGroupProfileFormProps) {
       name: values.name?.trim() || undefined,
       description: values.description ? values.description.trim() : undefined,
       website: values.website ? values.website.trim() : undefined,
-      agentFeeRate: values.agentFeeRate || undefined,
-      agentFeeSplit: values.agentFeeSplit || undefined,
     };
     try {
       const updated = await updateGroup.mutateAsync({
@@ -87,8 +75,6 @@ export function AdminGroupProfileForm({ group }: AdminGroupProfileFormProps) {
         name: updated.name,
         description: updated.description ?? "",
         website: updated.website ?? "",
-        agentFeeRate: updated.agentFeeRate,
-        agentFeeSplit: updated.agentFeeSplit,
       });
     } catch {
       // mutation hook surfaces a toast; swallow.
@@ -151,23 +137,6 @@ export function AdminGroupProfileForm({ group }: AdminGroupProfileFormProps) {
             data-testid="admin-group-profile-website"
             {...register("website")}
           />
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label="Agent fee rate"
-              helperText="Decimal (0.0000 to 0.5000)"
-              error={errors.agentFeeRate?.message}
-              data-testid="admin-group-profile-fee-rate"
-              {...register("agentFeeRate")}
-            />
-            <Input
-              label="Agent fee split"
-              helperText="Decimal (0.0000 to 1.0000)"
-              error={errors.agentFeeSplit?.message}
-              data-testid="admin-group-profile-fee-split"
-              {...register("agentFeeSplit")}
-            />
-          </div>
 
           <div className="flex justify-end">
             <Button

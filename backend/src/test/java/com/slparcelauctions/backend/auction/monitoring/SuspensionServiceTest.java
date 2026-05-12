@@ -95,14 +95,14 @@ class SuspensionServiceTest {
                 .containsEntry("detected_owner", ATTACKER_AVATAR.toString())
                 .containsEntry("detected_owner_type", "agent")
                 .containsEntry("parcel_uuid", PARCEL_UUID.toString());
-        // createdAt is populated by @CreationTimestamp on save — must NOT be
+        // createdAt is populated by @CreationTimestamp on save â€” must NOT be
         // pre-set by SuspensionService or Hibernate will error out.
         assertThat(flag.getCreatedAt()).isNull();
     }
 
     @Test
     void raiseCancelAndSellFlag_writesEvidenceWithExpectedShape() {
-        // Spec §6.3 evidence: cancelledAt, expectedSellerKey, observedOwnerKey,
+        // Spec Â§6.3 evidence: cancelledAt, expectedSellerKey, observedOwnerKey,
         // hoursSinceCancellation, parcelRegion, parcelLocalId, auctionTitle.
         Auction a = buildActive();
         a.setStatus(AuctionStatus.CANCELLED);
@@ -110,7 +110,7 @@ class SuspensionServiceTest {
 
         service.raiseCancelAndSellFlag(a, ATTACKER_AVATAR, cancelledAt);
 
-        // No status change — auction was already CANCELLED. No save on the
+        // No status change â€” auction was already CANCELLED. No save on the
         // auction either; the caller (OwnershipCheckTask) writes the row.
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.CANCELLED);
 
@@ -136,7 +136,7 @@ class SuspensionServiceTest {
     @Test
     void raiseCancelAndSellFlag_handlesNullCancelledAt() {
         // Defensive: if the cancellation log is missing for some reason,
-        // the flag still writes — hoursSinceCancellation is null.
+        // the flag still writes â€” hoursSinceCancellation is null.
         Auction a = buildActive();
         a.setStatus(AuctionStatus.CANCELLED);
 
@@ -182,7 +182,6 @@ class SuspensionServiceTest {
                 .currentBid(0L).bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .build();
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()

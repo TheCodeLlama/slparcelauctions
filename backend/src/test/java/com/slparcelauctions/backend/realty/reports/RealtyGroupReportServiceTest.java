@@ -28,6 +28,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.slparcelauctions.backend.admin.audit.AdminActionService;
 import com.slparcelauctions.backend.admin.audit.AdminActionTargetType;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
@@ -58,16 +59,24 @@ class RealtyGroupReportServiceTest {
     @Mock UserRepository userRepo;
     @Mock RealtyGroupReportRateLimiter rateLimiter;
     @Mock AdminActionService adminActionService;
+    @Mock NotificationPublisher notificationPublisher;
 
     Clock clock;
+    ReportsProperties reportsProps;
     RealtyGroupReportService service;
 
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(FIXED_NOW.toInstant(), ZoneOffset.UTC);
+        // Real props bean -- the threshold-fan-out path reads getGroupAlertThreshold().
+        // Default 3 is fine for these unit tests; the dedicated integration test
+        // exercises the cross-threshold behaviour end-to-end.
+        reportsProps = new ReportsProperties();
         service = new RealtyGroupReportService(
             reportRepo, groupRepo, memberRepo, userRepo,
-            rateLimiter, adminActionService, clock);
+            rateLimiter, adminActionService,
+            notificationPublisher, reportsProps,
+            clock);
         // userRepo.getReferenceById is used to populate FK proxies without a SELECT;
         // stub leniently so the happy paths don't NPE.
         lenient().when(userRepo.getReferenceById(any(Long.class)))

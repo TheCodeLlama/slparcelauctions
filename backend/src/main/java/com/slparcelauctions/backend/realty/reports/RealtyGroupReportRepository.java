@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
 /**
  * Spring Data repository for {@link RealtyGroupReport}.
  *
- * <p>Sub-project F spec §8.
+ * <p>Sub-project F spec section 8.
  */
 public interface RealtyGroupReportRepository extends JpaRepository<RealtyGroupReport, Long> {
 
@@ -34,8 +34,16 @@ public interface RealtyGroupReportRepository extends JpaRepository<RealtyGroupRe
             @Param("groupId") Long groupId,
             @Param("reporterId") Long reporterId);
 
-    /** Paginated by status — admin moderation queue uses this with {@code OPEN}. */
+    /** Paginated by status -- admin moderation queue uses this with {@code OPEN}. */
     Page<RealtyGroupReport> findByStatus(RealtyGroupReportStatus status, Pageable pageable);
+
+    /**
+     * Count open/resolved/dismissed reports for a single group. Drives the
+     * sub-project G section 12 threshold check inside
+     * {@link RealtyGroupReportService#submit} and the re-arm check inside
+     * {@code resolve} / {@code dismiss}.
+     */
+    long countByRealtyGroupIdAndStatus(Long realtyGroupId, RealtyGroupReportStatus status);
 
     /** Full report history for a group, newest first. Drives the admin moderation page. */
     @Query("""

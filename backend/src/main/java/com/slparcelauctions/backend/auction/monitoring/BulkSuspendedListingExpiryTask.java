@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 
 import com.slparcelauctions.backend.admin.audit.AdminActionService;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
-import com.slparcelauctions.backend.admin.audit.SystemUserResolver;
 import com.slparcelauctions.backend.auction.CancellationService;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties;
 
@@ -55,11 +54,6 @@ import lombok.extern.slf4j.Slf4j;
  * scheduler-disable pattern: tests flip {@code slpa.realty.group-bulk-suspend.enabled
  * = false} via {@code @TestPropertySource} to prevent the bean from registering at
  * all during context startup.
- *
- * <p>{@link SystemUserResolver} is injected for future use by callers that need
- * the system actor (and to keep the bean wiring aligned with the plan); the
- * actual audit-row attribution is performed inside
- * {@code AdminActionService.recordSystemAction}.
  */
 @Component
 @RequiredArgsConstructor
@@ -74,8 +68,6 @@ public class BulkSuspendedListingExpiryTask {
     private final CancellationService cancellationService;
     private final AdminActionService adminActionService;
     private final RealtyGroupModerationProperties props;
-    @SuppressWarnings("unused") // injected for parity with the plan + future system-actor hooks
-    private final SystemUserResolver systemUserResolver;
     private final Clock clock;
 
     @Scheduled(fixedRate = 60L * 60L * 1000L)

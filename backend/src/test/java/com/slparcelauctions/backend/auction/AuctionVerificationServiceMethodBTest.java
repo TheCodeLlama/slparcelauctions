@@ -96,7 +96,7 @@ class AuctionVerificationServiceMethodBTest {
     }
 
     // -------------------------------------------------------------------------
-    // triggerVerification — generates code + stays pending
+    // triggerVerification â€” generates code + stays pending
     // -------------------------------------------------------------------------
 
     @Test
@@ -110,7 +110,7 @@ class AuctionVerificationServiceMethodBTest {
         Auction out = service.triggerVerification(AUCTION_ID, VerificationMethod.REZZABLE, SELLER_ID);
 
         assertThat(out.getStatus()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
-        // No transition to ACTIVE — LSL callback will drive that.
+        // No transition to ACTIVE â€” LSL callback will drive that.
         assertThat(out.getStartsAt()).isNull();
         assertThat(out.getEndsAt()).isNull();
         assertThat(out.getVerifiedAt()).isNull();
@@ -138,7 +138,7 @@ class AuctionVerificationServiceMethodBTest {
     }
 
     // -------------------------------------------------------------------------
-    // buildPendingVerification — REZZABLE
+    // buildPendingVerification â€” REZZABLE
     // -------------------------------------------------------------------------
 
     @Test
@@ -191,7 +191,6 @@ class AuctionVerificationServiceMethodBTest {
                 .listingFeePaid(status != AuctionStatus.DRAFT)
                 .currentBid(0L).bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now(fixed))
                 .updatedAt(OffsetDateTime.now(fixed))

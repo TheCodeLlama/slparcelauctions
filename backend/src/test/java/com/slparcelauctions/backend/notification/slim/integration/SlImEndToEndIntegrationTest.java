@@ -39,7 +39,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * E2E contract test: event → SL IM queue → polling endpoint → confirmation,
+ * E2E contract test: event â†’ SL IM queue â†’ polling endpoint â†’ confirmation,
  * asserting status transitions and idempotent re-confirmation behavior.
  * Fixture helpers copied from OutbidImIntegrationTest (Task 3).
  */
@@ -144,7 +144,7 @@ class SlImEndToEndIntegrationTest {
         assertThat(delivered.getDeliveredAt()).isNotNull();
         var deliveredAtFirstCall = delivered.getDeliveredAt();
 
-        // Step 4: idempotent second confirmation — 204, delivered_at NOT re-stamped.
+        // Step 4: idempotent second confirmation â€” 204, delivered_at NOT re-stamped.
         mvc.perform(post("/api/v1/internal/sl-im/" + imId + "/delivered")
                 .header("Authorization", AUTH))
             .andExpect(status().isNoContent());
@@ -204,7 +204,6 @@ class SlImEndToEndIntegrationTest {
             .listingFeePaid(true)
             .consecutiveWorldApiFailures(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(BigDecimal.ZERO)
             .startsAt(now.minusMinutes(5))
             .endsAt(now.plusHours(24))
             .originalEndsAt(now.plusHours(24))

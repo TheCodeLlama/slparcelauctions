@@ -26,7 +26,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.slparcelauctions.backend.admin.audit.AdminActionService;
 import com.slparcelauctions.backend.admin.audit.AdminActionType;
-import com.slparcelauctions.backend.admin.audit.SystemUserResolver;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.CancellationService;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupModerationProperties;
@@ -63,7 +62,6 @@ class BulkSuspendedListingExpiryTaskTest {
     @Mock ListingSuspensionRepository listingSuspensionRepo;
     @Mock CancellationService cancellationService;
     @Mock AdminActionService adminActionService;
-    @Mock SystemUserResolver systemUserResolver;
 
     RealtyGroupModerationProperties props;
     Clock clock;
@@ -80,7 +78,6 @@ class BulkSuspendedListingExpiryTaskTest {
             cancellationService,
             adminActionService,
             props,
-            systemUserResolver,
             clock
         );
     }

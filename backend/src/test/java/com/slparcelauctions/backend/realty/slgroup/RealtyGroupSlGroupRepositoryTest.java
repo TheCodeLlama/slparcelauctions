@@ -16,6 +16,9 @@ import org.springframework.test.context.TestPropertySource;
 
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupSuspension;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupSuspensionRepository;
+import com.slparcelauctions.backend.realty.moderation.SuspensionReason;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -48,6 +51,7 @@ class RealtyGroupSlGroupRepositoryTest {
     @Autowired UserRepository userRepository;
     @Autowired RealtyGroupRepository realtyGroupRepository;
     @Autowired RealtyGroupSlGroupRepository repository;
+    @Autowired RealtyGroupSuspensionRepository suspensionRepository;
     @Autowired DataSource dataSource;
 
     @AfterEach
@@ -55,6 +59,14 @@ class RealtyGroupSlGroupRepositoryTest {
         try (var conn = dataSource.getConnection()) {
             conn.setAutoCommit(true);
             try (var stmt = conn.createStatement()) {
+                stmt.execute("""
+                    DELETE FROM realty_group_suspensions
+                     WHERE realty_group_id IN (
+                       SELECT id FROM realty_groups WHERE leader_id IN
+                         (SELECT id FROM users WHERE email LIKE 'rgslg-%@test.local'))
+                        OR issued_by_admin_id IN
+                         (SELECT id FROM users WHERE email LIKE 'rgslg-%@test.local')
+                    """);
                 stmt.execute("""
                     DELETE FROM realty_group_sl_groups
                      WHERE realty_group_id IN (
@@ -128,7 +140,91 @@ class RealtyGroupSlGroupRepositoryTest {
             .isPresent();
     }
 
+    /**
+     * Sub-project G section 14 -- reverse-search ban-evasion gate. The query
+     * returns {@code true} only when the SL group UUID is currently registered
+     * to a realty group that has an active (unlifted) suspension row.
+     */
+    @Test
+    void existsForSuspendedRealtyGroup_trueWhenRegisteredOnSuspendedGroup() {
+        RealtyGroup group = persistGroup();
+        User admin = persistAdmin();
+        UUID slGroupUuid = UUID.randomUUID();
+
+        repository.save(RealtyGroupSlGroup.builder()
+            .realtyGroupId(group.getId())
+            .slGroupUuid(slGroupUuid)
+            .slGroupName("Pending " + suffix())
+            .verified(false)
+            .verificationCode("CODE-" + suffix())
+            .verificationCodeExpiresAt(OffsetDateTime.now().plusHours(24))
+            .build());
+
+        // No suspension yet -> gate is open.
+        assertThat(repository.existsForSuspendedRealtyGroup(slGroupUuid)).isFalse();
+
+        // Active (unlifted) suspension on the realty group -> gate fires.
+        suspensionRepository.save(RealtyGroupSuspension.builder()
+            .realtyGroup(group)
+            .issuedByAdmin(admin)
+            .reason(SuspensionReason.FRAUD)
+            .notes("test")
+            .issuedAt(OffsetDateTime.now())
+            .expiresAt(null) // permanent ban
+            .build());
+
+        assertThat(repository.existsForSuspendedRealtyGroup(slGroupUuid)).isTrue();
+    }
+
+    @Test
+    void existsForSuspendedRealtyGroup_falseWhenSuspensionIsLifted() {
+        RealtyGroup group = persistGroup();
+        User admin = persistAdmin();
+        UUID slGroupUuid = UUID.randomUUID();
+
+        repository.save(RealtyGroupSlGroup.builder()
+            .realtyGroupId(group.getId())
+            .slGroupUuid(slGroupUuid)
+            .slGroupName("Pending " + suffix())
+            .verified(false)
+            .verificationCode("CODE-" + suffix())
+            .verificationCodeExpiresAt(OffsetDateTime.now().plusHours(24))
+            .build());
+
+        RealtyGroupSuspension lifted = RealtyGroupSuspension.builder()
+            .realtyGroup(group)
+            .issuedByAdmin(admin)
+            .reason(SuspensionReason.FRAUD)
+            .notes("test")
+            .issuedAt(OffsetDateTime.now().minusDays(2))
+            .expiresAt(null)
+            .liftedAt(OffsetDateTime.now().minusDays(1))
+            .liftedByAdmin(admin)
+            .build();
+        suspensionRepository.save(lifted);
+
+        // Lifted suspension is not active -> gate stays open.
+        assertThat(repository.existsForSuspendedRealtyGroup(slGroupUuid)).isFalse();
+    }
+
+    @Test
+    void existsForSuspendedRealtyGroup_falseWhenUuidNotRegistered() {
+        // No SL group registration at all -> nothing to find.
+        assertThat(repository.existsForSuspendedRealtyGroup(UUID.randomUUID())).isFalse();
+    }
+
     // ─────────────────────── helpers ───────────────────────
+
+    private User persistAdmin() {
+        return userRepository.save(User.builder()
+            .username("rgslg-a-" + UUID.randomUUID().toString().substring(0, 6))
+            .email("rgslg-a-" + UUID.randomUUID() + "@test.local")
+            .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
+            .displayName("admin")
+            .verified(true)
+            .slAvatarUuid(UUID.randomUUID())
+            .build());
+    }
 
     private RealtyGroup persistGroup() {
         User leader = userRepository.save(User.builder()

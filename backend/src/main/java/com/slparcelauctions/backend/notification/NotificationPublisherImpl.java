@@ -9,6 +9,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import java.time.OffsetDateTime;
@@ -193,9 +194,25 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     @Override
     public void escrowPayout(long sellerUserId, long auctionId, long escrowId,
-                              String parcelName, long payoutL) {
-        String title = String.format("Payout received: L$%,d", payoutL);
-        String body = parcelName + " escrow completed successfully.";
+                              String parcelName, long payoutL,
+                              String groupName, long commissionAmt, long groupSliceAmt) {
+        // Subject is identical for both cases (spec §8.3). Body diverges so the
+        // case-3 "L$0 payout received" misread is replaced with the commission
+        // + group-slice breakdown.
+        String title = "Auction payout processed";
+        String body;
+        if (groupName != null) {
+            // Sub-project G §8.3 -- case-3 (SL-group-owned). payoutL is 0 by
+            // construction; surface the slices instead so the seller sees the
+            // actual L$ movement.
+            body = String.format(
+                "Your auction payout is complete. L$%d agent commission paid; "
+                + "L$%d credited to %s group wallet.",
+                commissionAmt, groupSliceAmt, groupName);
+        } else {
+            // Legacy / case-1 / individual.
+            body = String.format("L$%d payout received for %s.", payoutL, parcelName);
+        }
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT, title, body,
             NotificationDataBuilder.escrowPayout(auctionId, escrowId, parcelName, payoutL),
@@ -916,6 +933,27 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         for (RealtyGroupMember m : realtyGroupMemberRepository.findByGroupIdOrderByJoinedAtAsc(group.getId())) {
             publishOne(m.getUserId(),
                 NotificationCategory.REALTY_GROUP_UNSUSPENDED, title, body, data);
+        }
+    }
+
+    @Override
+    public void groupReportThresholdReached(RealtyGroup group, int threshold) {
+        if (group == null) return;
+        String title = "Realty group \"" + group.getName()
+            + "\" reached " + threshold + " open reports";
+        String body = "Review the queue at /admin/realty-groups/"
+            + group.getPublicId() + "/reports";
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group.getPublicId(), group.getName(), group.getSlug());
+        data.put("threshold", threshold);
+        // Fan-out target is the full set of admin role-holders -- mirrors the
+        // ReconciliationService pattern (NotificationCategory.RECONCILIATION_MISMATCH
+        // also uses findByRole). Group members are NOT recipients; this category
+        // routes through NotificationGroup.ADMIN_OPS.
+        for (User admin : userRepository.findByRole(Role.ADMIN)) {
+            publishOne(admin.getId(),
+                NotificationCategory.GROUP_REPORT_THRESHOLD_REACHED,
+                title, body, data);
         }
     }
 

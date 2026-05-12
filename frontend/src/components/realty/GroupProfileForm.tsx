@@ -22,17 +22,6 @@ import type {
 
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-/**
- * Decimal-as-string schema (matches backend BigDecimal-as-string). Empty
- * string is normalized to undefined at submit so missing-field means
- * "leave unchanged".
- */
-const decimalString = z
-  .string()
-  .regex(/^\d+(\.\d{1,4})?$/, "Use a decimal value like 0.1500")
-  .optional()
-  .or(z.literal(""));
-
 const profileSchema = z.object({
   name: z
     .string()
@@ -48,8 +37,6 @@ const profileSchema = z.object({
     .url("Enter a valid URL")
     .optional()
     .or(z.literal("")),
-  agentFeeRate: decimalString,
-  agentFeeSplit: decimalString,
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -64,15 +51,10 @@ export interface GroupProfileFormProps {
 
 /**
  * Profile-tab form for `/dashboard/groups/[slug]/manage`. Edits:
- * name, description, website, fee rate + split, and the logo/cover
- * image pair. Each field set is gated by a specific permission:
- *
- * - name/description/website/logo/cover -> {@code EDIT_GROUP_PROFILE}
- * - agentFeeRate/agentFeeSplit -> {@code CONFIGURE_FEES}
- *
- * The leader is treated as having both permissions implicitly. Disabled
- * inputs render with a tooltip ({@code title} attribute) so a caller can
- * see why a field is locked.
+ * name, description, website, and the logo/cover image pair, gated by
+ * {@code EDIT_GROUP_PROFILE}. The leader has the permission implicitly.
+ * Disabled inputs render with a tooltip ({@code title} attribute) so a
+ * caller can see why a field is locked.
  */
 export function GroupProfileForm({
   group,
@@ -88,15 +70,10 @@ export function GroupProfileForm({
 
   const canEditProfile =
     isLeader || callerPermissions.has("EDIT_GROUP_PROFILE");
-  const canConfigureFees =
-    isLeader || callerPermissions.has("CONFIGURE_FEES");
 
   const profileLockedTitle = canEditProfile
     ? undefined
     : "Requires the Edit group profile permission.";
-  const feesLockedTitle = canConfigureFees
-    ? undefined
-    : "Requires the Configure fees permission.";
 
   const {
     register,
@@ -109,25 +86,15 @@ export function GroupProfileForm({
       name: group.name,
       description: group.description ?? "",
       website: group.website ?? "",
-      agentFeeRate: group.agentFeeRate,
-      agentFeeSplit: group.agentFeeSplit,
     },
   });
 
   const onSubmit = async (values: ProfileFormValues) => {
+    if (!canEditProfile) return;
     const body = {
-      // Send only fields the caller is allowed to mutate; the backend will
-      // reject any disallowed surface anyway via permission gates, but we
-      // can avoid the round-trip + permission-denied toast.
-      ...(canEditProfile && {
-        name: values.name?.trim() || undefined,
-        description: values.description ? values.description.trim() : undefined,
-        website: values.website ? values.website.trim() : undefined,
-      }),
-      ...(canConfigureFees && {
-        agentFeeRate: values.agentFeeRate || undefined,
-        agentFeeSplit: values.agentFeeSplit || undefined,
-      }),
+      name: values.name?.trim() || undefined,
+      description: values.description ? values.description.trim() : undefined,
+      website: values.website ? values.website.trim() : undefined,
     };
     try {
       const updated = await updateGroup.mutateAsync({
@@ -138,8 +105,6 @@ export function GroupProfileForm({
         name: updated.name,
         description: updated.description ?? "",
         website: updated.website ?? "",
-        agentFeeRate: updated.agentFeeRate,
-        agentFeeSplit: updated.agentFeeSplit,
       });
     } catch {
       // Mutation hook handles the error toast; swallow rethrow here.
@@ -302,27 +267,6 @@ export function GroupProfileForm({
             {...register("website")}
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label="Agent fee rate"
-              helperText="Decimal (0.0000 to 0.5000)"
-              error={errors.agentFeeRate?.message}
-              disabled={!canConfigureFees}
-              title={feesLockedTitle}
-              data-testid="group-profile-fee-rate"
-              {...register("agentFeeRate")}
-            />
-            <Input
-              label="Agent fee split"
-              helperText="Decimal (0.0000 to 1.0000)"
-              error={errors.agentFeeSplit?.message}
-              disabled={!canConfigureFees}
-              title={feesLockedTitle}
-              data-testid="group-profile-fee-split"
-              {...register("agentFeeSplit")}
-            />
-          </div>
-
           <div className="flex justify-end">
             <Button
               type="submit"
@@ -332,7 +276,7 @@ export function GroupProfileForm({
                 !isDirty ||
                 isSubmitting ||
                 updateGroup.isPending ||
-                (!canEditProfile && !canConfigureFees)
+                !canEditProfile
               }
               data-testid="group-profile-submit"
             >

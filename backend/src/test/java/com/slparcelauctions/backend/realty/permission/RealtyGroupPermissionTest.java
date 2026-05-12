@@ -14,7 +14,6 @@ class RealtyGroupPermissionTest {
     void dEnumValuesAreDefined() {
         assertThat(RealtyGroupPermission.values())
             .contains(
-                RealtyGroupPermission.SPEND_FROM_GROUP_WALLET,
                 RealtyGroupPermission.WITHDRAW_FROM_GROUP_WALLET,
                 RealtyGroupPermission.VIEW_GROUP_TRANSACTIONS);
     }
@@ -27,7 +26,7 @@ class RealtyGroupPermissionTest {
         assertThat(names).containsExactlyInAnyOrder(
                 "INVITE_AGENTS", "REMOVE_AGENTS", "EDIT_GROUP_PROFILE", "CONFIGURE_FEES",
                 "CREATE_LISTING", "MANAGE_ALL_LISTINGS",
-                "SPEND_FROM_GROUP_WALLET", "WITHDRAW_FROM_GROUP_WALLET", "VIEW_GROUP_TRANSACTIONS",
+                "WITHDRAW_FROM_GROUP_WALLET", "VIEW_GROUP_TRANSACTIONS",
                 "REGISTER_SL_GROUP", "MANAGE_MEMBERS");
     }
 }

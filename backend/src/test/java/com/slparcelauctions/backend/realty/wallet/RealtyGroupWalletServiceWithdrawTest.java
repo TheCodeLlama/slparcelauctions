@@ -12,17 +12,24 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.slparcelauctions.backend.escrow.command.TerminalCommand;
+import com.slparcelauctions.backend.escrow.command.TerminalCommandAction;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandPurpose;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupSuspensionRepository;
 import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.wallet.broadcast.GroupWalletBroadcastPublisher;
+import com.slparcelauctions.backend.realty.wallet.dto.GroupWithdrawRecipient;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderTermsNotAcceptedException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupNotRegisteredException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationSuspendedException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -31,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -52,10 +60,14 @@ class RealtyGroupWalletServiceWithdrawTest {
     private final NotificationPublisher notif = mock(NotificationPublisher.class);
     private final GroupWalletBroadcastPublisher pub = mock(GroupWalletBroadcastPublisher.class);
     private final RealtyGroupGuard guard = mock(RealtyGroupGuard.class);
+    private final RealtyGroupSlGroupRepository slGroupRepo = mock(RealtyGroupSlGroupRepository.class);
+    private final RealtyGroupSuspensionRepository suspensionRepo =
+        mock(RealtyGroupSuspensionRepository.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-05-12T10:00:00Z"), ZoneOffset.UTC);
 
     private final RealtyGroupWalletService svc = new RealtyGroupWalletService(
-        groupRepo, ledgerRepo, userRepo, cmdRepo, notif, pub, guard, clock);
+        groupRepo, ledgerRepo, userRepo, cmdRepo, notif, pub, guard,
+        slGroupRepo, suspensionRepo, clock);
 
     // ---- withdraw happy path ----
 
@@ -80,7 +92,7 @@ class RealtyGroupWalletServiceWithdrawTest {
         when(ledgerRepo.findByIdempotencyKey(idemKey.toString())).thenReturn(Optional.empty());
 
         RealtyGroupWalletService.WithdrawResult result =
-            svc.withdraw(42L, 500L, idemKey, 5L);
+            svc.withdraw(42L, 500L, idemKey, 5L, GroupWithdrawRecipient.AVATAR);
 
         assertThat(g.getBalanceLindens()).isEqualTo(500L);
         ArgumentCaptor<TerminalCommand> cmdCap = ArgumentCaptor.forClass(TerminalCommand.class);
@@ -119,7 +131,7 @@ class RealtyGroupWalletServiceWithdrawTest {
             .when(guard).requireGroupCanOperate(42L);
         UUID idem = UUID.randomUUID();
 
-        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L))
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.AVATAR))
             .isInstanceOf(RealtyGroupSuspendedException.class);
 
         verify(groupRepo, never()).findByIdForUpdate(any());
@@ -140,7 +152,7 @@ class RealtyGroupWalletServiceWithdrawTest {
         UUID idem = UUID.randomUUID();
         when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L))
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.AVATAR))
             .isInstanceOf(LeaderTermsNotAcceptedException.class);
 
         verify(ledgerRepo, never()).save(any());
@@ -157,7 +169,7 @@ class RealtyGroupWalletServiceWithdrawTest {
         UUID idem = UUID.randomUUID();
         when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L))
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.AVATAR))
             .isInstanceOf(LeaderFrozenException.class);
     }
 
@@ -171,7 +183,7 @@ class RealtyGroupWalletServiceWithdrawTest {
         UUID idem = UUID.randomUUID();
         when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L))
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.AVATAR))
             .isInstanceOf(LeaderFrozenException.class);
     }
 
@@ -183,7 +195,7 @@ class RealtyGroupWalletServiceWithdrawTest {
         UUID idem = UUID.randomUUID();
         when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L))
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.AVATAR))
             .isInstanceOf(InsufficientGroupBalanceException.class);
     }
 
@@ -216,7 +228,7 @@ class RealtyGroupWalletServiceWithdrawTest {
         when(cmdRepo.findByIdempotencyKey("GWAL-77")).thenReturn(Optional.of(priorCmd));
 
         RealtyGroupWalletService.WithdrawResult result =
-            svc.withdraw(42L, 500L, idem, 5L);
+            svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.AVATAR);
 
         // No new ledger row or command should be saved.
         verify(ledgerRepo, never()).save(any());
@@ -325,6 +337,114 @@ class RealtyGroupWalletServiceWithdrawTest {
         when(ledgerRepo.findById(999L)).thenReturn(Optional.empty());
 
         assertThat(svc.findGroupIdForLedgerEntry(999L)).isNull();
+    }
+
+    // ---- SL_GROUP recipient (sub-project G section 7.3) ----
+
+    @Test
+    void withdraw_toSlGroup_enqueuesWithdrawGroupCommand_whenRegistrationCurrent() throws Exception {
+        RealtyGroup g = group(42L, 1000L);
+        User leader = readyLeader(UUID.randomUUID());
+        UUID slGroupUuid = UUID.randomUUID();
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+            .realtyGroupId(42L)
+            .slGroupUuid(slGroupUuid)
+            .slGroupName("Some Estates")
+            .verified(true)
+            .verifiedAt(OffsetDateTime.now(clock))
+            .build();
+
+        when(groupRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(g));
+        when(userRepo.findById(g.getLeaderId())).thenReturn(Optional.of(leader));
+        when(slGroupRepo.findCurrentRegisteredForRealtyGroup(42L))
+            .thenReturn(java.util.List.of(reg));
+        when(suspensionRepo.existsActiveForGroup(eq(42L), any()))
+            .thenReturn(false);
+        when(ledgerRepo.save(any())).thenAnswer(inv -> {
+            RealtyGroupLedgerEntry e = inv.getArgument(0);
+            setId(e, 200L);
+            setPublicId(e, UUID.randomUUID());
+            return e;
+        });
+        when(cmdRepo.save(any())).thenAnswer(inv -> {
+            TerminalCommand c = inv.getArgument(0);
+            setId(c, 777L);
+            return c;
+        });
+        UUID idem = UUID.randomUUID();
+        when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
+
+        RealtyGroupWalletService.WithdrawResult result =
+            svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.SL_GROUP);
+
+        ArgumentCaptor<TerminalCommand> cmdCap = ArgumentCaptor.forClass(TerminalCommand.class);
+        verify(cmdRepo).save(cmdCap.capture());
+        TerminalCommand cmd = cmdCap.getValue();
+        assertThat(cmd.getAction()).isEqualTo(TerminalCommandAction.WITHDRAW_GROUP);
+        assertThat(cmd.getRecipientUuid()).isEqualTo(slGroupUuid.toString());
+        assertThat(cmd.getRealtyGroupId()).isEqualTo(42L);
+        assertThat(result.queueId()).isEqualTo(777L);
+
+        ArgumentCaptor<RealtyGroupLedgerEntry> ledgerCap =
+            ArgumentCaptor.forClass(RealtyGroupLedgerEntry.class);
+        verify(ledgerRepo).save(ledgerCap.capture());
+        assertThat(ledgerCap.getValue().getDescription()).isEqualTo("to SL group Some Estates");
+    }
+
+    @Test
+    void withdraw_toSlGroup_throwsSlGroupNotRegistered_whenNoRegistrationExists() throws Exception {
+        RealtyGroup g = group(42L, 1000L);
+        User leader = readyLeader(UUID.randomUUID());
+        when(groupRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(g));
+        when(userRepo.findById(g.getLeaderId())).thenReturn(Optional.of(leader));
+        when(slGroupRepo.findCurrentRegisteredForRealtyGroup(42L))
+            .thenReturn(java.util.List.of());
+        UUID idem = UUID.randomUUID();
+        when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.SL_GROUP))
+            .isInstanceOf(SlGroupNotRegisteredException.class);
+
+        verify(ledgerRepo, never()).save(any());
+        verify(cmdRepo, never()).save(any());
+    }
+
+    @Test
+    void withdraw_toSlGroup_throwsSlGroupRegistrationSuspended_whenActiveSuspension() throws Exception {
+        RealtyGroup g = group(42L, 1000L);
+        User leader = readyLeader(UUID.randomUUID());
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+            .realtyGroupId(42L)
+            .slGroupUuid(UUID.randomUUID())
+            .verified(true)
+            .verifiedAt(OffsetDateTime.now(clock))
+            .build();
+        when(groupRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(g));
+        when(userRepo.findById(g.getLeaderId())).thenReturn(Optional.of(leader));
+        when(slGroupRepo.findCurrentRegisteredForRealtyGroup(42L))
+            .thenReturn(java.util.List.of(reg));
+        when(suspensionRepo.existsActiveForGroup(eq(42L), any())).thenReturn(true);
+        UUID idem = UUID.randomUUID();
+        when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
+
+        // The realty-group guard (mocked, no-op by default) does not fire in this test --
+        // the explicit existsActiveForGroup re-check inside the SL_GROUP branch is what
+        // surfaces SlGroupRegistrationSuspendedException. This mirrors the production
+        // semantic ("SL_GROUP path requires the realty group to be operable") that
+        // survives any future loosening of the guard at the top of withdraw.
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, GroupWithdrawRecipient.SL_GROUP))
+            .isInstanceOf(SlGroupRegistrationSuspendedException.class);
+
+        verify(ledgerRepo, never()).save(any());
+        verify(cmdRepo, never()).save(any());
+    }
+
+    @Test
+    void withdraw_nullRecipient_throwsIllegalArgument() {
+        UUID idem = UUID.randomUUID();
+        assertThatThrownBy(() -> svc.withdraw(42L, 500L, idem, 5L, null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("recipient");
     }
 
     // ---- helpers ----

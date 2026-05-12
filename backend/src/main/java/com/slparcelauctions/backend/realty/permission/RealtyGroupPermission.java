@@ -20,9 +20,6 @@ public enum RealtyGroupPermission {
     /** Broker-level: cancel any case-3 listing of this group regardless of who created it. */
     MANAGE_ALL_LISTINGS,
 
-    /** Discretionary spend from the group wallet. */
-    SPEND_FROM_GROUP_WALLET,
-
     /** Initiate a withdrawal from the group wallet. */
     WITHDRAW_FROM_GROUP_WALLET,
 

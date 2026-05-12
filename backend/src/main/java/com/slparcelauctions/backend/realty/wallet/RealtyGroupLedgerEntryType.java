@@ -19,5 +19,13 @@ public enum RealtyGroupLedgerEntryType {
     WITHDRAW_COMPLETED,
     WITHDRAW_REVERSED,
     DORMANCY_AUTO_RETURN,
-    ADJUSTMENT
+    ADJUSTMENT,
+    /**
+     * Sub-project G -- admin-initiated wallet adjustment (credit or debit).
+     * Direction is encoded in the sign of {@code amount}. A required
+     * {@code description} carries the freeform admin reason. Audit row is
+     * paired via {@link com.slparcelauctions.backend.admin.audit.AdminActionType#REALTY_GROUP_WALLET_ADMIN_ADJUSTMENT}.
+     * See spec §7.2.
+     */
+    ADMIN_ADJUSTMENT
 }

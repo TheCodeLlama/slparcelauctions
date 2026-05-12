@@ -41,7 +41,7 @@ import reactor.core.publisher.Mono;
  * Coverage for {@code POST /api/v1/me/auctions/{id}/pay-listing-fee}.
  * Asserts the precondition gates layered in front of the wallet debit:
  *   - wallet ToU must be accepted (403 WALLET_TERMS_NOT_ACCEPTED)
- *   - no outstanding penalty (422 PENALTY_OUTSTANDING — covered elsewhere)
+ *   - no outstanding penalty (422 PENALTY_OUTSTANDING â€” covered elsewhere)
  *   - sufficient available balance (422 INSUFFICIENT_AVAILABLE_BALANCE)
  *
  * <p>Plus the happy path: DRAFT -> DRAFT_PAID with the wallet debited.
@@ -89,7 +89,7 @@ class MeWalletPayListingFeeTest {
 
     @Test
     void payListingFee_walletTermsNotAccepted_returns403() throws Exception {
-        // No wallet ToU acceptance + plenty of balance — the new ToU gate
+        // No wallet ToU acceptance + plenty of balance â€” the new ToU gate
         // must fire before the debit is attempted.
         creditUser(sellerId, 1000L);
         Auction draft = seedDraftAuction();
@@ -154,7 +154,6 @@ class MeWalletPayListingFeeTest {
                 .currentBid(0L)
                 .bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(sellerParcelUuid)

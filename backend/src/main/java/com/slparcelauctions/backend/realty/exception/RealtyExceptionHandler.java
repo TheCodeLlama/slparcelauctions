@@ -31,12 +31,16 @@ import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegis
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMismatchException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotFoundException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotVerifiedException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupRegisteredToSuspendedGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
+import com.slparcelauctions.backend.realty.wallet.exception.AdminAdjustAmountOutOfRangeException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderTermsNotAcceptedException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupNotRegisteredException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationSuspendedException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
@@ -263,6 +267,28 @@ public class RealtyExceptionHandler {
         return pd;
     }
 
+    /**
+     * Sub-project G section 7.2 -- surfaces {@link AdminAdjustAmountOutOfRangeException}
+     * as 422 Unprocessable Entity. Thrown by
+     * {@code AdminRealtyGroupWalletService.adjust} when {@code |amount|} exceeds the
+     * sanity ceiling configured by {@code slpa.realty.admin-wallet-adjust-max-l}.
+     * Body carries the offending {@code amount} and {@code ceiling} so the admin UI
+     * can render an actionable message (which value tripped the gate and what the
+     * configured limit is).
+     */
+    @ExceptionHandler(AdminAdjustAmountOutOfRangeException.class)
+    public ProblemDetail handleAdminAdjustOutOfRange(
+            AdminAdjustAmountOutOfRangeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Admin Adjust Amount Out Of Range");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "ADMIN_ADJUST_AMOUNT_OUT_OF_RANGE");
+        pd.setProperty("amount", e.getAmount());
+        pd.setProperty("ceiling", e.getCeiling());
+        return pd;
+    }
+
     @ExceptionHandler(LeaderTermsNotAcceptedException.class)
     public ProblemDetail handleLeaderTermsNotAccepted(
             LeaderTermsNotAcceptedException e, HttpServletRequest req) {
@@ -305,6 +331,43 @@ public class RealtyExceptionHandler {
         return pd;
     }
 
+    /**
+     * Sub-project G §7.3 -- surfaces {@link SlGroupNotRegisteredException} as
+     * 422 Unprocessable Entity. Thrown by {@code RealtyGroupWalletService.withdraw}
+     * when the caller asks to withdraw to {@code SL_GROUP} but the realty group
+     * has no currently-registered SL group (no row, or the existing row was
+     * force-unregistered).
+     */
+    @ExceptionHandler(SlGroupNotRegisteredException.class)
+    public ProblemDetail handleSlGroupNotRegistered(
+            SlGroupNotRegisteredException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("SL Group Not Registered");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_GROUP_NOT_REGISTERED");
+        pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
+        return pd;
+    }
+
+    /**
+     * Sub-project G §7.3 -- surfaces {@link SlGroupRegistrationSuspendedException}
+     * as 422 Unprocessable Entity. Thrown by {@code RealtyGroupWalletService.withdraw}
+     * when the realty group has an SL group registration but the realty group is
+     * currently SUSPENDED. Withdraw to {@code AVATAR} is still allowed.
+     */
+    @ExceptionHandler(SlGroupRegistrationSuspendedException.class)
+    public ProblemDetail handleSlGroupRegistrationSuspended(
+            SlGroupRegistrationSuspendedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("SL Group Registration Suspended");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_GROUP_REGISTRATION_SUSPENDED");
+        pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
+        return pd;
+    }
+
     // -------------------------------------------------------------------------
     // Sub-project E — SL group registration exceptions (spec §5.1, §5.5, §7)
     // -------------------------------------------------------------------------
@@ -336,6 +399,28 @@ public class RealtyExceptionHandler {
         pd.setTitle("SL Group Already Registered");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", SlGroupAlreadyRegisteredException.CODE);
+        if (e.getSlGroupUuid() != null) {
+            pd.setProperty("slGroupUuid", e.getSlGroupUuid().toString());
+        }
+        return pd;
+    }
+
+    /**
+     * Sub-project G section 14 -- surfaces
+     * {@link SlGroupRegisteredToSuspendedGroupException} as 409 Conflict.
+     * Thrown by {@code RealtyGroupSlGroupService.register} when the SL group
+     * UUID being registered is already attached to a realty group that has an
+     * active (unlifted) suspension row -- a reverse-search ban-evasion attempt.
+     * The frontend surfaces an inline "contact support" message rather than
+     * the generic "already registered" copy.
+     */
+    @ExceptionHandler(SlGroupRegisteredToSuspendedGroupException.class)
+    public ProblemDetail handleSlGroupRegisteredToSuspendedGroup(
+            SlGroupRegisteredToSuspendedGroupException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("SL Group Registered To Suspended Group");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupRegisteredToSuspendedGroupException.CODE);
         if (e.getSlGroupUuid() != null) {
             pd.setProperty("slGroupUuid", e.getSlGroupUuid().toString());
         }

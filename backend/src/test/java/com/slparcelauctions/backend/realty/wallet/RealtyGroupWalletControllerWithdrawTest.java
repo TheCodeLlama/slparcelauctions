@@ -86,7 +86,6 @@ class RealtyGroupWalletControllerWithdrawTest {
             .name("Withdraw Test Group " + slug)
             .slug(slug)
             .leaderId(leader.getId())
-            .agentFeeRate(BigDecimal.ZERO)
             .balanceLindens(10000L)
             .build());
 
@@ -97,15 +96,16 @@ class RealtyGroupWalletControllerWithdrawTest {
             .build());
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 202 happy path
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_leader_202_happy_path() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -116,9 +116,9 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(jsonPath("$.estimatedFulfillmentSeconds").isNumber());
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 403 missing permission
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_member_without_permission_returns_403() throws Exception {
@@ -131,7 +131,7 @@ class RealtyGroupWalletControllerWithdrawTest {
             .userId(delegate.getId())
             .joinedAt(OffsetDateTime.now())
             .build();
-        // VIEW_GROUP_TRANSACTIONS only — no WITHDRAW_FROM_GROUP_WALLET
+        // VIEW_GROUP_TRANSACTIONS only â€” no WITHDRAW_FROM_GROUP_WALLET
         m.setPermissionSet(java.util.EnumSet.of(RealtyGroupPermission.VIEW_GROUP_TRANSACTIONS));
         memberRepository.save(m);
 
@@ -140,7 +140,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + delegateJwt)
@@ -149,9 +150,9 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(status().isForbidden());
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 410 dissolved group
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_dissolved_group_returns_410() throws Exception {
@@ -161,7 +162,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -171,15 +173,16 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(jsonPath("$.code").value("GROUP_DISSOLVED"));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 422 insufficient balance
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_insufficient_balance_returns_422() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 99999,  // group only has 10000
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -189,9 +192,9 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(jsonPath("$.code").value("INSUFFICIENT_GROUP_BALANCE"));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 422 leader terms not accepted
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_leader_terms_not_accepted_returns_422() throws Exception {
@@ -201,7 +204,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -211,9 +215,9 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(jsonPath("$.code").value("LEADER_TERMS_NOT_ACCEPTED"));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 422 leader frozen
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_leader_frozen_returns_422() throws Exception {
@@ -223,7 +227,8 @@ class RealtyGroupWalletControllerWithdrawTest {
 
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -233,15 +238,16 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(jsonPath("$.code").value("LEADER_FROZEN"));
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 404 unknown publicId
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_unknown_publicId_returns_404() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 500,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + UUID.randomUUID() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)
@@ -250,15 +256,16 @@ class RealtyGroupWalletControllerWithdrawTest {
             .andExpect(status().isNotFound());
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // 422 validation: amount must be positive
-    // ─────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     void withdraw_zero_amount_returns_400() throws Exception {
         String body = objectMapper.writeValueAsString(java.util.Map.of(
             "amount", 0,
-            "idempotencyKey", UUID.randomUUID().toString()));
+            "idempotencyKey", UUID.randomUUID().toString(),
+            "recipient", "AVATAR"));
 
         mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/withdraw")
                 .header("Authorization", "Bearer " + leaderJwt)

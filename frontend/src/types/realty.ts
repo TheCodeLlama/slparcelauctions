@@ -41,10 +41,10 @@ export type RealtyGroupPermission =
   | "CONFIGURE_FEES"
   | "CREATE_LISTING"
   | "MANAGE_ALL_LISTINGS"
-  | "SPEND_FROM_GROUP_WALLET"
   | "WITHDRAW_FROM_GROUP_WALLET"
   | "VIEW_GROUP_TRANSACTIONS"
-  | "REGISTER_SL_GROUP";
+  | "REGISTER_SL_GROUP"
+  | "MANAGE_MEMBERS";
 
 // ─── Public / read DTOs ────────────────────────────────────────────────────
 
@@ -85,10 +85,15 @@ export interface RealtyGroupPublicDto {
   memberSince: string;
   leader: LeaderCardDto;
   agents: AgentCardDto[];
-  agentFeeRate: string;
-  agentFeeSplit: string;
   memberSeatLimit: number;
   memberCount: number;
+  /**
+   * Aggregated star rating for the group (sub-project F). Always present
+   * on the wire; {@code reviewCount === 0} and {@code averageRating === null}
+   * for groups without any qualifying review rows. Optional in the type so
+   * callers built before sub-project F shipped continue to compile.
+   */
+  rating?: GroupRating | null;
 }
 
 export interface RealtyGroupSummaryDto {
@@ -151,8 +156,6 @@ export interface UpdateRealtyGroupRequest {
   name?: string;
   description?: string;
   website?: string;
-  agentFeeRate?: string;
-  agentFeeSplit?: string;
 }
 
 export interface CreateInvitationRequest {
@@ -188,14 +191,19 @@ export interface UpdatePermissionsRequest {
  * Row in the response from {@code GET /api/v1/realty/me/listing-eligible-groups}.
  * Drives the ListAsGroupPicker on the auction-create wizard. Filtered server-side to
  * groups where the caller holds {@code CREATE_LISTING} (or is leader).
+ *
+ * {@code agentCommissionRate} is the calling user's per-member commission rate
+ * within the group, projected from {@code realty_group_members.agent_commission_rate}
+ * (sub-project G section 6.2). The wizard reads it directly off the eligible-list row
+ * for the case-3 fee preview, avoiding a second round-trip via {@code useRealtyGroup}.
  */
 export interface ListingEligibleGroup {
   publicId: string;
   name: string;
   slug: string;
   logoUrl: string | null;
-  /** Decimal as number from JSON, e.g. 0.02 for a 2% rate. */
-  agentFeeRate: number;
+  /** Decimal as number from JSON, e.g. 0.10 for a 10% per-member commission rate. */
+  agentCommissionRate: number;
 }
 
 // ─── Group wallet ──────────────────────────────────────────────────────────
@@ -231,12 +239,28 @@ export interface GroupWallet {
   balance: number;
   reserved: number;
   available: number;
+  /**
+   * ISO-8601 timestamp the group leader accepted wallet Terms of Service, or
+   * null if they have not. Sub-project G §7.5 — drives the
+   * {@code LeaderTermsBlockBanner} render condition. Sourced server-side from
+   * {@code User.walletTermsAcceptedAt} on the group's current leader row.
+   */
+  leaderTermsAcceptedAt: string | null;
   recentLedger: GroupLedgerEntry[];
 }
+
+/**
+ * Sub-project G §7.3 — group wallet withdrawal destination.
+ * `AVATAR` routes L$ to the group leader's verified SL avatar (pre-G flow).
+ * `SL_GROUP` routes to the currently-registered SL group for the realty group
+ * (bot-fulfilled via Self.GiveGroupMoney).
+ */
+export type GroupWithdrawRecipient = "AVATAR" | "SL_GROUP";
 
 export interface GroupWithdrawRequest {
   amount: number;
   idempotencyKey: string;
+  recipient: GroupWithdrawRecipient;
 }
 
 export interface GroupWithdrawResponse {

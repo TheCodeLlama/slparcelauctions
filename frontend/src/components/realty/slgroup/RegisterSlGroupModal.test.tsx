@@ -78,6 +78,28 @@ describe("RegisterSlGroupModal", () => {
     expect(screen.getByTestId("register-input-stage")).toBeInTheDocument();
   });
 
+  it("shows an inline error when the SL group is on a suspended realty group (409 SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP)", async () => {
+    // Sub-project G section 14 -- reverse-search ban-evasion gate. The SL group
+    // UUID is already registered to a realty group with an active (unlifted)
+    // suspension row. The modal must surface the suspension-aware copy
+    // ("contact support") rather than the generic "already registered" message.
+    server.use(realtySlGroupHandlers.registerToSuspendedGroup());
+    renderModal();
+    await userEvent.type(
+      screen.getByTestId("register-uuid-input"),
+      "22222222-2222-2222-2222-222222222222",
+    );
+    await userEvent.click(screen.getByTestId("register-submit-button"));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/registered to a suspended SLPA realty group/i),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/contact support/i)).toBeInTheDocument();
+    // Should remain on the input stage.
+    expect(screen.getByTestId("register-input-stage")).toBeInTheDocument();
+  });
+
   it("shows an inline error when the caller lacks permission (403)", async () => {
     server.use(realtySlGroupHandlers.registerForbidden());
     renderModal();

@@ -157,7 +157,7 @@ class AuctionPhotoControllerIntegrationTest {
         Auction a = seedDraftAuction();
         // Spring's multipart cap is 25 MB (matching slpa.photos.max-bytes). To
         // exercise the 413 path we synthesise an in-memory byte array just over
-        // the limit — generating a real 25MB image fixture is wasteful and
+        // the limit â€” generating a real 25MB image fixture is wasteful and
         // image content is irrelevant since the multipart layer rejects before
         // any decode happens.
         byte[] bytes = new byte[26 * 1024 * 1024];
@@ -243,7 +243,7 @@ class AuctionPhotoControllerIntegrationTest {
 
     @Test
     void getBytes_draftAuction_servesBytesToAnonymous() throws Exception {
-        // Photo bytes are fully public on every status — `<img src>` cannot send
+        // Photo bytes are fully public on every status â€” `<img src>` cannot send
         // the seller's JWT, so the homepage and listing cards must be able to
         // fetch draft snapshots anonymously. The auction's metadata stays
         // hidden behind AuctionController's pre-ACTIVE 404 logic.
@@ -468,7 +468,6 @@ class AuctionPhotoControllerIntegrationTest {
                 .currentBid(0L)
                 .bidCount(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .consecutiveWorldApiFailures(0)
                 .build();
         Auction saved = auctionRepository.save(a);

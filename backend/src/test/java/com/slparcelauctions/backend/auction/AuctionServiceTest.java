@@ -78,7 +78,7 @@ class AuctionServiceTest {
             setBaseEntityField(a, "id", 1L);
             return a;
         });
-        // refreshFor is void — Mockito auto-stubs void methods on mocks; no explicit stub needed.
+        // refreshFor is void â€” Mockito auto-stubs void methods on mocks; no explicit stub needed.
     }
 
     // -------------------------------------------------------------------------
@@ -124,11 +124,11 @@ class AuctionServiceTest {
 
     @Test
     void create_persistsTitle() {
-        AuctionCreateRequest req = minimalCreateRequest("Premium Waterfront — Must Sell!");
+        AuctionCreateRequest req = minimalCreateRequest("Premium Waterfront â€” Must Sell!");
 
         Auction created = service.create(42L, req, null);
 
-        assertThat(created.getTitle()).isEqualTo("Premium Waterfront — Must Sell!");
+        assertThat(created.getTitle()).isEqualTo("Premium Waterfront â€” Must Sell!");
     }
 
     @Test
@@ -154,7 +154,7 @@ class AuctionServiceTest {
 
     @Test
     void create_titleTooLong_throwsValidation() {
-        // Mirrors the @Size(max = 120) on AuctionCreateRequest.title — direct
+        // Mirrors the @Size(max = 120) on AuctionCreateRequest.title â€” direct
         // service callers must not be able to write past the column length.
         String over120 = "x".repeat(121);
         AuctionCreateRequest req = minimalCreateRequest(over120);
@@ -223,9 +223,9 @@ class AuctionServiceTest {
     }
 
     // -------------------------------------------------------------------------
-    // create(): suspension gate — Epic 08 sub-spec 2 §7.7
+    // create(): suspension gate â€” Epic 08 sub-spec 2 Â§7.7
     //
-    // Order is most-restrictive-first: ban → timed → penalty. The first
+    // Order is most-restrictive-first: ban â†’ timed â†’ penalty. The first
     // matching condition surfaces as the SellerSuspendedException's reason
     // and rides the 403 ProblemDetail's "code" property.
     // -------------------------------------------------------------------------
@@ -279,7 +279,7 @@ class AuctionServiceTest {
 
     @Test
     void create_throwsBan_evenWhenAlsoSuspendedAndOwesPenalty() {
-        // Order: ban → timed → penalty. The most-restrictive match wins.
+        // Order: ban â†’ timed â†’ penalty. The most-restrictive match wins.
         seller.setBannedFromListing(true);
         seller.setListingSuspensionUntil(OffsetDateTime.now(clock).plusDays(5));
         seller.setPenaltyBalanceOwed(500L);
@@ -314,7 +314,7 @@ class AuctionServiceTest {
 
     @Test
     void create_persistsAuctionWithNullVerificationMethod() {
-        // Sub-spec 2 §7.1 — verificationMethod is no longer chosen at create time.
+        // Sub-spec 2 Â§7.1 â€” verificationMethod is no longer chosen at create time.
         // It is set on the verify trigger instead; a freshly-created DRAFT auction
         // must have a null verificationMethod.
         AuctionCreateRequest req = new AuctionCreateRequest(
@@ -573,7 +573,6 @@ class AuctionServiceTest {
                 .currentBid(0L).bidCount(0)
                 .listingFeePaid(false)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .tags(new HashSet<>())
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())

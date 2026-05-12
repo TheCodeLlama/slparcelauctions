@@ -40,9 +40,8 @@ import lombok.RequiredArgsConstructor;
  *   <li>The parcel's owner SL group UUID must have a verified registration
  *       ({@link RealtyGroupSlGroup}) for the realty group the caller is listing under.</li>
  *   <li>The caller's per-member commission rate (from {@link RealtyGroupMember}) is
- *       snapshotted onto {@link Auction#getAgentCommissionRate()}; the legacy case-1
- *       {@code agentFeeRate} / {@code agentFeeSplit} fields stay null.</li>
- *   <li>{@code listingAgent} is set to the seller (case 1 / case 3: agent == seller).</li>
+ *       snapshotted onto {@link Auction#getAgentCommissionRate()}.</li>
+ *   <li>{@code listingAgent} is set to the seller (case 3: agent == seller).</li>
  * </ul>
  */
 @Service
@@ -95,9 +94,6 @@ public class RealtyGroupListingService {
         created.setRealtyGroupSlGroupId(slGroup.getId());
         created.setListingAgent(created.getSeller());
         created.setAgentCommissionRate(commissionRate);
-        // C-era fields stay NULL for case 3.
-        created.setAgentFeeRate(null);
-        created.setAgentFeeSplit(null);
         return created;
     }
 
@@ -115,11 +111,12 @@ public class RealtyGroupListingService {
      *       hold every permission).</li>
      * </ol>
      *
-     * <p>The {@code agentFeeRate} field in the returned DTO is left {@code null} for case-3
-     * eligibility — the per-member commission rate (which lives on the
-     * {@link RealtyGroupMember#getAgentCommissionRate()} row, not the group) replaces it
-     * here. Frontend will fetch the per-member rate via a separate path if it needs to
-     * preview the fee.
+     * <p>The per-member commission rate lives on the
+     * {@link RealtyGroupMember#getAgentCommissionRate()} row, not the group, and is
+     * projected directly into each row's {@link ListingEligibleGroupDto#agentCommissionRate()}
+     * so the wizard's fee-preview renders without a second round-trip. Leaders also
+     * hold a member row by convention; if a caller is missing one (defensive edge case)
+     * the rate defaults to {@link BigDecimal#ZERO}.
      */
     @Transactional(readOnly = true)
     public List<ListingEligibleGroupDto> findEligibleForParcel(
@@ -128,7 +125,7 @@ public class RealtyGroupListingService {
         ParcelResponse parcel = lookup == null ? null : lookup.response();
         if (parcel == null || parcel.ownerType() == null
                 || !"group".equalsIgnoreCase(parcel.ownerType())) {
-            // Personal land (or unknown owner type) → no realty group is eligible.
+            // Personal land (or unknown owner type) -> no realty group is eligible.
             return List.of();
         }
         UUID slOwnerUuid = parcel.ownerUuid();
@@ -157,12 +154,14 @@ public class RealtyGroupListingService {
             if (!leader && !hasPerm) {
                 continue;
             }
+            BigDecimal commissionRate = members
+                    .findCommissionRate(g.getId(), callerUserId)
+                    .orElse(BigDecimal.ZERO);
             String logoUrl = g.getLogoObjectKey() == null
                     ? null
                     : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
-            // Case-3 eligibility: agentFeeRate is null — per-member commission rate replaces it.
             out.add(new ListingEligibleGroupDto(
-                    g.getPublicId(), g.getName(), g.getSlug(), logoUrl, null));
+                    g.getPublicId(), g.getName(), g.getSlug(), logoUrl, commissionRate));
         }
         return out;
     }

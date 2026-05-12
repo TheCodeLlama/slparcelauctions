@@ -126,7 +126,6 @@ class CancellationServiceCancelByAdminTest {
                     .listingFeePaid(true)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .startsAt(OffsetDateTime.now().minusHours(1))
                     .endsAt(OffsetDateTime.now().plusHours(24))
                     .originalEndsAt(OffsetDateTime.now().plusHours(24))
@@ -187,7 +186,7 @@ class CancellationServiceCancelByAdminTest {
     void cancelByAdmin_priorOffensesQueryExcludesAdminCancel() {
         User seller = newUser("admin-cancel-ladder-seller", Role.USER); sellerId = seller.getId();
         User admin  = newUser("admin-cancel-ladder-admin",  Role.ADMIN); adminId  = admin.getId();
-        // Auction with bidCount=0 so hadBids=false — still creates the log row.
+        // Auction with bidCount=0 so hadBids=false â€” still creates the log row.
         // Use bidCount=1 to ensure hadBids=true on the admin-cancel log row,
         // which is the condition that countPriorOffensesWithBids filters on.
         buildActiveAuction(seller, 1);

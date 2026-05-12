@@ -145,7 +145,7 @@ class FraudFlagRepositoryTest {
     }
 
     // -----------------------------------------------------------------------
-    // Legacy tests (transactional — roll back automatically)
+    // Legacy tests (transactional â€” roll back automatically)
     // -----------------------------------------------------------------------
 
     @Test
@@ -175,7 +175,6 @@ class FraudFlagRepositoryTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)
@@ -311,7 +310,6 @@ class FraudFlagRepositoryTest {
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(parcelUuid)

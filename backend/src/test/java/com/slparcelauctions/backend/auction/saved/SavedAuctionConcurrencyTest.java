@@ -33,7 +33,7 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
 /**
- * Verifies the {@code pg_advisory_xact_lock} cap-enforcement contract — two
+ * Verifies the {@code pg_advisory_xact_lock} cap-enforcement contract â€” two
  * threads racing to save when the count is 499 yield exactly one success and
  * one {@link SavedLimitReachedException}, with the final {@code saved_auctions}
  * row count clamped at {@value SavedAuctionService#SAVED_CAP}.
@@ -43,7 +43,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * constraint is {@code (user_id, auction_id)}; auctions are inserted via
  * the JPA repository in a tight loop.
  *
- * <p>Not {@code @Transactional} — the test relies on real commits to
+ * <p>Not {@code @Transactional} â€” the test relies on real commits to
  * exercise the advisory lock + unique constraint paths.
  */
 @SpringBootTest
@@ -78,12 +78,12 @@ class SavedAuctionConcurrencyTest {
         seededUserId = user.getId();
 
         // Seed 499 ACTIVE auctions via a single bulk JDBC insert. The previous
-        // pattern called `auctionRepo.save(...)` 499×2 in a tight loop, each
+        // pattern called `auctionRepo.save(...)` 499Ã—2 in a tight loop, each
         // grabbing+releasing a Hikari connection. Background scheduler threads
         // in the boot context routinely starve the pool when this runs late
         // in the surefire fork, causing seed to time out at 30s+ per save and
         // the whole test to wall-clock past 13 minutes. A single COPY-style
-        // batch holds one connection for ~30ms total. No snapshot rows —
+        // batch holds one connection for ~30ms total. No snapshot rows â€”
         // SavedAuctionService.save doesn't reach for the snapshot.
         OffsetDateTime now = OffsetDateTime.now();
         Timestamp createdAt = Timestamp.from(now.toInstant());
@@ -142,7 +142,7 @@ class SavedAuctionConcurrencyTest {
     @AfterEach
     void cleanup() {
         if (seededUserId != null) {
-            // Bulk DELETEs in one connection — same rationale as the seed
+            // Bulk DELETEs in one connection â€” same rationale as the seed
             // bulk insert. Snapshots only exist for the 2 race auctions
             // (seedActive); the 499 bulk-seeded auctions have none, so the
             // snapshot delete is a no-op for those rows.
@@ -243,7 +243,6 @@ class SavedAuctionConcurrencyTest {
                 .listingFeePaid(true)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setStartsAt(now.minusHours(1));
         a.setEndsAt(now.plusDays(7));

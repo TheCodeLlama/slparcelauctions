@@ -25,7 +25,7 @@ describe("useListingEligibleGroups", () => {
             name: "Sunset Realty",
             slug: "sunset-realty",
             logoUrl: null,
-            agentFeeRate: 0.02,
+            agentCommissionRate: 0.02,
           },
         ]);
       }),

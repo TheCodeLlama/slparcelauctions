@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.realty.wallet;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,7 +19,13 @@ import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
+import com.slparcelauctions.backend.realty.moderation.RealtyGroupSuspensionRepository;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.wallet.broadcast.GroupWalletBroadcastPublisher;
+import com.slparcelauctions.backend.realty.wallet.dto.GroupWithdrawRecipient;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupNotRegisteredException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationSuspendedException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -44,16 +51,20 @@ public class RealtyGroupWalletService {
     private final NotificationPublisher notificationPublisher;
     private final GroupWalletBroadcastPublisher broadcastPublisher;
     private final RealtyGroupGuard realtyGroupGuard;
+    private final RealtyGroupSlGroupRepository slGroupRepository;
+    private final RealtyGroupSuspensionRepository suspensionRepository;
     private final Clock clock;
 
     /* ============================================================ */
-    /* AGENT FEE CREDIT (called from AgentFeeDistributor)            */
+    /* AGENT FEE CREDIT (legacy pre-G case-1 path)                   */
     /* ============================================================ */
 
     /**
-     * Credit the group wallet with its share of agent_fee_amt. Called from
-     * {@code AgentFeeDistributor} inside the escrow-payout-success transaction.
-     * Spec §7.2.
+     * Credit the group wallet with its share of agent_fee_amt. Spec §7.2.
+     *
+     * <p>The pre-G case-1 distributor that drove this method was deleted by
+     * sub-project G. The method and the {@code AGENT_FEE_CREDIT} ledger entry
+     * type remain for backwards compatibility with historical ledger rows.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void creditAgentFee(Long groupId, Long auctionId, long amount) {
@@ -233,17 +244,23 @@ public class RealtyGroupWalletService {
 
     /**
      * Initiate a group-wallet withdrawal. Caller is whoever holds
-     * WITHDRAW_FROM_GROUP_WALLET (or the leader). Recipient is always
-     * the group leader's verified SL avatar. Spec §5.3.
+     * WITHDRAW_FROM_GROUP_WALLET (or the leader). Recipient is either the
+     * group leader's verified SL avatar ({@link GroupWithdrawRecipient#AVATAR})
+     * or the realty group's currently-registered SL group
+     * ({@link GroupWithdrawRecipient#SL_GROUP}). Spec §5.3, §7.3.
      *
      * <p>Idempotent: a duplicate {@code idempotencyKey} returns the original
      * result without re-processing.
      */
     @Transactional
-    public WithdrawResult withdraw(Long groupId, long amount, UUID idempotencyKey, Long callerUserId) {
+    public WithdrawResult withdraw(Long groupId, long amount, UUID idempotencyKey,
+            Long callerUserId, GroupWithdrawRecipient recipient) {
         realtyGroupGuard.requireGroupCanOperate(groupId);
         if (amount <= 0) {
             throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        if (recipient == null) {
+            throw new IllegalArgumentException("recipient must be non-null");
         }
         String idemStr = idempotencyKey.toString();
         Optional<RealtyGroupLedgerEntry> replay = ledgerRepository.findByIdempotencyKey(idemStr);
@@ -275,6 +292,34 @@ public class RealtyGroupWalletService {
                 .InsufficientGroupBalanceException(available, amount);
         }
 
+        // §7.3 -- resolve recipient destination + descriptor before balance mutation.
+        // The realty-group guard at the top of withdraw already blocks suspended groups
+        // for the operate-permission gate -- re-checking explicitly here keeps the
+        // semantic ("SL_GROUP path requires the realty group to be operable") legible
+        // and survives any future loosening of the guard.
+        String recipientUuid;
+        TerminalCommandAction action;
+        String description;
+        if (recipient == GroupWithdrawRecipient.AVATAR) {
+            recipientUuid = leader.getSlAvatarUuid().toString();
+            action = TerminalCommandAction.WITHDRAW;
+            description = "to leader avatar";
+        } else {
+            List<RealtyGroupSlGroup> regs =
+                    slGroupRepository.findCurrentRegisteredForRealtyGroup(groupId);
+            if (regs.isEmpty()) {
+                throw new SlGroupNotRegisteredException(group.getPublicId());
+            }
+            if (suspensionRepository.existsActiveForGroup(groupId, OffsetDateTime.now(clock))) {
+                throw new SlGroupRegistrationSuspendedException(group.getPublicId());
+            }
+            RealtyGroupSlGroup reg = regs.get(0);
+            recipientUuid = reg.getSlGroupUuid().toString();
+            action = TerminalCommandAction.WITHDRAW_GROUP;
+            description = "to SL group "
+                + (reg.getSlGroupName() == null ? reg.getSlGroupUuid() : reg.getSlGroupName());
+        }
+
         long newBalance = group.getBalanceLindens() - amount;
         group.setBalanceLindens(newBalance);
         clearDormancyOnActivity(group);
@@ -289,12 +334,13 @@ public class RealtyGroupWalletService {
             .actorUserId(callerUserId)
             .idempotencyKey(idemStr)
             .refType("TERMINAL_COMMAND")
+            .description(description)
             .build());
 
         TerminalCommand cmd = terminalCommandRepository.save(TerminalCommand.builder()
-            .action(TerminalCommandAction.WITHDRAW)
+            .action(action)
             .purpose(TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL)
-            .recipientUuid(leader.getSlAvatarUuid().toString())
+            .recipientUuid(recipientUuid)
             .amount(amount)
             .status(TerminalCommandStatus.QUEUED)
             .idempotencyKey("GWAL-" + queuedEntry.getId())
@@ -308,8 +354,9 @@ public class RealtyGroupWalletService {
             newBalance, group.getReservedLindens(), group.availableLindens(),
             RealtyGroupLedgerEntryType.WITHDRAW_QUEUED.name(), queuedEntry.getPublicId());
 
-        log.info("group withdraw queued: groupId={}, amount={}, leader={}, callerUserId={}, queueId={}",
-            groupId, amount, leader.getPublicId(), callerUserId, cmd.getId());
+        log.info("group withdraw queued: groupId={}, amount={}, recipient={}, action={}, "
+                + "callerUserId={}, queueId={}",
+            groupId, amount, recipient, action, callerUserId, cmd.getId());
         return new WithdrawResult(cmd.getId(), 60);
     }
 

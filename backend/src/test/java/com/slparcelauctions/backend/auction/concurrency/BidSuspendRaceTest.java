@@ -58,11 +58,11 @@ import reactor.core.publisher.Mono;
  * <p>Accepted orderings:
  * <ol>
  *   <li>Bid commits first, suspension task takes the lock, observes
- *       status=ACTIVE (bid never flips status) → suspends; auction ends up
+ *       status=ACTIVE (bid never flips status) â†’ suspends; auction ends up
  *       SUSPENDED with the bid row persisted, currentBid reflects the
  *       winning amount, and a fraud flag was written.</li>
  *   <li>Suspension commits first, bid takes the lock, observes
- *       status=SUSPENDED → rejects with
+ *       status=SUSPENDED â†’ rejects with
  *       {@link InvalidAuctionStateException}.</li>
  * </ol>
  *
@@ -190,7 +190,7 @@ class BidSuspendRaceTest {
                 ownershipCheckTask.checkOne(auctionId);
             } catch (Throwable t) {
                 // The proxy returns immediately so this branch is unlikely to
-                // surface anything — the async work's exceptions go to the
+                // surface anything â€” the async work's exceptions go to the
                 // executor's uncaught-exception handler. Log only.
             }
         };
@@ -208,7 +208,7 @@ class BidSuspendRaceTest {
         bidder.join(TimeUnit.SECONDS.toMillis(20));
         suspender.join(TimeUnit.SECONDS.toMillis(20));
 
-        // The async suspension must have committed within the poll window —
+        // The async suspension must have committed within the poll window â€”
         // either before OR after the bid. Both orderings land on a
         // deterministic final state.
         await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
@@ -254,7 +254,7 @@ class BidSuspendRaceTest {
         }
 
         // Invariant across both orderings: auction.bidCount matches the bid
-        // rows on disk — a broken retrofit would break this.
+        // rows on disk â€” a broken retrofit would break this.
         int rows = bidRepository.findByAuctionIdOrderByCreatedAtAsc(auctionId).size();
         assertThat(reloaded.getBidCount())
                 .as("auction.bidCount must reflect persisted bid rows")
@@ -309,7 +309,6 @@ class BidSuspendRaceTest {
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build());
 
         auction.setParcelSnapshot(AuctionParcelSnapshot.builder()

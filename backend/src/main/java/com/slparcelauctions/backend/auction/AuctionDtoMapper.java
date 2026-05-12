@@ -2,8 +2,14 @@ package com.slparcelauctions.backend.auction;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -28,25 +34,25 @@ import com.slparcelauctions.backend.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Auction → DTO conversion. The {@link #toPublicStatus(AuctionStatus)} method
+ * Auction -> DTO conversion. The {@link #toPublicStatus(AuctionStatus)} method
  * is the linchpin of the privacy guarantee: the 4 terminal statuses collapse
  * to ENDED, and the 4 pre-ACTIVE statuses throw IllegalStateException because
  * the controller is responsible for returning 404 to non-sellers before this
  * mapper is called.
  *
- * <p>Photos are resolved inline via {@code photoRepo.findByAuctionIdOrderBySortOrderAsc}.
- * This introduces an N+1 pattern on {@code listMine} (one photo query per
- * auction); for sub-spec 1 the N-per-seller count is low and the optimization
- * is documented as a follow-up (see DEFERRED_WORK.md).
+ * <p>Photo / group / winner resolution: single-DTO entry points
+ * ({@link #toPublicResponse(Auction)} / {@link #toSellerResponse(Auction, PendingVerification)})
+ * resolve each per row via {@code findById}. Batch callers should use
+ * {@link #toBatchPublicResponses(List, Map)} / {@link #toBatchSellerResponses(List, Map, Map)}
+ * which build a {@link MapperBatchContext} once and pre-load groups + primary
+ * photos + winner publicIds in three batch queries -- one per dimension regardless
+ * of input cardinality. Sub-project G section 6.1.
  *
- * <p>Escrow enrichment: single-auction entry points
- * ({@link #toPublicResponse(Auction)} / {@link #toSellerResponse(Auction,
- * PendingVerification)}) resolve the optional {@link Escrow} via
- * {@link EscrowRepository#findByAuctionId(Long)} on demand. Batch callers
- * should pre-load escrows into a map and use the
- * {@code toPublicResponse(Auction, Escrow)} /
- * {@code toSellerResponse(Auction, PendingVerification, Escrow)} overloads
- * to avoid N+1 queries.
+ * <p>Escrow enrichment: single-auction entry points resolve the optional
+ * {@link Escrow} via {@link EscrowRepository#findByAuctionId(Long)} on demand.
+ * Batch callers should pre-load escrows into a map and pass them through the
+ * batch entry points (or the {@code (Auction, Escrow)} overloads) to avoid N+1
+ * queries.
  */
 @Component
 @RequiredArgsConstructor
@@ -56,6 +62,48 @@ public class AuctionDtoMapper {
     private final EscrowRepository escrowRepo;
     private final UserRepository userRepo;
     private final RealtyGroupRepository realtyGroupRepo;
+
+    /**
+     * Sub-project G section 6.1 -- single-pass batch resolution for the three
+     * N+1s the batch overloads previously incurred (group attribution, primary
+     * photo, winner public id). Built once per batch via
+     * {@link #build(List, RealtyGroupRepository, AuctionPhotoRepository, UserRepository)}
+     * and threaded into each per-row resolve.
+     */
+    public record MapperBatchContext(
+            Map<Long, RealtyGroup> groupsById,
+            Map<Long, AuctionPhoto> primaryPhotoByAuctionId,
+            Map<Long, UUID> winnerPublicIdByAuctionId) {
+
+        public static MapperBatchContext build(
+                List<Auction> auctions,
+                RealtyGroupRepository groupRepo,
+                AuctionPhotoRepository photoRepo,
+                UserRepository userRepo) {
+            Set<Long> groupIds = auctions.stream()
+                    .map(Auction::getRealtyGroupId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Set<Long> auctionIds = auctions.stream()
+                    .map(Auction::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Set<Long> winnerIds = auctions.stream()
+                    .map(Auction::getWinnerId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            Map<Long, RealtyGroup> groups = groupRepo.findAllById(groupIds).stream()
+                    .collect(Collectors.toMap(
+                            RealtyGroup::getId, Function.identity()));
+            Map<Long, AuctionPhoto> primaryPhotos = photoRepo
+                    .findPrimaryForAuctions(auctionIds).stream()
+                    .collect(Collectors.toMap(
+                            p -> p.getAuction().getId(), Function.identity()));
+            Map<Long, UUID> winners = new HashMap<>(userRepo.findPublicIdsByIds(winnerIds));
+            return new MapperBatchContext(groups, primaryPhotos, winners);
+        }
+    }
 
     public PublicAuctionStatus toPublicStatus(AuctionStatus internal) {
         return switch (internal) {
@@ -70,15 +118,25 @@ public class AuctionDtoMapper {
     }
 
     public PublicAuctionResponse toPublicResponse(Auction a) {
-        return toPublicResponse(a, resolveEscrow(a));
+        return toPublicResponse(a, resolveEscrow(a), null);
     }
 
     /**
-     * Batch-safe overload — pass the already-loaded escrow (or null when the
+     * Batch-safe overload -- pass the already-loaded escrow (or null when the
      * auction is ACTIVE / pre-ENDED) to avoid the fallback fetch inside
      * {@link #toPublicResponse(Auction)}.
      */
     public PublicAuctionResponse toPublicResponse(Auction a, Escrow escrow) {
+        return toPublicResponse(a, escrow, null);
+    }
+
+    /**
+     * Batch-context overload -- callers that map many auctions in one pass build
+     * a {@link MapperBatchContext} once and pass it here so the
+     * group/photo/winner resolves become map lookups instead of per-row queries.
+     * Sub-project G section 6.1.
+     */
+    public PublicAuctionResponse toPublicResponse(Auction a, Escrow escrow, MapperBatchContext ctx) {
         boolean hasReserve = a.getReservePrice() != null;
         boolean reserveMet = hasReserve && a.getCurrentBid() != null
                 && a.getCurrentBid() >= a.getReservePrice();
@@ -105,25 +163,35 @@ public class AuctionDtoMapper {
                 a.getOriginalEndsAt(),
                 a.getSellerDesc(),
                 tagList(a),
-                photoList(a),
+                photoList(a, ctx),
                 sellerSummary(a.getSeller()),
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt(),
-                resolveGroupAttribution(a),
-                resolveListingAgent(a),
-                a.getAgentFeeRate());
+                resolveGroupAttribution(a, ctx),
+                resolveListingAgent(a));
     }
 
     public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending) {
-        return toSellerResponse(a, pending, resolveEscrow(a));
+        return toSellerResponse(a, pending, resolveEscrow(a), null);
     }
 
     /**
-     * Batch-safe overload — pass the already-loaded escrow (or null) to avoid
+     * Batch-safe overload -- pass the already-loaded escrow (or null) to avoid
      * the fallback fetch inside {@link #toSellerResponse(Auction,
      * PendingVerification)}.
      */
     public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending, Escrow escrow) {
+        return toSellerResponse(a, pending, escrow, null);
+    }
+
+    /**
+     * Batch-context overload -- callers that map many auctions in one pass build
+     * a {@link MapperBatchContext} once and pass it here so the
+     * group/photo/winner resolves become map lookups instead of per-row queries.
+     * Sub-project G section 6.1.
+     */
+    public SellerAuctionResponse toSellerResponse(
+            Auction a, PendingVerification pending, Escrow escrow, MapperBatchContext ctx) {
         return new SellerAuctionResponse(
                 a.getPublicId(),
                 a.getSeller().getPublicId(),
@@ -141,7 +209,7 @@ public class AuctionDtoMapper {
                 a.getBidCount(),
                 currentHighBid(a),
                 bidderCount(a),
-                resolveWinnerPublicId(a),
+                resolveWinnerPublicId(a, ctx),
                 a.getDurationHours(),
                 a.getSnipeProtect(),
                 a.getSnipeWindowMin(),
@@ -150,7 +218,7 @@ public class AuctionDtoMapper {
                 a.getOriginalEndsAt(),
                 a.getSellerDesc(),
                 tagList(a),
-                photoList(a),
+                photoList(a, ctx),
                 a.getListingFeePaid(),
                 a.getListingFeeAmt(),
                 a.getListingFeeTxn(),
@@ -161,16 +229,51 @@ public class AuctionDtoMapper {
                 a.getUpdatedAt(),
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt(),
-                resolveGroupAttribution(a),
-                resolveListingAgent(a),
-                a.getAgentFeeRate());
+                resolveGroupAttribution(a, ctx),
+                resolveListingAgent(a));
+    }
+
+    /**
+     * Batch entry point for callers that map many auctions in one go (e.g.
+     * {@code listMine}, {@code search}). Pre-loads the group + primary-photo +
+     * winner-publicId relations into a {@link MapperBatchContext} so each row's
+     * resolve becomes a map lookup. Sub-project G section 6.1.
+     */
+    public List<PublicAuctionResponse> toBatchPublicResponses(
+            List<Auction> auctions, Map<Long, Escrow> escrowsByAuctionId) {
+        MapperBatchContext ctx = MapperBatchContext.build(auctions, realtyGroupRepo, photoRepo, userRepo);
+        return auctions.stream()
+                .map(a -> toPublicResponse(
+                        a,
+                        escrowsByAuctionId == null ? null : escrowsByAuctionId.get(a.getId()),
+                        ctx))
+                .toList();
+    }
+
+    /**
+     * Batch entry point for seller-scoped batch mappers. Pre-loads group +
+     * primary photo + winner publicId in three batch queries. Sub-project G
+     * section 6.1.
+     */
+    public List<SellerAuctionResponse> toBatchSellerResponses(
+            List<Auction> auctions,
+            Map<Long, PendingVerification> pendingByAuctionId,
+            Map<Long, Escrow> escrowsByAuctionId) {
+        MapperBatchContext ctx = MapperBatchContext.build(auctions, realtyGroupRepo, photoRepo, userRepo);
+        return auctions.stream()
+                .map(a -> toSellerResponse(
+                        a,
+                        pendingByAuctionId == null ? null : pendingByAuctionId.get(a.getId()),
+                        escrowsByAuctionId == null ? null : escrowsByAuctionId.get(a.getId()),
+                        ctx))
+                .toList();
     }
 
     /**
      * Returns the current high bid as a {@link BigDecimal}, or null when no
      * bids have been placed. Epic 04 will populate real values; until then
      * {@code currentBid} is the entity default of 0, which we project as null
-     * so consumers can render "—" rather than "L$0".
+     * so consumers can render a dash rather than "L$0".
      */
     private BigDecimal currentHighBid(Auction a) {
         Long cb = a.getCurrentBid();
@@ -196,25 +299,35 @@ public class AuctionDtoMapper {
                 .toList();
     }
 
-    private List<AuctionPhotoResponse> photoList(Auction a) {
+    /**
+     * Per-row photo resolution. Context-aware: when {@code ctx} is non-null,
+     * returns the pre-loaded primary photo (matches the prior shape of
+     * {@code findByAuctionIdOrderBySortOrderAsc(...).get(0)}); otherwise falls
+     * back to a per-row query for single-DTO entry points.
+     */
+    private List<AuctionPhotoResponse> photoList(Auction a, MapperBatchContext ctx) {
         if (a.getId() == null) {
             return List.of();
         }
-        return photoRepo.findByAuctionIdOrderBySortOrderAsc(a.getId()).stream()
-                .map(AuctionPhotoResponse::from)
-                .toList();
+        if (ctx == null) {
+            return photoRepo.findByAuctionIdOrderBySortOrderAsc(a.getId()).stream()
+                    .map(AuctionPhotoResponse::from)
+                    .toList();
+        }
+        AuctionPhoto primary = ctx.primaryPhotoByAuctionId().get(a.getId());
+        return primary == null ? List.of() : List.of(AuctionPhotoResponse.from(primary));
     }
 
     /**
      * Builds the {@link SellerSummary} block for {@link PublicAuctionResponse}.
      * Returns {@code null} only when the seller association is unset (defensive
-     * — every persisted auction has a non-null seller). Avatar URL points at
+     * -- every persisted auction has a non-null seller). Avatar URL points at
      * the existing {@code GET /api/v1/users/{id}/avatar/256} endpoint, which
      * already serves cached + placeholder avatars. {@code completionRate} is
      * delegated to {@link SellerCompletionRateMapper#compute(int, int, int)} so
      * the rounding + zero-denominator policy lives in one place and the private
      * {@code cancelledWithBids} + {@code escrowExpiredUnfulfilled} counters
-     * never reach the wire. See Epic 08 sub-spec 1 §3.5 for the 3-arg widening.
+     * never reach the wire. See Epic 08 sub-spec 1 section 3.5 for the 3-arg widening.
      */
     private SellerSummary sellerSummary(User s) {
         if (s == null) {
@@ -241,30 +354,40 @@ public class AuctionDtoMapper {
      * Resolves the auction's soft-FK {@code winnerId} column (internal Long)
      * to the winner's {@code publicId} (UUID) for outbound DTO emission.
      * Returns null when the auction has no winner yet (pre-ENDED states).
-     * Uses a simple {@code findById} lookup; correctness over performance
-     * per task spec.
+     *
+     * <p>Context-aware: batch callers pass a non-null {@link MapperBatchContext}
+     * whose pre-loaded {@code winnerPublicIdByAuctionId} map collapses N+1
+     * lookups into one batched query. Single-DTO entry points pass {@code null}
+     * and fall back to a per-row {@code findById}.
      */
-    private UUID resolveWinnerPublicId(Auction auction) {
+    private UUID resolveWinnerPublicId(Auction auction, MapperBatchContext ctx) {
         if (auction.getWinnerId() == null) {
             return null;
         }
-        return userRepo.findById(auction.getWinnerId())
-                .map(User::getPublicId)
-                .orElse(null);
+        if (ctx == null) {
+            return userRepo.findById(auction.getWinnerId())
+                    .map(User::getPublicId)
+                    .orElse(null);
+        }
+        return ctx.winnerPublicIdByAuctionId().get(auction.getWinnerId());
     }
 
     /**
      * Resolves the group attribution block for group-listed auctions.
      * Returns {@code null} for individual (non-group) listings.
-     * A single {@code findById} is issued per call; batch callers (listMine, search results)
-     * will incur one query per group-listed auction — acceptable for now, noted in
-     * DEFERRED_WORK.md under Task 29.
+     *
+     * <p>Context-aware: batch callers pass a non-null {@link MapperBatchContext}
+     * whose pre-loaded {@code groupsById} map collapses N+1 group lookups into
+     * one batched query. Single-DTO entry points pass {@code null} and fall
+     * back to a per-row {@code findById}.
      */
-    private GroupAttributionDto resolveGroupAttribution(Auction a) {
+    private GroupAttributionDto resolveGroupAttribution(Auction a, MapperBatchContext ctx) {
         if (a.getRealtyGroupId() == null) {
             return null;
         }
-        RealtyGroup g = realtyGroupRepo.findById(a.getRealtyGroupId()).orElse(null);
+        RealtyGroup g = (ctx == null)
+                ? realtyGroupRepo.findById(a.getRealtyGroupId()).orElse(null)
+                : ctx.groupsById().get(a.getRealtyGroupId());
         if (g == null) {
             return null;
         }
@@ -315,7 +438,7 @@ public class AuctionDtoMapper {
     /**
      * Whether an auction in the given status might have an escrow row. Escrow
      * rows are created only on ENDED + (SOLD|BOUGHT_NOW) and then follow the
-     * ESCROW_PENDING → ESCROW_FUNDED → TRANSFER_PENDING → COMPLETED lifecycle
+     * ESCROW_PENDING -> ESCROW_FUNDED -> TRANSFER_PENDING -> COMPLETED lifecycle
      * (with DISPUTED as a possible off-ramp). ACTIVE and pre-ACTIVE statuses,
      * plus CANCELLED/EXPIRED/SUSPENDED terminal statuses (where no sale
      * occurred), never carry an escrow row, so we skip the repo query for

@@ -66,7 +66,7 @@ import com.slparcelauctions.backend.verification.VerificationCodeType;
  * </ol>
  *
  * <p>Scheduled jobs are disabled or slowed to PT24H so only the explicit
- * drives we make execute — the TerminalCommand the refund produces
+ * drives we make execute â€” the TerminalCommand the refund produces
  * intentionally stays QUEUED (no live dispatcher) so we can run the
  * success-callback branch manually without a real terminal.
  */
@@ -340,7 +340,6 @@ class ListingFeeFlowIntegrationTest {
                     .listingFeeAmt(100L)
                     .consecutiveWorldApiFailures(0)
                     .commissionRate(new BigDecimal("0.05"))
-                    .agentFeeRate(BigDecimal.ZERO)
                     .build());
             auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
                     .slParcelUuid(parcelUuid)

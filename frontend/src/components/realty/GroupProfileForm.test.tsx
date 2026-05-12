@@ -31,8 +31,6 @@ function makeGroup(
       avatarUrl: null,
     },
     agents: [],
-    agentFeeRate: "0.0000",
-    agentFeeSplit: "0.5000",
     memberSeatLimit: 50,
     memberCount: 1,
     ...overrides,
@@ -48,7 +46,7 @@ describe("GroupProfileForm", () => {
     renderWithProviders(
       <GroupProfileForm
         group={makeGroup()}
-        callerPermissions={permSet("EDIT_GROUP_PROFILE", "CONFIGURE_FEES")}
+        callerPermissions={permSet("EDIT_GROUP_PROFILE")}
         isLeader={false}
       />,
     );
@@ -58,34 +56,19 @@ describe("GroupProfileForm", () => {
     expect(screen.getByTestId("group-profile-description")).toHaveValue(
       "A friendly brokerage.",
     );
-    expect(screen.getByTestId("group-profile-fee-rate")).toHaveValue("0.0000");
   });
 
   it("disables profile fields when caller lacks EDIT_GROUP_PROFILE", () => {
     renderWithProviders(
       <GroupProfileForm
         group={makeGroup()}
-        callerPermissions={permSet("CONFIGURE_FEES")}
+        callerPermissions={permSet()}
         isLeader={false}
       />,
     );
     expect(screen.getByTestId("group-profile-name")).toBeDisabled();
     expect(screen.getByTestId("group-profile-description")).toBeDisabled();
     expect(screen.getByTestId("group-profile-website")).toBeDisabled();
-    expect(screen.getByTestId("group-profile-fee-rate")).not.toBeDisabled();
-  });
-
-  it("disables fee fields when caller lacks CONFIGURE_FEES", () => {
-    renderWithProviders(
-      <GroupProfileForm
-        group={makeGroup()}
-        callerPermissions={permSet("EDIT_GROUP_PROFILE")}
-        isLeader={false}
-      />,
-    );
-    expect(screen.getByTestId("group-profile-fee-rate")).toBeDisabled();
-    expect(screen.getByTestId("group-profile-fee-split")).toBeDisabled();
-    expect(screen.getByTestId("group-profile-name")).not.toBeDisabled();
   });
 
   it("enables all fields when caller is leader regardless of perms set", () => {
@@ -97,7 +80,7 @@ describe("GroupProfileForm", () => {
       />,
     );
     expect(screen.getByTestId("group-profile-name")).not.toBeDisabled();
-    expect(screen.getByTestId("group-profile-fee-rate")).not.toBeDisabled();
+    expect(screen.getByTestId("group-profile-description")).not.toBeDisabled();
   });
 
   it("submits and shows a success toast", async () => {

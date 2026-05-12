@@ -226,3 +226,9 @@ slpa:
         enabled: true
     group-suspension-expiry:
       enabled: true
+  reports:
+    # Sub-project G section 12 -- threshold of open user-submitted reports against
+    # a single realty group before the admin fan-out notification fires. Bound to
+    # ReportsProperties (slpa.reports.*). One-shot per cycle: re-arms when the
+    # open count returns to zero. Default 3; minimum 1.
+    group-alert-threshold: 3

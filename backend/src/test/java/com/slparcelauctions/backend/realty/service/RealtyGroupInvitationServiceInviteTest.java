@@ -70,8 +70,6 @@ class RealtyGroupInvitationServiceInviteTest {
         RealtyGroup g = RealtyGroup.builder()
             .name("G").slug("g").leaderId(leaderId)
             .memberSeatLimit(seatLimit)
-            .agentFeeRate(new BigDecimal("0.0000"))
-            .agentFeeSplit(new BigDecimal("0.5000"))
             .build();
         return g;
     }

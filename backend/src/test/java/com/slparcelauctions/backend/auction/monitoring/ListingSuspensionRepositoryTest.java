@@ -35,7 +35,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  * because of Postgres-specific features in the schema (partial indexes, JSONB,
  * citext, etc.).
  *
- * <p>Spec: §8, §10, plan Task 3.
+ * <p>Spec: Â§8, Â§10, plan Task 3.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -136,19 +136,19 @@ class ListingSuspensionRepositoryTest {
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime threshold = now.minusHours(48);
 
-        // old bulk suspension — expired
+        // old bulk suspension â€” expired
         ListingSuspension expired = repository.save(
                 buildBulkSuspension(a1, now.minusHours(50)));
 
-        // recent bulk suspension — not yet expired
+        // recent bulk suspension â€” not yet expired
         repository.save(buildBulkSuspension(a2, now.minusHours(10)));
 
-        // old bulk suspension but already lifted — excluded
+        // old bulk suspension but already lifted â€” excluded
         ListingSuspension oldLifted = buildBulkSuspension(a3, now.minusHours(60));
         oldLifted.setLiftedAt(now.minusHours(30));
         repository.save(oldLifted);
 
-        // old AUTO cause — excluded (cause != ADMIN_GROUP_BULK)
+        // old AUTO cause â€” excluded (cause != ADMIN_GROUP_BULK)
         ListingSuspension auto = ListingSuspension.builder()
             .auction(a4)
             .cause(ListingSuspensionCause.AUTO_OWNERSHIP_CHANGE)
@@ -236,7 +236,7 @@ class ListingSuspensionRepositoryTest {
         assertThat(g1Rows.get(0).getAuction().getId()).isEqualTo(a1.getId());
     }
 
-    // ─────────────────────── helpers ───────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private record Fixture(User seller, RealtyGroup group) {}
 
@@ -292,7 +292,6 @@ class ListingSuspensionRepositoryTest {
             .bidCount(0)
             .consecutiveWorldApiFailures(0)
             .commissionRate(new BigDecimal("0.05"))
-            .agentFeeRate(BigDecimal.ZERO)
             .realtyGroupId(realtyGroupId)
             .realtyGroupSlGroupId(slGroupId)
             .endsAt(OffsetDateTime.now().plusHours(1))

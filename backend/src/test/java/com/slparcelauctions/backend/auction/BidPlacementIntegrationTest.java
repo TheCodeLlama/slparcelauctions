@@ -40,10 +40,10 @@ import com.slparcelauctions.backend.user.UserRepository;
 import reactor.core.publisher.Mono;
 
 /**
- * Full-stack coverage for {@code /api/v1/auctions/{id}/bids} — the write
+ * Full-stack coverage for {@code /api/v1/auctions/{id}/bids} â€” the write
  * path goes through Spring Security, the slice exception handler, the
  * BidService transaction boundary, and persists to the real test-profile
- * database. Each case mirrors a spec §6 validation branch plus the happy
+ * database. Each case mirrors a spec Â§6 validation branch plus the happy
  * path and the public GET history endpoint.
  *
  * <p>The {@link AuctionBroadcastPublisher} is mock-swapped so the test
@@ -187,8 +187,8 @@ class BidPlacementIntegrationTest {
 
     @Test
     void placeBid_pastEndsAtOnActiveAuction_returns409AlreadyEnded() throws Exception {
-        // ACTIVE status but endsAt in the past — scheduler hasn't closed it
-        // yet. Spec §6 step 3 requires a distinct 409 AUCTION_ALREADY_ENDED.
+        // ACTIVE status but endsAt in the past â€” scheduler hasn't closed it
+        // yet. Spec Â§6 step 3 requires a distinct 409 AUCTION_ALREADY_ENDED.
         Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
         auction.setEndsAt(OffsetDateTime.now().minusMinutes(1));
         auctionRepository.save(auction);
@@ -233,13 +233,13 @@ class BidPlacementIntegrationTest {
 
         placeBidAs(bidderAccessToken, auction.getPublicId(), 1000L);
 
-        // Public — no Authorization header.
+        // Public â€” no Authorization header.
         mockMvc.perform(get("/api/v1/auctions/" + auction.getPublicId() + "/bids"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].amount").value(1000))
                 .andExpect(jsonPath("$.content[0].bidType").value("MANUAL"))
                 .andExpect(jsonPath("$.content[0].bidderDisplayName").value("BidBidder"))
-                // Public view — ipAddress must not leak.
+                // Public view â€” ipAddress must not leak.
                 .andExpect(jsonPath("$.content[0].ipAddress").doesNotExist())
                 .andExpect(jsonPath("$.content[0].proxyBidId").doesNotExist());
     }
@@ -363,7 +363,6 @@ class BidPlacementIntegrationTest {
                 .bidCount(bidCount)
                 .consecutiveWorldApiFailures(0)
                 .commissionRate(new BigDecimal("0.05"))
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
         a.setParcelSnapshot(AuctionParcelSnapshot.builder()
                 .slParcelUuid(sellerParcelUuid)

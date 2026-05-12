@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.realty.moderation.RealtyGroupGuard;
 import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupRegisteredToSuspendedGroupException;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.GroupPageData;
 
@@ -118,6 +119,7 @@ class RealtyGroupSlGroupServiceRegisterTest {
 
         when(groupRepo.findByPublicIdAndDissolvedAtIsNull(groupPublic))
                 .thenReturn(Optional.of(group));
+        when(repo.existsForSuspendedRealtyGroup(slGroupUuid)).thenReturn(false);
         when(repo.findBySlGroupUuid(slGroupUuid))
                 .thenReturn(Optional.of(RealtyGroupSlGroup.builder().build()));
 
@@ -127,5 +129,34 @@ class RealtyGroupSlGroupServiceRegisterTest {
 
         assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
                 .isInstanceOf(SlGroupAlreadyRegisteredException.class);
+    }
+
+    /**
+     * Sub-project G §14 — reverse-search ban-evasion gate. When the SL group
+     * UUID is currently registered to a realty group with an active (unlifted)
+     * suspension row, registration is hard-blocked with the new code. The
+     * suspension gate fires before the existing uniqueness check, so this
+     * raises {@link SlGroupRegisteredToSuspendedGroupException} (the stronger
+     * constraint), not {@link SlGroupAlreadyRegisteredException}.
+     */
+    @Test
+    void register_slGroupOnSuspendedRealtyGroup_throwsReverseSearchException() {
+        UUID groupPublic = UUID.randomUUID();
+        UUID slGroupUuid = UUID.randomUUID();
+        RealtyGroup group = groupWithId(42L, groupPublic);
+
+        when(groupRepo.findByPublicIdAndDissolvedAtIsNull(groupPublic))
+                .thenReturn(Optional.of(group));
+        when(repo.existsForSuspendedRealtyGroup(slGroupUuid)).thenReturn(true);
+
+        RealtyGroupSlGroupService svc = new RealtyGroupSlGroupService(
+                repo, groupRepo, authorizer, realtyGroupGuard, worldApi, codeGen,
+                auctionRepo, clock);
+
+        assertThatThrownBy(() -> svc.register(7L, groupPublic, slGroupUuid))
+                .isInstanceOf(SlGroupRegisteredToSuspendedGroupException.class);
+
+        verify(repo, never()).findBySlGroupUuid(any());
+        verify(repo, never()).save(any());
     }
 }
