@@ -21,18 +21,28 @@ import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
+import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
+
+import java.math.BigDecimal;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * Sub-project C entry point for listing an auction under a realty group. Wraps
- * {@link AuctionService#create} with: (a) the {@code CREATE_LISTING} permission gate,
- * (b) a snapshot of the group's {@code agent_fee_rate} and {@code agent_fee_split} onto
- * the returned auction row, (c) setting {@code listing_agent} (case 1 of DESIGN.md §4.4.5:
- * agent == seller).
- *
- * <p>Case 2 (agent != seller) and case 3 (SL-group-owned parcel) ship in sub-project E.
+ * Entry point for listing an auction under a realty group. Wraps
+ * {@link AuctionService#create} with the {@code CREATE_LISTING} permission gate, then
+ * applies sub-project E case-3 validation + snapshot:
+ * <ul>
+ *   <li>The parcel must be group-owned ({@code ownerType == "group"}); personal land
+ *       cannot list under a realty group.</li>
+ *   <li>The parcel's owner SL group UUID must have a verified registration
+ *       ({@link RealtyGroupSlGroup}) for the realty group the caller is listing under.</li>
+ *   <li>The caller's per-member commission rate (from {@link RealtyGroupMember}) is
+ *       snapshotted onto {@link Auction#getAgentCommissionRate()}; the legacy case-1
+ *       {@code agentFeeRate} / {@code agentFeeSplit} fields stay null.</li>
+ *   <li>{@code listingAgent} is set to the seller (case 1 / case 3: agent == seller).</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
@@ -52,11 +62,39 @@ public class RealtyGroupListingService {
                 .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.CREATE_LISTING);
 
+        // Look up the parcel up-front so we can validate ownership before any side effects.
+        ParcelLookupService.ParcelLookupResult lookup = parcelLookupService.lookup(req.slParcelUuid());
+        if (lookup.response() == null
+                || !"group".equalsIgnoreCase(lookup.response().ownerType())) {
+            throw new ParcelNotOwnedByRegisteredSlGroupException(
+                    req.slParcelUuid(), groupPublicId,
+                    "Personal land cannot list under a realty group.");
+        }
+        UUID slOwner = lookup.response().ownerUuid();
+        if (slOwner == null) {
+            throw new ParcelNotOwnedByRegisteredSlGroupException(
+                    req.slParcelUuid(), groupPublicId,
+                    "Parcel ownership UUID is missing from the World API response.");
+        }
+        RealtyGroupSlGroup slGroup = slGroups.findVerifiedForListing(group.getId(), slOwner)
+                .orElseThrow(() -> new ParcelNotOwnedByRegisteredSlGroupException(
+                        req.slParcelUuid(), groupPublicId,
+                        "The SL group that owns this parcel is not registered/verified to "
+                                + group.getName()));
+
+        // Snapshot the member's commission rate.
+        BigDecimal commissionRate = members
+                .findCommissionRate(group.getId(), callerUserId)
+                .orElse(BigDecimal.ZERO);
+
         Auction created = auctionService.create(callerUserId, req, ip);
         created.setRealtyGroupId(group.getId());
-        created.setListingAgent(created.getSeller()); // case 1: agent == seller
-        created.setAgentFeeRate(group.getAgentFeeRate());
-        created.setAgentFeeSplit(group.getAgentFeeSplit());
+        created.setRealtyGroupSlGroupId(slGroup.getId());
+        created.setListingAgent(created.getSeller());
+        created.setAgentCommissionRate(commissionRate);
+        // C-era fields stay NULL for case 3.
+        created.setAgentFeeRate(null);
+        created.setAgentFeeSplit(null);
         return created;
     }
 

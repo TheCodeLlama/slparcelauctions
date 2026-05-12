@@ -36,7 +36,9 @@ import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
+import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
 import com.slparcelauctions.backend.user.User;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,27 +80,127 @@ class RealtyGroupListingServiceTest {
 
     // ─────────────────────── createGroupListing ───────────────────────
 
+    private RealtyGroupSlGroup verifiedSlGroupReg(Long id) {
+        RealtyGroupSlGroup r = RealtyGroupSlGroup.builder()
+                .id(id)
+                .realtyGroupId(GROUP_ID)
+                .slGroupUuid(SL_GROUP_UUID)
+                .verified(true)
+                .verifiedAt(OffsetDateTime.now())
+                .build();
+        return r;
+    }
+
     @Test
-    void create_group_listing_snapshots_rate_and_split() {
+    void createGroupListing_case3HappyPath_setsAllFields() {
         User seller = new User();
         seller.setUsername("testseller");
 
         Auction created = Auction.builder()
                 .seller(seller)
-                .agentFeeRate(BigDecimal.ZERO)
                 .build();
+        RealtyGroupSlGroup slGroupReg = verifiedSlGroupReg(777L);
 
         when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
                 .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.of(slGroupReg));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.0500")));
         when(auctionService.create(CALLER_USER_ID, req, "127.0.0.1"))
                 .thenReturn(created);
 
         Auction result = service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1");
 
         assertThat(result.getRealtyGroupId()).isEqualTo(GROUP_ID);
-        assertThat(result.getAgentFeeRate()).isEqualByComparingTo(new BigDecimal("0.0300"));
-        assertThat(result.getAgentFeeSplit()).isEqualByComparingTo(new BigDecimal("0.6000"));
+        assertThat(result.getRealtyGroupSlGroupId()).isEqualTo(777L);
         assertThat(result.getListingAgent()).isSameAs(seller);
+        assertThat(result.getAgentCommissionRate()).isEqualByComparingTo(new BigDecimal("0.0500"));
+        // C-era fields stay NULL for case 3.
+        assertThat(result.getAgentFeeRate()).isNull();
+        assertThat(result.getAgentFeeSplit()).isNull();
+    }
+
+    @Test
+    void createGroupListing_parcelAgentOwned_throws() {
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("agent", UUID.randomUUID()), null));
+
+        assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
+                .isInstanceOf(ParcelNotOwnedByRegisteredSlGroupException.class)
+                .hasMessageContaining("Personal land");
+        verify(auctionService, never()).create(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void createGroupListing_parcelGroupOwned_noVerifiedRegistration_throws() {
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1"))
+                .isInstanceOf(ParcelNotOwnedByRegisteredSlGroupException.class)
+                .hasMessageContaining("not registered/verified");
+        verify(auctionService, never()).create(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void createGroupListing_snapshotsMemberCommissionRate() {
+        User seller = new User();
+        Auction created = Auction.builder().seller(seller).build();
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.of(verifiedSlGroupReg(1L)));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.of(new BigDecimal("0.1234")));
+        when(auctionService.create(CALLER_USER_ID, req, "127.0.0.1"))
+                .thenReturn(created);
+
+        Auction result = service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1");
+
+        assertThat(result.getAgentCommissionRate())
+                .isEqualByComparingTo(new BigDecimal("0.1234"));
+    }
+
+    @Test
+    void createGroupListing_memberHasNoRate_snapshotsZero() {
+        User seller = new User();
+        Auction created = Auction.builder().seller(seller).build();
+        when(groups.findByPublicIdAndDissolvedAtIsNull(GROUP_PUBLIC_ID))
+                .thenReturn(Optional.of(group));
+        when(parcelLookupService.lookup(PARCEL_UUID))
+                .thenReturn(new ParcelLookupService.ParcelLookupResult(
+                        parcelOwnedBy("group", SL_GROUP_UUID), null));
+        when(slGroups.findVerifiedForListing(GROUP_ID, SL_GROUP_UUID))
+                .thenReturn(Optional.of(verifiedSlGroupReg(1L)));
+        when(members.findCommissionRate(GROUP_ID, CALLER_USER_ID))
+                .thenReturn(Optional.empty());
+        when(auctionService.create(CALLER_USER_ID, req, "127.0.0.1"))
+                .thenReturn(created);
+
+        Auction result = service.createGroupListing(CALLER_USER_ID, req, "127.0.0.1");
+
+        assertThat(result.getAgentCommissionRate()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
