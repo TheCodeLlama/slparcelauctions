@@ -129,8 +129,9 @@ public class RealtyGroupWalletController {
     // ─────────────────────────────────────────────────────────────────
 
     /**
-     * Initiate a group-wallet withdrawal. Recipient is always the group leader's
-     * verified SL avatar, regardless of who calls this endpoint. Spec §5.3.
+     * Initiate a group-wallet withdrawal. Recipient is the group leader's verified
+     * SL avatar ({@code AVATAR}) or the realty group's currently-registered SL
+     * group ({@code SL_GROUP}), per the request body. Spec §5.3, §7.3.
      *
      * <p>Validation order:
      * <ol>
@@ -160,7 +161,7 @@ public class RealtyGroupWalletController {
             RealtyGroupPermission.WITHDRAW_FROM_GROUP_WALLET);
 
         RealtyGroupWalletService.WithdrawResult result = walletService.withdraw(
-            g.getId(), req.amount(), req.idempotencyKey(), principal.userId());
+            g.getId(), req.amount(), req.idempotencyKey(), principal.userId(), req.recipient());
 
         return new GroupWithdrawResponse(result.queueId(), result.estimatedFulfillmentSeconds());
     }

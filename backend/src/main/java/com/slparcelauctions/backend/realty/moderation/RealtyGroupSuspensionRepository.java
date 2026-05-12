@@ -52,4 +52,20 @@ public interface RealtyGroupSuspensionRepository extends JpaRepository<RealtyGro
     List<RealtyGroupSuspension> findExpired(@Param("now") OffsetDateTime now);
 
     Optional<RealtyGroupSuspension> findByPublicId(UUID publicId);
+
+    /**
+     * Sub-project G §7.3 -- boolean form of {@link #findActiveByGroupId} used by
+     * {@code RealtyGroupWalletService.withdraw}'s {@code SL_GROUP} branch. "Active"
+     * means: not lifted, and either permanent ({@code expiresAt IS NULL}) or not
+     * yet expired at {@code :now}.
+     */
+    @Query("""
+        SELECT COUNT(s) > 0 FROM RealtyGroupSuspension s
+         WHERE s.realtyGroup.id = :groupId
+           AND s.liftedAt IS NULL
+           AND (s.expiresAt IS NULL OR s.expiresAt > :now)
+    """)
+    boolean existsActiveForGroup(
+            @Param("groupId") Long groupId,
+            @Param("now") OffsetDateTime now);
 }

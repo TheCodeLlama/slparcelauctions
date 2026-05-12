@@ -37,6 +37,8 @@ import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalan
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException;
 import com.slparcelauctions.backend.realty.wallet.exception.LeaderTermsNotAcceptedException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupNotRegisteredException;
+import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationSuspendedException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
@@ -302,6 +304,43 @@ public class RealtyExceptionHandler {
         pd.setTitle("Group Has In-Flight Escrows");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "GROUP_HAS_INFLIGHT_ESCROWS");
+        return pd;
+    }
+
+    /**
+     * Sub-project G §7.3 -- surfaces {@link SlGroupNotRegisteredException} as
+     * 422 Unprocessable Entity. Thrown by {@code RealtyGroupWalletService.withdraw}
+     * when the caller asks to withdraw to {@code SL_GROUP} but the realty group
+     * has no currently-registered SL group (no row, or the existing row was
+     * force-unregistered).
+     */
+    @ExceptionHandler(SlGroupNotRegisteredException.class)
+    public ProblemDetail handleSlGroupNotRegistered(
+            SlGroupNotRegisteredException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("SL Group Not Registered");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_GROUP_NOT_REGISTERED");
+        pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
+        return pd;
+    }
+
+    /**
+     * Sub-project G §7.3 -- surfaces {@link SlGroupRegistrationSuspendedException}
+     * as 422 Unprocessable Entity. Thrown by {@code RealtyGroupWalletService.withdraw}
+     * when the realty group has an SL group registration but the realty group is
+     * currently SUSPENDED. Withdraw to {@code AVATAR} is still allowed.
+     */
+    @ExceptionHandler(SlGroupRegistrationSuspendedException.class)
+    public ProblemDetail handleSlGroupRegistrationSuspended(
+            SlGroupRegistrationSuspendedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("SL Group Registration Suspended");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SL_GROUP_REGISTRATION_SUSPENDED");
+        pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
         return pd;
     }
 

@@ -104,4 +104,23 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
     List<RealtyGroup> findRealtyGroupsForListingCaller(
             @Param("callerUserId") Long callerUserId,
             @Param("slGroupUuid") UUID slGroupUuid);
+
+    /**
+     * Sub-project G §7.3 -- the realty group's currently-registered SL group,
+     * if any. Excludes force-unregistered rows ({@code unregistered_at IS NOT
+     * NULL}). {@code UNIQUE(sl_group_uuid)} and the per-realty-group registration
+     * convention guarantee at most one such row per realty group at a time;
+     * the helper returns a list (rather than {@code Optional}) to stay safe
+     * against the unlikely race where two rows are momentarily verified -- the
+     * caller takes the first.
+     */
+    @Query("""
+        SELECT r FROM RealtyGroupSlGroup r
+         WHERE r.realtyGroupId = :realtyGroupId
+           AND r.verified = true
+           AND r.unregisteredAt IS NULL
+         ORDER BY r.verifiedAt DESC
+        """)
+    List<RealtyGroupSlGroup> findCurrentRegisteredForRealtyGroup(
+            @Param("realtyGroupId") Long realtyGroupId);
 }
