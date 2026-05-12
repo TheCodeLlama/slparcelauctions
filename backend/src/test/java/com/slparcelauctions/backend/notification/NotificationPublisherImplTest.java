@@ -347,6 +347,65 @@ class NotificationPublisherImplTest {
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_PAYOUT);
         assertThat(n.getData()).containsKey("payoutL");
         assertThat(((Number) n.getData().get("payoutL")).longValue()).isEqualTo(18500L);
+        // Non-case-3 body — legacy "payout received" copy, parcel name embedded.
+        assertThat(n.getTitle()).isEqualTo("Auction payout processed");
+        assertThat(n.getBody()).isEqualTo("L$18500 payout received for Parcel C.");
+
+        verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
+    }
+
+    @Test
+    void escrowPayout_case3_bodySurfacesCommissionAndGroupSlice() {
+        User seller = testUser("payout-seller-case3");
+
+        transactionTemplate.execute(status -> {
+            // Sub-project G §8.3: case-3 (SL-group-owned). payoutL == 0; the
+            // body should NOT say "L$0 payout received" — instead it should
+            // report the commission slice + group slice with the group name.
+            publisher.escrowPayout(seller.getId(), 100L, 200L, "Forest Cove",
+                    /* payoutL */ 0L,
+                    /* groupName */ "Sunset Realty",
+                    /* commissionAmt */ 150L,
+                    /* groupSliceAmt */ 850L);
+            return null;
+        });
+
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
+        assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_PAYOUT);
+        assertThat(n.getTitle()).isEqualTo("Auction payout processed");
+        assertThat(n.getBody()).isEqualTo(
+            "Your auction payout is complete. L$150 agent commission paid; "
+            + "L$850 credited to Sunset Realty group wallet.");
+        // Critical: case-3 must NOT contain the "L$0" misread the old copy produced.
+        assertThat(n.getBody()).doesNotContain("L$0 payout received");
+        // Data blob shape is unchanged — frontend keeps reading payoutL even
+        // when it renders as 0 in case-3.
+        assertThat(n.getData()).containsKey("payoutL");
+        assertThat(((Number) n.getData().get("payoutL")).longValue()).isZero();
+
+        verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
+    }
+
+    @Test
+    void escrowPayout_nonCase3_legacyOverloadDelegatesToFullSignature() {
+        User seller = testUser("payout-seller-overload");
+
+        // The 5-arg overload (used today by TerminalCommandService line 312
+        // until Task 22 lands) must delegate to the 8-arg path with
+        // groupName=null so the legacy body composes correctly.
+        transactionTemplate.execute(status -> {
+            publisher.escrowPayout(seller.getId(), 33L, 303L, "Parcel D", 12000L);
+            return null;
+        });
+
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
+        assertThat(n.getTitle()).isEqualTo("Auction payout processed");
+        assertThat(n.getBody()).isEqualTo("L$12000 payout received for Parcel D.");
+        assertThat(n.getBody()).doesNotContain("group wallet");
 
         verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
     }

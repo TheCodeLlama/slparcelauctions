@@ -32,8 +32,41 @@ public interface NotificationPublisher {
     void escrowFunded(long sellerUserId, long auctionId, long escrowId,
                       String parcelName, OffsetDateTime transferDeadline);
     void escrowTransferConfirmed(long userId, long auctionId, long escrowId, String parcelName);
+
+    /**
+     * Seller-facing payout-completed notification.
+     *
+     * <p>Sub-project G §8.3: copy differs by case. For case-3 (SL-group-owned;
+     * {@code groupName != null}) the body surfaces the commission slice and
+     * group slice instead of "L$0 payout received". For case-1 / individual
+     * the body is the legacy "payout received" copy. Subject ("Auction payout
+     * processed") is identical for both cases.
+     *
+     * @param payoutL           L$ paid to the seller (0 for case-3)
+     * @param groupName         realty group display name, or {@code null} for
+     *                          non-case-3
+     * @param commissionAmt     L$ credited to the listing agent's wallet (case-3 only;
+     *                          ignored when {@code groupName == null})
+     * @param groupSliceAmt     L$ credited to the group wallet (case-3 only;
+     *                          ignored when {@code groupName == null})
+     */
     void escrowPayout(long sellerUserId, long auctionId, long escrowId,
-                      String parcelName, long payoutL);
+                      String parcelName, long payoutL,
+                      String groupName, long commissionAmt, long groupSliceAmt);
+
+    /**
+     * Backwards-compatible overload for non-case-3 callers. Delegates to the
+     * case-3-aware variant with {@code groupName=null} so the body composes the
+     * legacy "payout received" copy. Task 22 will migrate the
+     * {@code TerminalCommandService} call sites to the full signature; until
+     * then this overload keeps the project compiling.
+     */
+    default void escrowPayout(long sellerUserId, long auctionId, long escrowId,
+                              String parcelName, long payoutL) {
+        escrowPayout(sellerUserId, auctionId, escrowId, parcelName, payoutL,
+                /* groupName */ null, /* commissionAmt */ 0L, /* groupSliceAmt */ 0L);
+    }
+
     void escrowExpired(long userId, long auctionId, long escrowId, String parcelName);
     void escrowDisputed(long userId, long auctionId, long escrowId,
                         String parcelName, String reasonCategory);
