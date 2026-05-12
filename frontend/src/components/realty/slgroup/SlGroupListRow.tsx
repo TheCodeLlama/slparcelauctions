@@ -188,7 +188,7 @@ export function SlGroupListRow({ groupPublicId, row }: SlGroupListRowProps) {
                   className="font-mono text-xs text-fg bg-bg-subtle rounded px-1.5 py-0.5 select-all"
                   data-testid="verification-code"
                 >
-                  SLPA-{row.pending.verificationCode}
+                  {row.pending.verificationCode}
                 </code>
                 <IconButton
                   aria-label="Copy verification code"

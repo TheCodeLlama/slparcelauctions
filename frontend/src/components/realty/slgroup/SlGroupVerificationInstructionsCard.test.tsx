@@ -3,9 +3,9 @@ import { renderWithProviders, screen, userEvent } from "@/test/render";
 import { SlGroupVerificationInstructionsCard } from "./SlGroupVerificationInstructionsCard";
 
 describe("SlGroupVerificationInstructionsCard", () => {
-  it("renders the SLPA-prefixed verification code", () => {
+  it("renders the verification code exactly as supplied", () => {
     renderWithProviders(
-      <SlGroupVerificationInstructionsCard code="1A2B3C4D5E6F" />,
+      <SlGroupVerificationInstructionsCard code="SLPA-1A2B3C4D5E6F" />,
     );
     const display = screen.getByTestId("verification-code-display");
     expect(display.textContent).toBe("SLPA-1A2B3C4D5E6F");
@@ -13,7 +13,7 @@ describe("SlGroupVerificationInstructionsCard", () => {
 
   it("renders both verification options", () => {
     renderWithProviders(
-      <SlGroupVerificationInstructionsCard code="1A2B3C4D5E6F" />,
+      <SlGroupVerificationInstructionsCard code="SLPA-1A2B3C4D5E6F" />,
     );
     expect(screen.getByText(/Option 1 — About text/)).toBeInTheDocument();
     expect(
@@ -28,7 +28,7 @@ describe("SlGroupVerificationInstructionsCard", () => {
     });
 
     renderWithProviders(
-      <SlGroupVerificationInstructionsCard code="1A2B3C4D5E6F" />,
+      <SlGroupVerificationInstructionsCard code="SLPA-1A2B3C4D5E6F" />,
     );
     await userEvent.click(screen.getByTestId("copy-code-button"));
     expect(writeText).toHaveBeenCalledWith("SLPA-1A2B3C4D5E6F");

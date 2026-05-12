@@ -45,7 +45,7 @@ describe("SlGroupsPage", () => {
           verifiedAt: null,
           verifiedVia: null,
           pending: {
-            verificationCode: "9X8Y7Z",
+            verificationCode: "SLPA-9X8Y7Z2W3V4U",
             verificationCodeExpiresAt: new Date(
               Date.now() + 30 * 60 * 1000,
             ).toISOString(),

@@ -17,7 +17,7 @@ function pendingRow(overrides: Partial<RealtyGroupSlGroup> = {}): RealtyGroupSlG
     verifiedAt: null,
     verifiedVia: null,
     pending: {
-      verificationCode: "1A2B3C4D5E6F",
+      verificationCode: "SLPA-1A2B3C4D5E6F",
       verificationCodeExpiresAt: new Date(
         Date.now() + 30 * 60 * 1000,
       ).toISOString(),

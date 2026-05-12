@@ -7,9 +7,11 @@ import { Check, Copy, MessageSquare, ShieldCheck } from "@/components/ui/icons";
 
 export interface SlGroupVerificationInstructionsCardProps {
   /**
-   * The 12-character base32 verification code (e.g. {@code "1A2B3C4D5E6F"}).
-   * The {@code SLPA-} prefix is added by the component so callers can supply
-   * the raw {@code pending.verificationCode} field unchanged.
+   * The full verification code as returned by the backend, already prefixed
+   * (e.g. {@code "SLPA-1A2B3C4D5E6F"}). Callers should pass
+   * {@code pending.verificationCode} directly — the backend's
+   * {@code SlGroupVerificationCodeGenerator} emits the {@code SLPA-} prefix
+   * inline, so no additional prefixing happens here.
    */
   code: string;
 }
@@ -33,12 +35,11 @@ export interface SlGroupVerificationInstructionsCardProps {
 export function SlGroupVerificationInstructionsCard({
   code,
 }: SlGroupVerificationInstructionsCardProps) {
-  const fullCode = `SLPA-${code}`;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(fullCode);
+      await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -54,7 +55,7 @@ export function SlGroupVerificationInstructionsCard({
             className="flex-1 font-mono text-base font-semibold text-fg bg-bg-subtle rounded px-3 py-2 select-all"
             data-testid="verification-code-display"
           >
-            {fullCode}
+            {code}
           </code>
           <IconButton
             aria-label="Copy verification code"
@@ -84,7 +85,7 @@ export function SlGroupVerificationInstructionsCard({
               </h4>
               <p className="text-sm text-fg-muted mt-1">
                 Set your SL group&apos;s About text to include{" "}
-                <code className="font-mono text-xs text-fg">{fullCode}</code>.
+                <code className="font-mono text-xs text-fg">{code}</code>.
                 SLParcels rechecks every 5 minutes. Click &quot;Check now&quot;
                 next to the row in the table to poll immediately.
               </p>
@@ -102,7 +103,7 @@ export function SlGroupVerificationInstructionsCard({
               </h4>
               <p className="text-sm text-fg-muted mt-1">
                 Hand{" "}
-                <code className="font-mono text-xs text-fg">{fullCode}</code>{" "}
+                <code className="font-mono text-xs text-fg">{code}</code>{" "}
                 to your SL group&apos;s founder. They step onto any SLParcels
                 terminal, choose &quot;SL Group Verify&quot;, and type the
                 code.

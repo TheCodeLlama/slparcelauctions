@@ -57,7 +57,7 @@ describe("RegisterSlGroupModal", () => {
     );
     expect(
       screen.getByTestId("verification-code-display").textContent,
-    ).toBe("SLPA-1A2B3C");
+    ).toBe("SLPA-1A2B3C4D5E6F");
     expect(screen.getByTestId("register-done-button")).toBeInTheDocument();
   });
 

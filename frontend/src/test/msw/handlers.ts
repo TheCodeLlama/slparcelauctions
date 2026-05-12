@@ -1026,7 +1026,7 @@ export const realtySlGroupHandlers = {
             verifiedAt: null,
             verifiedVia: null,
             pending: {
-              verificationCode: "1A2B3C",
+              verificationCode: "SLPA-1A2B3C4D5E6F",
               verificationCodeExpiresAt: "2026-05-12T21:00:00Z",
               lastPolledAt: null,
               pollAttempts: 0,
@@ -1098,7 +1098,7 @@ export const realtySlGroupHandlers = {
           verifiedAt: null,
           verifiedVia: null,
           pending: {
-            verificationCode: "1A2B3C",
+            verificationCode: "SLPA-1A2B3C4D5E6F",
             verificationCodeExpiresAt: "2026-05-12T21:00:00Z",
             lastPolledAt: "2026-05-12T20:35:00Z",
             pollAttempts: 1,

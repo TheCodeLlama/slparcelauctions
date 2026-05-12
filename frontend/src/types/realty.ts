@@ -235,10 +235,16 @@ export type SlGroupVerifyMethod = "ABOUT_TEXT" | "FOUNDER_TERMINAL";
 
 /**
  * Pending-state metadata for an unverified SL-group registration. Surfaced
- * to the UI so the registration row can show "code 1A2B3C — expires in X
- * minutes" and a Recheck Now button next to it.
+ * to the UI so the registration row can show "code SLPA-XXXXXXXXXXXX —
+ * expires in X minutes" and a Recheck Now button next to it.
  */
 export interface SlGroupPending {
+  /**
+   * Full verification code as emitted by the backend, including the
+   * {@code SLPA-} prefix (e.g. {@code "SLPA-1A2B3C4D5E6F"}). Render this
+   * value directly — the prefix is part of the wire payload, not added by
+   * the UI.
+   */
   verificationCode: string;
   /** ISO-8601. */
   verificationCodeExpiresAt: string;
