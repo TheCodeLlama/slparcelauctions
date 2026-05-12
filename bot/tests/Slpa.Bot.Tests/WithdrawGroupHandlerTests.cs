@@ -34,7 +34,7 @@ public sealed class WithdrawGroupHandlerTests
         var call = _session.GiveGroupMoneyCalls[0];
         call.GroupUuid.Should().Be(recipient);
         call.AmountL.Should().Be(1500);
-        call.Memo.Should().Be("SLPA group wallet withdraw — ref 42");
+        call.Memo.Should().Be("SLPA group wallet withdraw ref 42");
     }
 
     [Fact]

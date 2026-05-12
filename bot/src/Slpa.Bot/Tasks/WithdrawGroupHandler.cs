@@ -39,7 +39,7 @@ public sealed class WithdrawGroupHandler
             return Task.CompletedTask;
         }
 
-        var memo = $"SLPA group wallet withdraw — ref {task.Id}";
+        var memo = $"SLPA group wallet withdraw ref {task.Id}";
         var amountL = (int)task.AmountL.Value;
         _session.GiveGroupMoney(task.RecipientUuid.Value, amountL, memo);
         _log.LogInformation(
