@@ -343,6 +343,25 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     List<Auction> findActiveListingsForGroup(@Param("groupId") Long groupId);
 
     /**
+     * Sub-project F §13.5 — admin force-unregister cascade. Returns every
+     * {@link AuctionStatus#ACTIVE} case-3 auction attached to the given SL
+     * group registration. Used by
+     * {@link com.slparcelauctions.backend.realty.slgroup.SlGroupForceUnregisterService}
+     * to decide whether the bulk-suspend cascade needs to run when an admin
+     * force-unregisters the SL group claim. Pre-ACTIVE statuses (DRAFT,
+     * DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED) and terminal
+     * statuses are excluded — only live listings carry the 48 h bulk-suspend
+     * timer, and pre-ACTIVE rows fall out naturally when the registration is
+     * marked unregistered.
+     */
+    @Query("""
+            SELECT a FROM Auction a
+             WHERE a.realtyGroupSlGroupId = :slGroupId
+               AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ACTIVE
+            """)
+    List<Auction> findActiveCase3ListingsForSlGroup(@Param("slGroupId") Long slGroupId);
+
+    /**
      * Returns {@code true} when any non-terminal case-3 auction references the
      * given {@code realty_group_sl_group_id}. Used by
      * {@link com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupService#unregister}
