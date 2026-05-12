@@ -18,6 +18,8 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDenied
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMismatchException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.GroupPageData;
 
@@ -139,5 +141,47 @@ public class RealtyGroupSlGroupService {
             return row;
         }
         return aboutTextPoller.pollOne(row, OffsetDateTime.now(clock));
+    }
+
+    /**
+     * LSL founder-terminal callback path (spec §5.1, §7.3). The terminal owner-says
+     * the verification code typed in-world and the avatar UUID of the resident
+     * currently on the terminal. Looks up the pending registration by code, fetches
+     * the SL group's page, and flips the row to verified iff the page-reported
+     * founder matches the terminal avatar.
+     *
+     * <p>World API failures surface as a founder mismatch — the terminal owner-says
+     * the same diagnostic line for either case, and we never want to verify against
+     * a founder UUID we couldn't actually confirm.
+     */
+    @Transactional
+    public RealtyGroupSlGroup handleTerminalCallback(String verificationCode, UUID founderAvatarUuid) {
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        RealtyGroupSlGroup row = repo.findPendingByCode(verificationCode, now)
+                .orElseThrow(() -> new SlGroupVerificationExpiredException(null));
+
+        GroupPageData page;
+        try {
+            page = worldApi.fetchGroupPage(row.getSlGroupUuid()).block();
+        } catch (RuntimeException e) {
+            // World API failure surfaces as a founder mismatch; the terminal owner-says.
+            throw new SlGroupFounderMismatchException(founderAvatarUuid, null);
+        }
+        if (page == null || page.founderUuid() == null) {
+            throw new SlGroupFounderMismatchException(founderAvatarUuid, null);
+        }
+        if (!page.founderUuid().equals(founderAvatarUuid)) {
+            throw new SlGroupFounderMismatchException(founderAvatarUuid, page.founderUuid());
+        }
+
+        row.setVerified(true);
+        row.setVerifiedAt(now);
+        row.setVerifiedVia(SlGroupVerifyMethod.FOUNDER_TERMINAL);
+        row.setFounderAvatarUuid(founderAvatarUuid);
+        row.setVerificationCode(null);
+        if (page.name() != null && row.getSlGroupName() == null) {
+            row.setSlGroupName(page.name());
+        }
+        return repo.save(row);
     }
 }
