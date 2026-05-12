@@ -372,46 +372,71 @@ Wallet page is client-only (`use client`). Server components don't have the JWT,
 
 ## 7. Auction Completion — Agent-Fee Distribution
 
-### 7.1 Where it lives
+The integration is two sites in the existing escrow flow:
 
-Inside the existing escrow-completion `@Transactional` boundary, after the seller-payout amount is computed but before the payout `TerminalCommand` is queued. This is the only correct attach point: the L$ in escrow is being decomposed into (seller-payout + platform-commission + agent-fee), and the agent-fee leg writes to wallets while the commission and payout legs continue their existing paths.
+- **Site A — `EscrowService.createForEndedAuction`** (called from `AuctionEndTask.closeOne` at SOLD-close): reduces `escrow.payoutAmt` by `agent_fee_amt` so the PAYOUT terminal command that eventually fires sends only the seller's net share to the seller's SL avatar. The agent-fee L$ stays inside SLPA.
+- **Site B — `TerminalCommandService.handleEscrowPayoutSuccess`** (called when the PAYOUT terminal command callback succeeds, i.e. the seller's L$ has actually left SLPA to their avatar): credits the group wallet and the listing-agent user wallet with their respective slices. Tying the credits to the success callback means: if escrow refunds (winner backs out, dispute rules refund), the full `finalBid` returns to the winner via the existing refund path and no wallet credits ever happen — no claw-back logic needed.
 
-Concretely, in the escrow-completion handler:
+This two-site model preserves the wallet-reconciliation invariant (no wallet credit exists before the L$ that funds it has settled) and matches Q1-a's intent.
+
+### 7.1 Site A — `EscrowService.createForEndedAuction`
+
+The existing code:
 
 ```java
-long finalBid       = escrow.getFinalBidAmount();
-long commission     = commissionCalculator.commissionFor(auction, finalBid);
-long agentFeeAmt    = nullToZero(auction.getAgentFeeAmt());          // snapshotted by C at SOLD
-long sellerPayout   = finalBid - commission - agentFeeAmt;
-
-if (agentFeeAmt > 0) {
-    distributeAgentFee(auction, agentFeeAmt);
-}
-// existing: queue payout TerminalCommand for sellerPayout
-// existing: record commission row
+.payoutAmt(commission.payout(finalBid))
 ```
 
-`distributeAgentFee`:
+becomes:
 
 ```java
-private void distributeAgentFee(Auction auction, long agentFeeAmt) {
-    BigDecimal split = nullToZero(auction.getAgentFeeSplit());
-    long groupSlice  = BigDecimal.valueOf(agentFeeAmt)
-                          .multiply(split)
-                          .setScale(0, RoundingMode.FLOOR)
-                          .longValueExact();
-    long agentSlice  = agentFeeAmt - groupSlice;
+long agentFeeAmt = auction.getAgentFeeAmt() == null ? 0L : auction.getAgentFeeAmt();
+.payoutAmt(commission.payout(finalBid) - agentFeeAmt)
+```
 
-    Long groupId = auction.getRealtyGroupId();
-    Long agentId = auction.getListingAgent() != null ? auction.getListingAgent().getId() : null;
+`auction.getAgentFeeAmt()` is the value C snapshotted at SOLD-close on `AuctionEndTask`. For individual listings (no group), it's NULL → 0 → no change in payout. For group listings, the payout shrinks by the agent fee, which remains in escrow until completion.
 
-    if (groupId != null && groupSlice > 0) {
-        realtyGroupWalletService.creditAgentFee(
-            groupId, auction.getId(), groupSlice);
-    }
-    if (agentId != null && agentSlice > 0) {
-        userWalletService.creditAgentFee(
-            agentId, auction.getId(), agentSlice);
+### 7.2 Site B — `TerminalCommandService.handleEscrowPayoutSuccess`
+
+The existing handler creates `EscrowTransaction{type=AUCTION_ESCROW_PAYOUT}` and `EscrowTransaction{type=AUCTION_ESCROW_COMMISSION}` audit rows after the seller's payout success. D appends agent-fee distribution after those rows, still inside the same `@Transactional` callback:
+
+```java
+long agentFeeAmt = nullToZero(escrow.getAuction().getAgentFeeAmt());
+if (agentFeeAmt > 0) {
+    agentFeeDistributor.distribute(escrow.getAuction(), agentFeeAmt);
+}
+```
+
+A new service `AgentFeeDistributor` (under `backend/.../auction/agentfee/`) provides `distribute(Auction, long)`:
+
+```java
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AgentFeeDistributor {
+    private final RealtyGroupWalletService groupWalletService;
+    private final WalletService userWalletService;
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void distribute(Auction auction, long agentFeeAmt) {
+        BigDecimal split = auction.getAgentFeeSplit() == null
+            ? BigDecimal.ZERO : auction.getAgentFeeSplit();
+        long groupSlice  = BigDecimal.valueOf(agentFeeAmt)
+                              .multiply(split)
+                              .setScale(0, RoundingMode.FLOOR)
+                              .longValueExact();
+        long agentSlice  = agentFeeAmt - groupSlice;
+
+        Long groupId = auction.getRealtyGroupId();
+        Long agentId = auction.getListingAgent() != null
+            ? auction.getListingAgent().getId() : null;
+
+        if (groupId != null && groupSlice > 0) {
+            groupWalletService.creditAgentFee(groupId, auction.getId(), groupSlice);
+        }
+        if (agentId != null && agentSlice > 0) {
+            userWalletService.creditAgentFee(agentId, auction.getId(), agentSlice);
+        }
     }
 }
 ```
@@ -423,11 +448,11 @@ private void distributeAgentFee(Auction auction, long agentFeeAmt) {
 3. Append ledger row `{type=AGENT_FEE_CREDIT, ref_type=AUCTION, ref_id=auction.id, actor_user_id=null, amount=slice, balance_after, reserved_after}`.
 4. WS envelope `{GROUP|WALLET}_BALANCE_CHANGED` on the appropriate topic.
 
-### 7.2 Why this transaction
+### 7.3 Why this transaction
 
-Same rationale as C §7.2: keeping the agent-fee writes inside the escrow-completion `@Transactional` boundary means a single rollback leaves the seller payout, commission row, and wallet credits all consistent. There is no half-credit state.
+Keeping the agent-fee writes inside the escrow-payout-success `@Transactional` boundary means a single rollback leaves the payout audit row, commission audit row, and wallet credits all consistent. There is no half-credit state. The `Propagation.MANDATORY` contract on `creditAgentFee` enforces that the call site is already in a transaction.
 
-### 7.3 Defensive branches
+### 7.4 Defensive branches
 
 By design from C, `realty_group_id` and `listing_agent_id` are populated together at create. Defensive handling for entity-invariant drift:
 
@@ -436,11 +461,11 @@ By design from C, `realty_group_id` and `listing_agent_id` are populated togethe
 
 These branches are paranoia, not features — entered only if entity invariants drift.
 
-### 7.4 NO_BIDS / RESERVE_NOT_MET
+### 7.5 NO_BIDS / RESERVE_NOT_MET
 
 `agent_fee_amt` is NULL (C never wrote it). `nullToZero` handles cleanly — no credits flow. The escrow-completion path doesn't run for these outcomes anyway; the auction terminates without escrow.
 
-### 7.5 Dormancy and frozen receivers
+### 7.6 Dormancy and frozen receivers
 
 If at distribution time the listing agent is `BANNED` or `FROZEN`, their slice still credits the user wallet (existing user-wallet credits don't block on status — only debits do, per the wallet model §8.2 principle that "money-flow operations don't block"). The agent's banned status prevents them from spending it. Same posture for a dormant agent — credit lands; dormancy phase doesn't reset on inbound credit (per wallet model §12).
 
