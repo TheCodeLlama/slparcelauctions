@@ -9,5 +9,11 @@ package com.slparcelauctions.backend.escrow.command;
 public enum TerminalCommandAction {
     PAYOUT,
     REFUND,
-    WITHDRAW
+    WITHDRAW,
+    /**
+     * Sub-project G -- pay L$ from the group wallet to a registered SL group
+     * (rather than to an avatar). Bot fulfillment via
+     * {@code Self.GiveGroupMoney(slGroupUuid, amount, memo)}. See spec §7.3 / §7.4.
+     */
+    WITHDRAW_GROUP
 }
