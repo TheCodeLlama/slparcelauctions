@@ -24,10 +24,12 @@ import com.slparcelauctions.backend.realty.reports.exception.AlreadyReportedExce
 import com.slparcelauctions.backend.realty.reports.exception.CannotReportOwnGroupException;
 import com.slparcelauctions.backend.realty.reports.exception.ReportNotFoundException;
 import com.slparcelauctions.backend.realty.reports.exception.ReportRateLimitedException;
+import com.slparcelauctions.backend.realty.slgroup.exception.NoDriftDetectedException;
 import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMismatchException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotFoundException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotVerifiedException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
@@ -406,6 +408,46 @@ public class RealtyExceptionHandler {
             pd.setProperty("realtyGroupPublicId", e.getRealtyGroupPublicId().toString());
         }
         pd.setProperty("count", e.getCount());
+        return pd;
+    }
+
+    /**
+     * Surfaces {@link SlGroupNotFoundException} as 404 Not Found. Thrown by the
+     * admin SL group moderation paths (recheck / ack-drift / force-unregister)
+     * when a public id resolves to nothing, and by the cross-tenant guard when
+     * an SL group registration is owned by a different realty group than the
+     * one named in the URL.
+     */
+    @ExceptionHandler(SlGroupNotFoundException.class)
+    public ProblemDetail handleSlGroupNotFound(
+            SlGroupNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("SL Group Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupNotFoundException.CODE);
+        if (e.getPublicId() != null) {
+            pd.setProperty("publicId", e.getPublicId().toString());
+        }
+        return pd;
+    }
+
+    /**
+     * Surfaces {@link NoDriftDetectedException} as 409 Conflict. Thrown by the
+     * admin drift-ack path when the row has no drift to acknowledge (idempotent
+     * second ack, or admin clicked ack on a row that was never flagged). The
+     * mapping is 409 rather than 422 because the request is well-formed; what's
+     * in conflict is the row's current state.
+     */
+    @ExceptionHandler(NoDriftDetectedException.class)
+    public ProblemDetail handleNoDriftDetected(
+            NoDriftDetectedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("No Drift Detected");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", NoDriftDetectedException.CODE);
+        if (e.getSlGroupPublicId() != null) {
+            pd.setProperty("slGroupPublicId", e.getSlGroupPublicId().toString());
+        }
         return pd;
     }
 
