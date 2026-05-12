@@ -19,6 +19,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.slparcelauctions.backend.auction.exception.NotVerifiedException;
+import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
 import com.slparcelauctions.backend.sl.ParcelIngestException;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.NotMainlandException;
@@ -143,6 +144,27 @@ public class GlobalExceptionHandler {
         pd.setTitle("Not Verified");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "NOT_VERIFIED");
+        return pd;
+    }
+
+    /**
+     * Global catch for {@link InsufficientGroupBalanceException} thrown from
+     * non-realty controllers (e.g. {@code MeWalletController.payListingFee} when
+     * routing a group-listed auction's fee to the group wallet). The package-scoped
+     * {@code RealtyExceptionHandler} handles the same exception for realty controllers;
+     * this global mapping is the safety net for any controller outside that package.
+     */
+    @ExceptionHandler(InsufficientGroupBalanceException.class)
+    public ProblemDetail handleInsufficientGroupBalance(InsufficientGroupBalanceException e,
+                                                        HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setType(URI.create("https://slpa.example/problems/insufficient-group-balance"));
+        pd.setTitle("Insufficient Group Balance");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INSUFFICIENT_GROUP_BALANCE");
+        pd.setProperty("available", e.getAvailable());
+        pd.setProperty("requested", e.getRequested());
         return pd;
     }
 
