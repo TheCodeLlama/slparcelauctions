@@ -75,6 +75,7 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final com.slparcelauctions.backend.auction.agentfee.AgentFeeDistributor agentFeeDistributor;
+    private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -196,7 +197,8 @@ public class TerminalCommandService {
                     ? null
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
             if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL
-                    && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL) {
+                    && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL
+                    && cmd.getPurpose() != TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
                 ledgerRepo.save(buildFailedLedgerRow(
                         cmd, escrow, req.errorMessage(), req.slTransactionKey()));
             }
@@ -221,6 +223,8 @@ public class TerminalCommandService {
                     withdrawalCallbackHandler.onFailure(cmd.getId(), req.errorMessage());
                 } else if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
                     walletWithdrawalCallbackHandler.onStall(cmd, req.errorMessage());
+                } else if (cmd.getPurpose() == TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
+                    groupWalletWithdrawalCallbackHandler.onStall(cmd, req.errorMessage());
                 }
                 log.error("Terminal command {} STALLED after {} attempts: err={}",
                         cmd.getId(), cmd.getAttemptCount(), req.errorMessage());
@@ -241,6 +245,8 @@ public class TerminalCommandService {
             withdrawalCallbackHandler.onSuccess(cmd.getId());
         } else if (cmd.getPurpose() == TerminalCommandPurpose.WALLET_WITHDRAWAL) {
             walletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
+            groupWalletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()

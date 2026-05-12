@@ -96,6 +96,10 @@ public interface NotificationPublisher {
     void walletWithdrawalForceCompleted(long userId, long amountL, Long ledgerEntryId, String notes);
     void walletWithdrawalForceFailed(long userId, long amountL, Long ledgerEntryId, String notes);
 
+    // ── Realty groups — group wallet notifications (stub; Epic 09 dispatcher fanout wired later).
+    void groupWalletWithdrawalCompleted(Long groupId, long amount, Long ledgerId);
+    void groupWalletWithdrawalReversed(Long groupId, long amount, Long ledgerId, String reason);
+
     // ── Realty groups — lifecycle events (Phase 6 fleshes out fan-out + body copy).
     // Stubs land here so Phase 4 services can call them while compiling.
     void realtyGroupInvitationSent(RealtyGroupInvitation invitation);
