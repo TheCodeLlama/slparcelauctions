@@ -74,7 +74,6 @@ public class TerminalCommandService {
     private final TerminalSecretService terminalSecretService;
     private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
-    private final com.slparcelauctions.backend.auction.agentfee.AgentFeeDistributor agentFeeDistributor;
     private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
 
@@ -317,7 +316,7 @@ public class TerminalCommandService {
                 finalEscrow.getAuction().getTitle(),
                 cmd.getAmount());
 
-        // Realty-group payout splitting. Two mutually-exclusive code paths:
+        // Realty-group payout splitting.
         //
         //   case 3 (E -- SL-group-owned): realty_group_sl_group_id IS NOT NULL.
         //       The escrow's payoutAmt is 0 (set by EscrowService.createForEndedAuction);
@@ -326,24 +325,15 @@ public class TerminalCommandService {
         //       (agent_slice) and the group wallet (group_slice) using
         //       agent_commission_rate. Spec §8.5, §9.6.
         //
-        //   case 1 (D legacy -- group-listed but not SL-group-owned):
-        //       realty_group_id IS NOT NULL AND realty_group_sl_group_id IS NULL.
-        //       The escrow has already withheld agent_fee_amt from payoutAmt;
-        //       AgentFeeDistributor splits agent_fee_amt by agent_fee_split.
-        //       Spec §7.2.
+        //   individual: realty_group_sl_group_id IS NULL -- nothing to split.
         //
-        //   individual: realty_group_id IS NULL -- nothing to split.
+        //   (The pre-G case-1 path -- realty_group_id set but realty_group_sl_group_id
+        //   null -- was removed when sub-project G deleted the case-1 distributor.)
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
             agentCommissionDistributor.distribute(
                 finalEscrow.getAuction(),
                 finalEscrow.getFinalBidAmount(),
                 finalEscrow.getCommissionAmt());
-        } else if (finalEscrow.getAuction().getRealtyGroupId() != null) {
-            long agentFeeAmt = finalEscrow.getAuction().getAgentFeeAmt() == null
-                    ? 0L : finalEscrow.getAuction().getAgentFeeAmt();
-            if (agentFeeAmt > 0) {
-                agentFeeDistributor.distribute(finalEscrow.getAuction(), agentFeeAmt);
-            }
         }
     }
 

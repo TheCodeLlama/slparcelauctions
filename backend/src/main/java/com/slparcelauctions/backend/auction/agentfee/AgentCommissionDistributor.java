@@ -19,9 +19,9 @@ import lombok.extern.slf4j.Slf4j;
  * the agent slice and the realty group's wallet with the residual group slice. Runs in the
  * MANDATORY transaction of {@code handleEscrowPayoutSuccess}; never opens its own transaction.
  *
- * <p>Sibling to D's {@link AgentFeeDistributor} (case-1 legacy). The two cases are mutually
- * exclusive at the call site: case-3 auctions carry {@code realty_group_sl_group_id}; case-1
- * auctions carry only {@code realty_group_id}.
+ * <p>The pre-G case-1 sibling distributor was deleted by sub-project G. All realty-group
+ * listings post-G are case-3 (i.e. carry {@code realty_group_sl_group_id}); the
+ * group-listed-not-SL-group-owned branch no longer exists.
  *
  * <p>Computation (spec §9.3):
  * <pre>

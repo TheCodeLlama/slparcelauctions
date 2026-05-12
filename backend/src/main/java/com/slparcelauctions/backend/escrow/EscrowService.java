@@ -1029,11 +1029,11 @@ public class EscrowService {
      *       {@code agent_slice} and the realty group's wallet with {@code group_slice}.
      *       No L$ leaves SLPA to an SL avatar from the escrow row, so the terminal
      *       PAYOUT command carries amount=0 and is a SL-side no-op. Spec §8.5, §9.6.</li>
-     *   <li><b>Case 1 (D legacy -- group-listed, no SL group)</b>:
-     *       {@code realty_group_id IS NOT NULL AND realty_group_sl_group_id IS NULL}.
-     *       {@code payoutAmt = commission.payout(finalBid) - agent_fee_amt}. The terminal
-     *       pays the reduced amount to the seller's avatar; {@code AgentFeeDistributor}
-     *       splits the withheld {@code agent_fee_amt} at payout-success. Spec §7.1.</li>
+     *   <li><b>Case 1 (D legacy -- group-listed, no SL group)</b>: deleted by
+     *       sub-project G; the post-payout distributor that drove it is gone.
+     *       All realty-group listings post-G are case 3; this branch is
+     *       retained only for historical context and dead-column tolerance
+     *       until the V29 migration drops {@code agent_fee_amt}.</li>
      *   <li><b>Individual</b>: both group columns null.
      *       {@code payoutAmt = commission.payout(finalBid)}.</li>
      * </ul>
