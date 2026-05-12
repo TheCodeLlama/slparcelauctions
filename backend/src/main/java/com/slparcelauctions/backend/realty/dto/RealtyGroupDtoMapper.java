@@ -18,6 +18,8 @@ import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRole;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.rating.GroupRatingService;
+import com.slparcelauctions.backend.realty.rating.dto.GroupRatingDto;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -43,6 +45,7 @@ public class RealtyGroupDtoMapper {
     private final UserRepository users;
     private final RealtyGroupMemberRepository members;
     private final RealtyGroupRepository groups;
+    private final GroupRatingService ratingService;
 
     // ─────────────────────── Public group DTO ───────────────────────
 
@@ -67,6 +70,8 @@ public class RealtyGroupDtoMapper {
             agentCards.add(buildAgentCard(group, row, u, exposePrivate));
         }
 
+        GroupRatingDto rating = ratingService.computeRating(group.getId());
+
         return new RealtyGroupPublicDto(
             group.getPublicId(),
             group.getName(),
@@ -81,7 +86,8 @@ public class RealtyGroupDtoMapper {
             group.getAgentFeeRate(),
             group.getAgentFeeSplit(),
             group.getMemberSeatLimit() == null ? 0 : group.getMemberSeatLimit(),
-            rows.size());
+            rows.size(),
+            rating);
     }
 
     /**

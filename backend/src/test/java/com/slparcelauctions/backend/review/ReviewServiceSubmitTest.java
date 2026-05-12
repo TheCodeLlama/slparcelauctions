@@ -29,6 +29,8 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
+import org.springframework.context.ApplicationEventPublisher;
+
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.review.broadcast.ReviewBroadcastPublisher;
 import com.slparcelauctions.backend.review.dto.ReviewDto;
@@ -59,6 +61,7 @@ class ReviewServiceSubmitTest {
     @Mock UserRepository userRepo;
     @Mock ReviewBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     ReviewService service;
 
@@ -72,7 +75,8 @@ class ReviewServiceSubmitTest {
     void setUp() {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
-                escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
+                escrowRepo, userRepo, broadcastPublisher, notificationPublisher,
+                eventPublisher, clock);
 
         seller = User.builder().id(10L).email("seller@example.com").username("seller").passwordHash("x").displayName("Sally").build();
         winner = User.builder().id(20L).email("winner@example.com").username("winner").passwordHash("x").displayName("Willy").build();

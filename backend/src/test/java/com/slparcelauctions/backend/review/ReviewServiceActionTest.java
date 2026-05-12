@@ -21,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 import com.slparcelauctions.backend.auction.Auction;
@@ -59,6 +60,7 @@ class ReviewServiceActionTest {
     @Mock UserRepository userRepo;
     @Mock ReviewBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     ReviewService service;
 
@@ -72,7 +74,8 @@ class ReviewServiceActionTest {
     void setUp() {
         Clock clock = Clock.fixed(FIXED_NOW, ZoneOffset.UTC);
         service = new ReviewService(reviewRepo, responseRepo, flagRepo, auctionRepo,
-                escrowRepo, userRepo, broadcastPublisher, notificationPublisher, clock);
+                escrowRepo, userRepo, broadcastPublisher, notificationPublisher,
+                eventPublisher, clock);
 
         seller = User.builder().id(10L).email("seller@example.com").username("seller").passwordHash("x").displayName("Sally").build();
         winner = User.builder().id(20L).email("winner@example.com").username("winner").passwordHash("x").displayName("Willy").build();
