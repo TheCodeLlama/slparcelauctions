@@ -31,6 +31,7 @@ import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegis
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupFounderMismatchException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotFoundException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotVerifiedException;
+import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupRegisteredToSuspendedGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
 import com.slparcelauctions.backend.realty.wallet.exception.AdminAdjustAmountOutOfRangeException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
@@ -398,6 +399,28 @@ public class RealtyExceptionHandler {
         pd.setTitle("SL Group Already Registered");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", SlGroupAlreadyRegisteredException.CODE);
+        if (e.getSlGroupUuid() != null) {
+            pd.setProperty("slGroupUuid", e.getSlGroupUuid().toString());
+        }
+        return pd;
+    }
+
+    /**
+     * Sub-project G section 14 -- surfaces
+     * {@link SlGroupRegisteredToSuspendedGroupException} as 409 Conflict.
+     * Thrown by {@code RealtyGroupSlGroupService.register} when the SL group
+     * UUID being registered is already attached to a realty group that has an
+     * active (unlifted) suspension row -- a reverse-search ban-evasion attempt.
+     * The frontend surfaces an inline "contact support" message rather than
+     * the generic "already registered" copy.
+     */
+    @ExceptionHandler(SlGroupRegisteredToSuspendedGroupException.class)
+    public ProblemDetail handleSlGroupRegisteredToSuspendedGroup(
+            SlGroupRegisteredToSuspendedGroupException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("SL Group Registered To Suspended Group");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", SlGroupRegisteredToSuspendedGroupException.CODE);
         if (e.getSlGroupUuid() != null) {
             pd.setProperty("slGroupUuid", e.getSlGroupUuid().toString());
         }

@@ -1109,6 +1109,26 @@ export const realtySlGroupHandlers = {
       ),
     ),
 
+  /**
+   * Sub-project G section 14 -- reverse-search ban-evasion gate. The SL group
+   * UUID is currently registered to a realty group with an active (unlifted)
+   * suspension row. Distinct {@code code} so the modal can render a
+   * "contact support" copy instead of the generic "already registered" one.
+   */
+  registerToSuspendedGroup: () =>
+    http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "SL_GROUP_REGISTERED_TO_SUSPENDED_GROUP",
+          title: "SL Group Registered To Suspended Group",
+          detail:
+            "This SL group is registered to a suspended SLPA realty group. Contact support.",
+        },
+        { status: 409 },
+      ),
+    ),
+
   registerForbidden: () =>
     http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
       HttpResponse.json(

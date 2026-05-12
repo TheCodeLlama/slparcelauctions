@@ -132,4 +132,35 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
         """)
     List<RealtyGroupSlGroup> findCurrentRegisteredForRealtyGroup(
             @Param("realtyGroupId") Long realtyGroupId);
+
+    /**
+     * Sub-project G section 14 -- reverse-search ban-evasion gate. Returns
+     * {@code true} when the supplied SL group UUID is currently registered to
+     * any realty group that has an active (unlifted) suspension row.
+     *
+     * <p>"Suspended" is determined by an unlifted row in
+     * {@code realty_group_suspensions} -- {@code realty_groups} carries no
+     * {@code suspended} column. The {@code RealtyGroupSuspension} entity maps
+     * {@code realty_group_id} as a {@code @ManyToOne} association
+     * ({@code realtyGroup}), so the join goes through {@code sus.realtyGroup.id}.
+     *
+     * <p>This query intentionally ignores {@code expiresAt} -- a timed
+     * suspension whose expiry has passed but whose row has not yet been
+     * stamped {@code liftedAt} by the expiry sweep still counts as "active
+     * suspension" for the purposes of the reverse-search gate. The expiry
+     * sweep ({@code GroupSuspensionExpiryTask}) closes that window
+     * promptly; gating on {@code liftedAt IS NULL} alone keeps the contract
+     * simple and prevents the race where the expiry sweep has not yet run.
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(s) > 0 THEN TRUE ELSE FALSE END
+          FROM RealtyGroupSlGroup s
+         WHERE s.slGroupUuid = :slGroupUuid
+           AND EXISTS (
+               SELECT 1 FROM RealtyGroupSuspension sus
+                WHERE sus.realtyGroup.id = s.realtyGroupId
+                  AND sus.liftedAt IS NULL
+           )
+        """)
+    boolean existsForSuspendedRealtyGroup(@Param("slGroupUuid") UUID slGroupUuid);
 }
