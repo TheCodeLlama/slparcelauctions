@@ -33,7 +33,9 @@ import com.slparcelauctions.backend.realty.exception.RealtyGroupNameTakenExcepti
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupRenameCooldownException;
+import com.slparcelauctions.backend.realty.exception.SlGroupRegisteredBlocksDissolveException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
@@ -69,6 +71,7 @@ public class RealtyGroupService {
     private final UserRepository users;
     private final AuctionRepository auctions;
     private final EscrowRepository escrows;
+    private final RealtyGroupSlGroupRepository slGroupRepo;
 
     /**
      * Persist a new realty group with the caller as leader.
@@ -298,6 +301,10 @@ public class RealtyGroupService {
         }
         if (escrows.existsInFlightForGroup(group.getId())) {
             throw new GroupHasInFlightEscrowsException();
+        }
+        long slGroupCount = slGroupRepo.countByRealtyGroupId(group.getId());
+        if (slGroupCount > 0) {
+            throw new SlGroupRegisteredBlocksDissolveException(group.getPublicId(), slGroupCount);
         }
         List<User> formerMembers = loadCurrentMembersAsUsers(group.getId());
         group.setDissolvedAt(OffsetDateTime.now());
