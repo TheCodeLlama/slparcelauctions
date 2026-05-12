@@ -44,4 +44,11 @@ public interface RealtyGroupReportRepository extends JpaRepository<RealtyGroupRe
          ORDER BY r.createdAt DESC
     """)
     List<RealtyGroupReport> findByGroupId(@Param("groupId") Long groupId);
+
+    /**
+     * Reporter-visibility list, newest first. Backs the merged
+     * {@code GET /me/reports} timeline in
+     * {@link com.slparcelauctions.backend.admin.reports.UserReportService}.
+     */
+    List<RealtyGroupReport> findByReporterIdOrderByCreatedAtDesc(Long reporterId);
 }

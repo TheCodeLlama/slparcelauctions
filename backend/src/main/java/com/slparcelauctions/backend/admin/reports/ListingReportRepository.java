@@ -20,6 +20,12 @@ public interface ListingReportRepository extends JpaRepository<ListingReport, Lo
 
     List<ListingReport> findByAuctionIdOrderByCreatedAtDesc(Long auctionId);
 
+    /**
+     * Reporter-visibility list. Backs the merged {@code GET /me/reports} timeline
+     * in {@link com.slparcelauctions.backend.admin.reports.UserReportService}.
+     */
+    List<ListingReport> findByReporterIdOrderByCreatedAtDesc(Long reporterId);
+
     long countByStatus(ListingReportStatus status);
 
     @Query("""

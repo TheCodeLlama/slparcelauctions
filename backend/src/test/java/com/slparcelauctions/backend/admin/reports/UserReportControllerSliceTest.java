@@ -139,8 +139,9 @@ class UserReportControllerSliceTest {
         OffsetDateTime now = OffsetDateTime.now();
         UUID reportPublicId = UUID.fromString("00000000-0000-0000-0000-000000000099");
         MyReportResponse resp = new MyReportResponse(
-            reportPublicId, "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION,
-            "Details here.", ListingReportStatus.OPEN, now, now);
+            reportPublicId, "LISTING", AUCTION_PUBLIC_ID,
+            "Bad listing", ListingReportReason.INACCURATE_DESCRIPTION.name(),
+            "Details here.", ListingReportStatus.OPEN.name(), null, now, now);
         when(service.upsertReport(eq(AUCTION_LONG_ID), anyLong(), any())).thenReturn(resp);
 
         mvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/report")
@@ -221,8 +222,9 @@ class UserReportControllerSliceTest {
         OffsetDateTime now = OffsetDateTime.now();
         UUID myReportPublicId = UUID.fromString("00000000-0000-0000-0000-000000000007");
         MyReportResponse resp = new MyReportResponse(
-            myReportPublicId, "Subject", ListingReportReason.TOS_VIOLATION,
-            "Details.", ListingReportStatus.REVIEWED, now, now);
+            myReportPublicId, "LISTING", AUCTION_PUBLIC_ID,
+            "Subject", ListingReportReason.TOS_VIOLATION.name(),
+            "Details.", ListingReportStatus.REVIEWED.name(), null, now, now);
         when(service.findMyReport(eq(AUCTION_LONG_ID), anyLong())).thenReturn(Optional.of(resp));
 
         mvc.perform(get("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/my-report")
