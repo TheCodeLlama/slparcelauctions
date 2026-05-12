@@ -74,6 +74,7 @@ public class TerminalCommandService {
     private final TerminalSecretService terminalSecretService;
     private final com.slparcelauctions.backend.admin.infrastructure.withdrawals.WithdrawalCallbackHandler withdrawalCallbackHandler;
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
+    private final com.slparcelauctions.backend.auction.agentfee.AgentFeeDistributor agentFeeDistributor;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public TerminalCommand queuePayout(Escrow escrow) {
@@ -308,6 +309,16 @@ public class TerminalCommandService {
                 finalEscrow.getId(),
                 finalEscrow.getAuction().getTitle(),
                 cmd.getAmount());
+
+        // Sub-project D §7.2: now that the L$ has confirmed-departed SLPA for
+        // the reduced payoutAmt, the agent_fee_amt L$ left in our system is
+        // distributable. Split between group wallet and agent user wallet per
+        // agent_fee_split, snapshotted on the auction.
+        long agentFeeAmt = finalEscrow.getAuction().getAgentFeeAmt() == null
+                ? 0L : finalEscrow.getAuction().getAgentFeeAmt();
+        if (agentFeeAmt > 0) {
+            agentFeeDistributor.distribute(finalEscrow.getAuction(), agentFeeAmt);
+        }
     }
 
     private void handleEscrowRefundSuccess(TerminalCommand cmd, String slTxn, OffsetDateTime now) {
