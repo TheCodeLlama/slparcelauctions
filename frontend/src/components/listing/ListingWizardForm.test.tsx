@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@/test/render";
 import { server } from "@/test/msw/server";
+import { realtyGroupWalletHandlers } from "@/test/msw/handlers";
 import type { ParcelDto } from "@/types/parcel";
 import type { SellerAuctionResponse } from "@/types/auction";
 import { ListingWizardForm } from "./ListingWizardForm";
@@ -609,6 +610,8 @@ describe("ListingWizardForm — List-as picker", () => {
           },
         ]),
       ),
+      // Sufficient balance so AgentFeePreview does not disable the submit button.
+      realtyGroupWalletHandlers.walletSuccess("g1", { balance: 10000, reserved: 0, available: 10000 }),
       http.post("*/api/v1/parcels/lookup", () => HttpResponse.json(sampleParcel)),
       http.get("*/api/v1/parcel-tags", () => HttpResponse.json([])),
       http.post("*/api/v1/auctions", async ({ request }) => {
