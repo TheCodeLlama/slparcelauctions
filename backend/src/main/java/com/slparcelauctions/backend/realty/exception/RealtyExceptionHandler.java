@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException;
+import com.slparcelauctions.backend.realty.moderation.exception.SuspensionAlreadyActiveException;
+import com.slparcelauctions.backend.realty.moderation.exception.SuspensionNotFoundException;
 import com.slparcelauctions.backend.realty.slgroup.exception.ParcelNotOwnedByRegisteredSlGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupAlreadyRegisteredException;
@@ -416,6 +418,42 @@ public class RealtyExceptionHandler {
         pd.setProperty("groupStatus", e.getStatus().name());
         pd.setProperty("expiresAt", e.getExpiresAt() == null ? null : e.getExpiresAt().toString());
         pd.setProperty("reason", e.getReason());
+        return pd;
+    }
+
+    /**
+     * Surfaces {@link SuspensionAlreadyActiveException} as 409 Conflict. Thrown when
+     * an admin tries to issue a new suspension against a group that already has an
+     * active (unlifted, unexpired) suspension row.
+     */
+    @ExceptionHandler(SuspensionAlreadyActiveException.class)
+    public ProblemDetail handleSuspensionAlreadyActive(
+            SuspensionAlreadyActiveException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Suspension Already Active");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SUSPENSION_ALREADY_ACTIVE");
+        if (e.getGroupPublicId() != null) {
+            pd.setProperty("groupPublicId", e.getGroupPublicId().toString());
+        }
+        return pd;
+    }
+
+    /**
+     * Surfaces {@link SuspensionNotFoundException} as 404 Not Found. Thrown when a
+     * lift operation references a suspension that does not exist, has already been
+     * lifted, or does not belong to the addressed realty group.
+     */
+    @ExceptionHandler(SuspensionNotFoundException.class)
+    public ProblemDetail handleSuspensionNotFound(
+            SuspensionNotFoundException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        pd.setTitle("Suspension Not Found");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "SUSPENSION_NOT_FOUND");
+        if (e.getSuspensionPublicId() != null) {
+            pd.setProperty("suspensionPublicId", e.getSuspensionPublicId().toString());
+        }
         return pd;
     }
 }
