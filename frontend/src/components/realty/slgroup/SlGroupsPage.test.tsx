@@ -15,7 +15,7 @@ function row(overrides: Partial<RealtyGroupSlGroup> = {}): RealtyGroupSlGroup {
     slGroupName: "Sunset Estates",
     verified: true,
     verifiedAt: "2026-05-12T20:00:00Z",
-    verifiedVia: "ABOUT_TEXT",
+    verifiedVia: "FOUNDER_TERMINAL",
     pending: null,
     founderAvatarUuid: "33333333-3333-3333-3333-333333333333",
     ...overrides,

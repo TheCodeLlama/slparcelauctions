@@ -44,7 +44,6 @@ public class RealtyGroupSlGroupService {
     private final SlWorldApiClient worldApi;
     private final SlGroupVerificationCodeGenerator codeGen;
     private final AuctionRepository auctionRepo;
-    private final SlGroupAboutTextPollTask aboutTextPoller;
     private final Clock clock;
 
     @Transactional
@@ -123,12 +122,15 @@ public class RealtyGroupSlGroupService {
     }
 
     /**
-     * Re-runs the about-text poll for a pending registration on demand (spec §5.1).
-     * Caller must hold REGISTER_SL_GROUP. Already-verified rows and rows belonging
-     * to a different realty group are treated as a no-op success (row returned
-     * unchanged) so the caller cannot probe existence.
+     * Re-runs verification for a pending registration on demand (spec §5.1).
+     * Caller must hold REGISTER_SL_GROUP.
      *
-     * <p>Delegates the actual poll to {@link SlGroupAboutTextPollTask#pollOne}.
+     * <p>{@code FOUNDER_TERMINAL} is the only verification path and is driven by
+     * an in-world LSL callback, not by a backend-initiated poll. {@code recheck}
+     * therefore returns the row unchanged for any pending registration -- the
+     * endpoint is preserved so the existing UI affordance keeps compiling, but
+     * it no longer mutates state. Rows belonging to a different realty group
+     * surface as a no-op success so the caller cannot probe existence.
      */
     @Transactional
     public RealtyGroupSlGroup recheck(Long callerUserId, UUID realtyGroupPublicId,
@@ -136,13 +138,8 @@ public class RealtyGroupSlGroupService {
         RealtyGroup group = groupRepo.findByPublicIdAndDissolvedAtIsNull(realtyGroupPublicId)
                 .orElseThrow(() -> new RealtyGroupNotFoundException(realtyGroupPublicId));
         authorizer.assertCan(callerUserId, group.getId(), RealtyGroupPermission.REGISTER_SL_GROUP);
-        RealtyGroupSlGroup row = repo.findByPublicId(slGroupPublicId)
+        return repo.findByPublicId(slGroupPublicId)
                 .orElseThrow(() -> new RealtyGroupNotFoundException(slGroupPublicId));
-        if (!row.getRealtyGroupId().equals(group.getId()) || row.isVerified()) {
-            // already verified or wrong realty group -- caller treats as no-op success
-            return row;
-        }
-        return aboutTextPoller.pollOne(row, OffsetDateTime.now(clock));
     }
 
     /**

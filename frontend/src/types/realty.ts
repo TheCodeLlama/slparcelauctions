@@ -247,13 +247,14 @@ export interface GroupWithdrawResponse {
 // ─── SL group registrations (Realty Groups: E) ─────────────────────────────
 
 /**
- * How a {@link RealtyGroupSlGroup} reached the verified state. ABOUT_TEXT is
- * the polling-based path (founder pastes the verification code into the SL
- * group's About field, the backend's poller observes it on the next sweep);
+ * How a {@link RealtyGroupSlGroup} reached the verified state.
  * FOUNDER_TERMINAL is the in-world terminal path (founder taps a registered
  * SLPA terminal to instant-verify).
+ *
+ * Kept as a single-value union for forward-compatibility with future
+ * verification methods.
  */
-export type SlGroupVerifyMethod = "ABOUT_TEXT" | "FOUNDER_TERMINAL";
+export type SlGroupVerifyMethod = "FOUNDER_TERMINAL";
 
 /**
  * Pending-state metadata for an unverified SL-group registration. Surfaced

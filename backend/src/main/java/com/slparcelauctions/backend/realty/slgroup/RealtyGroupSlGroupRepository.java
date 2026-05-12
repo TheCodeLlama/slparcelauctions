@@ -35,14 +35,6 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
             @Param("realtyGroupId") Long realtyGroupId,
             @Param("slGroupUuid") UUID slGroupUuid);
 
-    // TODO Task 21 will delete SlGroupAboutTextPollTask along with this query. The
-    // partial index ix_rg_sl_groups_pending_poll was already dropped by V28; the
-    // lastPolledAt/pollAttempts columns the previous JPQL referenced no longer exist.
-    // Returning an empty list here keeps the poll task a no-op until it is removed.
-    default List<RealtyGroupSlGroup> findDueForAboutTextPoll(OffsetDateTime now, OffsetDateTime pollCutoff) {
-        return java.util.Collections.emptyList();
-    }
-
     /** Pending rows whose verification window has expired. Used by the hourly cleanup task. */
     @Query("""
         SELECT r FROM RealtyGroupSlGroup r
