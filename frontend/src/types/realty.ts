@@ -55,6 +55,12 @@ export interface AgentCardDto {
   permissions: RealtyGroupPermission[] | null;
   /** Hidden (null) from anonymous viewers + non-members. */
   joinedAt: string | null;
+  /**
+   * Decimal from JSON, e.g. 0.6 for 60% of the group's agent fee. Hidden
+   * (null) from anonymous viewers and non-members — same privacy gate as
+   * {@link permissions} / {@link joinedAt}.
+   */
+  agentCommissionRate: number | null;
 }
 
 export interface RealtyGroupPublicDto {
@@ -214,6 +220,55 @@ export interface GroupWithdrawRequest {
 export interface GroupWithdrawResponse {
   queueId: number;
   estimatedFulfillmentSeconds: number;
+}
+
+// ─── SL group registrations (Realty Groups: E) ─────────────────────────────
+
+/**
+ * How a {@link RealtyGroupSlGroup} reached the verified state. ABOUT_TEXT is
+ * the polling-based path (founder pastes the verification code into the SL
+ * group's About field, the backend's poller observes it on the next sweep);
+ * FOUNDER_TERMINAL is the in-world terminal path (founder taps a registered
+ * SLPA terminal to instant-verify).
+ */
+export type SlGroupVerifyMethod = "ABOUT_TEXT" | "FOUNDER_TERMINAL";
+
+/**
+ * Pending-state metadata for an unverified SL-group registration. Surfaced
+ * to the UI so the registration row can show "code 1A2B3C — expires in X
+ * minutes" and a Recheck Now button next to it.
+ */
+export interface SlGroupPending {
+  verificationCode: string;
+  /** ISO-8601. */
+  verificationCodeExpiresAt: string;
+  /** ISO-8601, or null if the backend has not polled this group yet. */
+  lastPolledAt: string | null;
+  pollAttempts: number;
+}
+
+/**
+ * One SL-group registration owned by a realty group. Wire payload from
+ * {@code GET /api/v1/realty/groups/{publicId}/sl-groups} and the
+ * register/recheck endpoints — see backend {@code RealtyGroupSlGroupDto}.
+ *
+ * {@link pending} is non-null iff {@link verified} is false. {@link verifiedAt},
+ * {@link verifiedVia}, and {@link founderAvatarUuid} are non-null iff
+ * {@link verified} is true.
+ */
+export interface RealtyGroupSlGroup {
+  publicId: string;
+  slGroupUuid: string;
+  slGroupName: string | null;
+  verified: boolean;
+  verifiedAt: string | null;
+  verifiedVia: SlGroupVerifyMethod | null;
+  pending: SlGroupPending | null;
+  founderAvatarUuid: string | null;
+}
+
+export interface RegisterSlGroupRequest {
+  slGroupUuid: string;
 }
 
 // ─── Admin list filters ────────────────────────────────────────────────────

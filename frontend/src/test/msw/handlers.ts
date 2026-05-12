@@ -983,6 +983,206 @@ export const realtyGroupWalletHandlers = {
     ),
 };
 
+// ---------------------------------------------------------------------------
+// Realty group SL-group registration handlers (Realty Groups: E)
+// ---------------------------------------------------------------------------
+
+/**
+ * MSW factories for the four endpoints under
+ * {@code /api/v1/realty/groups/:publicId/sl-groups}, plus the updated
+ * {@code GET /api/v1/realty/me/listing-eligible-groups?slParcelUuid=...}
+ * variant. Pattern mirrors {@code realtyGroupWalletHandlers}: a default
+ * happy-path factory per endpoint and named error variants that tests opt
+ * into via {@code server.use(...)}.
+ *
+ * Default GET list resolves to an empty array so any component that mounts
+ * the {@code useRealtyGroupSlGroups} hook doesn't have to register a
+ * handler in tests that don't exercise the SL-group surface.
+ */
+export const realtySlGroupHandlers = {
+  /** GET list — empty by default. */
+  listEmpty: () =>
+    http.get("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json([]),
+    ),
+
+  listSuccess: <T>(entries: T[]) =>
+    http.get("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(entries),
+    ),
+
+  /** POST register — returns a pending entry by default. */
+  registerSuccess: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/sl-groups",
+      async ({ request }) => {
+        const body = (await request.json()) as { slGroupUuid: string };
+        return HttpResponse.json(
+          {
+            publicId: "11111111-1111-1111-1111-111111111111",
+            slGroupUuid: body.slGroupUuid,
+            slGroupName: null,
+            verified: false,
+            verifiedAt: null,
+            verifiedVia: null,
+            pending: {
+              verificationCode: "1A2B3C",
+              verificationCodeExpiresAt: "2026-05-12T21:00:00Z",
+              lastPolledAt: null,
+              pollAttempts: 0,
+            },
+            founderAvatarUuid: null,
+            ...overrides,
+          },
+          { status: 201 },
+        );
+      },
+    ),
+
+  registerAlreadyRegistered: () =>
+    http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "SL_GROUP_ALREADY_REGISTERED",
+          title: "Already registered",
+          detail: "This SL group is already registered on the realty group.",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  registerForbidden: () =>
+    http.post("*/api/v1/realty/groups/:publicId/sl-groups", () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "INSUFFICIENT_GROUP_PERMISSION",
+          title: "Insufficient group permission",
+        },
+        { status: 403 },
+      ),
+    ),
+
+  /** DELETE unregister — 204 by default. */
+  unregisterSuccess: () =>
+    http.delete(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId",
+      () => new HttpResponse(null, { status: 204 }),
+    ),
+
+  unregisterBlockedByListings: () =>
+    http.delete(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId",
+      () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            code: "SL_GROUP_HAS_ACTIVE_LISTINGS",
+            title: "Active listings depend on this SL group",
+          },
+          { status: 409 },
+        ),
+    ),
+
+  /** POST recheck — returns the row as still-pending by default. */
+  recheckPending: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          publicId: "11111111-1111-1111-1111-111111111111",
+          slGroupUuid: "22222222-2222-2222-2222-222222222222",
+          slGroupName: null,
+          verified: false,
+          verifiedAt: null,
+          verifiedVia: null,
+          pending: {
+            verificationCode: "1A2B3C",
+            verificationCodeExpiresAt: "2026-05-12T21:00:00Z",
+            lastPolledAt: "2026-05-12T20:35:00Z",
+            pollAttempts: 1,
+          },
+          founderAvatarUuid: null,
+          ...overrides,
+        }),
+    ),
+
+  /** POST recheck — returns a now-verified row. */
+  recheckVerified: (overrides: Record<string, unknown> = {}) =>
+    http.post(
+      "*/api/v1/realty/groups/:publicId/sl-groups/:slGroupPublicId/recheck",
+      () =>
+        HttpResponse.json({
+          publicId: "11111111-1111-1111-1111-111111111111",
+          slGroupUuid: "22222222-2222-2222-2222-222222222222",
+          slGroupName: "Sunset Estates",
+          verified: true,
+          verifiedAt: "2026-05-12T20:36:00Z",
+          verifiedVia: "ABOUT_TEXT",
+          pending: null,
+          founderAvatarUuid: "33333333-3333-3333-3333-333333333333",
+          ...overrides,
+        }),
+    ),
+
+  /**
+   * Updated listing-eligible-groups handler — asserts {@code slParcelUuid}
+   * is present in the query string and returns an empty list by default.
+   * Tests that need specific groups pass the {@code entries} param.
+   */
+  listingEligibleGroupsEmpty: () =>
+    http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+      HttpResponse.json([]),
+    ),
+
+  listingEligibleGroupsSuccess: <T>(entries: T[]) =>
+    http.get("*/api/v1/realty/me/listing-eligible-groups", () =>
+      HttpResponse.json(entries),
+    ),
+};
+
+// ---------------------------------------------------------------------------
+// Broker-cancel handler (Realty Groups: E, Task 25)
+// ---------------------------------------------------------------------------
+
+export const brokerCancelHandlers = {
+  /** Echoes the auction back in CANCELLED state. */
+  cancelSuccess: (
+    auctionPublicId: string,
+    response: Record<string, unknown>,
+  ) =>
+    http.post(`*/api/v1/auctions/${auctionPublicId}/broker-cancel`, () =>
+      HttpResponse.json(response),
+    ),
+
+  /** 409 — the auction isn't in a state where a broker can cancel it. */
+  notApplicable: (auctionPublicId: string) =>
+    http.post(`*/api/v1/auctions/${auctionPublicId}/broker-cancel`, () =>
+      HttpResponse.json(
+        {
+          status: 409,
+          code: "BROKER_CANCEL_NOT_APPLICABLE",
+          title: "Broker cancel not applicable",
+        },
+        { status: 409 },
+      ),
+    ),
+
+  /** 403 — caller is not a broker on this auction's group. */
+  forbidden: (auctionPublicId: string) =>
+    http.post(`*/api/v1/auctions/${auctionPublicId}/broker-cancel`, () =>
+      HttpResponse.json(
+        {
+          status: 403,
+          code: "INSUFFICIENT_GROUP_PERMISSION",
+          title: "Insufficient group permission",
+        },
+        { status: 403 },
+      ),
+    ),
+};
+
 /**
  * Default handlers registered at server startup. Establishes the "no session"
  * baseline so tests that don't explicitly authenticate get the unauthenticated
@@ -999,4 +1199,5 @@ export const defaultHandlers = [
   realtyGroupWalletHandlers.walletEmpty(),
   realtyGroupWalletHandlers.ledgerEmpty(),
   realtyGroupWalletHandlers.withdrawSuccess(),
+  realtySlGroupHandlers.listEmpty(),
 ];

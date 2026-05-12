@@ -47,7 +47,7 @@ export function RealtyGroupAgentsGrid({
         // pass any DTO into.
         const visible: AgentCardDto = viewerIsMember
           ? agent
-          : { ...agent, permissions: null, joinedAt: null };
+          : { ...agent, permissions: null, joinedAt: null, agentCommissionRate: null };
         return (
           <li key={agent.memberPublicId}>
             <RealtyGroupMemberCard member={visible} />

@@ -50,6 +50,7 @@ function seedGroup(overrides: Record<string, unknown> = {}) {
             role: "AGENT",
             permissions: [],
             joinedAt: "2026-04-15T10:00:00Z",
+            agentCommissionRate: null,
           },
         ],
         agentFeeRate: "0.0000",

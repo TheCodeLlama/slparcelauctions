@@ -101,7 +101,11 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
 
   // Listing-eligible groups — only relevant in create mode. The picker is
   // hidden in edit mode because group attribution is immutable after creation.
-  const eligibleGroupsQ = useListingEligibleGroups();
+  // From Realty Groups: E onwards the eligibility filter requires the
+  // parcel UUID, so the query is disabled until a parcel is selected.
+  const eligibleGroupsQ = useListingEligibleGroups(
+    draft.state.parcel?.slParcelUuid,
+  );
   const selectedGroup =
     eligibleGroupsQ.data?.find(
       (g) => g.publicId === draft.state.listAsGroupPublicId,
