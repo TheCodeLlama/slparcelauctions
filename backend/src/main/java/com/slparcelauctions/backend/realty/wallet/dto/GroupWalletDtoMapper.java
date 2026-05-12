@@ -45,6 +45,24 @@ public class GroupWalletDtoMapper {
     }
 
     /**
+     * Sub-project G §7.5 — assemble the full wallet DTO, copying the leader's
+     * wallet-terms acceptance timestamp from the supplied {@link User} row so
+     * the frontend leader-terms-block banner has a signal to render against.
+     *
+     * <p>The {@code leader} parameter is the group's current leader user
+     * (resolved by the caller from {@code RealtyGroup.getLeaderId()}). Null
+     * {@code walletTermsAcceptedAt} means the leader has NOT accepted wallet
+     * Terms of Service yet; the field flows through to the DTO unchanged.
+     */
+    public GroupWalletDto toWalletDto(long balance, long reserved, long available,
+            User leader, List<RealtyGroupLedgerEntry> recentLedger) {
+        java.time.Instant leaderTerms = (leader == null || leader.getWalletTermsAcceptedAt() == null)
+                ? null
+                : leader.getWalletTermsAcceptedAt().toInstant();
+        return new GroupWalletDto(balance, reserved, available, leaderTerms, toDtos(recentLedger));
+    }
+
+    /**
      * Only AUCTION refs are surfaced publicly as a UUID. All other ref types
      * (TERMINAL_COMMAND, LISTING_FEE_REFUND, REALTY_GROUP_LEDGER_ENTRY) remain
      * internal and resolve to null in the public DTO.

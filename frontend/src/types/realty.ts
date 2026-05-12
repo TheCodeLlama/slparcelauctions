@@ -226,6 +226,13 @@ export interface GroupWallet {
   balance: number;
   reserved: number;
   available: number;
+  /**
+   * ISO-8601 timestamp the group leader accepted wallet Terms of Service, or
+   * null if they have not. Sub-project G §7.5 — drives the
+   * {@code LeaderTermsBlockBanner} render condition. Sourced server-side from
+   * {@code User.walletTermsAcceptedAt} on the group's current leader row.
+   */
+  leaderTermsAcceptedAt: string | null;
   recentLedger: GroupLedgerEntry[];
 }
 

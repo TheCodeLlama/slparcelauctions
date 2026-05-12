@@ -29,6 +29,8 @@ import com.slparcelauctions.backend.realty.wallet.dto.GroupWalletDto;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupWalletDtoMapper;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupWithdrawRequest;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupWithdrawResponse;
+import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserRepository;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,7 @@ public class RealtyGroupWalletController {
     private final RealtyGroupAuthorizer authorizer;
     private final RealtyGroupWalletService walletService;
     private final GroupWalletDtoMapper mapper;
+    private final UserRepository userRepository;
 
     // ─────────────────────────────────────────────────────────────────
     // GET /api/v1/realty/groups/{publicId}/wallet
@@ -81,11 +84,13 @@ public class RealtyGroupWalletController {
         List<RealtyGroupLedgerEntry> recent = ledgerRepository.findRecentForGroup(
             g.getId(), PageRequest.of(0, RECENT_LEDGER_LIMIT));
 
-        return new GroupWalletDto(
+        User leader = userRepository.findById(g.getLeaderId()).orElseThrow();
+        return mapper.toWalletDto(
             g.getBalanceLindens(),
             g.getReservedLindens(),
             g.availableLindens(),
-            mapper.toDtos(recent));
+            leader,
+            recent);
     }
 
     // ─────────────────────────────────────────────────────────────────
