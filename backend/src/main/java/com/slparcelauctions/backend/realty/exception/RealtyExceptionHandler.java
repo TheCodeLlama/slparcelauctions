@@ -146,6 +146,25 @@ public class RealtyExceptionHandler {
         return pd;
     }
 
+    /**
+     * Surfaces {@link MemberNotInGroupException} as 400 Bad Request. Thrown by the
+     * leader-side bulk commission edit path (Task 29, spec §6.7) when a batch entry
+     * references a member-public-id that does not exist within the addressed group.
+     * Mapped to 400 (rather than 404) because the offending value is part of the request
+     * body, not the URL path — the caller fixes the bad payload row and resubmits.
+     */
+    @ExceptionHandler(MemberNotInGroupException.class)
+    public ProblemDetail handleMemberNotInGroup(MemberNotInGroupException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        pd.setTitle("Member Not In Group");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "MEMBER_NOT_IN_GROUP");
+        if (e.getMemberPublicId() != null) {
+            pd.setProperty("memberPublicId", e.getMemberPublicId().toString());
+        }
+        return pd;
+    }
+
     @ExceptionHandler(RealtyGroupPermissionDeniedException.class)
     public ProblemDetail handlePermissionDenied(RealtyGroupPermissionDeniedException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());

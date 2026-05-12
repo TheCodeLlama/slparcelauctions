@@ -20,7 +20,7 @@ class RealtyGroupPermissionTest {
     }
 
     @Test
-    void enumContainsExactlyExpectedValuesForE() {
+    void enumContainsExactlyExpectedValuesForF() {
         Set<String> names = Stream.of(RealtyGroupPermission.values())
                 .map(Enum::name)
                 .collect(Collectors.toSet());
@@ -28,6 +28,6 @@ class RealtyGroupPermissionTest {
                 "INVITE_AGENTS", "REMOVE_AGENTS", "EDIT_GROUP_PROFILE", "CONFIGURE_FEES",
                 "CREATE_LISTING", "MANAGE_ALL_LISTINGS",
                 "SPEND_FROM_GROUP_WALLET", "WITHDRAW_FROM_GROUP_WALLET", "VIEW_GROUP_TRANSACTIONS",
-                "REGISTER_SL_GROUP");
+                "REGISTER_SL_GROUP", "MANAGE_MEMBERS");
     }
 }
