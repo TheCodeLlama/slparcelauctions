@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.realty.moderation.dto;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import com.slparcelauctions.backend.admin.dto.AdminSummaryDto;
 import com.slparcelauctions.backend.realty.moderation.SuspensionReason;
 
 /**

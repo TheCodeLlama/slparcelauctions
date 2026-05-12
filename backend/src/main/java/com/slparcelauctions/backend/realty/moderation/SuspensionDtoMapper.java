@@ -5,7 +5,7 @@ import java.time.OffsetDateTime;
 
 import org.springframework.stereotype.Component;
 
-import com.slparcelauctions.backend.realty.moderation.dto.AdminSummaryDto;
+import com.slparcelauctions.backend.admin.dto.AdminSummaryDto;
 import com.slparcelauctions.backend.realty.moderation.dto.SuspensionDto;
 import com.slparcelauctions.backend.user.User;
 
