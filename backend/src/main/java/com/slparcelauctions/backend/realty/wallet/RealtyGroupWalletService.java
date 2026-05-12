@@ -123,6 +123,49 @@ public class RealtyGroupWalletService {
     }
 
     /* ============================================================ */
+    /* LISTING FEE REFUND CREDIT                                     */
+    /* ============================================================ */
+
+    /**
+     * Credit the group wallet with a listing-fee refund.
+     * Called from {@code ListingFeeRefundProcessorTask} when a
+     * {@code realty_group_ledger.LISTING_FEE_DEBIT} row exists for the auction
+     * (i.e. the original fee came from the group wallet). Spec §8.3.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void creditListingFeeRefund(Long groupId, Long auctionId, long amount, Long refundRowId) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        RealtyGroup group = groupRepository.findByIdForUpdate(groupId).orElseThrow();
+        if (group.getDissolvedAt() != null) {
+            throw new IllegalStateException(
+                "cannot credit dissolved group " + group.getPublicId()
+                + " for listing-fee refund row " + refundRowId);
+        }
+        long newBalance = group.getBalanceLindens() + amount;
+        group.setBalanceLindens(newBalance);
+        clearDormancyOnActivity(group);
+        groupRepository.save(group);
+
+        RealtyGroupLedgerEntry entry = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(groupId)
+            .entryType(RealtyGroupLedgerEntryType.LISTING_FEE_REFUND)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(group.getReservedLindens())
+            .refType("LISTING_FEE_REFUND")
+            .refId(refundRowId)
+            .build());
+
+        broadcastPublisher.publish(group.getPublicId(),
+            newBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.LISTING_FEE_REFUND.name(), entry.getPublicId());
+        log.info("group listing fee refund credit: groupId={}, refundId={}, amount={}, balanceAfter={}",
+            groupId, refundRowId, amount, newBalance);
+    }
+
+    /* ============================================================ */
     /* INTERNAL HELPERS                                              */
     /* ============================================================ */
 
