@@ -76,6 +76,22 @@ public class CancellationLog extends BaseEntity {
     @Column(name = "cancelled_by_admin_id")
     private Long cancelledByAdminId;
 
+    /**
+     * Sub-project E §11.3 -- broker user when {@code penaltyKind = BROKER_CANCEL}.
+     * Null for seller-initiated and admin-initiated cancellations. Captured so
+     * audit history can reconstruct which agent acted on behalf of the group.
+     */
+    @Column(name = "actor_user_id")
+    private Long actorUserId;
+
+    /**
+     * Sub-project E §11.3 -- realty group context for broker cancels. Null for
+     * seller-initiated and admin-initiated cancellations. Snapshotted at the
+     * moment of cancel; survives later group dissolution / membership changes.
+     */
+    @Column(name = "realty_group_id")
+    private Long realtyGroupId;
+
     @CreationTimestamp
     @Column(name = "cancelled_at", nullable = false, updatable = false)
     private OffsetDateTime cancelledAt;

@@ -45,6 +45,7 @@ class CancellationServiceTest {
     @Mock AuctionBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
     @Mock BanCheckService banCheckService;
+    @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
 
     CancellationService service;
 
@@ -60,7 +61,8 @@ class CancellationServiceTest {
                 48);
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
-                broadcastPublisher, notificationPublisher, penaltyProps, banCheckService, fixed);
+                broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
+                realtyGroupAuthorizer, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)

@@ -53,6 +53,15 @@ public interface NotificationPublisher {
     void listingRemovedByAdmin(long sellerUserId, long auctionId, String parcelName, String reason);
     void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes);
 
+    /**
+     * Sub-project E §11.5 -- the broker cancelled the listing on behalf of the
+     * realty group. Notifies the original listing agent (commission recipient,
+     * may differ from current seller_id). Body copy + fan-out will be fleshed
+     * out in E §11 follow-on tasks; the Phase 4 stub logs only.
+     */
+    void brokerCancelled(Long listingAgentUserId, Long auctionId, String auctionTitle,
+                         Long brokerUserId, String reason);
+
     // Reviews
     void reviewReceived(long revieweeUserId, long reviewId, long auctionId,
                         String parcelName, int rating);

@@ -92,3 +92,20 @@ ALTER TABLE realty_group_ledger ADD CONSTRAINT realty_group_ledger_entry_type_ch
         'ADJUSTMENT'
     )
 );
+
+-- E §11.4: BROKER_CANCEL extends the cancellation_logs.penalty_kind CHECK constraint.
+-- The original constraint is defined inline in V1 as cancellation_logs_penalty_kind_check.
+ALTER TABLE cancellation_logs DROP CONSTRAINT IF EXISTS cancellation_logs_penalty_kind_check;
+ALTER TABLE cancellation_logs ADD CONSTRAINT cancellation_logs_penalty_kind_check CHECK (
+    penalty_kind IS NULL OR penalty_kind IN (
+        'NONE', 'WARNING', 'PENALTY', 'PENALTY_AND_30D', 'PERMANENT_BAN', 'BROKER_CANCEL'
+    )
+);
+
+-- E §11.3: broker-cancel context for cancellation_logs.
+-- actor_user_id is the broker who initiated; realty_group_id is the group
+-- the broker acted on behalf of. Both are NULL for seller- and admin-initiated
+-- cancellations.
+ALTER TABLE cancellation_logs
+  ADD COLUMN actor_user_id BIGINT NULL,
+  ADD COLUMN realty_group_id BIGINT NULL;

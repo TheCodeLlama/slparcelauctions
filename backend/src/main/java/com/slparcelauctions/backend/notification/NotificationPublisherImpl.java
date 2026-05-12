@@ -295,6 +295,15 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void brokerCancelled(Long listingAgentUserId, Long auctionId, String auctionTitle,
+                                Long brokerUserId, String reason) {
+        // Phase 4 stub — log-only, matching the pattern used for group wallet
+        // notifications (Epic 09 will wire the dispatcher fan-out + body copy).
+        log.info("[NOTIF] brokerCancelled to user={} auction={} title='{}' broker={} reason='{}'",
+                listingAgentUserId, auctionId, auctionTitle, brokerUserId, reason);
+    }
+
+    @Override
     public void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes) {
         String title = "Warning on your listing: " + parcelName;
         String body = "An admin has reviewed reports on this listing and issued a warning. Notes: " + notes;

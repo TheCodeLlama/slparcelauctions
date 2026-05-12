@@ -19,11 +19,20 @@ public interface CancellationLogRepository extends JpaRepository<CancellationLog
      * The seller-row pessimistic lock acquired earlier in the same
      * transaction prevents two concurrent cancellations from racing on this
      * count.
+     *
+     * <p>Excludes admin-cancel rows ({@code cancelledByAdminId IS NOT NULL}) and
+     * sub-project E broker-cancel rows ({@code penaltyKind = BROKER_CANCEL}) —
+     * neither path represents a seller offense. The explicit
+     * {@code penaltyKind} filter is belt-and-braces alongside the admin-id
+     * predicate: broker-cancel rows have a {@code null} admin id but must
+     * still be excluded.
      */
     @Query("SELECT count(c) FROM CancellationLog c "
             + "WHERE c.seller.id = :sellerId "
             + "AND c.hadBids = true "
-            + "AND c.cancelledByAdminId IS NULL")
+            + "AND c.cancelledByAdminId IS NULL "
+            + "AND (c.penaltyKind IS NULL OR c.penaltyKind <> "
+            + "com.slparcelauctions.backend.auction.CancellationOffenseKind.BROKER_CANCEL)")
     long countPriorOffensesWithBids(@Param("sellerId") Long sellerId);
 
     /**

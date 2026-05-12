@@ -14,9 +14,12 @@ import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelledEnvelope;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.exception.BrokerCancelNotApplicableException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
+import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -68,6 +71,7 @@ public class CancellationService {
     private final NotificationPublisher notificationPublisher;
     private final CancellationPenaltyProperties penaltyProps;
     private final BanCheckService banCheckService;
+    private final RealtyGroupAuthorizer realtyGroupAuthorizer;
     private final Clock clock;
 
     @Transactional
@@ -263,6 +267,130 @@ public class CancellationService {
 
         log.info("Auction {} admin-cancelled from {} by adminUserId={} (hadBids={})",
                 a.getId(), from, adminUserId, hadBids);
+
+        AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
+                saved, hadBids, OffsetDateTime.now(clock));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            broadcastPublisher.publishCancelled(envelope);
+                        }
+                    });
+        } else {
+            broadcastPublisher.publishCancelled(envelope);
+        }
+
+        return saved;
+    }
+
+    /**
+     * Sub-project E §11.4 -- broker-initiated cancellation of a case-3
+     * (SL-group-owned) listing. The acting broker must hold
+     * {@link RealtyGroupPermission#MANAGE_ALL_LISTINGS} on the owning realty
+     * group. Skips the seller penalty ladder entirely: a broker acting on
+     * behalf of a group is not a seller offense, and the
+     * {@code countPriorOffensesWithBids} query excludes
+     * {@link CancellationOffenseKind#BROKER_CANCEL} rows belt-and-braces
+     * (alongside the {@code cancelledByAdminId} predicate).
+     *
+     * <p>Only case-3 listings are eligible. Case-1 (individual) listings and
+     * legacy auctions with no realty group attached raise
+     * {@link BrokerCancelNotApplicableException} so case-3 stays the only
+     * surface where broker authority overrides seller agency.
+     *
+     * <p>Listing-fee refund is created in every state when {@code listingFeePaid}
+     * is true — including {@code ACTIVE}. This differs from the seller path
+     * (which refunds only on pre-active cancels) because case-3 listing fees
+     * are paid out of the group wallet at create-time; the group must be made
+     * whole even on an active-state cancel. Existing
+     * {@code ListingFeeRefundProcessorJob} routes the refund back to the
+     * originating wallet via the ledger row, so case-3 refunds land in the
+     * group wallet without a routing flag here.
+     */
+    @Transactional
+    public Auction brokerCancel(Long brokerUserId, Long auctionId, String reason, String ipAddress) {
+        Auction a = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+        if (!CANCELLABLE.contains(a.getStatus())) {
+            throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "BROKER_CANCEL");
+        }
+        if (a.getStatus() == AuctionStatus.ACTIVE
+                && a.getEndsAt() != null
+                && OffsetDateTime.now(clock).isAfter(a.getEndsAt())) {
+            throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "BROKER_CANCEL_AFTER_END");
+        }
+        if (a.getRealtyGroupSlGroupId() == null) {
+            throw new BrokerCancelNotApplicableException(a.getPublicId(),
+                    "Broker-cancel only applies to case-3 (SL-group-owned) listings.");
+        }
+        Long groupId = a.getRealtyGroupId();
+        if (groupId == null) {
+            // Defensive: case-3 auctions must always carry both realty_group_id
+            // and realty_group_sl_group_id. If the latter is set but the former
+            // is null the row is malformed; fail fast rather than silently
+            // skipping the authorization check.
+            throw new BrokerCancelNotApplicableException(a.getPublicId(),
+                    "Case-3 auction missing realty_group_id; cannot authorize broker.");
+        }
+
+        realtyGroupAuthorizer.assertCan(brokerUserId, groupId,
+                RealtyGroupPermission.MANAGE_ALL_LISTINGS);
+
+        AuctionStatus from = a.getStatus();
+        boolean hadBids = a.getBidCount() != null && a.getBidCount() > 0;
+
+        // Skip the seller penalty ladder. No seller-row lock, no ban check on
+        // the seller — the broker is the actor, not the seller. Snapshot the
+        // log row with kind=BROKER_CANCEL, actor_user_id=broker, realty_group_id=group.
+        logRepo.save(CancellationLog.builder()
+                .auction(a)
+                .seller(a.getSeller())
+                .cancelledFromStatus(from.name())
+                .hadBids(hadBids)
+                .reason(reason)
+                .penaltyKind(CancellationOffenseKind.BROKER_CANCEL)
+                .penaltyAmountL(null)
+                .actorUserId(brokerUserId)
+                .realtyGroupId(groupId)
+                .build());
+
+        a.setStatus(AuctionStatus.CANCELLED);
+        Auction saved = auctionRepo.save(a);
+        monitorLifecycle.onAuctionClosed(saved);
+
+        // Listing-fee refund: D's existing ListingFeeRefundProcessorJob routes
+        // by originating ledger row, so case-3 refunds credit back to the group
+        // wallet without explicit routing here. Issued regardless of from-status
+        // because the group paid the fee — they must be made whole.
+        if (Boolean.TRUE.equals(a.getListingFeePaid())) {
+            refundRepo.save(ListingFeeRefund.builder()
+                    .auction(saved)
+                    .amount(a.getListingFeeAmt() == null ? 0L : a.getListingFeeAmt())
+                    .status(RefundStatus.PENDING)
+                    .build());
+            log.info("Listing fee refund (PENDING) created for case-3 auction {} broker-cancel", a.getId());
+        }
+
+        // Notify the original listing agent — the commission recipient, which
+        // can differ from the current seller_id over time. Notifies the agent
+        // even when they are the broker themselves; the stub is log-only.
+        User listingAgent = saved.getListingAgent() != null ? saved.getListingAgent() : saved.getSeller();
+        notificationPublisher.brokerCancelled(
+                listingAgent.getId(), saved.getId(), saved.getTitle(), brokerUserId, reason);
+
+        // Bidder fan-out: case-3 listings can have live bids same as any other
+        // ACTIVE auction. Mirror the seller-cancel fan-out so bidders see the
+        // cancellation in their feed.
+        if (hadBids) {
+            List<Long> bidderIds = bidRepo.findDistinctBidderUserIdsByAuctionId(a.getId());
+            notificationPublisher.listingCancelledBySellerFanout(
+                    a.getId(), bidderIds, a.getTitle(), reason);
+        }
+
+        log.info("Auction {} broker-cancelled from {} by brokerUserId={} group={} (hadBids={})",
+                a.getId(), from, brokerUserId, groupId, hadBids);
 
         AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(
                 saved, hadBids, OffsetDateTime.now(clock));
