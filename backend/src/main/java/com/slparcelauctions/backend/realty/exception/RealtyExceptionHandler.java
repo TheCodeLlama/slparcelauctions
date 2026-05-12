@@ -9,6 +9,11 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
+import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
+import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
+import com.slparcelauctions.backend.realty.wallet.exception.LeaderFrozenException;
+import com.slparcelauctions.backend.realty.wallet.exception.LeaderTermsNotAcceptedException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -195,6 +200,65 @@ public class RealtyExceptionHandler {
         pd.setProperty("code", "REALTY_GROUP_IMAGE_NOT_FOUND");
         pd.setProperty("groupPublicId", e.getGroupPublicId().toString());
         pd.setProperty("kind", e.getKind().name());
+        return pd;
+    }
+
+    // -------------------------------------------------------------------------
+    // Sub-project D — group wallet exceptions (spec §5.5, §9.1)
+    // -------------------------------------------------------------------------
+
+    @ExceptionHandler(InsufficientGroupBalanceException.class)
+    public ProblemDetail handleInsufficientGroupBalance(
+            InsufficientGroupBalanceException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Insufficient Group Balance");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INSUFFICIENT_GROUP_BALANCE");
+        pd.setProperty("available", e.getAvailable());
+        pd.setProperty("requested", e.getRequested());
+        return pd;
+    }
+
+    @ExceptionHandler(LeaderTermsNotAcceptedException.class)
+    public ProblemDetail handleLeaderTermsNotAccepted(
+            LeaderTermsNotAcceptedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Leader Terms Not Accepted");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "LEADER_TERMS_NOT_ACCEPTED");
+        pd.setProperty("leaderPublicId", e.getLeaderPublicId().toString());
+        return pd;
+    }
+
+    @ExceptionHandler(LeaderFrozenException.class)
+    public ProblemDetail handleLeaderFrozen(LeaderFrozenException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Leader Frozen");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "LEADER_FROZEN");
+        return pd;
+    }
+
+    @ExceptionHandler(GroupHasNonzeroBalanceException.class)
+    public ProblemDetail handleGroupHasNonzeroBalance(
+            GroupHasNonzeroBalanceException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Group Has Nonzero Balance");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "GROUP_HAS_NONZERO_BALANCE");
+        return pd;
+    }
+
+    @ExceptionHandler(GroupHasInFlightEscrowsException.class)
+    public ProblemDetail handleGroupHasInFlightEscrows(
+            GroupHasInFlightEscrowsException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Group Has In-Flight Escrows");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "GROUP_HAS_INFLIGHT_ESCROWS");
         return pd;
     }
 }
