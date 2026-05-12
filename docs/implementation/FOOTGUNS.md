@@ -1813,3 +1813,28 @@ via the suspend-time notification and have to check back manually. If
 sellers start complaining about surprise cancellations, add a countdown
 indicator to the seller's listing detail page. Until then, operations
 can dial the cutoff up before user-facing UI lands.
+
+## §G Realty groups
+
+### G.1 `runZeroPayoutSuccessInline` is the entire post-payout work for case-3 escrows
+
+**Why:** Sub-project G §8.1 split the escrow payout flow. For case-1 the existing terminal-round-trip path runs; for case-3 (`payoutAmt = 0`) `TerminalCommandService.queuePayout` short-circuits and calls `runZeroPayoutSuccessInline` directly, which mirrors the post-payout work (ledger write, escrow → COMPLETED, seller notification, `AgentCommissionDistributor` invocation) without the bot/LSL round-trip.
+
+**How to apply:** If you add a new post-payout side effect (analytics ping, reconciliation row, dispute-window timer) put it in BOTH `handleEscrowPayoutSuccess` (the terminal-callback path) AND `runZeroPayoutSuccessInline` (the zero-payout path) — or refactor the shared bits into a private method both call. Forgetting the inline path silently breaks the case-3 codepath.
+
+**Idempotency:** `runZeroPayoutSuccessInline` is gated on `escrow.getState() == COMPLETED` for the no-op check — the normal callback path uses a `TerminalCommand`-row check, which doesn't apply when no command was enqueued.
+
+### G.2 `GroupWithdrawRecipient.SL_GROUP` rejects suspended registrations, allows drift-flagged ones
+
+**Why:** Sub-project G §7.3. The withdraw path checks two distinct registration states:
+
+- An SL group registration with `liftedAt IS NULL` row in `realty_group_suspensions` for its realty group → 422 `SL_GROUP_REGISTRATION_SUSPENDED`. No L$ moves.
+- An SL group registration whose `drift_reason` is set but the realty group itself is not suspended → the withdraw is allowed. The drift is informational; SL group ownership has changed in-world but the group still operates from SLPA's POV.
+
+**How to apply:** The two states are independent — a registration can be both suspended AND drift-flagged. The suspended-check fires first. Don't conflate them in test fixtures.
+
+### G.3 `realty_groups.suspended` does NOT exist as a column
+
+**Why:** F shipped suspension state as a separate `realty_group_suspensions` table with one row per suspension event. "Is suspended" is determined by `EXISTS (SELECT 1 FROM realty_group_suspensions WHERE realty_group_id = ? AND lifted_at IS NULL)`, not by a boolean column on the parent. The reverse-search ban-evasion gate in G §14 specifically joins on this pattern.
+
+**How to apply:** When writing any "is this group suspended right now?" query, never `SELECT g.suspended FROM realty_groups g` — the column will not exist and your query will throw. Use the active-suspension-row EXISTS pattern instead. `RealtyGroupGuard.requireGroupCanOperate` is the canonical Java-side check.

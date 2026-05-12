@@ -297,43 +297,17 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **When:** Item-by-item, no fixed phase. The high-cost items (AWS recreation, SL avatar provisioning) are gated on a maintenance window; the low-cost items (Postman workspace rename, Java package rename, repo folder renames, historical doc sweep) can be picked up whenever convenient.
 - **Notes:** One additional item discovered during execution: `backend/src/main/resources/db/migration/V5__reconciliation_extension.sql` line 7 contains a brand reference in a comment. Reverted during the sweep because Flyway's checksum validation rejected the edit (the migration is already applied to the dev database). To swap it, either (a) wait until the next DB wipe so V5 re-applies cleanly, or (b) `flyway repair` the schema_history checksum after editing. Spec deviation captured at plan-write time: per user direction, infra/ Terraform string attributes (`description = "..."`, `comment = "..."`, `error_message = "..."`) stay literal even when they contain brand text — only `#` comment lines were swept.
 
-### Realty Groups: Listing Integration (Sub-project C, 2026-05-11)
+### Realty Groups: Final cleanup (Sub-project G, 2026-05-12)
 
-- **Postman collection updates** — the `SLPA -> Realty Groups -> List as Group` and `Dissolve gate` folders called for in plan Task 28 were not added in this PR. The automated test suite (backend + frontend) provides end-to-end coverage; Postman is a manual-test convenience surface that can be added in a follow-up. (E partly covers this: E's new endpoints are mirrored into the Realty Groups + SL + Parcel & Listings folders.)
-- **N+1 group lookup on batch auction reads** — `AuctionDtoMapper.resolveGroupAttribution` issues a `groups.findById` per auction on the batch overloads (used by listMine, search). Same shape as the existing N+1 photo / winner-publicId queries; deferred to the same future batch-hydrate refactor.
+Five items deliberately deferred per spec §18:
 
-### Realty Groups: Group Wallet (Sub-project D, 2026-05-11)
+- **User-side `WalletDormancyJob`** — user-wallet concern, not realty-group; lives under the wallet track.
+- **Realtime ban broadcast / forced-logout WebSocket (groups)** — same posture as the user-side deferred broadcast (FOOTGUNS §F.106). When the user-side ban-broadcast ships, the group analog lands alongside so the WS topic/payload shape stays unified.
+- **Per-listing admin-suspend timer** — existing indefinite per-listing admin-suspend stays untouched by design; could be unified later with the bulk-suspend 48 h timer.
+- **Phase 8 reputation-driven bid-eligibility gating** — applies to all bidders, not realty-group-specific. Stays under Phase 8.
+- **Empty-due audit row** — `BulkSuspendedListingExpiryTask` / `GroupSuspensionExpiryTask` deliberately skip writing an `_EXPIRY_RUN` audit row when no work was done. Revisit only if compliance reporting requires it.
 
-- **Admin group-wallet ops** (force-credit, force-debit, manual ledger adjustments) — deferred to sub-project F (admin moderation). D ships with no admin wallet endpoints; leader-driven operations only. If a production incident demands admin intervention before F ships, a one-shot patch.
-- **`SPEND_FROM_GROUP_WALLET` wiring** — defined in `RealtyGroupPermission` by D but not wired to any endpoint. Deferred to the first discretionary-spend feature (advertising, penalty absorption, etc.) that justifies it.
-- **SL-group-destination withdrawals** — deferred to sub-project E. D ships leader-avatar withdraws only. E extends the withdraw modal with a recipient picker (leader's avatar vs. a verified registered SL group) and adds `TerminalCommand.action=WITHDRAW_GROUP` bot fulfillment.
-- **Leader-terms-block banner activation** — `LeaderTermsBlockBanner` is rendered conditionally in the group wallet page, but the condition depends on `leaderTermsAcceptedAt` which is not currently surfaced in the `GroupWalletDto`. The banner renders as if terms are accepted until the DTO is extended. Small follow-up: add `leaderTermsAcceptedAt` (or a boolean `leaderTermsAccepted`) to `GroupWalletDto` and `GroupWalletPage`.
-- **User-side `WalletDormancyJob`** — no dormancy job exists for the user wallet (as distinct from the group-wallet `GroupWalletDormancyJob` and `GroupWalletDormancyTask` shipped in D). If the user-wallet design spec called for a user-side dormancy sweep, it was not implemented. Flag as a separate work item.
-- **Postman collection updates for group wallet endpoints** — `GET /realty/groups/{publicId}/wallet`, `GET .../wallet/ledger`, `POST .../wallet/withdraw`, and `POST pay listing fee — group path` were not added to the `SLPA -> Realty Groups` folder in the Postman collection. Manual-test surface only; automated coverage provided by backend + frontend tests.
-
-### Realty Groups: SL-group-owned listings (Sub-project E, 2026-05-12)
-
-- **C-era code/column cleanup** — delete `AgentFeeDistributor`, drop `auctions.agent_fee_rate / agent_fee_split / agent_fee_amt`, drop `realty_groups.agent_fee_rate / agent_fee_split`, simplify `RealtyGroupListingService` once no case-1 rows remain in the wild. Tracked in [Realty Groups: G (#246)](https://github.com/TheCodeLlama/slparcelauctions/issues/246).
-- **`ListingEligibleGroupDto` does not carry per-member commission rate** — the listing wizard double-fetches via `useRealtyGroup` to surface the rate to the user. Adding `agentCommissionRate` to the eligible-groups DTO would save a round-trip on every parcel lookup. Moved to G.
-- **`AuctionGroupAttributionDto` does not expose `realtyGroupSlGroupId`** as an explicit case-3 marker. The frontend treats any non-null `realtyGroup` as case-3, which is sound after E (case-1 is unreachable from the wizard), but G can decide whether to add the marker for symmetric typing on the wire.
-- **Spec §9.6 description of escrow `payoutAmt` flow is stale** — it reads "subtracts agent_slice" from `payoutAmt`, but the implementation sets `payoutAmt = 0` for case 3 and routes both the agent slice and the group slice via `AgentCommissionDistributor` in the payout-success callback. Sync the spec text in G.
-- **PAYOUT TerminalCommand with amount=0 for case-3 auctions** — the escrow LSL script's behavior on $0 PAYOUTs has not been verified end-to-end. May need a "skip-terminal-for-case-3" branch or graceful $0 handling in the script. Track separately (in-world LSL touch).
-- **Seller notification on case-3 escrow payout fires with amount=0**, which is misleading copy ("L$0 payout received"). The agent commission credit + group wallet credit are the meaningful events; the seller-side notification message needs a case-3-aware tweak. Track separately.
-- **Postman variable wiring for `/sl/sl-group/verify` is approximate** — the new "SL group founder-terminal verify" request guesses `X-Slpa-Terminal-Auth` as the shared-secret header name; the exact header is whatever `SlTerminalAuthFilter` reads. Verify against the filter wiring before relying on the request.
-
-### Realty Groups: Admin Moderation (Sub-project F, 2026-05-12)
-
-- **Realtime ban broadcast / forced-logout WebSocket** for groups — deferred. Same posture as the User-side ban broadcast (FOOTGUNS §F.106). Members continue operating under the group until their next request after Redis cache eviction (5-min default TTL).
-- **Report-threshold notification fan-out** — when a group crosses N open reports, no proactive admin notification is sent. Same shape as the deferred listing-side counterpart.
-- **Per-listing admin-suspend timer** — existing indefinite per-listing admin-suspend stays untouched (deliberate). Could be unified later with the bulk-suspend 48h timer.
-- **Dedicated group-reviews page** — `GroupRatingBadge` links to the leader's user-side reviews page as a stopgap. A dedicated `/realty/groups/{publicId}/reviews` page is deferred.
-- **Reputation-driven bid-eligibility gating** — Phase 8 review-score thresholds for bidding. Not in F.
-- **Reverse-search by SL group UUID for ban evasion** — if a banned group's leader registers a new SLPA group with the same SL group UUID, F doesn't currently block. Tracked as a deferred fraud-signal item.
-- **`AdminActionType` UI label localization** — 13 new action types render raw enum names in the audit log; no localization for now.
-- **`SystemUserResolver` unused field on `BulkSuspendedListingExpiryTask`** — minor polish; resolver lookup happens inside `AdminActionService.recordSystemAction` so the task's own injection is unused. Drop in next cleanup pass.
-- **Drift-detection at-scale concerns** — `SlGroupReverifyTask` runs hourly with a 30d cadence; at large registration counts the per-row World API hits may rate-limit. Add `slpa.realty.sl-group.reverify-batch-size` to throttle if it becomes a problem.
-- **Empty-due audit row** — `BulkSuspendedListingExpiryTask` and `GroupSuspensionExpiryTask` deliberately skip writing an `_EXPIRY_RUN` audit row when no work was done. If audit completeness matters for compliance reporting, change to write one row per tick.
-- **`@Transactional` on the controller (Tasks 10 + 14)** — both admin moderation controllers carry `@Transactional` on the action methods. Works today; moving the transaction boundary into the service layer is the cleaner pattern. Decide once across the moderation package.
+Spec: `docs/superpowers/specs/2026-05-12-realty-groups-final-cleanup-design.md` §18. Sub-projects C, D, E, F sections were pruned when G shipped — every item they listed either landed in G or was renormalized into one of the five above.
 
 ### Pre-existing test flake: ReconciliationServiceTest.staleBalanceRecordsErrorStatus
 
