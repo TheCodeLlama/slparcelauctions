@@ -919,6 +919,42 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         }
     }
 
+    @Override
+    public void realtyGroupSlGroupDriftDetected(long leaderUserId, long groupId,
+                                                String slGroupName, String driftReason) {
+        // Phase 4 wiring — route through the existing in-app publish primitive so the
+        // group leader gets notified the moment the reverify task flags drift. Body
+        // copy + SL IM channel dispatch are refined in Task 28; carrying groupId +
+        // driftReason on the data blob is enough for the frontend feed today.
+        RealtyGroup group = realtyGroupRepository.findById(groupId).orElse(null);
+        String groupName = group == null ? "your realty group" : group.getName();
+        String slLabel = slGroupName == null || slGroupName.isBlank() ? "an SL group" : slGroupName;
+        String title = "SL group drift detected: " + slLabel;
+        String body = switch (driftReason) {
+            case "FOUNDER_CHANGED" -> "The founder of " + slLabel
+                + " (registered to " + groupName + ") has changed. The realty group may have lost"
+                + " in-world ownership of this SL group. Re-verify or unregister it from your"
+                + " group's SL groups tab.";
+            case "GROUP_NOT_FOUND" -> "The SL group " + slLabel + " (registered to "
+                + groupName + ") could not be found on Second Life. It may have been deleted."
+                + " Unregister it from your group's SL groups tab.";
+            case "FETCH_FAILED_REPEATEDLY" -> "Repeated attempts to re-verify " + slLabel
+                + " (registered to " + groupName + ") against Second Life failed. The group"
+                + " may have become unreachable. Re-verify from your group's SL groups tab once"
+                + " SL is responsive again.";
+            default -> "Drift was detected on " + slLabel + " (registered to "
+                + groupName + "). Review the group's SL groups tab.";
+        };
+        Map<String, Object> data = NotificationDataBuilder.realtyGroupBase(
+            group == null ? null : group.getPublicId(),
+            group == null ? null : group.getName(),
+            group == null ? null : group.getSlug());
+        data.put("slGroupName", slGroupName);
+        data.put("driftReason", driftReason);
+        publishOne(leaderUserId,
+            NotificationCategory.REALTY_GROUP_SL_GROUP_DRIFT_DETECTED, title, body, data);
+    }
+
     // ── Group wallet withdrawal notifications (stub — fanout wired when Epic 09 dispatcher extended)
 
     @Override

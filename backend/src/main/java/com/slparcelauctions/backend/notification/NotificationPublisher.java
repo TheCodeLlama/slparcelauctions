@@ -154,4 +154,26 @@ public interface NotificationPublisher {
      * sweep) has lifted an active suspension.
      */
     void realtyGroupUnsuspended(RealtyGroup group);
+
+    /**
+     * Sub-project F §13.2 — the periodic reverify task detected that an SL
+     * group registration has drifted from its claimed state on the SL side.
+     * Routes to {@code leaderUserId} (the realty group's current leader) so
+     * they can re-register or contact admin. Body copy + SL IM channel
+     * dispatch are refined in Task 28; the Phase 4 wiring routes through the
+     * existing in-app notification publish primitive.
+     *
+     * @param leaderUserId  recipient: the realty group's leader
+     * @param groupId       internal id of the realty group (used for log /
+     *                      audit context; the data blob carries the public id
+     *                      for the frontend)
+     * @param slGroupName   display name of the SL group that drifted (may be
+     *                      {@code null} if it was never parsed onto the row)
+     * @param driftReason   {@link com.slparcelauctions.backend.realty.slgroup
+     *                       .SlGroupDriftReason} name — one of
+     *                       {@code FOUNDER_CHANGED}, {@code GROUP_NOT_FOUND},
+     *                       {@code FETCH_FAILED_REPEATEDLY}
+     */
+    void realtyGroupSlGroupDriftDetected(long leaderUserId, long groupId,
+                                         String slGroupName, String driftReason);
 }

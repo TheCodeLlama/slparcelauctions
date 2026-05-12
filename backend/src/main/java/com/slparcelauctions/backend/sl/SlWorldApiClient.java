@@ -126,8 +126,14 @@ public class SlWorldApiClient {
                 .bodyToMono(String.class)
                 .retryWhen(Retry.backoff(retryAttempts, Duration.ofMillis(retryBackoffMs))
                         .filter(this::isTransientGroupError))
+                // Pass {@link WebClientResponseException.NotFound} through unwrapped so
+                // {@code SlGroupReverifyService} (sub-project F §13.2) can distinguish
+                // "SL group has been deleted" (404 → GROUP_NOT_FOUND drift) from
+                // "World API timed out" (other failures → fetch-failure counter /
+                // FETCH_FAILED_REPEATEDLY after threshold).
                 .onErrorMap(
-                        throwable -> !(throwable instanceof ExternalApiTimeoutException),
+                        throwable -> !(throwable instanceof ExternalApiTimeoutException)
+                                && !(throwable instanceof WebClientResponseException.NotFound),
                         throwable -> new ExternalApiTimeoutException("World", throwable.getMessage()))
                 .map(html -> parseGroupHtml(slGroupUuid, html));
     }
