@@ -43,7 +43,8 @@ export type RealtyGroupPermission =
   | "MANAGE_ALL_LISTINGS"
   | "WITHDRAW_FROM_GROUP_WALLET"
   | "VIEW_GROUP_TRANSACTIONS"
-  | "REGISTER_SL_GROUP";
+  | "REGISTER_SL_GROUP"
+  | "MANAGE_MEMBERS";
 
 // ─── Public / read DTOs ────────────────────────────────────────────────────
 

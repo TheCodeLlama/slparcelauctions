@@ -16,6 +16,7 @@ export const ALL_PERMISSIONS: readonly RealtyGroupPermission[] = [
   "WITHDRAW_FROM_GROUP_WALLET",
   "VIEW_GROUP_TRANSACTIONS",
   "REGISTER_SL_GROUP",
+  "MANAGE_MEMBERS",
 ] as const;
 
 /**
@@ -43,6 +44,8 @@ export function permissionLabel(p: RealtyGroupPermission): string {
       return "View group transactions";
     case "REGISTER_SL_GROUP":
       return "Register SL groups";
+    case "MANAGE_MEMBERS":
+      return "Manage members";
   }
 }
 
@@ -71,5 +74,7 @@ export function permissionDescription(p: RealtyGroupPermission): string {
       return "View the group wallet balance and ledger history.";
     case "REGISTER_SL_GROUP":
       return "Register and unregister the in-world SL groups this realty group manages.";
+    case "MANAGE_MEMBERS":
+      return "Bulk-edit per-member commission rates and view per-member commission analytics.";
   }
 }
