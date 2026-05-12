@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.slparcelauctions.backend.realty.RealtyGroup;
+
 public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupSlGroup, Long> {
 
     Optional<RealtyGroupSlGroup> findByPublicId(UUID publicId);
@@ -70,4 +72,35 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
 
     /** Used by dissolve gate. */
     long countByRealtyGroupId(Long realtyGroupId);
+
+    /**
+     * Sub-project E §5.3 — parcel-aware listing-eligible-groups.
+     *
+     * <p>Returns the (active) realty groups that:
+     * <ul>
+     *   <li>have a verified registration ({@link RealtyGroupSlGroup#isVerified() verified=true})
+     *       for the SL group UUID that owns the parcel the caller wants to list, AND</li>
+     *   <li>the caller holds a {@link com.slparcelauctions.backend.realty.RealtyGroupMember
+     *       membership} row in.</li>
+     * </ul>
+     *
+     * <p>The {@code CREATE_LISTING}-or-leader filter is applied in the service layer in
+     * Java — the {@code permissions text[]} column is array-typed Postgres-native and the
+     * codebase's idiom is to load the member row and call {@code permissionSet().contains(...)}
+     * (mirroring the leader-implicit-all-permissions rule). See
+     * {@code RealtyGroupListingController.myEligibleGroups} (pre-E) for the prior idiom.
+     */
+    @Query("""
+        SELECT g FROM RealtyGroup g
+         WHERE g.dissolvedAt IS NULL
+           AND g.id IN (
+               SELECT r.realtyGroupId FROM RealtyGroupSlGroup r
+                WHERE r.slGroupUuid = :slGroupUuid AND r.verified = true)
+           AND g.id IN (
+               SELECT m.groupId FROM RealtyGroupMember m WHERE m.userId = :callerUserId)
+         ORDER BY g.createdAt DESC
+        """)
+    List<RealtyGroup> findRealtyGroupsForListingCaller(
+            @Param("callerUserId") Long callerUserId,
+            @Param("slGroupUuid") UUID slGroupUuid);
 }
