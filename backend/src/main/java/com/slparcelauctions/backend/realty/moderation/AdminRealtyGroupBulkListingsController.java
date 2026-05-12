@@ -72,6 +72,9 @@ public class AdminRealtyGroupBulkListingsController {
     private final RealtyGroupRepository groupRepo;
     private final RealtyGroupSuspensionRepository suspensionRepo;
 
+    // tx spans RealtyGroupRepository.findByPublicId
+    //        + RealtyGroupSuspensionRepository.findByPublicId
+    //        + BulkListingSuspendService.suspendAll
     @PostMapping("/suspend-all")
     @Transactional
     public BulkSuspendResultDto suspendAll(
@@ -98,6 +101,8 @@ public class AdminRealtyGroupBulkListingsController {
         return new BulkSuspendResultDto(result.bulkActionId(), result.suspendedCount());
     }
 
+    // tx spans RealtyGroupRepository.findByPublicId
+    //        + BulkListingSuspendService.reinstateAll
     @PostMapping("/reinstate-all")
     @Transactional
     public ReinstateResultDto reinstateAll(

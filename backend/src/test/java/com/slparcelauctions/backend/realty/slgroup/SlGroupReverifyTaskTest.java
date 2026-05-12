@@ -104,13 +104,13 @@ class SlGroupReverifyTaskTest {
 
     @Test
     void runOnce_picksRowsDueForRevalidationBasedOnCadence() {
-        when(repo.findDueForReverify(any(OffsetDateTime.class))).thenReturn(List.of());
+        when(repo.findDueForReverify(any(OffsetDateTime.class), any())).thenReturn(List.of());
 
         task.runOnce();
 
         ArgumentCaptor<OffsetDateTime> thresholdCaptor =
                 ArgumentCaptor.forClass(OffsetDateTime.class);
-        verify(repo).findDueForReverify(thresholdCaptor.capture());
+        verify(repo).findDueForReverify(thresholdCaptor.capture(), any());
         // 30-day cadence: threshold = now - 30 days.
         assertThat(thresholdCaptor.getValue()).isEqualTo(NOW.minusDays(30));
     }
@@ -120,7 +120,7 @@ class SlGroupReverifyTaskTest {
         // The repository query is what filters out recent rows; the task simply
         // forwards whatever the repo returns. With an empty result set (the repo's
         // way of saying "nothing recent enough is due"), the task should do nothing.
-        when(repo.findDueForReverify(any(OffsetDateTime.class))).thenReturn(List.of());
+        when(repo.findDueForReverify(any(OffsetDateTime.class), any())).thenReturn(List.of());
 
         task.runOnce();
 
@@ -132,7 +132,7 @@ class SlGroupReverifyTaskTest {
         // Unverified rows are filtered out by the repository query (verified = true
         // predicate). The task observes this by never seeing them in the result list
         // — so with an empty list, no recheck call happens.
-        when(repo.findDueForReverify(any(OffsetDateTime.class))).thenReturn(List.of());
+        when(repo.findDueForReverify(any(OffsetDateTime.class), any())).thenReturn(List.of());
 
         task.runOnce();
 
@@ -144,7 +144,7 @@ class SlGroupReverifyTaskTest {
         RealtyGroupSlGroup r1 = verifiedRow(101L);
         RealtyGroupSlGroup r2 = verifiedRow(102L);
         RealtyGroupSlGroup r3 = verifiedRow(103L);
-        when(repo.findDueForReverify(any(OffsetDateTime.class)))
+        when(repo.findDueForReverify(any(OffsetDateTime.class), any()))
                 .thenReturn(List.of(r1, r2, r3));
 
         task.runOnce();
@@ -160,7 +160,7 @@ class SlGroupReverifyTaskTest {
         RealtyGroupSlGroup r1 = verifiedRow(201L);
         RealtyGroupSlGroup r2 = verifiedRow(202L);
         RealtyGroupSlGroup r3 = verifiedRow(203L);
-        when(repo.findDueForReverify(any(OffsetDateTime.class)))
+        when(repo.findDueForReverify(any(OffsetDateTime.class), any()))
                 .thenReturn(List.of(r1, r2, r3));
         doThrow(new RuntimeException("boom")).when(reverifyService).recheck(202L);
 
@@ -174,7 +174,7 @@ class SlGroupReverifyTaskTest {
 
     @Test
     void runOnce_isNoOpWhenNoRowsDue() {
-        when(repo.findDueForReverify(any(OffsetDateTime.class))).thenReturn(List.of());
+        when(repo.findDueForReverify(any(OffsetDateTime.class), any())).thenReturn(List.of());
 
         task.runOnce();
 

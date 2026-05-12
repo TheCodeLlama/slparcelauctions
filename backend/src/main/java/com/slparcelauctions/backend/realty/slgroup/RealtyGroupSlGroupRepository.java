@@ -65,14 +65,23 @@ public interface RealtyGroupSlGroupRepository extends JpaRepository<RealtyGroupS
      * they've never been revalidated). The {@code SlGroupReverifyTask} computes
      * {@code threshold = now - reverifyCadenceDays} and hands it in; this query then
      * filters everything that's still within cadence.
+     *
+     * <p>Sub-project G §9.2 — accepts a {@link org.springframework.data.domain.Pageable}
+     * so the task can cap the per-tick batch via
+     * {@code slpa.realty.sl-group.reverify-batch-size}. Ordered by
+     * {@code lastRevalidatedAt ASC NULLS FIRST, id ASC} so the oldest-stale rows
+     * are picked first when the cap clips the result set.
      */
     @Query("""
         SELECT r FROM RealtyGroupSlGroup r
          WHERE r.verified = true
            AND r.unregisteredAt IS NULL
            AND (r.lastRevalidatedAt IS NULL OR r.lastRevalidatedAt < :threshold)
+         ORDER BY r.lastRevalidatedAt ASC NULLS FIRST, r.id ASC
         """)
-    List<RealtyGroupSlGroup> findDueForReverify(@Param("threshold") OffsetDateTime threshold);
+    List<RealtyGroupSlGroup> findDueForReverify(
+            @Param("threshold") OffsetDateTime threshold,
+            org.springframework.data.domain.Pageable pageable);
 
     /**
      * Sub-project E §5.3 — parcel-aware listing-eligible-groups.

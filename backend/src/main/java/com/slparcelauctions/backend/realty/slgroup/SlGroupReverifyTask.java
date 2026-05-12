@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -57,7 +58,9 @@ public class SlGroupReverifyTask {
     public void runOnce() {
         OffsetDateTime threshold = OffsetDateTime.now(clock)
                 .minusDays(props.getSlGroup().getReverifyCadenceDays());
-        List<RealtyGroupSlGroup> due = repo.findDueForReverify(threshold);
+        int batchSize = props.getSlGroup().getReverifyBatchSize();
+        List<RealtyGroupSlGroup> due = repo.findDueForReverify(
+                threshold, PageRequest.of(0, batchSize));
         if (due.isEmpty()) {
             return;
         }
@@ -68,6 +71,6 @@ public class SlGroupReverifyTask {
                 log.warn("Reverify failed for slGroup {}", row.getId(), e);
             }
         }
-        log.info("Reverified {} SL groups (threshold={})", due.size(), threshold);
+        log.info("Reverified {} SL groups (threshold={}, cap={})", due.size(), threshold, batchSize);
     }
 }
