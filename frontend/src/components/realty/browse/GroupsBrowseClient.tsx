@@ -148,7 +148,10 @@ export function GroupsBrowseClient() {
 
   if (query.isError) {
     return (
-      <div className="w-full max-w-[1280px] mx-auto px-6 py-7 pb-16">
+      <div
+        data-testid="groups-browse-client"
+        className="w-full max-w-[1280px] mx-auto px-6 py-7 pb-16"
+      >
         <div
           role="alert"
           className="mx-auto max-w-2xl my-12 rounded-md border border-border bg-surface-raised p-6 text-sm text-fg"
@@ -173,21 +176,23 @@ export function GroupsBrowseClient() {
   const cards = (data?.content ?? []) as unknown as RealtyGroupCard[];
 
   return (
-    <GroupsPage
-      cardLayout="cover"
-      sidebar="left"
-      groups={cards}
-      q={inputValue}
-      onQChange={handleQChange}
-      sort={sort}
-      onSortChange={handleSortChange}
-      page={page}
-      pageCount={data?.totalPages ?? 0}
-      totalCount={data?.totalElements ?? 0}
-      onPageChange={handlePageChange}
-      onOpenGroup={handleOpenGroup}
-      onStartGroup={handleStartGroup}
-      isLoading={query.isPending}
-    />
+    <div data-testid="groups-browse-client">
+      <GroupsPage
+        cardLayout="cover"
+        sidebar="left"
+        groups={cards}
+        q={inputValue}
+        onQChange={handleQChange}
+        sort={sort}
+        onSortChange={handleSortChange}
+        page={page}
+        pageCount={data?.totalPages ?? 0}
+        totalCount={data?.totalElements ?? 0}
+        onPageChange={handlePageChange}
+        onOpenGroup={handleOpenGroup}
+        onStartGroup={handleStartGroup}
+        isLoading={query.isPending}
+      />
+    </div>
   );
 }
