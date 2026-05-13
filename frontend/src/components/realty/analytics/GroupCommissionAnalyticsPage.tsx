@@ -114,7 +114,11 @@ export function GroupCommissionAnalyticsPage({
               commission totals.
             </p>
             <Link
-              href={`/realty/groups/${groupPublicId}`}
+              href={
+                groupQuery.data?.slug
+                  ? `/groups/${encodeURIComponent(groupQuery.data.slug)}`
+                  : "/groups"
+              }
               className="mt-3 inline-block text-sm text-brand hover:underline"
               data-testid="commission-analytics-back-link"
             >
