@@ -2,7 +2,14 @@
 # Place this file (renamed to "config", no extension) in the prim's contents.
 # After editing, the script auto-resets via CHANGED_INVENTORY.
 
+# Required: Method C user verify (account linking).
 VERIFY_URL=https://slpa.app/api/v1/sl/verify
+
+# Optional: SL Group Verify (founder-of-an-SL-group verification for realty
+# groups, sub-project E spec section 7.3). When set, touch opens a llDialog
+# menu so the toucher picks Self verify vs SL Group verify. When blank, touch
+# goes straight to the self-verify text box (pre-port behavior).
+SL_GROUP_VERIFY_URL=https://slpa.app/api/v1/sl/sl-group/verify
 
 # Optional: set to "false" in prod to silence per-touch chat.
 DEBUG_MODE=true

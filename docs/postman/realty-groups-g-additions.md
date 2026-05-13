@@ -146,8 +146,9 @@ The backend ships dissolve-blockers as 409 responses on the actual `DELETE` atte
 
 ## 4. Founder Terminal Verify — header fix
 
-Existing request `SL → SL Group → Founder Terminal Verify` was created during sub-project E with the wrong header name. Sub-project G corrects it to match `SlGroupVerifyController`:
+Existing request `SL → SL Group → Founder Terminal Verify` was created during sub-project E with the wrong header name. Sub-project G corrects it to match `SlGroupVerifyController`. The backend endpoint is unchanged — what's changing post-G in-world is which physical kiosk hosts this flow:
 
+- **In-world host:** the SLParcels **Verification Terminal** (`lsl-scripts/verification-terminal/`). NOT the SLParcels Terminal — group verification was moved off the L$ terminal to the verification terminal so the kiosk whose name advertises "verification" actually does it. Configure `SL_GROUP_VERIFY_URL` in the verification terminal's `config` notecard to enable the SL-group menu choice on touch.
 - **Method / URL**: `POST {{baseUrl}}/api/v1/sl/sl-group/verify`
 - **Headers**:
   - `Content-Type: application/json`

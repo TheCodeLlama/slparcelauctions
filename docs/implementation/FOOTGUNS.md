@@ -1838,3 +1838,13 @@ can dial the cutoff up before user-facing UI lands.
 **Why:** F shipped suspension state as a separate `realty_group_suspensions` table with one row per suspension event. "Is suspended" is determined by `EXISTS (SELECT 1 FROM realty_group_suspensions WHERE realty_group_id = ? AND lifted_at IS NULL)`, not by a boolean column on the parent. The reverse-search ban-evasion gate in G §14 specifically joins on this pattern.
 
 **How to apply:** When writing any "is this group suspended right now?" query, never `SELECT g.suspended FROM realty_groups g` — the column will not exist and your query will throw. Use the active-suspension-row EXISTS pattern instead. `RealtyGroupGuard.requireGroupCanOperate` is the canonical Java-side check.
+
+### G.4 SL Group Verify lives on the Verification Terminal, not the SLParcels Terminal
+
+**Why:** E originally put the founder-of-an-SL-group verify flow on `lsl-scripts/slpa-terminal/` (the L$ kiosk) because the slpa-terminal already had the shared-secret + SL-header pipeline and group verify shipped in ~50 fewer LSL lines that way. That was a code-reuse decision, not a UX decision: a user walks into the SLParcels building, sees two terminals side-by-side, and reasonably assumes "verification" goes on the **Verification Terminal**. Post-G the flow lives on `lsl-scripts/verification-terminal/`. The slpa-terminal handles L$ flows only (deposit / withdraw / inbound PAYOUT/WITHDRAW).
+
+**How to apply:**
+- The backend endpoint `/api/v1/sl/sl-group/verify` is unchanged — only the in-world host moved. Don't search the slpa-terminal for `SL_GROUP_VERIFY_URL`; it was removed.
+- In-world deployments configure `SL_GROUP_VERIFY_URL` in the **verification-terminal's** `config` notecard. When set, touch opens a `llDialog` menu with `[Self, SL Group]`. When blank, touch goes straight to the self-verify text box (pre-port behavior).
+- E's spec doc (`2026-05-12-realty-groups-sl-group-listing-design.md` §7.3) still describes the original slpa-terminal placement — that doc is historical. The actual current placement is the verification-terminal per this note + `lsl-scripts/verification-terminal/README.md`.
+- If you ever need to add a third in-world flow (e.g. drift-ack, member group-pay receipts), decide first whether it belongs on the verification-terminal alongside the existing two flows, or whether the surface has grown enough to warrant a dedicated `group-terminal`. Don't reflexively shove it on slpa-terminal just because the shared-secret pipeline is there.

@@ -1,8 +1,13 @@
 # SLParcels Terminal (wallet model)
 
-In-world wallet kiosk for SLParcels. Three touch-menu options (Deposit-instructions,
-Withdraw, SL Group Verify) plus a lockless `money()` deposit handler. Also accepts
+In-world wallet kiosk for SLParcels. Two touch-menu options (Deposit-instructions,
+Withdraw) plus a lockless `money()` deposit handler. Also accepts
 backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
+
+SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
+section 7.3) is **not** on this terminal. It lives on the SLParcels
+Verification Terminal — same building, the kiosk whose name actually
+advertises "verification". See `lsl-scripts/verification-terminal/`.
 
 ## Architecture summary
 
@@ -21,23 +26,13 @@ backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
   with an unhandled failure (unknown terminal id, unparseable payer uuid,
   etc). Background retry: 10s / 30s / 90s / 5m / 15m. Multiple users can
   pay simultaneously — `money()` is naturally reentrant.
-- **Touch flow:** touch → `llDialog` `[Deposit, Withdraw, SL Group Verify]`
+- **Touch flow:** touch → `llDialog` `[Deposit, Withdraw]`
   (no lock acquired). Deposit selection → `llRegionSayTo` instructions, no
   state. Withdraw selection → acquire per-flow slot → text-box for amount →
   confirm dialog → POST to `/sl/wallet/withdraw-request`. On `OK`, the
   backend queues a `WALLET_WITHDRAWAL` `TerminalCommand` that fires
   asynchronously; on `REFUND_BLOCKED`, no L$ to bounce — `llRegionSayTo` the
-  reason. SL Group Verify selection → acquire per-flow verify slot →
-  text-box for the `SLPA-XXXXXXXXXXXX` code → POST to
-  `/sl/sl-group/verify` with `{ verificationCode, founderAvatarUuid }`.
-  Result goes to the toucher via `llDialog` `[OK]` (private; not open-chat
-  — terminal-output-genericisation policy from commit 5a5276a) and to the
-  terminal owner via `llOwnerSay` in DEBUG_MODE: 200 → "SL group
-  verified."; 410 → "code expired"; 422 (`SL_GROUP_FOUNDER_MISMATCH`) →
-  "not the founder"; 404 → "code not recognised"; other → generic "problem
-  with SL Group Verify" message. Backend ProblemDetail title/detail are
-  NOT surfaced to the toucher. No L$ involved on this path — no refund
-  logic.
+  reason.
 - **Per-flow withdraw slots:** single `llListen` opened at startup, never
   closed. Up to 4 concurrent withdraw sessions, one per avatar (per-avatar
   dedup). Strided list `[avatarKey, amountOrMinusOne, expiresAt, ...]`.
@@ -79,10 +74,6 @@ Never publish on Marketplace.
    - Right-click the prim → Pay → L$10. Confirm `deposit ok L$10 from <name>`.
    - Touch → Withdraw → enter L$5 → Yes. Confirm withdrawal arrives in your
      SL avatar within ~30s.
-   - Touch → SL Group Verify. If `SL_GROUP_VERIFY_URL` is set, you get a
-     `llTextBox` prompt for the `SLPA-XXXXXXXXXXXX` code; if not, you get an
-     "unavailable on this terminal" dialog. (Full happy-path verification
-     requires a live SL group registration from the web UI — see Operations.)
 
 The new SLParcels Parcel Verifier Giver prim (separate; see
 `lsl-scripts/slpa-verifier-giver/`) handles parcel-verifier give-out — it is
@@ -97,7 +88,6 @@ The new SLParcels Parcel Verifier Giver prim (separate; see
 | `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required. |
 | `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required. |
 | `HEARTBEAT_URL` | Full URL of `/api/v1/sl/terminal/heartbeat`. Optional but recommended — see Architecture summary. |
-| `SL_GROUP_VERIFY_URL` | Full URL of `/api/v1/sl/sl-group/verify`. Optional for backward compatibility — pre-E deployments degrade gracefully (user picking "SL Group Verify" gets an "unavailable on this terminal" dialog). New deployments should set it so realty-group founders can complete verification from this terminal. |
 | `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
 | `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
@@ -137,64 +127,12 @@ In steady state with `DEBUG_MODE=true`:
 - `SLParcels Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
 - `SLParcels Terminal: heartbeat failed status=...` — heartbeat POST failed; will
   retry on the next interval. Not critical unless it persists.
-- `SLParcels Terminal: SL Group Verify OK for <avatar>` — founder-terminal
-  verification succeeded (sub-project E spec §7.3). The realty group leader
-  can now list parcels owned by that SL group.
-- `SLParcels Terminal: SL Group Verify failed for <avatar> status=... code=...` —
-  founder-terminal verification rejected. Mapped statuses: 410
-  (`SL_GROUP_VERIFICATION_EXPIRED`), 422 (`SL_GROUP_FOUNDER_MISMATCH`), 404
-  (code not recognised). Other statuses fall through to a generic
-  "verification failed" message to the toucher.
 - `CRITICAL: SLParcels Terminal: deposit ... not acknowledged after 5 retries` —
   deposit recovery failed; manual reconciliation required.
 - `CRITICAL: unexpected REFUND HTTP-in command` — the backend dispatched a
   REFUND action; refunds should be wallet credits in the new model. Investigate.
 - `CRITICAL: PERMISSION_DEBIT denied — script halted. Owner must re-grant.` —
   permissions issue.
-
-## SL Group Verify (sub-project E spec §7.3, §13.3)
-
-The "SL Group Verify" menu item supports the founder-of-an-SL-group
-verification path for realty groups listing parcels under case-3 (SL group
-owns the parcel). The leader of a realty group starts the registration in
-the SLParcels web UI; the SL group's founder finishes it by typing the
-short `SLPA-XXXXXXXXXXXX` code into any deployed SLParcels Terminal.
-
-- **Menu:** Main menu → **SL Group Verify**.
-- **Input:** the 12-character `SLPA-XXXXXXXXXXXX` verification code shown
-  on the realty group's SL Groups page after the leader initiates
-  registration. Trimmed of whitespace before send.
-- **Effect:** POSTs `{ verificationCode, founderAvatarUuid }` to
-  `/api/v1/sl/sl-group/verify`. Backend cross-checks the toucher's avatar
-  UUID against the SL group's founder via the World API and, on match,
-  flips the registration row to `verified=true,
-  verified_via=FOUNDER_TERMINAL`.
-- **Outcomes** (owner-said in DEBUG_MODE; toucher gets `llDialog` `[OK]`
-  on every status — private to the toucher, per the
-  terminal-output-genericisation policy in commit 5a5276a):
-  - 200 OK → "SL group verified. The realty group can now list parcels
-    owned by this SL group."
-  - 410 (`SL_GROUP_VERIFICATION_EXPIRED`) → "Verification code expired.
-    The realty group leader needs to start a new registration."
-  - 422 (`SL_GROUP_FOUNDER_MISMATCH`) → "You are not the founder of the SL
-    group registered with this code."
-  - 404 → "Verification code not recognised. Check the code and try again."
-  - 401 / other 4xx → "Verification failed; check the code and try again."
-- **Concurrency:** up to 4 per-terminal verify slots (one per avatar)
-  share the same 60s TTL + 10s sweeper as the withdraw slots. Only ONE
-  verify POST may be in flight per terminal at a time — a second avatar's
-  submit while the first is in flight gets a "busy, try again" dialog
-  (concurrent independent verifies should use separate terminals).
-- **No new env vars or permissions required.** The existing
-  `X-SecondLife-Owner-Key` SL header (validated server-side by
-  `SlHeaderValidator` on `/api/v1/sl/**`) is the trust gate. No
-  `sharedSecret` is sent on this path because the controller doesn't read
-  one; the wire shape exactly mirrors `SlGroupVerifyRequest`.
-- **Backward compatibility.** `SL_GROUP_VERIFY_URL` is optional in the
-  notecard. Pre-E deployments simply show an "unavailable on this
-  terminal" dialog when the menu item is chosen; the rest of the terminal
-  (deposit / withdraw / heartbeat / HTTP-in) continues to work
-  unchanged.
 
 ## Troubleshooting
 
@@ -210,9 +148,6 @@ short `SLPA-XXXXXXXXXXXX` code into any deployed SLParcels Terminal.
 | Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLParcels's traffic level.) |
 | Backend command dispatcher logs 403 | Shared secret mismatch. Update notecard, reset. |
 | `CRITICAL: unexpected REFUND HTTP-in command` | Stale code path or migration issue — refunds should be wallet credits. Investigate. |
-| "SL Group Verify is unavailable on this terminal." | `SL_GROUP_VERIFY_URL` is empty in the `config` notecard. Add the URL and reset the script. |
-| SL Group Verify owner-says "status=401" | Backend `/api/v1/sl/sl-group/verify` rejected the request at the SL-header gate. Confirm the terminal's owner UUID is in `slpa.sl.trusted-owner-keys`. **Heath-only note:** at the time of this writing the path may also be missing from `SecurityConfig` allowlist; check there if 401s persist after the owner-key is correct. |
-| SL Group Verify owner-says "status=415" | Backend returned `application/problem+json` for a 4xx. Confirm `SlProblemDetailContentTypeAdvice` covers `/api/v1/sl/sl-group/**` (the path prefix in advice is `/api/v1/sl/**`, so this should be automatic). |
 
 ## Limits
 

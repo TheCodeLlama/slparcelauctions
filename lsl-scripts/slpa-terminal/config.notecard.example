@@ -12,11 +12,10 @@ WITHDRAW_REQUEST_URL=https://slpa.app/api/v1/sl/wallet/withdraw-request
 PAYOUT_RESULT_URL=https://slpa.app/api/v1/sl/escrow/payout-result
 HEARTBEAT_URL=https://slpa.app/api/v1/sl/terminal/heartbeat
 
-# Optional: SL Group Verify endpoint (sub-project E spec §7.3, §13.3).
-# Powers the "SL Group Verify" main-menu item. If left blank, the menu item
-# still appears but politely declines with an "unavailable on this terminal"
-# dialog. New deployments should set it.
-SL_GROUP_VERIFY_URL=https://slpa.app/api/v1/sl/sl-group/verify
+# SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
+# section 7.3) is NOT on this terminal -- it lives on the SLParcels
+# Verification Terminal alongside Method C user verify. See
+# lsl-scripts/verification-terminal/config.notecard.example.
 
 # Shared secret for terminal authentication. REQUIRED.
 # Obtain from the backend's slpa.escrow.terminal-shared-secret config.
