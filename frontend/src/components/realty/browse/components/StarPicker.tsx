@@ -1,9 +1,8 @@
-// export/realty-groups/components/StarPicker.tsx
 "use client";
 
 import { useState } from "react";
 import { Star } from "lucide-react";
-import { cn } from "../lib/cn";
+import { cn } from "@/lib/cn";
 
 interface StarPickerProps {
   value: number;

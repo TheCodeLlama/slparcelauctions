@@ -665,3 +665,72 @@ export interface GroupRating {
   averageRating: number | null;
   reviewCount: number;
 }
+
+// ─── /groups directory wire types (spec section 6.1) ───────────────────────
+
+/**
+ * Wire shape for one card on the public groups directory. Matches the backend
+ * `RealtyGroupCardDto` record (spec section 6.1). `logoUrl` / `coverUrl` are
+ * relative paths — render via `apiUrl(...)`.
+ *
+ * `tagline` is the backend-truncated description (120 chars + ellipsis); the
+ * frontend renders it as-is.
+ *
+ * No `hasVerifiedSlGroup` field: the browse endpoint filters unverified
+ * groups server-side, so the flag would always be true on the wire.
+ */
+export interface RealtyGroupCard {
+  publicId: string;
+  name: string;
+  slug: string;
+  tagline: string;
+  logoUrl: string | null;
+  coverUrl: string | null;
+  foundedAt: string;
+  memberCount: number;
+  memberSeatLimit: number;
+  activeListingsCount: number;
+  completedSalesCount: number;
+  rating: GroupRating;
+}
+
+/** Card render variant for the directory grid. */
+export type GroupCardLayout = "standard" | "compact" | "cover";
+
+/** Sidebar placement variant for the directory grid. */
+export type GroupSidebarPlacement = "left" | "right" | "hidden";
+
+/**
+ * Sort key the directory page emits in the `?sort=...` query param. The
+ * union must stay in lockstep with the backend `GroupsSortKey` enum at
+ * `backend/.../realty/browse/GroupsSortKey.java`.
+ */
+export type GroupsSortKey =
+  | "RATING"
+  | "NEWEST"
+  | "MOST_ACTIVE_LISTINGS"
+  | "MOST_SALES";
+
+/** Sort direction the directory page can emit. */
+export type SortDirection = "asc" | "desc";
+
+/**
+ * Compact view types consumed by `GroupDetailPage` (the claude.ai/design
+ * profile template). The public-profile page in Part 3 maps the backend
+ * `RealtyGroupPublicDto` -> these shapes.
+ */
+export interface GroupMember {
+  id: string;
+  name: string;
+  rating: number;
+  sales: number;
+  memberSince: string;
+}
+
+export interface GroupReview {
+  id: string;
+  author: string;
+  stars: number;
+  when: string;
+  text: string;
+}

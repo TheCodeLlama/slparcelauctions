@@ -1,4 +1,3 @@
-// export/realty-groups/pages/GroupDetailPage.tsx
 "use client";
 
 import { useState } from "react";
@@ -7,16 +6,17 @@ import type {
   GroupMember,
   GroupReview,
   RealtyGroupCard,
-} from "../types";
-import { cn, formatFounded } from "../lib/cn";
-import { Avatar } from "../components/Avatar";
-import { Badge } from "../components/Badge";
-import { Btn } from "../components/Btn";
-import { DetailRow } from "../components/DetailRow";
-import { GroupCover } from "../components/GroupCover";
-import { GroupLogo } from "../components/GroupLogo";
-import { MemberRow } from "../components/MemberRow";
-import { StarRating } from "../components/StarRating";
+} from "@/types/realty";
+import { cn } from "@/lib/cn";
+import { formatFounded } from "./lib/format";
+import { Avatar } from "./components/Avatar";
+import { Badge } from "./components/Badge";
+import { Btn } from "./components/Btn";
+import { DetailRow } from "./components/DetailRow";
+import { GroupCover } from "./components/GroupCover";
+import { GroupLogo } from "./components/GroupLogo";
+import { MemberRow } from "./components/MemberRow";
+import { StarRating } from "./components/StarRating";
 
 interface GroupDetailPageProps {
   group: RealtyGroupCard;

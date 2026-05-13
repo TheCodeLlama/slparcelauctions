@@ -1,4 +1,3 @@
-// export/realty-groups/components/EmptyGroups.tsx
 "use client";
 
 import { Users } from "lucide-react";

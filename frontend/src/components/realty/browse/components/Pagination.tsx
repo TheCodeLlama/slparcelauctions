@@ -1,9 +1,8 @@
-// export/realty-groups/components/Pagination.tsx
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Btn } from "./Btn";
-import { cn } from "../lib/cn";
+import { cn } from "@/lib/cn";
 
 interface PaginationProps {
   page: number;

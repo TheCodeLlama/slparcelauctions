@@ -1,4 +1,3 @@
-// export/realty-groups/pages/GroupsPage.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -9,15 +8,15 @@ import type {
   GroupsSortKey,
   RealtyGroupCard,
   SortDirection,
-} from "../types";
-import { cn } from "../lib/cn";
-import { Btn } from "../components/Btn";
-import { Checkbox } from "../components/Checkbox";
-import { EmptyGroups } from "../components/EmptyGroups";
-import { FilterGroup } from "../components/FilterGroup";
-import { GroupCard } from "../components/GroupCard";
-import { Pagination } from "../components/Pagination";
-import { StarPicker } from "../components/StarPicker";
+} from "@/types/realty";
+import { cn } from "@/lib/cn";
+import { Btn } from "./components/Btn";
+import { Checkbox } from "./components/Checkbox";
+import { EmptyGroups } from "./components/EmptyGroups";
+import { FilterGroup } from "./components/FilterGroup";
+import { GroupCard } from "./components/GroupCard";
+import { Pagination } from "./components/Pagination";
+import { StarPicker } from "./components/StarPicker";
 
 interface GroupsPageProps {
   groups: RealtyGroupCard[];

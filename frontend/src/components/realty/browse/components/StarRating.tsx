@@ -1,8 +1,7 @@
-// export/realty-groups/components/StarRating.tsx
 "use client";
 
 import { Star } from "lucide-react";
-import { cn } from "../lib/cn";
+import { cn } from "@/lib/cn";
 
 interface StarRatingProps {
   value: number;

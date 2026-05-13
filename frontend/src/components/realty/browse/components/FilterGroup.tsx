@@ -1,4 +1,3 @@
-// export/realty-groups/components/FilterGroup.tsx
 "use client";
 
 import type { ReactNode } from "react";

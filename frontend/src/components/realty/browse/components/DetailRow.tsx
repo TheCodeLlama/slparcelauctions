@@ -1,4 +1,3 @@
-// export/realty-groups/components/DetailRow.tsx
 "use client";
 
 import type { ReactNode } from "react";

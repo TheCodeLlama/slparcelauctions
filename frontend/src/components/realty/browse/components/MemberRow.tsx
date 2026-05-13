@@ -1,7 +1,6 @@
-// export/realty-groups/components/MemberRow.tsx
 "use client";
 
-import type { GroupMember } from "../types";
+import type { GroupMember } from "@/types/realty";
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
 import { StarRating } from "./StarRating";

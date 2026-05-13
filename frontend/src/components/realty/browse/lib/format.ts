@@ -1,10 +1,7 @@
-// export/realty-groups/lib/cn.ts
-"use client";
-
-export function cn(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
-
+/**
+ * Display-only helpers used by the `/groups` directory template.
+ * Kept here (not in `@/lib/cn`) so the shared `cn` utility stays narrow.
+ */
 export function formatFounded(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });

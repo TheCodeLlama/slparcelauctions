@@ -1,8 +1,7 @@
-// export/realty-groups/components/Btn.tsx
 "use client";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "@/lib/cn";
 
 type Variant = "primary" | "secondary" | "ghost" | "dark";
 type Size = "sm" | "md" | "lg";

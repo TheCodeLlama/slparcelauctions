@@ -1,8 +1,7 @@
-// export/realty-groups/components/Checkbox.tsx
 "use client";
 
 import { Check } from "lucide-react";
-import { cn } from "../lib/cn";
+import { cn } from "@/lib/cn";
 
 interface CheckboxProps {
   label: string;

@@ -1,7 +1,6 @@
-// export/realty-groups/components/GroupLogo.tsx
 "use client";
 
-import { initialsOf } from "../lib/cn";
+import { initialsOf } from "../lib/format";
 
 interface GroupLogoProps {
   name: string;

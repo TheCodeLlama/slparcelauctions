@@ -1,4 +1,3 @@
-// export/realty-groups/components/GroupCover.tsx
 "use client";
 
 interface GroupCoverProps {

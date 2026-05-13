@@ -1,7 +1,6 @@
-// export/realty-groups/components/Avatar.tsx
 "use client";
 
-import { initialsOf } from "../lib/cn";
+import { initialsOf } from "../lib/format";
 
 interface AvatarProps {
   name: string;

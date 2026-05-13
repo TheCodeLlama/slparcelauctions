@@ -1,9 +1,9 @@
-// export/realty-groups/components/GroupCard.tsx
 "use client";
 
 import { Star } from "lucide-react";
-import type { GroupCardLayout, RealtyGroupCard } from "../types";
-import { cn, formatFounded } from "../lib/cn";
+import type { GroupCardLayout, RealtyGroupCard } from "@/types/realty";
+import { cn } from "@/lib/cn";
+import { formatFounded } from "../lib/format";
 import { GroupLogo } from "./GroupLogo";
 import { GroupCover } from "./GroupCover";
 
