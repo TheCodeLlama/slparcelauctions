@@ -12,7 +12,7 @@ const notFoundSpy = vi.fn((): never => {
 });
 vi.mock("next/navigation", () => ({
   notFound: () => notFoundSpy(),
-  usePathname: vi.fn(() => "/group/mainland"),
+  usePathname: vi.fn(() => "/groups/mainland-realty"),
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
@@ -48,7 +48,7 @@ function makeGroup(
   };
 }
 
-describe("RealtyGroupPublicPage server component", () => {
+describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
   beforeEach(() => {
     notFoundSpy.mockClear();
   });
@@ -63,9 +63,6 @@ describe("RealtyGroupPublicPage server component", () => {
         "*/api/v1/realty-groups/by-slug/mainland-realty",
         () => HttpResponse.json(makeGroup()),
       ),
-      // The hero's EditGroupAffordance overlay fires this on mount; the
-      // page is rendered with an anonymous viewer so the 401 short-circuits
-      // the affordance.
       http.get("*/api/v1/me/realty-groups", () =>
         HttpResponse.json({ status: 401, title: "Unauthorized" }, { status: 401 }),
       ),
@@ -230,7 +227,7 @@ describe("RealtyGroupPublicPage server component", () => {
     expect(notFoundSpy).not.toHaveBeenCalled();
   });
 
-  it("surfaces the gear-icon affordance to a member after client hydration", async () => {
+  it("surfaces the gear-icon affordance pointing at the new /groups/[slug]/profile route", async () => {
     server.use(
       http.get(
         "*/api/v1/realty-groups/by-slug/mainland-realty",
@@ -257,10 +254,6 @@ describe("RealtyGroupPublicPage server component", () => {
       expect(screen.getByTestId("edit-group-affordance")).toBeInTheDocument();
     });
     const link = screen.getByTestId("edit-group-affordance");
-    // Affordance retargeted to the new /groups/[slug]/profile route as part
-    // of the Task 15 commit. The old /group/[slug] page itself is deleted in
-    // Part 4 Task 30; until then this old integration test still exercises
-    // the (shared) affordance against its updated destination.
     expect(link.getAttribute("href")).toBe(
       "/groups/mainland-realty/profile",
     );

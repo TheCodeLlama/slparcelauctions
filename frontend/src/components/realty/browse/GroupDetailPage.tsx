@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, ShieldCheck, Star, Tag, User } from "lucide-react";
+import { Heart, Star, Tag, User } from "lucide-react";
 import type {
   GroupMember,
   GroupReview,
@@ -65,11 +65,6 @@ export function GroupDetailPage({
               <h1 className="text-[28px] font-bold tracking-tight m-0 text-fg">
                 {group.name}
               </h1>
-              {group.hasVerifiedSlGroup && (
-                <Badge tone="success" dot>
-                  <ShieldCheck className="w-2.5 h-2.5" /> Verified SL group
-                </Badge>
-              )}
             </div>
             <div className="flex gap-3.5 items-center text-sm text-fg-muted flex-wrap">
               {group.rating.reviewCount > 0 && group.rating.averageRating !== null ? (
@@ -314,10 +309,6 @@ function AboutTab({ group }: { group: RealtyGroupCard }) {
           Group details
         </div>
         <DetailRow label="Founded" value={formatFounded(group.foundedAt)} />
-        <DetailRow
-          label="SL group"
-          value={group.hasVerifiedSlGroup ? "Verified" : "Not yet linked"}
-        />
         <DetailRow
           label="Public ID"
           value={
