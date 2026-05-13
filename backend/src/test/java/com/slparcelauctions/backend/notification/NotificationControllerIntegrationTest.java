@@ -107,6 +107,24 @@ class NotificationControllerIntegrationTest {
     }
 
     @Test
+    void list_serializesLinkUrlOnDto() throws Exception {
+        // Row with a populated link_url -- the controller DTO must carry it on the wire.
+        dao.upsert(aliceId,
+            com.slparcelauctions.backend.notification.NotificationCategory.REALTY_GROUP_INVITATION_SENT,
+            "invited", "body", java.util.Map.of(), null, "/groups/invitations/me");
+        // Sibling row with no link_url -- must surface as JSON null.
+        Thread.sleep(10);
+        dao.upsert(aliceId, OUTBID, "no-link", "b", java.util.Map.of(), null);
+
+        mvc.perform(get("/api/v1/notifications").header("Authorization", "Bearer " + aliceJwt))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].title").value("no-link"))
+            .andExpect(jsonPath("$.content[0].linkUrl").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.content[1].title").value("invited"))
+            .andExpect(jsonPath("$.content[1].linkUrl").value("/groups/invitations/me"));
+    }
+
+    @Test
     void list_unreadOnlyTrue_filtersOutReadRows() throws Exception {
         var n = dao.upsert(aliceId, OUTBID, "t", "b", java.util.Map.of(), null);
         long notifId = internalId(n.publicId());

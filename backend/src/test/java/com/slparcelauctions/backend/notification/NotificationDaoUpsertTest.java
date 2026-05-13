@@ -210,4 +210,50 @@ class NotificationDaoUpsertTest {
         assertThat(updateCount.get()).isEqualTo(threads - 1);
         assertThat(notificationRepository.countByUserIdAndReadFalse(userId)).isEqualTo(1L);
     }
+
+    @Test
+    void insertPersistsLinkUrlAndIsReadableFromEntity() {
+        UpsertResult result = txTemplate.execute(status ->
+                dao.upsert(userId, NotificationCategory.REALTY_GROUP_INVITATION_SENT,
+                        "You were invited to a group", "Click to review.",
+                        Map.of("invitationId", "abc"), "rg:invite:1",
+                        "/groups/invitations/me"));
+
+        assertThat(result).isNotNull();
+        Notification n = notificationRepository.findByPublicId(result.publicId()).orElseThrow();
+        assertThat(n.getLinkUrl()).isEqualTo("/groups/invitations/me");
+    }
+
+    @Test
+    void updatePreservesLinkUrlFromExcluded() throws InterruptedException {
+        // First insert with one link
+        UpsertResult first = txTemplate.execute(status ->
+                dao.upsert(userId, NotificationCategory.REALTY_GROUP_INVITATION_SENT,
+                        "Invited", "Body A", Map.of(), "rg:invite:upd",
+                        "/groups/invitations/me"));
+
+        Thread.sleep(10);
+
+        // Second upsert on same coalesce key with different link -- EXCLUDED should win
+        UpsertResult second = txTemplate.execute(status ->
+                dao.upsert(userId, NotificationCategory.REALTY_GROUP_INVITATION_SENT,
+                        "Invited", "Body B", Map.of(), "rg:invite:upd",
+                        "/groups/invitations/me"));
+
+        assertThat(second.wasUpdate()).isTrue();
+        Notification n = notificationRepository.findByPublicId(first.publicId()).orElseThrow();
+        assertThat(n.getLinkUrl()).isEqualTo("/groups/invitations/me");
+        assertThat(n.getBody()).isEqualTo("Body B");
+    }
+
+    @Test
+    void sixArgUpsertOverloadDefaultsLinkUrlToNull() {
+        // Verify the back-compat 6-arg overload still works and produces null link_url
+        UpsertResult result = txTemplate.execute(status ->
+                dao.upsert(userId, NotificationCategory.OUTBID,
+                        "Outbid", "Body", Map.of(), "outbid:6arg"));
+
+        Notification n = notificationRepository.findByPublicId(result.publicId()).orElseThrow();
+        assertThat(n.getLinkUrl()).isNull();
+    }
 }

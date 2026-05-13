@@ -38,7 +38,7 @@ public class NotificationService {
     public UpsertResult publish(NotificationEvent event) {
         UpsertResult result = dao.upsert(
                 event.userId(), event.category(), event.title(), event.body(),
-                event.data(), event.coalesceKey());
+                event.data(), event.coalesceKey(), event.linkUrl());
 
         long userId = event.userId();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -125,7 +125,7 @@ public class NotificationService {
     private NotificationDto dtoFromUpsert(NotificationEvent event, UpsertResult result) {
         return new NotificationDto(
                 result.publicId(), event.category(), event.category().getGroup(),
-                event.title(), event.body(), event.data(), false,
+                event.title(), event.body(), event.data(), event.linkUrl(), false,
                 result.createdAt(), result.updatedAt()
         );
     }
