@@ -12,6 +12,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.slparcelauctions.backend.realty.browse.RealtyGroupCardProjection;
+
 public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> {
 
     Optional<RealtyGroup> findByPublicId(UUID publicId);
@@ -119,4 +121,74 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
           AND g.wallet_dormancy_started_at < (now() - make_interval(days => :phaseDurationDays * g.wallet_dormancy_phase))
         """, nativeQuery = true)
     List<RealtyGroup> findDormancyPhaseDue(@Param("phaseDurationDays") int phaseDurationDays);
+
+    /**
+     * Public browse-cards query for {@code GET /api/v1/realty-groups}. Spec
+     * section 6.1.
+     *
+     * <p>Filters always applied (impossible to disable from the wire):
+     * <ul>
+     *   <li>group not dissolved ({@code dissolved_at IS NULL}),</li>
+     *   <li>at least one verified SL-group linkage exists, and</li>
+     *   <li>no currently-active suspension is in force.</li>
+     * </ul>
+     *
+     * <p>{@code q} is a case-insensitive substring match against the group's
+     * name and description; NULL or blank disables the predicate.
+     *
+     * <p>{@code AVG(r.rating)} is cast to {@code double precision} so Hibernate
+     * binds it as {@link Double} (matching {@code GroupRatingDto.averageRating}'s
+     * shape); the same cast pattern lives in
+     * {@code GroupRatingService.computeRating}.
+     */
+    @Query(value = """
+        SELECT
+          g.public_id AS publicId,
+          g.name AS name,
+          g.slug AS slug,
+          g.description AS description,
+          g.logo_object_key AS logoObjectKey,
+          g.cover_object_key AS coverObjectKey,
+          g.created_at AS createdAt,
+          (SELECT count(*)::int FROM realty_group_members m
+             WHERE m.group_id = g.id) AS memberCount,
+          g.member_seat_limit AS memberSeatLimit,
+          (SELECT count(*) FROM auctions a
+             WHERE a.realty_group_id = g.id
+               AND a.status IN ('SCHEDULED','LIVE')) AS activeListings,
+          (SELECT count(*) FROM auctions a
+             WHERE a.realty_group_id = g.id
+               AND a.status = 'COMPLETED') AS completedSales,
+          (SELECT AVG(r.rating)::double precision FROM reviews r
+             JOIN auctions a ON r.auction_id = a.id
+             WHERE a.realty_group_id = g.id) AS averageRating,
+          (SELECT count(*) FROM reviews r
+             JOIN auctions a ON r.auction_id = a.id
+             WHERE a.realty_group_id = g.id) AS reviewCount
+        FROM realty_groups g
+        WHERE g.dissolved_at IS NULL
+          AND EXISTS (SELECT 1 FROM realty_group_sl_groups s
+                       WHERE s.realty_group_id = g.id AND s.verified = TRUE)
+          AND NOT EXISTS (SELECT 1 FROM realty_group_suspensions sus
+                           WHERE sus.realty_group_id = g.id
+                             AND sus.lifted_at IS NULL)
+          AND (:q IS NULL OR LOWER(g.name) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%')
+                          OR LOWER(g.description) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%'))
+        """,
+        countQuery = """
+        SELECT count(*)
+        FROM realty_groups g
+        WHERE g.dissolved_at IS NULL
+          AND EXISTS (SELECT 1 FROM realty_group_sl_groups s
+                       WHERE s.realty_group_id = g.id AND s.verified = TRUE)
+          AND NOT EXISTS (SELECT 1 FROM realty_group_suspensions sus
+                           WHERE sus.realty_group_id = g.id
+                             AND sus.lifted_at IS NULL)
+          AND (:q IS NULL OR LOWER(g.name) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%')
+                          OR LOWER(g.description) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%'))
+        """,
+        nativeQuery = true)
+    Page<RealtyGroupCardProjection> browseCards(
+        @Param("q") String q,
+        Pageable pageable);
 }
