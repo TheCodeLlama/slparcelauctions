@@ -51,6 +51,7 @@ function makeNotification(partial: Partial<NotificationDto> = {}): NotificationD
     title: "You were outbid",
     body: "Someone bid higher.",
     data: { auctionId: 10 },
+    linkUrl: null,
     read: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

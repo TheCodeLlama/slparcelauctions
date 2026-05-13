@@ -71,6 +71,14 @@ export interface NotificationDto {
   title: string;
   body: string;
   data: Record<string, unknown>;
+  /**
+   * Optional in-app deeplink populated by the backend for categories where a
+   * one-click destination is meaningful (e.g. realty-group invitations route
+   * to /groups/invitations/me per design §5.8). When non-null the bell row +
+   * /notifications row navigate here on click instead of the category-map
+   * deeplink derived from {@link data}.
+   */
+  linkUrl: string | null;
   read: boolean;
   createdAt: string;
   updatedAt: string;

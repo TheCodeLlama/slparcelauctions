@@ -365,6 +365,7 @@ export function seedNotification(partial: Partial<NotificationDto> = {}): Notifi
     title: "You were outbid",
     body: "Someone placed a higher bid.",
     data: {},
+    linkUrl: null,
     read: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
