@@ -11,13 +11,13 @@ export interface GroupRatingBadgeProps {
    */
   rating: GroupRating | null;
   /**
-   * Public id of the realty group. When provided, the badge renders as a
-   * link to the dedicated group-reviews page (sub-project G §13). Omit to
-   * render a non-link span (e.g. inside the reviews page header itself,
-   * where the badge is decorative and the surrounding page is already the
-   * reviews list).
+   * Slug of the realty group. When provided, the badge renders as a link
+   * to the dedicated group-reviews page (sub-project G §13) at
+   * {@code /groups/{slug}/reviews}. Omit to render a non-link span
+   * (e.g. inside the reviews page header itself, where the badge is
+   * decorative and the surrounding page is already the reviews list).
    */
-  groupPublicId?: string;
+  groupSlug?: string;
   className?: string;
 }
 
@@ -61,12 +61,12 @@ function StarRow({ rating }: { rating: number }) {
  * caller around the empty case.
  *
  * <p>Clicking the badge follows the dedicated group-reviews link
- * ({@code /realty/groups/{groupPublicId}/reviews}) when {@code groupPublicId}
- * is supplied; otherwise renders as a non-link span.
+ * ({@code /groups/{groupSlug}/reviews}) when {@code groupSlug} is
+ * supplied; otherwise renders as a non-link span.
  */
 export function GroupRatingBadge({
   rating,
-  groupPublicId,
+  groupSlug,
   className,
 }: GroupRatingBadgeProps) {
   if (
@@ -101,10 +101,10 @@ export function GroupRatingBadge({
 
   const baseClasses = "inline-flex items-center gap-1.5";
 
-  if (groupPublicId) {
+  if (groupSlug) {
     return (
       <Link
-        href={`/realty/groups/${encodeURIComponent(groupPublicId)}/reviews`}
+        href={`/groups/${encodeURIComponent(groupSlug)}/reviews`}
         className={cn(baseClasses, "hover:underline", className)}
         data-testid="group-rating-badge"
         data-variant="populated"

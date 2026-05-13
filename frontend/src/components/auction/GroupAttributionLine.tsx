@@ -51,7 +51,7 @@ export function GroupAttributionLine({ agent, group }: GroupAttributionLineProps
           />
         )}
         <Link
-          href={`/group/${encodeURIComponent(group.slug)}`}
+          href={`/groups/${encodeURIComponent(group.slug)}`}
           className="underline hover:text-fg-muted transition-colors"
         >
           {group.name}

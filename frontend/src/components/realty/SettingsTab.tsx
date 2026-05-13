@@ -27,7 +27,7 @@ export interface SettingsTabProps {
  *      choose to stay (with all four permissions) or leave on transfer.
  *   2. Dissolve group — soft-delete via the backend's
  *      {@code DELETE /api/v1/realty-groups/{publicId}}; redirects to
- *      `/dashboard/groups` on success.
+ *      `/groups/me` on success.
  *
  * Both actions are gated behind a confirm modal because the spec lists
  * them as leader-only and irreversible.
@@ -60,7 +60,7 @@ export function SettingsTab({ group }: SettingsTabProps) {
           // If the old leader chose LEAVE, the group disappears from
           // their manage surface — bounce them to the groups index.
           if (oldLeaderAction === "LEAVE") {
-            router.push("/dashboard/groups");
+            router.push("/groups/me");
           }
         },
       },
@@ -71,7 +71,7 @@ export function SettingsTab({ group }: SettingsTabProps) {
     dissolve.mutate(group.publicId, {
       onSuccess: () => {
         setDissolveOpen(false);
-        router.push("/dashboard/groups");
+        router.push("/groups/me");
       },
     });
   }

@@ -36,9 +36,9 @@ const createGroupSchema = z.object({
 type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
 
 /**
- * Form on `/dashboard/groups/create`. Submits via {@link useCreateGroup};
- * on success, navigates to the new group's manage page using the
- * server-assigned slug. Toast feedback is delegated to the mutation hook.
+ * Form on `/groups/new`. Submits via {@link useCreateGroup}; on success,
+ * navigates to the new group's profile page using the server-assigned
+ * slug. Toast feedback is delegated to the mutation hook.
  */
 export function GroupCreateForm() {
   const router = useRouter();
@@ -61,7 +61,7 @@ export function GroupCreateForm() {
         website: values.website ? values.website.trim() : undefined,
       });
       router.push(
-        `/dashboard/groups/${encodeURIComponent(created.slug)}/manage`,
+        `/groups/${encodeURIComponent(created.slug)}/profile`,
       );
     } catch {
       // Toast is dispatched by the mutation's onError handler; swallow the

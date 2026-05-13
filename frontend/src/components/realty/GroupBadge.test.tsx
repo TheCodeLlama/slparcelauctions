@@ -3,13 +3,13 @@ import { renderWithProviders, screen } from "@/test/render";
 import { GroupBadge } from "./GroupBadge";
 
 describe("GroupBadge", () => {
-  it("renders name + link to /group/{slug}", () => {
+  it("renders name + link to /groups/{slug}", () => {
     renderWithProviders(
       <GroupBadge groupSlug="mainland" groupName="Mainland Realty" />,
     );
     const link = screen.getByTestId("group-badge");
     expect(link.tagName).toBe("A");
-    expect(link.getAttribute("href")).toBe("/group/mainland");
+    expect(link.getAttribute("href")).toBe("/groups/mainland");
     expect(screen.getByText("Mainland Realty")).toBeInTheDocument();
   });
 

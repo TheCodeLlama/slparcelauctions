@@ -30,8 +30,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Drafts", href: "/admin/drafts" },
     { label: "Parcel tags", href: "/admin/parcel-tags" },
     { label: "Parcel categories", href: "/admin/parcel-tag-categories" },
-    { label: "Realty Groups", href: "/admin/realty-groups" },
-    { label: "Group Reports", href: "/admin/realty-groups/reports" },
+    { label: "Realty Groups", href: "/admin/groups" },
+    { label: "Group Reports", href: "/admin/groups/reports" },
     { label: "Users", href: "/admin/users" },
     { label: "Infrastructure", href: "/admin/infrastructure" },
     { label: "Audit log", href: "/admin/audit-log" },
@@ -43,7 +43,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="text-[11px] uppercase tracking-wider opacity-50 mb-3">Admin</div>
         {(() => {
           // Pick the longest-prefix match so a nested route (e.g.
-          // `/admin/realty-groups/reports`) highlights its own item, not the
+          // `/admin/groups/reports`) highlights its own item, not the
           // parent's, when one href is a prefix of another.
           const candidates = items
             .filter(

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { GroupAttributionLine } from "./GroupAttributionLine";
 
 describe("GroupAttributionLine", () => {
-  it("renders 'Sold by Group' heading + 'Listed by X of Group' subline with link to /group/{slug}", () => {
+  it("renders 'Sold by Group' heading + 'Listed by X of Group' subline with link to /groups/{slug}", () => {
     render(
       <GroupAttributionLine
         agent={{ publicId: "u1", displayName: "Alice", avatarUrl: null }}
@@ -20,7 +20,7 @@ describe("GroupAttributionLine", () => {
     // so query by role with the explicit slug-derived href to pin it down.
     const groupLinks = screen.getAllByRole("link", { name: /Sunset Realty/i });
     expect(groupLinks.length).toBeGreaterThanOrEqual(1);
-    expect(groupLinks[0]).toHaveAttribute("href", "/group/sunset");
+    expect(groupLinks[0]).toHaveAttribute("href", "/groups/sunset");
     // Listing-agent display name is also linked to /users/{publicId}.
     expect(screen.getByRole("link", { name: /Alice/i })).toHaveAttribute(
       "href",

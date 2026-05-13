@@ -50,7 +50,7 @@ describe("AdminGroupReportsTab", () => {
     );
     expect(link).toHaveAttribute(
       "href",
-      `/admin/realty-groups/reports/${REPORT_ID}`,
+      `/admin/groups/reports/${REPORT_ID}`,
     );
   });
 

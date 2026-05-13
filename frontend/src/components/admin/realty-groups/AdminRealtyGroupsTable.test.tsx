@@ -49,15 +49,12 @@ describe("AdminRealtyGroupsTable", () => {
     expect(screen.getByText("Heterocera Holdings")).toBeInTheDocument();
   });
 
-  it("links the row to the admin detail page via publicId", () => {
+  it("links the row to the admin detail page via slug", () => {
     renderWithProviders(<AdminRealtyGroupsTable rows={[makeRow()]} />);
     const link = screen.getByTestId(
       "admin-realty-row-link-00000000-0000-0000-0000-000000000001",
     );
-    expect(link).toHaveAttribute(
-      "href",
-      "/admin/realty-groups/00000000-0000-0000-0000-000000000001",
-    );
+    expect(link).toHaveAttribute("href", "/admin/groups/mainland-realty");
   });
 
   it("shows a Dissolved status chip for dissolved groups", () => {

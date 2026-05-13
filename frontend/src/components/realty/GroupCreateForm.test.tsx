@@ -7,7 +7,7 @@ import { GroupCreateForm } from "./GroupCreateForm";
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: pushMock, prefetch: vi.fn() }),
-  usePathname: () => "/dashboard/groups/create",
+  usePathname: () => "/groups/new",
 }));
 
 beforeEach(() => {
@@ -36,7 +36,7 @@ describe("GroupCreateForm", () => {
     expect(await screen.findByText(/Enter a valid URL/i)).toBeInTheDocument();
   });
 
-  it("submits and navigates to the manage page with the created slug", async () => {
+  it("submits and navigates to the profile page with the created slug", async () => {
     server.use(
       http.post("*/api/v1/realty-groups", () =>
         HttpResponse.json({
@@ -63,7 +63,7 @@ describe("GroupCreateForm", () => {
     await userEvent.type(screen.getByTestId("group-create-name"), "My Group");
     await userEvent.click(screen.getByTestId("group-create-submit"));
     await waitFor(() =>
-      expect(pushMock).toHaveBeenCalledWith("/dashboard/groups/my-group/manage"),
+      expect(pushMock).toHaveBeenCalledWith("/groups/my-group/profile"),
     );
   });
 
