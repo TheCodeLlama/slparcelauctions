@@ -1814,6 +1814,44 @@ sellers start complaining about surprise cancellations, add a countdown
 indicator to the seller's listing detail page. Until then, operations
 can dial the cutoff up before user-facing UI lands.
 
+### F.112 — Logout must `queryClient.clear()` so per-user caches don't leak across sessions
+
+**Symptom shipped to prod:** after sign-out + page reload, the wallet
+balance pill still showed L$ from the previous user, and direct navigation
+to `/wallet` rendered the prior user's balance from cache.
+
+**Why:** `useLogout` (and `useLogoutAll`, and the 401 refresh-failed
+branch in `lib/auth/refresh.ts`) were only doing
+`setAccessToken(null) + setQueryData(["auth","session"], null)`. They
+were NOT clearing the rest of the React Query cache. So:
+
+- `useCurrentUser` is cached under `["currentUser"]` with
+  `gcTime: Number.POSITIVE_INFINITY` — its data NEVER ages out.
+- `useWallet` is cached under `["me","wallet"]` with default 5-minute
+  gcTime.
+- `["me","wallet","ledger",...]` pages, dashboard rows, and every other
+  authenticated-only query had the same survival problem.
+
+After logout the auth session flipped to "unauthenticated", but those
+cached entries kept serving the previous user's data to any consumer
+that mounted afterwards. The `/wallet` page's guard
+(`if (isPending || !user)`) depended on `useCurrentUser` data, which
+showed the stale verified-user; the page rendered, the wallet pill
+queried the same cached entries, balance from prior session displayed.
+
+**How to apply:** any code path that takes the user from "authenticated"
+to "unauthenticated" — explicit logout, logout-all, refresh failure —
+MUST call `queryClient.clear()` BEFORE re-establishing the null auth
+session entry. Order matters: `clear()` removes every entry including
+the auth one, then `setQueryData(SESSION_QUERY_KEY, null)` re-establishes
+the explicit null sentinel that `useAuth()` reads as "unauthenticated"
+without triggering a fresh bootstrap.
+
+Authenticated-only pages should also gate on `useAuth()` directly (not
+just on `useCurrentUser` data) so a future cache-clearing regression
+can't render cached content. See `app/wallet/page.tsx` for the canonical
+pattern.
+
 ## §G Realty groups
 
 ### G.1 `runZeroPayoutSuccessInline` is the entire post-payout work for case-3 escrows

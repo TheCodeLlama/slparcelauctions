@@ -55,6 +55,11 @@ export async function ensureFreshAccessToken(): Promise<string> {
       if (!response.ok) {
         setAccessToken(null);
         if (queryClientRef) {
+          // The refresh cookie is invalid / revoked / expired — session is
+          // dead. Wipe every cached query before re-establishing the null
+          // auth entry so per-user caches (currentUser, wallet, ledger,
+          // dashboard, etc.) don't survive into the unauthenticated state.
+          queryClientRef.clear();
           queryClientRef.setQueryData(SESSION_QUERY_KEY, null);
         }
         throw new RefreshFailedError(response.status);

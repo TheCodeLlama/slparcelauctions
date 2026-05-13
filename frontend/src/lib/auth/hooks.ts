@@ -107,8 +107,14 @@ export function useRegister() {
  * Out" expects to be logged out regardless of whether the backend acknowledged
  * the POST.
  *
- * Uses setQueryData(null) only (no removeQueries) for consistency with the
- * 401 interceptor's pattern. The null guard in useAuth handles the null state.
+ * Calls `queryClient.clear()` to wipe every cached query, then re-establishes
+ * the auth session entry as `null` so useAuth() returns "unauthenticated"
+ * without triggering a bootstrap. Without the clear, cached per-user data
+ * (currentUser with `gcTime: Infinity`, the user's wallet view, the user's
+ * ledger pages, the dashboard, etc.) survives logout and gets served from
+ * cache on the next render — most visibly the wallet balance pill and the
+ * /wallet page guard, which keys "is this user verified?" off `useCurrentUser`
+ * data that outlives the logout when not explicitly cleared.
  *
  * See FOOTGUNS §F.11.
  */
@@ -119,6 +125,7 @@ export function useLogout() {
     mutationFn: () => authApi.logout(),
     onSettled: () => {
       setAccessToken(null);
+      queryClient.clear();
       queryClient.setQueryData(SESSION_QUERY_KEY, null);
       router.push("/");
     },
@@ -150,6 +157,7 @@ export function useLogoutAll() {
     },
     onSettled: () => {
       setAccessToken(null);
+      queryClient.clear();
       queryClient.setQueryData(SESSION_QUERY_KEY, null);
       router.push("/");
     },
