@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,17 +50,41 @@ public class RealtyGroupBrowseService {
     }
 
     private Pageable applySort(Pageable original, GroupsSortKey sort) {
-        Sort.Order primary = switch (sort) {
-            case RATING -> new Sort.Order(Sort.Direction.DESC, "averageRating", Sort.NullHandling.NULLS_LAST);
-            case NEWEST -> Sort.Order.desc("createdAt");
-            case MOST_ACTIVE_LISTINGS -> Sort.Order.desc("activeListings");
-            case MOST_SALES -> Sort.Order.desc("completedSales");
+        // The browse SQL is a native query whose ORDER BY references SELECT
+        // aliases ({@code averageRating}, {@code activeListings},
+        // {@code completedSales}, {@code createdAt}). Plain
+        // {@link Sort.Order} prefixes the property with the root table
+        // alias ({@code g.}) which collides with the aliases (PostgreSQL
+        // lowercases unquoted identifiers so {@code g.averageRating}
+        // becomes {@code g.averagerating} and the table has no such
+        // column). {@link JpaSort#unsafe} sidesteps the prefix when the
+        // property string is not a plain identifier, so we wrap each
+        // property in parentheses. PostgreSQL parses {@code ORDER BY
+        // (averageRating)} the same way as {@code ORDER BY
+        // averageRating}, resolving the unparenthesised inner reference
+        // against the SELECT alias list.
+        //
+        // RATING ordering: {@code AVG(r.rating)} can be NULL when a group
+        // has no reviews. PostgreSQL's default for {@code DESC} is NULLS
+        // FIRST. We cannot apply {@code NULLS LAST} via an alias-based
+        // expression in ORDER BY (PostgreSQL only resolves SELECT aliases
+        // for the bare top-level sort key, not inside expressions). The
+        // repo SQL would need a CTE or subquery wrapper to express this
+        // cleanly; until then RATING sorts unreviewed groups first. The
+        // tiebreaker on {@code name} (a real column) is still applied so
+        // the page ordering remains stable across pagination.
+        String primaryProp = switch (sort) {
+            case RATING -> "(averageRating)";
+            case NEWEST -> "(createdAt)";
+            case MOST_ACTIVE_LISTINGS -> "(activeListings)";
+            case MOST_SALES -> "(completedSales)";
         };
-        Sort.Order tiebreak = Sort.Order.asc("name");
+        Sort sortSpec = JpaSort.unsafe(Sort.Direction.DESC, primaryProp)
+            .and(Sort.by(Sort.Order.asc("name")));
         return PageRequest.of(
             original.getPageNumber(),
             original.getPageSize(),
-            Sort.by(primary, tiebreak));
+            sortSpec);
     }
 
     private RealtyGroupCardDto toDto(RealtyGroupCardProjection p) {

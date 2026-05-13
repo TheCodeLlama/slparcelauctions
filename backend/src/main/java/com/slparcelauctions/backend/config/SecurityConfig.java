@@ -266,6 +266,17 @@ public class SecurityConfig {
                         // catch-all because matcher order is first-match-wins.
                         // FOOTGUNS §B.5: every public matcher MUST sit before the
                         // /api/v1/** catch-all.
+                        //
+                        // Public browse directory (spec 2026-05-13 §6.1).
+                        // GET /api/v1/realty-groups lists verified, non-suspended
+                        // groups for the /groups directory page. Anonymous-safe;
+                        // the verified-only + non-suspended filters are enforced
+                        // inside RealtyGroupRepository.browseCards so they are
+                        // impossible to disable from the wire. Distinct from
+                        // /api/v1/realty-groups/{publicId} (group detail) — bare
+                        // list matcher MUST sit alongside the other realty-groups
+                        // public matchers below.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/{publicId}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/by-slug/{slug}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/members").permitAll()

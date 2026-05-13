@@ -59,8 +59,13 @@ class RealtyGroupBrowseServiceTest {
             org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
         org.mockito.Mockito.verify(repo).browseCards(eq(null), captor.capture());
         Sort sort = captor.getValue().getSort();
-        assertThat(sort.getOrderFor("activeListings")).isNotNull();
-        assertThat(sort.getOrderFor("activeListings").getDirection())
+        // The property is wrapped in parens so Hibernate emits the raw
+        // expression in the native-query ORDER BY (otherwise the property
+        // gets prefixed with the root table alias which collides with the
+        // SELECT alias). The wire-level property string is
+        // {@code (activeListings)}.
+        assertThat(sort.getOrderFor("(activeListings)")).isNotNull();
+        assertThat(sort.getOrderFor("(activeListings)").getDirection())
             .isEqualTo(Sort.Direction.DESC);
     }
 
