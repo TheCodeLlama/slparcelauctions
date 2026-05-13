@@ -149,6 +149,42 @@ describe("useLogout", () => {
       expect(queryClient.getQueryData(["auth", "session"])).toBeNull();
     });
   });
+
+  it("wipes per-user query caches so cached data does not survive into the unauthenticated state", async () => {
+    server.use(
+      http.post("*/api/v1/auth/logout", () => HttpResponse.json({}, { status: 200 }))
+    );
+
+    setAccessToken("some-token");
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(["auth", "session"], { id: 1, username: "test-user" });
+    // Seed per-user caches that historically survived logout because their
+    // gcTime outlived the auth flip (currentUser, wallet, ledger, etc.).
+    queryClient.setQueryData(["currentUser"], { id: 1, verified: true });
+    queryClient.setQueryData(["me", "wallet"], { balance: 4200, available: 4200 });
+    queryClient.setQueryData(["me", "wallet", "ledger", null, 0, 20], { rows: [] });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useLogout(), { wrapper });
+    result.current.mutate();
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(["auth", "session"])).toBeNull();
+    });
+
+    // No per-user residue. queryClient.clear() removed every cache entry; the
+    // auth session is then re-established as the explicit null sentinel.
+    expect(queryClient.getQueryData(["currentUser"])).toBeUndefined();
+    expect(queryClient.getQueryData(["me", "wallet"])).toBeUndefined();
+    expect(
+      queryClient.getQueryData(["me", "wallet", "ledger", null, 0, 20]),
+    ).toBeUndefined();
+  });
 });
 
 describe("useForgotPassword", () => {
