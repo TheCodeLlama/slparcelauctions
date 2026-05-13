@@ -182,6 +182,22 @@ class NotificationPublisherRealtyGroupTest {
     }
 
     @Test
+    void invitationSent_setsLinkUrlToRecipientInvitationsPage() {
+        // Spec §5.8: the invitation-received notification row in the bell + on
+        // /notifications must deeplink to /groups/invitations/me so the
+        // recipient lands on their own invitation inbox in one click.
+        RealtyGroupInvitation inv = invitation(INVITEE_ID, INVITER_ID);
+        when(realtyGroupRepository.findById(group.getId())).thenReturn(Optional.of(group));
+        when(userRepository.findById(INVITER_ID)).thenReturn(Optional.of(userWith(INVITER_ID, "leader")));
+
+        publisher.realtyGroupInvitationSent(inv);
+
+        var events = capturedEvents();
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).linkUrl()).isEqualTo("/groups/invitations/me");
+    }
+
+    @Test
     void invitationSent_silentWhenGroupMissing() {
         RealtyGroupInvitation inv = invitation(INVITEE_ID, INVITER_ID);
         when(realtyGroupRepository.findById(group.getId())).thenReturn(Optional.empty());
