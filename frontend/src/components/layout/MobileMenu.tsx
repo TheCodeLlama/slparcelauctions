@@ -6,6 +6,7 @@ import { X } from "@/components/ui/icons";
 import { Button, IconButton, ThemeToggle } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useWallet } from "@/lib/wallet/use-wallet";
+import { useMyGroupInvitations } from "@/hooks/realty/useMyGroupInvitations";
 import { NavLink } from "./NavLink";
 
 type MobileMenuProps = {
@@ -17,6 +18,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
   const { status, user } = useAuth();
   const verified = status === "authenticated" && user.verified;
   const { data: wallet } = useWallet(verified);
+  const authenticated = status === "authenticated";
 
   return (
     <Dialog open={open} onClose={onClose} className="md:hidden relative z-50">
@@ -55,6 +57,9 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
             <NavLink variant="mobile" href="/browse" onClick={onClose}>
               Browse
             </NavLink>
+            <NavLink variant="mobile" href="/groups" onClick={onClose}>
+              Groups
+            </NavLink>
             <NavLink variant="mobile" href="/listings/create" onClick={onClose}>
               Sell parcel
             </NavLink>
@@ -62,6 +67,9 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
               <NavLink variant="mobile" href="/wallet" onClick={onClose}>
                 Wallet{wallet ? ` · L$ ${wallet.available.toLocaleString()}` : ""}
               </NavLink>
+            )}
+            {authenticated && (
+              <AuthenticatedGroupLinks onClose={onClose} />
             )}
             {status === "authenticated" && user.role === "ADMIN" && (
               <NavLink variant="mobile" href="/admin" onClick={onClose}>
@@ -118,5 +126,42 @@ function FooterLink({
     >
       {children}
     </Link>
+  );
+}
+
+/**
+ * Authenticated-only block: "My groups" + "Invitations" with a pending-count
+ * badge mirroring the UserMenuDropdown pattern. Hosting the
+ * {@link useMyGroupInvitations} call in a child component keeps the network
+ * call gated by mount — anonymous visitors never fire the request because
+ * MobileMenu does not render this subtree.
+ */
+function AuthenticatedGroupLinks({ onClose }: { onClose: () => void }) {
+  const invitations = useMyGroupInvitations();
+  const inviteCount = invitations.data?.length ?? 0;
+
+  return (
+    <>
+      <NavLink variant="mobile" href="/groups/me" onClick={onClose}>
+        My groups
+      </NavLink>
+      <NavLink
+        variant="mobile"
+        href="/groups/invitations/me"
+        onClick={onClose}
+      >
+        <span className="inline-flex items-center gap-2">
+          Invitations
+          {inviteCount > 0 && (
+            <span
+              data-testid="invitations-badge"
+              className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-semibold leading-none text-white"
+            >
+              {inviteCount}
+            </span>
+          )}
+        </span>
+      </NavLink>
+    </>
   );
 }
