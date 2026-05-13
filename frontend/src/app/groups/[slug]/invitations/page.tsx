@@ -29,7 +29,7 @@ export default function GroupInvitationsPage() {
     const ownAgentRow = g.agents.find(
       (a) => a.userPublicId === me.data!.publicId,
     );
-    return !!ownAgentRow?.permissions.includes("INVITE_AGENTS");
+    return !!ownAgentRow?.permissions?.includes("INVITE_AGENTS");
   }, [group.data, me.data]);
 
   if (group.isPending || me.isPending) {
