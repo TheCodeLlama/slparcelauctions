@@ -17,7 +17,7 @@ export function StarRating({ value, size = 12, showNumber = true }: StarRatingPr
         {[1, 2, 3, 4, 5].map((i) => (
           <Star
             key={i}
-            style={{ width: size, height: size }}
+            size={size}
             className={cn(
               i <= rounded ? "text-brand fill-current" : "text-fg-subtle",
             )}
