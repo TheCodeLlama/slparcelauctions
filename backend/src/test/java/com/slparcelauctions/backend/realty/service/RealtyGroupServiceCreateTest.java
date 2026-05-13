@@ -27,6 +27,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.dto.CreateRealtyGroupRequest;
 import com.slparcelauctions.backend.realty.exception.InvalidWebsiteUrlException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNameTakenException;
+import com.slparcelauctions.backend.realty.exception.ReservedSlugException;
 import com.slparcelauctions.backend.realty.slug.RealtyGroupSlugFactory;
 
 @ExtendWith(MockitoExtension.class)
@@ -138,6 +139,45 @@ class RealtyGroupServiceCreateTest {
         assertEquals(expected, slug, "slug should be patched to group-<first 8 of publicId>");
         // Two save calls on the group: initial insert + slug-patch update.
         verify(groups, times(2)).save(any(RealtyGroup.class));
+    }
+
+    @Test
+    void rejectsReservedSlugNew() {
+        // Group name that derives to the reserved slug "new". The slug factory is the
+        // chokepoint (single site for both create + rename), so the check fires inside
+        // derive() before any collision lookup.
+        CreateRealtyGroupRequest req = new CreateRealtyGroupRequest("new", "desc", null);
+        when(groups.findByNameIgnoreCaseActive("new")).thenReturn(Optional.empty());
+        when(slugFactory.derive("new", null)).thenThrow(new ReservedSlugException("new"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.createGroup(req, 42L))
+            .isInstanceOf(ReservedSlugException.class)
+            .extracting("slug").isEqualTo("new");
+
+        verify(groups, never()).save(any());
+        verify(members, never()).save(any());
+    }
+
+    @Test
+    void rejectsReservedSlugMe() {
+        CreateRealtyGroupRequest req = new CreateRealtyGroupRequest("me", "desc", null);
+        when(groups.findByNameIgnoreCaseActive("me")).thenReturn(Optional.empty());
+        when(slugFactory.derive("me", null)).thenThrow(new ReservedSlugException("me"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.createGroup(req, 42L))
+            .isInstanceOf(ReservedSlugException.class)
+            .extracting("slug").isEqualTo("me");
+    }
+
+    @Test
+    void rejectsReservedSlugInvitations() {
+        CreateRealtyGroupRequest req = new CreateRealtyGroupRequest("invitations", "desc", null);
+        when(groups.findByNameIgnoreCaseActive("invitations")).thenReturn(Optional.empty());
+        when(slugFactory.derive("invitations", null)).thenThrow(new ReservedSlugException("invitations"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.createGroup(req, 42L))
+            .isInstanceOf(ReservedSlugException.class)
+            .extracting("slug").isEqualTo("invitations");
     }
 
     @Test
