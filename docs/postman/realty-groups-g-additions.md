@@ -167,6 +167,21 @@ Existing request `SL → SL Group → Founder Terminal Verify` was created durin
 
 ---
 
+## 5. Realty Groups → Browse (new in Groups namespace migration)
+
+### List public groups
+
+- **Method / URL**: `GET {{baseUrl}}/api/v1/realty-groups?q=&page=0&size=20&sort=RATING`
+- **Auth**: none (anonymous-accessible)
+- **Query params**:
+  - `q` — optional search; case-insensitive substring on name + description.
+  - `page` — default 0.
+  - `size` — default 20, clamped to 60.
+  - `sort` — one of `RATING|NEWEST|MOST_ACTIVE_LISTINGS|MOST_SALES`. Default `RATING`.
+- Returns `PagedResponse<RealtyGroupCardDto>`. Verified-only + non-suspended filters are implicit.
+
+---
+
 ## Maintenance
 
 - **Source of truth**: the cloud Postman collection. Edits there override this document.
