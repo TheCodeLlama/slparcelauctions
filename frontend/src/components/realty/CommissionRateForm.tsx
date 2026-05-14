@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useUpdatePermissions } from "@/hooks/realty/useRealtyGroups";
+import { rateToPercentInput } from "@/lib/realty/commission";
 import type { AgentCardDto } from "@/types/realty";
 import { CommissionRateInput } from "./CommissionRateInput";
 
@@ -37,9 +38,7 @@ export function CommissionRateForm({
 }: CommissionRateFormProps) {
   const mutate = useUpdatePermissions();
   const [rateInput, setRateInput] = useState<string>(() =>
-    member.agentCommissionRate != null
-      ? (member.agentCommissionRate * 100).toString()
-      : "",
+    rateToPercentInput(member.agentCommissionRate),
   );
   const [error, setError] = useState<string | null>(null);
 
