@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { MoreVertical } from "@/components/ui/icons";
 import type { AdminRealtyGroupAction } from "./AdminRealtyGroupActionModal";
 
@@ -16,20 +17,71 @@ type Props = {
   onPick: (action: AdminRealtyGroupAction) => void;
 };
 
+const MENU_WIDTH = 192; // matches tailwind w-48 (12rem * 16px/rem)
+const MENU_GAP = 4; // matches mt-1
+
 /**
  * Per-row kebab menu on the admin realty groups table. Mirrors the
  * listings {@code RowActionMenu} primitive shape and styling.
+ *
+ * <p>The menu is rendered via {@link createPortal} into {@code document.body}
+ * with a fixed-position coordinate computed from the trigger button's
+ * bounding rect. Why a portal: the parent {@code <AdminRealtyGroupsTable>}
+ * uses {@code overflow-x-auto} on its table wrapper, which silently
+ * collapses to {@code overflow-y: auto} per the CSS spec the moment the
+ * x-axis is set to anything other than {@code visible}. An absolutely-
+ * positioned dropdown inside that wrapper gets clipped vertically — a
+ * single-row table couldn't render the menu without a scrollbar
+ * appearing inside the row.
+ *
+ * <p>Position is recomputed on every open and on subsequent
+ * {@code scroll} / {@code resize} so the menu stays anchored to the
+ * trigger even as the user scrolls the page. SSR-safe: the portal target
+ * is resolved inside an effect, after the document is available.
  */
 export function AdminRealtyGroupRowActionMenu({ isDissolved, onPick }: Props) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPortalTarget(typeof document === "undefined" ? null : document.body);
+  }, []);
+
+  // Compute the menu's anchored position from the trigger's bounding rect.
+  // Recomputed whenever the menu opens AND on scroll/resize so the menu
+  // tracks the trigger as the user scrolls the page. Right-aligned to the
+  // trigger so the menu sits flush with the kebab button.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const t = triggerRef.current;
+      if (!t) return;
+      const rect = t.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + MENU_GAP,
+        left: rect.right - MENU_WIDTH,
+      });
+    }
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const inTrigger = triggerRef.current?.contains(e.target as Node);
+      const inMenu = menuRef.current?.contains(e.target as Node);
+      if (!inTrigger && !inMenu) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -55,9 +107,40 @@ export function AdminRealtyGroupRowActionMenu({ isDissolved, onPick }: Props) {
         ]),
   ];
 
+  const menu =
+    open && coords && portalTarget
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            data-testid="admin-realty-row-menu"
+            style={{ top: coords.top, left: coords.left }}
+            className="fixed z-50 w-48 rounded-lg bg-bg-subtle border border-border-subtle shadow-md py-1"
+          >
+            {actions.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onPick(a.key);
+                }}
+                data-testid={`admin-realty-row-action-${a.key}`}
+                className="w-full text-left px-3 py-1.5 text-[12px] text-fg hover:bg-bg-muted"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>,
+          portalTarget,
+        )
+      : null;
+
   return (
-    <div ref={ref} className="relative inline-flex">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Realty group actions"
@@ -67,33 +150,7 @@ export function AdminRealtyGroupRowActionMenu({ isDissolved, onPick }: Props) {
       >
         <MoreVertical className="size-4" aria-hidden="true" />
       </button>
-      {open && (
-        <div
-          role="menu"
-          data-testid="admin-realty-row-menu"
-          className="absolute right-0 top-full mt-1 z-30 w-48 rounded-lg bg-bg-subtle border border-border-subtle shadow-md py-1"
-        >
-          {actions.map((a) => (
-            <button
-              key={a.key}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onPick(a.key);
-              }}
-              data-testid={`admin-realty-row-action-${a.key}`}
-              className={`w-full text-left px-3 py-1.5 text-[12px] ${
-                a.destructive
-                  ? "text-fg hover:bg-bg-muted"
-                  : "text-fg hover:bg-bg-muted"
-              }`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      {menu}
+    </>
   );
 }

@@ -31,9 +31,20 @@ public interface RealtyGroupSuspensionRepository extends JpaRepository<RealtyGro
             @Param("groupId") Long groupId,
             @Param("now") OffsetDateTime now);
 
-    /** Full suspension history for a group, newest first. Drives the admin moderation page. */
+    /**
+     * Full suspension history for a group, newest first. Drives the admin moderation page.
+     *
+     * <p>Eagerly fetches the {@code issuedByAdmin} + {@code liftedByAdmin} {@link
+     * com.slparcelauctions.backend.user.User} associations so the controller's mapper
+     * step can read each admin's {@code publicId} / {@code displayName} outside the
+     * service transaction without tripping a {@link org.hibernate.LazyInitializationException}.
+     * {@code open-in-view} is {@code false}, so any lazy proxy left on a returned entity
+     * blows up at render time the moment the mapper touches it.
+     */
     @Query("""
         SELECT s FROM RealtyGroupSuspension s
+        LEFT JOIN FETCH s.issuedByAdmin
+        LEFT JOIN FETCH s.liftedByAdmin
          WHERE s.realtyGroup.id = :groupId
          ORDER BY s.issuedAt DESC
     """)
