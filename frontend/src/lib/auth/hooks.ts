@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { authApi, type LoginRequest, type RegisterRequest } from "./api";
-import { setAccessToken } from "./session";
+import { markAuthReady, setAccessToken } from "./session";
 import type { AuthSession, AuthUser } from "./session";
 
 const SESSION_QUERY_KEY = ["auth", "session"] as const;
@@ -22,9 +22,16 @@ const SESSION_QUERY_KEY = ["auth", "session"] as const;
  * See FOOTGUNS §F.2.
  */
 async function bootstrapSession(): Promise<AuthUser> {
-  const response = await authApi.refresh();
-  setAccessToken(response.accessToken);
-  return response.user;
+  try {
+    const response = await authApi.refresh();
+    setAccessToken(response.accessToken);
+    return response.user;
+  } finally {
+    // Close the auth-ready gate so api.ts can release any requests that fired
+    // in parallel with the bootstrap. Fires on success AND on 401 — the gate's
+    // purpose is "is the token settled?", not "is the user logged in?".
+    markAuthReady();
+  }
 }
 
 /**

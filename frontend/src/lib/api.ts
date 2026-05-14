@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { getAccessToken } from "@/lib/auth/session";
+import { awaitAuthReady, getAccessToken } from "@/lib/auth/session";
 import {
   ensureFreshAccessToken,
   configureRefresh,
@@ -111,11 +111,29 @@ async function handleUnauthorized<T>(
   return request<T>(path, options, /* isRetry */ true);
 }
 
+/**
+ * Paths that must not wait on the auth-ready gate. Every {@code /api/v1/auth/*}
+ * call either creates a session ({@code register}, {@code login}), bootstraps
+ * one ({@code refresh}), or tears one down ({@code logout},
+ * {@code logout-all}). Gating them on the gate would deadlock the bootstrap
+ * itself ({@code refresh} would await its own resolution) and would needlessly
+ * delay the login/logout flow.
+ */
+function isAuthEndpoint(path: string): boolean {
+  return path.startsWith("/api/v1/auth/");
+}
+
 async function request<T>(
   path: string,
   { body, headers, params, ...rest }: RequestOptions = {},
   isRetry = false
 ): Promise<T> {
+  // Wait for the auth bootstrap to settle before reading the token. See
+  // `lib/auth/session.ts` for why the gate exists. Bypass for the auth
+  // endpoints themselves to avoid deadlocking the bootstrap.
+  if (!isAuthEndpoint(path)) {
+    await awaitAuthReady();
+  }
   const token = getAccessToken();
   const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const serializedBody =
