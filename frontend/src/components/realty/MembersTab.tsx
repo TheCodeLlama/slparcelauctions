@@ -14,7 +14,8 @@ import type {
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { BulkMemberCommissionEditDrawer } from "./BulkMemberCommissionEditDrawer";
-import { EditPermissionsForm } from "./EditPermissionsForm";
+import { CommissionRateForm } from "./CommissionRateForm";
+import { PermissionsForm } from "./PermissionsForm";
 
 export interface MembersTabProps {
   group: RealtyGroupPublicDto;
@@ -27,6 +28,11 @@ export interface MembersTabProps {
 
 /**
  * Combine leader + agents into one sortable, alpha-sorted roster.
+ *
+ * <p>The backend's {@code group.agents} array carries the leader as its own
+ * row with role LEADER (so a single SQL projection backs both the leader
+ * and the agents list). We strip that row before concatenating with the
+ * synthesised leader card so the leader doesn't render twice.
  */
 function buildRows(group: RealtyGroupPublicDto): AgentCardDto[] {
   const leaderRow: AgentCardDto = {
@@ -39,7 +45,10 @@ function buildRows(group: RealtyGroupPublicDto): AgentCardDto[] {
     joinedAt: null,
     agentCommissionRate: null,
   };
-  const all = [leaderRow, ...group.agents];
+  const agentsOnly = group.agents.filter(
+    (a) => a.userPublicId !== group.leader.userPublicId,
+  );
+  const all = [leaderRow, ...agentsOnly];
   return all.sort((a, b) =>
     a.displayName.localeCompare(b.displayName, "en", { sensitivity: "base" }),
   );
@@ -62,7 +71,9 @@ export function MembersTab({
   const removeMember = useRemoveMember();
   const leaveGroup = useLeaveGroup();
   const [removeTarget, setRemoveTarget] = useState<AgentCardDto | null>(null);
-  const [editTarget, setEditTarget] = useState<AgentCardDto | null>(null);
+  const [permissionsTarget, setPermissionsTarget] =
+    useState<AgentCardDto | null>(null);
+  const [rateTarget, setRateTarget] = useState<AgentCardDto | null>(null);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [bulkRatesOpen, setBulkRatesOpen] = useState(false);
 
@@ -117,9 +128,11 @@ export function MembersTab({
             const isLeaderRow = m.role === "LEADER";
             const isOwnRow = m.userPublicId === callerUserPublicId;
             // Leader's own row should never show "Leave" (LEADER_CANNOT_LEAVE)
-            // and never show "Remove" (CANNOT_REMOVE_LEADER).
+            // and never show "Remove" (CANNOT_REMOVE_LEADER). "Permissions"
+            // and "Commission rate" are leader-only edits on non-leader rows.
             const showRemove = !isLeaderRow && canRemove;
-            const showEditPerms = !isLeaderRow && isLeader;
+            const showPermissions = !isLeaderRow && isLeader;
+            const showCommission = !isLeaderRow && isLeader;
             const showLeave = isOwnRow && !isLeaderRow;
             return (
               <li
@@ -157,25 +170,39 @@ export function MembersTab({
                       ))}
                     </ul>
                   )}
-                  {m.agentCommissionRate != null && (
+                  {!isLeaderRow && (
                     <span
                       className="text-[11px] text-fg-muted"
                       data-testid={`member-commission-rate-${m.userPublicId}`}
                     >
-                      Commission: {(m.agentCommissionRate * 100).toFixed(2)}%
+                      Commission:{" "}
+                      {m.agentCommissionRate != null
+                        ? `${(m.agentCommissionRate * 100).toFixed(2)}%`
+                        : "Not set"}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {showEditPerms && (
+                  {showPermissions && (
                     <Button
                       type="button"
                       size="sm"
                       variant="secondary"
-                      onClick={() => setEditTarget(m)}
-                      data-testid={`member-edit-permissions-${m.userPublicId}`}
+                      onClick={() => setPermissionsTarget(m)}
+                      data-testid={`member-permissions-edit-${m.userPublicId}`}
                     >
-                      Edit permissions
+                      Permissions
+                    </Button>
+                  )}
+                  {showCommission && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setRateTarget(m)}
+                      data-testid={`member-commission-rate-edit-${m.userPublicId}`}
+                    >
+                      Commission rate
                     </Button>
                   )}
                   {showRemove && (
@@ -239,16 +266,31 @@ export function MembersTab({
       </Modal>
 
       <Modal
-        open={!!editTarget}
-        title={`Edit permissions for ${editTarget?.displayName ?? "member"}`}
-        onClose={() => setEditTarget(null)}
+        open={!!permissionsTarget}
+        title={`Permissions for ${permissionsTarget?.displayName ?? "member"}`}
+        onClose={() => setPermissionsTarget(null)}
       >
-        {editTarget && (
-          <EditPermissionsForm
-            key={editTarget.memberPublicId}
+        {permissionsTarget && (
+          <PermissionsForm
+            key={permissionsTarget.memberPublicId}
             groupPublicId={group.publicId}
-            member={editTarget}
-            onComplete={() => setEditTarget(null)}
+            member={permissionsTarget}
+            onComplete={() => setPermissionsTarget(null)}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        open={!!rateTarget}
+        title={`Commission rate for ${rateTarget?.displayName ?? "member"}`}
+        onClose={() => setRateTarget(null)}
+      >
+        {rateTarget && (
+          <CommissionRateForm
+            key={rateTarget.memberPublicId}
+            groupPublicId={group.publicId}
+            member={rateTarget}
+            onComplete={() => setRateTarget(null)}
           />
         )}
       </Modal>
