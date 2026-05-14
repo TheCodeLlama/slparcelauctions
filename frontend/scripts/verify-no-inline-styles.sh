@@ -37,11 +37,20 @@ fi
 #   sortable item — those values change continuously during a drag and
 #   cannot be precomputed into Tailwind classes. See spec
 #   docs/superpowers/specs/2026-05-07-listing-image-reorder-and-real-preview-design.md.
+#
+# - src/components/admin/realty-groups/AdminRealtyGroupRowActionMenu.tsx:
+#   the dropdown is portaled into <body> with position: fixed (via the
+#   `fixed` utility class). Its top/left coordinates are runtime pixel
+#   offsets computed at open-time from the trigger button's
+#   getBoundingClientRect() and updated on scroll/resize -- the values
+#   change continuously and can't be precomputed into a Tailwind class.
+#   Same shape as the @dnd-kit transform exception above.
 allowlist=(
   "src/components/marketing/HeroFeaturedStack.tsx"
   "src/components/reviews/RatingSummary.tsx"
   "src/components/listing/draft-editor/EditablePhotoGallery.tsx"
   "src/components/listing/PhotoUploader.tsx"
+  "src/components/admin/realty-groups/AdminRealtyGroupRowActionMenu.tsx"
 )
 
 # Build a single grep -v pipeline that filters out all allowlisted paths.
