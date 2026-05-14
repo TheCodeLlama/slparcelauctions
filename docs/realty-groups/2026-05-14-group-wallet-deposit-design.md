@@ -269,7 +269,7 @@ App flow only — the in-world flow has no personal-wallet side. Mirrors
 `WITHDRAW_QUEUED` shape: negative amount, idempotency-keyed, description
 carries the group name (and optional memo).
 
-`WalletLedgerEntryType` already exists; add the new value plus a Flyway
+`UserLedgerEntryType` already exists; add the new value plus a Flyway
 migration to extend its CHECK constraint.
 
 ### 5.3. Pairing
