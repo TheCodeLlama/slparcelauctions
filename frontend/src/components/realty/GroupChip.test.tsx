@@ -9,7 +9,7 @@ describe("GroupChip", () => {
     );
     const link = screen.getByTestId("group-chip");
     expect(link.tagName).toBe("A");
-    expect(link.getAttribute("href")).toBe("/group/mainland-realty");
+    expect(link.getAttribute("href")).toBe("/groups/mainland-realty");
     expect(screen.getByText("Mainland Realty")).toBeInTheDocument();
   });
 

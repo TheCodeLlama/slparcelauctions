@@ -12,7 +12,7 @@ import { AdminRealtyGroupsFilterBar } from "./AdminRealtyGroupsFilterBar";
 import { AdminRealtyGroupsTable } from "./AdminRealtyGroupsTable";
 
 const DEFAULT_PAGE_SIZE = 25;
-const BASE_PATH = "/admin/realty-groups";
+const BASE_PATH = "/admin/groups";
 const DEFAULT_STATUS: AdminRealtyGroupsStatusFilter = "active";
 
 function isStatus(s: string | null): s is AdminRealtyGroupsStatusFilter {

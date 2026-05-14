@@ -49,7 +49,7 @@ function formatTimestamp(iso: string | null | undefined): string {
  * reports filed against THIS group only (not the global queue).
  *
  * <p>Each row links to the standalone report detail page
- * ({@code /admin/realty-groups/reports/[publicId]}) where the admin
+ * ({@code /admin/groups/reports/[publicId]}) where the admin
  * resolves or dismisses. Status filter is a simple dropdown so the admin
  * can quickly narrow to OPEN reports without bouncing to the global queue.
  */
@@ -148,7 +148,7 @@ export function AdminGroupReportsTab({
                     </td>
                     <td className="py-2 text-right">
                       <Link
-                        href={`/admin/realty-groups/reports/${row.publicId}`}
+                        href={`/admin/groups/reports/${row.publicId}`}
                         className="text-xs text-brand hover:underline"
                         data-testid={`admin-group-report-detail-link-${row.publicId}`}
                       >

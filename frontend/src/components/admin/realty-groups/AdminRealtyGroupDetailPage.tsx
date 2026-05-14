@@ -100,7 +100,7 @@ export function AdminRealtyGroupDetailPage({
     dissolve.mutate(publicId, {
       onSuccess: () => {
         setDissolveOpen(false);
-        router.push("/admin/realty-groups");
+        router.push("/admin/groups");
       },
     });
   }
@@ -109,7 +109,7 @@ export function AdminRealtyGroupDetailPage({
     <div className="flex flex-col gap-6" data-testid="admin-realty-detail-page">
       <div className="flex items-start justify-between gap-3">
         <Link
-          href="/admin/realty-groups"
+          href="/admin/groups"
           className="text-xs text-fg-muted hover:text-fg"
           data-testid="admin-realty-back-link"
         >

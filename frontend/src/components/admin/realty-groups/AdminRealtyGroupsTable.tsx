@@ -88,7 +88,7 @@ export function AdminRealtyGroupsTable({ rows }: Props) {
                 >
                   <td className="px-3 py-2.5">
                     <Link
-                      href={`/admin/realty-groups/${row.publicId}`}
+                      href={`/admin/groups/${encodeURIComponent(row.slug)}`}
                       className="text-fg hover:underline truncate block max-w-[280px]"
                       data-testid={`admin-realty-row-link-${row.publicId}`}
                     >

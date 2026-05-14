@@ -60,7 +60,7 @@ describe("AdminShell", () => {
 
     const link = screen.getByRole("link", { name: "Realty Groups" });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute("href", "/admin/realty-groups");
+    expect(link).toHaveAttribute("href", "/admin/groups");
   });
 
   it("renders fraud flag badge when open count is non-zero", async () => {

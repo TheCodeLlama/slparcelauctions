@@ -675,8 +675,12 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             invitation.getPublicId(),
             inviter == null ? null : inviter.getPublicId(),
             inviterName);
+        // Spec §5.8: the bell row + /notifications row deeplinks the recipient
+        // to their own invitation inbox so a single click triggers
+        // accept/decline.
         publishOne(invitation.getInvitedUserId(),
-            NotificationCategory.REALTY_GROUP_INVITATION_SENT, title, body, data);
+            NotificationCategory.REALTY_GROUP_INVITATION_SENT, title, body, data,
+            "/groups/invitations/me");
     }
 
     @Override
@@ -1019,8 +1023,14 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     /** Common per-recipient publish path for realty group notifications. */
     private void publishOne(long userId, NotificationCategory category,
                             String title, String body, Map<String, Object> data) {
+        publishOne(userId, category, title, body, data, /* linkUrl */ null);
+    }
+
+    private void publishOne(long userId, NotificationCategory category,
+                            String title, String body, Map<String, Object> data,
+                            String linkUrl) {
         notificationService.publish(new NotificationEvent(
-            userId, category, title, body, data, /* coalesceKey */ null));
+            userId, category, title, body, data, /* coalesceKey */ null, linkUrl));
     }
 
     private static List<String> toNames(Set<RealtyGroupPermission> perms) {

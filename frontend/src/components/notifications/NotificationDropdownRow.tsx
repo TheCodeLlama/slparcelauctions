@@ -21,7 +21,10 @@ export function NotificationDropdownRow({ notification: n, onClose, variant = "d
 
   const handleClickRow = () => {
     if (!n.read) markRead.mutate(n.publicId);
-    const href = config.deeplink(n.data as never);
+    // Per design §5.8: backend-supplied linkUrl wins over the category-map
+    // deeplink. Categories that don't carry a meaningful per-row destination
+    // (most do not) leave it null and fall back to the data-derived deeplink.
+    const href = n.linkUrl ?? config.deeplink(n.data as never);
     router.push(href);
     onClose?.();
   };

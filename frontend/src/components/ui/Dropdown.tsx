@@ -14,6 +14,14 @@ export type DropdownItem = {
   icon?: ReactNode;
   disabled?: boolean;
   danger?: boolean;
+  /**
+   * Optional numeric badge rendered after the label. Hidden when undefined or
+   * when the value is 0; used for surfaces like pending-invitation counts on
+   * the user menu. Carries `data-testid="invitations-badge"` consumers expect.
+   */
+  badge?: number;
+  /** Test id forwarded to the badge element. Defaults to "dropdown-item-badge". */
+  badgeTestId?: string;
 };
 
 type DropdownProps = {
@@ -67,6 +75,14 @@ export function Dropdown({
                   </span>
                 )}
                 {item.label}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span
+                    data-testid={item.badgeTestId ?? "dropdown-item-badge"}
+                    className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-semibold leading-none text-bg-base"
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             )}
           </MenuItem>

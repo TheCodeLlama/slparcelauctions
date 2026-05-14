@@ -1,11 +1,13 @@
 package com.slparcelauctions.backend.realty.slug;
 
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
 
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.realty.exception.ReservedSlugException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +26,17 @@ public class RealtyGroupSlugFactory {
     private static final int TOTAL_MAX = 80;
     private static final Pattern NON_ALNUM = Pattern.compile("[^a-z0-9]+");
     private static final Pattern EDGE_DASHES = Pattern.compile("^-+|-+$");
+
+    /**
+     * Slugs reserved by the {@code /groups} URL namespace. {@code /groups/new} is the
+     * create-group page, {@code /groups/me} is the caller's own groups, and
+     * {@code /groups/invitations} is the pending-invitations inbox. A user-named group
+     * landing on any of these would shadow the application route.
+     *
+     * <p>Spec section 6.3: enforced at the slug factory so both create and rename
+     * funnel through the same check.
+     */
+    private static final Set<String> RESERVED_SLUGS = Set.of("new", "me", "invitations");
 
     private final RealtyGroupRepository repo;
 
@@ -52,6 +65,9 @@ public class RealtyGroupSlugFactory {
      */
     public String derive(String name, Long excludeGroupId) {
         String base = fromName(name);
+        if (RESERVED_SLUGS.contains(base)) {
+            throw new ReservedSlugException(base);
+        }
         if (base.isEmpty()) base = "group";
 
         if (countCollisions(base, excludeGroupId) == 0) return base;

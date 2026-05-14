@@ -59,6 +59,16 @@ public class Notification extends BaseMutableEntity {
     @Column(name = "coalesce_key", length = 160)
     private String coalesceKey;
 
+    /**
+     * Optional in-app deeplink. When non-null the bell row + /notifications row
+     * become clickable links navigating to this URL (e.g.
+     * {@code /groups/invitations/me} for realty-group invitations per design
+     * §5.8). Most categories leave this null and fall back to the
+     * category-map deeplink derived from the data blob.
+     */
+    @Column(name = "link_url", length = 512)
+    private String linkUrl;
+
     @Builder.Default
     @Column(nullable = false, columnDefinition = "boolean not null default false")
     private Boolean read = false;

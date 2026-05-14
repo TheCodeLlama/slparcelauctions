@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     prefetch: vi.fn(),
   }),
-  usePathname: () => "/admin/realty-groups/reports/abc",
+  usePathname: () => "/admin/groups/reports/abc",
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -214,7 +214,7 @@ describe("AdminGroupReportDetailPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByTestId("escalate-modal-open-suspensions"),
+        screen.getByTestId("escalate-modal-body"),
       ).toBeInTheDocument(),
     );
     expect(resolvePayload).toEqual({

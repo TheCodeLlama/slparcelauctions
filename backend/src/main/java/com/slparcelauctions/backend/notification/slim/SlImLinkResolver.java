@@ -49,7 +49,12 @@ public class SlImLinkResolver {
                  WITHDRAWAL_FORCE_COMPLETED, WITHDRAWAL_FORCE_FAILED ->
                 base + "/wallet";
             case REALTY_GROUP_INVITATION_SENT ->
-                base + "/dashboard/invitations";
+                // Recipient-side row: target the invited user's own inbox where
+                // accept/decline lives. /groups namespace migration -- the SL IM
+                // body is assembled as title + body + this deeplink, so appending
+                // it here is what realises the "View at {appBaseUrl}/groups/invitations/me"
+                // text the plan's Task 31 calls for.
+                base + "/groups/invitations/me";
             case REALTY_GROUP_INVITATION_ACCEPTED, REALTY_GROUP_INVITATION_DECLINED,
                  REALTY_GROUP_INVITATION_EXPIRED, REALTY_GROUP_MEMBER_LEFT,
                  REALTY_GROUP_LEADERSHIP_TRANSFERRED, REALTY_GROUP_PERMISSIONS_CHANGED,

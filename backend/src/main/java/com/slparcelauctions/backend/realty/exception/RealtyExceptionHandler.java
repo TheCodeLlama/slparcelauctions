@@ -76,6 +76,24 @@ public class RealtyExceptionHandler {
         return pd;
     }
 
+    /**
+     * Surfaces {@link ReservedSlugException} as 422 Unprocessable Entity. Thrown by
+     * the slug factory when a group's name would derive to a slug reserved by the
+     * {@code /groups} URL namespace (e.g. {@code new}, {@code me}, {@code invitations}).
+     * Body carries the offending {@code slug} so the frontend can show the user an
+     * inline "pick a different name" hint without re-deriving the slug client-side.
+     */
+    @ExceptionHandler(ReservedSlugException.class)
+    public ProblemDetail handleReservedSlug(ReservedSlugException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Reserved Slug");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "RESERVED_SLUG");
+        pd.setProperty("slug", e.getSlug());
+        return pd;
+    }
+
     @ExceptionHandler(RealtyGroupRenameCooldownException.class)
     public ProblemDetail handleCooldown(RealtyGroupRenameCooldownException e, HttpServletRequest req) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());

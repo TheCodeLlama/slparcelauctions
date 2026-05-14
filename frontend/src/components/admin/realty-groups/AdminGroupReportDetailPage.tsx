@@ -85,7 +85,7 @@ export function AdminGroupReportDetailPage({ reportPublicId }: Props) {
     return (
       <div className="py-8">
         <Link
-          href="/admin/realty-groups/reports"
+          href="/admin/groups/reports"
           className="text-sm text-brand underline underline-offset-2"
         >
           ← Back to queue
@@ -123,7 +123,7 @@ function ReportDetail({ report }: { report: AdminRealtyGroupReportDetail }) {
   return (
     <div>
       <Link
-        href="/admin/realty-groups/reports"
+        href="/admin/groups/reports"
         className="text-sm text-brand underline underline-offset-2"
         data-testid="back-to-queue-link"
       >
@@ -142,12 +142,14 @@ function ReportDetail({ report }: { report: AdminRealtyGroupReportDetail }) {
         </span>
         <h1 className="text-2xl font-semibold">
           Report against{" "}
-          <Link
-            href={`/admin/realty-groups/${report.group.publicId}`}
-            className="text-brand underline underline-offset-2"
-          >
-            {report.group.name}
-          </Link>
+          {/*
+            The admin group detail route is now slug-keyed (`/admin/groups/[slug]`),
+            but {@link AdminReportDetailDto.GroupRef} does not yet carry the slug
+            from the backend. Rendered as plain text until the DTO gains
+            {@code groupSlug}; admins can navigate via Realty Groups in the
+            sidebar.
+          */}
+          <span className="text-fg">{report.group.name}</span>
         </h1>
       </div>
 
@@ -439,7 +441,7 @@ type EscalateSuspensionModalProps = {
  * tab; once Task 35 lands, swap the body for the real modal.
  */
 function EscalateSuspensionModal({
-  groupPublicId,
+  groupPublicId: _groupPublicId,
   groupName,
   mode,
   onClose,
@@ -447,9 +449,12 @@ function EscalateSuspensionModal({
   if (mode === "NONE") return null;
   const heading =
     mode === "BAN_GROUP" ? "Ban group" : "Suspend group";
-  const groupHref = `/admin/realty-groups/${groupPublicId}?action=${
-    mode === "BAN_GROUP" ? "ban" : "suspend"
-  }`;
+  // The admin group detail route is now slug-keyed (`/admin/groups/[slug]`)
+  // but {@link AdminReportDetailDto.GroupRef} does not carry the slug today,
+  // so we can't construct the deep-link here. The admin can navigate to
+  // Realty Groups in the sidebar and pick the group. The
+  // `groupPublicId` prop is retained for future restoration once the DTO
+  // gains `groupSlug`.
   return (
     <Modal
       open
@@ -460,20 +465,14 @@ function EscalateSuspensionModal({
           <Button variant="tertiary" onClick={onClose}>
             Close
           </Button>
-          <Link
-            href={groupHref}
-            className="inline-flex items-center justify-center gap-1.5 rounded-sm border bg-brand text-white border-brand h-9 px-4 text-sm font-medium hover:bg-brand-hover hover:border-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            data-testid="escalate-modal-open-suspensions"
-          >
-            Open suspensions tab
-          </Link>
         </>
       }
     >
       <p data-testid="escalate-modal-body">
-        Report resolved. Continue to the suspensions tab for{" "}
-        <span className="font-semibold">{groupName}</span> to issue the{" "}
-        {mode === "BAN_GROUP" ? "ban" : "suspension"}.
+        Report resolved. Open the Realty Groups page from the sidebar and
+        select <span className="font-semibold">{groupName}</span> to issue
+        the {mode === "BAN_GROUP" ? "ban" : "suspension"} from its
+        suspensions tab.
       </p>
     </Modal>
   );

@@ -45,6 +45,17 @@ class SlImLinkResolverTest {
     }
 
     @Test
+    void realtyGroupInvitationSent_resolvesToRecipientInvitationsPage() {
+        // Recipient-side notification: the invited user should land on their
+        // own /groups/invitations/me inbox where accept/decline lives. Per the
+        // /groups namespace migration (Task 31), this replaces the prior
+        // /dashboard/invitations target.
+        assertThat(resolver.resolve(NotificationCategory.REALTY_GROUP_INVITATION_SENT,
+                Map.of("groupSlug", "sunset")))
+            .isEqualTo(BASE + "/groups/invitations/me");
+    }
+
+    @Test
     void everyCategory_producesAValidUrl() {
         // Every category must produce a URL starting with the base; ensures the
         // switch covers all enum values (compile-time guarantee + runtime sanity).
