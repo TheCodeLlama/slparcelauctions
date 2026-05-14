@@ -80,16 +80,18 @@ export function PublicGroupProfile({ group }: PublicGroupProfileProps) {
 
   return (
     <div>
-      <RealtyGroupHeroBanner
-        name={group.name}
-        slug={group.slug}
-        description={group.description}
-        website={group.website}
-        memberSince={group.memberSince}
-        memberCount={group.memberCount}
-        coverUrl={group.coverUrl}
-        logoUrl={group.logoUrl}
-      />
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+        <RealtyGroupHeroBanner
+          name={group.name}
+          slug={group.slug}
+          description={group.description}
+          website={group.website}
+          memberSince={group.memberSince}
+          memberCount={group.memberCount}
+          coverUrl={group.coverUrl}
+          logoUrl={group.logoUrl}
+        />
+      </div>
 
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 mt-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
