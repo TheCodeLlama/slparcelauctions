@@ -27,11 +27,9 @@ export interface EditGroupAffordanceProps {
  * carries `role` but not the agent's flag set — fine-grained `EDIT`
  * gating happens at the destination route.
  *
- * The destination is `/groups/[slug]/profile` (the new namespace's
- * editable profile tab). The full grep sweep for old `/dashboard/groups`
- * links happens in Part 4 Task 29; this one is on the critical path for
- * Task 15's smoke test and lands in the same commit as the public
- * profile page.
+ * The destination is `/groups/[slug]/manage/profile` (the member-only
+ * management subtree introduced in the template-1:1 split between the
+ * public profile and the management area).
  */
 export function EditGroupAffordance({ slug }: EditGroupAffordanceProps) {
   const { data: myGroups, isPending, isError } = useMyRealtyGroups();
@@ -40,7 +38,7 @@ export function EditGroupAffordance({ slug }: EditGroupAffordanceProps) {
 
   return (
     <Link
-      href={`/groups/${encodeURIComponent(slug)}/profile`}
+      href={`/groups/${encodeURIComponent(slug)}/manage/profile`}
       aria-label="Manage group"
       className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/90 text-fg backdrop-blur transition-colors hover:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       data-testid="edit-group-affordance"

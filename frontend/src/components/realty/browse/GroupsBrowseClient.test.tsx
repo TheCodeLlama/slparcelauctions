@@ -204,7 +204,7 @@ describe("GroupsBrowseClient", () => {
     expect(pushSpy).toHaveBeenCalledWith("/groups/new");
   });
 
-  it("renders a loading skeleton while the request is pending", async () => {
+  it("renders nothing card-shaped while the request is pending (template 1:1; no skeleton)", async () => {
     let resolve!: (value: unknown) => void;
     const pending = new Promise((r) => {
       resolve = r;
@@ -218,13 +218,16 @@ describe("GroupsBrowseClient", () => {
 
     renderWithProviders(<GroupsBrowseClient />);
 
-    expect(screen.getByLabelText(/loading groups/i)).toBeInTheDocument();
+    // The template doesn't define a loading state; we deliberately do not
+    // render a skeleton grid. The wrapper's data-testid is still rendered
+    // (the chrome — breadcrumb, title, sidebar, search bar — is always
+    // visible) so the mount itself is observable.
+    expect(screen.getByTestId("groups-browse-client")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/loading groups/i)).not.toBeInTheDocument();
 
     resolve(undefined);
     await waitFor(() =>
-      expect(
-        screen.queryByLabelText(/loading groups/i),
-      ).not.toBeInTheDocument(),
+      expect(screen.getByText(/realty groups/i)).toBeInTheDocument(),
     );
   });
 

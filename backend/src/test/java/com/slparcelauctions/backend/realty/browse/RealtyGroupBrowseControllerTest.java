@@ -46,4 +46,27 @@ class RealtyGroupBrowseControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.size").value(60));
     }
+
+    @Test
+    void unknownDirectionReturns400() throws Exception {
+        mockMvc.perform(get("/api/v1/realty-groups").param("direction", "SIDEWAYS"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void filterParamsAcceptedAndYield200() throws Exception {
+        mockMvc.perform(get("/api/v1/realty-groups")
+                .param("direction", "ASC")
+                .param("minRating", "4.5")
+                .param("minReviews", "10")
+                .param("activeOnly", "true"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void minRatingAbove5IsClampedNotRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/realty-groups").param("minRating", "9.0"))
+            .andExpect(status().isOk());
+    }
 }

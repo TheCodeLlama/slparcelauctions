@@ -21,10 +21,35 @@ function makeCard(overrides: Partial<RealtyGroupCard> = {}): RealtyGroupCard {
   };
 }
 
-describe("GroupsPage (forked, props-driven)", () => {
+/**
+ * Defaults for the new required props added in the 1:1 template restoration.
+ * Tests that focus on a single control still pass full props for the others.
+ */
+const defaultProps = {
+  q: "",
+  sort: "RATING" as const,
+  direction: "DESC" as const,
+  minRating: 0,
+  minReviews: 0,
+  activeOnly: false,
+  page: 0,
+  pageCount: 1,
+  totalCount: 0,
+  onQChange: vi.fn(),
+  onSortChange: vi.fn(),
+  onDirectionChange: vi.fn(),
+  onMinRatingChange: vi.fn(),
+  onMinReviewsChange: vi.fn(),
+  onActiveOnlyChange: vi.fn(),
+  onClearFilters: vi.fn(),
+  onPageChange: vi.fn(),
+};
+
+describe("GroupsPage (template-1:1, props-driven)", () => {
   it("renders one card per group in the passed-in order (no client-side filter or sort)", () => {
     render(
       <GroupsPage
+        {...defaultProps}
         groups={[
           makeCard({
             name: "Zulu",
@@ -37,14 +62,7 @@ describe("GroupsPage (forked, props-driven)", () => {
             slug: "alpha",
           }),
         ]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
         totalCount={2}
-        onQChange={vi.fn()}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
       />,
     );
     expect(screen.getByText("Zulu")).toBeInTheDocument();
@@ -54,17 +72,7 @@ describe("GroupsPage (forked, props-driven)", () => {
   it("calls onQChange when the user types in the search input", () => {
     const onQChange = vi.fn();
     render(
-      <GroupsPage
-        groups={[]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
-        totalCount={0}
-        onQChange={onQChange}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
-      />,
+      <GroupsPage {...defaultProps} groups={[]} onQChange={onQChange} />,
     );
     fireEvent.change(screen.getByPlaceholderText(/search groups/i), {
       target: { value: "mainland" },
@@ -76,15 +84,9 @@ describe("GroupsPage (forked, props-driven)", () => {
     const onSortChange = vi.fn();
     render(
       <GroupsPage
+        {...defaultProps}
         groups={[]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
-        totalCount={0}
-        onQChange={vi.fn()}
         onSortChange={onSortChange}
-        onPageChange={vi.fn()}
       />,
     );
     fireEvent.change(screen.getByRole("combobox", { name: /sort groups/i }), {
@@ -93,20 +95,86 @@ describe("GroupsPage (forked, props-driven)", () => {
     expect(onSortChange).toHaveBeenCalledWith("NEWEST");
   });
 
+  it("toggles direction DESC -> ASC when the direction button is clicked", () => {
+    const onDirectionChange = vi.fn();
+    render(
+      <GroupsPage
+        {...defaultProps}
+        groups={[]}
+        direction="DESC"
+        onDirectionChange={onDirectionChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /sort descending/i }));
+    expect(onDirectionChange).toHaveBeenCalledWith("ASC");
+  });
+
+  it("toggles direction ASC -> DESC and renders the Asc label", () => {
+    const onDirectionChange = vi.fn();
+    render(
+      <GroupsPage
+        {...defaultProps}
+        groups={[]}
+        direction="ASC"
+        onDirectionChange={onDirectionChange}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /sort ascending/i });
+    expect(btn).toHaveTextContent(/asc/i);
+    fireEvent.click(btn);
+    expect(onDirectionChange).toHaveBeenCalledWith("DESC");
+  });
+
+  it("calls onMinReviewsChange when the sidebar number input changes", () => {
+    const onMinReviewsChange = vi.fn();
+    render(
+      <GroupsPage
+        {...defaultProps}
+        groups={[]}
+        onMinReviewsChange={onMinReviewsChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/minimum reviews/i), {
+      target: { value: "25" },
+    });
+    expect(onMinReviewsChange).toHaveBeenCalledWith(25);
+  });
+
+  it("calls onActiveOnlyChange when the sidebar checkbox is toggled", () => {
+    const onActiveOnlyChange = vi.fn();
+    render(
+      <GroupsPage
+        {...defaultProps}
+        groups={[]}
+        activeOnly={false}
+        onActiveOnlyChange={onActiveOnlyChange}
+      />,
+    );
+    fireEvent.click(screen.getByText(/has active listing/i));
+    expect(onActiveOnlyChange).toHaveBeenCalledWith(true);
+  });
+
+  it("calls onClearFilters when 'Clear all filters' is clicked", () => {
+    const onClearFilters = vi.fn();
+    render(
+      <GroupsPage
+        {...defaultProps}
+        groups={[]}
+        onClearFilters={onClearFilters}
+      />,
+    );
+    fireEvent.click(screen.getByText(/clear all filters/i));
+    expect(onClearFilters).toHaveBeenCalled();
+  });
+
   it("calls onOpenGroup when a card is clicked", () => {
     const onOpenGroup = vi.fn();
     const card = makeCard({ name: "Alpha", slug: "alpha" });
     render(
       <GroupsPage
+        {...defaultProps}
         groups={[card]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
         totalCount={1}
-        onQChange={vi.fn()}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
         onOpenGroup={onOpenGroup}
       />,
     );
@@ -114,78 +182,27 @@ describe("GroupsPage (forked, props-driven)", () => {
     expect(onOpenGroup).toHaveBeenCalledWith(card);
   });
 
-  it("renders a skeleton grid (no empty state) when isLoading is true", () => {
-    render(
-      <GroupsPage
-        groups={[]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
-        totalCount={0}
-        onQChange={vi.fn()}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
-        isLoading
-      />,
-    );
-    expect(screen.getByLabelText(/loading groups/i)).toBeInTheDocument();
-    // EmptyGroups is suppressed while loading.
-    expect(screen.queryByText(/no groups match/i)).not.toBeInTheDocument();
-  });
-
-  it("renders the empty state when groups is empty and isLoading is false", () => {
-    render(
-      <GroupsPage
-        groups={[]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
-        totalCount={0}
-        onQChange={vi.fn()}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
-      />,
-    );
-    expect(screen.queryByLabelText(/loading groups/i)).not.toBeInTheDocument();
+  it("renders the empty state when groups is empty", () => {
+    render(<GroupsPage {...defaultProps} groups={[]} />);
     expect(screen.getByText(/no groups match/i)).toBeInTheDocument();
   });
 
   it("renders the totalCount header (backend count, not groups.length)", () => {
     render(
       <GroupsPage
+        {...defaultProps}
         groups={[makeCard({ name: "Alpha" })]}
-        q=""
-        sort="RATING"
-        page={0}
         pageCount={3}
         totalCount={42}
-        onQChange={vi.fn()}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
       />,
     );
-    // Header uses the backend totalCount, not groups.length (which is 1 here).
     const countNode = screen.getByText("42");
     expect(countNode).toBeInTheDocument();
     expect(countNode.parentElement?.textContent).toMatch(/42\s+groups/);
   });
 
-  it("renders 'No groups' in the header when totalCount is 0", () => {
-    render(
-      <GroupsPage
-        groups={[]}
-        q=""
-        sort="RATING"
-        page={0}
-        pageCount={1}
-        totalCount={0}
-        onQChange={vi.fn()}
-        onSortChange={vi.fn()}
-        onPageChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByText("No groups")).toBeInTheDocument();
+  it("renders 0 groups in the header when totalCount is 0", () => {
+    render(<GroupsPage {...defaultProps} groups={[]} totalCount={0} />);
+    expect(screen.getByText("0")).toBeInTheDocument();
   });
 });

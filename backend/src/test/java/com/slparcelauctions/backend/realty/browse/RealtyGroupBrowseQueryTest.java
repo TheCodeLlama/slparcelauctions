@@ -37,6 +37,7 @@ class RealtyGroupBrowseQueryTest {
         // surfaces here.
         Page<RealtyGroupCardProjection> page = repo.browseCards(
             "ZZ_definitely_not_a_realty_group_name_XYZ_QQ",
+            0.0, 0, false,
             PageRequest.of(0, 20, Sort.unsorted()));
 
         assertThat(page.getContent()).isEmpty();
@@ -51,6 +52,7 @@ class RealtyGroupBrowseQueryTest {
         // getter) by touching every getter on every row.
         Page<RealtyGroupCardProjection> page = repo.browseCards(
             null,
+            0.0, 0, false,
             PageRequest.of(0, 20, Sort.unsorted()));
 
         assertThat(page).isNotNull();
@@ -69,5 +71,18 @@ class RealtyGroupBrowseQueryTest {
             row.getAverageRating();
             row.getReviewCount();
         }
+    }
+
+    @Test
+    void filterParamsBindCleanlyEvenWhenResultsAreEmpty() {
+        // Reuse the guaranteed-no-match `q` so the dev DB does not change
+        // the assertion, while exercising every optional filter binding.
+        Page<RealtyGroupCardProjection> page = repo.browseCards(
+            "ZZ_definitely_not_a_realty_group_name_XYZ_QQ",
+            4.5, 25, true,
+            PageRequest.of(0, 20, Sort.unsorted()));
+
+        assertThat(page).isNotNull();
+        assertThat(page.getContent()).isEmpty();
     }
 }

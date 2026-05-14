@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBrowseGroups } from "@/hooks/realty/useBrowseGroups";
-import type { GroupsSortKey } from "@/lib/api/realtyGroupsBrowse";
+import type {
+  GroupsSortKey,
+  SortDirection,
+} from "@/lib/api/realtyGroupsBrowse";
 import type { RealtyGroupCard } from "@/types/realty";
 import { GroupsPage } from "./GroupsPage";
 
@@ -34,6 +37,27 @@ function parsePage(raw: string | null): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+function parseDirection(raw: string | null): SortDirection {
+  return raw === "ASC" ? "ASC" : "DESC";
+}
+
+function parseMinRating(raw: string | null): number {
+  if (!raw) return 0;
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(Math.max(0, n), 5);
+}
+
+function parseMinReviews(raw: string | null): number {
+  if (!raw) return 0;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function parseActiveOnly(raw: string | null): boolean {
+  return raw === "true" || raw === "1";
+}
+
 /**
  * URL-state wrapper for the {@code /groups} directory (spec section 7.1).
  *
@@ -60,8 +84,21 @@ export function GroupsBrowseClient() {
   const q = params.get("q") ?? "";
   const sort = parseSort(params.get("sort"));
   const page = parsePage(params.get("page"));
+  const direction = parseDirection(params.get("direction"));
+  const minRating = parseMinRating(params.get("minRating"));
+  const minReviews = parseMinReviews(params.get("minReviews"));
+  const activeOnly = parseActiveOnly(params.get("active"));
 
-  const query = useBrowseGroups({ q, page, size: 20, sort });
+  const query = useBrowseGroups({
+    q,
+    page,
+    size: 20,
+    sort,
+    direction,
+    minRating,
+    minReviews,
+    activeOnly,
+  });
 
   // Local input mirror: seeded from the URL, debounced back to the URL on
   // change. The URL is the source of truth; this state only buffers
@@ -87,6 +124,12 @@ export function GroupsBrowseClient() {
       if (sp.get("sort") === "RATING") sp.delete("sort");
       if (sp.get("page") === "0") sp.delete("page");
       if ((sp.get("q") ?? "") === "") sp.delete("q");
+      if (sp.get("direction") === "DESC") sp.delete("direction");
+      const minRatingRaw = sp.get("minRating");
+      if (!minRatingRaw || Number.parseFloat(minRatingRaw) <= 0) sp.delete("minRating");
+      const minReviewsRaw = sp.get("minReviews");
+      if (!minReviewsRaw || Number.parseInt(minReviewsRaw, 10) <= 0) sp.delete("minReviews");
+      if (sp.get("active") !== "true") sp.delete("active");
       const qs = sp.toString();
       const target = qs ? `/groups?${qs}` : "/groups";
       if (mode === "push") router.push(target);
@@ -126,6 +169,60 @@ export function GroupsBrowseClient() {
     [writeParams],
   );
 
+  const handleDirectionChange = useCallback(
+    (next: SortDirection) => {
+      writeParams((sp) => {
+        sp.set("direction", next);
+        sp.delete("page");
+      }, "push");
+    },
+    [writeParams],
+  );
+
+  const handleMinRatingChange = useCallback(
+    (next: number) => {
+      writeParams((sp) => {
+        if (next > 0) sp.set("minRating", String(next));
+        else sp.delete("minRating");
+        sp.delete("page");
+      }, "push");
+    },
+    [writeParams],
+  );
+
+  const handleMinReviewsChange = useCallback(
+    (next: number) => {
+      writeParams((sp) => {
+        if (next > 0) sp.set("minReviews", String(next));
+        else sp.delete("minReviews");
+        sp.delete("page");
+      }, "push");
+    },
+    [writeParams],
+  );
+
+  const handleActiveOnlyChange = useCallback(
+    (next: boolean) => {
+      writeParams((sp) => {
+        if (next) sp.set("active", "true");
+        else sp.delete("active");
+        sp.delete("page");
+      }, "push");
+    },
+    [writeParams],
+  );
+
+  const handleClearFilters = useCallback(() => {
+    setInputValue("");
+    writeParams((sp) => {
+      sp.delete("q");
+      sp.delete("minRating");
+      sp.delete("minReviews");
+      sp.delete("active");
+      sp.delete("page");
+    }, "push");
+  }, [writeParams]);
+
   const handlePageChange = useCallback(
     (next: number) => {
       writeParams((sp) => {
@@ -144,6 +241,10 @@ export function GroupsBrowseClient() {
 
   const handleStartGroup = useCallback(() => {
     router.push("/groups/new");
+  }, [router]);
+
+  const handleHome = useCallback(() => {
+    router.push("/");
   }, [router]);
 
   if (query.isError) {
@@ -185,13 +286,22 @@ export function GroupsBrowseClient() {
         onQChange={handleQChange}
         sort={sort}
         onSortChange={handleSortChange}
+        direction={direction}
+        onDirectionChange={handleDirectionChange}
+        minRating={minRating}
+        onMinRatingChange={handleMinRatingChange}
+        minReviews={minReviews}
+        onMinReviewsChange={handleMinReviewsChange}
+        activeOnly={activeOnly}
+        onActiveOnlyChange={handleActiveOnlyChange}
+        onClearFilters={handleClearFilters}
         page={page}
         pageCount={data?.totalPages ?? 0}
         totalCount={data?.totalElements ?? 0}
         onPageChange={handlePageChange}
         onOpenGroup={handleOpenGroup}
         onStartGroup={handleStartGroup}
-        isLoading={query.isPending}
+        onHome={handleHome}
       />
     </div>
   );
