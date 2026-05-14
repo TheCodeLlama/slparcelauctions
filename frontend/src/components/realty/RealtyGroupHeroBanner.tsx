@@ -82,7 +82,7 @@ export function RealtyGroupHeroBanner({
           <img
             src={resolvedCover}
             alt=""
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             aria-hidden="true"
             loading="lazy"
             data-testid="realty-group-hero-cover"

@@ -191,7 +191,7 @@ export function GroupProfileForm({
                 <img
                   src={apiUrl(group.coverUrl) ?? undefined}
                   alt={`${group.name} cover`}
-                  className="aspect-[16/5] w-full rounded border border-border object-cover"
+                  className="aspect-[16/5] w-full rounded border border-border bg-bg-hover object-contain"
                   data-testid="group-profile-cover-preview"
                 />
               ) : (

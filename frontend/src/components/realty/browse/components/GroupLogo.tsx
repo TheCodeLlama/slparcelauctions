@@ -1,5 +1,6 @@
 "use client";
 
+import { apiUrl } from "@/lib/api/url";
 import { initialsOf } from "../lib/format";
 
 interface GroupLogoProps {
@@ -17,12 +18,13 @@ const SIZE: Record<NonNullable<GroupLogoProps["size"]>, string> = {
 };
 
 export function GroupLogo({ name, logoUrl, size = "md", square }: GroupLogoProps) {
-  if (logoUrl) {
+  const resolved = apiUrl(logoUrl ?? null);
+  if (resolved) {
     return (
       <img
-        src={logoUrl}
+        src={resolved}
         alt={`${name} logo`}
-        className={`${SIZE[size]} shrink-0 object-cover ${square ? "" : "rounded-lg"}`}
+        className={`${SIZE[size]} shrink-0 object-contain bg-surface-raised border border-border ${square ? "" : "rounded-lg"}`}
       />
     );
   }
