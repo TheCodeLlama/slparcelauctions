@@ -27,5 +27,14 @@ public enum RealtyGroupLedgerEntryType {
      * paired via {@link com.slparcelauctions.backend.admin.audit.AdminActionType#REALTY_GROUP_WALLET_ADMIN_ADJUSTMENT}.
      * See spec §7.2.
      */
-    ADMIN_ADJUSTMENT
+    ADMIN_ADJUSTMENT,
+    /**
+     * Sub-project H -- member-initiated deposit into the group wallet.
+     * Covers both the app flow (personal SLParcels wallet -> group wallet) and the
+     * in-world flow (avatar pays L$ at a terminal, routed to a chosen group).
+     * {@code actor_user_id} carries the depositing member; {@code description}
+     * distinguishes "Deposit from app wallet" vs "Deposit at terminal in
+     * <region>" and may carry an optional 200-char user memo.
+     */
+    MEMBER_DEPOSIT
 }
