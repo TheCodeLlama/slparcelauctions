@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupActivityProjection;
 import com.slparcelauctions.backend.realty.RealtyGroupInvitation;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
@@ -72,6 +73,15 @@ public class RealtyGroupDtoMapper {
 
         GroupRatingDto rating = ratingService.computeRating(group.getId());
 
+        // Single round-trip for the public profile's activity strip + verified
+        // SL-group badge. {@code findActivity} always returns one row (counts
+        // collapse from zero rows to 0); we guard against a null defensively in
+        // case the projection layer ever changes shape.
+        RealtyGroupActivityProjection activity = groups.findActivity(group.getId());
+        int activeListings = activity == null ? 0 : activity.getActiveListings();
+        int completedSales = activity == null ? 0 : activity.getCompletedSales();
+        boolean hasVerifiedSlGroup = activity != null && activity.getHasVerifiedSlGroup();
+
         return new RealtyGroupPublicDto(
             group.getPublicId(),
             group.getName(),
@@ -85,7 +95,10 @@ public class RealtyGroupDtoMapper {
             agentCards,
             group.getMemberSeatLimit() == null ? 0 : group.getMemberSeatLimit(),
             rows.size(),
-            rating);
+            rating,
+            activeListings,
+            completedSales,
+            hasVerifiedSlGroup);
     }
 
     /**

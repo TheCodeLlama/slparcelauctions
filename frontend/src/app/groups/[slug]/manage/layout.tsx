@@ -16,25 +16,30 @@ interface SubNavItem {
   href: string;
   label: string;
   visible: boolean;
-  /** True for routes the layout's non-member redirect leaves alone. */
-  publicAccessible?: boolean;
 }
 
 /**
- * Persistent layout for every `/groups/[slug]/*` route. Spec section 5.4.
+ * Persistent layout for every {@code /groups/[slug]/manage/*} route. Wraps
+ * every member-only sub-page with the horizontal sub-nav whose items are
+ * gated on the caller's role and permissions.
  *
- * Renders a horizontal sub-nav whose items are gated on the caller's role
- * and permissions. Non-members deep-linking to any member-only path are
- * redirected to `/groups/[slug]` (the public profile root). The public
- * profile root and reviews route pass the gate unconditionally.
+ * <p>Non-members deep-linking to any path under {@code /manage/*} are
+ * redirected to the public profile at {@code /groups/[slug]}. The public
+ * profile and the public reviews page ({@code /groups/[slug]/reviews}) live
+ * outside this layout, so anonymous and non-member visitors hit them
+ * directly without ever entering this redirect logic.
  *
- * Why a "use client" layout: we need `useParams`, `usePathname`,
- * `useRealtyGroupBySlug`, and `useCurrentUser` to compute role + active
- * nav item. The slug to publicId resolution happens here and again in each
- * sub-page; TanStack Query dedupes the network request inside the same
- * render so the wire cost stays at one fetch per slug per visit.
+ * <p>The previous public-route exemption (which carved out the public
+ * profile + reviews from this layout's redirect) is gone — those routes no
+ * longer share a layout with the management view, so the exemption is no
+ * longer needed.
+ *
+ * <p>Why a "use client" layout: needs {@code useParams}, {@code usePathname},
+ * {@code useRealtyGroupBySlug}, and {@code useCurrentUser} to compute role +
+ * active nav item. TanStack Query dedupes the slug fetch between layout and
+ * sub-pages so the wire cost stays at one fetch per slug per visit.
  */
-export default function GroupSlugLayout({ children }: { children: ReactNode }) {
+export default function GroupManageLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const pathname = usePathname();
@@ -66,21 +71,15 @@ export default function GroupSlugLayout({ children }: { children: ReactNode }) {
     };
   }, [group.data, me.data]);
 
-  // Redirect non-members off member-only sub-paths. The public profile root
-  // (`/groups/[slug]`) and reviews (`/groups/[slug]/reviews`) are exempt:
-  // both render anonymously, so a logged-in non-member is no more restricted
-  // than an anonymous visitor.
+  // Redirect non-members off the management subtree entirely. Everything
+  // under /manage/* is member-only; anonymous / non-member viewers belong on
+  // the public profile.
   useEffect(() => {
     if (!slug || group.isPending || me.isPending || !group.data) return;
     if (isMember) return;
-    if (!pathname) return;
-    const base = `/groups/${encodeURIComponent(slug)}`;
-    const reviews = `${base}/reviews`;
-    if (pathname === base || pathname === reviews) return;
-    router.replace(base);
+    router.replace(`/groups/${encodeURIComponent(slug)}`);
   }, [
     slug,
-    pathname,
     group.isPending,
     group.data,
     me.isPending,
@@ -102,7 +101,7 @@ export default function GroupSlugLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  const base = `/groups/${encodeURIComponent(slug ?? "")}`;
+  const base = `/groups/${encodeURIComponent(slug ?? "")}/manage`;
   const canInvite = isLeader || callerPermissions.has("INVITE_AGENTS");
   const canViewWallet =
     isLeader || callerPermissions.has("VIEW_GROUP_TRANSACTIONS");
@@ -126,19 +125,13 @@ export default function GroupSlugLayout({ children }: { children: ReactNode }) {
       visible: canViewAnalytics,
     },
     { href: `${base}/invitations`, label: "Invitations", visible: canInvite },
-    {
-      href: `${base}/reviews`,
-      label: "Reviews",
-      visible: true,
-      publicAccessible: true,
-    },
     { href: `${base}/settings`, label: "Settings", visible: isLeader },
   ];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 flex flex-col gap-6">
       <nav
-        aria-label="Group sections"
+        aria-label="Group management sections"
         className="flex flex-wrap gap-1 border-b border-border"
         data-testid="group-sub-nav"
       >

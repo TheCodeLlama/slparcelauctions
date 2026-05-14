@@ -47,21 +47,21 @@ export function YourGroupsSection({ groups }: YourGroupsSectionProps) {
             </div>
             <div className="flex gap-1 flex-wrap text-xs">
               <Link
-                href={`/groups/${g.slug}/profile`}
+                href={`/groups/${g.slug}/manage/profile`}
                 aria-label={`Profile for ${g.name}`}
                 className="rounded bg-bg-subtle px-2 py-1 text-fg hover:bg-bg-muted"
               >
                 Profile
               </Link>
               <Link
-                href={`/groups/${g.slug}/wallet`}
+                href={`/groups/${g.slug}/manage/wallet`}
                 aria-label={`Wallet for ${g.name}`}
                 className="rounded bg-bg-subtle px-2 py-1 text-fg hover:bg-bg-muted"
               >
                 Wallet
               </Link>
               <Link
-                href={`/groups/${g.slug}/members`}
+                href={`/groups/${g.slug}/manage/members`}
                 aria-label={`Members for ${g.name}`}
                 className="rounded bg-bg-subtle px-2 py-1 text-fg hover:bg-bg-muted"
               >

@@ -44,12 +44,23 @@ public class RealtyGroupBrowseService {
     private final RealtyGroupRepository repo;
 
     @Transactional(readOnly = true)
-    public Page<RealtyGroupCardDto> browse(String q, GroupsSortKey sort, Pageable pageable) {
-        Pageable sorted = applySort(pageable, sort);
-        return repo.browseCards(q, sorted).map(this::toDto);
+    public Page<RealtyGroupCardDto> browse(
+            String q,
+            GroupsSortKey sort,
+            Sort.Direction direction,
+            double minRating,
+            int minReviews,
+            boolean activeOnly,
+            Pageable pageable) {
+        Pageable sorted = applySort(pageable, sort, direction);
+        double safeMinRating = Math.max(0.0, minRating);
+        int safeMinReviews = Math.max(0, minReviews);
+        return repo
+            .browseCards(q, safeMinRating, safeMinReviews, activeOnly, sorted)
+            .map(this::toDto);
     }
 
-    private Pageable applySort(Pageable original, GroupsSortKey sort) {
+    private Pageable applySort(Pageable original, GroupsSortKey sort, Sort.Direction direction) {
         // The browse SQL is a native query whose ORDER BY references SELECT
         // aliases ({@code averageRating}, {@code activeListings},
         // {@code completedSales}, {@code createdAt}). Plain
@@ -79,7 +90,8 @@ public class RealtyGroupBrowseService {
             case MOST_ACTIVE_LISTINGS -> "(activeListings)";
             case MOST_SALES -> "(completedSales)";
         };
-        Sort sortSpec = JpaSort.unsafe(Sort.Direction.DESC, primaryProp)
+        Sort.Direction effective = direction == null ? Sort.Direction.DESC : direction;
+        Sort sortSpec = JpaSort.unsafe(effective, primaryProp)
             .and(Sort.by(Sort.Order.asc("name")));
         return PageRequest.of(
             original.getPageNumber(),

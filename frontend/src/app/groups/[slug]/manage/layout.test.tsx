@@ -4,7 +4,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const replace = vi.fn();
-const pathnameMock = vi.fn<() => string>(() => "/groups/sunset-realty/profile");
+const pathnameMock = vi.fn<() => string>(() =>
+  "/groups/sunset-realty/manage/profile",
+);
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ slug: "sunset-realty" }),
@@ -23,7 +25,7 @@ vi.mock("@/lib/user", () => ({
   useCurrentUser: () => useCurrentUser(),
 }));
 
-import GroupSlugLayout from "./layout";
+import GroupManageLayout from "./layout";
 
 function wrap(node: ReactNode) {
   const qc = new QueryClient({
@@ -70,16 +72,16 @@ function group({
   };
 }
 
-describe("groups/[slug] layout", () => {
+describe("groups/[slug]/manage layout", () => {
   beforeEach(() => {
     replace.mockReset();
     useRealtyGroupBySlug.mockReset();
     useCurrentUser.mockReset();
     pathnameMock.mockReset();
-    pathnameMock.mockReturnValue("/groups/sunset-realty/profile");
+    pathnameMock.mockReturnValue("/groups/sunset-realty/manage/profile");
   });
 
-  it("renders all 8 sub-nav items for the leader", async () => {
+  it("renders all 7 management sub-nav items for the leader (Reviews lives outside /manage)", async () => {
     useRealtyGroupBySlug.mockReturnValue({
       data: group({ leaderPublicId: "u-me" }),
       isPending: false,
@@ -91,31 +93,41 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
       expect(
         screen.getByRole("link", { name: /^profile$/i }),
-      ).toBeInTheDocument();
+      ).toHaveAttribute("href", "/groups/sunset-realty/manage/profile");
     });
-    expect(screen.getByRole("link", { name: /^members$/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^wallet$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^members$/i })).toHaveAttribute(
+      "href",
+      "/groups/sunset-realty/manage/members",
+    );
+    expect(screen.getByRole("link", { name: /^wallet$/i })).toHaveAttribute(
+      "href",
+      "/groups/sunset-realty/manage/wallet",
+    );
     expect(
       screen.getByRole("link", { name: /^sl groups$/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /^analytics$/i }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", "/groups/sunset-realty/manage/sl-groups");
+    expect(screen.getByRole("link", { name: /^analytics$/i })).toHaveAttribute(
+      "href",
+      "/groups/sunset-realty/manage/analytics/commissions",
+    );
     expect(
       screen.getByRole("link", { name: /^invitations$/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^reviews$/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /^settings$/i }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", "/groups/sunset-realty/manage/invitations");
+    expect(screen.getByRole("link", { name: /^settings$/i })).toHaveAttribute(
+      "href",
+      "/groups/sunset-realty/manage/settings",
+    );
+    // Reviews moved outside the management subtree (it stays public at
+    // /groups/[slug]/reviews) — must not appear in the manage sub-nav.
+    expect(screen.queryByRole("link", { name: /^reviews$/i })).toBeNull();
   });
 
   it("hides Settings for an agent (non-leader)", async () => {
@@ -125,7 +137,6 @@ describe("groups/[slug] layout", () => {
         agents: [
           {
             userPublicId: "u-me",
-            // Agent with full perms except leader-only Settings — still no Settings.
             permissions: [
               "INVITE_AGENTS",
               "VIEW_GROUP_TRANSACTIONS",
@@ -144,9 +155,9 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
@@ -154,9 +165,7 @@ describe("groups/[slug] layout", () => {
         screen.getByRole("link", { name: /^profile$/i }),
       ).toBeInTheDocument();
     });
-    expect(
-      screen.queryByRole("link", { name: /^settings$/i }),
-    ).toBeNull();
+    expect(screen.queryByRole("link", { name: /^settings$/i })).toBeNull();
   });
 
   it("hides Wallet when agent lacks VIEW_GROUP_TRANSACTIONS", async () => {
@@ -174,9 +183,9 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
@@ -202,9 +211,9 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
@@ -230,9 +239,9 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
@@ -243,8 +252,8 @@ describe("groups/[slug] layout", () => {
     expect(screen.queryByRole("link", { name: /^invitations$/i })).toBeNull();
   });
 
-  it("redirects non-member off /groups/[slug]/profile to /groups/[slug]", async () => {
-    pathnameMock.mockReturnValue("/groups/sunset-realty/profile");
+  it("redirects non-member off /groups/[slug]/manage/profile to the public profile", async () => {
+    pathnameMock.mockReturnValue("/groups/sunset-realty/manage/profile");
     useRealtyGroupBySlug.mockReturnValue({
       data: group({ leaderPublicId: "u-someone-else" }),
       isPending: false,
@@ -256,9 +265,9 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
@@ -266,42 +275,8 @@ describe("groups/[slug] layout", () => {
     });
   });
 
-  it("does NOT redirect non-member visiting /groups/[slug]/reviews", async () => {
-    pathnameMock.mockReturnValue("/groups/sunset-realty/reviews");
-    useRealtyGroupBySlug.mockReturnValue({
-      data: group({ leaderPublicId: "u-someone-else" }),
-      isPending: false,
-      isError: false,
-    });
-    useCurrentUser.mockReturnValue({
-      data: { publicId: "u-me" },
-      isPending: false,
-    });
-
-    wrap(
-      <GroupSlugLayout>
-        <div>child</div>
-      </GroupSlugLayout>,
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("link", { name: /^reviews$/i }),
-      ).toBeInTheDocument();
-    });
-    expect(replace).not.toHaveBeenCalled();
-  });
-
-  // Anonymous-visitor expectation: useCurrentUser returns { data: undefined }
-  // (TanStack Query's idle state when the auth check has finished and the
-  // caller is unauthenticated). With no caller publicId, the
-  // (leader/agent) gate falls through and Reviews — the only publicly-
-  // visible nav item — is the sole link rendered. The non-member redirect
-  // still triggers from any member-only route (verified separately above).
-  // We assert here on the public profile root, which is exempt from the
-  // redirect, so the nav renders only the public link.
-  it("anonymous visitor on /groups/[slug] sees only the Reviews sub-nav link", async () => {
-    pathnameMock.mockReturnValue("/groups/sunset-realty");
+  it("redirects an anonymous visitor (no caller publicId) off the management subtree", async () => {
+    pathnameMock.mockReturnValue("/groups/sunset-realty/manage/profile");
     useRealtyGroupBySlug.mockReturnValue({
       data: group({ leaderPublicId: "u-leader" }),
       isPending: false,
@@ -313,20 +288,13 @@ describe("groups/[slug] layout", () => {
     });
 
     wrap(
-      <GroupSlugLayout>
+      <GroupManageLayout>
         <div>child</div>
-      </GroupSlugLayout>,
+      </GroupManageLayout>,
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("link", { name: /^reviews$/i }),
-      ).toBeInTheDocument();
+      expect(replace).toHaveBeenCalledWith("/groups/sunset-realty");
     });
-    expect(screen.queryByRole("link", { name: /^profile$/i })).toBeNull();
-    expect(screen.queryByRole("link", { name: /^settings$/i })).toBeNull();
-    expect(screen.queryByRole("link", { name: /^wallet$/i })).toBeNull();
-    expect(screen.queryByRole("link", { name: /^invitations$/i })).toBeNull();
-    expect(replace).not.toHaveBeenCalled();
   });
 });

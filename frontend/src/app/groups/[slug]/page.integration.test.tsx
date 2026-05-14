@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
-import { renderWithProviders, screen, waitFor } from "@/test/render";
+import {
+  fireEvent,
+  renderWithProviders,
+  screen,
+  waitFor,
+} from "@/test/render";
 import { server } from "@/test/msw/server";
 import type { RealtyGroupPublicDto } from "@/types/realty";
 import RealtyGroupPublicPage, { dynamic } from "./page";
@@ -44,6 +49,9 @@ function makeGroup(
     agents: [],
     memberSeatLimit: 50,
     memberCount: 1,
+    activeListingsCount: 0,
+    completedSalesCount: 0,
+    hasVerifiedSlGroup: false,
     ...overrides,
   };
 }
@@ -57,13 +65,13 @@ describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("renders hero + leader on success", async () => {
+  it("renders the template hero (name + tagline + stat grid) on success", async () => {
     server.use(
       http.get(
         "*/api/v1/realty-groups/by-slug/mainland-realty",
         () => HttpResponse.json(makeGroup()),
       ),
-      http.get("*/api/v1/me/realty-groups", () =>
+      http.get("*/api/v1/users/me", () =>
         HttpResponse.json({ status: 401, title: "Unauthorized" }, { status: 401 }),
       ),
     );
@@ -74,12 +82,34 @@ describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Mainland Realty" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Avery Leader")).toBeInTheDocument();
     expect(screen.getByText("Premium Mainland brokerage.")).toBeInTheDocument();
-    expect(screen.queryByText("Agents")).not.toBeInTheDocument();
+    // Stat-grid labels confirm the template chrome is in place. "Lifetime
+    // sales" appears only on the stat grid; "Active listings" appears there
+    // and on the tab label, so we match the tab role for that one.
+    expect(screen.getByText(/lifetime sales/i)).toBeInTheDocument();
+    expect(screen.getByText(/^members$/i, { selector: "div" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /active listings/i })).toBeInTheDocument();
   });
 
-  it("renders the agents section when agents are present (excluding the leader)", async () => {
+  it("renders the Verified SL group badge when hasVerifiedSlGroup is true", async () => {
+    server.use(
+      http.get(
+        "*/api/v1/realty-groups/by-slug/mainland-realty",
+        () =>
+          HttpResponse.json(makeGroup({ hasVerifiedSlGroup: true })),
+      ),
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json({ status: 401, title: "Unauthorized" }, { status: 401 }),
+      ),
+    );
+    const ui = await RealtyGroupPublicPage({
+      params: Promise.resolve({ slug: "mainland-realty" }),
+    });
+    renderWithProviders(ui);
+    expect(screen.getByText(/verified sl group/i)).toBeInTheDocument();
+  });
+
+  it("renders the leader (and agents) under the Members tab", async () => {
     server.use(
       http.get(
         "*/api/v1/realty-groups/by-slug/mainland-realty",
@@ -108,9 +138,9 @@ describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
                   joinedAt: null,
                   agentCommissionRate: null,
                 },
-                // Backend includes the leader row in `agents` for query
-                // convenience; the page strips it so the leader is only
-                // rendered once (in the Leader section).
+                // Backend may include the leader row in `agents`; the component
+                // filters it out so the leader is only rendered in the Leader
+                // section of the Members tab.
                 {
                   memberPublicId: "66666666-6666-6666-6666-666666666666",
                   userPublicId: "11111111-1111-1111-1111-111111111111",
@@ -125,7 +155,7 @@ describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
             }),
           ),
       ),
-      http.get("*/api/v1/me/realty-groups", () =>
+      http.get("*/api/v1/users/me", () =>
         HttpResponse.json({ status: 401, title: "Unauthorized" }, { status: 401 }),
       ),
     );
@@ -133,12 +163,18 @@ describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
       params: Promise.resolve({ slug: "mainland-realty" }),
     });
     renderWithProviders(ui);
-    expect(screen.getByText("Agents")).toBeInTheDocument();
+
+    // Click the Members tab to flip the in-page state.
+    fireEvent.click(screen.getByRole("tab", { name: /members/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Group leader")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Avery Leader")).toBeInTheDocument();
     expect(screen.getByText("Agent One")).toBeInTheDocument();
     expect(screen.getByText("Agent Two")).toBeInTheDocument();
-    // Avery Leader appears once: in the Leader section, not again in agents.
-    const leaderMatches = screen.getAllByText("Avery Leader");
-    expect(leaderMatches.length).toBe(1);
+    // Leader is filtered out of the Agents block — only one rendering.
+    expect(screen.getAllByText("Avery Leader").length).toBe(1);
   });
 
   it("calls notFound() on a 404 response", async () => {
@@ -227,35 +263,51 @@ describe("RealtyGroupPublicPage server component (/groups/[slug])", () => {
     expect(notFoundSpy).not.toHaveBeenCalled();
   });
 
-  it("surfaces the gear-icon affordance pointing at the new /groups/[slug]/profile route", async () => {
+  it("renders the Manage group button (linking to /manage/profile) when the viewer is the leader", async () => {
+    const leaderUser = {
+      publicId: "11111111-1111-1111-1111-111111111111",
+      username: "avery",
+      email: "avery@example.com",
+      displayName: "Avery Leader",
+      slAvatarUuid: null,
+      verified: true,
+      role: "USER" as const,
+    };
     server.use(
       http.get(
         "*/api/v1/realty-groups/by-slug/mainland-realty",
         () => HttpResponse.json(makeGroup()),
       ),
-      http.get("*/api/v1/me/realty-groups", () =>
-        HttpResponse.json([
-          {
-            publicId: "00000000-0000-0000-0000-000000000001",
-            name: "Mainland Realty",
-            slug: "mainland-realty",
-            logoUrl: null,
-            memberCount: 1,
-            memberSince: "2026-04-01T10:00:00Z",
-          },
-        ]),
+      http.get("*/api/v1/users/me", () => HttpResponse.json(leaderUser)),
+    );
+    const ui = await RealtyGroupPublicPage({
+      params: Promise.resolve({ slug: "mainland-realty" }),
+    });
+    renderWithProviders(ui, { auth: "authenticated", authUser: leaderUser });
+    await waitFor(() => {
+      expect(screen.getByTestId("manage-group-btn")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("manage-group-btn").getAttribute("href")).toBe(
+      "/groups/mainland-realty/manage/profile",
+    );
+    expect(screen.queryByTestId("contact-group-btn")).toBeNull();
+  });
+
+  it("renders the Contact group button (template default) for an anonymous viewer", async () => {
+    server.use(
+      http.get(
+        "*/api/v1/realty-groups/by-slug/mainland-realty",
+        () => HttpResponse.json(makeGroup()),
+      ),
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json({ status: 401, title: "Unauthorized" }, { status: 401 }),
       ),
     );
     const ui = await RealtyGroupPublicPage({
       params: Promise.resolve({ slug: "mainland-realty" }),
     });
     renderWithProviders(ui);
-    await waitFor(() => {
-      expect(screen.getByTestId("edit-group-affordance")).toBeInTheDocument();
-    });
-    const link = screen.getByTestId("edit-group-affordance");
-    expect(link.getAttribute("href")).toBe(
-      "/groups/mainland-realty/profile",
-    );
+    expect(screen.getByTestId("contact-group-btn")).toBeInTheDocument();
+    expect(screen.queryByTestId("manage-group-btn")).toBeNull();
   });
 });

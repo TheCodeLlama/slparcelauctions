@@ -14,15 +14,15 @@ describe("YourGroupsSection", () => {
     expect(screen.getAllByTestId("your-groups-card")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /Profile.*Sunset/i })).toHaveAttribute(
       "href",
-      "/groups/sunset/profile",
+      "/groups/sunset/manage/profile",
     );
     expect(screen.getByRole("link", { name: /Wallet.*Sunset/i })).toHaveAttribute(
       "href",
-      "/groups/sunset/wallet",
+      "/groups/sunset/manage/wallet",
     );
     expect(screen.getByRole("link", { name: /Members.*Moonlit/i })).toHaveAttribute(
       "href",
-      "/groups/moonlit/members",
+      "/groups/moonlit/manage/members",
     );
     expect(screen.getByRole("link", { name: /Reviews.*Moonlit/i })).toHaveAttribute(
       "href",

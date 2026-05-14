@@ -22,7 +22,7 @@ export interface MyGroupsListProps {
 
 /**
  * Renders the caller's realty-group memberships as a vertical list of rows
- * linking to `/groups/{slug}/profile`. Extracted from the legacy
+ * linking to `/groups/{slug}/manage/profile`. Extracted from the legacy
  * `/dashboard/groups` page so the new `/groups/me` route is a thin wrapper.
  *
  * Empty state is owned by the consumer — callers may want different copy
@@ -60,7 +60,7 @@ function MyGroupRow({ group }: { group: RealtyGroupSummaryDto }) {
   return (
     <li>
       <Link
-        href={`/groups/${encodeURIComponent(group.slug)}/profile`}
+        href={`/groups/${encodeURIComponent(group.slug)}/manage/profile`}
         className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2.5 transition-colors hover:bg-bg-hover"
         data-testid={`my-group-row-${group.publicId}`}
       >

@@ -6,9 +6,8 @@ import { GroupCreateForm } from "@/components/realty/GroupCreateForm";
 /**
  * Authenticated create-group form. Replaces /dashboard/groups/create under
  * the Groups namespace migration (spec section 3.2). The form's post-create
- * redirect updates separately in Task 29 (sweep) — when this page lands,
- * the form still pushes to the old /dashboard/groups/[slug]/manage; Task 29
- * retargets to /groups/[slug]/profile.
+ * redirect targets /groups/[slug]/manage/profile (the member-only management
+ * subtree introduced by the template-1:1 public/manage split).
  */
 export default function CreateGroupPage() {
   return (

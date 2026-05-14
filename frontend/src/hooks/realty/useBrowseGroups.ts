@@ -35,10 +35,28 @@ export function useBrowseGroups(
   const page = params.page ?? 0;
   const size = params.size ?? 20;
   const sort = params.sort ?? "RATING";
+  const direction = params.direction ?? "DESC";
+  const minRating = params.minRating ?? 0;
+  const minReviews = params.minReviews ?? 0;
+  const activeOnly = !!params.activeOnly;
 
   return useQuery({
-    queryKey: ["realty-groups", "browse", { q, page, size, sort }] as const,
-    queryFn: () => getBrowseGroups(params),
+    queryKey: [
+      "realty-groups",
+      "browse",
+      { q, page, size, sort, direction, minRating, minReviews, activeOnly },
+    ] as const,
+    queryFn: () =>
+      getBrowseGroups({
+        q,
+        page,
+        size,
+        sort,
+        direction,
+        minRating,
+        minReviews,
+        activeOnly,
+      }),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });

@@ -63,7 +63,7 @@ describe("GroupCreateForm", () => {
     await userEvent.type(screen.getByTestId("group-create-name"), "My Group");
     await userEvent.click(screen.getByTestId("group-create-submit"));
     await waitFor(() =>
-      expect(pushMock).toHaveBeenCalledWith("/groups/my-group/profile"),
+      expect(pushMock).toHaveBeenCalledWith("/groups/my-group/manage/profile"),
     );
   });
 
