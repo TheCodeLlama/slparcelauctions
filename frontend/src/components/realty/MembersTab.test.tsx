@@ -116,7 +116,7 @@ describe("MembersTab", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("only shows Edit permissions for the leader caller", () => {
+  it("only shows Permissions for the leader caller", () => {
     renderWithProviders(
       <MembersTab
         group={makeGroup()}
@@ -126,11 +126,11 @@ describe("MembersTab", () => {
       />,
     );
     expect(
-      screen.queryByTestId(`member-edit-permissions-${AGENT_USER_ID}`),
+      screen.queryByTestId(`member-permissions-edit-${AGENT_USER_ID}`),
     ).not.toBeInTheDocument();
   });
 
-  it("shows Edit permissions when caller is leader", () => {
+  it("shows Permissions when caller is leader", () => {
     renderWithProviders(
       <MembersTab
         group={makeGroup()}
@@ -140,8 +140,84 @@ describe("MembersTab", () => {
       />,
     );
     expect(
-      screen.getByTestId(`member-edit-permissions-${AGENT_USER_ID}`),
+      screen.getByTestId(`member-permissions-edit-${AGENT_USER_ID}`),
     ).toBeInTheDocument();
+  });
+
+  it("shows a separate Commission rate button on agent rows for the leader", () => {
+    renderWithProviders(
+      <MembersTab
+        group={makeGroup()}
+        callerPermissions={permSet()}
+        isLeader={true}
+        callerUserPublicId={LEADER_USER_ID}
+      />,
+    );
+    expect(
+      screen.getByTestId(`member-commission-rate-edit-${AGENT_USER_ID}`),
+    ).toBeInTheDocument();
+    // The leader row never gets a Commission rate button (commission applies
+    // to agents only).
+    expect(
+      screen.queryByTestId(`member-commission-rate-edit-${LEADER_USER_ID}`),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does NOT render the leader twice when backend includes the leader in the agents array", () => {
+    // Backend's group.agents projection includes the leader row so the SQL
+    // can drive both the leader card and the agents list. The members tab
+    // strips it before concatenating with the synthesised leader card so
+    // the leader doesn't render twice.
+    renderWithProviders(
+      <MembersTab
+        group={makeGroup({
+          agents: [
+            makeAgent(),
+            makeAgent({
+              memberPublicId: "leader-row-from-backend",
+              userPublicId: LEADER_USER_ID,
+              displayName: "Leader Lee",
+              role: "LEADER",
+            }),
+          ],
+        })}
+        callerPermissions={permSet()}
+        isLeader={true}
+        callerUserPublicId={LEADER_USER_ID}
+      />,
+    );
+    const leaderRows = screen.getAllByText("Leader Lee");
+    expect(leaderRows.length).toBe(1);
+  });
+
+  it("renders 'Commission: Not set' on an agent row when the rate is null", () => {
+    renderWithProviders(
+      <MembersTab
+        group={makeGroup({
+          agents: [makeAgent({ agentCommissionRate: null })],
+        })}
+        callerPermissions={permSet()}
+        isLeader={true}
+        callerUserPublicId={LEADER_USER_ID}
+      />,
+    );
+    const rate = screen.getByTestId(`member-commission-rate-${AGENT_USER_ID}`);
+    expect(rate.textContent).toMatch(/Commission:\s*Not set/);
+  });
+
+  it("renders the commission percentage when the rate is set", () => {
+    renderWithProviders(
+      <MembersTab
+        group={makeGroup({
+          agents: [makeAgent({ agentCommissionRate: 0.125 })],
+        })}
+        callerPermissions={permSet()}
+        isLeader={true}
+        callerUserPublicId={LEADER_USER_ID}
+      />,
+    );
+    const rate = screen.getByTestId(`member-commission-rate-${AGENT_USER_ID}`);
+    expect(rate.textContent).toMatch(/12\.50%/);
   });
 
   it("shows Leave group on the caller's own non-leader row", () => {
