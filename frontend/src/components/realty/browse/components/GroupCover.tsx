@@ -1,5 +1,7 @@
 "use client";
 
+import { apiUrl } from "@/lib/api/url";
+
 interface GroupCoverProps {
   coverUrl?: string | null;
   size?: "card" | "hero";
@@ -7,11 +9,12 @@ interface GroupCoverProps {
 
 export function GroupCover({ coverUrl, size = "card" }: GroupCoverProps) {
   const heightClass = size === "hero" ? "h-[200px]" : "h-[92px]";
+  const resolved = apiUrl(coverUrl ?? null);
 
-  if (coverUrl) {
+  if (resolved) {
     return (
-      <div className={`relative w-full ${heightClass} overflow-hidden`}>
-        <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+      <div className={`relative w-full ${heightClass} overflow-hidden bg-bg-hover`}>
+        <img src={resolved} alt="" className="w-full h-full object-contain" />
       </div>
     );
   }
