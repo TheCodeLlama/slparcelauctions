@@ -12,6 +12,7 @@ import type {
 import { apiUrl } from "@/lib/api/url";
 import { useCurrentUser } from "@/lib/user";
 import { cn } from "@/lib/cn";
+import { RealtyGroupHeroBanner } from "@/components/realty/RealtyGroupHeroBanner";
 import {
   fetchGroupReviews,
   type GroupReviewRow,
@@ -31,23 +32,24 @@ type Tab = "listings" | "members" | "reviews" | "about";
 const TAGLINE_MAX_CHARS = 120;
 
 /**
- * Public group profile, rendered at {@code /groups/[slug]}. 1:1 visual port
- * of {@code docs/realty-groups/claude-design/pages/GroupDetailPage.tsx}, with
- * two intentional deviations:
+ * Public group profile, rendered at {@code /groups/[slug]}. Renders the
+ * existing {@link RealtyGroupHeroBanner} at the top (cover image + overlapping
+ * logo + group name + member-count chip + description + member-since +
+ * website link) and the claude.ai/design template's chrome below it
+ * (Verified-SL-group + rating chip strip, 4-stat grid, tabbed sections for
+ * Active listings / Members / Reviews / About).
  *
- * <ul>
- *   <li>The hero cover uses our existing 16:5 aspect-ratio style with the
- *       backend-served image (or a subtle fallback gradient). The template's
- *       {@code GroupCover} component, with its fixed 200px height and SVG
- *       wave overlay, was rejected by the user as "weird" — we keep the
- *       calm 16:5 strip we already render on every other surface.</li>
- *   <li>The template's "Contact group" primary button becomes a
- *       <strong>"Manage group"</strong> button linking to
- *       {@code /groups/[slug]/manage/profile} when the viewer is the group
- *       leader or an agent. Non-member viewers still see the original
- *       "Contact group" button (currently a no-op visually consistent with
- *       the template).</li>
- * </ul>
+ * <p>The cover-and-hero block is intentionally NOT the template's
+ * {@code GroupDetailPage} hero — the user kept the pre-existing
+ * {@code RealtyGroupHeroBanner} surface unchanged so the rest of the site's
+ * group surfaces stay visually consistent. Only the area below the hero
+ * matches the template.
+ *
+ * <p>The template's "Contact group" primary button becomes a
+ * <strong>"Manage group"</strong> link to {@code /groups/[slug]/manage/profile}
+ * when the viewer is the group leader or an agent. Non-member viewers see
+ * the "Contact group" button (currently a placeholder action consistent
+ * with the template).
  */
 export function PublicGroupProfile({ group }: PublicGroupProfileProps) {
   const me = useCurrentUser();
@@ -76,80 +78,40 @@ export function PublicGroupProfile({ group }: PublicGroupProfileProps) {
     ["about", "About"],
   ];
 
-  const coverHref = apiUrl(group.coverUrl);
-  const logoHref = apiUrl(group.logoUrl);
-
   return (
     <div>
-      {/* Cover — kept at our 16:5 ratio (template's GroupCover was rejected as
-          visually noisy). Fallback gradient mirrors the existing hero banner. */}
-      <div
-        className="relative aspect-[16/5] w-full overflow-hidden bg-bg-hover sm:rounded-xl"
-        data-testid="public-group-cover"
-      >
-        {coverHref ? (
-          <img
-            src={coverHref}
-            alt=""
-            className="h-full w-full object-cover"
-            aria-hidden="true"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="h-full w-full bg-gradient-to-br from-info-bg via-bg-hover to-surface-raised"
-          />
-        )}
-      </div>
+      <RealtyGroupHeroBanner
+        name={group.name}
+        slug={group.slug}
+        description={group.description}
+        website={group.website}
+        memberSince={group.memberSince}
+        memberCount={group.memberCount}
+        coverUrl={group.coverUrl}
+        logoUrl={group.logoUrl}
+      />
 
-      <div className="w-full max-w-[1280px] mx-auto px-6">
-        <div className="-mt-[60px] flex gap-5 items-end mb-6 flex-wrap">
-          <div className="rounded-lg overflow-hidden shadow-xl shrink-0 bg-surface-raised border border-border">
-            {logoHref ? (
-              <img
-                src={logoHref}
-                alt={`${group.name} logo`}
-                className="w-[108px] h-[108px] object-cover"
-              />
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-3 flex-wrap">
+            {hasVerifiedSlGroup && (
+              <Badge tone="success" dot>
+                <ShieldCheck className="w-2.5 h-2.5" /> Verified SL group
+              </Badge>
+            )}
+            {reviewCount > 0 && averageRating !== null ? (
+              <span className="inline-flex items-center gap-1.5 text-sm text-fg-muted">
+                <Star className="w-3.5 h-3.5 text-brand fill-current" />
+                <span className="font-semibold text-fg">
+                  {averageRating.toFixed(1)}
+                </span>
+                <span>&middot; {reviewCount} reviews</span>
+              </span>
             ) : (
-              <div className="w-[108px] h-[108px] bg-gradient-to-br from-brand to-amber-400 text-on-brand grid place-items-center font-bold tracking-tight text-4xl">
-                {initialsOf(group.name) || "G"}
-              </div>
+              <span className="text-sm text-fg-muted">No reviews yet</span>
             )}
           </div>
-          <div className="flex-1 pb-1.5 min-w-0">
-            <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-              <h1 className="text-[28px] font-bold tracking-tight m-0 text-fg">
-                {group.name}
-              </h1>
-              {hasVerifiedSlGroup && (
-                <Badge tone="success" dot>
-                  <ShieldCheck className="w-2.5 h-2.5" /> Verified SL group
-                </Badge>
-              )}
-            </div>
-            <div className="flex gap-3.5 items-center text-sm text-fg-muted flex-wrap">
-              {reviewCount > 0 && averageRating !== null ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <Star className="w-3.5 h-3.5 text-brand fill-current" />
-                  <span className="font-semibold text-fg">
-                    {averageRating.toFixed(1)}
-                  </span>
-                  <span>&middot; {reviewCount} reviews</span>
-                </span>
-              ) : (
-                <span>No reviews yet</span>
-              )}
-              <span>&middot;</span>
-              <span>Active since {memberSince}</span>
-              <span>&middot;</span>
-              <span>
-                {group.memberCount} of {group.memberSeatLimit} members
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-2 pb-1.5">
+          <div className="flex gap-2">
             <Btn variant="secondary">
               <Heart className="w-3.5 h-3.5" /> Follow
             </Btn>
@@ -168,10 +130,6 @@ export function PublicGroupProfile({ group }: PublicGroupProfileProps) {
             )}
           </div>
         </div>
-
-        <p className="text-base text-fg-muted max-w-[720px] leading-relaxed mt-0 mb-6">
-          {tagline}
-        </p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 mb-7 rounded-lg border border-border bg-surface-raised overflow-hidden">
           <StatCell
@@ -501,13 +459,6 @@ function taglineFor(description: string | null): string {
   if (!description) return "";
   if (description.length <= TAGLINE_MAX_CHARS) return description;
   return description.substring(0, TAGLINE_MAX_CHARS) + "...";
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "";
-  if (parts.length === 1) return parts[0]!.charAt(0).toUpperCase();
-  return (parts[0]!.charAt(0) + parts[1]!.charAt(0)).toUpperCase();
 }
 
 function formatFoundedAt(iso: string): string {
