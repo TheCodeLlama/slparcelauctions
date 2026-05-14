@@ -81,12 +81,18 @@ describe("registerSchema", () => {
 
 describe("loginSchema", () => {
   it("accepts a valid login payload", () => {
-    const result = loginSchema.safeParse({ username: "user", password: "anything" });
+    const result = loginSchema.safeParse({
+      slpaLoginUsername: "user",
+      password: "anything",
+    });
     expect(result.success).toBe(true);
   });
 
   it("rejects empty password", () => {
-    const result = loginSchema.safeParse({ username: "user", password: "" });
+    const result = loginSchema.safeParse({
+      slpaLoginUsername: "user",
+      password: "",
+    });
     expect(result.success).toBe(false);
   });
 });
