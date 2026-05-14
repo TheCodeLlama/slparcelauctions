@@ -7,6 +7,10 @@ import { Drawer } from "@/components/ui/Drawer";
 import { useToast } from "@/components/ui/Toast/useToast";
 import { useBulkCommissionEdit } from "@/hooks/realty/useBulkCommissionEdit";
 import { isApiError } from "@/lib/api";
+import {
+  rateToPercentDisplay,
+  rateToPercentInput,
+} from "@/lib/realty/commission";
 import type {
   AgentCardDto,
   BulkCommissionRateEntry,
@@ -94,10 +98,9 @@ function BulkMemberCommissionEditForm({ group, onClose }: FormProps) {
   const [rates, setRates] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const agent of sortedAgents) {
-      initial[agent.memberPublicId] =
-        agent.agentCommissionRate != null
-          ? (agent.agentCommissionRate * 100).toString()
-          : "";
+      initial[agent.memberPublicId] = rateToPercentInput(
+        agent.agentCommissionRate,
+      );
     }
     return initial;
   });
@@ -286,7 +289,7 @@ interface BulkRowProps {
 function BulkRow({ agent, value, onChange, error, disabled }: BulkRowProps) {
   const currentRateLabel =
     agent.agentCommissionRate != null
-      ? `${(agent.agentCommissionRate * 100).toFixed(2)}%`
+      ? `${rateToPercentDisplay(agent.agentCommissionRate)}%`
       : "—";
   return (
     <li

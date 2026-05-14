@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { useLeaveGroup, useRemoveMember } from "@/hooks/realty/useRealtyGroups";
+import { rateToPercentDisplay } from "@/lib/realty/commission";
 import { permissionLabel } from "@/lib/realty/permissions";
 import type {
   AgentCardDto,
@@ -177,7 +178,7 @@ export function MembersTab({
                     >
                       Commission:{" "}
                       {m.agentCommissionRate != null
-                        ? `${(m.agentCommissionRate * 100).toFixed(2)}%`
+                        ? `${rateToPercentDisplay(m.agentCommissionRate)}%`
                         : "Not set"}
                     </span>
                   )}
