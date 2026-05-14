@@ -27,7 +27,7 @@ class RealtyGroupWalletServiceCreditAgentFeeTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-05-12T10:00:00Z"), ZoneOffset.UTC);
 
     private final RealtyGroupWalletService service = new RealtyGroupWalletService(
-        groupRepo, ledgerRepo, null, null, null, publisher, null, null, null, clock);
+        groupRepo, ledgerRepo, null, null, null, publisher, null, null, null, null, null, clock);
 
     @Test
     void creditAgentFee_addsBalanceAppendsLedgerAndBroadcasts() throws Exception {
