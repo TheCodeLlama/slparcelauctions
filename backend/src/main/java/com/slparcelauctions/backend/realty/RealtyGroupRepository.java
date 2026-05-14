@@ -124,7 +124,8 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
 
     /**
      * Public browse-cards query for {@code GET /api/v1/realty-groups}. Spec
-     * section 6.1.
+     * section 6.1, extended in the template-1:1 restoration with optional
+     * user-driven filters that mirror the template's sidebar controls.
      *
      * <p>Filters always applied (impossible to disable from the wire):
      * <ul>
@@ -133,8 +134,20 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
      *   <li>no currently-active suspension is in force.</li>
      * </ul>
      *
-     * <p>{@code q} is a case-insensitive substring match against the group's
-     * name and description; NULL or blank disables the predicate.
+     * <p>Optional caller-driven filters:
+     * <ul>
+     *   <li>{@code q} — case-insensitive substring match on name + description;
+     *       NULL or blank disables the predicate.</li>
+     *   <li>{@code minRating} — minimum average review rating in {@code [0, 5]}.
+     *       A group with no reviews has a coalesced rating of {@code 0}, so
+     *       any {@code minRating > 0} implicitly hides unreviewed groups
+     *       (same semantics as the template's StarPicker filter). Zero is a
+     *       no-op.</li>
+     *   <li>{@code minReviews} — minimum review count. Zero is a no-op.</li>
+     *   <li>{@code activeOnly} — when {@code TRUE}, restrict to groups with
+     *       at least one scheduled or live auction (matches the template's
+     *       "Has active listing" checkbox). {@code FALSE} is a no-op.</li>
+     * </ul>
      *
      * <p>{@code AVG(r.rating)} is cast to {@code double precision} so Hibernate
      * binds it as {@link Double} (matching {@code GroupRatingDto.averageRating}'s
@@ -174,6 +187,19 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
                              AND sus.lifted_at IS NULL)
           AND (:q IS NULL OR LOWER(g.name) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%')
                           OR LOWER(g.description) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%'))
+          AND (:minRating <= 0 OR COALESCE(
+                 (SELECT AVG(r.rating)::double precision FROM reviews r
+                    JOIN auctions a ON r.auction_id = a.id
+                    WHERE a.realty_group_id = g.id),
+                 0) >= :minRating)
+          AND (:minReviews <= 0 OR
+                 (SELECT count(*) FROM reviews r
+                    JOIN auctions a ON r.auction_id = a.id
+                    WHERE a.realty_group_id = g.id) >= :minReviews)
+          AND (:activeOnly = FALSE OR EXISTS (
+                 SELECT 1 FROM auctions a
+                  WHERE a.realty_group_id = g.id
+                    AND a.status IN ('SCHEDULED','LIVE')))
         """,
         countQuery = """
         SELECT count(*)
@@ -186,9 +212,25 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
                              AND sus.lifted_at IS NULL)
           AND (:q IS NULL OR LOWER(g.name) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%')
                           OR LOWER(g.description) LIKE CONCAT('%', LOWER(CAST(:q AS text)), '%'))
+          AND (:minRating <= 0 OR COALESCE(
+                 (SELECT AVG(r.rating)::double precision FROM reviews r
+                    JOIN auctions a ON r.auction_id = a.id
+                    WHERE a.realty_group_id = g.id),
+                 0) >= :minRating)
+          AND (:minReviews <= 0 OR
+                 (SELECT count(*) FROM reviews r
+                    JOIN auctions a ON r.auction_id = a.id
+                    WHERE a.realty_group_id = g.id) >= :minReviews)
+          AND (:activeOnly = FALSE OR EXISTS (
+                 SELECT 1 FROM auctions a
+                  WHERE a.realty_group_id = g.id
+                    AND a.status IN ('SCHEDULED','LIVE')))
         """,
         nativeQuery = true)
     Page<RealtyGroupCardProjection> browseCards(
         @Param("q") String q,
+        @Param("minRating") double minRating,
+        @Param("minReviews") int minReviews,
+        @Param("activeOnly") boolean activeOnly,
         Pageable pageable);
 }
