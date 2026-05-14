@@ -77,9 +77,22 @@ export const registerSchema = z
 
 /**
  * Login form schema. Username + non-empty password.
+ *
+ * <p>The form-state field is named {@code slpaLoginUsername} (not
+ * {@code username}) so the rendered DOM input carries the same unique
+ * name. Browsers populate their autofill dropdown by matching the field's
+ * {@code name} attribute against credentials they've saved against fields
+ * named {@code username} / {@code email} / {@code user} / {@code login}
+ * across every site -- producing a dropdown full of unrelated emails from
+ * other origins. A non-standard name kills those heuristic suggestions;
+ * the {@code autoComplete="username"} role token still lets password
+ * managers (Chrome's built-in, 1Password, Bitwarden) autofill the user's
+ * saved SLParcels credential via origin + role matching. The wire
+ * payload is mapped back to {@code username} at submit time so the
+ * backend contract is unchanged.
  */
 export const loginSchema = z.object({
-  username: usernameSchema,
+  slpaLoginUsername: usernameSchema,
   password: passwordInputSchema,
 });
 
