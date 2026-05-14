@@ -73,12 +73,19 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
      * {@code search} is matched via {@code LOWER(name) LIKE %lower%} so e.g. "Mainland" finds
      * "Mainland Realty Co". When {@code search} is blank/null the predicate degenerates to
      * "match any" via the OR-with-null guard.
+     *
+     * <p>{@code :search} is wrapped in {@code CAST(... AS string)} so PostgreSQL knows the
+     * parameter's type at SQL-prepare time. Without the cast, Hibernate emits the parameter
+     * as a typed null whose JDBC type code maps to {@code bytea} server-side, and the
+     * planner blows up with {@code ERROR: function lower(bytea) does not exist} the first
+     * time an admin hits the list page with no search query. Same cast pattern as the
+     * browse-cards native query.
      */
     @Query("""
         SELECT g FROM RealtyGroup g
          WHERE ((:includeActive = TRUE AND g.dissolvedAt IS NULL)
              OR (:includeDissolved = TRUE AND g.dissolvedAt IS NOT NULL))
-           AND (:search IS NULL OR LOWER(g.name) LIKE LOWER(CONCAT('%', :search, '%')))
+           AND (:search IS NULL OR LOWER(g.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
         """)
     Page<RealtyGroup> findForAdminWithSearch(
         @Param("includeActive") boolean includeActive,
