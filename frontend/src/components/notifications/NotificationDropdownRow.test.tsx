@@ -27,6 +27,7 @@ function makeNotification(partial: Partial<NotificationDto> = {}): NotificationD
     title: "You were outbid",
     body: "Someone bid higher.",
     data: { auctionId: 42 },
+    linkUrl: null,
     read: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -97,5 +98,43 @@ describe("NotificationDropdownRow", () => {
     const row = screen.getByRole("button", { name: "You were outbid" });
     expect(row).toBeInTheDocument();
     expect(row.querySelector(".bg-brand.rounded-full")).not.toBeInTheDocument();
+  });
+
+  it("clicking a row with linkUrl navigates to linkUrl (not the category deeplink)", async () => {
+    // Realty-group invitation: backend sets linkUrl=/groups/invitations/me. The
+    // category falls back to /notifications via categoryConfigOrFallback, so
+    // linkUrl must win when present.
+    const n = makeNotification({
+      publicId: "00000000-0000-0000-0000-000000000010",
+      category: "REALTY_GROUP_INVITATION_SENT" as never,
+      title: "You were invited",
+      body: "Review the invitation.",
+      linkUrl: "/groups/invitations/me",
+      data: {},
+      read: false,
+    });
+    const onClose = vi.fn();
+    renderWithProviders(<NotificationDropdownRow notification={n} onClose={onClose} />);
+
+    const row = screen.getByRole("button", { name: /You were invited/ });
+    await userEvent.click(row);
+
+    expect(mockPush).toHaveBeenCalledWith("/groups/invitations/me");
+    expect(markReadMutate).toHaveBeenCalledWith("00000000-0000-0000-0000-000000000010");
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("clicking a row with null linkUrl still uses the category deeplink (no regression)", async () => {
+    const n = makeNotification({
+      publicId: "00000000-0000-0000-0000-000000000011",
+      linkUrl: null,
+      data: { auctionId: 77 },
+    });
+    renderWithProviders(<NotificationDropdownRow notification={n} />);
+
+    const row = screen.getByRole("button", { name: /You were outbid/ });
+    await userEvent.click(row);
+
+    expect(mockPush).toHaveBeenCalledWith("/auction/77");
   });
 });

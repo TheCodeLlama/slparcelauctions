@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { UsersRound } from "lucide-react";
 import { useAdminStats } from "@/hooks/admin/useAdminStats";
 import { QueueCard } from "./QueueCard";
 import { StatCard } from "./StatCard";
@@ -57,7 +59,7 @@ export function AdminDashboardPage() {
       </div>
 
       <div className="text-[11px] uppercase tracking-wide opacity-60 mb-2">Platform · lifetime</div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 mb-7">
         <StatCard label="Active listings" value={data.platform.activeListings} />
         <StatCard label="Total users" value={data.platform.totalUsers} />
         <StatCard label="Active escrows" value={data.platform.activeEscrows} />
@@ -68,6 +70,18 @@ export function AdminDashboardPage() {
           value={formatLindens(data.platform.lindenCommissionEarned)}
           accent
         />
+      </div>
+
+      <div className="text-[11px] uppercase tracking-wide opacity-60 mb-2">Manage</div>
+      <div className="grid grid-cols-4 gap-3">
+        <Link
+          href="/admin/groups"
+          data-testid="admin-dashboard-groups-card"
+          className="bg-bg-muted border border-border-subtle rounded-lg p-4 hover:opacity-90 flex items-center gap-3"
+        >
+          <UsersRound className="h-5 w-5 opacity-70" aria-hidden="true" />
+          <div className="text-sm font-semibold">Groups</div>
+        </Link>
       </div>
     </>
   );

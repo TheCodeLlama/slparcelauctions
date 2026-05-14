@@ -4,7 +4,7 @@ import { apiUrl } from "@/lib/api/url";
 import { cn } from "@/lib/cn";
 
 export interface GroupBadgeProps {
-  /** Slug used for the link target /group/{slug}. */
+  /** Slug used for the link target /groups/{slug}. */
   groupSlug: string;
   /** Display name rendered inside the badge. */
   groupName: string;
@@ -42,7 +42,7 @@ export function GroupBadge({
 
   return (
     <Link
-      href={`/group/${encodeURIComponent(groupSlug)}`}
+      href={`/groups/${encodeURIComponent(groupSlug)}`}
       className={cn(
         "inline-flex items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-2 transition-colors hover:bg-bg-hover",
         className,

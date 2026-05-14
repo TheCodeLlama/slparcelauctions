@@ -5,6 +5,7 @@ import { Avatar, Dropdown } from "@/components/ui";
 import { useLogout } from "@/lib/auth";
 import type { AuthUser } from "@/lib/auth";
 import { useCurrentUser } from "@/lib/user";
+import { useMyGroupInvitations } from "@/hooks/realty/useMyGroupInvitations";
 
 type UserMenuDropdownProps = {
   user: AuthUser;
@@ -18,6 +19,8 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
   // avatar URL + updatedAt for cache-busting; the query is
   // already-cached for any other consumer on the page.
   const { data: currentUser } = useCurrentUser();
+  const invitations = useMyGroupInvitations();
+  const inviteCount = invitations.data?.length ?? 0;
 
   const displayLabel = user.displayName ?? user.username;
 
@@ -46,6 +49,16 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
     {
       label: "Profile",
       onSelect: () => router.push(`/users/${user.publicId}`),
+    },
+    {
+      label: "My groups",
+      onSelect: () => router.push("/groups/me"),
+    },
+    {
+      label: "Invitations",
+      onSelect: () => router.push("/groups/invitations/me"),
+      badge: inviteCount > 0 ? inviteCount : undefined,
+      badgeTestId: "invitations-badge",
     },
     {
       label: "Settings",

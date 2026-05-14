@@ -4,7 +4,7 @@ import { apiUrl } from "@/lib/api/url";
 import { cn } from "@/lib/cn";
 
 export interface GroupChipProps {
-  /** Slug used for the link target /group/{slug}. */
+  /** Slug used for the link target /groups/{slug}. */
   groupSlug: string;
   /** Display name rendered inside the chip. */
   groupName: string;
@@ -43,7 +43,7 @@ export function GroupChip({
 
   return (
     <Link
-      href={`/group/${encodeURIComponent(groupSlug)}`}
+      href={`/groups/${encodeURIComponent(groupSlug)}`}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full bg-bg-hover px-2 py-0.5 text-xs font-medium text-fg hover:bg-border transition-colors",
         className,

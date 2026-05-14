@@ -36,6 +36,12 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: "Dashboard" }).getAttribute("href")).toBe("/dashboard");
   });
 
+  it("renders a Groups nav link in the header", () => {
+    renderWithProviders(<Header />);
+    const link = screen.getByRole("link", { name: /^Groups$/ });
+    expect(link).toHaveAttribute("href", "/groups");
+  });
+
   it("renders Sign in and Register buttons when unauthenticated", () => {
     renderWithProviders(<Header />);
     expect(screen.getByRole("link", { name: /Sign in/ })).toBeInTheDocument();

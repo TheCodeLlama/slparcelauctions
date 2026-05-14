@@ -43,6 +43,7 @@ export function Header() {
           <nav className="hidden flex-1 items-center gap-1 md:flex">
             <NavLink variant="header" href="/dashboard">Dashboard</NavLink>
             <NavLink variant="header" href="/browse">Browse</NavLink>
+            <NavLink variant="header" href="/groups">Groups</NavLink>
             <NavLink variant="header" href="/listings/create">Sell parcel</NavLink>
             {status === "authenticated" && user.role === "ADMIN" && (
               <NavLink variant="header" href="/admin">Admin</NavLink>

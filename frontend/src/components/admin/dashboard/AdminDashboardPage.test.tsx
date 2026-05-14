@@ -44,4 +44,30 @@ describe("AdminDashboardPage", () => {
     expect(screen.getByText("L$ 241,375")).toBeInTheDocument();
     expect(screen.getByText("Open reports")).toBeInTheDocument();
   });
+
+  it("renders a Groups admin card linking to /admin/groups", async () => {
+    server.use(
+      adminHandlers.statsSuccess({
+        queues: { openFraudFlags: 0, openReports: 0, pendingPayments: 0, activeDisputes: 0 },
+        platform: {
+          activeListings: 0,
+          totalUsers: 0,
+          activeEscrows: 0,
+          completedSales: 0,
+          lindenGrossVolume: 0,
+          lindenCommissionEarned: 0,
+        },
+      })
+    );
+
+    wrap();
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("admin-dashboard-groups-card")).not.toBeNull(),
+    );
+    expect(screen.getByTestId("admin-dashboard-groups-card")).toHaveAttribute(
+      "href",
+      "/admin/groups",
+    );
+  });
 });

@@ -48,6 +48,10 @@ public class NotificationDao {
             OffsetDateTime updatedAt
     ) {}
 
+    /**
+     * Back-compat overload that defaults {@code linkUrl} to {@code null}.
+     * Most call sites do not surface a per-row deeplink and use this form.
+     */
     public UpsertResult upsert(
             long userId,
             NotificationCategory category,
@@ -55,6 +59,18 @@ public class NotificationDao {
             String body,
             Map<String, Object> data,
             String coalesceKey
+    ) {
+        return upsert(userId, category, title, body, data, coalesceKey, null);
+    }
+
+    public UpsertResult upsert(
+            long userId,
+            NotificationCategory category,
+            String title,
+            String body,
+            Map<String, Object> data,
+            String coalesceKey,
+            String linkUrl
     ) {
         String dataJson;
         try {
@@ -65,19 +81,20 @@ public class NotificationDao {
 
         String sql = """
                 INSERT INTO notification
-                  (user_id, category, title, body, data, coalesce_key, read, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?::jsonb, ?, false, now(), now())
+                  (user_id, category, title, body, data, coalesce_key, link_url, read, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, false, now(), now())
                 ON CONFLICT (user_id, coalesce_key) WHERE read = false
                 DO UPDATE SET
                   title = EXCLUDED.title,
                   body = EXCLUDED.body,
                   data = EXCLUDED.data,
+                  link_url = EXCLUDED.link_url,
                   updated_at = now()
                 RETURNING public_id, (xmax != 0) AS was_update, created_at, updated_at
                 """;
 
         Map<String, Object> row = jdbc.queryForMap(
-                sql, userId, category.name(), title, body, dataJson, coalesceKey);
+                sql, userId, category.name(), title, body, dataJson, coalesceKey, linkUrl);
 
         return new UpsertResult(
                 (UUID) row.get("public_id"),

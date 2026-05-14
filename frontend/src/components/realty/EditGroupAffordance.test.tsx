@@ -30,7 +30,7 @@ describe("EditGroupAffordance", () => {
     const link = await screen.findByTestId("edit-group-affordance");
     expect(link.tagName).toBe("A");
     expect(link.getAttribute("href")).toBe(
-      "/dashboard/groups/mainland-realty/manage",
+      "/groups/mainland-realty/profile",
     );
   });
 

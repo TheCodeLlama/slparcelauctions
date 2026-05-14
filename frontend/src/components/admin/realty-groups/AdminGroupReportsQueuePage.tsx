@@ -13,7 +13,7 @@ import type {
 } from "@/types/realty";
 
 const PAGE_SIZE = 25;
-const BASE_PATH = "/admin/realty-groups/reports";
+const BASE_PATH = "/admin/groups/reports";
 
 type StatusFilter = "all" | "open" | "resolved" | "dismissed";
 const DEFAULT_STATUS: StatusFilter = "open";
@@ -230,7 +230,7 @@ export function AdminGroupReportsQueuePage() {
 }
 
 function ReportRow({ row }: { row: AdminRealtyGroupReportRow }) {
-  const href = `/admin/realty-groups/reports/${row.publicId}`;
+  const href = `/admin/groups/reports/${row.publicId}`;
   return (
     <li>
       <Link

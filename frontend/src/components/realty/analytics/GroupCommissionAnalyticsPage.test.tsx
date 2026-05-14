@@ -203,7 +203,9 @@ describe("GroupCommissionAnalyticsPage", () => {
       screen.getByText(/You do not have permission/i),
     ).toBeInTheDocument();
     const back = screen.getByTestId("commission-analytics-back-link");
-    expect(back).toHaveAttribute("href", `/realty/groups/${GROUP_ID}`);
+    await waitFor(() =>
+      expect(back).toHaveAttribute("href", "/groups/sunset-estates"),
+    );
   });
 
   it("bars_scale_relative_to_max — top earner is at 100% width", async () => {
