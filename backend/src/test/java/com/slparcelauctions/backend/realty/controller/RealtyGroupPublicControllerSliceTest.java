@@ -126,6 +126,44 @@ class RealtyGroupPublicControllerSliceTest {
     }
 
     @Test
+    void getByPublicId_authenticated_setsNoStoreSoFreshWritesAreNotMaskedByCache() throws Exception {
+        // Response body for an authenticated caller depends on membership +
+        // admin role (commission rate, joinedAt, permissions all gated). A
+        // shared cache with a public max-age would either leak the member
+        // view to anonymous viewers or hide a fresh PATCH (e.g. a leader
+        // updating a commission rate then re-fetching). The fix sets
+        // Cache-Control: no-store for any authenticated request so each
+        // member/admin response is fresh from origin.
+        mvc.perform(get("/api/v1/realty-groups/" + group.getPublicId())
+                .header("Authorization", "Bearer " + agentJwt))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void getBySlug_authenticated_setsNoStore() throws Exception {
+        mvc.perform(get("/api/v1/realty-groups/by-slug/" + group.getSlug())
+                .header("Authorization", "Bearer " + agentJwt))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void getMembers_authenticated_setsNoStore() throws Exception {
+        mvc.perform(get("/api/v1/realty-groups/" + group.getPublicId() + "/members")
+                .header("Authorization", "Bearer " + agentJwt))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void getMembers_anonymous_setsPublicMaxAge() throws Exception {
+        mvc.perform(get("/api/v1/realty-groups/" + group.getPublicId() + "/members"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "max-age=60, public"));
+    }
+
+    @Test
     void getByPublicId_nonMemberAuthenticated_hidesPermissionsAndJoinedAt() throws Exception {
         mvc.perform(get("/api/v1/realty-groups/" + group.getPublicId())
                 .header("Authorization", "Bearer " + outsiderJwt))

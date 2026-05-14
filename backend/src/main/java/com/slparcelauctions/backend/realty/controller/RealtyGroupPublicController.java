@@ -54,7 +54,7 @@ public class RealtyGroupPublicController {
         if (group.isDissolved()) {
             throw new GroupDissolvedException(group.getPublicId());
         }
-        return cached(mapper.toPublicDto(group, callerId(principal), isAdmin(principal)));
+        return cached(mapper.toPublicDto(group, callerId(principal), isAdmin(principal)), principal);
     }
 
     @GetMapping("/by-slug/{slug}")
@@ -73,12 +73,12 @@ public class RealtyGroupPublicController {
                     .orElseThrow(() -> new RealtyGroupNotFoundException(slug));
                 throw new GroupDissolvedException(dissolved.getPublicId());
             });
-        return cached(mapper.toPublicDto(group, callerId(principal), isAdmin(principal)));
+        return cached(mapper.toPublicDto(group, callerId(principal), isAdmin(principal)), principal);
     }
 
     @GetMapping("/{publicId}/members")
     @Transactional(readOnly = true)
-    public List<AgentCardDto> getMembers(
+    public ResponseEntity<List<AgentCardDto>> getMembers(
             @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
         RealtyGroup group = groups.findByPublicId(publicId)
@@ -86,7 +86,16 @@ public class RealtyGroupPublicController {
         if (group.isDissolved()) {
             throw new GroupDissolvedException(group.getPublicId());
         }
-        return mapper.toAgentCards(group, callerId(principal), isAdmin(principal));
+        List<AgentCardDto> body = mapper.toAgentCards(group, callerId(principal), isAdmin(principal));
+        // Same caller-dependent body as the group-by-slug / by-publicId
+        // endpoints (members see commission rates + joinedAt, anonymous
+        // viewers don't). Same cache rule: public for anonymous, no-store
+        // for authenticated so a fresh PATCH is never masked by a stale
+        // cached response.
+        CacheControl cache = principal == null
+            ? CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic()
+            : CacheControl.noStore();
+        return ResponseEntity.ok().cacheControl(cache).body(body);
     }
 
     // ─────────────────────── helpers ───────────────────────
@@ -99,9 +108,42 @@ public class RealtyGroupPublicController {
         return principal != null && principal.role() == Role.ADMIN;
     }
 
-    private static ResponseEntity<RealtyGroupPublicDto> cached(RealtyGroupPublicDto body) {
+    /**
+     * Cache-Control for {@code getByPublicId} / {@code getBySlug}.
+     *
+     * <p>The response body depends on the caller's identity — members and
+     * admins see {@code agentCommissionRate}, {@code joinedAt}, and the full
+     * agent {@code permissions} flag set on each {@link AgentCardDto}, while
+     * anonymous (and non-member, non-admin) callers see those fields nulled
+     * out by the privacy gate in {@link RealtyGroupDtoMapper}.
+     *
+     * <p>A {@code public, max-age=N} header would let a shared cache (CDN /
+     * Amplify edge) serve one variant to every caller regardless of auth,
+     * which:
+     * <ul>
+     *   <li>leaks the member view ({@code agentCommissionRate} populated) to
+     *       anonymous viewers when an authenticated request warmed the
+     *       cache, and</li>
+     *   <li>masks a fresh write — a leader who PATCHes a commission rate
+     *       and immediately re-fetches the group could see the stale
+     *       anonymous-view response cached during the previous window.</li>
+     * </ul>
+     *
+     * <p>Fix: anonymous responses are publicly cacheable for 60 s (the body
+     * is the same for every anonymous caller, and these surfaces dominate
+     * the request volume); authenticated responses set {@code no-store} so
+     * each member/admin request goes to origin and reflects the latest
+     * server state.
+     */
+    private static ResponseEntity<RealtyGroupPublicDto> cached(
+            RealtyGroupPublicDto body, AuthPrincipal principal) {
+        if (principal == null) {
+            return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+                .body(body);
+        }
         return ResponseEntity.ok()
-            .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+            .cacheControl(CacheControl.noStore())
             .body(body);
     }
 }
