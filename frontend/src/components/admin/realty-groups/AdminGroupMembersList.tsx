@@ -77,7 +77,11 @@ export function AdminGroupMembersList({ group }: AdminGroupMembersListProps) {
     setRemoveTarget(member);
     if (member.role === "LEADER") {
       const firstAgent = group.agents.find((a) => a.role !== "LEADER");
-      setReplacementLeader(firstAgent?.userPublicId ?? "");
+      // Replacement-leader IDs flow into the backend's
+      // `members.findByPublicId(newLeaderPublicId)` lookup, which keys on the
+      // member-row UUID, NOT the user UUID. Sending a userPublicId there
+      // would always 400 with TRANSFER_TARGET_NOT_MEMBER.
+      setReplacementLeader(firstAgent?.memberPublicId ?? "");
     } else {
       setReplacementLeader("");
     }
@@ -210,7 +214,7 @@ export function AdminGroupMembersList({ group }: AdminGroupMembersListProps) {
                   data-testid="admin-member-replacement-select"
                 >
                   {replacementCandidates.map((a) => (
-                    <option key={a.userPublicId} value={a.userPublicId}>
+                    <option key={a.memberPublicId} value={a.memberPublicId}>
                       {a.displayName}
                     </option>
                   ))}

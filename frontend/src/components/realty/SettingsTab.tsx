@@ -158,7 +158,7 @@ export function SettingsTab({ group }: SettingsTabProps) {
             >
               <option value="">Pick an agent...</option>
               {transferCandidates.map((a) => (
-                <option key={a.userPublicId} value={a.userPublicId}>
+                <option key={a.memberPublicId} value={a.memberPublicId}>
                   {a.displayName}
                 </option>
               ))}

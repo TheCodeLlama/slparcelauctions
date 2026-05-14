@@ -64,6 +64,37 @@ describe("SettingsTab", () => {
     expect(select.textContent).toContain("Agent");
   });
 
+  it("encodes the candidate option value as memberPublicId, not userPublicId", async () => {
+    // The backend's transferLeadership service does
+    // `members.findByPublicId(newLeaderPublicId)` -- it expects the
+    // realty_group_members row UUID, not the user UUID. Sending a
+    // userPublicId here triggers a 400 TRANSFER_TARGET_NOT_MEMBER. This
+    // test locks the wire shape so we can't regress.
+    renderWithProviders(
+      <SettingsTab
+        group={makeGroup({
+          agents: [
+            makeAgent({
+              memberPublicId: "mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm",
+              userPublicId: "uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu",
+              displayName: "Agent Zero",
+            }),
+          ],
+        })}
+      />,
+    );
+    await userEvent.click(screen.getByTestId("settings-transfer-button"));
+    const select = screen.getByTestId(
+      "settings-transfer-select",
+    ) as HTMLSelectElement;
+    const agentOption = Array.from(select.options).find(
+      (o) => o.textContent === "Agent Zero",
+    );
+    expect(agentOption).toBeDefined();
+    expect(agentOption!.value).toBe("mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm");
+    expect(agentOption!.value).not.toBe("uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu");
+  });
+
   it("disables the dissolve confirm until the group name is typed", async () => {
     renderWithProviders(<SettingsTab group={makeGroup({ name: "Tricky" })} />);
     await userEvent.click(screen.getByTestId("settings-dissolve-button"));
