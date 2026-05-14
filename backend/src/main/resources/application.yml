@@ -226,6 +226,11 @@ slpa:
         enabled: true
     group-suspension-expiry:
       enabled: true
+    # Sub-project H section 6 -- per-call ceiling on member-initiated deposits into a
+    # realty group's wallet (app flow + in-world flow). Fat-finger protection only;
+    # the depositor's personal balance and walking-around L$ are the natural caps.
+    # Ops can lift via env var for known high-volume venues.
+    group-deposit-max-l: 500000
   reports:
     # Sub-project G section 12 -- threshold of open user-submitted reports against
     # a single realty group before the admin fan-out notification fires. Bound to
