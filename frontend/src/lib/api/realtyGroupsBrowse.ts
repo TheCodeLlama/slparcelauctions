@@ -48,23 +48,42 @@ export interface BrowseGroupCard {
 }
 
 /**
+ * Sort direction for the primary sort key. Backend default is {@code DESC};
+ * the directory's Asc/Desc toggle next to the sort dropdown flips this. The
+ * tiebreaker on group name stays ASC server-side regardless of direction so
+ * pagination is stable.
+ */
+export type SortDirection = "ASC" | "DESC";
+
+/**
  * Query inputs for {@link getBrowseGroups}. {@code q} is optional; absent or
  * blank means "no search filter". {@code sort} defaults to {@code RATING}
  * server-side, but we always send it explicitly so the URL params and the
  * wire are 1:1.
+ *
+ * {@code direction}, {@code minRating}, {@code minReviews}, and
+ * {@code activeOnly} back the template's left-side filter controls. Their
+ * defaults ({@code DESC}, {@code 0}, {@code 0}, {@code false}) are no-ops on
+ * the server; we omit them from the wire when they match the default so the
+ * URL stays clean.
  */
 export interface BrowseGroupsParams {
   q?: string;
   page?: number;
   size?: number;
   sort?: GroupsSortKey;
+  direction?: SortDirection;
+  minRating?: number;
+  minReviews?: number;
+  activeOnly?: boolean;
 }
 
 /**
  * Calls {@code GET /api/v1/realty-groups} — the public browse endpoint
- * (spec section 6.1). Anonymous-accessible; the shared {@code api.get} helper
- * omits the Authorization header when no JWT is present, so this works
- * pre-login.
+ * (spec section 6.1, extended in the template-1:1 restoration with caller-
+ * driven filter and direction params). Anonymous-accessible; the shared
+ * {@code api.get} helper omits the Authorization header when no JWT is
+ * present, so this works pre-login.
  */
 export function getBrowseGroups(
   params: BrowseGroupsParams,
@@ -77,5 +96,12 @@ export function getBrowseGroups(
   search.set("page", String(params.page ?? 0));
   search.set("size", String(params.size ?? 20));
   search.set("sort", params.sort ?? "RATING");
+  const direction = params.direction ?? "DESC";
+  if (direction !== "DESC") search.set("direction", direction);
+  const minRating = params.minRating ?? 0;
+  if (minRating > 0) search.set("minRating", String(minRating));
+  const minReviews = params.minReviews ?? 0;
+  if (minReviews > 0) search.set("minReviews", String(minReviews));
+  if (params.activeOnly) search.set("activeOnly", "true");
   return api.get(`/api/v1/realty-groups?${search.toString()}`);
 }

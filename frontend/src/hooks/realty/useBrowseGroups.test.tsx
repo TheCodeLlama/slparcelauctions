@@ -134,7 +134,16 @@ describe("useBrowseGroups", () => {
     const cached = qc.getQueryData([
       "realty-groups",
       "browse",
-      { q: "mainland", page: 0, size: 20, sort: "RATING" },
+      {
+        q: "mainland",
+        page: 0,
+        size: 20,
+        sort: "RATING",
+        direction: "DESC",
+        minRating: 0,
+        minReviews: 0,
+        activeOnly: false,
+      },
     ]);
     expect(cached).toBeDefined();
   });

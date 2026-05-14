@@ -711,8 +711,12 @@ export type GroupsSortKey =
   | "MOST_ACTIVE_LISTINGS"
   | "MOST_SALES";
 
-/** Sort direction the directory page can emit. */
-export type SortDirection = "asc" | "desc";
+/**
+ * Sort direction the directory page can emit. Uppercase on the wire to
+ * match the backend's {@code org.springframework.data.domain.Sort.Direction}
+ * enum.
+ */
+export type SortDirection = "ASC" | "DESC";
 
 /**
  * Compact view types consumed by `GroupDetailPage` (the claude.ai/design
