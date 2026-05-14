@@ -35,5 +35,22 @@ public record RealtyGroupPublicDto(
     List<AgentCardDto> agents,
     int memberSeatLimit,
     int memberCount,
-    GroupRatingDto rating
+    GroupRatingDto rating,
+    /**
+     * Count of auctions for this group whose status is {@code SCHEDULED} or
+     * {@code LIVE}. Drives the public profile's "Active listings" stat and the
+     * {@code Active listings · N} tab label.
+     */
+    int activeListingsCount,
+    /**
+     * Count of auctions for this group whose status is {@code COMPLETED}.
+     * Drives the public profile's "Lifetime sales" stat.
+     */
+    int completedSalesCount,
+    /**
+     * {@code true} when this group has at least one verified SL-group
+     * registration. Drives the "Verified SL group" badge on the public profile
+     * and the same field on the About tab's details panel.
+     */
+    boolean hasVerifiedSlGroup
 ) {}

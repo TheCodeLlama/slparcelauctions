@@ -2,13 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isApiError } from "@/lib/api";
 import { realtyGroupsApi } from "@/lib/api/realtyGroups";
-import { SectionHeading } from "@/components/ui/SectionHeading";
-import { EditGroupAffordance } from "@/components/realty/EditGroupAffordance";
-import { LeaderCard } from "@/components/realty/LeaderCard";
-import { RealtyGroupAgentsGrid } from "@/components/realty/RealtyGroupAgentsGrid";
+import { PublicGroupProfile } from "@/components/realty/browse/PublicGroupProfile";
 import { RealtyGroupDissolvedView } from "@/components/realty/RealtyGroupDissolvedView";
-import { RealtyGroupHeroBanner } from "@/components/realty/RealtyGroupHeroBanner";
-import { ReportGroupAffordance } from "@/components/realty/ReportGroupAffordance";
 import type { RealtyGroupPublicDto } from "@/types/realty";
 
 /**
@@ -99,17 +94,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /**
- * Section composition: hero -> leader -> agents (when present). Reserved
- * sections for listings / sales / rating are intentionally absent until
- * later sub-projects land; there is no skeleton placeholder for them on
- * the public page.
+ * Public profile renders the template-style hero + 4-stat grid + tabbed
+ * sections (Active listings / Members / Reviews / About) via
+ * {@link PublicGroupProfile}. Member-only management lives at
+ * {@code /groups/[slug]/manage/*} and is reached from the "Manage group"
+ * button rendered on the profile when the viewer is a leader or agent.
  *
- * Note on layout: the slug-keyed layout (`./layout.tsx`) wraps every
- * `/groups/[slug]/*` route in a max-width container with a horizontal
- * sub-nav. The public profile is unique among siblings in that it
- * deliberately renders edge-to-edge for the hero banner; the `<main>`
- * inside the page handles its own max-width below the hero so the chrome
- * still looks consistent.
+ * <p>The slug-keyed layout that previously wrapped this route was moved to
+ * {@code /groups/[slug]/manage/layout.tsx} alongside the member-only sub-
+ * pages; the public profile renders edge-to-edge so the template's hero +
+ * 1280px max-width chrome can take over.
  */
 export default async function RealtyGroupPublicPage({ params }: PageProps) {
   const { slug } = await params;
@@ -127,46 +121,5 @@ export default async function RealtyGroupPublicPage({ params }: PageProps) {
     );
   }
 
-  const group = outcome.group;
-  const agents = group.agents.filter(
-    (a) => a.userPublicId !== group.leader.userPublicId,
-  );
-
-  return (
-    <>
-      <RealtyGroupHeroBanner
-        name={group.name}
-        slug={group.slug}
-        description={group.description}
-        website={group.website}
-        memberSince={group.memberSince}
-        memberCount={group.memberCount}
-        coverUrl={group.coverUrl}
-        logoUrl={group.logoUrl}
-        editAffordance={<EditGroupAffordance slug={group.slug} />}
-      />
-      <main className="mx-auto w-full max-w-5xl px-4 sm:px-6 py-8 flex flex-col gap-10">
-        <div className="flex justify-end">
-          <ReportGroupAffordance
-            groupPublicId={group.publicId}
-            groupSlug={group.slug}
-          />
-        </div>
-        <section aria-labelledby="leader-heading">
-          <SectionHeading title={<span id="leader-heading">Leader</span>} />
-          <LeaderCard leader={group.leader} />
-        </section>
-
-        {agents.length > 0 && (
-          <section aria-labelledby="agents-heading">
-            <SectionHeading
-              title={<span id="agents-heading">Agents</span>}
-              sub={`${agents.length} agent${agents.length === 1 ? "" : "s"}`}
-            />
-            <RealtyGroupAgentsGrid agents={agents} />
-          </section>
-        )}
-      </main>
-    </>
-  );
+  return <PublicGroupProfile group={outcome.group} />;
 }

@@ -233,4 +233,28 @@ public interface RealtyGroupRepository extends JpaRepository<RealtyGroup, Long> 
         @Param("minReviews") int minReviews,
         @Param("activeOnly") boolean activeOnly,
         Pageable pageable);
+
+    /**
+     * Single-row activity summary for one group, used by the public profile DTO
+     * to fill the template's 4-stat grid + Verified-SL-group badge without
+     * three extra round-trips to the {@code auctions} and
+     * {@code realty_group_sl_groups} tables.
+     *
+     * <p>Cast active/sales counts to {@code int} server-side; the DTO field is
+     * {@code int}, and SL Parcels caps a group's lifetime auctions far below
+     * 2^31.
+     */
+    @Query(value = """
+        SELECT
+          (SELECT count(*) FROM auctions a
+             WHERE a.realty_group_id = :groupId
+               AND a.status IN ('SCHEDULED','LIVE'))::int AS activeListings,
+          (SELECT count(*) FROM auctions a
+             WHERE a.realty_group_id = :groupId
+               AND a.status = 'COMPLETED')::int AS completedSales,
+          EXISTS (SELECT 1 FROM realty_group_sl_groups s
+                    WHERE s.realty_group_id = :groupId
+                      AND s.verified = TRUE) AS hasVerifiedSlGroup
+        """, nativeQuery = true)
+    RealtyGroupActivityProjection findActivity(@Param("groupId") Long groupId);
 }

@@ -94,6 +94,26 @@ export interface RealtyGroupPublicDto {
    * callers built before sub-project F shipped continue to compile.
    */
   rating?: GroupRating | null;
+  /**
+   * Number of auctions for this group in {@code SCHEDULED} or {@code LIVE}
+   * status. Drives the public profile's "Active listings" stat + tab label.
+   * Optional in the type so callers built before this field shipped continue
+   * to compile.
+   */
+  activeListingsCount?: number;
+  /**
+   * Number of auctions for this group in {@code COMPLETED} status. Drives
+   * the public profile's "Lifetime sales" stat. Optional in the type for
+   * backward compatibility — see {@link activeListingsCount}.
+   */
+  completedSalesCount?: number;
+  /**
+   * {@code true} when this group has at least one verified SL-group
+   * registration. Drives the "Verified SL group" badge on the public profile
+   * and the About tab's details panel. Optional in the type for backward
+   * compatibility.
+   */
+  hasVerifiedSlGroup?: boolean;
 }
 
 export interface RealtyGroupSummaryDto {

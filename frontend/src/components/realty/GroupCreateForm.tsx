@@ -61,7 +61,7 @@ export function GroupCreateForm() {
         website: values.website ? values.website.trim() : undefined,
       });
       router.push(
-        `/groups/${encodeURIComponent(created.slug)}/profile`,
+        `/groups/${encodeURIComponent(created.slug)}/manage/profile`,
       );
     } catch {
       // Toast is dispatched by the mutation's onError handler; swallow the
