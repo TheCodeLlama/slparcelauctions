@@ -66,14 +66,17 @@ public class SlGroupDepositController {
         headerValidator.validate(shard, ownerKey);
         terminalService.assertSharedSecret(req.sharedSecret());
 
-        // Unknown terminal: ERROR (not REFUND). The header + shared-secret
-        // pre-flight already validated the caller; reaching this branch means
-        // the script forgot/lost its terminal registration. Bouncing here
-        // would still be safer than not bouncing, but matching the wallet
-        // deposit controller's posture: terminal-row absence is a config
-        // problem on our side, not a payer-facing one.
+        // Unknown terminal: REFUND. By the time this endpoint runs, the
+        // money() event has fired and L$ is in the script's hands -- so
+        // every post-auth failure must bounce. Header + shared-secret
+        // pre-flight already validated the caller as a real SLParcels
+        // terminal; an unrecognised terminal-row here is a config mismatch
+        // on our side, not a payer-facing issue, and returning ERROR (no
+        // bounce) would steal from the payer. Matches the peer
+        // SlWalletController.deposit path (see CLAUDE.md "always refund on
+        // deposit error").
         if (!terminalRepository.existsById(req.terminalId())) {
-            return SlWalletResponse.error(SlWalletResponseReason.UNKNOWN_TERMINAL,
+            return SlWalletResponse.refund(SlWalletResponseReason.UNKNOWN_TERMINAL,
                 "terminalId not registered");
         }
         // Authenticated traffic from this terminal keeps it "live" in the

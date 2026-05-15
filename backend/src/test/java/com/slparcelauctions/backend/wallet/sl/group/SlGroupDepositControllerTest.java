@@ -277,6 +277,33 @@ class SlGroupDepositControllerTest {
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // 4b. Terminal not registered in the DB — REFUND, not ERROR.
+    //     L$ is in hand; per CLAUDE.md every post-auth failure refunds.
+    // ─────────────────────────────────────────────────────────────────
+
+    @Test
+    void unknown_terminal_returns_refund() throws Exception {
+        RealtyGroup g = seedGroup(leader, "Unknown Terminal Group");
+
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("terminalId", "ghost-terminal-" + UUID.randomUUID());
+        map.put("sharedSecret", SHARED_SECRET);
+        map.put("payerUuid", leader.getSlAvatarUuid().toString());
+        map.put("groupPublicId", g.getPublicId().toString());
+        map.put("amount", 100L);
+        map.put("slTransactionKey", UUID.randomUUID().toString());
+
+        mvc.perform(post(URL)
+                .header("X-SecondLife-Shard", SHARD)
+                .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(map)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REFUND"))
+            .andExpect(jsonPath("$.reason").value("UNKNOWN_TERMINAL"));
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // 5. Payer avatar has no linked SLParcels account — REFUND/UNKNOWN_PAYER.
     // ─────────────────────────────────────────────────────────────────
 
