@@ -47,6 +47,22 @@ public sealed class LibreMetaverseBotSessionTests
         await session.LogoutAsync(CancellationToken.None);
         session.State.Should().Be(SessionState.Stopped);
     }
+
+    [Fact]
+    public async Task FakeSession_CapturesForcedTeleport_AndExposesLocation()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69)
+        };
+
+        await session.TeleportAsync("Hadron", 31, 66, 25, default, forceMove: true);
+
+        session.CurrentLocation!.Region.Should().Be("Hadron");
+        var call = session.TeleportCalls.Should().ContainSingle().Subject;
+        call.ForceMove.Should().BeTrue();
+        call.Region.Should().Be("Hadron");
+    }
 }
 
 /// <summary>In-test fake. Mirrors the real session's state machine.</summary>
@@ -57,6 +73,11 @@ public sealed class FakeBotSession : IBotSession
 
     public Func<string, TeleportResult> TeleportPolicy { get; set; } =
         _ => TeleportResult.Ok();
+
+    public BotLocation? CurrentLocation { get; set; }
+
+    /// <summary>Every <see cref="TeleportAsync"/> call, for assertions.</summary>
+    public List<TeleportCall> TeleportCalls { get; } = new();
 
     public Func<double, double, ParcelSnapshot?> ReadPolicy { get; set; } =
         (_, _) => null;
@@ -80,8 +101,12 @@ public sealed class FakeBotSession : IBotSession
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     public Task<TeleportResult> TeleportAsync(
-        string regionName, double x, double y, double z, CancellationToken ct)
-        => Task.FromResult(TeleportPolicy(regionName));
+        string regionName, double x, double y, double z,
+        CancellationToken ct, bool forceMove = false)
+    {
+        TeleportCalls.Add(new TeleportCall(regionName, x, y, z, forceMove));
+        return Task.FromResult(TeleportPolicy(regionName));
+    }
 
     public Task<ParcelSnapshot?> ReadParcelAsync(
         double x, double y, CancellationToken ct)
@@ -96,3 +121,6 @@ public sealed class FakeBotSession : IBotSession
 
 /// <summary>Argument capture for <see cref="FakeBotSession.GiveGroupMoney"/>.</summary>
 public sealed record GiveGroupMoneyCall(Guid GroupUuid, int AmountL, string Memo);
+
+/// <summary>Argument capture for <see cref="FakeBotSession.TeleportAsync"/>.</summary>
+public sealed record TeleportCall(string Region, double X, double Y, double Z, bool ForceMove);
