@@ -47,6 +47,7 @@ function entryTypeLabel(entryType: GroupLedgerEntryType): string {
     case "WITHDRAW_REVERSED": return "Withdrawal (Reversed)";
     case "DORMANCY_AUTO_RETURN": return "Dormancy return";
     case "ADJUSTMENT": return "Adjustment";
+    case "MEMBER_DEPOSIT": return "Member deposit";
   }
 }
 
@@ -77,6 +78,8 @@ function entryVisual(entryType: GroupLedgerEntryType): EntryVisual {
       return { Icon: ArrowUpFromLine, tone: "text-fg-muted" };
     case "ADJUSTMENT":
       return { Icon: Pencil, tone: "text-fg-muted" };
+    case "MEMBER_DEPOSIT":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
   }
 }
 
@@ -90,7 +93,8 @@ function signedAmount(entry: GroupLedgerEntry): { label: string; tone: string } 
     entry.entryType === "AGENT_FEE_CREDIT" ||
     entry.entryType === "LISTING_FEE_REFUND" ||
     entry.entryType === "WITHDRAW_REVERSED" ||
-    entry.entryType === "DORMANCY_AUTO_RETURN";
+    entry.entryType === "DORMANCY_AUTO_RETURN" ||
+    entry.entryType === "MEMBER_DEPOSIT";
 
   const label = isCredit
     ? `+${formatLindens(entry.amount)}`

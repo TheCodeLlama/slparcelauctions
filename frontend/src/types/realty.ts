@@ -242,7 +242,8 @@ export type GroupLedgerEntryType =
   | "WITHDRAW_COMPLETED"
   | "WITHDRAW_REVERSED"
   | "DORMANCY_AUTO_RETURN"
-  | "ADJUSTMENT";
+  | "ADJUSTMENT"
+  | "MEMBER_DEPOSIT";
 
 export interface GroupLedgerEntry {
   publicId: string;
