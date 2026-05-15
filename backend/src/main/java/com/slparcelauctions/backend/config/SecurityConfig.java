@@ -126,6 +126,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/wallet/deposit").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/wallet/withdraw-request").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/wallet/avatar-groups").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/wallet/group-deposit").permitAll()
                         // --- New in Epic 02 sub-spec 2a ---
                         // Public avatar proxy. Must come before the /api/v1/** catch-all
                         // and before /api/v1/users/{id} (also public). FOOTGUNS section B.5
