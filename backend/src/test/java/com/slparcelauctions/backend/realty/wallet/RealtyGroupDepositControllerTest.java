@@ -264,6 +264,27 @@ class RealtyGroupDepositControllerTest {
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Frozen depositor returns 409 USER_FROZEN
+    // ─────────────────────────────────────────────────────────────────
+
+    @Test
+    void frozen_depositor_returns_409() throws Exception {
+        leader.setWalletFrozenAt(OffsetDateTime.now().minusMinutes(1));
+        userRepository.save(leader);
+
+        String body = objectMapper.writeValueAsString(java.util.Map.of(
+            "amount", 100,
+            "idempotencyKey", UUID.randomUUID().toString()));
+
+        mvc.perform(post("/api/v1/realty/groups/" + group.getPublicId() + "/wallet/deposit")
+                .header("Authorization", "Bearer " + leaderJwt)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("USER_FROZEN"));
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // Idempotent replay returns same ledger ids
     // ─────────────────────────────────────────────────────────────────
 

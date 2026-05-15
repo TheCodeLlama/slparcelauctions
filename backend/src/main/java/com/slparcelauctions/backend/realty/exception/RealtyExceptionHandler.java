@@ -45,6 +45,7 @@ import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationS
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
 import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
+import com.slparcelauctions.backend.wallet.exception.UserStatusBlockedException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -349,6 +350,26 @@ public class RealtyExceptionHandler {
         pd.setProperty("code", "INSUFFICIENT_BALANCE");
         pd.setProperty("available", e.getAvailable());
         pd.setProperty("requested", e.getRequested());
+        return pd;
+    }
+
+    /**
+     * Sub-project H section 4.1 -- depositor's personal wallet is frozen.
+     * Mirrors the spec's 409 USER_FROZEN error shape for the app-flow
+     * deposit endpoint. The wallet.me-scoped handler returns 403 for the
+     * same exception class on different endpoints; the realty-scoped
+     * mapping wins here per @RestControllerAdvice basePackages.
+     */
+    @ExceptionHandler(UserStatusBlockedException.class)
+    public ProblemDetail handleUserStatusBlocked(
+            UserStatusBlockedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "USER_FROZEN: " + e.getStatus());
+        pd.setTitle("User Wallet Blocked");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "USER_FROZEN");
+        pd.setProperty("status", e.getStatus());
         return pd;
     }
 
