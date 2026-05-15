@@ -1,5 +1,7 @@
 import { api } from "@/lib/api";
 import type {
+  GroupDepositRequest,
+  GroupDepositResponse,
   GroupLedgerEntry,
   GroupWallet,
   GroupWithdrawRequest,
@@ -62,6 +64,23 @@ export function withdrawFromGroupWallet(
 ): Promise<GroupWithdrawResponse> {
   return api.post<GroupWithdrawResponse>(
     `/api/v1/realty/groups/${publicId}/wallet/withdraw`,
+    body,
+  );
+}
+
+/**
+ * Deposit L$ from the caller's personal SLParcels wallet into the
+ * group's wallet. Atomic; idempotent on {@code idempotencyKey}.
+ *
+ * Backend: {@code POST /api/v1/realty/groups/{publicId}/wallet/deposit}
+ * Auth: JWT. Permission: leader OR {@code DEPOSIT_TO_GROUP_WALLET}.
+ */
+export function depositToGroupWallet(
+  publicId: string,
+  body: GroupDepositRequest,
+): Promise<GroupDepositResponse> {
+  return api.post<GroupDepositResponse>(
+    `/api/v1/realty/groups/${publicId}/wallet/deposit`,
     body,
   );
 }
