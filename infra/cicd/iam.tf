@@ -119,13 +119,22 @@ data "aws_iam_policy_document" "gha_deploy" {
     }
   }
 
-  # CodeDeploy hooks call ListServices on the cluster to discover targets.
-  # Cheap to grant; needed for `aws ecs describe-services --cluster <arn>` from
-  # workflows when iterating bot services.
+  # The deploy-bot workflow calls ListServices to discover slpa-${env}-bot-*
+  # services dynamically (bot pool size is driven by var.bot_active_count in
+  # the compute module). ecs:ListServices has NO resource-level support in IAM
+  # (same AWS constraint documented for RegisterTaskDefinition above), so it
+  # must be granted on "*" and scoped to this cluster via the ecs:cluster
+  # condition key instead. A cluster-ARN in `resources` is silently ineffective
+  # for this action.
   statement {
     sid       = "EcsListServices"
     actions   = ["ecs:ListServices"]
-    resources = [var.ecs_cluster_arn]
+    resources = ["*"]
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [var.ecs_cluster_arn]
+    }
   }
 }
 
