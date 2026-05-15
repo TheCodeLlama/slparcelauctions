@@ -15,6 +15,13 @@ public interface IBackendClient
 
     /// <summary>Report MONITOR_* outcome. Backend re-arms or cancels the row.</summary>
     Task PostMonitorAsync(long taskId, BotMonitorResultRequest body, CancellationToken ct);
+
+    /// <summary>
+    /// Fire-and-forget heartbeat. Reuses the shared bearer auth + 5xx retry.
+    /// Throws <see cref="AuthConfigException"/> on 401 (the caller swallows
+    /// it — the claim path is the authoritative 401 handler).
+    /// </summary>
+    Task SendHeartbeatAsync(BotHeartbeatRequest body, CancellationToken ct);
 }
 
 /// <summary>

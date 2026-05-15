@@ -106,6 +106,20 @@ public sealed class HttpBackendClient : IBackendClient
         resp.EnsureSuccessStatusCode();
     }
 
+    public async Task SendHeartbeatAsync(
+        BotHeartbeatRequest body, CancellationToken ct)
+    {
+        using var resp = await SendWithRetryAsync(() =>
+        {
+            var req = new HttpRequestMessage(HttpMethod.Post, "/api/v1/bot/heartbeat")
+            {
+                Content = JsonContent.Create(body, options: JsonOpts)
+            };
+            return req;
+        }, ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+    }
+
     private async Task<HttpResponseMessage> SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory, CancellationToken ct)
     {
