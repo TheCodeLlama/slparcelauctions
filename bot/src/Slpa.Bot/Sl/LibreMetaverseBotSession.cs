@@ -48,6 +48,17 @@ public sealed class LibreMetaverseBotSession : IBotSession
 
     public Guid BotUuid => _opts.BotUuid;
 
+    public BotLocation? CurrentLocation
+    {
+        get
+        {
+            var sim = _client.Network.CurrentSim;
+            if (sim is null) return null;
+            var p = _client.Self.SimPosition;
+            return new BotLocation(sim.Name, p.X, p.Y);
+        }
+    }
+
     public Task StartAsync(CancellationToken ct)
     {
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -207,7 +218,8 @@ public sealed class LibreMetaverseBotSession : IBotSession
     }
 
     public async Task<TeleportResult> TeleportAsync(
-        string regionName, double x, double y, double z, CancellationToken ct)
+        string regionName, double x, double y, double z,
+        CancellationToken ct, bool forceMove = false)
     {
         if (State != SessionState.Online)
         {
@@ -225,7 +237,8 @@ public sealed class LibreMetaverseBotSession : IBotSession
         // re-read. ReadParcelAsync will re-issue RequestAllSimParcels to
         // get fresh data regardless of whether we teleported.
         var currentSim = _client.Network.CurrentSim;
-        if (currentSim is not null
+        if (!forceMove
+            && currentSim is not null
             && string.Equals(currentSim.Name, regionName,
                 StringComparison.OrdinalIgnoreCase))
         {

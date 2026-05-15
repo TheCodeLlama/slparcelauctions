@@ -15,8 +15,14 @@ builder.Services.Configure<BackendOptions>(
     builder.Configuration.GetSection(BackendOptions.SectionName));
 builder.Services.Configure<RateLimitOptions>(
     builder.Configuration.GetSection(RateLimitOptions.SectionName));
+builder.Services.Configure<IdleParkOptions>(
+    builder.Configuration.GetSection(IdleParkOptions.SectionName));
+builder.Services.Configure<HeartbeatOptions>(
+    builder.Configuration.GetSection(HeartbeatOptions.SectionName));
 
 builder.Services.AddSingleton<IBotSession, LibreMetaverseBotSession>();
+builder.Services.AddSingleton<IIdleParker, IdleParker>();
+builder.Services.AddSingleton<BotActivityState>();
 builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =>
 {
     var opts = sp.GetRequiredService<IOptions<BackendOptions>>().Value;
@@ -28,6 +34,7 @@ builder.Services.AddSingleton<MonitorHandler>();
 builder.Services.AddSingleton<WithdrawGroupHandler>();
 builder.Services.AddHostedService<BotSessionBootstrapper>();
 builder.Services.AddHostedService<TaskLoop>();
+builder.Services.AddHostedService<HeartbeatLoop>();
 
 var app = builder.Build();
 app.MapBotHealth();

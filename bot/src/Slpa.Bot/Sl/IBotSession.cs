@@ -11,6 +11,12 @@ public interface IBotSession : IAsyncDisposable
 
     Guid BotUuid { get; }
 
+    /// <summary>
+    /// The bot's current region + (x, y), or null when no sim is resolved
+    /// yet (transient post-login). Used by idle-park; never blocks.
+    /// </summary>
+    BotLocation? CurrentLocation { get; }
+
     /// <summary>Starts the login loop. Idempotent; returns when state != Starting.</summary>
     Task StartAsync(CancellationToken ct);
 
@@ -22,9 +28,14 @@ public interface IBotSession : IAsyncDisposable
     /// LibreMetaverse TeleportFinished / TeleportFailed race with a 30s
     /// timeout. Rate-limited per SL's 6/min cap. Throws
     /// <see cref="SessionLostException"/> if the session drops mid-teleport.
+    /// When <paramref name="forceMove"/> is false (default) and the bot is
+    /// already in the target sim, the teleport is skipped (returns Ok) — this
+    /// preserves the documented false-ACCESS_DENIED fix for monitor/verify.
+    /// Idle-park passes <c>forceMove: true</c> to relocate within a sim.
     /// </summary>
     Task<TeleportResult> TeleportAsync(
-        string regionName, double x, double y, double z, CancellationToken ct);
+        string regionName, double x, double y, double z,
+        CancellationToken ct, bool forceMove = false);
 
     /// <summary>
     /// Requests ParcelProperties for the parcel at (x, y) within the

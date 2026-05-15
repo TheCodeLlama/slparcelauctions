@@ -151,4 +151,37 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
             new BotMonitorResultRequest(MonitorOutcome.ALL_GOOD, null, null, null, null),
             default);
     }
+
+    [Fact]
+    public async Task Heartbeat_200_ReturnsWithoutThrow()
+    {
+        _server
+            .Given(Request.Create().WithPath("/api/v1/bot/heartbeat").UsingPost()
+                .WithHeader("Authorization", "Bearer test-secret-xxxxxxxx"))
+            .RespondWith(Response.Create().WithStatusCode(200));
+
+        await _client.SendHeartbeatAsync(
+            new BotHeartbeatRequest(
+                "SLPABot1 Resident",
+                Guid.NewGuid().ToString(),
+                "Online",
+                "Hadron",
+                "7",
+                "MONITOR_AUCTION",
+                DateTimeOffset.UnixEpoch),
+            default);
+    }
+
+    [Fact]
+    public async Task Heartbeat_401_ThrowsAuthConfigException()
+    {
+        _server
+            .Given(Request.Create().WithPath("/api/v1/bot/heartbeat").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(401));
+
+        var act = async () => await _client.SendHeartbeatAsync(
+            new BotHeartbeatRequest("w", "u", "Online", null, null, null, null),
+            default);
+        await act.Should().ThrowAsync<AuthConfigException>();
+    }
 }
