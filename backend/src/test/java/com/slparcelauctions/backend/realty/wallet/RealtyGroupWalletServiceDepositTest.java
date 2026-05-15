@@ -180,6 +180,32 @@ class RealtyGroupWalletServiceDepositTest {
         assertThat(u.getBalanceLindens()).isEqualTo(100L);
     }
 
+    // ---- 2b. Reserved L$ are not spendable for deposits ----
+
+    @Test
+    void deposit_rejects_when_balance_minus_reserved_is_below_amount() throws Exception {
+        // Regression: depositFromMemberWallet must gate on availableLindens()
+        // (= balance - reserved), not getBalanceLindens(). Reserved L$ are
+        // earmarked for active bids and must remain backed by balance after
+        // the debit, otherwise the DB's CHECK (balance >= reserved) violates
+        // at COMMIT.
+        RealtyGroup g = group(42L, 1_000L);
+        User u = user(7L, 1_000L, 900L);   // balance 1000, reserved 900 -> available 100
+        when(groupRepo.findByIdForUpdate(42L)).thenReturn(Optional.of(g));
+        when(userRepo.findByIdForUpdate(7L)).thenReturn(Optional.of(u));
+        UUID idem = UUID.randomUUID();
+        when(ledgerRepo.findByIdempotencyKey(idem.toString())).thenReturn(Optional.empty());
+
+        // 500 > available (100), even though 500 < balance (1000).
+        assertThatThrownBy(() -> svc.depositFromMemberWallet(42L, 500L, 7L, null, idem))
+            .isInstanceOf(InsufficientAvailableBalanceException.class);
+
+        verify(ledgerRepo, never()).save(any());
+        verify(userLedgerRepo, never()).save(any());
+        assertThat(g.getBalanceLindens()).isEqualTo(1_000L);
+        assertThat(u.getBalanceLindens()).isEqualTo(1_000L);
+    }
+
     // ---- 3. Range check -- minimum ----
 
     @Test

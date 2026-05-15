@@ -594,7 +594,11 @@ public DepositResult depositFromMemberWallet(
     if (user.getWalletFrozenAt() != null) {
         throw new UserStatusBlockedException("user wallet frozen");
     }
-    long available = user.getBalanceLindens();
+    // Use availableLindens() (= balance - reserved), NOT getBalanceLindens().
+    // Reserved L$ are earmarked for active bids; the DB's
+    // `balance_lindens >= reserved_lindens` CHECK would violate at COMMIT
+    // if we let the depositor spend into reserved.
+    long available = user.availableLindens();
     if (available < amount) {
         throw new InsufficientAvailableBalanceException(available, amount);
     }

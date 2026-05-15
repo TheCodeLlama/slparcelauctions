@@ -340,16 +340,17 @@ public class RealtyGroupWalletService {
             throw new UserStatusBlockedException(user.getId(), "USER_FROZEN");
         }
 
-        // 6. Insufficient-balance gate. The deposit pays from balance (not
-        // reserved); we use total balance, not available, because reserved L$
-        // is already earmarked for active bids and untouchable.
-        long available = user.getBalanceLindens();
+        // 6. Insufficient-balance gate. Pay from AVAILABLE (balance - reserved),
+        // not from total balance: reserved L$ is earmarked for active bids and
+        // must remain backed by balance after the debit, or the DB's
+        // `balance_lindens >= reserved_lindens` CHECK is violated at COMMIT.
+        long available = user.availableLindens();
         if (available < amount) {
             throw new InsufficientAvailableBalanceException(available, amount);
         }
 
         // 7. Debit personal wallet + append user-ledger row.
-        long newUserBalance = available - amount;
+        long newUserBalance = user.getBalanceLindens() - amount;
         user.setBalanceLindens(newUserBalance);
         userRepository.save(user);
 
