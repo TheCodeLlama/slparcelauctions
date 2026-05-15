@@ -1,6 +1,7 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { depositToGroupWallet } from "@/lib/api/realtyGroupWallet";
+import { walletQueryKey } from "@/lib/wallet/use-wallet";
 import { realtyQueryKeys } from "./useRealtyGroups";
 import type { GroupDepositRequest, GroupDepositResponse } from "@/types/realty";
 
@@ -21,7 +22,7 @@ export function useGroupDeposit(groupPublicId: string) {
     mutationFn: (body) => depositToGroupWallet(groupPublicId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: realtyQueryKeys.all });
-      qc.invalidateQueries({ queryKey: ["wallet", "me"] });
+      qc.invalidateQueries({ queryKey: walletQueryKey });
     },
   });
 }

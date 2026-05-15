@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/Card";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useGroupWallet } from "@/hooks/realty/useGroupWallet";
 import { useRealtyGroupSlGroups } from "@/hooks/realty/useRealtyGroupSlGroups";
+import { useWallet } from "@/lib/wallet/use-wallet";
+import { AddFundsModal } from "./AddFundsModal";
 import { GroupWalletBalanceCard } from "./GroupWalletBalanceCard";
 import { GroupWalletLedgerTable } from "./GroupWalletLedgerTable";
 import {
@@ -16,6 +18,12 @@ import { LeaderTermsBlockBanner } from "./LeaderTermsBlockBanner";
 export interface GroupWalletPageProps {
   /** Group public UUID from the URL segment. */
   publicId: string;
+  /**
+   * Group display name. Surfaced in the Add funds modal header. Optional
+   * because callers that haven't loaded the group profile fall back to the
+   * publicId; the modal renders "this group" as a final safety net.
+   */
+  groupName?: string;
 }
 
 /**
@@ -37,10 +45,12 @@ export interface GroupWalletPageProps {
  * the caller lacks {@code WITHDRAW_FROM_GROUP_WALLET}. The modal's error handler
  * surfaces that case clearly.
  */
-export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
+export function GroupWalletPage({ publicId, groupName }: GroupWalletPageProps) {
   const { data: wallet, isPending, error } = useGroupWallet(publicId);
   const { data: slGroups } = useRealtyGroupSlGroups(publicId);
+  const { data: personalWallet } = useWallet();
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [addFundsOpen, setAddFundsOpen] = useState(false);
 
   // Find the realty group's currently-registered + verified SL group, if any.
   // The wallet endpoint already enforces non-suspension (RealtyGroupGuard short-
@@ -109,6 +119,8 @@ export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
         available={wallet.available}
         canWithdraw
         onWithdraw={() => setWithdrawOpen(true)}
+        canDeposit
+        onAddFunds={() => setAddFundsOpen(true)}
       />
 
       <Card>
@@ -128,6 +140,13 @@ export function GroupWalletPage({ publicId }: GroupWalletPageProps) {
         publicId={publicId}
         available={wallet.available}
         slGroup={slGroupOption}
+      />
+
+      <AddFundsModal
+        open={addFundsOpen}
+        onClose={() => setAddFundsOpen(false)}
+        group={{ publicId, name: groupName ?? "this group" }}
+        personalAvailable={personalWallet?.available ?? 0}
       />
     </div>
   );

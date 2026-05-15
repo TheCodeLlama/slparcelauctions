@@ -50,10 +50,10 @@ describe("useGroupDeposit", () => {
     const qc = makeQc();
     // Seed slices the mutation must mark stale: group + by-slug + personal
     // wallet. The realty mutation pattern invalidates the entire realty
-    // prefix plus the ["wallet", "me"] key.
+    // prefix plus the ["me", "wallet"] key.
     qc.setQueryData(realtyQueryKeys.group(GROUP_PUBLIC_ID), { stale: false });
     qc.setQueryData(realtyQueryKeys.groupBySlug(GROUP_SLUG), { stale: false });
-    qc.setQueryData(["wallet", "me"], { stale: false });
+    qc.setQueryData(["me", "wallet"], { stale: false });
 
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
@@ -75,7 +75,7 @@ describe("useGroupDeposit", () => {
         queryKey: realtyQueryKeys.all,
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: ["wallet", "me"],
+        queryKey: ["me", "wallet"],
       });
     });
 
@@ -85,6 +85,6 @@ describe("useGroupDeposit", () => {
     expect(
       qc.getQueryState(realtyQueryKeys.groupBySlug(GROUP_SLUG))?.isInvalidated,
     ).toBe(true);
-    expect(qc.getQueryState(["wallet", "me"])?.isInvalidated).toBe(true);
+    expect(qc.getQueryState(["me", "wallet"])?.isInvalidated).toBe(true);
   });
 });
