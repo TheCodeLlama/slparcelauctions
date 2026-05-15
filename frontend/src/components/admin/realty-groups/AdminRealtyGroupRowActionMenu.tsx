@@ -44,13 +44,16 @@ export function AdminRealtyGroupRowActionMenu({ isDissolved, onPick }: Props) {
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(
     null,
   );
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  // Lazy initializer runs once at first client render where `document` is
+  // defined; SSR is "use client" but still pre-render so the initializer
+  // returns null safely. This avoids a synchronous setState-in-effect that
+  // would trigger a cascading render (caught by the React 19
+  // `react-hooks/set-state-in-effect` lint rule).
+  const [portalTarget] = useState<HTMLElement | null>(() =>
+    typeof document === "undefined" ? null : document.body,
+  );
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setPortalTarget(typeof document === "undefined" ? null : document.body);
-  }, []);
 
   // Compute the menu's anchored position from the trigger's bounding rect.
   // Recomputed whenever the menu opens AND on scroll/resize so the menu

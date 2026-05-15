@@ -182,8 +182,12 @@ In steady state with `DEBUG_MODE=true`:
 - `SLParcels Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
 - `SLParcels Terminal: heartbeat failed status=...` — heartbeat POST failed; will
   retry on the next interval. Not critical unless it persists.
-- `CRITICAL: SLParcels Terminal: deposit ... not acknowledged after 5 retries` —
-  deposit recovery failed; manual reconciliation required.
+- `CRITICAL: SLParcels Terminal: deposit from <payer> ... not acknowledged after 5 retries; refunded payer` —
+  `/sl/wallet/deposit` exhausted its retry chain (~22 min of backend
+  unreachability). The script bounces the L$ back to the payer rather
+  than stranding it (CLAUDE.md "always refund on deposit error"), then
+  logs CRITICAL for ops reconciliation. Same posture as the
+  group-deposit exhaustion line below.
 - `CRITICAL: SLParcels Terminal: group deposit from <payer> ... not acknowledged after 5 retries; refunded payer`
   — `/sl/wallet/group-deposit` exhausted its retry chain. The script
   bounces the L$ back to the payer rather than stranding it, then logs
@@ -204,7 +208,7 @@ In steady state with `DEBUG_MODE=true`:
 | `URL_REQUEST_DENIED` | Land doesn't allow scripts to request URLs. Move the prim to a region with permissive land settings. |
 | Periodic `register retry N/5` | Backend unreachable or rejecting registration. Check `slpa.sl.trusted-owner-keys` includes this terminal's owner. |
 | `deposit retry N/5` repeatedly | Backend transient or network issue. Self-recovers in most cases. |
-| `CRITICAL: deposit not acknowledged` | Backend POST never succeeded after 5 retries. Manual reconciliation required. |
+| `CRITICAL: deposit not acknowledged ... refunded payer` | Backend POST never succeeded after 5 retries. The script refunded the payer; check the backend logs to find the gap, no ledger-side reconciliation needed. |
 | Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLParcels's traffic level.) |
 | Backend command dispatcher logs 403 | Shared secret mismatch. Update notecard, reset. |
 | `CRITICAL: unexpected REFUND HTTP-in command` | Stale code path or migration issue — refunds should be wallet credits. Investigate. |

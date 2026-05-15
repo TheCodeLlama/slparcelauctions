@@ -307,11 +307,17 @@ firePayment() {
 
 schedulePaymentRetry() {
     if (paymentRetryCount >= 5) {
+        // Final-failure refund discipline (CLAUDE.md "always refund on
+        // deposit error"): L$ is still in the script's hands and the
+        // backend hasn't acked after ~22 minutes of retries. Bounce to
+        // the payer rather than stranding the funds, then log CRITICAL
+        // for ops reconciliation. Mirrors scheduleGroupDepositRetry.
+        llTransferLindenDollars(paymentPayer, paymentAmount);
         llOwnerSay("CRITICAL: SLParcels Terminal: deposit from "
             + (string)paymentPayer
             + " L$" + (string)paymentAmount
             + " key " + paymentTxKey
-            + " not acknowledged after 5 retries");
+            + " not acknowledged after 5 retries; refunded payer");
         paymentReqId      = NULL_KEY;
         paymentPayer      = NULL_KEY;
         paymentAmount     = 0;
