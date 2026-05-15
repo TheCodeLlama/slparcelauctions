@@ -49,19 +49,18 @@ public sealed class LibreMetaverseBotSessionTests
     }
 
     [Fact]
-    public async Task FakeSession_CapturesForcedTeleport_AndExposesLocation()
+    public async Task FakeSession_CapturesForcedTeleportCall()
     {
-        var session = new FakeBotSession
-        {
-            CurrentLocation = new BotLocation("Hadron", 37, 69)
-        };
+        var session = new FakeBotSession();
 
         await session.TeleportAsync("Hadron", 31, 66, 25, default, forceMove: true);
 
-        session.CurrentLocation!.Region.Should().Be("Hadron");
         var call = session.TeleportCalls.Should().ContainSingle().Subject;
-        call.ForceMove.Should().BeTrue();
         call.Region.Should().Be("Hadron");
+        call.X.Should().Be(31);
+        call.Y.Should().Be(66);
+        call.Z.Should().Be(25);
+        call.ForceMove.Should().BeTrue();
     }
 }
 
