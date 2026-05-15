@@ -29,7 +29,7 @@ Idle-parking is on by default with the Hadron rectangle baked in. When a bot has
 
 ASP.NET uses `__` (double underscore) as the section separator for
 environment variables. In `appsettings.json` these are nested under
-`Bot`, `Backend`, and `RateLimit` keys.
+`Bot`, `Backend`, `RateLimit`, `IdlePark`, and `Heartbeat` keys.
 
 ## Local run
 
