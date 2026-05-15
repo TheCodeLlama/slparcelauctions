@@ -22,6 +22,8 @@ public sealed class TaskLoop : BackgroundService
     private readonly Func<MonitorHandler> _monitor;
     private readonly Func<WithdrawGroupHandler> _withdrawGroup;
     private readonly IBackendClient _backend;
+    private readonly IIdleParker _idleParker;
+    private readonly BotActivityState _activity;
     private readonly ILogger<TaskLoop> _log;
 
     /// <summary>
@@ -30,11 +32,14 @@ public sealed class TaskLoop : BackgroundService
     public TaskLoop(
         IBotSession session,
         IBackendClient backend,
+        IIdleParker idleParker,
+        BotActivityState activity,
         VerifyHandler verify,
         MonitorHandler monitor,
         WithdrawGroupHandler withdrawGroup,
         ILogger<TaskLoop> log)
-        : this(session, backend, () => verify, () => monitor, () => withdrawGroup, log)
+        : this(session, backend, idleParker, activity,
+            () => verify, () => monitor, () => withdrawGroup, log)
     {
     }
 
@@ -45,6 +50,8 @@ public sealed class TaskLoop : BackgroundService
     internal TaskLoop(
         IBotSession session,
         IBackendClient backend,
+        IIdleParker idleParker,
+        BotActivityState activity,
         Func<VerifyHandler> verify,
         Func<MonitorHandler> monitor,
         Func<WithdrawGroupHandler> withdrawGroup,
@@ -52,6 +59,8 @@ public sealed class TaskLoop : BackgroundService
     {
         _session = session;
         _backend = backend;
+        _idleParker = idleParker;
+        _activity = activity;
         _verify = verify;
         _monitor = monitor;
         _withdrawGroup = withdrawGroup;
@@ -100,8 +109,11 @@ public sealed class TaskLoop : BackgroundService
                 continue;
             }
 
+            _activity.RecordClaim(task, DateTimeOffset.UtcNow);
+
             if (task is null)
             {
+                await _idleParker.ParkIfNeededAsync(ct).ConfigureAwait(false);
                 await SafeDelayAsync(EmptyQueueBackoff, ct).ConfigureAwait(false);
                 continue;
             }
@@ -122,6 +134,10 @@ public sealed class TaskLoop : BackgroundService
             catch (Exception ex)
             {
                 _log.LogError(ex, "Handler crashed on task {Id}; no callback", task.Id);
+            }
+            finally
+            {
+                _activity.Clear();
             }
         }
     }
