@@ -354,7 +354,7 @@ cd frontend && npm run verify         # grep-based rules: no dark: variants, no 
 │   └── src/Slpa.Bot/
 │       ├── Sl/              LibreMetaverseBotSession (login loop, reconnect backoff, teleport + ParcelProperties read with SimParcelsDownloaded-gated parcel filtering, already-in-region shortcut, 6/min rate limiter)
 │       ├── Backend/         HttpBackendClient (bearer auth, hand-rolled retry 1s/2s/4s/8s/15s, 401 → AuthConfigException + process exit)
-│       ├── Tasks/           TaskLoop (BackgroundService, claim → dispatch → loop, dual backoff), VerifyHandler (observation-only), MonitorHandler (mechanical classifier using ExpectedMaxSalePriceLindens threshold)
+│       ├── Tasks/           TaskLoop (BackgroundService, claim → dispatch → loop, dual backoff), VerifyHandler (observation-only), MonitorHandler (mechanical classifier using ExpectedMaxSalePriceLindens threshold), IdleParker (teleports to configured rectangle when idle), HeartbeatLoop (periodic Redis heartbeat so logged-in bots appear in the admin Bot-pool panel)
 │       └── Health/          GET /health — 200 only for Online, 503 for Starting/Reconnecting/Error/Stopped
 ├── docs/
 │   ├── initial-design/      Spec, schema, user flows

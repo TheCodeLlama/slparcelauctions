@@ -15,10 +15,21 @@ auction monitoring, BOT-tier escrow monitoring).
 | `Backend__BaseUrl`              | no       | `http://localhost:8080`                | backend origin                             |
 | `Backend__SharedSecret`         | yes      | —                                      | matches `slpa.bot.shared-secret`           |
 | `RateLimit__TeleportsPerMinute` | no       | `6`                                    | SL's hard cap                              |
+| `IdlePark__Enabled`             | no       | `true`                                 | master switch; `false` disables, keeps coords |
+| `IdlePark__Region`              | no       | `Hadron`                               | idle home region; blank disables (warns)   |
+| `IdlePark__Corner1X`            | no       | `44`                                   | rectangle corner 1 X                       |
+| `IdlePark__Corner1Y`            | no       | `73`                                   | rectangle corner 1 Y                       |
+| `IdlePark__Corner2X`            | no       | `30`                                   | opposite corner X                          |
+| `IdlePark__Corner2Y`            | no       | `65`                                   | opposite corner Y                          |
+| `IdlePark__Z`                   | no       | `25`                                   | landing altitude                           |
+| `IdlePark__ParkCooldownSeconds` | no       | `180`                                  | min interval between park attempts         |
+| `Heartbeat__IntervalSeconds`    | no       | `60`                                   | heartbeat cadence; backend TTL is 180s     |
+
+Idle-parking is on by default with the Hadron rectangle baked in. When a bot has no task to service and is outside the configured rectangle, it teleports to a random point inside it. The heartbeat runs independently of the task loop and of session state, so a logged-in bot always appears in the admin Bot-pool panel.
 
 ASP.NET uses `__` (double underscore) as the section separator for
 environment variables. In `appsettings.json` these are nested under
-`Bot`, `Backend`, and `RateLimit` keys.
+`Bot`, `Backend`, `RateLimit`, `IdlePark`, and `Heartbeat` keys.
 
 ## Local run
 
@@ -54,6 +65,12 @@ tests never touch `GridClient` directly.
 6. Confirm the bot teleports and posts to `PUT /api/v1/bot/tasks/{id}/verify`.
 7. Verify bot reads the correct parcel at the landing coordinates, not an
    arbitrary parcel in the same region.
+8. Leave the bot with an empty task queue for ~1 min. Confirm it teleports
+   into the configured rectangle (region `Hadron`, X 30-44, Y 65-73). An
+   idle bot already inside the rectangle stays put (no teleport churn).
+9. Open the admin Infrastructure page, Bot pool section. Within ~60 s the
+   bot shows as `1/1 healthy` with its region. Kill the bot process; after
+   ~180 s the row flips red (Redis TTL lapsed).
 
 ## Prerequisites
 
