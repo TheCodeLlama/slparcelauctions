@@ -67,7 +67,7 @@ class RealtyGroupWalletServiceWithdrawTest {
 
     private final RealtyGroupWalletService svc = new RealtyGroupWalletService(
         groupRepo, ledgerRepo, userRepo, cmdRepo, notif, pub, guard,
-        slGroupRepo, suspensionRepo, clock);
+        slGroupRepo, suspensionRepo, null, null, clock);
 
     // ---- withdraw happy path ----
 

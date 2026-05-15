@@ -5,7 +5,9 @@ package com.slparcelauctions.backend.wallet.sl;
  * status they accompany:
  *
  * <ul>
- *   <li><b>REFUND (deposit only)</b>: {@link #UNKNOWN_PAYER}, {@link #USER_FROZEN}.
+ *   <li><b>REFUND (deposit only)</b>: {@link #UNKNOWN_PAYER}, {@link #USER_FROZEN},
+ *       {@link #UNKNOWN_GROUP}, {@link #GROUP_DISSOLVED}, {@link #GROUP_SUSPENDED},
+ *       {@link #PERMISSION_REVOKED}, {@link #AMOUNT_OUT_OF_RANGE}.
  *       Terminal MUST {@code llTransferLindenDollars} the L$ back.</li>
  *   <li><b>REFUND_BLOCKED (withdraw-request only)</b>:
  *       {@link #INSUFFICIENT_BALANCE}, {@link #USER_FROZEN}, {@link #NOT_LINKED}.
@@ -18,6 +20,12 @@ package com.slparcelauctions.backend.wallet.sl;
 public enum SlWalletResponseReason {
     // REFUND variants (deposit)
     UNKNOWN_PAYER,
+    // REFUND variants (group-deposit additions)
+    UNKNOWN_GROUP,
+    GROUP_DISSOLVED,
+    GROUP_SUSPENDED,
+    PERMISSION_REVOKED,
+    AMOUNT_OUT_OF_RANGE,
     // REFUND_BLOCKED variants (withdraw-request)
     INSUFFICIENT_BALANCE,
     NOT_LINKED,

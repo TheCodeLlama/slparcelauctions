@@ -34,5 +34,12 @@ public enum RealtyGroupPermission {
      * commission rates (§6.7) and view per-member commission analytics (§6.8). Leader
      * holds this implicitly via the authorizer short-circuit.
      */
-    MANAGE_MEMBERS;
+    MANAGE_MEMBERS,
+
+    /**
+     * Sub-project H -- deposit personal SLParcels funds (or in-world L$) into the
+     * group wallet. App flow and in-world flow both gate on this; leader holds it
+     * implicitly via the authorizer short-circuit.
+     */
+    DEPOSIT_TO_GROUP_WALLET;
 }

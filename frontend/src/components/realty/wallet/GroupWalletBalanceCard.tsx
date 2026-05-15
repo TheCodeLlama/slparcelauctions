@@ -15,6 +15,10 @@ export interface GroupWalletBalanceCardProps {
   onWithdraw?: () => void;
   /** Whether the caller has the WITHDRAW_FROM_GROUP_WALLET permission. */
   canWithdraw?: boolean;
+  /** Called when the user activates the add-funds action. */
+  onAddFunds?: () => void;
+  /** Whether the caller has the DEPOSIT_TO_GROUP_WALLET permission. */
+  canDeposit?: boolean;
 }
 
 /**
@@ -30,6 +34,8 @@ export function GroupWalletBalanceCard({
   available,
   onWithdraw,
   canWithdraw = false,
+  onAddFunds,
+  canDeposit = false,
 }: GroupWalletBalanceCardProps) {
   return (
     <Card data-testid="group-wallet-balance-card">
@@ -73,17 +79,29 @@ export function GroupWalletBalanceCard({
           )}
         </div>
 
-        {canWithdraw && onWithdraw && (
-          <button
-            type="button"
-            onClick={onWithdraw}
-            disabled={available <= 0}
-            className="inline-flex items-center justify-center gap-1.5 rounded-sm border font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand h-9 px-4 text-sm bg-surface-raised text-fg border-border hover:bg-bg-hover hover:border-border-strong"
-            data-testid="withdraw-button"
-          >
-            Withdraw
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {canDeposit && onAddFunds && (
+            <button
+              type="button"
+              onClick={onAddFunds}
+              className="inline-flex items-center justify-center gap-1.5 rounded-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand h-9 px-4 text-sm bg-brand text-on-brand hover:bg-brand-strong"
+              data-testid="add-funds-button"
+            >
+              Add funds
+            </button>
+          )}
+          {canWithdraw && onWithdraw && (
+            <button
+              type="button"
+              onClick={onWithdraw}
+              disabled={available <= 0}
+              className="inline-flex items-center justify-center gap-1.5 rounded-sm border font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand h-9 px-4 text-sm bg-surface-raised text-fg border-border hover:bg-bg-hover hover:border-border-strong"
+              data-testid="withdraw-button"
+            >
+              Withdraw
+            </button>
+          )}
+        </div>
       </Card.Body>
     </Card>
   );

@@ -52,6 +52,10 @@ function entryTypeLabel(e: LedgerEntry): string {
     case "LISTING_FEE_REFUND": return "Listing fee refund";
     case "PENALTY_DEBIT": return "Penalty paid";
     case "ADJUSTMENT": return "Adjustment";
+    case "GROUP_WALLET_DEPOSIT_DEBIT":
+      // Description carries "Deposit to <groupName>" (and optional memo)
+      // when set by the service; fall back to a generic label otherwise.
+      return e.description ?? "Group wallet deposit";
   }
 }
 
@@ -105,6 +109,8 @@ function entryVisual(e: LedgerEntry): EntryVisual {
       return { Icon: AlertTriangle, tone: "text-warning" };
     case "ADJUSTMENT":
       return { Icon: Pencil, tone: "text-fg-muted" };
+    case "GROUP_WALLET_DEPOSIT_DEBIT":
+      return { Icon: ArrowUpFromLine, tone: "text-fg" };
   }
 }
 

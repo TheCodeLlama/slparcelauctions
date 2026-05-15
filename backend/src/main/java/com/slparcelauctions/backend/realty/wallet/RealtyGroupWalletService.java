@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +25,17 @@ import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.realty.wallet.broadcast.GroupWalletBroadcastPublisher;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupWithdrawRecipient;
+import com.slparcelauctions.backend.realty.wallet.exception.DepositAmountOutOfRangeException;
 import com.slparcelauctions.backend.realty.wallet.exception.SlGroupNotRegisteredException;
 import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationSuspendedException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.UserLedgerEntry;
+import com.slparcelauctions.backend.wallet.UserLedgerEntryType;
+import com.slparcelauctions.backend.wallet.UserLedgerRepository;
+import com.slparcelauctions.backend.wallet.broadcast.WalletBroadcastPublisher;
+import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
+import com.slparcelauctions.backend.wallet.exception.UserStatusBlockedException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +61,17 @@ public class RealtyGroupWalletService {
     private final RealtyGroupGuard realtyGroupGuard;
     private final RealtyGroupSlGroupRepository slGroupRepository;
     private final RealtyGroupSuspensionRepository suspensionRepository;
+    private final UserLedgerRepository userLedgerRepository;
+    private final WalletBroadcastPublisher walletBroadcastPublisher;
     private final Clock clock;
+
+    /**
+     * Maximum L$ permitted on a single member-deposit call (app or in-world).
+     * Fat-finger guard only; the depositor's personal balance and walking-
+     * around SL L$ are the natural ceilings. Configurable per-environment.
+     */
+    @Value("${slpa.realty.group-deposit-max-l:500000}")
+    private long groupDepositMaxL;
 
     /* ============================================================ */
     /* AGENT FEE CREDIT (legacy pre-G case-1 path)                   */
@@ -229,6 +247,256 @@ public class RealtyGroupWalletService {
             RealtyGroupLedgerEntryType.LISTING_FEE_REFUND.name(), entry.getPublicId());
         log.info("group listing fee refund credit: groupId={}, refundId={}, amount={}, balanceAfter={}",
             groupId, refundRowId, amount, newBalance);
+    }
+
+    /* ============================================================ */
+    /* MEMBER DEPOSIT (app flow -- personal wallet -> group wallet)  */
+    /* ============================================================ */
+
+    /**
+     * Result returned by {@link #depositFromMemberWallet}.
+     *
+     * @param groupLedgerEntryId    internal id of the appended group-ledger
+     *                              {@code MEMBER_DEPOSIT} row
+     * @param personalLedgerEntryId internal id of the paired personal-wallet
+     *                              {@code GROUP_WALLET_DEPOSIT_DEBIT} row
+     * @param newGroupAvailable     group-wallet available balance after the
+     *                              transfer (current snapshot on replay)
+     * @param newPersonalAvailable  depositor's personal-wallet available
+     *                              balance after the transfer (current
+     *                              snapshot on replay)
+     */
+    public record DepositResult(
+            Long groupLedgerEntryId,
+            Long personalLedgerEntryId,
+            long newGroupAvailable,
+            long newPersonalAvailable) {}
+
+    /**
+     * Atomic personal-wallet -> group-wallet transfer initiated by a member
+     * with {@code DEPOSIT_TO_GROUP_WALLET}. Spec §4.1.
+     *
+     * <p>On success, appends two ledger rows sharing the same
+     * {@code idempotencyKey}: a {@code GROUP_WALLET_DEPOSIT_DEBIT} on the
+     * depositor's personal wallet and a {@code MEMBER_DEPOSIT} on the
+     * group wallet. Both balances are mutated inside a single transaction.
+     *
+     * <p>Idempotent: a duplicate {@code idempotencyKey} returns the original
+     * ledger IDs and current availabilities without re-debiting / re-crediting.
+     *
+     * @param groupId        internal id of the target realty group
+     * @param amount         L$ to transfer; must lie in {@code [1, configMax]}
+     * @param userId         internal id of the depositing member
+     * @param memo           optional user-supplied memo (max 200 chars,
+     *                       trimmed elsewhere); appended to the row's
+     *                       {@code description} with a " -- " separator
+     * @param idempotencyKey caller-supplied UUID; deduplicates retries
+     * @throws DepositAmountOutOfRangeException  amount {@code <= 0} or
+     *                                           {@code >} configured max
+     * @throws InsufficientAvailableBalanceException  depositor's balance
+     *                                                {@code <} amount
+     * @throws UserStatusBlockedException        depositor's wallet is frozen
+     */
+    @Transactional
+    public DepositResult depositFromMemberWallet(
+            Long groupId, long amount, Long userId, String memo, UUID idempotencyKey) {
+        // 1. Range check.
+        if (amount < 1 || amount > groupDepositMaxL) {
+            throw new DepositAmountOutOfRangeException(1L, groupDepositMaxL, amount);
+        }
+
+        // 2. Idempotency check -- replay returns the original IDs + current
+        // availabilities without touching balances.
+        String idemStr = idempotencyKey.toString();
+        Optional<RealtyGroupLedgerEntry> existingGroup =
+                ledgerRepository.findByIdempotencyKey(idemStr);
+        if (existingGroup.isPresent()) {
+            RealtyGroupLedgerEntry priorGroup = existingGroup.get();
+            UserLedgerEntry priorUser = userLedgerRepository.findByIdempotencyKey(idemStr)
+                .orElseThrow(() -> new IllegalStateException(
+                    "group ledger row " + priorGroup.getId()
+                    + " exists for idempotency key " + idemStr
+                    + " but paired user-ledger row is missing"));
+            RealtyGroup curGroup = groupRepository.findById(groupId).orElseThrow();
+            User curUser = userRepository.findById(userId).orElseThrow();
+            log.debug("group deposit replay: groupId={}, userId={}, idemKey={}",
+                groupId, userId, idemStr);
+            return new DepositResult(
+                priorGroup.getId(),
+                priorUser.getId(),
+                curGroup.availableLindens(),
+                curUser.availableLindens());
+        }
+
+        // 3. Suspension / ban gate.
+        realtyGroupGuard.requireGroupCanOperate(groupId);
+
+        // 4. Lock both rows.
+        RealtyGroup group = groupRepository.findByIdForUpdate(groupId).orElseThrow();
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow();
+
+        // 5. Reject wallet-frozen depositor.
+        if (user.getWalletFrozenAt() != null) {
+            throw new UserStatusBlockedException(user.getId(), "USER_FROZEN");
+        }
+
+        // 6. Insufficient-balance gate. Pay from AVAILABLE (balance - reserved),
+        // not from total balance: reserved L$ is earmarked for active bids and
+        // must remain backed by balance after the debit, or the DB's
+        // `balance_lindens >= reserved_lindens` CHECK is violated at COMMIT.
+        long available = user.availableLindens();
+        if (available < amount) {
+            throw new InsufficientAvailableBalanceException(available, amount);
+        }
+
+        // 7. Debit personal wallet + append user-ledger row.
+        long newUserBalance = user.getBalanceLindens() - amount;
+        user.setBalanceLindens(newUserBalance);
+        userRepository.save(user);
+
+        String memoSuffix = (memo == null || memo.isBlank()) ? "" : " -- " + memo.trim();
+        UserLedgerEntry userEntry = userLedgerRepository.save(UserLedgerEntry.builder()
+            .userId(user.getId())
+            .entryType(UserLedgerEntryType.GROUP_WALLET_DEPOSIT_DEBIT)
+            .amount(amount)
+            .balanceAfter(newUserBalance)
+            .reservedAfter(user.getReservedLindens())
+            .idempotencyKey(idemStr)
+            .refType("REALTY_GROUP")
+            .refId(group.getId())
+            .description("Deposit to " + group.getName() + memoSuffix)
+            .build());
+
+        // 8. Credit group wallet + append group-ledger row.
+        long newGroupBalance = group.getBalanceLindens() + amount;
+        group.setBalanceLindens(newGroupBalance);
+        clearDormancyOnActivity(group);
+        groupRepository.save(group);
+
+        RealtyGroupLedgerEntry groupEntry = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(group.getId())
+            .entryType(RealtyGroupLedgerEntryType.MEMBER_DEPOSIT)
+            .amount(amount)
+            .balanceAfter(newGroupBalance)
+            .reservedAfter(group.getReservedLindens())
+            .actorUserId(userId)
+            .idempotencyKey(idemStr)
+            .description("Deposit from app wallet" + memoSuffix)
+            .build());
+
+        // 9. Broadcasts -- group topic + depositor's personal queue.
+        broadcastPublisher.publish(group.getPublicId(),
+            newGroupBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.MEMBER_DEPOSIT.name(), groupEntry.getPublicId());
+        walletBroadcastPublisher.publish(user,
+            UserLedgerEntryType.GROUP_WALLET_DEPOSIT_DEBIT.name(), userEntry.getPublicId());
+
+        log.info("group member deposit: groupId={}, userId={}, amount={}, "
+                + "groupBalanceAfter={}, userBalanceAfter={}",
+            groupId, userId, amount, newGroupBalance, newUserBalance);
+
+        // 10. Return both ids + current availabilities.
+        return new DepositResult(
+            groupEntry.getId(),
+            userEntry.getId(),
+            group.availableLindens(),
+            user.availableLindens());
+    }
+
+    /* ============================================================ */
+    /* TERMINAL DEPOSIT (in-world flow -- L$ -> group wallet)        */
+    /* ============================================================ */
+
+    /**
+     * Result returned by {@link #depositFromTerminal}.
+     *
+     * @param groupLedgerEntryId internal id of the appended group-ledger
+     *                           {@code MEMBER_DEPOSIT} row
+     * @param newGroupAvailable  group-wallet available balance after the
+     *                           credit (current snapshot on replay)
+     */
+    public record TerminalDepositResult(Long groupLedgerEntryId, long newGroupAvailable) {}
+
+    /**
+     * Credit a group wallet from L$ already paid into the in-world SLParcels
+     * Terminal script. Called from the SL-headers + shared-secret gated
+     * {@code POST /api/v1/sl/wallet/group-deposit} after a {@code money()}
+     * event fires with a pending group-deposit context slot. Spec §4.3.
+     *
+     * <p>Reuses the {@code MEMBER_DEPOSIT} ledger entry type — same business
+     * semantics as the app-flow deposit, just a different intake channel.
+     *
+     * <p>Idempotent on {@code slTransactionKey}: a replay returns the original
+     * ledger id and current available balance without re-crediting. The LSL
+     * retry chain relies on this — a network blip mid-response must not
+     * double-credit the group.
+     *
+     * @param groupId          internal id of the target realty group
+     * @param amount           L$ to credit; must lie in {@code [1, configMax]}
+     * @param depositorUserId  internal id of the avatar's linked SLParcels
+     *                         user (recorded as {@code actorUserId})
+     * @param regionName       SL region name the terminal sits in; folded
+     *                         into the row's {@code description}. May be
+     *                         {@code null} if the terminal has no region row
+     * @param slTransactionKey SL-grid transaction key; doubles as both the
+     *                         idempotency key and the recorded
+     *                         {@code slTransactionId}
+     * @throws DepositAmountOutOfRangeException  amount {@code < 1} or
+     *                                           {@code >} configured max
+     * @throws com.slparcelauctions.backend.realty.moderation.exception.RealtyGroupSuspendedException
+     *                                           group is suspended or banned
+     */
+    @Transactional
+    public TerminalDepositResult depositFromTerminal(
+            Long groupId, long amount, Long depositorUserId, String regionName,
+            String slTransactionKey) {
+        // 1. Range check.
+        if (amount < 1 || amount > groupDepositMaxL) {
+            throw new DepositAmountOutOfRangeException(1L, groupDepositMaxL, amount);
+        }
+
+        // 2. Idempotency on slTransactionKey -- replay returns the original
+        // ledger id + current available without touching the balance.
+        Optional<RealtyGroupLedgerEntry> prior =
+            ledgerRepository.findByIdempotencyKey(slTransactionKey);
+        if (prior.isPresent()) {
+            RealtyGroup curGroup = groupRepository.findById(groupId).orElseThrow();
+            log.debug("group terminal deposit replay: groupId={}, slTxn={}",
+                groupId, slTransactionKey);
+            return new TerminalDepositResult(prior.get().getId(), curGroup.availableLindens());
+        }
+
+        // 3. Suspension / ban gate.
+        realtyGroupGuard.requireGroupCanOperate(groupId);
+
+        // 4. Lock + credit.
+        RealtyGroup group = groupRepository.findByIdForUpdate(groupId).orElseThrow();
+        long newBalance = group.getBalanceLindens() + amount;
+        group.setBalanceLindens(newBalance);
+        clearDormancyOnActivity(group);
+        groupRepository.save(group);
+
+        String description = "Deposit at terminal in "
+            + (regionName == null ? "<unknown region>" : regionName);
+        RealtyGroupLedgerEntry entry = ledgerRepository.save(RealtyGroupLedgerEntry.builder()
+            .groupId(group.getId())
+            .entryType(RealtyGroupLedgerEntryType.MEMBER_DEPOSIT)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(group.getReservedLindens())
+            .actorUserId(depositorUserId)
+            .idempotencyKey(slTransactionKey)
+            .description(description)
+            .slTransactionId(slTransactionKey)
+            .build());
+
+        broadcastPublisher.publish(group.getPublicId(),
+            newBalance, group.getReservedLindens(), group.availableLindens(),
+            RealtyGroupLedgerEntryType.MEMBER_DEPOSIT.name(), entry.getPublicId());
+
+        log.info("group terminal deposit: groupId={}, depositorUserId={}, amount={}, slTxn={}",
+            group.getId(), depositorUserId, amount, slTransactionKey);
+        return new TerminalDepositResult(entry.getId(), group.availableLindens());
     }
 
     /* ============================================================ */
