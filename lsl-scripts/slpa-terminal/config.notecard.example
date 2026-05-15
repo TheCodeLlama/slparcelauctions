@@ -12,6 +12,13 @@ WITHDRAW_REQUEST_URL=https://slpa.app/api/v1/sl/wallet/withdraw-request
 PAYOUT_RESULT_URL=https://slpa.app/api/v1/sl/escrow/payout-result
 HEARTBEAT_URL=https://slpa.app/api/v1/sl/terminal/heartbeat
 
+# Optional URLs for the "Pay to group" touch-menu option (realty-group
+# wallet deposit, sub-project H). BOTH must be set to non-empty values
+# for the menu button to appear; absence keeps the terminal on the legacy
+# Deposit/Withdraw-only menu so not-yet-updated deployments keep working.
+AVATAR_GROUPS_URL=https://slpa.app/api/v1/sl/wallet/avatar-groups
+GROUP_DEPOSIT_URL=https://slpa.app/api/v1/sl/wallet/group-deposit
+
 # SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
 # section 7.3) is NOT on this terminal -- it lives on the SLParcels
 # Verification Terminal alongside Method C user verify. See

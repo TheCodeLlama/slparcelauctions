@@ -36,7 +36,10 @@ export default function GroupWalletPageRoute() {
           Balance, withdrawals, and transaction history for this realty group.
         </p>
       </div>
-      <GroupWalletPage publicId={group.data.publicId} />
+      <GroupWalletPage
+        publicId={group.data.publicId}
+        groupName={group.data.name}
+      />
     </div>
   );
 }

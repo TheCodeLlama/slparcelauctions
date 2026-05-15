@@ -108,5 +108,13 @@ public enum UserLedgerEntryType {
      * succeeds. {@code amount = floor((final_bid - platform_commission) * agent_commission_rate)}.
      * See spec §9.6.
      */
-    AGENT_COMMISSION_CREDIT
+    AGENT_COMMISSION_CREDIT,
+
+    /**
+     * Sub-project H -- debit on a member-initiated transfer from this user's personal
+     * SLParcels wallet into a realty group's wallet. Paired with a {@code MEMBER_DEPOSIT}
+     * row on {@code realty_group_ledger} that shares the same {@code idempotencyKey}.
+     * {@code description} carries the group display name (and optional user-supplied memo).
+     */
+    GROUP_WALLET_DEPOSIT_DEBIT
 }

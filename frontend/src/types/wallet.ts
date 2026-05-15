@@ -24,7 +24,8 @@ export type UserLedgerEntryType =
   | "LISTING_FEE_DEBIT"
   | "LISTING_FEE_REFUND"
   | "PENALTY_DEBIT"
-  | "ADJUSTMENT";
+  | "ADJUSTMENT"
+  | "GROUP_WALLET_DEPOSIT_DEBIT";
 
 /**
  * Status of a `WITHDRAW_QUEUED` row in the collapsed ledger view. Non-null

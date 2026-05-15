@@ -24,6 +24,8 @@ import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.exception.GroupDissolvedException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupNotFoundException;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.realty.wallet.dto.GroupDepositRequest;
+import com.slparcelauctions.backend.realty.wallet.dto.GroupDepositResponse;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupLedgerEntryDto;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupWalletDto;
 import com.slparcelauctions.backend.realty.wallet.dto.GroupWalletDtoMapper;
@@ -164,6 +166,50 @@ public class RealtyGroupWalletController {
             g.getId(), req.amount(), req.idempotencyKey(), principal.userId(), req.recipient());
 
         return new GroupWithdrawResponse(result.queueId(), result.estimatedFulfillmentSeconds());
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // POST /api/v1/realty/groups/{publicId}/wallet/deposit
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Member-initiated personal-wallet → group-wallet transfer. Caller is
+     * whoever holds {@code DEPOSIT_TO_GROUP_WALLET} (or the leader). Spec §4.1.
+     *
+     * <p>Validation order mirrors {@link #withdraw}:
+     * <ol>
+     *   <li>Load group → 404 if unknown.</li>
+     *   <li>Check dissolved → 410 if {@code dissolvedAt != null}.</li>
+     *   <li>Permission check → 403 if missing {@code DEPOSIT_TO_GROUP_WALLET}.</li>
+     *   <li>Delegate to {@link RealtyGroupWalletService#depositFromMemberWallet}
+     *       (handles range, idempotency, suspension guard, frozen-user check,
+     *       insufficient-balance gate, paired ledger writes, broadcasts).
+     *       Service exceptions propagate to
+     *       {@link com.slparcelauctions.backend.realty.exception.RealtyExceptionHandler}.</li>
+     * </ol>
+     */
+    @PostMapping("/deposit")
+    @Transactional   // tx spans groupRepository.findByPublicId + walletService.depositFromMemberWallet
+    public GroupDepositResponse deposit(
+            @PathVariable UUID publicId,
+            @Valid @RequestBody GroupDepositRequest req,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        RealtyGroup g = groupRepository.findByPublicId(publicId)
+            .orElseThrow(() -> new RealtyGroupNotFoundException(publicId));
+
+        if (g.getDissolvedAt() != null) {
+            throw new GroupDissolvedException(publicId);
+        }
+
+        authorizer.assertCan(principal.userId(), g.getId(),
+            RealtyGroupPermission.DEPOSIT_TO_GROUP_WALLET);
+
+        RealtyGroupWalletService.DepositResult r = walletService.depositFromMemberWallet(
+            g.getId(), req.amount(), principal.userId(), req.memo(), req.idempotencyKey());
+
+        return new GroupDepositResponse(
+            r.groupLedgerEntryId(), r.personalLedgerEntryId(),
+            r.newGroupAvailable(), r.newPersonalAvailable());
     }
 
     // ─────────────────────────────────────────────────────────────────

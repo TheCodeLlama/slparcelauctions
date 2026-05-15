@@ -36,6 +36,12 @@ string  DEPOSIT_URL           = "";
 string  WITHDRAW_REQUEST_URL  = "";
 string  PAYOUT_RESULT_URL     = "";
 string  HEARTBEAT_URL         = "";
+// Optional URLs for the "Pay to group" flow (sub-project H). Both must be
+// non-empty for the menu button to appear; absence keeps the terminal on
+// the legacy Deposit/Withdraw-only behaviour (backwards compatibility for
+// not-yet-updated terminals).
+string  AVATAR_GROUPS_URL     = "";
+string  GROUP_DEPOSIT_URL     = "";
 string  SHARED_SECRET         = "";
 string  TERMINAL_ID           = "";
 string  REGION_NAME           = "";
@@ -67,6 +73,57 @@ list    withdrawSessions   = [];
 integer MAX_WITHDRAW_SESSIONS = 4;
 integer SESSION_TTL_SECONDS = 60;
 integer SLOT_STRIDE = 3;
+
+// === "Pay to group" pending-deposit slots ===
+// Strided 4-wide list: [avatarKey, groupPublicIdStr, groupNameStr, expiresAt, ...]
+//   Set when an avatar picks a group on the "Pay to group" dialog.
+//   Consumed in money() if not expired -> POST /sl/wallet/group-deposit.
+//   Falls through to the personal-wallet deposit flow when missing or
+//   expired (preserves the existing right-click -> Pay semantics).
+//
+//   groupNameStr is retained for owner-say log messages only; not sent on
+//   the wire to the backend.
+list    pendingGroupDeposits   = [];
+integer MAX_GROUP_DEPOSIT_SLOTS = 4;
+integer GROUP_DEPOSIT_SLOT_TTL  = 60;
+integer GROUP_DEPOSIT_SLOT_STRIDE = 4;
+
+// === "Pay to group" pending dialogs (between /avatar-groups POST and the
+// avatar clicking a group name in llDialog) ===
+// Strided 4-wide list:
+//   [avatarKey, labelsJsonArray, publicIdsJsonArray, nextAfterStr, expiresAt, ...]
+//   labelsJsonArray and publicIdsJsonArray are LSL-JSON-encoded string
+//   arrays (same length); the i-th label resolves to the i-th publicId.
+//   We keep them as parallel arrays rather than a single map so the
+//   "More..." button can re-POST /avatar-groups with the saved
+//   nextAfterStr cursor and overwrite the slot in place.
+//   nextAfterStr is "" when /avatar-groups returned hasMore=false.
+list    pendingGroupDialogs    = [];
+integer GROUP_DIALOG_TTL       = 60;
+integer GROUP_DIALOG_STRIDE    = 5;
+// Max chars for an LSL dialog button label. SL caps at 24; we leave one
+// char of headroom for the truncation ellipsis.
+integer GROUP_LABEL_MAX_CHARS  = 24;
+
+// === In-flight /avatar-groups + /group-deposit request tracking ===
+// /avatar-groups request -> remembers which avatar to dialog when the
+// response arrives. One slot at a time (per-avatar overwrite).
+key     avatarGroupsReqId      = NULL_KEY;
+key     avatarGroupsReqAvatar  = NULL_KEY;
+
+// /group-deposit request -> mirrors paymentReqId/paymentPayer/... for the
+// existing personal deposit. Reuses the same retry schedule. Only one
+// concurrent group-deposit per terminal (mirrors the existing single-
+// concurrent personal-deposit retry slot — the rest are awaiting on the
+// 10s/30s/90s/5m/15m chain in the timer).
+key     groupDepositReqId      = NULL_KEY;
+key     groupDepositPayer      = NULL_KEY;
+integer groupDepositAmount     = 0;
+string  groupDepositTxKey      = "";
+string  groupDepositGroupId    = "";
+string  groupDepositGroupName  = "";
+integer groupDepositRetryCount = 0;
+integer groupDepositNextRetryAt = 0;
 
 // === Background deposit retry (per money() event) ===
 key     paymentReqId       = NULL_KEY;
@@ -114,6 +171,7 @@ integer TIMER_SESSION_SWEEP     = 1;
 integer TIMER_PAYMENT_RETRY     = 2;
 integer TIMER_REGISTER_RETRY    = 3;
 integer TIMER_WITHDRAW_RETRY    = 4;
+integer TIMER_GROUP_DEPOSIT_RETRY = 5;
 integer timerPhase              = 0;
 
 // ---------------------------------------------------------------------------
@@ -140,6 +198,8 @@ parseConfigLine(string line) {
     else if (k == "WITHDRAW_REQUEST_URL")  WITHDRAW_REQUEST_URL  = v;
     else if (k == "PAYOUT_RESULT_URL")     PAYOUT_RESULT_URL     = v;
     else if (k == "HEARTBEAT_URL")         HEARTBEAT_URL         = v;
+    else if (k == "AVATAR_GROUPS_URL")     AVATAR_GROUPS_URL     = v;
+    else if (k == "GROUP_DEPOSIT_URL")     GROUP_DEPOSIT_URL     = v;
     else if (k == "SHARED_SECRET")         SHARED_SECRET         = v;
     else if (k == "TERMINAL_ID")           TERMINAL_ID           = v;
     else if (k == "REGION_NAME")           REGION_NAME           = v;
@@ -247,11 +307,17 @@ firePayment() {
 
 schedulePaymentRetry() {
     if (paymentRetryCount >= 5) {
+        // Final-failure refund discipline (CLAUDE.md "always refund on
+        // deposit error"): L$ is still in the script's hands and the
+        // backend hasn't acked after ~22 minutes of retries. Bounce to
+        // the payer rather than stranding the funds, then log CRITICAL
+        // for ops reconciliation. Mirrors scheduleGroupDepositRetry.
+        llTransferLindenDollars(paymentPayer, paymentAmount);
         llOwnerSay("CRITICAL: SLParcels Terminal: deposit from "
             + (string)paymentPayer
             + " L$" + (string)paymentAmount
             + " key " + paymentTxKey
-            + " not acknowledged after 5 retries");
+            + " not acknowledged after 5 retries; refunded payer");
         paymentReqId      = NULL_KEY;
         paymentPayer      = NULL_KEY;
         paymentAmount     = 0;
@@ -386,6 +452,184 @@ sweepExpiredSlots() {
     }
 }
 
+// ---------------- Group-deposit slot helpers ----------------
+
+integer findGroupDepositSlot(key avatar) {
+    integer i;
+    integer count = llGetListLength(pendingGroupDeposits) / GROUP_DEPOSIT_SLOT_STRIDE;
+    for (i = 0; i < count; ++i) {
+        key k = llList2Key(pendingGroupDeposits, i * GROUP_DEPOSIT_SLOT_STRIDE);
+        if (k == avatar) return i;
+    }
+    return -1;
+}
+
+releaseGroupDepositSlot(key avatar) {
+    integer slotIdx = findGroupDepositSlot(avatar);
+    if (slotIdx < 0) return;
+    integer start = slotIdx * GROUP_DEPOSIT_SLOT_STRIDE;
+    pendingGroupDeposits = llDeleteSubList(pendingGroupDeposits,
+        start, start + GROUP_DEPOSIT_SLOT_STRIDE - 1);
+}
+
+// Insert a new pending group-deposit slot. Per-avatar dedup (last-write-
+// wins) and a global cap of MAX_GROUP_DEPOSIT_SLOTS — when the cap is hit
+// without an existing avatar slot, evict the oldest (head of the strided
+// list) to make room (spec §8.3).
+setGroupDepositSlot(key avatar, string groupPublicId, string groupName) {
+    releaseGroupDepositSlot(avatar);
+    integer count = llGetListLength(pendingGroupDeposits) / GROUP_DEPOSIT_SLOT_STRIDE;
+    if (count >= MAX_GROUP_DEPOSIT_SLOTS) {
+        pendingGroupDeposits = llDeleteSubList(pendingGroupDeposits,
+            0, GROUP_DEPOSIT_SLOT_STRIDE - 1);
+    }
+    pendingGroupDeposits += [
+        avatar,
+        groupPublicId,
+        groupName,
+        llGetUnixTime() + GROUP_DEPOSIT_SLOT_TTL
+    ];
+}
+
+sweepExpiredGroupDepositSlots() {
+    integer now = llGetUnixTime();
+    integer i = llGetListLength(pendingGroupDeposits) / GROUP_DEPOSIT_SLOT_STRIDE - 1;
+    while (i >= 0) {
+        integer expiresAt = llList2Integer(pendingGroupDeposits,
+            i * GROUP_DEPOSIT_SLOT_STRIDE + 3);
+        if (expiresAt < now) {
+            pendingGroupDeposits = llDeleteSubList(pendingGroupDeposits,
+                i * GROUP_DEPOSIT_SLOT_STRIDE,
+                i * GROUP_DEPOSIT_SLOT_STRIDE + GROUP_DEPOSIT_SLOT_STRIDE - 1);
+        }
+        --i;
+    }
+}
+
+// ---------------- Group-dialog slot helpers ----------------
+
+integer findGroupDialogSlot(key avatar) {
+    integer i;
+    integer count = llGetListLength(pendingGroupDialogs) / GROUP_DIALOG_STRIDE;
+    for (i = 0; i < count; ++i) {
+        key k = llList2Key(pendingGroupDialogs, i * GROUP_DIALOG_STRIDE);
+        if (k == avatar) return i;
+    }
+    return -1;
+}
+
+releaseGroupDialogSlot(key avatar) {
+    integer slotIdx = findGroupDialogSlot(avatar);
+    if (slotIdx < 0) return;
+    integer start = slotIdx * GROUP_DIALOG_STRIDE;
+    pendingGroupDialogs = llDeleteSubList(pendingGroupDialogs,
+        start, start + GROUP_DIALOG_STRIDE - 1);
+}
+
+setGroupDialogSlot(key avatar, string labelsJson, string publicIdsJson, string nextAfter) {
+    releaseGroupDialogSlot(avatar);
+    pendingGroupDialogs += [
+        avatar,
+        labelsJson,
+        publicIdsJson,
+        nextAfter,
+        llGetUnixTime() + GROUP_DIALOG_TTL
+    ];
+}
+
+sweepExpiredGroupDialogs() {
+    integer now = llGetUnixTime();
+    integer i = llGetListLength(pendingGroupDialogs) / GROUP_DIALOG_STRIDE - 1;
+    while (i >= 0) {
+        integer expiresAt = llList2Integer(pendingGroupDialogs,
+            i * GROUP_DIALOG_STRIDE + 4);
+        if (expiresAt < now) {
+            pendingGroupDialogs = llDeleteSubList(pendingGroupDialogs,
+                i * GROUP_DIALOG_STRIDE,
+                i * GROUP_DIALOG_STRIDE + GROUP_DIALOG_STRIDE - 1);
+        }
+        --i;
+    }
+}
+
+// Truncate a group name to fit within an LSL dialog button. SL caps
+// button labels at 24 chars; long names are truncated with a trailing
+// ellipsis-character to signal the truncation. We use a single "~" rather
+// than "..." so we keep 23 chars of name visible at the 24-char cap.
+string truncateGroupLabel(string name) {
+    if (llStringLength(name) <= GROUP_LABEL_MAX_CHARS) return name;
+    return llGetSubString(name, 0, GROUP_LABEL_MAX_CHARS - 2) + "~";
+}
+
+// ---------------- /avatar-groups POST ----------------
+
+postAvatarGroups(key avatar, string after) {
+    string body = "{"
+        + "\"terminalId\":\"" + escapeJson(TERMINAL_ID) + "\","
+        + "\"sharedSecret\":\"" + escapeJson(SHARED_SECRET) + "\","
+        + "\"avatarUuid\":\"" + (string)avatar + "\"";
+    if (after != "") {
+        body += ",\"after\":\"" + escapeJson(after) + "\"";
+    }
+    body += "}";
+    avatarGroupsReqAvatar = avatar;
+    avatarGroupsReqId = llHTTPRequest(AVATAR_GROUPS_URL,
+        [HTTP_METHOD, "POST",
+         HTTP_MIMETYPE, "application/json",
+         HTTP_BODY_MAXLENGTH, 16384],
+        body);
+}
+
+// ---------------- /group-deposit POST + retry chain ----------------
+
+fireGroupDeposit() {
+    string body = "{"
+        + "\"payerUuid\":\"" + (string)groupDepositPayer + "\","
+        + "\"groupPublicId\":\"" + escapeJson(groupDepositGroupId) + "\","
+        + "\"amount\":" + (string)groupDepositAmount + ","
+        + "\"slTransactionKey\":\"" + groupDepositTxKey + "\","
+        + "\"terminalId\":\"" + escapeJson(TERMINAL_ID) + "\","
+        + "\"sharedSecret\":\"" + escapeJson(SHARED_SECRET) + "\""
+        + "}";
+    groupDepositReqId = llHTTPRequest(GROUP_DEPOSIT_URL,
+        [HTTP_METHOD, "POST",
+         HTTP_MIMETYPE, "application/json",
+         HTTP_BODY_MAXLENGTH, 16384],
+        body);
+}
+
+scheduleGroupDepositRetry() {
+    if (groupDepositRetryCount >= 5) {
+        // Final-failure refund discipline: by this point L$ is still in
+        // the script's hands and the backend hasn't acked. Bounce to the
+        // payer rather than stranding the funds, then log CRITICAL for
+        // ops reconciliation.
+        llTransferLindenDollars(groupDepositPayer, groupDepositAmount);
+        llOwnerSay("CRITICAL: SLParcels Terminal: group deposit from "
+            + (string)groupDepositPayer
+            + " L$" + (string)groupDepositAmount
+            + " to group " + groupDepositGroupId
+            + " key " + groupDepositTxKey
+            + " not acknowledged after 5 retries; refunded payer");
+        groupDepositReqId      = NULL_KEY;
+        groupDepositPayer      = NULL_KEY;
+        groupDepositAmount     = 0;
+        groupDepositTxKey      = "";
+        groupDepositGroupId    = "";
+        groupDepositGroupName  = "";
+        groupDepositRetryCount = 0;
+        if (timerPhase == TIMER_GROUP_DEPOSIT_RETRY) {
+            timerPhase = TIMER_SESSION_SWEEP;
+            llSetTimerEvent(10.0);
+        }
+        return;
+    }
+    integer delay = retryDelay(groupDepositRetryCount);
+    groupDepositNextRetryAt = llGetUnixTime() + delay;
+    timerPhase = TIMER_GROUP_DEPOSIT_RETRY;
+    llSetTimerEvent((float)delay);
+}
+
 // ---------------- HTTP-in inflight ----------------
 
 addInflightCommand(key txKey, string idempotencyKey, key recipient, integer amount) {
@@ -429,6 +673,8 @@ default {
         WITHDRAW_REQUEST_URL  = "";
         PAYOUT_RESULT_URL     = "";
         HEARTBEAT_URL         = "";
+        AVATAR_GROUPS_URL     = "";
+        GROUP_DEPOSIT_URL     = "";
         SHARED_SECRET         = "";
         TERMINAL_ID           = "";
         REGION_NAME           = "";
@@ -444,6 +690,18 @@ default {
         registerAttempt     = 0;
         registerNextRetryAt = 0;
         withdrawSessions    = [];
+        pendingGroupDeposits   = [];
+        pendingGroupDialogs    = [];
+        avatarGroupsReqId      = NULL_KEY;
+        avatarGroupsReqAvatar  = NULL_KEY;
+        groupDepositReqId      = NULL_KEY;
+        groupDepositPayer      = NULL_KEY;
+        groupDepositAmount     = 0;
+        groupDepositTxKey      = "";
+        groupDepositGroupId    = "";
+        groupDepositGroupName  = "";
+        groupDepositRetryCount = 0;
+        groupDepositNextRetryAt = 0;
         paymentReqId        = NULL_KEY;
         paymentPayer        = NULL_KEY;
         paymentAmount       = 0;
@@ -673,7 +931,40 @@ default {
             llTransferLindenDollars(payer, amount);
             return;
         }
-        // Lockless: every money() event is a deposit.
+
+        // "Pay to group" routing: if the payer picked a group within the
+        // last GROUP_DEPOSIT_SLOT_TTL seconds, route this money() event to
+        // /sl/wallet/group-deposit instead of the personal /sl/wallet/deposit
+        // flow. The sweeper evicts expired slots out-of-band, but we still
+        // double-check expiresAt here in case money() fires between the slot
+        // expiring and the next sweeper tick.
+        integer groupSlotIdx = findGroupDepositSlot(payer);
+        if (groupSlotIdx >= 0) {
+            integer expiresAt = llList2Integer(pendingGroupDeposits,
+                groupSlotIdx * GROUP_DEPOSIT_SLOT_STRIDE + 3);
+            if (expiresAt >= llGetUnixTime()
+                    && GROUP_DEPOSIT_URL != ""
+                    && groupDepositReqId == NULL_KEY) {
+                string groupId   = llList2String(pendingGroupDeposits,
+                    groupSlotIdx * GROUP_DEPOSIT_SLOT_STRIDE + 1);
+                string groupName = llList2String(pendingGroupDeposits,
+                    groupSlotIdx * GROUP_DEPOSIT_SLOT_STRIDE + 2);
+                releaseGroupDepositSlot(payer);
+                groupDepositPayer      = payer;
+                groupDepositAmount     = amount;
+                groupDepositTxKey      = (string)llGenerateKey();
+                groupDepositGroupId    = groupId;
+                groupDepositGroupName  = groupName;
+                groupDepositRetryCount = 0;
+                fireGroupDeposit();
+                return;
+            }
+            // Expired (or another group deposit already in flight on this
+            // terminal). Clear stale slot and fall through to personal.
+            releaseGroupDepositSlot(payer);
+        }
+
+        // Lockless: every money() event is a personal-wallet deposit.
         paymentPayer      = payer;
         paymentAmount     = amount;
         paymentTxKey      = (string)llGenerateKey();
@@ -684,22 +975,39 @@ default {
     touch_start(integer num) {
         key toucher = llDetectedKey(0);
         // Per-toucher dialog filtered by avatar key in the listen handler.
-        llDialog(toucher,
-            "What would you like to do?\n\n"
-            + "Deposit: right-click & pay (any amount)\n"
-            + "Withdraw: pull L$ from your wallet to your avatar",
-            ["Deposit", "Withdraw"], mainChan);
+        // "Pay to group" appears only when both group-flow URLs are
+        // configured -- pre-deploy terminals (notecard without the two
+        // new keys) keep the legacy 2-button menu.
+        list buttons = ["Deposit"];
+        string prompt = "What would you like to do?\n\n"
+            + "Deposit: right-click & pay (any amount)\n";
+        if (AVATAR_GROUPS_URL != "" && GROUP_DEPOSIT_URL != "") {
+            buttons += ["Pay to group"];
+            prompt += "Pay to group: deposit L$ into a realty group wallet\n";
+        }
+        buttons += ["Withdraw"];
+        prompt += "Withdraw: pull L$ from your wallet to your avatar";
+        llDialog(toucher, prompt, buttons, mainChan);
     }
 
     listen(integer chan, string name, key id, string msg) {
         if (chan != mainChan) return;
 
-        // Top-level menu responses (Deposit / Withdraw)
+        // Top-level menu responses (Deposit / Pay to group / Withdraw)
         if (msg == "Deposit") {
             llDialog(id,
                 "To deposit: right-click this terminal → Pay → enter any L$ amount. "
                 + "Funds will be credited to your SLParcels wallet.",
                 ["OK"], mainChan);
+            return;
+        }
+        if (msg == "Pay to group") {
+            if (AVATAR_GROUPS_URL == "" || GROUP_DEPOSIT_URL == "") {
+                // Defensive: button shouldn't have been shown. Fall through
+                // silently rather than POST to an empty URL.
+                return;
+            }
+            postAvatarGroups(id, "");
             return;
         }
         if (msg == "Withdraw") {
@@ -709,6 +1017,63 @@ default {
                 return;
             }
             llTextBox(id, "Enter L$ amount to withdraw:", mainChan);
+            return;
+        }
+
+        // ---- "Pay to group" dialog responses (More.../Cancel/group label) ----
+        // We probe the per-avatar pendingGroupDialogs slot BEFORE the
+        // withdraw-flow check so that group-name labels (e.g. "Heath's
+        // Realty") aren't accidentally treated as withdraw-flow input.
+        integer dialogIdx = findGroupDialogSlot(id);
+        if (dialogIdx >= 0) {
+            string labelsJson    = llList2String(pendingGroupDialogs,
+                dialogIdx * GROUP_DIALOG_STRIDE + 1);
+            string publicIdsJson = llList2String(pendingGroupDialogs,
+                dialogIdx * GROUP_DIALOG_STRIDE + 2);
+            string savedAfter    = llList2String(pendingGroupDialogs,
+                dialogIdx * GROUP_DIALOG_STRIDE + 3);
+
+            if (msg == "Cancel") {
+                releaseGroupDialogSlot(id);
+                return;
+            }
+            if (msg == "More...") {
+                // Re-POST /avatar-groups with the saved cursor. The slot
+                // stays open; the http_response handler will overwrite it
+                // when the new page arrives.
+                if (savedAfter != "") {
+                    postAvatarGroups(id, savedAfter);
+                }
+                return;
+            }
+            // Group-label button: look up its publicId in the parallel
+            // array. Walk the parsed list to find the index of the label
+            // match.
+            list labels    = llJson2List(labelsJson);
+            list publicIds = llJson2List(publicIdsJson);
+            integer labelCount = llGetListLength(labels);
+            integer i;
+            integer matchIdx = -1;
+            for (i = 0; i < labelCount; ++i) {
+                if (llList2String(labels, i) == msg) {
+                    matchIdx = i;
+                    i = labelCount; // break
+                }
+            }
+            if (matchIdx < 0) {
+                // Unknown button on an open group dialog. Most likely the
+                // avatar opened a stale dialog after a /avatar-groups
+                // pagination overwrote the slot, or we received a delayed
+                // message. Ignore silently.
+                return;
+            }
+            string chosenPublicId = llList2String(publicIds, matchIdx);
+            string chosenName     = llList2String(labels, matchIdx);
+            setGroupDepositSlot(id, chosenPublicId, chosenName);
+            releaseGroupDialogSlot(id);
+            llRegionSayTo(id, 0,
+                "You have 60 seconds to right-click -> Pay -> enter L$ amount "
+                + "to deposit into " + chosenName + ".");
             return;
         }
 
@@ -880,6 +1245,136 @@ default {
             return;
         }
 
+        // ----- /avatar-groups response -----
+        if (req == avatarGroupsReqId) {
+            avatarGroupsReqId = NULL_KEY;
+            key targetAvatar = avatarGroupsReqAvatar;
+            avatarGroupsReqAvatar = NULL_KEY;
+            if (status < 200 || status >= 300) {
+                llRegionSayTo(targetAvatar, 0,
+                    "Unable to fetch groups right now, please try again in a moment.");
+                debugSayUser(targetAvatar, "avatar-groups", status, body);
+                releaseGroupDialogSlot(targetAvatar);
+                return;
+            }
+            // Body shape: { "groups":[{"publicId":"...","name":"..."},...],
+            //               "hasMore":bool, "nextAfter":"..." }
+            string groupsJson = llJsonGetValue(body, ["groups"]);
+            if (groupsJson == JSON_INVALID) {
+                llRegionSayTo(targetAvatar, 0,
+                    "Unable to read groups response. Contact Heath Onyx if this persists.");
+                releaseGroupDialogSlot(targetAvatar);
+                return;
+            }
+            list groupList = llJson2List(groupsJson);
+            integer groupCount = llGetListLength(groupList);
+            if (groupCount == 0) {
+                llRegionSayTo(targetAvatar, 0,
+                    "You are not a member of any group with deposit permission.");
+                releaseGroupDialogSlot(targetAvatar);
+                return;
+            }
+
+            // Build parallel arrays of labels (truncated names) and publicIds.
+            // We dialog with up to 10 group buttons + "More..." + "Cancel"
+            // (LSL dialog cap is 12). Backend already pages at 12 per spec,
+            // so we keep the cap at 10 groups here to leave room for both
+            // the cursor and Cancel buttons.
+            list labels    = [];
+            list publicIds = [];
+            integer i;
+            integer dialogCap = 10;
+            integer toShow = groupCount;
+            if (toShow > dialogCap) toShow = dialogCap;
+            for (i = 0; i < toShow; ++i) {
+                string entryJson = llList2String(groupList, i);
+                string pid  = llJsonGetValue(entryJson, ["publicId"]);
+                string nm   = llJsonGetValue(entryJson, ["name"]);
+                if (pid == JSON_INVALID || nm == JSON_INVALID) {
+                    // Skip malformed entry; the backend contract guarantees
+                    // both fields, so this is purely defensive.
+                } else {
+                    labels    += [truncateGroupLabel(nm)];
+                    publicIds += [pid];
+                }
+            }
+
+            string hasMore   = llJsonGetValue(body, ["hasMore"]);
+            string nextAfter = llJsonGetValue(body, ["nextAfter"]);
+            // hasMore is JSON true|false. nextAfter is JSON null when no
+            // more pages — surfaces in LSL as JSON_NULL or the literal
+            // "null" string depending on the SL build.
+            string nextAfterStored = "";
+            if (hasMore == "true" && nextAfter != JSON_INVALID
+                    && nextAfter != "null" && nextAfter != JSON_NULL
+                    && nextAfter != "") {
+                nextAfterStored = nextAfter;
+            }
+
+            list buttons = labels;
+            if (nextAfterStored != "") buttons += ["More..."];
+            buttons += ["Cancel"];
+
+            // Persist label->publicId mapping until the avatar picks one.
+            string labelsJson    = llList2Json(JSON_ARRAY, labels);
+            string publicIdsJson = llList2Json(JSON_ARRAY, publicIds);
+            setGroupDialogSlot(targetAvatar, labelsJson, publicIdsJson, nextAfterStored);
+
+            llDialog(targetAvatar, "Pick a group to deposit into:",
+                buttons, mainChan);
+            return;
+        }
+
+        // ----- /group-deposit response -----
+        if (req == groupDepositReqId) {
+            groupDepositReqId = NULL_KEY;
+            if (status >= 200 && status < 300) {
+                string s = llJsonGetValue(body, ["status"]);
+                if (s == "OK") {
+                    if (DEBUG_MODE)
+                        llOwnerSay("SLParcels Terminal: group deposit ok L$"
+                            + (string)groupDepositAmount
+                            + " to " + groupDepositGroupName);
+                } else if (s == "REFUND") {
+                    string reason = llJsonGetValue(body, ["reason"]);
+                    llTransferLindenDollars(groupDepositPayer, groupDepositAmount);
+                    if (DEBUG_MODE)
+                        llOwnerSay("SLParcels Terminal: group deposit refunded ("
+                            + reason + ") L$" + (string)groupDepositAmount
+                            + " to " + (string)groupDepositPayer);
+                } else if (s == "ERROR") {
+                    // Mirrors the personal-deposit ERROR branch: bounce L$
+                    // defensively. By the time this endpoint runs, L$ is in
+                    // the script's hands and the payer is a real avatar
+                    // (pre-flight shared-secret / SL headers already
+                    // validated). See CLAUDE.md "always refund on deposit
+                    // error".
+                    string reason = llJsonGetValue(body, ["reason"]);
+                    llTransferLindenDollars(groupDepositPayer, groupDepositAmount);
+                    if (DEBUG_MODE)
+                        llOwnerSay("SLParcels Terminal: group deposit refunded on ERROR ("
+                            + reason + ") L$" + (string)groupDepositAmount
+                            + " to " + (string)groupDepositPayer);
+                }
+                groupDepositPayer      = NULL_KEY;
+                groupDepositAmount     = 0;
+                groupDepositTxKey      = "";
+                groupDepositGroupId    = "";
+                groupDepositGroupName  = "";
+                groupDepositRetryCount = 0;
+                return;
+            }
+            // Transient: schedule retry. Idempotent by groupDepositTxKey
+            // server-side.
+            ++groupDepositRetryCount;
+            if (DEBUG_MODE)
+                llOwnerSay("SLParcels Terminal: group deposit retry "
+                    + (string)groupDepositRetryCount + "/5: status=" + (string)status);
+            debugSayUser(groupDepositPayer, "group-deposit", status, body);
+            scheduleGroupDepositRetry();
+            return;
+        }
+
         // ----- Heartbeat ack -----
         if (req == heartbeatReqId) {
             heartbeatReqId = NULL_KEY;
@@ -898,8 +1393,9 @@ default {
     }
 
     timer() {
-        // Multi-purpose 10-second timer: sweeps expired withdraw slots,
-        // checks for due register/deposit/withdraw retries, then continues.
+        // Multi-purpose 10-second timer: sweeps expired withdraw +
+        // group-deposit + group-dialog slots, checks for due register /
+        // deposit / withdraw / group-deposit retries, then continues.
         integer now = llGetUnixTime();
 
         if (timerPhase == TIMER_REGISTER_RETRY && now >= registerNextRetryAt) {
@@ -910,6 +1406,10 @@ default {
         }
         if (timerPhase == TIMER_WITHDRAW_RETRY && now >= withdrawNextRetryAt) {
             fireWithdrawRequest();
+        }
+        if (timerPhase == TIMER_GROUP_DEPOSIT_RETRY
+                && now >= groupDepositNextRetryAt) {
+            fireGroupDeposit();
         }
 
         // Heartbeat tick (independent of timerPhase — runs on its own
@@ -922,6 +1422,8 @@ default {
         }
 
         sweepExpiredSlots();
+        sweepExpiredGroupDepositSlots();
+        sweepExpiredGroupDialogs();
 
         // Always reschedule for the next sweep.
         timerPhase = TIMER_SESSION_SWEEP;
