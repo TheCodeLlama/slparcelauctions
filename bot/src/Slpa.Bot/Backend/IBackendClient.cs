@@ -17,9 +17,9 @@ public interface IBackendClient
     Task PostMonitorAsync(long taskId, BotMonitorResultRequest body, CancellationToken ct);
 
     /// <summary>
-    /// Fire-and-forget heartbeat. Reuses the shared bearer auth + 5xx retry.
-    /// Throws <see cref="AuthConfigException"/> on 401 (the caller swallows
-    /// it — the claim path is the authoritative 401 handler).
+    /// Best-effort heartbeat (blocking: awaits the shared bearer auth + 5xx
+    /// retry ladder). Throws <see cref="AuthConfigException"/> on 401 (the
+    /// caller swallows it — the claim path is the authoritative 401 handler).
     /// </summary>
     Task SendHeartbeatAsync(BotHeartbeatRequest body, CancellationToken ct);
 }
