@@ -148,6 +148,10 @@ public sealed class TaskLoopTests
         var act = async () => await loop.RunAsync(cts.Token);
 
         await act.Should().NotThrowAsync();
+        // Loop returned on the parker's OCE rather than swallowing it and
+        // looping again — exactly one park attempt.
+        parker.Verify(p => p.ParkIfNeededAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
