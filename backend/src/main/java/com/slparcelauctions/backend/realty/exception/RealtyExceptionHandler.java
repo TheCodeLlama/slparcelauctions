@@ -34,6 +34,7 @@ import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupNotVerifiedE
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupRegisteredToSuspendedGroupException;
 import com.slparcelauctions.backend.realty.slgroup.exception.SlGroupVerificationExpiredException;
 import com.slparcelauctions.backend.realty.wallet.exception.AdminAdjustAmountOutOfRangeException;
+import com.slparcelauctions.backend.realty.wallet.exception.DepositAmountOutOfRangeException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasInFlightEscrowsException;
 import com.slparcelauctions.backend.realty.wallet.exception.GroupHasNonzeroBalanceException;
 import com.slparcelauctions.backend.realty.wallet.exception.InsufficientGroupBalanceException;
@@ -43,6 +44,7 @@ import com.slparcelauctions.backend.realty.wallet.exception.SlGroupNotRegistered
 import com.slparcelauctions.backend.realty.wallet.exception.SlGroupRegistrationSuspendedException;
 import com.slparcelauctions.backend.sl.exception.InvalidSlHeadersException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
+import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -304,6 +306,49 @@ public class RealtyExceptionHandler {
         pd.setProperty("code", "ADMIN_ADJUST_AMOUNT_OUT_OF_RANGE");
         pd.setProperty("amount", e.getAmount());
         pd.setProperty("ceiling", e.getCeiling());
+        return pd;
+    }
+
+    /**
+     * Spec §4.1 -- surfaces {@link DepositAmountOutOfRangeException} as 400 Bad
+     * Request. Thrown by {@code RealtyGroupWalletService.depositFromMemberWallet}
+     * when the requested deposit amount lies outside the configured
+     * {@code [1, slpa.realty.group-deposit-max-l]} range. Body carries the
+     * configured {@code min} and {@code max} so the frontend can render an
+     * actionable "must be between L$X and L$Y" message.
+     */
+    @ExceptionHandler(DepositAmountOutOfRangeException.class)
+    public ProblemDetail handleDepositAmountOutOfRange(
+            DepositAmountOutOfRangeException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "AMOUNT_OUT_OF_RANGE: " + e.getMessage());
+        pd.setTitle("Amount Out Of Range");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "AMOUNT_OUT_OF_RANGE");
+        pd.setProperty("min", e.getMin());
+        pd.setProperty("max", e.getMax());
+        return pd;
+    }
+
+    /**
+     * Spec §4.1 -- surfaces {@link InsufficientAvailableBalanceException} as 400
+     * Bad Request when raised from a realty endpoint. The wallet-package handler
+     * ({@code WalletExceptionHandler}, scoped to {@code wallet.me}) maps the same
+     * exception to 422 on personal-wallet endpoints; the deposit-to-group flow
+     * uses 400 per spec because the failure is a request-side affordance
+     * ("you don't have that much L$") rather than a server-side state conflict.
+     */
+    @ExceptionHandler(InsufficientAvailableBalanceException.class)
+    public ProblemDetail handleInsufficientAvailableBalance(
+            InsufficientAvailableBalanceException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "INSUFFICIENT_BALANCE: available=" + e.getAvailable());
+        pd.setTitle("Insufficient Balance");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INSUFFICIENT_BALANCE");
+        pd.setProperty("available", e.getAvailable());
+        pd.setProperty("requested", e.getRequested());
         return pd;
     }
 
