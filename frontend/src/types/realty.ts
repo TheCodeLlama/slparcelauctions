@@ -44,7 +44,8 @@ export type RealtyGroupPermission =
   | "WITHDRAW_FROM_GROUP_WALLET"
   | "VIEW_GROUP_TRANSACTIONS"
   | "REGISTER_SL_GROUP"
-  | "MANAGE_MEMBERS";
+  | "MANAGE_MEMBERS"
+  | "DEPOSIT_TO_GROUP_WALLET";
 
 // ─── Public / read DTOs ────────────────────────────────────────────────────
 
@@ -286,6 +287,24 @@ export interface GroupWithdrawRequest {
 export interface GroupWithdrawResponse {
   queueId: number;
   estimatedFulfillmentSeconds: number;
+}
+
+/**
+ * Sub-project H -- member-initiated deposit into a group's wallet from the
+ * member's personal SLParcels wallet. `idempotencyKey` is a client-generated
+ * UUID; replay returns the same ledger ids.
+ */
+export interface GroupDepositRequest {
+  amount: number;
+  memo?: string;
+  idempotencyKey: string;
+}
+
+export interface GroupDepositResponse {
+  groupLedgerEntryId: number;
+  personalLedgerEntryId: number;
+  newGroupAvailable: number;
+  newPersonalAvailable: number;
 }
 
 // ─── SL group registrations (Realty Groups: E) ─────────────────────────────

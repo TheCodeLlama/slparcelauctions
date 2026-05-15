@@ -17,6 +17,7 @@ export const ALL_PERMISSIONS: readonly RealtyGroupPermission[] = [
   "VIEW_GROUP_TRANSACTIONS",
   "REGISTER_SL_GROUP",
   "MANAGE_MEMBERS",
+  "DEPOSIT_TO_GROUP_WALLET",
 ] as const;
 
 /**
@@ -46,6 +47,8 @@ export function permissionLabel(p: RealtyGroupPermission): string {
       return "Register SL groups";
     case "MANAGE_MEMBERS":
       return "Manage members";
+    case "DEPOSIT_TO_GROUP_WALLET":
+      return "Deposit to group wallet";
   }
 }
 
@@ -76,5 +79,7 @@ export function permissionDescription(p: RealtyGroupPermission): string {
       return "Register and unregister the in-world SL groups this realty group manages.";
     case "MANAGE_MEMBERS":
       return "Bulk-edit per-member commission rates and view per-member commission analytics.";
+    case "DEPOSIT_TO_GROUP_WALLET":
+      return "Transfer L$ from your personal SLParcels wallet (or an in-world terminal) into this group's wallet.";
   }
 }
