@@ -113,7 +113,14 @@ public sealed class TaskLoop : BackgroundService
 
             if (task is null)
             {
-                await _idleParker.ParkIfNeededAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    await _idleParker.ParkIfNeededAsync(ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
                 await SafeDelayAsync(EmptyQueueBackoff, ct).ConfigureAwait(false);
                 continue;
             }

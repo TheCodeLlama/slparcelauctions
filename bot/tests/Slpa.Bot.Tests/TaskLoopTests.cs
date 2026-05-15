@@ -123,6 +123,34 @@ public sealed class TaskLoopTests
     }
 
     [Fact]
+    public async Task EmptyQueue_IdleParkerCancellation_StopsCleanly()
+    {
+        var session = new FakeBotSession();
+        session.SimulateLoginSuccess();
+        var backend = new Mock<IBackendClient>();
+        backend.Setup(b => b.ClaimAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync((BotTaskResponse?)null);
+        var parker = new Mock<IIdleParker>();
+        parker.Setup(p => p.ParkIfNeededAsync(It.IsAny<CancellationToken>()))
+              .ThrowsAsync(new OperationCanceledException());
+
+        var loop = new TaskLoop(session, backend.Object,
+            parker.Object, new BotActivityState(),
+            () => new VerifyHandler(session, backend.Object,
+                    NullLogger<VerifyHandler>.Instance),
+            () => new MonitorHandler(session, backend.Object,
+                    NullLogger<MonitorHandler>.Instance),
+            () => new WithdrawGroupHandler(session, backend.Object,
+                    NullLogger<WithdrawGroupHandler>.Instance),
+            NullLogger<TaskLoop>.Instance);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var act = async () => await loop.RunAsync(cts.Token);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public async Task ClaimedTask_RecordsActivity_ClearedAfterDispatch()
     {
         var session = new FakeBotSession();
