@@ -13,6 +13,8 @@ namespace Slpa.Bot.Tests;
 
 public sealed class HeartbeatLoopTests
 {
+    // intervalSeconds = 0 -> Task.Delay(Zero) -> tight loop; the RunAsync
+    // tests bound it with a short CancellationTokenSource timeout instead.
     private static HeartbeatLoop Make(
         FakeBotSession session, IBackendClient backend,
         BotActivityState activity, int intervalSeconds = 0)
