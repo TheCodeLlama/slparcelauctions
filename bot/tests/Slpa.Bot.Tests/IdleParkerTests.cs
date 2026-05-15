@@ -169,6 +169,25 @@ public sealed class IdleParkerTests
     }
 
     [Fact]
+    public async Task ExceptionThrown_IsSwallowed_AndSetsCooldown()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Ahern", 1, 1),
+            TeleportPolicy = _ => throw new InvalidOperationException("boom")
+        };
+        var parker = Make(session, Opts(), () => now, () => 0.5);
+
+        // Does not throw (generic catch swallows non-OCE).
+        await parker.ParkIfNeededAsync(default);
+        // Second call at same clock is blocked by the cooldown set in catch.
+        await parker.ParkIfNeededAsync(default);
+
+        session.TeleportCalls.Should().HaveCount(1);
+    }
+
+    [Fact]
     public async Task CurrentLocationNull_SkipsGracefully()
     {
         var now = DateTimeOffset.UnixEpoch;

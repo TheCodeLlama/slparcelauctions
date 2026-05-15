@@ -120,6 +120,8 @@ public sealed class IdleParker : IIdleParker
         }
         catch (Exception ex)
         {
+            // Re-read the clock: TeleportAsync may have thrown after an
+            // unpredictable delay, so the pre-await `now` is a stale anchor.
             _nextParkUtc = _now()
                 + TimeSpan.FromSeconds(_opts.ParkCooldownSeconds);
             _log.LogWarning(ex,
