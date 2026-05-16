@@ -508,29 +508,6 @@ class AuctionControllerIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // PUT /auctions/{id}/verify â€” group-land gate (sub-spec 2 Â§7.2)
-    // -------------------------------------------------------------------------
-
-    @Test
-    void verify_groupOwnedParcel_withNonSaleToBotMethod_returns422ProblemDetail() throws Exception {
-        // Seed a group-owned parcel for the seller and a DRAFT_PAID auction
-        // over it. The verify trigger must reject any method other than
-        // SALE_TO_BOT with a 422 ProblemDetail carrying the agreed code/title.
-        UUID groupParcelUuid = seedGroupOwnedParcel();
-        Auction a = seedAuctionFor(groupParcelUuid, "group", AuctionStatus.DRAFT_PAID, true, 0, null);
-
-        mockMvc.perform(put("/api/v1/auctions/" + a.getPublicId() + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"method\":\"UUID_ENTRY\"}"))
-                .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.status").value(422))
-                .andExpect(jsonPath("$.title").value("Group-owned land requires Sale-to-bot"))
-                .andExpect(jsonPath("$.code").value("GROUP_LAND_REQUIRES_SALE_TO_BOT"))
-                .andExpect(jsonPath("$.detail").isNotEmpty());
-    }
-
-    // -------------------------------------------------------------------------
     // PUT /auctions/{id}/cancel
     // -------------------------------------------------------------------------
 
@@ -596,14 +573,10 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_returnsOnlyActiveForSeller() throws Exception {
-        seedAuctionFor(seedExtraParcel(0x71), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        seedAuctionFor(seedExtraParcel(0x72), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        seedAuctionFor(seedExtraParcel(0x73), AuctionStatus.DRAFT, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        seedAuctionFor(seedExtraParcel(0x74), AuctionStatus.SUSPENDED, false, 0,
-                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x71), AuctionStatus.ACTIVE, false, 0);
+        seedAuctionFor(seedExtraParcel(0x72), AuctionStatus.ACTIVE, false, 0);
+        seedAuctionFor(seedExtraParcel(0x73), AuctionStatus.DRAFT, false, 0);
+        seedAuctionFor(seedExtraParcel(0x74), AuctionStatus.SUSPENDED, false, 0);
 
         mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
@@ -620,10 +593,8 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_suspendedAlwaysExcluded() throws Exception {
-        seedAuctionFor(seedExtraParcel(0x81), AuctionStatus.SUSPENDED, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        seedAuctionFor(seedExtraParcel(0x82), AuctionStatus.SUSPENDED, false, 0,
-                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x81), AuctionStatus.SUSPENDED, false, 0);
+        seedAuctionFor(seedExtraParcel(0x82), AuctionStatus.SUSPENDED, false, 0);
 
         mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
@@ -635,8 +606,7 @@ class AuctionControllerIntegrationTest {
     @Test
     void getUserAuctions_emptyWhenNoActive() throws Exception {
         // Seller has only DRAFT listings â€” no ACTIVE â€” so the page is empty.
-        seedAuctionFor(seedExtraParcel(0x91), AuctionStatus.DRAFT, false, 0,
-                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0x91), AuctionStatus.DRAFT, false, 0);
 
         mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE"))
@@ -647,12 +617,9 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_pagination() throws Exception {
-        seedAuctionFor(seedExtraParcel(0xA1), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        seedAuctionFor(seedExtraParcel(0xA2), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        seedAuctionFor(seedExtraParcel(0xA3), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0xA1), AuctionStatus.ACTIVE, false, 0);
+        seedAuctionFor(seedExtraParcel(0xA2), AuctionStatus.ACTIVE, false, 0);
+        seedAuctionFor(seedExtraParcel(0xA3), AuctionStatus.ACTIVE, false, 0);
 
         mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
                 .param("status", "ACTIVE")
@@ -668,8 +635,7 @@ class AuctionControllerIntegrationTest {
 
     @Test
     void getUserAuctions_anonymousAccessAllowed() throws Exception {
-        seedAuctionFor(seedExtraParcel(0xB1), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
+        seedAuctionFor(seedExtraParcel(0xB1), AuctionStatus.ACTIVE, false, 0);
 
         // No Authorization header â€” spec Â§14 marks this endpoint public.
         mockMvc.perform(get("/api/v1/users/" + sellerPublicId + "/auctions")
@@ -692,12 +658,9 @@ class AuctionControllerIntegrationTest {
         // surfaces soonest-ending first, so the content array must be in
         // ascending endsAt order regardless of insertion order. Seed them
         // out-of-order to make sure the ORDER BY is actually doing the work.
-        Auction aLater = seedAuctionFor(seedExtraParcel(0xC2), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        Auction aSoonest = seedAuctionFor(seedExtraParcel(0xC1), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
-        Auction aMiddle = seedAuctionFor(seedExtraParcel(0xC3), AuctionStatus.ACTIVE, false, 0,
-                VerificationMethod.UUID_ENTRY);
+        Auction aLater = seedAuctionFor(seedExtraParcel(0xC2), AuctionStatus.ACTIVE, false, 0);
+        Auction aSoonest = seedAuctionFor(seedExtraParcel(0xC1), AuctionStatus.ACTIVE, false, 0);
+        Auction aMiddle = seedAuctionFor(seedExtraParcel(0xC3), AuctionStatus.ACTIVE, false, 0);
         OffsetDateTime now = OffsetDateTime.now();
         aSoonest.setEndsAt(now.plusHours(1));
         aMiddle.setEndsAt(now.plusDays(1));
@@ -802,30 +765,26 @@ class AuctionControllerIntegrationTest {
     }
 
     private Auction seedAuction(AuctionStatus status, boolean listingFeePaid, int bidCount) {
-        return seedAuctionFor(sellerParcelUuid, "agent", status, listingFeePaid, bidCount,
-                VerificationMethod.UUID_ENTRY);
+        return seedAuctionFor(sellerParcelUuid, "agent", status, listingFeePaid, bidCount);
     }
 
     private Auction seedAuctionFor(UUID parcelUuid, AuctionStatus status, boolean listingFeePaid) {
-        // Sub-spec 2 Â§7.1 â€” verificationMethod is null until the seller picks
-        // one at the verify trigger. Group-owned parcel tests rely on this.
-        return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, 0, null);
+        return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, 0);
     }
 
     private Auction seedAuctionFor(UUID parcelUuid, AuctionStatus status,
-            boolean listingFeePaid, int bidCount, VerificationMethod method) {
-        return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, bidCount, method);
+            boolean listingFeePaid, int bidCount) {
+        return seedAuctionFor(parcelUuid, "agent", status, listingFeePaid, bidCount);
     }
 
     private Auction seedAuctionFor(UUID parcelUuid, String ownerType, AuctionStatus status,
-            boolean listingFeePaid, int bidCount, VerificationMethod method) {
+            boolean listingFeePaid, int bidCount) {
         User seller = userRepository.findById(sellerId).orElseThrow();
         Auction a = Auction.builder()
                 .title("Test listing")
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
-                .verificationMethod(method)
                 .startingBid(1000L)
                 .durationHours(168)
                 .snipeProtect(false)

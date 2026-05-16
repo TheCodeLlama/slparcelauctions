@@ -22,7 +22,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
@@ -124,7 +123,7 @@ class TerminalCommandStallNotificationIntegrationTest {
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
                     .endOutcome(AuctionEndOutcome.SOLD)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(1000L)
                     .currentBid(1500L)
@@ -216,7 +215,7 @@ class TerminalCommandStallNotificationIntegrationTest {
                     .title("NoStall Test Lot").slParcelUuid(parcelUuid2).seller(sl)
                     .status(AuctionStatus.DISPUTED)
                     .endOutcome(AuctionEndOutcome.SOLD)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(1000L).currentBid(1500L)
                     .currentBidderId(w.getId()).winnerUserId(w.getId())

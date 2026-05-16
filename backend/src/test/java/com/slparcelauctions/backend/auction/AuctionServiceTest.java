@@ -313,21 +313,6 @@ class AuctionServiceTest {
     }
 
     @Test
-    void create_persistsAuctionWithNullVerificationMethod() {
-        // Sub-spec 2 Â§7.1 â€” verificationMethod is no longer chosen at create time.
-        // It is set on the verify trigger instead; a freshly-created DRAFT auction
-        // must have a null verificationMethod.
-        AuctionCreateRequest req = new AuctionCreateRequest(
-                PARCEL_UUID, "Test listing", 500L, null, null,
-                72, true, 10, "Test", Set.of(), null);
-
-        Auction created = service.create(42L, req, null);
-
-        assertThat(created.getStatus()).isEqualTo(AuctionStatus.DRAFT);
-        assertThat(created.getVerificationMethod()).isNull();
-    }
-
-    @Test
     void create_withSnipeProtect_setsSnipeWindow() {
         AuctionCreateRequest req = new AuctionCreateRequest(
                 PARCEL_UUID, "Test listing", 1000L, null, null,
@@ -567,7 +552,7 @@ class AuctionServiceTest {
         Auction a = Auction.builder()
                 .title("Test listing")
                 .id(1L).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).snipeWindowMin(null)
                 .currentBid(0L).bidCount(0)

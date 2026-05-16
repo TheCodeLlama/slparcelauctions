@@ -36,7 +36,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.monitoring.BulkListingSuspendService.BulkSuspendResult;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupSuspension;
 import com.slparcelauctions.backend.user.User;
@@ -49,8 +48,8 @@ import com.slparcelauctions.backend.user.UserRepository;
  * <ul>
  *   <li>{@code suspendAll} sweeps every ACTIVE listing on the group (case-1 + case-3)
  *       to SUSPENDED, writes a {@link ListingSuspension} row with {@code ADMIN_GROUP_BULK}
- *       cause, fires {@link BotMonitorLifecycleService#onAuctionClosed} and a per-seller
- *       suspended notification, then records one batched admin audit action.</li>
+ *       cause, fires a per-seller suspended notification, then records one batched
+ *       admin audit action.</li>
  *   <li>{@code reinstateAll} delegates per-row to {@link AdminAuctionService#reinstate}
  *       (which handles the {@code endsAt} extension + reactivation + reinstated notify),
  *       marks the listing-suspension row {@code liftedAt}, and records one batched audit.</li>
@@ -66,7 +65,6 @@ class BulkListingSuspendServiceTest {
 
     @Mock AuctionRepository auctionRepo;
     @Mock ListingSuspensionRepository listingSuspensionRepo;
-    @Mock BotMonitorLifecycleService botMonitorLifecycleService;
     @Mock NotificationPublisher notificationPublisher;
     @Mock AdminAuctionService adminAuctionService;
     @Mock AdminActionService adminActionService;
@@ -79,7 +77,7 @@ class BulkListingSuspendServiceTest {
     void setUp() {
         clock = Clock.fixed(FIXED_NOW.toInstant(), ZoneOffset.UTC);
         service = new BulkListingSuspendService(
-            auctionRepo, listingSuspensionRepo, botMonitorLifecycleService,
+            auctionRepo, listingSuspensionRepo,
             notificationPublisher, adminAuctionService, adminActionService,
             userRepository, clock);
         lenient().when(userRepository.getReferenceById(anyLong()))
@@ -144,7 +142,7 @@ class BulkListingSuspendServiceTest {
 
         assertThat(result.suspendedCount()).isEqualTo(1);
         verify(listingSuspensionRepo, times(1)).save(any(ListingSuspension.class));
-        verify(botMonitorLifecycleService, times(1)).onAuctionClosed(any(Auction.class));
+
         verify(notificationPublisher, times(1))
             .listingSuspended(anyLong(), anyLong(), any(), any());
     }
@@ -175,9 +173,9 @@ class BulkListingSuspendServiceTest {
 
         service.suspendAll(GROUP_ID, ADMIN_USER_ID, "FRAUD", null, null);
 
-        verify(botMonitorLifecycleService).onAuctionClosed(a1);
-        verify(botMonitorLifecycleService).onAuctionClosed(a2);
-        verify(botMonitorLifecycleService).onAuctionClosed(a3);
+
+
+
     }
 
     @Test
@@ -283,7 +281,7 @@ class BulkListingSuspendServiceTest {
         verify(listingSuspensionRepo, never()).save(any(ListingSuspension.class));
         verify(notificationPublisher, never())
             .listingSuspended(anyLong(), anyLong(), any(), any());
-        verify(botMonitorLifecycleService, never()).onAuctionClosed(any(Auction.class));
+
         verify(adminActionService).record(
             eq(ADMIN_USER_ID),
             eq(AdminActionType.REALTY_GROUP_BULK_SUSPEND),

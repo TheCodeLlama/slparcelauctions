@@ -10,7 +10,6 @@ import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidService;
 import com.slparcelauctions.backend.auction.BidType;
 import com.slparcelauctions.backend.auction.CancellationService;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.notification.slim.SlImMessage;
 import com.slparcelauctions.backend.notification.slim.SlImMessageRepository;
@@ -218,7 +217,7 @@ class CancellationFanoutImIntegrationTest {
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(startBidL)
                 .currentBid(0L)

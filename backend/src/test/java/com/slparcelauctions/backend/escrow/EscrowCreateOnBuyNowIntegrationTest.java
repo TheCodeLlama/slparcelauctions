@@ -30,7 +30,6 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidService;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.dto.BidResponse;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
@@ -230,7 +229,7 @@ class EscrowCreateOnBuyNowIntegrationTest {
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)
                     .currentBid(0L)

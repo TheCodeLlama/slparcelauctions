@@ -54,7 +54,6 @@ class CancellationServiceLadderTest {
     @Mock CancellationLogRepository logRepo;
     @Mock ListingFeeRefundRepository refundRepo;
     @Mock UserRepository userRepo;
-    @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock AuctionBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
     @Mock BanCheckService banCheckService;
@@ -77,7 +76,7 @@ class CancellationServiceLadderTest {
                 new CancellationPenaltyProperties.Penalty(1000L, 2500L, 30),
                 48);
         service = new CancellationService(
-                auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
+                auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
                 realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
@@ -294,7 +293,7 @@ class CancellationServiceLadderTest {
         Auction a = Auction.builder()
                 .title("Test listing")
                 .id(1L).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false)
                 .listingFeePaid(listingFeePaid)

@@ -24,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
@@ -51,7 +50,6 @@ class SuspensionServiceTest {
 
     @Mock AuctionRepository auctionRepo;
     @Mock FraudFlagRepository fraudFlagRepo;
-    @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock NotificationPublisher notificationPublisher;
 
     SuspensionService service;
@@ -60,7 +58,7 @@ class SuspensionServiceTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
-        service = new SuspensionService(auctionRepo, fraudFlagRepo, monitorLifecycle,
+        service = new SuspensionService(auctionRepo, fraudFlagRepo,
                 notificationPublisher, fixed);
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -175,7 +173,7 @@ class SuspensionServiceTest {
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).listingFeePaid(true)

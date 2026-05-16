@@ -240,7 +240,7 @@ class ProxyBidResurrectionTest {
                 .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(startingBid)
                 .durationHours(168)
