@@ -30,6 +30,40 @@ describe("DraftActionBar", () => {
     expect(screen.getByTestId("draft-action-bar-list")).toBeDisabled();
   });
 
+  it("labels the balance as 'Group wallet' when isGroupListing is true", () => {
+    renderWithProviders(
+      <DraftActionBar
+        listingFee={100}
+        walletBalance={5000}
+        isGroupListing
+        onListParcel={vi.fn()}
+        onDeleteDraft={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("draft-action-bar-wallet")).toHaveTextContent(
+      /Group wallet:/i,
+    );
+    expect(screen.getByTestId("draft-action-bar-wallet")).not.toHaveTextContent(
+      /^Wallet:/,
+    );
+  });
+
+  it("low-funds copy reflects the group wallet when isGroupListing", () => {
+    renderWithProviders(
+      <DraftActionBar
+        listingFee={100}
+        walletBalance={50}
+        insufficientFunds
+        isGroupListing
+        onListParcel={vi.fn()}
+        onDeleteDraft={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByTestId("draft-action-bar-low-funds"),
+    ).toHaveTextContent(/Top up group wallet to list/i);
+  });
+
   it("disables List Parcel and shows low-funds hint when insufficientFunds", () => {
     renderWithProviders(
       <DraftActionBar

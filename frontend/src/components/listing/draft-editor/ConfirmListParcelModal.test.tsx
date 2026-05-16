@@ -38,6 +38,27 @@ describe("ConfirmListParcelModal", () => {
     expect(onConfirm).toHaveBeenCalled();
   });
 
+  it("uses group-wallet language when isGroupListing is true", () => {
+    renderWithProviders(
+      <ConfirmListParcelModal
+        open
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        listingFee={100}
+        walletBalance={5000}
+        isGroupListing
+      />,
+    );
+    expect(screen.getByText(/Group wallet balance/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/group's SLParcels wallet/i),
+    ).toBeInTheDocument();
+    // The personal-wallet variant copy must NOT appear in the group case.
+    expect(
+      screen.queryByText(/from your SLParcels wallet/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("disables both buttons while isListing", () => {
     renderWithProviders(
       <ConfirmListParcelModal

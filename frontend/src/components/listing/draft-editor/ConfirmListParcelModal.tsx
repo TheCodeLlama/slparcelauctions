@@ -9,6 +9,12 @@ export interface ConfirmListParcelModalProps {
   onConfirm: () => void;
   listingFee: number;
   walletBalance: number;
+  /**
+   * Renders the balance + copy in group-wallet language. Set when the
+   * draft auction was created under a realty group — the backend
+   * debits the group wallet for the listing fee in that case.
+   */
+  isGroupListing?: boolean;
   /** Pending = button shows spinner + close is disabled. */
   isListing?: boolean;
 }
@@ -27,9 +33,14 @@ export function ConfirmListParcelModal({
   onConfirm,
   listingFee,
   walletBalance,
+  isGroupListing = false,
   isListing = false,
 }: ConfirmListParcelModalProps) {
   const balanceAfter = walletBalance - listingFee;
+  const description = isGroupListing
+    ? "Listing this parcel debits the listing fee from the group's SLParcels wallet and starts the verification flow. The fee is non-refundable once the listing reaches buyers."
+    : "Listing your parcel debits the listing fee from your SLParcels wallet and starts the verification flow. The fee is non-refundable once the listing reaches buyers.";
+  const balanceLabel = isGroupListing ? "Group wallet balance" : "Wallet balance";
 
   return (
     <Dialog
@@ -49,11 +60,7 @@ export function ConfirmListParcelModal({
           <DialogTitle className="text-base font-bold tracking-tight text-fg">
             List this parcel?
           </DialogTitle>
-          <p className="text-sm text-fg-muted">
-            Listing your parcel debits the listing fee from your SLParcels
-            wallet and starts the verification flow. The fee is non-refundable
-            once the listing reaches buyers.
-          </p>
+          <p className="text-sm text-fg-muted">{description}</p>
           <dl className="flex flex-col gap-2 rounded-lg bg-surface-raised p-4 text-sm">
             <div className="flex items-baseline justify-between">
               <dt className="text-fg-muted">Listing fee</dt>
@@ -62,7 +69,7 @@ export function ConfirmListParcelModal({
               </dd>
             </div>
             <div className="flex items-baseline justify-between">
-              <dt className="text-fg-muted">Wallet balance</dt>
+              <dt className="text-fg-muted">{balanceLabel}</dt>
               <dd className="font-medium text-fg">
                 L${walletBalance.toLocaleString()}
               </dd>

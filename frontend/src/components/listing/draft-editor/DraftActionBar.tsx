@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/Button";
 export interface DraftActionBarProps {
   listingFee: number;
   walletBalance: number;
+  /**
+   * Labels the balance as the group wallet rather than the user's
+   * personal wallet. Toggle on when the draft auction was created
+   * under a realty group — the backend debits the group wallet for
+   * the listing fee in that case (see MeWalletController.payListingFee).
+   */
+  isGroupListing?: boolean;
   isListing?: boolean;
   insufficientFunds?: boolean;
   onListParcel: () => void;
@@ -19,11 +26,16 @@ export interface DraftActionBarProps {
 export function DraftActionBar({
   listingFee,
   walletBalance,
+  isGroupListing = false,
   isListing = false,
   insufficientFunds = false,
   onListParcel,
   onDeleteDraft,
 }: DraftActionBarProps) {
+  const walletLabel = isGroupListing ? "Group wallet" : "Wallet";
+  const lowFundsLabel = isGroupListing
+    ? "Top up group wallet to list"
+    : "Top up wallet to list";
   return (
     <div
       data-testid="draft-action-bar"
@@ -37,15 +49,15 @@ export function DraftActionBar({
           </span>
         </span>
         <span aria-hidden="true">·</span>
-        <span>
-          Wallet:{" "}
+        <span data-testid="draft-action-bar-wallet">
+          {walletLabel}:{" "}
           <span className="font-medium text-fg">
             L${walletBalance.toLocaleString()}
           </span>
         </span>
         {insufficientFunds && (
           <span className="text-xs text-danger" data-testid="draft-action-bar-low-funds">
-            Top up wallet to list
+            {lowFundsLabel}
           </span>
         )}
       </div>

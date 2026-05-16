@@ -10,6 +10,7 @@ import { CheckCircle2 } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
 import { ActivateStatusStepper } from "@/components/listing/ActivateStatusStepper";
 import { CancelListingModal } from "@/components/listing/CancelListingModal";
+import { SaleToBotSetupPanel } from "@/components/listing/SaleToBotSetupPanel";
 import { VerificationInProgressPanel } from "@/components/listing/VerificationInProgressPanel";
 import { VerificationMethodPicker } from "@/components/listing/VerificationMethodPicker";
 import { useActivateAuction } from "@/hooks/useActivateAuction";
@@ -51,6 +52,7 @@ export function ActivateClient({ auctionPublicId }: ActivateClientProps) {
   const router = useRouter();
   const toast = useToast();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [saleSetupPending, setSaleSetupPending] = useState(false);
   const { data: auction, isLoading, error } = useActivateAuction(auctionPublicId);
   const status = auction?.status;
 
@@ -129,11 +131,24 @@ export function ActivateClient({ auctionPublicId }: ActivateClientProps) {
     return <DraftEditorClient auction={auction} />;
   }
 
+  const inMethodPick =
+    auction.status === "DRAFT_PAID" ||
+    auction.status === "VERIFICATION_FAILED";
+  // The sale-setup interstitial only applies when status is DRAFT_PAID.
+  // On VERIFICATION_FAILED we always show the picker (with the failure
+  // banner) — the seller may want to retry a different method without
+  // being dropped back into a stale setup panel from a prior attempt.
+  const showSaleSetup =
+    saleSetupPending && auction.status === "DRAFT_PAID";
+  const showPicker = inMethodPick && !showSaleSetup;
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
-      <ActivateStatusStepper status={auction.status} />
-      {(auction.status === "DRAFT_PAID" ||
-        auction.status === "VERIFICATION_FAILED") && (
+      <ActivateStatusStepper
+        status={auction.status}
+        saleSetupPending={showSaleSetup}
+      />
+      {showPicker && (
         <VerificationMethodPicker
           auctionPublicId={auction.publicId}
           lastFailureNotes={
@@ -141,6 +156,13 @@ export function ActivateClient({ auctionPublicId }: ActivateClientProps) {
               ? auction.verificationNotes
               : null
           }
+          onSelectSaleToBot={() => setSaleSetupPending(true)}
+        />
+      )}
+      {showSaleSetup && (
+        <SaleToBotSetupPanel
+          auctionPublicId={auction.publicId}
+          onBack={() => setSaleSetupPending(false)}
         />
       )}
       {auction.status === "VERIFICATION_PENDING" && (

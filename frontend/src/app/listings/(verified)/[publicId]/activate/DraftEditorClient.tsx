@@ -29,6 +29,10 @@ import { auctionKey } from "@/hooks/useAuction";
 import { activateAuctionKey } from "@/hooks/useActivateAuction";
 import { useListingFeeConfig } from "@/hooks/useListingFeeConfig";
 import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
+import {
+  useGroupWallet,
+  useInvalidateGroupWallet,
+} from "@/hooks/realty/useGroupWallet";
 import { payListingFee } from "@/lib/api/wallet";
 import type {
   AuctionDurationHours,
@@ -58,7 +62,16 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
   const m = useDraftEditorMutations(auction.publicId);
   const reorder = useReorderAuctionPhotos(auction.publicId);
   const feeQ = useListingFeeConfig();
-  const walletQ = useWallet(true);
+  const groupPublicId = auction.realtyGroup?.publicId ?? null;
+  const isGroupListing = groupPublicId !== null;
+  // Only one of these is meaningfully populated: the user wallet drives
+  // personal listings, the group wallet drives group-attributed ones.
+  // Backend MeWalletController.payListingFee routes the debit the same
+  // way (auction.realtyGroupId → group wallet, else user wallet) so this
+  // mirrors the source of truth.
+  const walletQ = useWallet(!isGroupListing);
+  const groupWalletQ = useGroupWallet(groupPublicId ?? "");
+  const invalidateGroupWallet = useInvalidateGroupWallet(groupPublicId ?? "");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmListOpen, setConfirmListOpen] = useState(false);
 
@@ -66,7 +79,11 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
     mutationFn: () => payListingFee(auction.publicId, genIdempotencyKey()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: activateAuctionKey(auction.publicId) });
-      qc.invalidateQueries({ queryKey: walletQueryKey });
+      if (isGroupListing) {
+        invalidateGroupWallet();
+      } else {
+        qc.invalidateQueries({ queryKey: walletQueryKey });
+      }
       toast.success("Listing fee paid. Choose a verification method next.");
       setConfirmListOpen(false);
     },
@@ -77,21 +94,53 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
           ? e.message
           : "Could not list this parcel.";
       toast.error(detail);
-      qc.invalidateQueries({ queryKey: walletQueryKey });
+      if (isGroupListing) {
+        invalidateGroupWallet();
+      } else {
+        qc.invalidateQueries({ queryKey: walletQueryKey });
+      }
     },
   });
 
-  if (feeQ.isLoading || walletQ.isLoading || !feeQ.data || !walletQ.data) {
+  const walletLoading = isGroupListing ? groupWalletQ.isLoading : walletQ.isLoading;
+  const walletData = isGroupListing ? groupWalletQ.data : walletQ.data;
+  const walletError = isGroupListing ? groupWalletQ.error : walletQ.error;
+  if (feeQ.isLoading || walletLoading || !feeQ.data) {
     return (
       <div className="mx-auto max-w-3xl p-6">
         <LoadingSpinner label="Loading listing details…" />
       </div>
     );
   }
+  if (!walletData) {
+    // Group-listed drafts require the seller to be able to read the
+    // group wallet — leader auto-passes; agents need VIEW_GROUP_TRANSACTIONS.
+    // Surface the failure rather than spinning forever.
+    const detail = isApiError(walletError)
+      ? walletError.problem.detail ??
+        walletError.problem.title ??
+        "Could not load wallet."
+      : walletError instanceof Error
+        ? walletError.message
+        : isGroupListing
+          ? "Could not load the group wallet. You may need VIEW_GROUP_TRANSACTIONS permission to list under this group."
+          : "Could not load wallet.";
+    return (
+      <div className="mx-auto max-w-3xl p-6 text-sm text-danger">
+        {detail}
+      </div>
+    );
+  }
 
   const fee = feeQ.data.amountLindens;
-  const wallet = walletQ.data;
-  const insufficientFunds = wallet.available < fee || wallet.penaltyOwed > 0;
+  const availableBalance = walletData.available;
+  // Group wallet has no penalty concept — only the user wallet does.
+  // For group listings we gate purely on balance; for user listings we
+  // also block when the user has an outstanding penalty.
+  const personalPenaltyOwed = isGroupListing
+    ? 0
+    : (walletQ.data?.penaltyOwed ?? 0);
+  const insufficientFunds = availableBalance < fee || personalPenaltyOwed > 0;
 
   const settings: DraftSettings = {
     startingBid: auction.startingBid,
@@ -128,7 +177,8 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
     <div data-testid="draft-editor-client" className="flex flex-col gap-3">
       <DraftActionBar
         listingFee={fee}
-        walletBalance={wallet.available}
+        walletBalance={availableBalance}
+        isGroupListing={isGroupListing}
         isListing={listMutation.isPending}
         insufficientFunds={insufficientFunds}
         onListParcel={() => setConfirmListOpen(true)}
@@ -203,7 +253,8 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
         onClose={() => setConfirmListOpen(false)}
         onConfirm={() => listMutation.mutate()}
         listingFee={fee}
-        walletBalance={wallet.available}
+        walletBalance={availableBalance}
+        isGroupListing={isGroupListing}
         isListing={listMutation.isPending}
       />
     </div>
