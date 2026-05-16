@@ -11,7 +11,8 @@
 
 /**
  * Owner type reported by the SL World API. {@code "agent"} = individual
- * avatar, {@code "group"} = group-owned land (requires SALE_TO_BOT method).
+ * avatar, {@code "group"} = group-owned land (verified against the realty
+ * group's registered SL group).
  */
 export type ParcelOwnerType = "agent" | "group";
 
