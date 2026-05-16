@@ -1,27 +1,41 @@
-# config notecard for SLParcels Terminal (wallet model)
-# Place this file (renamed to "config", no extension) in the prim's contents.
-# After editing, the script auto-resets via CHANGED_INVENTORY and re-registers.
+# config notecard for SLParcels Terminal -- SHARED between
+# slpa-terminal.lsl (wallet) and slpa-terminal-group.lsl (Pay to group
+# sister script). Drop this file (renamed to "config", no extension)
+# into the prim that holds the two scripts. CHANGED_INVENTORY auto-
+# resets each script and they re-read the notecard.
+#
+# Each script silently ignores keys it doesn't recognise, so the same
+# notecard works whether you deploy one script or both.
 
-# Backend endpoint URLs — REGISTER/DEPOSIT/WITHDRAW_REQUEST/PAYOUT_RESULT
-# are required. HEARTBEAT_URL is optional but strongly recommended; without
-# it the terminal can drop out of dispatch rotation between rezzes /
-# inventory changes if it sits idle longer than the backend's live window.
+# === Wallet script keys (slpa-terminal.lsl) ============================
+# REGISTER / DEPOSIT / WITHDRAW_REQUEST / PAYOUT_RESULT are required.
+# HEARTBEAT_URL is optional but strongly recommended; without it the
+# terminal can drop out of dispatch rotation between rezzes / inventory
+# changes if it sits idle longer than the backend's live window.
 REGISTER_URL=https://slpa.app/api/v1/sl/terminal/register
 DEPOSIT_URL=https://slpa.app/api/v1/sl/wallet/deposit
 WITHDRAW_REQUEST_URL=https://slpa.app/api/v1/sl/wallet/withdraw-request
 PAYOUT_RESULT_URL=https://slpa.app/api/v1/sl/escrow/payout-result
 HEARTBEAT_URL=https://slpa.app/api/v1/sl/terminal/heartbeat
 
+# === Pay to group sister script keys (slpa-terminal-group.lsl) =========
+# Required only when the sister script is also dropped into the prim.
+# Absence (or absence of the sister script itself) keeps the touch menu
+# on the legacy 2-button Deposit/Withdraw shape.
+GROUP_DEPOSIT_URL=https://slpa.app/api/v1/sl/wallet/group-deposit
+
 # SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
 # section 7.3) is NOT on this terminal -- it lives on the SLParcels
 # Verification Terminal alongside Method C user verify. See
 # lsl-scripts/verification-terminal/config.notecard.example.
 
+# === Shared keys (read by both scripts) ================================
 # Shared secret for terminal authentication. REQUIRED.
 # Obtain from the backend's slpa.escrow.terminal-shared-secret config.
 SHARED_SECRET=replace-with-real-secret-from-deployment-secrets-store
 
-# Optional: defaults to (string)llGetKey() if empty.
+# Optional: defaults to (string)llGetKey() if empty. Both scripts read
+# this and should agree.
 TERMINAL_ID=
 
 # Optional: defaults to llGetRegionName() if empty.
