@@ -117,25 +117,25 @@ class SlGroupDepositControllerTest {
         return g;
     }
 
-    private String requestBody(String payerUuid, UUID groupPublicId, long amount, String slTxn)
+    private String requestBody(String payerUuid, String groupName, long amount, String slTxn)
             throws Exception {
         java.util.Map<String, Object> map = new java.util.HashMap<>();
         map.put("terminalId", terminalId);
         map.put("sharedSecret", SHARED_SECRET);
         map.put("payerUuid", payerUuid);
-        map.put("groupPublicId", groupPublicId.toString());
+        map.put("groupName", groupName);
         map.put("amount", amount);
         map.put("slTransactionKey", slTxn);
         return objectMapper.writeValueAsString(map);
     }
 
-    private String requestBodyWithSecret(String payerUuid, UUID groupPublicId, long amount,
+    private String requestBodyWithSecret(String payerUuid, String groupName, long amount,
             String slTxn, String secret) throws Exception {
         java.util.Map<String, Object> map = new java.util.HashMap<>();
         map.put("terminalId", terminalId);
         map.put("sharedSecret", secret);
         map.put("payerUuid", payerUuid);
-        map.put("groupPublicId", groupPublicId.toString());
+        map.put("groupName", groupName);
         map.put("amount", amount);
         map.put("slTransactionKey", slTxn);
         return objectMapper.writeValueAsString(map);
@@ -155,7 +155,7 @@ class SlGroupDepositControllerTest {
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody(leader.getSlAvatarUuid().toString(),
-                    g.getPublicId(), 500L, slTxn)))
+                    g.getName(), 500L, slTxn)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("OK"));
 
@@ -197,7 +197,7 @@ class SlGroupDepositControllerTest {
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody(outsider.getSlAvatarUuid().toString(),
-                    g.getPublicId(), 200L, UUID.randomUUID().toString())))
+                    g.getName(), 200L, UUID.randomUUID().toString())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUND"))
             .andExpect(jsonPath("$.reason").value("PERMISSION_REVOKED"));
@@ -231,14 +231,18 @@ class SlGroupDepositControllerTest {
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody(agent.getSlAvatarUuid().toString(),
-                    g.getPublicId(), 100L, UUID.randomUUID().toString())))
+                    g.getName(), 100L, UUID.randomUUID().toString())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUND"))
             .andExpect(jsonPath("$.reason").value("PERMISSION_REVOKED"));
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // 3. Dissolved group — REFUND/GROUP_DISSOLVED.
+    // 3. Dissolved group — REFUND/UNKNOWN_GROUP.
+    //    The name-based lookup uses findByNameIgnoreCaseActive, which
+    //    filters out dissolved rows; from the payer's perspective the
+    //    group simply doesn't exist, and UNKNOWN_GROUP is the right
+    //    surface. Sub-project H §4.3.
     // ─────────────────────────────────────────────────────────────────
 
     @Test
@@ -252,25 +256,25 @@ class SlGroupDepositControllerTest {
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody(leader.getSlAvatarUuid().toString(),
-                    g.getPublicId(), 100L, UUID.randomUUID().toString())))
+                    g.getName(), 100L, UUID.randomUUID().toString())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUND"))
-            .andExpect(jsonPath("$.reason").value("GROUP_DISSOLVED"));
+            .andExpect(jsonPath("$.reason").value("UNKNOWN_GROUP"));
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // 4. Unknown group publicId — REFUND/UNKNOWN_GROUP.
+    // 4. Unknown group name — REFUND/UNKNOWN_GROUP.
     // ─────────────────────────────────────────────────────────────────
 
     @Test
     void unknown_group_returns_refund() throws Exception {
-        UUID unknown = UUID.randomUUID();
         mvc.perform(post(URL)
                 .header("X-SecondLife-Shard", SHARD)
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody(leader.getSlAvatarUuid().toString(),
-                    unknown, 100L, UUID.randomUUID().toString())))
+                    "No Such Group " + UUID.randomUUID(),
+                    100L, UUID.randomUUID().toString())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUND"))
             .andExpect(jsonPath("$.reason").value("UNKNOWN_GROUP"));
@@ -289,7 +293,7 @@ class SlGroupDepositControllerTest {
         map.put("terminalId", "ghost-terminal-" + UUID.randomUUID());
         map.put("sharedSecret", SHARED_SECRET);
         map.put("payerUuid", leader.getSlAvatarUuid().toString());
-        map.put("groupPublicId", g.getPublicId().toString());
+        map.put("groupName", g.getName());
         map.put("amount", 100L);
         map.put("slTransactionKey", UUID.randomUUID().toString());
 
@@ -317,7 +321,7 @@ class SlGroupDepositControllerTest {
                 .header("X-SecondLife-Owner-Key", TRUSTED_OWNER_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody(strangerAvatar.toString(),
-                    g.getPublicId(), 100L, UUID.randomUUID().toString())))
+                    g.getName(), 100L, UUID.randomUUID().toString())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REFUND"))
             .andExpect(jsonPath("$.reason").value("UNKNOWN_PAYER"));
@@ -332,7 +336,7 @@ class SlGroupDepositControllerTest {
         RealtyGroup g = seedGroup(leader, "Idempotent Group");
         String slTxn = UUID.randomUUID().toString();
         String body = requestBody(leader.getSlAvatarUuid().toString(),
-            g.getPublicId(), 750L, slTxn);
+            g.getName(), 750L, slTxn);
 
         mvc.perform(post(URL)
                 .header("X-SecondLife-Shard", SHARD)
@@ -371,7 +375,7 @@ class SlGroupDepositControllerTest {
     void bad_shared_secret_returns_error() throws Exception {
         RealtyGroup g = seedGroup(leader, "Bad Secret Group");
         String body = requestBodyWithSecret(leader.getSlAvatarUuid().toString(),
-            g.getPublicId(), 100L, UUID.randomUUID().toString(), "wrong-secret");
+            g.getName(), 100L, UUID.randomUUID().toString(), "wrong-secret");
 
         mvc.perform(post(URL)
                 .header("X-SecondLife-Shard", SHARD)

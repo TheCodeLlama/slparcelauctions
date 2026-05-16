@@ -31,9 +31,9 @@ import lombok.extern.slf4j.Slf4j;
  * "Pay to group" {@code money()} response.
  *
  * <p>The terminal hits this when an avatar has paid L$ AND has a pending
- * group-deposit context slot (set via the prior {@code /avatar-groups} dialog).
- * The endpoint credits the selected group's wallet from the L$ already in the
- * script's hands.
+ * group-deposit context slot (the group name the payer typed at the prior
+ * text-box prompt). The endpoint credits the named group's wallet from the
+ * L$ already in the script's hands.
  *
  * <p><b>Refund discipline (per CLAUDE.md):</b> by the time this endpoint runs,
  * L$ has already reached the script. Every post-auth failure path returns
@@ -102,14 +102,22 @@ public class SlGroupDepositController {
                 "no SLParcels account linked to this avatar");
         }
 
-        RealtyGroup group = groupRepository.findByPublicId(req.groupPublicId()).orElse(null);
+        // Case-insensitive name match against active groups only. Dissolved
+        // rows aren't returned by findByNameIgnoreCaseActive, so they
+        // surface as UNKNOWN_GROUP -- this is acceptable for the typed-name
+        // flow because the payer's mental model is "I don't see the group,
+        // money back" regardless of why.
+        String trimmedName = req.groupName().trim();
+        if (trimmedName.isEmpty()) {
+            return SlWalletResponse.refund(SlWalletResponseReason.UNKNOWN_GROUP,
+                "group name is blank");
+        }
+        RealtyGroup group = groupRepository
+                .findByNameIgnoreCaseActive(trimmedName)
+                .orElse(null);
         if (group == null) {
             return SlWalletResponse.refund(SlWalletResponseReason.UNKNOWN_GROUP,
-                "unknown group");
-        }
-        if (group.getDissolvedAt() != null) {
-            return SlWalletResponse.refund(SlWalletResponseReason.GROUP_DISSOLVED,
-                "group dissolved");
+                "no active group with that name");
         }
 
         try {

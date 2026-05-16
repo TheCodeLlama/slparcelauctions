@@ -5,9 +5,9 @@ In-world wallet kiosk for SLParcels. Up to three touch-menu options
 deposit handler that routes to either the personal wallet or a realty
 group wallet depending on the toucher's prior dialog selection. Also
 accepts backend-initiated PAYOUT/WITHDRAW commands via HTTP-in. The
-"Pay to group" option is hidden when its two URL keys
-(`AVATAR_GROUPS_URL`, `GROUP_DEPOSIT_URL`) are absent from the config
-notecard, keeping pre-rollout deployments on the legacy 2-button menu.
+"Pay to group" option is hidden when `GROUP_DEPOSIT_URL` is absent from
+the config notecard, keeping pre-rollout deployments on the legacy
+2-button menu.
 
 SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
 section 7.3) is **not** on this terminal. It lives on the SLParcels
@@ -32,32 +32,33 @@ advertises "verification". See `lsl-scripts/verification-terminal/`.
   etc). Background retry: 10s / 30s / 90s / 5m / 15m. Multiple users can
   pay simultaneously — `money()` is naturally reentrant.
 - **Touch flow:** touch → `llDialog` `[Deposit, (Pay to group,) Withdraw]`
-  (no lock acquired; "Pay to group" only appears when both
-  `AVATAR_GROUPS_URL` and `GROUP_DEPOSIT_URL` are configured). Deposit
-  selection → `llRegionSayTo` instructions, no state. Withdraw selection →
-  acquire per-flow slot → text-box for amount → confirm dialog → POST to
-  `/sl/wallet/withdraw-request`. On `OK`, the backend queues a
-  `WALLET_WITHDRAWAL` `TerminalCommand` that fires asynchronously; on
-  `REFUND_BLOCKED`, no L$ to bounce — `llRegionSayTo` the reason.
-- **Group-deposit flow ("Pay to group"):** touch → "Pay to group" → POST
-  `/sl/wallet/avatar-groups` with the toucher's avatar UUID → response
-  carries the eligible groups (member with `DEPOSIT_TO_GROUP_WALLET`
-  permission OR leader; excludes suspended + dissolved) →
-  `llDialog [groupName1..groupName10, More..., Cancel]`. Avatar picks a
-  group → script stores a 60-second per-avatar "pending group deposit"
-  slot keyed by `(avatarKey, groupPublicId, groupName, expiresAt)` and
-  instructs the avatar to right-click → Pay. If `money()` fires within
-  60s, the script routes the deposit through `POST /sl/wallet/group-deposit`
-  (instead of the personal `/sl/wallet/deposit`); if the slot is missing
-  or expired, the personal flow runs unchanged. Retry chain matches the
-  personal deposit (10s / 30s / 90s / 5m / 15m, idempotent by
-  `slTransactionKey`). On REFUND / ERROR / final-retry exhaustion the L$
-  is bounced back via `llTransferLindenDollars` — same
-  "always-refund-on-deposit-error" rule as personal. Pagination: the
-  backend pages at 12 results; the dialog shows up to 10 group buttons
-  plus a "More..." cursor button when `hasMore=true`. Slot eviction runs
+  (no lock acquired; "Pay to group" only appears when `GROUP_DEPOSIT_URL`
+  is configured). Deposit selection → `llRegionSayTo` instructions, no
+  state. Withdraw selection → acquire per-flow slot → text-box for amount
+  → confirm dialog → POST to `/sl/wallet/withdraw-request`. On `OK`, the
+  backend queues a `WALLET_WITHDRAWAL` `TerminalCommand` that fires
+  asynchronously; on `REFUND_BLOCKED`, no L$ to bounce — `llRegionSayTo`
+  the reason.
+- **Group-deposit flow ("Pay to group"):** touch → "Pay to group" →
+  `llTextBox` "Type the realty group's name". The avatar types the group
+  name (matched case-insensitively against active groups on the backend)
+  → the script stores a 60-second per-avatar "pending group deposit"
+  slot keyed by `(avatarKey, groupName, expiresAt)` and instructs the
+  avatar to right-click → Pay. If `money()` fires within 60s, the script
+  routes the deposit through `POST /sl/wallet/group-deposit` (instead of
+  the personal `/sl/wallet/deposit`); if the slot is missing or expired,
+  the personal flow runs unchanged. Retry chain matches the personal
+  deposit (10s / 30s / 90s / 5m / 15m, idempotent by `slTransactionKey`).
+  On REFUND (e.g. typo → `UNKNOWN_GROUP`) / ERROR / final-retry
+  exhaustion the L$ is bounced back via `llTransferLindenDollars` — same
+  "always-refund-on-deposit-error" rule as personal. Slot eviction runs
   on the existing 10-second sweeper alongside the withdraw-session
-  sweep.
+  sweep. (Earlier versions fetched the eligible-groups list via
+  `/sl/wallet/avatar-groups` and rendered a paged `llDialog`; we ripped
+  that path out because the parsed JSON arrays tripped Stack-Heap
+  Collision under realistic group counts. Typing the name is the
+  trade-off: the avatar needs to know the spelling, but heap stays
+  bounded.)
 - **Per-flow withdraw slots:** single `llListen` opened at startup, never
   closed. Up to 4 concurrent withdraw sessions, one per avatar (per-avatar
   dedup). Strided list `[avatarKey, amountOrMinusOne, expiresAt, ...]`.
@@ -100,16 +101,17 @@ Never publish on Marketplace.
    - Touch → Withdraw → enter L$5 → Yes. Confirm withdrawal arrives in your
      SL avatar within ~30s.
    - **"Pay to group" happy path** (member-with-permission). With
-     `AVATAR_GROUPS_URL` and `GROUP_DEPOSIT_URL` set: touch → Pay to group →
-     pick a group from the dialog → right-click → Pay → L$10 within 60s.
-     Confirm `group deposit ok L$10 to <group name>` and the
+     `GROUP_DEPOSIT_URL` set: touch → Pay to group → type the group's
+     display name in the text-box → right-click → Pay → L$10 within
+     60s. Confirm `group deposit ok L$10 to <group name>` and the
      `MEMBER_DEPOSIT` row on the group's wallet ledger.
-   - **"Pay to group" no-eligible-groups path** (member-without-permission,
-     or unlinked SL account). Touch → Pay to group → confirm the
-     `llRegionSayTo` "You are not a member of any group with deposit
-     permission." appears and no dialog opens.
+   - **"Pay to group" typo path.** Touch → Pay to group → type a
+     non-existent name → right-click → Pay → L$10. Confirm the L$ is
+     refunded (`REFUND/UNKNOWN_GROUP`) and no ledger row is written.
+     Permission-missing and frozen-user cases follow the same
+     refund-on-failure shape.
    - **"Pay to group" 60-second expiry race.** Touch → Pay to group →
-     pick a group → wait > 65s → right-click → Pay → L$10. Confirm the
+     type a name → wait > 65s → right-click → Pay → L$10. Confirm the
      deposit lands on the payer's **personal** wallet (slot expired and
      the script fell back to `/sl/wallet/deposit`), not the group's
      wallet.
@@ -127,8 +129,7 @@ The new SLParcels Parcel Verifier Giver prim (separate; see
 | `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required. |
 | `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required. |
 | `HEARTBEAT_URL` | Full URL of `/api/v1/sl/terminal/heartbeat`. Optional but recommended — see Architecture summary. |
-| `AVATAR_GROUPS_URL` | Full URL of `/api/v1/sl/wallet/avatar-groups`. Optional — both this and `GROUP_DEPOSIT_URL` must be set for the "Pay to group" touch-menu option to appear. Absence keeps the terminal on the legacy Deposit/Withdraw-only menu. |
-| `GROUP_DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/group-deposit`. Optional — paired with `AVATAR_GROUPS_URL` (see above). |
+| `GROUP_DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/group-deposit`. Optional — when set, enables the "Pay to group" touch-menu option. Absence keeps the terminal on the legacy Deposit/Withdraw-only menu. |
 | `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
 | `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
