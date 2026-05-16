@@ -11,11 +11,14 @@ describe("GroupWalletBalanceCard", () => {
     expect(screen.getByTestId("balance-total")).toHaveTextContent("L$12,500");
   });
 
-  it("hides reserved row when reserved is zero", () => {
+  it("renders reserved row as L$0 when reserved is zero", () => {
+    // Always-render the reserved row so the relationship between
+    // available / balance / reserved is obvious -- the prior "hide
+    // when zero" guard made the card read as Balance-only at a glance.
     renderWithProviders(
       <GroupWalletBalanceCard balance={1000} reserved={0} available={1000} />,
     );
-    expect(screen.queryByTestId("balance-reserved")).not.toBeInTheDocument();
+    expect(screen.getByTestId("balance-reserved")).toHaveTextContent("L$0");
   });
 
   it("shows reserved row when reserved is nonzero", () => {

@@ -22,8 +22,11 @@ export interface GroupWalletBalanceCardProps {
 }
 
 /**
- * Displays the group wallet balance summary: available (dominant), balance, and
- * reserved (hidden when zero per spec — reservation is always zero in D scope).
+ * Displays the group wallet balance summary: available (dominant), balance,
+ * and reserved as a labelled inline row. Reserved was originally hidden when
+ * zero (the D-scope reservation was always zero), but always-rendering the
+ * three values makes the relationship between them obvious -- prevents the
+ * "I only see Balance" misread of the layout when reserved happens to be zero.
  *
  * The "Withdraw" button calls {@code onWithdraw} when present and the caller
  * has the required permission.
@@ -66,17 +69,15 @@ export function GroupWalletBalanceCard({
               {formatLindens(balance)}
             </span>
           </div>
-          {reserved > 0 && (
-            <div>
-              <span className="text-fg-muted">Reserved </span>
-              <span
-                className="tabular-nums text-fg"
-                data-testid="balance-reserved"
-              >
-                {formatLindens(reserved)}
-              </span>
-            </div>
-          )}
+          <div>
+            <span className="text-fg-muted">Reserved </span>
+            <span
+              className="tabular-nums text-fg"
+              data-testid="balance-reserved"
+            >
+              {formatLindens(reserved)}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
