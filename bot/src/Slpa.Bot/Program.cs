@@ -29,8 +29,6 @@ builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =
     client.BaseAddress = new Uri(opts.BaseUrl);
     client.Timeout = TimeSpan.FromSeconds(30);
 });
-builder.Services.AddSingleton<VerifyHandler>();
-builder.Services.AddSingleton<MonitorHandler>();
 builder.Services.AddSingleton<WithdrawGroupHandler>();
 builder.Services.AddHostedService<BotSessionBootstrapper>();
 builder.Services.AddHostedService<TaskLoop>();

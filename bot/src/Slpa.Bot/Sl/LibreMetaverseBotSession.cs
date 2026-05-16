@@ -297,15 +297,13 @@ public sealed class LibreMetaverseBotSession : IBotSession
                 $"Cannot teleport in state {State}");
         }
 
-        // Shortcut: if the bot is already in the target sim (common on the
-        // second+ monitor cycle for the same auction), skip the teleport.
-        // LibreMetaverse's Self.Teleport to the same-region returns a weird
-        // TeleportFailed with an unrecognized message, which ClassifyFailure
-        // would map to TeleportFailureKind.Other and MonitorHandler would
-        // then misinterpret as ACCESS_DENIED — bumping the streak and
-        // eventually tripping suspension on what's really a happy-path
-        // re-read. ReadParcelAsync will re-issue RequestAllSimParcels to
-        // get fresh data regardless of whether we teleported.
+        // Shortcut: if the bot is already in the target sim, skip the
+        // teleport. LibreMetaverse's Self.Teleport to the same-region
+        // returns a weird TeleportFailed with an unrecognized message,
+        // which ClassifyFailure would map to TeleportFailureKind.Other —
+        // callers that don't force movement should treat same-region as a
+        // no-op. ReadParcelAsync will re-issue RequestAllSimParcels to get
+        // fresh data regardless of whether we teleported.
         var currentSim = _client.Network.CurrentSim;
         if (!forceMove
             && currentSim is not null
