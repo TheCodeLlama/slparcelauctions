@@ -56,9 +56,7 @@ function auctionBase(
       createdAt: "2026-04-17T00:00:00Z",
     },
     status: "DRAFT_PAID",
-    verificationMethod: null,
     verificationTier: null,
-    pendingVerification: null,
     verificationNotes: null,
     startingBid: 500,
     reservePrice: null,
@@ -103,7 +101,7 @@ describe("ActivateClient", () => {
     vi.useRealTimers();
   });
 
-  it("DRAFT → renders the rich draft editor with sample-data banner + List Parcel action", async () => {
+  it("DRAFT renders the rich draft editor with sample-data banner + List Parcel action", async () => {
     server.use(
       http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(auctionBase({ status: "DRAFT" })),
@@ -122,119 +120,36 @@ describe("ActivateClient", () => {
         }),
       ),
     );
-    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
-      auth: "authenticated",
-    });
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
     expect(
       await screen.findByTestId("draft-action-bar-list"),
     ).toBeInTheDocument();
     expect(screen.getByTestId("draft-action-bar-delete")).toBeInTheDocument();
   });
 
-  it("DRAFT_PAID → click a method → shows the in-progress panel", async () => {
+  it("DRAFT_PAID renders the Verify-ownership button and a click flips the status to ACTIVE", async () => {
     let calls = 0;
+    let verifyHits = 0;
     server.use(
-      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () => {
-        calls += 1;
-        if (calls < 2) {
+      http.get(
+        "*/api/v1/auctions/00000000-0000-0000-0000-00000000002a",
+        () => {
+          calls += 1;
+          // Only the initial fetch is served; on success the mutation seeds
+          // the cache with the ACTIVE auction so subsequent polls never need
+          // a 2nd response.
           return HttpResponse.json(auctionBase({ status: "DRAFT_PAID" }));
-        }
-        return HttpResponse.json(
-          auctionBase({
-            status: "VERIFICATION_PENDING",
-            verificationMethod: "UUID_ENTRY",
-            pendingVerification: null,
-          }),
-        );
-      }),
-      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () =>
-        HttpResponse.json(
-          auctionBase({
-            status: "VERIFICATION_PENDING",
-            verificationMethod: "UUID_ENTRY",
-            pendingVerification: null,
-          }),
-        ),
+        },
       ),
-    );
-    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
-      auth: "authenticated",
-    });
-
-    const buttons = await screen.findAllByRole("button", {
-      name: /Use this method/i,
-    });
-    await userEvent.click(buttons[0]);
-
-    await waitFor(() =>
-      expect(
-        screen.getByText(/Checking ownership with the Second Life World API/i),
-      ).toBeInTheDocument(),
-    );
-  });
-
-  it("DRAFT_PAID + Sale-to-bot → shows the setup panel, NOT an immediate verify", async () => {
-    let verifyCalls = 0;
-    server.use(
-      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
-        HttpResponse.json(auctionBase({ status: "DRAFT_PAID" })),
-      ),
-      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () => {
-        verifyCalls += 1;
-        return HttpResponse.json(
-          auctionBase({
-            status: "VERIFICATION_PENDING",
-            verificationMethod: "SALE_TO_BOT",
-            pendingVerification: null,
-          }),
-        );
-      }),
-    );
-    renderWithProviders(
-      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
-      { auth: "authenticated" },
-    );
-    const useThisMethodButtons = await screen.findAllByRole("button", {
-      name: /Use this method/i,
-    });
-    // Sale-to-bot is the third card.
-    await userEvent.click(useThisMethodButtons[2]);
-    // Setup panel mounts with the steps + a Verify button; no verify call yet.
-    expect(
-      await screen.findByTestId("sale-to-bot-setup-panel"),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("sale-to-bot-setup-verify")).toBeInTheDocument();
-    expect(verifyCalls).toBe(0);
-  });
-
-  it("Sale-to-bot setup panel → clicking Verify fires triggerVerify with SALE_TO_BOT", async () => {
-    let received: string | null = null;
-    let auctionCalls = 0;
-    server.use(
-      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () => {
-        auctionCalls += 1;
-        if (auctionCalls < 2) {
-          return HttpResponse.json(auctionBase({ status: "DRAFT_PAID" }));
-        }
-        return HttpResponse.json(
-          auctionBase({
-            status: "VERIFICATION_PENDING",
-            verificationMethod: "SALE_TO_BOT",
-            pendingVerification: null,
-          }),
-        );
-      }),
       http.put(
         "*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify",
-        async ({ request }) => {
-          const body = (await request.json()) as { method: string };
-          received = body.method;
+        () => {
+          verifyHits += 1;
           return HttpResponse.json(
-            auctionBase({
-              status: "VERIFICATION_PENDING",
-              verificationMethod: "SALE_TO_BOT",
-              pendingVerification: null,
-            }),
+            auctionBase({ status: "ACTIVE", verificationTier: "SCRIPT" }),
           );
         },
       ),
@@ -243,38 +158,78 @@ describe("ActivateClient", () => {
       <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated" },
     );
-    const useThisMethodButtons = await screen.findAllByRole("button", {
-      name: /Use this method/i,
-    });
-    await userEvent.click(useThisMethodButtons[2]);
-    await screen.findByTestId("sale-to-bot-setup-panel");
-    await userEvent.click(screen.getByTestId("sale-to-bot-setup-verify"));
-    await waitFor(() => expect(received).toBe("SALE_TO_BOT"));
+
+    const button = await screen.findByTestId("verify-ownership-button");
+    expect(button).toHaveTextContent(/Verify ownership/i);
+    await userEvent.click(button);
+
+    await waitFor(() => expect(verifyHits).toBe(1));
+    await waitFor(() =>
+      expect(screen.getByText(/Your listing is live/i)).toBeInTheDocument(),
+    );
+    expect(calls).toBeGreaterThan(0);
   });
 
-  it("VERIFICATION_FAILED renders the retry banner with the failure notes", async () => {
+  it("VERIFICATION_FAILED renders the failure notes plus a Retry button", async () => {
     server.use(
       http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
         HttpResponse.json(
           auctionBase({
             status: "VERIFICATION_FAILED",
-            verificationMethod: "UUID_ENTRY",
             verificationNotes:
               "Ownership check failed: SL API returned a different owner.",
-            pendingVerification: null,
           }),
         ),
       ),
     );
-    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
-      auth: "authenticated",
-    });
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
+
     expect(
       await screen.findByText(/Ownership check failed/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/no additional fee needed/i),
+      screen.getByText(/no additional fee is required/i),
     ).toBeInTheDocument();
+    const retry = screen.getByTestId("verify-ownership-button");
+    expect(retry).toHaveTextContent(/Retry verify/i);
+  });
+
+  it("VERIFICATION_FAILED Retry button hits the same PUT /verify endpoint with no body", async () => {
+    let observedBody: unknown = "not-called";
+    server.use(
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
+        HttpResponse.json(
+          auctionBase({
+            status: "VERIFICATION_FAILED",
+            verificationNotes:
+              "Ownership check failed: SL API returned a different owner.",
+          }),
+        ),
+      ),
+      http.put(
+        "*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify",
+        async ({ request }) => {
+          observedBody = await request.json().catch(() => null);
+          return HttpResponse.json(
+            auctionBase({ status: "ACTIVE", verificationTier: "SCRIPT" }),
+          );
+        },
+      ),
+    );
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
+    const retry = await screen.findByTestId("verify-ownership-button");
+    await userEvent.click(retry);
+    await waitFor(() =>
+      expect(screen.getByText(/Your listing is live/i)).toBeInTheDocument(),
+    );
+    // The body is an empty object — the backend ignores the payload entirely.
+    expect(observedBody).toEqual({});
   });
 
   it("ACTIVE renders the success screen with both actions", async () => {
@@ -283,9 +238,10 @@ describe("ActivateClient", () => {
         HttpResponse.json(auctionBase({ status: "ACTIVE" })),
       ),
     );
-    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
-      auth: "authenticated",
-    });
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
     expect(
       await screen.findByText(/Your listing is live/i),
     ).toBeInTheDocument();
@@ -303,9 +259,10 @@ describe("ActivateClient", () => {
         HttpResponse.json(auctionBase({ status: "CANCELLED" })),
       ),
     );
-    renderWithProviders(<ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />, {
-      auth: "authenticated",
-    });
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("/dashboard/listings"),
     );
