@@ -231,6 +231,21 @@ public sealed class IdleParkerTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Fact]
+    public async Task Cancellation_PropagatesFromSit()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+            SitPolicy = _ => throw new OperationCanceledException(),
+        };
+        var parker = Make(session, OptsWithChairs(ChairA),
+            () => DateTimeOffset.UnixEpoch, () => 0.0);
+
+        var act = async () => await parker.ParkIfNeededAsync(default);
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     private static readonly string ChairA = "11111111-1111-1111-1111-111111111111";
     private static readonly string ChairB = "22222222-2222-2222-2222-222222222222";
 
@@ -310,12 +325,14 @@ public sealed class IdleParkerTests
             CurrentLocation = new BotLocation("Hadron", 37, 69),
             IsSeated = false,
         };
+        var now = DateTimeOffset.UnixEpoch;
         var parker = Make(session, OptsWithChairs(ChairA),
-            () => DateTimeOffset.UnixEpoch, () => 0.0);
+            () => now, () => 0.0);
 
         await parker.ParkIfNeededAsync(default);          // sits
         session.IsSeated = true;                          // now seated
-        await parker.ParkIfNeededAsync(default);          // should noop
+        now = DateTimeOffset.UnixEpoch.AddSeconds(999);   // cooldown elapsed -> Seated path, not the cooldown gate, must noop
+        await parker.ParkIfNeededAsync(default);
 
         session.SitCalls.Should().HaveCount(1);
         session.TeleportCalls.Should().BeEmpty();

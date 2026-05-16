@@ -114,6 +114,9 @@ public sealed class IdleParker : IIdleParker
             var loc = _session.CurrentLocation;
             if (!isSeated && loc is null) return; // can't position yet, no cooldown
 
+            // Short-circuit the Seated case here (not just in DeriveState) so
+            // we never dereference loc! when seated — loc may be null while
+            // IsSeated is true.
             var state = isSeated && _seatedChair is not null
                 ? IdleRestState.Seated
                 : DeriveState(isSeated, _seatedChair, loc!, _opts);
