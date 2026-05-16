@@ -39,12 +39,21 @@ A script's README must cover:
   venues + Marketplace.
 - [`slpa-terminal/`](slpa-terminal/) — Wallet-model payment terminal. Right-
   click → Pay credits the user's wallet via `/sl/wallet/deposit` (lockless,
-  fully concurrent). Touch menu offers Deposit-instructions and Withdraw.
-  Withdraw uses per-flow slots dispatched by avatar key on a single shared
-  listen — no terminal-wide lock. Also receives HTTP-in commands from the
-  backend for PAYOUT / WITHDRAW execution (REFUND defensive — refunds are
-  wallet credits, never dispatched). SLParcels-team-deployed; holds shared
-  secret + PERMISSION_DEBIT.
+  fully concurrent). Touch menu offers Deposit-instructions and Withdraw
+  (plus "Pay to group" when the sister `slpa-terminal-group/` script is
+  loaded in the same prim). Withdraw uses per-flow slots dispatched by
+  avatar key on a single shared listen — no terminal-wide lock. Also
+  receives HTTP-in commands from the backend for PAYOUT / WITHDRAW
+  execution (REFUND defensive — refunds are wallet credits, never
+  dispatched). SLParcels-team-deployed; holds shared secret +
+  PERMISSION_DEBIT.
+- [`slpa-terminal-group/`](slpa-terminal-group/) — Sister script for
+  `slpa-terminal/`. Owns the "Pay to group" flow: typed-name text-box,
+  per-avatar deposit slot, `/sl/wallet/group-deposit` POST + retry +
+  refund. Lives in the SAME prim as `slpa-terminal/` and coordinates with
+  it via `llMessageLinked` (PING/PONG/START/CLAIM/RELEASE). Each LSL
+  script has its own 64KB heap, so the split exists purely to keep the
+  combined feature set off a single script's memory budget.
 - [`sl-im-dispatcher/`](sl-im-dispatcher/) — Polls SLParcels backend for pending
   SL IM notifications and delivers them via `llInstantMessage`. SLParcels-team-deployed
   (one instance per environment); not user-deployed.
