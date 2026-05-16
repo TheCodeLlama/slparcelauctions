@@ -304,6 +304,10 @@ class BidSuspendRaceTest {
                 .currentBid(0L)
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
+                // Seed the mismatch streak at threshold-1 so the single
+                // ownership check this test fires immediately triggers the
+                // suspension branch (default threshold is 2).
+                .consecutiveOwnerMismatches(1)
                 .startsAt(now.minusHours(1))
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))

@@ -95,12 +95,11 @@ class FullFlowSmokeTest {
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 1: Method A (UUID_ENTRY) end-to-end happy path
+    // Scenario 1: Ownership-only verification end-to-end happy path
     // -------------------------------------------------------------------------
 
     @Test
-    void methodA_fullFlow_registerVerifyLookupCreatePayVerify_reachesActive() throws Exception {
-        // Create a UUID_ENTRY auction
+    void verify_fullFlow_registerVerifyLookupCreatePayVerify_reachesActive() throws Exception {
         UUID auctionPublicId = createAuction();
 
         // Pay the listing fee via the dev stub
@@ -112,11 +111,10 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.status").value("DRAFT_PAID"))
                 .andExpect(jsonPath("$.listingFeePaid").value(true));
 
-        // Trigger verification — World API mock already returns matching ownership
+        // Trigger verification -- World API mock already returns matching ownership
         mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.verificationTier").value("SCRIPT"))
@@ -131,121 +129,6 @@ class FullFlowSmokeTest {
         assertThat(a.getEndsAt()).isEqualTo(a.getStartsAt().plusHours(168));
         assertThat(a.getOriginalEndsAt()).isEqualTo(a.getEndsAt());
         assertThat(a.getVerifiedAt()).isNotNull();
-    }
-
-    // -------------------------------------------------------------------------
-    // Scenario 2: Method B (REZZABLE) end-to-end — /verify → /sl/parcel/verify
-    // -------------------------------------------------------------------------
-
-    @Test
-    void methodB_fullFlow_lslCallbackCompletesVerification() throws Exception {
-        UUID auctionPublicId = createAuction();
-
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
-                .andExpect(status().isOk());
-
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"method\":\"REZZABLE\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("VERIFICATION_PENDING"))
-                .andExpect(jsonPath("$.pendingVerification.method").value("REZZABLE"))
-                .andExpect(jsonPath("$.pendingVerification.code").exists())
-                .andExpect(jsonPath("$.pendingVerification.codeExpiresAt").exists())
-                .andReturn();
-        String code = objectMapper.readTree(verifyRes.getResponse().getContentAsString())
-                .get("pendingVerification").get("code").asText();
-        assertThat(code).matches("^[0-9]{6}$");
-
-        // LSL callback
-        String body = String.format("""
-            {
-              "verificationCode":"%s",
-              "parcelUuid":"%s",
-              "ownerUuid":"%s",
-              "parcelName":"Test Parcel",
-              "areaSqm":2048,
-              "description":"Refreshed by in-world object",
-              "primCapacity":468,
-              "regionPosX":128.0,
-              "regionPosY":64.0,
-              "regionPosZ":22.5
-            }
-            """, code, parcelUuid, sellerAvatarUuid);
-
-        mockMvc.perform(post("/api/v1/sl/parcel/verify")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("X-SecondLife-Shard", "Production")
-                .header("X-SecondLife-Owner-Key", TRUSTED_OWNER))
-                .andExpect(status().isNoContent());
-
-        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
-        assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
-        assertThat(a.getVerificationTier()).isEqualTo(VerificationTier.SCRIPT);
-        assertThat(a.getVerifiedAt()).isNotNull();
-        assertThat(a.getStartsAt()).isNotNull();
-        assertThat(a.getEndsAt()).isEqualTo(a.getStartsAt().plusHours(168));
-    }
-
-    // -------------------------------------------------------------------------
-    // Scenario 3: Method C (SALE_TO_BOT) end-to-end — /verify → dev bot complete
-    // -------------------------------------------------------------------------
-
-    @Test
-    void methodC_fullFlow_devBotCompleteReachesActive() throws Exception {
-        UUID auctionPublicId = createAuction();
-
-        mockMvc.perform(post("/api/v1/dev/auctions/" + auctionPublicId + "/pay")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
-                .andExpect(status().isOk());
-
-        MvcResult verifyRes = mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
-                .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"method\":\"SALE_TO_BOT\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("VERIFICATION_PENDING"))
-                .andExpect(jsonPath("$.pendingVerification.method").value("SALE_TO_BOT"))
-                .andExpect(jsonPath("$.pendingVerification.botTaskId").exists())
-                .andExpect(jsonPath("$.pendingVerification.instructions").exists())
-                .andReturn();
-        Long botTaskId = objectMapper.readTree(verifyRes.getResponse().getContentAsString())
-                .get("pendingVerification").get("botTaskId").asLong();
-
-        String body = String.format("""
-            {
-              "result":"SUCCESS",
-              "authBuyerId":"%s",
-              "salePrice":%d,
-              "parcelOwner":"%s",
-              "parcelName":"Test Parcel",
-              "areaSqm":2048,
-              "regionName":"Coniston",
-              "positionX":128.0,
-              "positionY":64.0,
-              "positionZ":22.0
-            }
-            """, ESCROW_UUID, SENTINEL_PRICE, sellerAvatarUuid);
-
-        mockMvc.perform(post("/api/v1/dev/bot/tasks/" + botTaskId + "/complete")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("COMPLETED"));
-
-        Auction a = auctionRepository.findByPublicId(auctionPublicId).orElseThrow();
-        assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
-        assertThat(a.getVerificationTier()).isEqualTo(VerificationTier.BOT);
-        assertThat(a.getVerifiedAt()).isNotNull();
-        assertThat(a.getStartsAt()).isNotNull();
-        assertThat(a.getEndsAt()).isEqualTo(a.getStartsAt().plusHours(168));
     }
 
     // -------------------------------------------------------------------------
@@ -300,24 +183,21 @@ class FullFlowSmokeTest {
                 .andExpect(status().isOk());
         mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/verify")
                 .header("Authorization", "Bearer " + sellerAccessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
-        // Seller view — full internal state
+        // Seller view -- full internal state
         mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                 .header("Authorization", "Bearer " + sellerAccessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.sellerPublicId").value(sellerPublicId.toString()))
-                .andExpect(jsonPath("$.verificationMethod").value("UUID_ENTRY"))
                 .andExpect(jsonPath("$.listingFeePaid").value(true))
                 .andExpect(jsonPath("$.listingFeeAmt").exists())
                 .andExpect(jsonPath("$.commissionRate").exists());
 
-        // Non-seller public view — no listing fee, no winnerId, no verificationMethod,
-        // no verificationNotes
+        // Non-seller public view -- no listing fee, no winnerId, no verificationNotes
         mockMvc.perform(get("/api/v1/auctions/" + auctionPublicId)
                 .header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isOk())
@@ -328,9 +208,7 @@ class FullFlowSmokeTest {
                 .andExpect(jsonPath("$.listingFeeAmt").doesNotExist())
                 .andExpect(jsonPath("$.commissionRate").doesNotExist())
                 .andExpect(jsonPath("$.winnerId").doesNotExist())
-                .andExpect(jsonPath("$.verificationNotes").doesNotExist())
-                .andExpect(jsonPath("$.verificationMethod").doesNotExist())
-                .andExpect(jsonPath("$.pendingVerification").doesNotExist());
+                .andExpect(jsonPath("$.verificationNotes").doesNotExist());
 
         // Cancel the auction
         mockMvc.perform(put("/api/v1/auctions/" + auctionPublicId + "/cancel")
@@ -361,10 +239,9 @@ class FullFlowSmokeTest {
     // -------------------------------------------------------------------------
 
     /**
-     * Creates a DRAFT auction via POST /api/v1/auctions. Per sub-spec 2 §7.1,
-     * verificationMethod is not set at create time — it is chosen on the
-     * verify trigger (each scenario calls PUT /auctions/{id}/verify with the
-     * method it is exercising).
+     * Creates a DRAFT auction via POST /api/v1/auctions. After the
+     * ownership-only verification refactor, the verify trigger is a
+     * synchronous World API ownership check with no body.
      */
     private UUID createAuction() throws Exception {
         String body = String.format("""

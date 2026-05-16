@@ -144,7 +144,10 @@ class OwnershipMonitorIntegrationTest {
         UUID attackerAvatar = UUID.randomUUID();
         UUID parcelUuid = UUID.randomUUID();
 
-        Long auctionId = seedActiveAuction(sellerAvatar, parcelUuid);
+        // Seed the streak counter at threshold-1 (default threshold is 2)
+        // so the single ownership check this scheduler tick fires immediately
+        // crosses the suspension gate.
+        Long auctionId = seedActiveAuctionWithMismatchStreak(sellerAvatar, parcelUuid, 1);
         stubWorldApiOwner(parcelUuid, attackerAvatar, "agent", "Hijacked");
 
         scheduler.dispatchDueChecks();
@@ -259,10 +262,20 @@ class OwnershipMonitorIntegrationTest {
     }
 
     private Long seedActiveAuction(UUID sellerAvatar, UUID parcelUuid) {
-        return seedActiveAuction(sellerAvatar, parcelUuid, 0);
+        return seedActiveAuctionInner(sellerAvatar, parcelUuid, 0, 0);
     }
 
     private Long seedActiveAuction(UUID sellerAvatar, UUID parcelUuid, int consecutiveFailures) {
+        return seedActiveAuctionInner(sellerAvatar, parcelUuid, consecutiveFailures, 0);
+    }
+
+    private Long seedActiveAuctionWithMismatchStreak(
+            UUID sellerAvatar, UUID parcelUuid, int mismatchStreak) {
+        return seedActiveAuctionInner(sellerAvatar, parcelUuid, 0, mismatchStreak);
+    }
+
+    private Long seedActiveAuctionInner(
+            UUID sellerAvatar, UUID parcelUuid, int consecutiveFailures, int mismatchStreak) {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         return tx.execute(ts -> {
             User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
@@ -289,6 +302,7 @@ class OwnershipMonitorIntegrationTest {
                     .currentBid(0L)
                     .bidCount(0)
                     .consecutiveWorldApiFailures(consecutiveFailures)
+                    .consecutiveOwnerMismatches(mismatchStreak)
                     .commissionRate(new BigDecimal("0.05"))
                     .startsAt(now.minusHours(1))
                     .endsAt(now.plusHours(167))
