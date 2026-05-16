@@ -88,19 +88,23 @@ integer MAX_GROUP_DEPOSIT_SLOTS = 4;
 integer GROUP_DEPOSIT_SLOT_TTL  = 60;
 integer GROUP_DEPOSIT_SLOT_STRIDE = 4;
 
-// === "Pay to group" pending dialogs (between /avatar-groups POST and the
+// === "Pay to group" pending dialog (between /avatar-groups POST and the
 // avatar clicking a group name in llDialog) ===
-// Strided 4-wide list:
-//   [avatarKey, labelsJsonArray, publicIdsJsonArray, nextAfterStr, expiresAt, ...]
-//   labelsJsonArray and publicIdsJsonArray are LSL-JSON-encoded string
-//   arrays (same length); the i-th label resolves to the i-th publicId.
-//   We keep them as parallel arrays rather than a single map so the
-//   "More..." button can re-POST /avatar-groups with the saved
-//   nextAfterStr cursor and overwrite the slot in place.
-//   nextAfterStr is "" when /avatar-groups returned hasMore=false.
-list    pendingGroupDialogs    = [];
+// Single-slot scalar state. Only one avatar can be in the "Pay to group"
+// picker at a time -- a second avatar's request clobbers the first
+// silently (the first's dialog falls through to a no-op when they tap).
+// We previously stored a strided list of concurrent pickers, but the
+// runtime memory pressure tripped Stack-Heap Collision on real terminals.
+//   pendingDialogLabels    -- JSON array of truncated group display names
+//   pendingDialogPublicIds -- JSON array of group publicIds (same order)
+//   pendingDialogNextAfter -- "" when the backend reported hasMore=false,
+//                             else the cursor to re-POST on "More..."
+key     pendingDialogAvatar    = NULL_KEY;
+string  pendingDialogLabels    = "";
+string  pendingDialogPublicIds = "";
+string  pendingDialogNextAfter = "";
+integer pendingDialogExpiresAt = 0;
 integer GROUP_DIALOG_TTL       = 60;
-integer GROUP_DIALOG_STRIDE    = 5;
 // Max chars for an LSL dialog button label. SL caps at 24; we leave one
 // char of headroom for the truncation ellipsis.
 integer GROUP_LABEL_MAX_CHARS  = 24;
@@ -508,47 +512,26 @@ sweepExpiredGroupDepositSlots() {
 
 // ---------------- Group-dialog slot helpers ----------------
 
-integer findGroupDialogSlot(key avatar) {
-    integer i;
-    integer count = llGetListLength(pendingGroupDialogs) / GROUP_DIALOG_STRIDE;
-    for (i = 0; i < count; ++i) {
-        key k = llList2Key(pendingGroupDialogs, i * GROUP_DIALOG_STRIDE);
-        if (k == avatar) return i;
-    }
-    return -1;
-}
-
-releaseGroupDialogSlot(key avatar) {
-    integer slotIdx = findGroupDialogSlot(avatar);
-    if (slotIdx < 0) return;
-    integer start = slotIdx * GROUP_DIALOG_STRIDE;
-    pendingGroupDialogs = llDeleteSubList(pendingGroupDialogs,
-        start, start + GROUP_DIALOG_STRIDE - 1);
+releaseGroupDialogSlot() {
+    pendingDialogAvatar    = NULL_KEY;
+    pendingDialogLabels    = "";
+    pendingDialogPublicIds = "";
+    pendingDialogNextAfter = "";
+    pendingDialogExpiresAt = 0;
 }
 
 setGroupDialogSlot(key avatar, string labelsJson, string publicIdsJson, string nextAfter) {
-    releaseGroupDialogSlot(avatar);
-    pendingGroupDialogs += [
-        avatar,
-        labelsJson,
-        publicIdsJson,
-        nextAfter,
-        llGetUnixTime() + GROUP_DIALOG_TTL
-    ];
+    pendingDialogAvatar    = avatar;
+    pendingDialogLabels    = labelsJson;
+    pendingDialogPublicIds = publicIdsJson;
+    pendingDialogNextAfter = nextAfter;
+    pendingDialogExpiresAt = llGetUnixTime() + GROUP_DIALOG_TTL;
 }
 
 sweepExpiredGroupDialogs() {
-    integer now = llGetUnixTime();
-    integer i = llGetListLength(pendingGroupDialogs) / GROUP_DIALOG_STRIDE - 1;
-    while (i >= 0) {
-        integer expiresAt = llList2Integer(pendingGroupDialogs,
-            i * GROUP_DIALOG_STRIDE + 4);
-        if (expiresAt < now) {
-            pendingGroupDialogs = llDeleteSubList(pendingGroupDialogs,
-                i * GROUP_DIALOG_STRIDE,
-                i * GROUP_DIALOG_STRIDE + GROUP_DIALOG_STRIDE - 1);
-        }
-        --i;
+    if (pendingDialogAvatar != NULL_KEY
+            && pendingDialogExpiresAt < llGetUnixTime()) {
+        releaseGroupDialogSlot();
     }
 }
 
@@ -691,7 +674,11 @@ default {
         registerNextRetryAt = 0;
         withdrawSessions    = [];
         pendingGroupDeposits   = [];
-        pendingGroupDialogs    = [];
+        pendingDialogAvatar    = NULL_KEY;
+        pendingDialogLabels    = "";
+        pendingDialogPublicIds = "";
+        pendingDialogNextAfter = "";
+        pendingDialogExpiresAt = 0;
         avatarGroupsReqId      = NULL_KEY;
         avatarGroupsReqAvatar  = NULL_KEY;
         groupDepositReqId      = NULL_KEY;
@@ -1021,36 +1008,28 @@ default {
         }
 
         // ---- "Pay to group" dialog responses (More.../Cancel/group label) ----
-        // We probe the per-avatar pendingGroupDialogs slot BEFORE the
-        // withdraw-flow check so that group-name labels (e.g. "Heath's
-        // Realty") aren't accidentally treated as withdraw-flow input.
-        integer dialogIdx = findGroupDialogSlot(id);
-        if (dialogIdx >= 0) {
-            string labelsJson    = llList2String(pendingGroupDialogs,
-                dialogIdx * GROUP_DIALOG_STRIDE + 1);
-            string publicIdsJson = llList2String(pendingGroupDialogs,
-                dialogIdx * GROUP_DIALOG_STRIDE + 2);
-            string savedAfter    = llList2String(pendingGroupDialogs,
-                dialogIdx * GROUP_DIALOG_STRIDE + 3);
-
+        // Single-slot scalar state -- only the avatar who most recently
+        // opened the picker can resolve a dialog here. A delayed click
+        // from a previous avatar falls through silently.
+        if (pendingDialogAvatar == id) {
             if (msg == "Cancel") {
-                releaseGroupDialogSlot(id);
+                releaseGroupDialogSlot();
                 return;
             }
             if (msg == "More...") {
                 // Re-POST /avatar-groups with the saved cursor. The slot
                 // stays open; the http_response handler will overwrite it
                 // when the new page arrives.
-                if (savedAfter != "") {
-                    postAvatarGroups(id, savedAfter);
+                if (pendingDialogNextAfter != "") {
+                    postAvatarGroups(id, pendingDialogNextAfter);
                 }
                 return;
             }
             // Group-label button: look up its publicId in the parallel
             // array. Walk the parsed list to find the index of the label
             // match.
-            list labels    = llJson2List(labelsJson);
-            list publicIds = llJson2List(publicIdsJson);
+            list labels    = llJson2List(pendingDialogLabels);
+            list publicIds = llJson2List(pendingDialogPublicIds);
             integer labelCount = llGetListLength(labels);
             integer i;
             integer matchIdx = -1;
@@ -1070,7 +1049,7 @@ default {
             string chosenPublicId = llList2String(publicIds, matchIdx);
             string chosenName     = llList2String(labels, matchIdx);
             setGroupDepositSlot(id, chosenPublicId, chosenName);
-            releaseGroupDialogSlot(id);
+            releaseGroupDialogSlot();
             llRegionSayTo(id, 0,
                 "You have 60 seconds to right-click -> Pay -> enter L$ amount "
                 + "to deposit into " + chosenName + ".");
@@ -1254,7 +1233,7 @@ default {
                 llRegionSayTo(targetAvatar, 0,
                     "Unable to fetch groups right now, please try again in a moment.");
                 debugSayUser(targetAvatar, "avatar-groups", status, body);
-                releaseGroupDialogSlot(targetAvatar);
+                releaseGroupDialogSlot();
                 return;
             }
             // Body shape: { "groups":[{"publicId":"...","name":"..."},...],
@@ -1263,7 +1242,7 @@ default {
             if (groupsJson == JSON_INVALID) {
                 llRegionSayTo(targetAvatar, 0,
                     "Unable to read groups response. Contact Heath Onyx if this persists.");
-                releaseGroupDialogSlot(targetAvatar);
+                releaseGroupDialogSlot();
                 return;
             }
             list groupList = llJson2List(groupsJson);
@@ -1271,7 +1250,7 @@ default {
             if (groupCount == 0) {
                 llRegionSayTo(targetAvatar, 0,
                     "You are not a member of any group with deposit permission.");
-                releaseGroupDialogSlot(targetAvatar);
+                releaseGroupDialogSlot();
                 return;
             }
 
