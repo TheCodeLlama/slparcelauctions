@@ -262,7 +262,7 @@ public sealed class IdleParkerTests
     }
 
     [Fact]
-    public void DeriveState_Adrift_WhenSeatedFlagButNoRecordedChair()
+    public void DeriveState_InRectangle_WhenSeatedFlagButNoRecordedChair()
     {
         IdleParker.DeriveState(true, null, new BotLocation("Hadron", 37, 69), Opts())
             .Should().Be(IdleParker.IdleRestState.InRectangle);
