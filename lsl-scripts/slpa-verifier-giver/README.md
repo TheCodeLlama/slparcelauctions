@@ -1,5 +1,7 @@
 # SLParcels Parcel Verifier Giver
 
+> **NOTE (2026-05-16):** This script supported the retired Method B (rezzable terminal verification). The backend endpoint it called (`POST /api/v1/sl/parcel/verify`) has been removed. Script is retained for reference / future use. Do not deploy new instances until the script is re-purposed.
+
 Single-purpose in-world prim that hands out a copy of the SLParcels Parcel
 Verifier inventory item on touch. Free, no L$, no backend interaction.
 

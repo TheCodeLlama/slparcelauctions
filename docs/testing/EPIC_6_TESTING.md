@@ -1,5 +1,7 @@
 # Epic 06 — SL Bot Service Testing Guide
 
+> **RETIRED (2026-05-16):** This document describes the Epic 06 bot-driven verification + monitoring flow (VERIFY / MONITOR_AUCTION / MONITOR_ESCROW task types, `BotMonitorDispatcher`, the SLPAEscrow Resident sale-to-bot handshake, etc.) that has been **retired** in favor of World-API-only verification + monitoring. See `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md` for the current architecture. The surviving bot roles are SL IM dispatch, idle parking, and `WITHDRAW_GROUP` task handling — none of the test procedures below apply to those flows. Document retained for historical reference; do **not** treat it as a current testing guide.
+
 End-to-end testing guide for the bot service shipped in PR #23 / commit `a13e298`. Covers automated test suites, local stack bring-up, and manual verification of every Epic 06 surface — backend bot API, bot worker login + teleport + callbacks, lifecycle-hooked monitor rows, and SL integration.
 
 > This doc assumes you are running on the `dev` branch (Epic 06 already merged) with local Postgres, Redis, MinIO, backend, frontend, and one bot container.

@@ -1,5 +1,7 @@
 # SLParcels Parcel Verifier (rezzable)
 
+> **NOTE (2026-05-16):** This script supported the retired Method B (rezzable terminal verification). The backend endpoint it called (`POST /api/v1/sl/parcel/verify`) has been removed. Script is retained for reference / future use. Do not deploy new instances until the script is re-purposed.
+
 Single-use rezzable object. Sellers rez it on the parcel they want to list,
 the script reads parcel metadata via `llGetParcelDetails`, prompts for a
 6-digit PARCEL code, POSTs to backend, then `llDie()`s.
