@@ -114,25 +114,20 @@ public class TerminalCommandService {
         return Optional.of(cmd);
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
-    public TerminalCommand queueRefund(Escrow escrow) {
-        User winner = userRepo.findById(escrow.getAuction().getWinnerUserId()).orElseThrow();
-        String recipientUuid = winner.getSlAvatarUuid().toString();
-        return queue(escrow.getId(), null,
-                TerminalCommandAction.REFUND, TerminalCommandPurpose.AUCTION_ESCROW,
-                recipientUuid, escrow.getFinalBidAmount(),
-                idempotencyKey("ESC", escrow.getId(), TerminalCommandAction.REFUND, 1));
-    }
-
-    @Transactional(propagation = Propagation.MANDATORY)
-    public TerminalCommand queueListingFeeRefund(ListingFeeRefund refund) {
-        String recipientUuid = refund.getAuction().getSeller().getSlAvatarUuid().toString();
-        return queue(null, refund.getId(),
-                TerminalCommandAction.REFUND, TerminalCommandPurpose.LISTING_FEE_REFUND,
-                recipientUuid, refund.getAmount(),
-                idempotencyKey("LFR", refund.getId(), TerminalCommandAction.REFUND, 1));
-    }
-
+    /**
+     * Historical note: {@code queueRefund} and {@code queueListingFeeRefund}
+     * lived here until the wallet-model-always-on migration. Both refund
+     * surfaces (escrow refund, listing-fee refund) now credit the
+     * recipient's SLParcels wallet via {@link
+     * com.slparcelauctions.backend.wallet.WalletService#creditEscrowRefund}
+     * / {@link
+     * com.slparcelauctions.backend.wallet.WalletService#creditListingFeeRefund}
+     * / {@link
+     * com.slparcelauctions.backend.realty.wallet.RealtyGroupWalletService#creditListingFeeRefund}.
+     * The {@link TerminalCommandAction#REFUND} enum value is retained
+     * because historical rows + in-flight REFUND commands at deploy time
+     * still need their callback handled (see {@link #applyCallback}).
+     */
     /**
      * Queues an admin WITHDRAW command. Called from
      * {@code AdminWithdrawalService.requestWithdrawal} which already holds

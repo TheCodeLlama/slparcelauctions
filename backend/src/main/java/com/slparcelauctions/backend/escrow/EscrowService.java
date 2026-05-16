@@ -52,7 +52,6 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.wallet.exception.BidReservationAmountMismatchException;
 
-import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -101,7 +100,17 @@ public class EscrowService {
     private final DisputeEvidenceUploadService evidenceUploadService;
     private final WalletService walletService;
 
-    @Value("${slpa.wallet.enforcement-enabled:false}")
+    /**
+     * Bid-time wallet enforcement flag. Paired with the same flag on
+     * {@link com.slparcelauctions.backend.auction.BidService}: when true,
+     * bids reserve from the bidder's wallet and the ended-auction escrow
+     * auto-funds from that reservation. When false (default), no L$ moves
+     * at bid time; the winner pays the escrow in-world via the SLPA
+     * Terminal after the auction closes. The wallet-model refund
+     * migration in this commit is independent -- it changes ONLY refund
+     * routing (escrow refund + listing-fee refund), not bid-time funding.
+     */
+    @org.springframework.beans.factory.annotation.Value("${slpa.wallet.enforcement-enabled:false}")
     private boolean walletEnforcementEnabled;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
@@ -403,33 +412,31 @@ public class EscrowService {
     }
 
     /**
-     * Delegates to {@link TerminalCommandService#queueRefund} when the escrow
-     * has already received L$ ({@code fundedAt != null}). The guard matters
-     * because an unfunded escrow that moves to DISPUTED / FROZEN / EXPIRED
-     * has no money held in the terminal account to refund — queuing a
-     * REFUND command for a never-funded escrow would send L$ the winner
-     * never paid. Only called from transactional methods that already hold
+     * Refund the winner's L$ when a funded escrow goes DISPUTED / FROZEN /
+     * EXPIRED. The {@code fundedAt} guard matters because an unfunded
+     * escrow has no money held -- crediting it would invent L$ the winner
+     * never paid.
+     *
+     * <p>Per platform policy, refunds always credit the winner's
+     * SLParcels wallet. The winner can withdraw to their SL avatar at any
+     * time via the regular Withdraw flow if they want the L$ out of the
+     * system. Only called from transactional methods that already hold
      * a pessimistic lock on the escrow row.
      */
-    void queueRefundIfFunded(Escrow escrow) {
+    public void queueRefundIfFunded(Escrow escrow) {
         if (escrow.getFundedAt() == null) return;
-        if (walletEnforcementEnabled) {
-            // Wallet model: refund is a wallet credit, not a TerminalCommand REFUND.
-            User winner = userRepo.findByIdForUpdate(escrow.getAuction().getWinnerUserId()).orElseThrow();
-            walletService.creditEscrowRefund(winner, escrow.getFinalBidAmount(), escrow.getId());
-            ledgerRepo.save(EscrowTransaction.builder()
-                    .escrow(escrow)
-                    .auction(escrow.getAuction())
-                    .type(EscrowTransactionType.AUCTION_ESCROW_REFUND)
-                    .status(EscrowTransactionStatus.COMPLETED)
-                    .amount(escrow.getFinalBidAmount())
-                    .completedAt(OffsetDateTime.now(clock))
-                    .build());
-            log.info("Escrow {} refund credited to wallet (winnerId={}, amount=L${})",
-                    escrow.getId(), winner.getId(), escrow.getFinalBidAmount());
-        } else {
-            terminalCommandService.queueRefund(escrow);
-        }
+        User winner = userRepo.findByIdForUpdate(escrow.getAuction().getWinnerUserId()).orElseThrow();
+        walletService.creditEscrowRefund(winner, escrow.getFinalBidAmount(), escrow.getId());
+        ledgerRepo.save(EscrowTransaction.builder()
+                .escrow(escrow)
+                .auction(escrow.getAuction())
+                .type(EscrowTransactionType.AUCTION_ESCROW_REFUND)
+                .status(EscrowTransactionStatus.COMPLETED)
+                .amount(escrow.getFinalBidAmount())
+                .completedAt(OffsetDateTime.now(clock))
+                .build());
+        log.info("Escrow {} refund credited to winner wallet (winnerId={}, amount=L${})",
+                escrow.getId(), winner.getId(), escrow.getFinalBidAmount());
     }
 
     /**

@@ -123,6 +123,7 @@ class EscrowOwnershipMonitorIntegrationTest {
     @Autowired BidRepository bidRepo;
     @Autowired ProxyBidRepository proxyBidRepo;
     @Autowired UserRepository userRepo;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepo;
     @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired FraudFlagRepository fraudFlagRepo;
@@ -167,6 +168,10 @@ class EscrowOwnershipMonitorIntegrationTest {
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL).forEach(verificationCodeRepo::delete);
                 notificationRepo.deleteAllByUserId(userId);
+                // Wallet-model refund migration: ESCROW_REFUND ledger row
+                // written when escrow expires/freezes. Clear before
+                // deleting the user or the FK constraint fires.
+                userLedgerRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });

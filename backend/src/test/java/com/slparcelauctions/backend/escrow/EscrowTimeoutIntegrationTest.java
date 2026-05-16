@@ -46,6 +46,7 @@ import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
 
@@ -117,6 +118,7 @@ class EscrowTimeoutIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired NotificationRepository notificationRepo;
+    @Autowired UserLedgerRepository userLedgerRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
     @Autowired MutableFixedClock testClock;
@@ -160,6 +162,10 @@ class EscrowTimeoutIntegrationTest {
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
                         VerificationCodeType.PARCEL).forEach(verificationCodeRepo::delete);
                 notificationRepo.deleteAllByUserId(userId);
+                // Wallet-model refund migration: escrow refund + listing-fee
+                // refund now write user_ledger rows on this user. Clear those
+                // before deleting the user or the FK constraint fires.
+                userLedgerRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });
@@ -221,16 +227,17 @@ class EscrowTimeoutIntegrationTest {
         assertThat(refreshed.getExpiredAt())
                 .isEqualTo(OffsetDateTime.now(testClock));
 
-        // Exactly one REFUND TerminalCommand for AUCTION_ESCROW on this escrow.
+        // Per the wallet-model-always-on refund migration: the refund is
+        // an instant credit to the winner's SLParcels wallet, not a
+        // TerminalCommand REFUND. No terminal_commands rows are emitted.
         List<TerminalCommand> commands = cmdRepo.findAll().stream()
                 .filter(c -> seededEscrowId.equals(c.getEscrowId()))
                 .toList();
-        assertThat(commands).hasSize(1);
-        TerminalCommand refund = commands.get(0);
-        assertThat(refund.getAction()).isEqualTo(TerminalCommandAction.REFUND);
-        assertThat(refund.getPurpose()).isEqualTo(TerminalCommandPurpose.AUCTION_ESCROW);
-        assertThat(refund.getStatus()).isEqualTo(TerminalCommandStatus.QUEUED);
-        assertThat(refund.getAmount()).isEqualTo(refreshed.getFinalBidAmount());
+        assertThat(commands).isEmpty();
+        // The wallet credit + EscrowTransaction ledger row are written
+        // synchronously inside queueRefundIfFunded. EscrowDisputeIntegrationTest
+        // covers the same code path with explicit wallet-credit assertions;
+        // here we just assert the absence of the in-world payout.
 
         assertThat(capturingEscrowPublisher.expired).hasSize(1);
         EscrowExpiredEnvelope env = capturingEscrowPublisher.expired.get(0);

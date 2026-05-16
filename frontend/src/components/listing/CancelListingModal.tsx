@@ -129,7 +129,11 @@ export function CancelListingModal({
   const { data: currentUser } = useCurrentUser();
   const { data: status } = useCancellationStatus();
 
-  const refund = computeRefund(auction.status, auction.listingFeeAmt);
+  const refund = computeRefund(
+    auction.status,
+    auction.listingFeeAmt,
+    auction.realtyGroup != null,
+  );
 
   const copyVariant = resolveCopyVariant({
     bannedFromListing: currentUser?.bannedFromListing ?? false,

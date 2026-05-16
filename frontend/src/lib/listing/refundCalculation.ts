@@ -1,19 +1,21 @@
 import type { AuctionStatus } from "@/types/auction";
 
 /**
- * Refund model for the CancelListingModal (sub-spec 2 §8.2).
+ * Refund model for the CancelListingModal.
  *
- * The backend authoritative refund logic lives in CancellationService;
- * this frontend helper only mirrors the user-facing copy so the modal can
- * show the correct message before the seller clicks "Confirm cancel".
+ * The backend authoritative refund logic lives in CancellationService +
+ * ListingFeeRefundProcessorTask; this frontend helper only mirrors the
+ * user-facing copy so the modal can show the correct message before the
+ * seller clicks "Confirm cancel".
  *
  * Buckets:
  *   - DRAFT: no fee paid → no refund.
  *   - DRAFT_PAID / VERIFICATION_PENDING / VERIFICATION_FAILED: fee paid
- *     but listing never went live → full refund, processed within 24 h.
- *   - ACTIVE: cancelling an active listing forfeits the fee (per spec).
- *   - Anything else is not cancellable from the UI — the copy reflects
- *     that ("This listing cannot be cancelled.").
+ *     but listing never went live → full refund, credited instantly to
+ *     the SLParcels wallet that paid (group wallet for case-3 listings,
+ *     seller's user wallet otherwise).
+ *   - ACTIVE: cancelling an active listing forfeits the fee.
+ *   - Anything else is not cancellable from the UI.
  */
 export interface RefundInfo {
   kind: "NONE" | "FULL";
@@ -21,9 +23,18 @@ export interface RefundInfo {
   copy: string;
 }
 
+/**
+ * @param status         current auction status
+ * @param listingFeeAmt  fee paid, in L$
+ * @param isGroupListing true when the auction is case-3 (the fee came
+ *                       from a realty group's wallet); drives whether
+ *                       the copy says "your wallet" or "the group's
+ *                       wallet"
+ */
 export function computeRefund(
   status: AuctionStatus,
   listingFeeAmt: number | null,
+  isGroupListing: boolean = false,
 ): RefundInfo {
   switch (status) {
     case "DRAFT":
@@ -36,10 +47,13 @@ export function computeRefund(
     case "VERIFICATION_PENDING":
     case "VERIFICATION_FAILED": {
       const amount = listingFeeAmt ?? 0;
+      const target = isGroupListing
+        ? "the group's SLParcels wallet"
+        : "your SLParcels wallet";
       return {
         kind: "FULL",
         amountLindens: amount,
-        copy: `Refund: L$${amount} (full refund, processed within 24 hours).`,
+        copy: `Refund: L$${amount}, credited instantly to ${target}.`,
       };
     }
     case "ACTIVE":
