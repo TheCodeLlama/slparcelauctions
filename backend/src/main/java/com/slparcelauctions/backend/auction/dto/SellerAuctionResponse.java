@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.UUID;
 
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
@@ -29,9 +28,7 @@ public record SellerAuctionResponse(
         String title,
         ParcelResponse parcel,
         AuctionStatus status,
-        VerificationMethod verificationMethod,
         VerificationTier verificationTier,
-        PendingVerification pendingVerification,
         String verificationNotes,
         Long startingBid,
         Long reservePrice,

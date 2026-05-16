@@ -92,6 +92,6 @@ public class DevAuctionController {
         a.setStatus(AuctionStatus.DRAFT_PAID);
         Auction saved = auctionRepo.save(a);
         log.info("Dev-paid auction {}: amount={}, txnRef={}", saved.getId(), amount, txnRef);
-        return mapper.toSellerResponse(saved, null);
+        return mapper.toSellerResponse(saved);
     }
 }
