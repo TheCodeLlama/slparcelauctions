@@ -245,7 +245,15 @@ public sealed class LibreMetaverseBotSession : IBotSession
         EventHandler<AvatarSitResponseEventArgs>? handler = null;
         handler = (_, e) =>
         {
-            if (e.ObjectID != target) return;
+            // SL sends ObjectID == UUID.Zero when the sim rejects the sit
+            // (object deleted / not sittable / no sit target / seat taken).
+            if (e.ObjectID == UUID.Zero)
+            {
+                _client.Self.AvatarSitResponse -= handler!;
+                tcs.TrySetResult(SitResult.Fail(SitFailureKind.NotSittable));
+                return;
+            }
+            if (e.ObjectID != target) return; // a different object — not ours
             _client.Self.AvatarSitResponse -= handler!;
             // Sim acknowledged a sit target for our object; commit the sit.
             // We treat the acknowledged response as success (belief) —
