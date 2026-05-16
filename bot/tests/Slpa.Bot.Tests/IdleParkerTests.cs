@@ -34,6 +34,17 @@ public sealed class IdleParkerTests
         o.Corner2Y.Should().Be(65);
         o.Z.Should().Be(25);
         o.ParkCooldownSeconds.Should().Be(180);
+        o.Chairs.Should().BeEquivalentTo(new[]
+        {
+            "d28b2fea-8020-b875-777b-6e432a7d9317",
+            "65f7f3e4-1a06-0a07-9233-a3f9a44ff88c",
+            "273a9a21-9a23-ca63-58e0-fe817f0a524a",
+            "02080632-9fcc-1e1f-36b3-8dd54a694f12",
+            "6a8106b7-d771-4c5c-ee19-62b4291de07a",
+            "0c852666-669a-9670-e663-380e18d748b7",
+            "cd2dbb84-8b18-f28e-c19c-f40468036fc6",
+            "ca2c885f-d3fd-2368-1ea7-4c57e014ea5a",
+        });
     }
 
     [Fact]
