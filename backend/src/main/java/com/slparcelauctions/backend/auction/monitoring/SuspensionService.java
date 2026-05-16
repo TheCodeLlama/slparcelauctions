@@ -15,7 +15,6 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 
@@ -48,7 +47,6 @@ public class SuspensionService {
 
     private final AuctionRepository auctionRepo;
     private final FraudFlagRepository fraudFlagRepo;
-    private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
@@ -84,8 +82,6 @@ public class SuspensionService {
                 .resolved(false)
                 .build());
 
-        monitorLifecycle.onAuctionClosed(managed);
-
         notificationPublisher.listingSuspended(
                 managed.getSeller().getId(),
                 managed.getId(),
@@ -117,8 +113,6 @@ public class SuspensionService {
                 .evidenceJson(ev)
                 .resolved(false)
                 .build());
-
-        monitorLifecycle.onAuctionClosed(managed);
 
         notificationPublisher.listingSuspended(
                 managed.getSeller().getId(),
@@ -185,50 +179,10 @@ public class SuspensionService {
     }
 
     /**
-     * Bot-monitor-triggered suspend. Unlike {@link #suspendForOwnershipChange}
-     * (which is keyed on a World-API {@link ParcelMetadata} shape), bot
-     * observations arrive as a loose evidence map. The caller supplies the
-     * specific {@link FraudFlagReason} so the admin dashboard can tell the
-     * four bot-detected causes apart. See Epic 06 spec §6.1.
-     */
-    @Transactional
-    public void suspendForBotObservation(
-            Auction auction,
-            FraudFlagReason reason,
-            Map<String, Object> evidence) {
-        OffsetDateTime now = OffsetDateTime.now(clock);
-        auction.setStatus(AuctionStatus.SUSPENDED);
-        if (auction.getSuspendedAt() == null) {
-            auction.setSuspendedAt(now);
-        }
-        auction.setLastOwnershipCheckAt(now);
-        auctionRepo.save(auction);
-
-        fraudFlagRepo.save(FraudFlag.builder()
-                .auction(auction)
-                .slParcelUuid(auction.getSlParcelUuid())
-                .reason(reason)
-                .detectedAt(now)
-                .evidenceJson(evidence)
-                .resolved(false)
-                .build());
-
-        monitorLifecycle.onAuctionClosed(auction);
-
-        notificationPublisher.listingSuspended(
-                auction.getSeller().getId(),
-                auction.getId(),
-                auction.getTitle(),
-                reason.name());
-
-        log.warn("Auction {} SUSPENDED by bot monitor: reason={}, evidence={}",
-                auction.getId(), reason, evidence);
-    }
-
-    /**
-     * Admin-driven suspension. No FraudFlag created — admin reason is captured
-     * in the admin_actions audit row written by the caller. Sets suspendedAt
-     * if currently null, mirroring suspendForOwnershipChange.
+     * Admin-driven suspension. No FraudFlag created -- admin reason is
+     * captured in the admin_actions audit row written by the caller.
+     * Sets suspendedAt if currently null, mirroring
+     * {@link #suspendForOwnershipChange}.
      */
     @Transactional
     public void suspendByAdmin(Auction auction, Long adminUserId, String notes) {
@@ -238,8 +192,6 @@ public class SuspensionService {
             auction.setSuspendedAt(now);
         }
         auctionRepo.save(auction);
-
-        monitorLifecycle.onAuctionClosed(auction);
 
         notificationPublisher.listingSuspended(
             auction.getSeller().getId(), auction.getId(),

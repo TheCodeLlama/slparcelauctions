@@ -18,7 +18,6 @@ import com.slparcelauctions.backend.auction.exception.BrokerCancelNotApplicableE
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.monitoring.ListingSuspension;
 import com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
@@ -78,7 +77,6 @@ public class CancellationService {
     private final CancellationLogRepository logRepo;
     private final ListingFeeRefundRepository refundRepo;
     private final UserRepository userRepo;
-    private final BotMonitorLifecycleService monitorLifecycle;
     private final AuctionBroadcastPublisher broadcastPublisher;
     private final NotificationPublisher notificationPublisher;
     private final CancellationPenaltyProperties penaltyProps;
@@ -201,7 +199,6 @@ public class CancellationService {
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
-        monitorLifecycle.onAuctionClosed(saved);
 
         // Fan-out LISTING_CANCELLED_BY_SELLER to each bidder who ever bid on
         // this auction. The publisher registers an afterCommit hook internally,
@@ -280,7 +277,6 @@ public class CancellationService {
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
-        monitorLifecycle.onAuctionClosed(saved);
 
         notificationPublisher.listingRemovedByAdmin(
                 a.getSeller().getId(), a.getId(), a.getTitle(), notes);
@@ -390,7 +386,6 @@ public class CancellationService {
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
-        monitorLifecycle.onAuctionClosed(saved);
 
         // Listing-fee refund: D's existing ListingFeeRefundProcessorJob routes
         // by originating ledger row, so case-3 refunds credit back to the group
@@ -487,7 +482,6 @@ public class CancellationService {
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
-        monitorLifecycle.onAuctionClosed(saved);
 
         notificationPublisher.listingRemovedByAdmin(
                 a.getSeller().getId(), a.getId(), a.getTitle(), notes);
@@ -575,7 +569,6 @@ public class CancellationService {
 
         a.setStatus(AuctionStatus.CANCELLED);
         Auction saved = auctionRepo.save(a);
-        monitorLifecycle.onAuctionClosed(saved);
 
         // Stamp the listing_suspensions row so the expiry sweep does not retry
         // it on the next tick and so audit-trail reconciliation reports show

@@ -20,7 +20,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.dispute.DisputeEvidenceUploadService;
 import com.slparcelauctions.backend.escrow.dispute.EvidenceImage;
@@ -95,7 +94,6 @@ public class EscrowService {
     private final TerminalService terminalService;
     private final TerminalRepository terminalRepo;
     private final TerminalCommandService terminalCommandService;
-    private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
     private final DisputeEvidenceUploadService evidenceUploadService;
     private final WalletService walletService;
@@ -172,9 +170,6 @@ public class EscrowService {
 
         log.info("Escrow {} created for auction {} (final L${}, commission L${}, payout L${})",
                 saved.getId(), auction.getId(), finalBid, saved.getCommissionAmt(), saved.getPayoutAmt());
-        // Seed MONITOR_ESCROW for BOT-tier auctions so the bot watches the
-        // seller→winner ownership transition. No-op for non-BOT tiers.
-        monitorLifecycle.onEscrowCreatedBot(saved);
 
         // Wallet enforcement: auto-fund the escrow immediately by consuming
         // the winner's bid reservation and debiting their wallet balance.
@@ -301,7 +296,6 @@ public class EscrowService {
         escrow.setSlTransactionKey(req.slTransactionKey());
         escrow = escrowRepo.save(escrow);
 
-        monitorLifecycle.onEscrowTerminal(escrow);
 
         queueRefundIfFunded(escrow);
 
@@ -796,7 +790,6 @@ public class EscrowService {
                 .resolved(false)
                 .build());
 
-        monitorLifecycle.onEscrowTerminal(escrow);
 
         queueRefundIfFunded(escrow);
 
@@ -877,7 +870,6 @@ public class EscrowService {
         escrow.setExpiredAt(now);
         escrow = escrowRepo.save(escrow);
 
-        monitorLifecycle.onEscrowTerminal(escrow);
 
         final EscrowExpiredEnvelope envelope =
                 EscrowExpiredEnvelope.of(escrow, "PAYMENT_TIMEOUT", now);
@@ -933,7 +925,6 @@ public class EscrowService {
         escrow.setExpiredAt(now);
         escrow = escrowRepo.save(escrow);
 
-        monitorLifecycle.onEscrowTerminal(escrow);
 
         queueRefundIfFunded(escrow);
 
@@ -1053,10 +1044,10 @@ public class EscrowService {
 
     /**
      * Flags an escrow for admin review without changing lifecycle state.
-     * Called by {@link com.slparcelauctions.backend.bot.BotMonitorDispatcher}
-     * when the bot observes persistent ACCESS_DENIED on an active escrow.
-     * Idempotent — already-flagged escrows are a no-op. Does not publish a
-     * broadcast envelope (admin-only signal per Epic 06 spec §6.3).
+     * Idempotent -- already-flagged escrows are a no-op. Does not publish
+     * a broadcast envelope (admin-only signal). Retained as a primitive
+     * for future review paths; the bot-monitor caller that used to invoke
+     * it was retired with the ownership-only verification refactor.
      */
     @Transactional
     public void markReviewRequired(Escrow escrow) {
@@ -1067,20 +1058,5 @@ public class EscrowService {
         escrow.setReviewRequired(true);
         escrowRepo.save(escrow);
         log.warn("Escrow {} flagged for admin review", escrow.getId());
-    }
-
-    /**
-     * Notifies the frontend that the bot has observed {@code AuthBuyerID ==
-     * winner} and {@code SalePrice == 0} on the parcel — i.e., the seller
-     * has configured the sale-to-winner and the winner can now accept.
-     * Idempotent. Spec §6.2.
-     *
-     * <p>Phase 1 emits a structured log only; the {@code TRANSFER_READY_OBSERVED}
-     * envelope shape is deferred until the escrow UI needs it (tracked in
-     * DEFERRED_WORK — "TRANSFER_READY_OBSERVED envelope shape").
-     */
-    public void publishTransferReadyObserved(Escrow escrow) {
-        log.info("Escrow {} observed TRANSFER_READY (seller configured sale-to-winner)",
-                escrow.getId());
     }
 }

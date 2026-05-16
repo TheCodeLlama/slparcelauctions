@@ -19,7 +19,6 @@ import com.slparcelauctions.backend.admin.audit.AdminActionType;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.moderation.RealtyGroupSuspension;
 import com.slparcelauctions.backend.user.User;
@@ -57,7 +56,6 @@ public class BulkListingSuspendService {
 
     private final AuctionRepository auctionRepo;
     private final ListingSuspensionRepository listingSuspensionRepo;
-    private final BotMonitorLifecycleService botMonitorLifecycleService;
     private final NotificationPublisher notificationPublisher;
     private final AdminAuctionService adminAuctionService;
     private final AdminActionService adminActionService;
@@ -86,7 +84,6 @@ public class BulkListingSuspendService {
     public BulkListingSuspendService(
             AuctionRepository auctionRepo,
             ListingSuspensionRepository listingSuspensionRepo,
-            BotMonitorLifecycleService botMonitorLifecycleService,
             NotificationPublisher notificationPublisher,
             AdminAuctionService adminAuctionService,
             AdminActionService adminActionService,
@@ -94,7 +91,6 @@ public class BulkListingSuspendService {
             Clock clock) {
         this.auctionRepo = auctionRepo;
         this.listingSuspensionRepo = listingSuspensionRepo;
-        this.botMonitorLifecycleService = botMonitorLifecycleService;
         this.notificationPublisher = notificationPublisher;
         this.adminAuctionService = adminAuctionService;
         this.adminActionService = adminActionService;
@@ -154,7 +150,6 @@ public class BulkListingSuspendService {
                 .build();
             listingSuspensionRepo.save(ls);
 
-            botMonitorLifecycleService.onAuctionClosed(a);
             notificationPublisher.listingSuspended(
                 a.getSeller().getId(),
                 a.getId(),

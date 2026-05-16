@@ -37,15 +37,29 @@ public class EnumCheckConstraintSync {
 
     public <E extends Enum<E>> void sync(String table, String column, Class<E> enumType) {
         String constraintName = table + "_" + column + "_check";
-        String valuesList = Arrays.stream(enumType.getEnumConstants())
+        E[] constants = enumType.getEnumConstants();
+        String dropSql = "ALTER TABLE " + table + " DROP CONSTRAINT IF EXISTS " + constraintName;
+        jdbc.execute(dropSql);
+        if (constants.length == 0) {
+            // Empty enum -- Postgres "IN ()" is a parse error. The empty-enum
+            // case currently arises for BotTaskType after the ownership-only
+            // verification refactor: the column is kept for future-extension
+            // task types but no enum value exists today. Leaving the
+            // constraint dropped is harmless because nothing inserts into
+            // bot_tasks until a future task type is added; that future task
+            // type will re-introduce enum values and the next boot re-creates
+            // the constraint from them.
+            log.info("Skipped {} CHECK constraint -- {} has no enum values",
+                    constraintName, enumType.getSimpleName());
+            return;
+        }
+        String valuesList = Arrays.stream(constants)
                 .map(e -> "'" + e.name() + "'")
                 .collect(Collectors.joining(", "));
-        String dropSql = "ALTER TABLE " + table + " DROP CONSTRAINT IF EXISTS " + constraintName;
         String addSql = "ALTER TABLE " + table + " ADD CONSTRAINT " + constraintName
                 + " CHECK (" + column + " IN (" + valuesList + "))";
-        jdbc.execute(dropSql);
         jdbc.execute(addSql);
         log.info("Refreshed {} CHECK constraint to {} values from {}",
-                constraintName, enumType.getEnumConstants().length, enumType.getSimpleName());
+                constraintName, constants.length, enumType.getSimpleName());
     }
 }
