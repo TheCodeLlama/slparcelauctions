@@ -1,13 +1,16 @@
 # SLParcels Terminal (wallet model)
 
-In-world wallet kiosk for SLParcels. Up to three touch-menu options
-(Deposit-instructions, Pay to group, Withdraw) plus a lockless `money()`
-deposit handler that routes to either the personal wallet or a realty
-group wallet depending on the toucher's prior dialog selection. Also
-accepts backend-initiated PAYOUT/WITHDRAW commands via HTTP-in. The
-"Pay to group" option is hidden when `GROUP_DEPOSIT_URL` is absent from
-the config notecard, keeping pre-rollout deployments on the legacy
-2-button menu.
+In-world wallet kiosk for SLParcels. Two touch-menu options (Deposit-instructions,
+Withdraw) plus a lockless `money()` deposit handler. Also accepts
+backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
+
+When the sister [`slpa-terminal-group`](../slpa-terminal-group/) script
+is dropped into the **same prim**, the touch menu gains a third option
+"Pay to group" that routes a `money()` event into a realty group's
+wallet instead of the payer's personal wallet. The two scripts
+coordinate via `llMessageLinked` (PING/PONG/START/CLAIM/RELEASE); each
+keeps its own state and HTTP path. See the sister script's README for
+the protocol details.
 
 SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
 section 7.3) is **not** on this terminal. It lives on the SLParcels
@@ -31,34 +34,13 @@ advertises "verification". See `lsl-scripts/verification-terminal/`.
   with an unhandled failure (unknown terminal id, unparseable payer uuid,
   etc). Background retry: 10s / 30s / 90s / 5m / 15m. Multiple users can
   pay simultaneously — `money()` is naturally reentrant.
-- **Touch flow:** touch → `llDialog` `[Deposit, (Pay to group,) Withdraw]`
-  (no lock acquired; "Pay to group" only appears when `GROUP_DEPOSIT_URL`
-  is configured). Deposit selection → `llRegionSayTo` instructions, no
-  state. Withdraw selection → acquire per-flow slot → text-box for amount
-  → confirm dialog → POST to `/sl/wallet/withdraw-request`. On `OK`, the
+- **Touch flow:** touch → `llDialog` `[Deposit, Withdraw]`
+  (no lock acquired). Deposit selection → `llRegionSayTo` instructions, no
+  state. Withdraw selection → acquire per-flow slot → text-box for amount →
+  confirm dialog → POST to `/sl/wallet/withdraw-request`. On `OK`, the
   backend queues a `WALLET_WITHDRAWAL` `TerminalCommand` that fires
-  asynchronously; on `REFUND_BLOCKED`, no L$ to bounce — `llRegionSayTo`
-  the reason.
-- **Group-deposit flow ("Pay to group"):** touch → "Pay to group" →
-  `llTextBox` "Type the realty group's name". The avatar types the group
-  name (matched case-insensitively against active groups on the backend)
-  → the script stores a 60-second per-avatar "pending group deposit"
-  slot keyed by `(avatarKey, groupName, expiresAt)` and instructs the
-  avatar to right-click → Pay. If `money()` fires within 60s, the script
-  routes the deposit through `POST /sl/wallet/group-deposit` (instead of
-  the personal `/sl/wallet/deposit`); if the slot is missing or expired,
-  the personal flow runs unchanged. Retry chain matches the personal
-  deposit (10s / 30s / 90s / 5m / 15m, idempotent by `slTransactionKey`).
-  On REFUND (e.g. typo → `UNKNOWN_GROUP`) / ERROR / final-retry
-  exhaustion the L$ is bounced back via `llTransferLindenDollars` — same
-  "always-refund-on-deposit-error" rule as personal. Slot eviction runs
-  on the existing 10-second sweeper alongside the withdraw-session
-  sweep. (Earlier versions fetched the eligible-groups list via
-  `/sl/wallet/avatar-groups` and rendered a paged `llDialog`; we ripped
-  that path out because the parsed JSON arrays tripped Stack-Heap
-  Collision under realistic group counts. Typing the name is the
-  trade-off: the avatar needs to know the spelling, but heap stays
-  bounded.)
+  asynchronously; on `REFUND_BLOCKED`, no L$ to bounce — `llRegionSayTo` the
+  reason.
 - **Per-flow withdraw slots:** single `llListen` opened at startup, never
   closed. Up to 4 concurrent withdraw sessions, one per avatar (per-avatar
   dedup). Strided list `[avatarKey, amountOrMinusOne, expiresAt, ...]`.
@@ -100,21 +82,6 @@ Never publish on Marketplace.
    - Right-click the prim → Pay → L$10. Confirm `deposit ok L$10 from <name>`.
    - Touch → Withdraw → enter L$5 → Yes. Confirm withdrawal arrives in your
      SL avatar within ~30s.
-   - **"Pay to group" happy path** (member-with-permission). With
-     `GROUP_DEPOSIT_URL` set: touch → Pay to group → type the group's
-     display name in the text-box → right-click → Pay → L$10 within
-     60s. Confirm `group deposit ok L$10 to <group name>` and the
-     `MEMBER_DEPOSIT` row on the group's wallet ledger.
-   - **"Pay to group" typo path.** Touch → Pay to group → type a
-     non-existent name → right-click → Pay → L$10. Confirm the L$ is
-     refunded (`REFUND/UNKNOWN_GROUP`) and no ledger row is written.
-     Permission-missing and frozen-user cases follow the same
-     refund-on-failure shape.
-   - **"Pay to group" 60-second expiry race.** Touch → Pay to group →
-     type a name → wait > 65s → right-click → Pay → L$10. Confirm the
-     deposit lands on the payer's **personal** wallet (slot expired and
-     the script fell back to `/sl/wallet/deposit`), not the group's
-     wallet.
 
 The new SLParcels Parcel Verifier Giver prim (separate; see
 `lsl-scripts/slpa-verifier-giver/`) handles parcel-verifier give-out — it is
@@ -129,7 +96,6 @@ The new SLParcels Parcel Verifier Giver prim (separate; see
 | `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required. |
 | `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required. |
 | `HEARTBEAT_URL` | Full URL of `/api/v1/sl/terminal/heartbeat`. Optional but recommended — see Architecture summary. |
-| `GROUP_DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/group-deposit`. Optional — when set, enables the "Pay to group" touch-menu option. Absence keeps the terminal on the legacy Deposit/Withdraw-only menu. |
 | `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
 | `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
@@ -155,20 +121,6 @@ In steady state with `DEBUG_MODE=true`:
   backend returned a non-REFUND error code (e.g. UNKNOWN_TERMINAL); the
   script bounces the L$ regardless so the payer is never out money.
 - `SLParcels Terminal: deposit retry N/5: status=...` — transient, retrying.
-- `SLParcels Terminal: group deposit ok L$<amount> to <groupName>` —
-  successful "Pay to group" deposit; the L$ has been credited to the
-  target realty group's wallet ledger (`MEMBER_DEPOSIT` entry).
-- `SLParcels Terminal: group deposit refunded (<REASON>) L$<amount> to <payer>`
-  — backend rejected the group deposit (e.g. `PERMISSION_REVOKED`,
-  `GROUP_DISSOLVED`, `GROUP_SUSPENDED`, `AMOUNT_OUT_OF_RANGE`) and the
-  script bounced the L$ back to the payer.
-- `SLParcels Terminal: group deposit refunded on ERROR (<REASON>) L$<amount> to <payer>`
-  — backend returned a non-REFUND error code (defensive — pre-flight
-  auth should have caught this before any L$-bearing path); the script
-  bounces regardless so the payer is never out money.
-- `SLParcels Terminal: group deposit retry N/5: status=...` — transient
-  backend failure on `/sl/wallet/group-deposit`; will retry on the same
-  10s / 30s / 90s / 5m / 15m schedule as the personal deposit.
 - `SLParcels Terminal: withdraw queued L$<amount> for <payer>` — successful withdraw-request.
 - `SLParcels Terminal: HTTP-in WITHDRAW to <recipient> L$<amount> ikey=...` — backend
   dispatched a wallet-withdrawal fulfillment to this terminal.
@@ -183,17 +135,8 @@ In steady state with `DEBUG_MODE=true`:
 - `SLParcels Terminal: heartbeat ok.` — periodic 5-minute heartbeat acknowledged.
 - `SLParcels Terminal: heartbeat failed status=...` — heartbeat POST failed; will
   retry on the next interval. Not critical unless it persists.
-- `CRITICAL: SLParcels Terminal: deposit from <payer> ... not acknowledged after 5 retries; refunded payer` —
-  `/sl/wallet/deposit` exhausted its retry chain (~22 min of backend
-  unreachability). The script bounces the L$ back to the payer rather
-  than stranding it (CLAUDE.md "always refund on deposit error"), then
-  logs CRITICAL for ops reconciliation. Same posture as the
-  group-deposit exhaustion line below.
-- `CRITICAL: SLParcels Terminal: group deposit from <payer> ... not acknowledged after 5 retries; refunded payer`
-  — `/sl/wallet/group-deposit` exhausted its retry chain. The script
-  bounces the L$ back to the payer rather than stranding it, then logs
-  CRITICAL so ops can confirm. No ledger-side reconciliation needed
-  (no rows were ever written), but the avatar should be notified.
+- `CRITICAL: SLParcels Terminal: deposit ... not acknowledged after 5 retries` —
+  deposit recovery failed; manual reconciliation required.
 - `CRITICAL: unexpected REFUND HTTP-in command` — the backend dispatched a
   REFUND action; refunds should be wallet credits in the new model. Investigate.
 - `CRITICAL: PERMISSION_DEBIT denied — script halted. Owner must re-grant.` —
@@ -209,7 +152,7 @@ In steady state with `DEBUG_MODE=true`:
 | `URL_REQUEST_DENIED` | Land doesn't allow scripts to request URLs. Move the prim to a region with permissive land settings. |
 | Periodic `register retry N/5` | Backend unreachable or rejecting registration. Check `slpa.sl.trusted-owner-keys` includes this terminal's owner. |
 | `deposit retry N/5` repeatedly | Backend transient or network issue. Self-recovers in most cases. |
-| `CRITICAL: deposit not acknowledged ... refunded payer` | Backend POST never succeeded after 5 retries. The script refunded the payer; check the backend logs to find the gap, no ledger-side reconciliation needed. |
+| `CRITICAL: deposit not acknowledged` | Backend POST never succeeded after 5 retries. Manual reconciliation required. |
 | Withdraw text-box says `Terminal busy — try another nearby` | All 4 withdraw slots occupied. Walk to another terminal. (Should be vanishingly rare at SLParcels's traffic level.) |
 | Backend command dispatcher logs 403 | Shared secret mismatch. Update notecard, reset. |
 | `CRITICAL: unexpected REFUND HTTP-in command` | Stale code path or migration issue — refunds should be wallet credits. Investigate. |
