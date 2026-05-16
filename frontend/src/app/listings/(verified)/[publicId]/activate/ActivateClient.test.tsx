@@ -173,6 +173,85 @@ describe("ActivateClient", () => {
     );
   });
 
+  it("DRAFT_PAID + Sale-to-bot → shows the setup panel, NOT an immediate verify", async () => {
+    let verifyCalls = 0;
+    server.use(
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
+        HttpResponse.json(auctionBase({ status: "DRAFT_PAID" })),
+      ),
+      http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () => {
+        verifyCalls += 1;
+        return HttpResponse.json(
+          auctionBase({
+            status: "VERIFICATION_PENDING",
+            verificationMethod: "SALE_TO_BOT",
+            pendingVerification: null,
+          }),
+        );
+      }),
+    );
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
+    const useThisMethodButtons = await screen.findAllByRole("button", {
+      name: /Use this method/i,
+    });
+    // Sale-to-bot is the third card.
+    await userEvent.click(useThisMethodButtons[2]);
+    // Setup panel mounts with the steps + a Verify button; no verify call yet.
+    expect(
+      await screen.findByTestId("sale-to-bot-setup-panel"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("sale-to-bot-setup-verify")).toBeInTheDocument();
+    expect(verifyCalls).toBe(0);
+  });
+
+  it("Sale-to-bot setup panel → clicking Verify fires triggerVerify with SALE_TO_BOT", async () => {
+    let received: string | null = null;
+    let auctionCalls = 0;
+    server.use(
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () => {
+        auctionCalls += 1;
+        if (auctionCalls < 2) {
+          return HttpResponse.json(auctionBase({ status: "DRAFT_PAID" }));
+        }
+        return HttpResponse.json(
+          auctionBase({
+            status: "VERIFICATION_PENDING",
+            verificationMethod: "SALE_TO_BOT",
+            pendingVerification: null,
+          }),
+        );
+      }),
+      http.put(
+        "*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify",
+        async ({ request }) => {
+          const body = (await request.json()) as { method: string };
+          received = body.method;
+          return HttpResponse.json(
+            auctionBase({
+              status: "VERIFICATION_PENDING",
+              verificationMethod: "SALE_TO_BOT",
+              pendingVerification: null,
+            }),
+          );
+        },
+      ),
+    );
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
+    const useThisMethodButtons = await screen.findAllByRole("button", {
+      name: /Use this method/i,
+    });
+    await userEvent.click(useThisMethodButtons[2]);
+    await screen.findByTestId("sale-to-bot-setup-panel");
+    await userEvent.click(screen.getByTestId("sale-to-bot-setup-verify"));
+    await waitFor(() => expect(received).toBe("SALE_TO_BOT"));
+  });
+
   it("VERIFICATION_FAILED renders the retry banner with the failure notes", async () => {
     server.use(
       http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>

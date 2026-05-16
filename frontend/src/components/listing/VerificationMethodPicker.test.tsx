@@ -57,6 +57,45 @@ describe("VerificationMethodPicker", () => {
     ).toBeInTheDocument();
   });
 
+  it("does NOT show the inline sale-to-bot steps on the picker card", () => {
+    renderWithProviders(
+      <VerificationMethodPicker auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
+    // The steps moved to the dedicated SaleToBotSetupPanel — the picker
+    // card now carries only a short description, not the numbered list.
+    expect(screen.queryByText(/Set Land for Sale/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/L\$999,999,999/i)).not.toBeInTheDocument();
+  });
+
+  it("clicking Sale-to-bot fires onSelectSaleToBot and skips the verify call", async () => {
+    let verifyCalls = 0;
+    server.use(
+      http.put(
+        "*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify",
+        () => {
+          verifyCalls += 1;
+          return HttpResponse.json({});
+        },
+      ),
+    );
+    const onSelectSaleToBot = vi.fn();
+    renderWithProviders(
+      <VerificationMethodPicker
+        auctionPublicId="00000000-0000-0000-0000-00000000002a"
+        onSelectSaleToBot={onSelectSaleToBot}
+      />,
+      { auth: "authenticated" },
+    );
+    // Sale-to-bot is the third card; click its "Use this method" button.
+    const buttons = await screen.findAllByRole("button", {
+      name: /Use this method/i,
+    });
+    await userEvent.click(buttons[2]);
+    expect(onSelectSaleToBot).toHaveBeenCalledTimes(1);
+    expect(verifyCalls).toBe(0);
+  });
+
   it("remaps a 422 error to the group-owned prescriptive message", async () => {
     server.use(
       http.put("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a/verify", () =>
