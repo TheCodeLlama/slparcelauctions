@@ -62,6 +62,22 @@ public sealed class LibreMetaverseBotSessionTests
         call.Z.Should().Be(25);
         call.ForceMove.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task FakeSession_CapturesSit_AndExposesIsSeated()
+    {
+        var chair = Guid.NewGuid();
+        var session = new FakeBotSession { IsSeated = false };
+
+        var result = await session.SitAsync(chair, default);
+
+        result.Success.Should().BeTrue();
+        var call = session.SitCalls.Should().ContainSingle().Subject;
+        call.ChairUuid.Should().Be(chair);
+        session.IsSeated.Should().BeFalse();
+        session.IsSeated = true;
+        session.IsSeated.Should().BeTrue();
+    }
 }
 
 /// <summary>In-test fake. Mirrors the real session's state machine.</summary>
@@ -77,6 +93,13 @@ public sealed class FakeBotSession : IBotSession
 
     /// <summary>Every <see cref="TeleportAsync"/> call, for assertions.</summary>
     public List<TeleportCall> TeleportCalls { get; } = new();
+
+    public bool IsSeated { get; set; }
+
+    public Func<Guid, SitResult> SitPolicy { get; set; } = _ => SitResult.Ok();
+
+    /// <summary>Every <see cref="SitAsync"/> call, for assertions.</summary>
+    public List<SitCall> SitCalls { get; } = new();
 
     public Func<double, double, ParcelSnapshot?> ReadPolicy { get; set; } =
         (_, _) => null;
@@ -107,6 +130,12 @@ public sealed class FakeBotSession : IBotSession
         return Task.FromResult(TeleportPolicy(regionName));
     }
 
+    public Task<SitResult> SitAsync(Guid chairUuid, CancellationToken ct)
+    {
+        SitCalls.Add(new SitCall(chairUuid));
+        return Task.FromResult(SitPolicy(chairUuid));
+    }
+
     public Task<ParcelSnapshot?> ReadParcelAsync(
         double x, double y, CancellationToken ct)
         => Task.FromResult(ReadPolicy(x, y));
@@ -123,3 +152,6 @@ public sealed record GiveGroupMoneyCall(Guid GroupUuid, int AmountL, string Memo
 
 /// <summary>Argument capture for <see cref="FakeBotSession.TeleportAsync"/>.</summary>
 public sealed record TeleportCall(string Region, double X, double Y, double Z, bool ForceMove);
+
+/// <summary>Argument capture for <see cref="FakeBotSession.SitAsync"/>.</summary>
+public sealed record SitCall(Guid ChairUuid);
