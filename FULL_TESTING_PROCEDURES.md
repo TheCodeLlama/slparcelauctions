@@ -44,7 +44,7 @@ Real SL accounts are already provisioned. No mock mode exists for the bot.
 
 | Account               | Role                                      | Logs in?          |
 |-----------------------|-------------------------------------------|-------------------|
-| `SLPAEscrow Resident` | Primary escrow sentinel UUID              | Never — UUID only |
+| `SLPAEscrow Resident` | Primary escrow receiving-wallet UUID      | Never — UUID only |
 | `SLPABot1 Resident`   | Worker bot (default in `bot-1` container) | Yes               |
 | `SLPABot2`–`SLPABot5` | Additional workers (scale-out)            | Yes               |
 
@@ -65,8 +65,8 @@ cp bot/.env.example bot/.env.bot-2      # required if you bring up bot-2
 
 **Bot env files are load-bearing for Compose.** `docker-compose.yml` declares `env_file: ./bot/.env.bot-1` and `./bot/.env.bot-2` for the `bot-1` and `bot-2` services. If those files don't exist, `docker compose up` aborts at config-load **before any service starts** — even if you only wanted frontend + backend. Two ways out:
 
-1. **Bring up bot creds** — fill in real `SLPABot1` / `SLPABot2` credentials in the `.env.bot-N` files (recommended; the bot is required for Method C verification, BOT-tier ownership monitoring, and escrow monitoring).
-2. **Skip the bot services** — bring up everything else explicitly: `docker compose up --build postgres redis minio backend frontend`. Use this only when your test target is Method A / Method B verification or anything that doesn't touch the bot pool.
+1. **Bring up bot creds** — fill in real `SLPABot1` / `SLPABot2` credentials in the `.env.bot-N` files (recommended; the bot is required for SL IM dispatch and `WITHDRAW_GROUP` realty-group wallet payouts).
+2. **Skip the bot services** — bring up everything else explicitly: `docker compose up --build postgres redis minio backend frontend`. Use this when your test target is verification, bidding, escrow, or any flow that doesn't touch the bot pool — verification is World-API-only and no longer needs a live bot.
 
 ---
 
@@ -128,13 +128,13 @@ The `dev` profile is **required** for the dev-helper endpoints (`/api/v1/dev/**`
 
 ### 3.4 Bot worker — bring-up + health check
 
-The bot is a real `.NET 8` / LibreMetaverse worker that logs into Second Life as `SLPABot1 Resident` (or `SLPABot2`–`SLPABot5` for scale-out). It is required infrastructure for:
+The bot is a real `.NET 8` / LibreMetaverse worker that logs into Second Life as `SLPABot1 Resident` (or `SLPABot2`–`SLPABot5` for scale-out). After the ownership-only verification refactor (spec 2026-05-16) its remaining roles are:
 
-- **Method C verification** (`SALE_TO_BOT`) — backend enqueues a `BotTask`; the worker claims it, observes the in-world sale, and posts the verify callback.
-- **BOT-tier ownership monitoring** — periodic re-checks of an active auction's parcel.
-- **BOT-tier escrow monitoring** — observing seller's sale-to-winner config + transfer state.
+- **SL IM dispatch** — polls the backend's dispatcher queue and delivers notifications in-world via `llInstantMessage`.
+- **`WITHDRAW_GROUP` task handling** — issues `GiveGroupMoney` calls for realty-group wallet payouts.
+- **Idle parking** — sits on a configured chair or rectangle when no work is queued so the avatar appears online in the admin Bot-pool panel.
 
-**Stand it up before exercising any of those flows.** For Method A (UUID_ENTRY) and Method B (REZZABLE) you can skip this section.
+The bot has **no** role in listing verification or active-state ownership monitoring — both run from the backend via the SL World API. **Skip this section entirely** if you're testing the verification flow, bidding, escrow, or any non-IM-dispatch surface.
 
 **Quick bring-up:**
 
@@ -154,13 +154,13 @@ The bot is a real `.NET 8` / LibreMetaverse worker that logs into Second Life as
 
 **Health states**: `Starting`, `Online`, `Reconnecting`, `Error`. Anything other than `Online` returns HTTP 503 so Docker's healthcheck flips Red on sustained disconnect. `Reconnecting` after a successful `Online` is normal — SL routinely drops idle connections.
 
-**Don't have real bot credentials right now?** For Method C end-to-end testing without a live worker, drive the verify callback directly: `POST /api/v1/dev/bot/tasks/{taskId}/complete` (§6). The flow exercises the full backend lifecycle without an SL avatar attached.
+**Don't have real bot credentials right now?** SL IM dispatch and `WITHDRAW_GROUP` payouts are the only flows that require a live worker; both have admin-side observability via the backend logs. There is no dev-stub callback for either today.
 
-**Smoke flow** (run after a fresh bring-up to confirm the worker can teleport + read parcels):
+**Smoke flow** (run after a fresh bring-up to confirm the worker is logged in and processing tasks):
 
-1. Queue a VERIFY task via the Postman `Dev/` helpers, or the standard Method C flow in §8.2 step 5.
-2. Confirm in `docker compose logs -f bot-1` that the worker claims the task, teleports to the parcel, and posts the verify callback.
-3. Verify the bot reads the parcel at the **landing coordinates**, not an arbitrary parcel in the same region (the most common bot-side bug).
+1. Trigger a notification that fans out via SL IM (e.g. place a bid on someone else's listing, then check that the seller's bot-deliverable IM is dispatched).
+2. Confirm in `docker compose logs -f bot-1` that the worker polls the dispatcher and issues `llInstantMessage` for any queued sends.
+3. For `WITHDRAW_GROUP` smoke, trigger a realty-group wallet payout from the admin UI and confirm the worker logs the `GiveGroupMoney` call.
 
 ### 3.5 Hybrid: host-running backend with containerised bot
 
@@ -273,7 +273,6 @@ These endpoints exist **only** under `SPRING_PROFILES_ACTIVE=dev` (the Compose s
 |--------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `POST /api/v1/dev/sl/simulate-verify`      | Stand-in for the real LSL terminal `POST /api/v1/sl/verify`. Body only needs `verificationCode` — the controller synthesises avatar metadata and SL headers from the first `slpa.sl.trusted-owner-keys` entry. Browser-driven testing of the full SL verification path. |
 | `POST /api/v1/dev/auctions/{id}/pay`       | Stand-in for the in-world listing-fee payment terminal callback. Body `{ amount?, txnRef? }` (defaults to 100 L$ + `dev-mock-<uuid>`). DRAFT → DRAFT_PAID.                                                                                                              |
-| `POST /api/v1/dev/bot/tasks/{id}/complete` | Stand-in for the bot worker `PUT /api/v1/bot/tasks/{id}/verify` callback. Drives Method C verification or any monitor task to completion from a browser.                                                                                                                |
 | `POST /api/v1/dev/auction-end/run-once`    | Forces the auction-end scheduler sweep to run immediately. Returns `{ "processed": [auctionId, ...] }`.                                                                                                                                                                 |
 | `POST /api/v1/dev/auctions/{id}/close`     | Closes a single auction synchronously (returns `{ "closedId": id }`, propagates exceptions for assertion-friendly tests).                                                                                                                                               |
 | `POST /api/v1/dev/ownership-monitor/run`   | Forces an ownership-monitor sweep. Use the admin endpoint `POST /api/v1/admin/auctions/{id}/recheck-ownership` for prod.                                                                                                                                                |
@@ -297,7 +296,7 @@ Folder layout:
 | `Auth/`              | register, login, refresh, logout, logout-all                         |
 | `Users/`             | `/me`, profile, avatar upload + bytes                                |
 | `Verification/`      | code generation + active code retrieval                              |
-| `SL/`                | `POST /sl/verify` (LSL inbound), `POST /sl/parcel/verify` (Method B) |
+| `SL/`                | `POST /sl/verify` (player-verification LSL inbound)                  |
 | `Parcel & Listings/` | parcel lookup, auction CRUD, photos, tags                            |
 | `Bot/`               | bearer-gated `/api/v1/bot/**`                                        |
 | `Tags/`              | parcel-tag list                                                      |
@@ -329,10 +328,10 @@ To exercise the real LSL path end-to-end, see §9.1.
 2. `POST /api/v1/parcels/lookup` body `{ "parcelUuid": "<uuid>" }` (uses dev placeholder UUIDs in WireMock-backed flows; Postman env has prebaked values)
 3. `POST /api/v1/auctions` body — full auction config (title, parcel id, pricing, snipe, photos, tags)
 4. `POST /api/v1/dev/auctions/{id}/pay` → DRAFT → DRAFT_PAID
-5. `PUT /api/v1/auctions/{id}/verify` body `{ "verificationMethod": "UUID_ENTRY" }` for Method A; the dev placeholder owner UUID matches the World API mock so the flow goes straight to ACTIVE. Method B (REZZABLE) generates a PARCEL code that an in-world rezzable would normally consume; Method C (SALE_TO_BOT) enqueues a bot task.
-6. `GET /api/v1/auctions/{id}` (as seller) → expect `status: ACTIVE`, `verifiedAt`, `verificationTier: SCRIPT|BOT|SCRIPT`
+5. `PUT /api/v1/auctions/{id}/verify` (no body) — backend calls the SL World API synchronously, compares the parcel's owner UUID to the expected UUID (seller's avatar for individual listings; registered SL group for case-3 group land), and transitions DRAFT_PAID → ACTIVE on match or → VERIFICATION_FAILED on mismatch. The dev placeholder owner UUID matches the World API mock so the flow goes straight to ACTIVE.
+6. `GET /api/v1/auctions/{id}` (as seller) → expect `status: ACTIVE`, `verifiedAt`, `verificationTier: SCRIPT`
 
-For Method C, the backend enqueues a `BotTask` (PENDING) — a live bot worker must be up to claim and complete it (see §3.4). For end-to-end testing without a live worker, drive the callback directly with `POST /api/v1/dev/bot/tasks/{taskId}/complete`.
+No bot involvement at any step — the legacy Method A / B / C dispatcher was retired by spec `2026-05-16-ownership-only-verification-design`.
 
 ### 8.3 Bidding
 
@@ -353,20 +352,19 @@ Outcomes: `SOLD` / `RESERVE_NOT_MET` / `NO_BIDS` / `BOUGHT_NOW`. The `auctionEnd
 ### 8.5 Escrow + payment
 
 1. Auction closes with a winner → `Escrow` row created in `ESCROW_PENDING`
-2. Manually mark payment via the appropriate dev helper or the in-world terminal callback (depending on tier)
-3. Bot monitor (Method C) or LSL terminal (Method A/B) observes TRANSFER_READY, then TRANSFER_COMPLETE
+2. Manually mark payment via the appropriate dev helper or the in-world `slpa-terminal` callback
+3. Backend's `EscrowOwnershipCheckTask` polls the SL World API on its scheduled cadence (default 5 min); once the parcel's recorded owner flips to the winner's UUID, the task calls `confirmTransfer`
 4. State transitions: `ESCROW_PENDING → FUNDED → TRANSFER_PENDING → COMPLETED`
 
 Disputes: `POST /api/v1/escrow/{id}/dispute` (with optional image attachments via multipart). Admins resolve via `POST /api/v1/admin/disputes/{id}/resolve` with one of the four `AdminDisputeAction` values.
 
 ### 8.6 Bot task queue
 
-**Prerequisite:** bot worker is up and `Online` per §3.4. If you skip the live worker, simulate the callback with `POST /api/v1/dev/bot/tasks/{id}/complete` instead of step 3.
+**Prerequisite:** bot worker is up and `Online` per §3.4 (only required for SL IM dispatch + `WITHDRAW_GROUP` payouts; verification + ownership monitoring run from the backend without the bot).
 
-1. Method C verification enqueues a `BotTask` (PENDING)
+1. A producer (e.g. realty-group wallet payout) enqueues a `BotTask` (PENDING)
 2. Bot worker calls `POST /api/v1/bot/tasks/claim` (atomic `SKIP LOCKED`) → IN_PROGRESS
-3. Worker performs in-world action, then `PUT /api/v1/bot/tasks/{id}/verify` or `POST /api/v1/bot/tasks/{id}/monitor`
-4. Backend's `BotMonitorDispatcher` consumes outcome, drives lifecycle hooks (suspend, freeze, confirmTransfer)
+3. Worker performs the in-world action and posts the result to the appropriate callback endpoint
 
 All `/api/v1/bot/**` endpoints require the `Authorization: Bearer <slpa.bot.shared-secret>` header — the constant-time compare lives in `BotSharedSecretAuthorizer`. Heartbeats: `POST /api/v1/bot/heartbeat` (also bearer-gated, persisted to Redis with TTL).
 
@@ -399,7 +397,7 @@ Bot worker bring-up + smoke moved to §3.4 — the bot is setup, not in-world UX
 6. Backend `SlHeaderValidator` validates headers; `SlVerificationService` consumes the code and links the avatar
 7. Verify `GET /api/v1/users/me` returns `verified: true`
 
-Other LSL scripts under `lsl-scripts/`: `parcel-verifier` (Method B rezzable), `slpa-terminal` (escrow payment + withdrawal), `sl-im-dispatcher` (notification fan-out). Each has its own README — read it before deploying.
+Other LSL scripts under `lsl-scripts/`: `slpa-terminal` (escrow payment + withdrawal — actively deployed), `sl-im-dispatcher` (notification fan-out — actively deployed), and `parcel-verifier` + `slpa-verifier-giver` (retired with the ownership-only verification refactor; sources retained for reference, do not deploy new instances). Each has its own README — read it before deploying.
 
 ---
 
@@ -414,7 +412,7 @@ docker compose exec postgres psql -U slpa -d slpa
 Useful queries:
 
 ```sql
-SELECT id, status, verification_method, verified_at FROM auctions ORDER BY id DESC LIMIT 10;
+SELECT id, status, verified_at FROM auctions ORDER BY id DESC LIMIT 10;
 SELECT id, escrow_state, transfer_deadline, reminder_sent_at FROM escrows ORDER BY id DESC LIMIT 10;
 SELECT id, type, status, parcel_uuid, next_run_at FROM bot_tasks WHERE status IN ('PENDING','IN_PROGRESS') ORDER BY next_run_at;
 SELECT name, status, expected, observed, run_at FROM reconciliation_runs ORDER BY id DESC LIMIT 10;

@@ -29,7 +29,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
@@ -91,7 +90,7 @@ class AdminListingFeaturedIntegrationTest {
                 .title("Featured Integration Auction")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.BOT)
-                .verificationMethod(VerificationMethod.SALE_TO_BOT)
+
                 .verifiedAt(now)
                 .startingBid(1_000L)
                 .durationHours(168)

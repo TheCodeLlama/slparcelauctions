@@ -459,7 +459,7 @@ class AuctionPhotoControllerIntegrationTest {
                 .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.DRAFT)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)

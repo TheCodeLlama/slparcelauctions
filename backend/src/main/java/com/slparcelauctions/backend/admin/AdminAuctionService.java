@@ -13,7 +13,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,6 @@ import lombok.RequiredArgsConstructor;
 public class AdminAuctionService {
 
     private final AuctionRepository auctionRepo;
-    private final BotMonitorLifecycleService botMonitorLifecycleService;
     private final NotificationPublisher notificationPublisher;
     private final Clock clock;
 
@@ -60,8 +58,6 @@ public class AdminAuctionService {
         auction.setSuspendedAt(null);
         auction.setEndsAt(newEndsAt);
         auctionRepo.save(auction);
-
-        botMonitorLifecycleService.onAuctionResumed(auction);
 
         notificationPublisher.listingReinstated(
             auction.getSeller().getId(), auction.getId(),

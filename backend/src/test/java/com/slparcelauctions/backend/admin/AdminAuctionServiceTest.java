@@ -26,7 +26,6 @@ import com.slparcelauctions.backend.admin.exception.AuctionNotSuspendedException
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 
@@ -34,7 +33,6 @@ import com.slparcelauctions.backend.user.User;
 class AdminAuctionServiceTest {
 
     @Mock AuctionRepository auctionRepo;
-    @Mock BotMonitorLifecycleService botMonitorLifecycleService;
     @Mock NotificationPublisher notificationPublisher;
 
     // Fixed clock: "now" = 2025-01-01T12:00:00Z
@@ -46,7 +44,7 @@ class AdminAuctionServiceTest {
     @BeforeEach
     void setUp() {
         Clock fixed = Clock.fixed(NOW_INSTANT, ZoneOffset.UTC);
-        service = new AdminAuctionService(auctionRepo, botMonitorLifecycleService, notificationPublisher, fixed);
+        service = new AdminAuctionService(auctionRepo, notificationPublisher, fixed);
     }
 
     private User seller() {
@@ -79,7 +77,6 @@ class AdminAuctionServiceTest {
         assertThat(result.newEndsAt()).isEqualTo(NOW.plusHours(8));
         assertThat(result.suspensionDuration().toHours()).isEqualTo(6L);
 
-        verify(botMonitorLifecycleService).onAuctionResumed(auction);
         verify(notificationPublisher).listingReinstated(eq(7L), eq(100L), eq("Test Auction"), eq(NOW.plusHours(8)));
     }
 
@@ -175,7 +172,6 @@ class AdminAuctionServiceTest {
             .hasMessageContaining("CANCELLED");
 
         verify(auctionRepo, never()).save(any());
-        verify(botMonitorLifecycleService, never()).onAuctionResumed(any());
         verify(notificationPublisher, never()).listingReinstated(anyLong(), anyLong(), any(), any());
     }
 }

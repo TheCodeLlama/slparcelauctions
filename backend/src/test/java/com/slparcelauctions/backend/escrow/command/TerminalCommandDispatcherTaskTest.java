@@ -31,7 +31,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -388,7 +387,7 @@ class TerminalCommandDispatcherTaskTest {
                 .title("Test listing")
                 .id(1001L).seller(seller).slParcelUuid(parcelUuid)
                 .status(AuctionStatus.ENDED)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).listingFeePaid(true)
                 .currentBid(5000L).bidCount(2)

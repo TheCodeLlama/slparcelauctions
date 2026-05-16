@@ -108,18 +108,16 @@ class AuctionDtoMapperTest {
     @Test
     void toSellerResponse_includesAllSellerOnlyFields() {
         Auction a = buildAuction(AuctionStatus.VERIFICATION_PENDING);
-        a.setVerificationMethod(VerificationMethod.UUID_ENTRY);
         a.setListingFeePaid(true);
         a.setListingFeeAmt(100L);
         a.setCommissionRate(new BigDecimal("0.0500"));
 
-        SellerAuctionResponse seller = mapper.toSellerResponse(a, null);
+        SellerAuctionResponse seller = mapper.toSellerResponse(a);
 
         assertThat(seller.status()).isEqualTo(AuctionStatus.VERIFICATION_PENDING);
         assertThat(seller.listingFeePaid()).isTrue();
         assertThat(seller.listingFeeAmt()).isEqualTo(100L);
         assertThat(seller.commissionRate()).isEqualTo(new BigDecimal("0.0500"));
-        assertThat(seller.pendingVerification()).isNull();
     }
 
     @Test
@@ -128,7 +126,7 @@ class AuctionDtoMapperTest {
         a.setCurrentBid(0L);
         a.setBidCount(0);
 
-        SellerAuctionResponse seller = mapper.toSellerResponse(a, null);
+        SellerAuctionResponse seller = mapper.toSellerResponse(a);
 
         assertThat(seller.currentHighBid()).isNull();
         assertThat(seller.bidderCount()).isEqualTo(0L);
@@ -211,7 +209,7 @@ class AuctionDtoMapperTest {
                 .title("Test listing")
                 .id(1L).seller(seller).slParcelUuid(parcelUuid)
                 .status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).snipeWindowMin(null)
                 .listingFeePaid(false)

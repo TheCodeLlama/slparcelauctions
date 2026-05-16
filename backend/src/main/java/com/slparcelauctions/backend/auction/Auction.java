@@ -107,25 +107,23 @@ public class Auction extends BaseMutableEntity {
     @Column(name = "verification_tier", length = 10)
     private VerificationTier verificationTier;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "verification_method", length = 20)
-    private VerificationMethod verificationMethod;
-
-    @Column(name = "assigned_bot_uuid")
-    private UUID assignedBotUuid;
-
-    @Column(name = "sale_sentinel_price")
-    private Long saleSentinelPrice;
-
-    @Column(name = "last_bot_check_at")
-    private OffsetDateTime lastBotCheckAt;
-
-    @Builder.Default
-    @Column(name = "bot_check_failures", nullable = false)
-    private Integer botCheckFailures = 0;
-
     @Column(name = "last_ownership_check_at")
     private OffsetDateTime lastOwnershipCheckAt;
+
+    /**
+     * Count of consecutive World API ownership checks where the parcel
+     * owner did not match the expected seller / SL group. Reset to 0 on
+     * any match. The ACTIVE-state OwnershipCheckTask suspends only once
+     * this counter crosses
+     * {@code slpa.ownership-monitor.mismatch-streak-threshold} (default
+     * 2) so a single transient World API result cannot tip a live
+     * listing into SUSPENDED. The post-cancel watcher path is
+     * intentionally not gated by this streak -- it is a one-shot
+     * forensic probe and flags on the first observed mismatch.
+     */
+    @Builder.Default
+    @Column(name = "consecutive_owner_mismatches", nullable = false)
+    private Integer consecutiveOwnerMismatches = 0;
 
     @Column(name = "suspended_at")
     private OffsetDateTime suspendedAt;

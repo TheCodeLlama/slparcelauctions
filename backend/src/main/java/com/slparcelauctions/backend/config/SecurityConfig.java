@@ -79,10 +79,6 @@ public class SecurityConfig {
                         // and is the actual trust boundary. FOOTGUNS §B.5: this MUST sit
                         // before the /api/v1/** catch-all (first-match-wins).
                         .requestMatchers(HttpMethod.POST, "/api/v1/sl/verify").permitAll()
-                        // Method B (REZZABLE) LSL callback — same trust model as
-                        // /api/v1/sl/verify: header-validated inside the handler,
-                        // no JWT (the SL grid cannot authenticate). FOOTGUNS §B.5.
-                        .requestMatchers(HttpMethod.POST, "/api/v1/sl/parcel/verify").permitAll()
                         // Realty groups sub-project E §7.3 founder-via-terminal
                         // LSL callback. Same trust model as the other /api/v1/sl/**
                         // permitAll matchers above: SL-injected headers

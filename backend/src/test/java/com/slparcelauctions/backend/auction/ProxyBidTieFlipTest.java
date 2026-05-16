@@ -256,7 +256,7 @@ class ProxyBidTieFlipTest {
                 .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(500L)
                 .durationHours(168)

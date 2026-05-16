@@ -38,7 +38,6 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.Bid;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidType;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
@@ -289,7 +288,7 @@ class MyBidsIntegrationTest {
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)
@@ -375,7 +374,7 @@ class MyBidsIntegrationTest {
                 .seller(seller)
                 .status(AuctionStatus.ENDED)
                 .endOutcome(AuctionEndOutcome.SOLD)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)
@@ -546,7 +545,7 @@ class MyBidsIntegrationTest {
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)

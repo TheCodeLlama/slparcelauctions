@@ -26,7 +26,6 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.CancellationLogRepository;
 import com.slparcelauctions.backend.auction.CancellationOffenseKind;
 import com.slparcelauctions.backend.auction.CancellationService;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
@@ -211,7 +210,7 @@ class CancelLadderRaceTest {
                 .title("Race auction 1")
                 .slParcelUuid(parcelUuid1).seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1_000L).durationHours(168)
                 .snipeProtect(false)
@@ -239,7 +238,7 @@ class CancelLadderRaceTest {
                 .title("Race auction 2")
                 .slParcelUuid(parcelUuid2).seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1_000L).durationHours(168)
                 .snipeProtect(false)

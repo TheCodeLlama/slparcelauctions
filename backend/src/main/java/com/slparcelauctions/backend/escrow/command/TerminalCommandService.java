@@ -14,7 +14,6 @@ import com.slparcelauctions.backend.admin.infrastructure.terminals.TerminalSecre
 import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
-import com.slparcelauctions.backend.bot.BotMonitorLifecycleService;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowService;
@@ -69,7 +68,6 @@ public class TerminalCommandService {
     private final ListingFeeRefundRepository listingFeeRefundRepo;
     private final UserRepository userRepo;
     private final EscrowBroadcastPublisher broadcastPublisher;
-    private final BotMonitorLifecycleService monitorLifecycle;
     private final NotificationPublisher notificationPublisher;
     private final Clock clock;
     private final TerminalSecretService terminalSecretService;
@@ -285,9 +283,6 @@ public class TerminalCommandService {
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
 
-        // Cancel any live MONITOR_ESCROW rows. No-op for non-BOT escrows.
-        monitorLifecycle.onEscrowTerminal(escrow);
-
         // Epic 08 sub-spec 1 §3.4 / §6.1: track completed sales for the
         // seller. The counter has been declared on User since Epic 02 but
         // was never written; sub-spec 1 starts writing it so the
@@ -381,8 +376,6 @@ public class TerminalCommandService {
         escrow.setState(EscrowState.COMPLETED);
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
-
-        monitorLifecycle.onEscrowTerminal(escrow);
 
         User seller = escrow.getAuction().getSeller();
         int prior = seller.getCompletedSales() == null ? 0 : seller.getCompletedSales();

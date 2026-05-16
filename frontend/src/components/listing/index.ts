@@ -31,15 +31,6 @@ export {
 } from "./ActivateStatusStepper";
 export { ActivateListingPanel } from "./ActivateListingPanel";
 export type { ActivateListingPanelProps } from "./ActivateListingPanel";
-export { VerificationMethodPicker } from "./VerificationMethodPicker";
-export type { VerificationMethodPickerProps } from "./VerificationMethodPicker";
-export { VerificationInProgressPanel } from "./VerificationInProgressPanel";
-export type { VerificationInProgressPanelProps } from "./VerificationInProgressPanel";
-export { VerificationMethodUuidEntry } from "./VerificationMethodUuidEntry";
-export { VerificationMethodRezzable } from "./VerificationMethodRezzable";
-export type { VerificationMethodRezzableProps } from "./VerificationMethodRezzable";
-export { VerificationMethodSaleToBot } from "./VerificationMethodSaleToBot";
-export type { VerificationMethodSaleToBotProps } from "./VerificationMethodSaleToBot";
 export { CancelListingModal } from "./CancelListingModal";
 export type { CancelListingModalProps } from "./CancelListingModal";
 

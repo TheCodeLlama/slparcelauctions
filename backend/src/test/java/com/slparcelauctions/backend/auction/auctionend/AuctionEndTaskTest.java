@@ -62,7 +62,6 @@ class AuctionEndTaskTest {
     @Mock UserRepository userRepo;
     @Mock AuctionBroadcastPublisher publisher;
     @Mock EscrowService escrowService;
-    @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock NotificationPublisher notificationPublisher;
 
     Clock fixed;
@@ -74,7 +73,7 @@ class AuctionEndTaskTest {
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-20T12:00:00Z"), ZoneOffset.UTC);
         task = new AuctionEndTask(auctionRepo, proxyBidRepo, bidRepo, userRepo, publisher,
-                escrowService, monitorLifecycle, notificationPublisher, fixed);
+                escrowService, notificationPublisher, fixed);
         // Default stub for the new bidder-query method so SOLD-path tests don't blow up.
         lenient().when(bidRepo.findDistinctBidderUserIdsByAuctionId(anyLong()))
                 .thenReturn(List.of());

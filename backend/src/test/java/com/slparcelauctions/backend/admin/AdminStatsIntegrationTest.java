@@ -23,7 +23,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
@@ -78,7 +77,7 @@ class AdminStatsIntegrationTest {
                 .title("Active auction 1")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(100L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
@@ -104,7 +103,7 @@ class AdminStatsIntegrationTest {
                 .title("Active auction 2")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(200L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))
@@ -130,7 +129,7 @@ class AdminStatsIntegrationTest {
                 .title("Suspended auction")
                 .status(AuctionStatus.SUSPENDED)
                 .verificationTier(VerificationTier.SCRIPT)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(150L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))

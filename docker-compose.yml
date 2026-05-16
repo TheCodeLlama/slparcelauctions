@@ -80,17 +80,16 @@ services:
       SLPA_STORAGE_ENDPOINT: http://minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-slpa-dev-key}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-slpa-dev-secret}
-      # Bot + escrow integration — backend validates bot callbacks against this UUID
-      # and gates /api/v1/bot/** with this shared secret. Both have dev-profile
+      # Bot integration — backend gates /api/v1/bot/** with this shared
+      # secret and BotStartupValidator fails fast in non-dev profiles if the
+      # primary escrow UUID is still the dev placeholder. Both have dev-profile
       # defaults in application-dev.yml; override via shell/env to test real SL
-      # integration. See docs/testing/EPIC_6_TESTING.md §3.3-§3.4.
+      # integration.
       SLPA_PRIMARY_ESCROW_UUID: ${SLPA_PRIMARY_ESCROW_UUID:-00000000-0000-0000-0000-000000000099}
       SLPA_BOT_SHARED_SECRET: ${SLPA_BOT_SHARED_SECRET:-dev-bot-shared-secret}
-      # Optional timing overrides (useful for §10/§13 tests to shrink cycle + sweep).
-      # Map to Spring keys: slpa.bot.monitor-*-interval, slpa.bot-task.in-progress-timeout,
-      # slpa.bot-task.timeout-check-interval. Defaults in application.yml apply if unset.
-      SLPA_BOT_MONITOR_AUCTION_INTERVAL: ${SLPA_BOT_MONITOR_AUCTION_INTERVAL:-PT30M}
-      SLPA_BOT_MONITOR_ESCROW_INTERVAL: ${SLPA_BOT_MONITOR_ESCROW_INTERVAL:-PT15M}
+      # Optional timeout-sweeper overrides. Map to slpa.bot-task.in-progress-timeout
+      # and slpa.bot-task.timeout-check-interval. Defaults in application.yml apply
+      # if unset.
       SLPA_BOT_TASK_IN_PROGRESS_TIMEOUT: ${SLPA_BOT_TASK_IN_PROGRESS_TIMEOUT:-PT20M}
       SLPA_BOT_TASK_TIMEOUT_CHECK_INTERVAL: ${SLPA_BOT_TASK_TIMEOUT_CHECK_INTERVAL:-PT15M}
     ports:

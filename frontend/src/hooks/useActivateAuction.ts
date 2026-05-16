@@ -8,8 +8,8 @@ import type { SellerAuctionResponse } from "@/types/auction";
 /**
  * Key used by the activate page's polling cache entry. Kept as a
  * const-returning function so both {@link useActivateAuction} and
- * collaborators (e.g., VerificationMethodPicker, CancelListingModal) can
- * synchronize cache writes after a mutation without duplicating the
+ * collaborators (e.g., ActivateClient's verify mutation, CancelListingModal)
+ * can synchronize cache writes after a mutation without duplicating the
  * string literal.
  */
 export function activateAuctionKey(id: number | string): readonly unknown[] {
@@ -39,8 +39,8 @@ export function useActivateAuction(id: number | string) {
     // The activate-flow route is guarded seller-only, so the backend always
     // returns a SellerAuctionResponse here — cast the public/seller union
     // from {@code getAuction} down to the seller shape the polling logic
-    // assumes (it reads {@code verificationMethod}, {@code pendingVerification},
-    // etc., which the public DTO omits).
+    // assumes (it reads {@code verificationNotes}, listing-fee fields, etc.,
+    // which the public DTO omits).
     queryFn: () => getAuction(id) as Promise<SellerAuctionResponse>,
     refetchInterval: (q) => {
       const data = q.state.data as SellerAuctionResponse | undefined;

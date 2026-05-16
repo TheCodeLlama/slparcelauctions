@@ -42,9 +42,7 @@ function sellerResponse(
     title: "Featured Parcel Listing",
     parcel: sampleParcel,
     status: "DRAFT",
-    verificationMethod: null,
     verificationTier: null,
-    pendingVerification: null,
     verificationNotes: null,
     startingBid: 500,
     reservePrice: null,
@@ -129,8 +127,9 @@ describe("useListingDraft", () => {
     expect(result.current.state.auctionPublicId).toBe("00000000-0000-0000-0000-000000000007");
     expect(result.current.state.dirty).toBe(false);
 
-    // Post body pins the public API: verificationMethod was moved to the
-    // verify trigger in Task 1 and must never appear on POST /auctions.
+    // Post body pins the public API: verificationMethod is no longer part
+    // of the wire shape (ownership-only verification) and must never appear
+    // on POST /auctions.
     expect(postBody).not.toBeNull();
     expect(postBody).not.toHaveProperty("verificationMethod");
 

@@ -18,8 +18,6 @@ public sealed class TaskLoop : BackgroundService
     private static readonly TimeSpan EmptyQueueBackoff = TimeSpan.FromSeconds(15);
 
     private readonly IBotSession _session;
-    private readonly Func<VerifyHandler> _verify;
-    private readonly Func<MonitorHandler> _monitor;
     private readonly Func<WithdrawGroupHandler> _withdrawGroup;
     private readonly IBackendClient _backend;
     private readonly IIdleParker _idleParker;
@@ -34,12 +32,10 @@ public sealed class TaskLoop : BackgroundService
         IBackendClient backend,
         IIdleParker idleParker,
         BotActivityState activity,
-        VerifyHandler verify,
-        MonitorHandler monitor,
         WithdrawGroupHandler withdrawGroup,
         ILogger<TaskLoop> log)
         : this(session, backend, idleParker, activity,
-            () => verify, () => monitor, () => withdrawGroup, log)
+            () => withdrawGroup, log)
     {
     }
 
@@ -52,8 +48,6 @@ public sealed class TaskLoop : BackgroundService
         IBackendClient backend,
         IIdleParker idleParker,
         BotActivityState activity,
-        Func<VerifyHandler> verify,
-        Func<MonitorHandler> monitor,
         Func<WithdrawGroupHandler> withdrawGroup,
         ILogger<TaskLoop> log)
     {
@@ -61,8 +55,6 @@ public sealed class TaskLoop : BackgroundService
         _backend = backend;
         _idleParker = idleParker;
         _activity = activity;
-        _verify = verify;
-        _monitor = monitor;
         _withdrawGroup = withdrawGroup;
         _log = log;
     }
@@ -153,9 +145,6 @@ public sealed class TaskLoop : BackgroundService
     {
         return task.TaskType switch
         {
-            BotTaskType.VERIFY => _verify().HandleAsync(task, ct),
-            BotTaskType.MONITOR_AUCTION => _monitor().HandleAsync(task, ct),
-            BotTaskType.MONITOR_ESCROW => _monitor().HandleAsync(task, ct),
             BotTaskType.WITHDRAW_GROUP => _withdrawGroup().HandleAsync(task, ct),
             _ => Task.CompletedTask
         };

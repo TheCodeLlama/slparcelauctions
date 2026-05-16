@@ -50,10 +50,6 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
     Optional<Auction> findFirstBySlParcelUuidAndStatusIn(
             UUID slParcelUuid, Collection<AuctionStatus> statuses);
 
-    /** Used by ParcelCodeExpiryJob to find stuck Method B auctions. */
-    List<Auction> findByStatusAndVerificationMethod(
-            AuctionStatus status, VerificationMethod verificationMethod);
-
     /**
      * Eagerly fetches {@code parcel} + {@code tags} — see class-level note on
      * {@link #findBySellerIdOrderByCreatedAtDesc}.

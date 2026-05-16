@@ -29,7 +29,6 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.common.ClockOverrideConfig;
@@ -317,7 +316,7 @@ class EscrowTimeoutIntegrationTest {
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)
                     .reservePrice(1_000L)
@@ -380,7 +379,7 @@ class EscrowTimeoutIntegrationTest {
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ENDED)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)
                     .reservePrice(1_000L)

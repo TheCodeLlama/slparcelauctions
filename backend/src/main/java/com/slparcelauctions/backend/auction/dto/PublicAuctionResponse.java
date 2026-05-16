@@ -13,9 +13,10 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
 
 /**
  * Public view of an auction. Notably excludes: winner_id, reservePrice (exposes only
- * hasReserve + reserveMet), listing fee fields, verification_notes, commission fields,
- * assigned_bot_uuid, sale_sentinel_price, last_bot_check_at,
- * bot_check_failures, pendingVerification, seller's internal verification_method.
+ * hasReserve + reserveMet), listing fee fields, verification_notes, and commission
+ * fields. The historical bot-method fields (verification_method, assigned_bot_uuid,
+ * sale_sentinel_price, last_bot_check_at, bot_check_failures, pendingVerification)
+ * were retired with the ownership-only verification refactor (spec 2026-05-16).
  *
  * <p>{@code escrowState} and {@code transferConfirmedAt} are populated when the
  * auction has a corresponding escrow row (post-ENDED lifecycles); both are

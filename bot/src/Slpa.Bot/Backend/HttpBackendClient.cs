@@ -66,46 +66,6 @@ public sealed class HttpBackendClient : IBackendClient
             .ConfigureAwait(false);
     }
 
-    /// <remarks>
-    /// Retrying on 5xx is safe because the backend's verify/monitor handlers
-    /// are idempotent: a second call for a task in a terminal state returns
-    /// 409, never double-completes. See BotTaskService.complete + recordMonitorResult.
-    /// </remarks>
-    public async Task CompleteVerifyAsync(
-        long taskId, BotTaskCompleteRequest body, CancellationToken ct)
-    {
-        using var resp = await SendWithRetryAsync(() =>
-        {
-            var req = new HttpRequestMessage(HttpMethod.Put,
-                $"/api/v1/bot/tasks/{taskId}/verify")
-            {
-                Content = JsonContent.Create(body, options: JsonOpts)
-            };
-            return req;
-        }, ct).ConfigureAwait(false);
-        resp.EnsureSuccessStatusCode();
-    }
-
-    /// <remarks>
-    /// Retrying on 5xx is safe because the backend's verify/monitor handlers
-    /// are idempotent: a second call for a task in a terminal state returns
-    /// 409, never double-completes. See BotTaskService.complete + recordMonitorResult.
-    /// </remarks>
-    public async Task PostMonitorAsync(
-        long taskId, BotMonitorResultRequest body, CancellationToken ct)
-    {
-        using var resp = await SendWithRetryAsync(() =>
-        {
-            var req = new HttpRequestMessage(HttpMethod.Post,
-                $"/api/v1/bot/tasks/{taskId}/monitor")
-            {
-                Content = JsonContent.Create(body, options: JsonOpts)
-            };
-            return req;
-        }, ct).ConfigureAwait(false);
-        resp.EnsureSuccessStatusCode();
-    }
-
     public async Task SendHeartbeatAsync(
         BotHeartbeatRequest body, CancellationToken ct)
     {

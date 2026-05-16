@@ -28,11 +28,10 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.CancellationLogRepository;
-import com.slparcelauctions.backend.auction.VerificationMethod;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -42,9 +41,9 @@ import com.slparcelauctions.backend.user.User;
 import reactor.core.publisher.Mono;
 
 /**
- * Unit coverage for {@link OwnershipCheckTask}. The five branches from spec
- * Â§8.2: owner match, owner mismatch, parcel 404, World API timeout, and a
- * non-ACTIVE guard that short-circuits before any World API call.
+ * Unit coverage for {@link OwnershipCheckTask}. Covers the owner-match,
+ * owner-mismatch-with-streak, parcel-404, World API timeout, non-ACTIVE
+ * guard, post-cancel watcher, and case-3 branches.
  */
 @ExtendWith(MockitoExtension.class)
 class OwnershipCheckTaskTest {
@@ -65,59 +64,97 @@ class OwnershipCheckTaskTest {
 
     OwnershipCheckTask task;
     Clock fixed;
+    OwnershipMonitorProperties props;
 
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-16T12:00:00Z"), ZoneOffset.UTC);
+        props = new OwnershipMonitorProperties();
+        // Default of 2 streak threshold mirrors production.
         task = new OwnershipCheckTask(auctionRepo, worldApi, suspensionService,
-                cancellationLogRepo, slGroupRepo, fixed);
+                cancellationLogRepo, slGroupRepo, props, fixed);
         lenient().when(auctionRepo.save(any(Auction.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
-    void ownerMatches_updatesTimestamp_resetsFailureCounter_doesNotSuspend() {
+    void ownerMatches_updatesTimestamp_resetsFailureAndMismatchCounters_doesNotSuspend() {
         Auction a = buildActive();
         a.setConsecutiveWorldApiFailures(3);
+        a.setConsecutiveOwnerMismatches(1);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
-                .thenReturn(
-                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+                .thenReturn(Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(a.getLastOwnershipCheckAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(a.getConsecutiveWorldApiFailures()).isZero();
+        assertThat(a.getConsecutiveOwnerMismatches()).isZero();
         verify(auctionRepo).save(a);
         verifyNoInteractions(suspensionService);
     }
 
     @Test
-    void ownerMismatch_delegatesToSuspensionService_forOwnershipChange() {
+    void ownerMismatch_singleObservation_doesNotSuspend_incrementsStreak() {
+        // Default threshold = 2, so a single mismatch must NOT suspend.
         Auction a = buildActive();
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         ParcelMetadata changed = meta(OTHER_AVATAR, "agent");
         when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.just(new ParcelPageData(changed, java.util.UUID.randomUUID())));
+                Mono.just(new ParcelPageData(changed, UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
-        verify(suspensionService).suspendForOwnershipChange(a, changed);
-        verify(auctionRepo, never()).save(any(Auction.class));
+        assertThat(a.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
+        assertThat(a.getConsecutiveOwnerMismatches()).isEqualTo(1);
+        verify(auctionRepo).save(a);
+        verifyNoInteractions(suspensionService);
     }
 
     @Test
-    void ownerChangedToGroup_alsoTreatedAsMismatch_suspended() {
-        // Seller avatar UUID still matches the new UUID by coincidence? Not a
-        // realistic case, but the ownertype flip alone is treated as a
-        // mismatch â€” a group owning the parcel means the seller no longer
-        // controls it as an individual.
+    void ownerMismatch_secondConsecutiveObservation_suspends() {
+        // Threshold = 2: prior streak of 1 + this mismatch = 2 -> suspend.
         Auction a = buildActive();
+        a.setConsecutiveOwnerMismatches(1);
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+        ParcelMetadata changed = meta(OTHER_AVATAR, "agent");
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(changed, UUID.randomUUID())));
+
+        task.checkOne(AUCTION_ID);
+
+        assertThat(a.getConsecutiveOwnerMismatches()).isEqualTo(2);
+        verify(suspensionService).suspendForOwnershipChange(a, changed);
+    }
+
+    @Test
+    void ownerMatch_inMiddleOfStreak_resetsCounter() {
+        // Prior streak of 1 from an earlier sweep; this one is a match.
+        Auction a = buildActive();
+        a.setConsecutiveOwnerMismatches(1);
+        when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), UUID.randomUUID())));
+
+        task.checkOne(AUCTION_ID);
+
+        assertThat(a.getConsecutiveOwnerMismatches()).isZero();
+        verifyNoInteractions(suspensionService);
+    }
+
+    @Test
+    void ownerChangedToGroup_alsoTreatedAsMismatch_eventuallySuspends() {
+        // Owner-type flip alone is treated as a mismatch -- a group owning the
+        // parcel means the seller no longer controls it as an individual. Two
+        // consecutive observations of the flip cross the threshold.
+        Auction a = buildActive();
+        a.setConsecutiveOwnerMismatches(1);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         ParcelMetadata groupOwned = meta(SELLER_AVATAR, "group");
         when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.just(new ParcelPageData(groupOwned, java.util.UUID.randomUUID())));
+                Mono.just(new ParcelPageData(groupOwned, UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -168,7 +205,7 @@ class OwnershipCheckTaskTest {
     }
 
     // -------------------------------------------------------------------------
-    // Post-cancel watcher path â€” Epic 08 sub-spec 2 Â§6
+    // Post-cancel watcher path -- one-shot, NOT gated by the streak threshold.
     // -------------------------------------------------------------------------
 
     @Test
@@ -180,8 +217,7 @@ class OwnershipCheckTaskTest {
         OffsetDateTime cancelledAt = OffsetDateTime.now(fixed).minusHours(4);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
-                .thenReturn(
-                Mono.just(new ParcelPageData(meta(OTHER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+                .thenReturn(Mono.just(new ParcelPageData(meta(OTHER_AVATAR, "agent"), UUID.randomUUID())));
         com.slparcelauctions.backend.auction.CancellationLog log =
                 com.slparcelauctions.backend.auction.CancellationLog.builder()
                         .id(7L).auction(a).seller(a.getSeller())
@@ -193,47 +229,35 @@ class OwnershipCheckTaskTest {
 
         task.checkOne(AUCTION_ID);
 
+        // First mismatch raises the flag immediately -- post-cancel watcher
+        // intentionally bypasses the streak gate.
         verify(suspensionService).raiseCancelAndSellFlag(a, OTHER_AVATAR, cancelledAt);
-        // Watch window cleared so subsequent ticks don't re-flag.
         assertThat(a.getPostCancelWatchUntil()).isNull();
-        // Status stays CANCELLED â€” the ACTIVE-only suspension flow does not run.
         assertThat(a.getStatus()).isEqualTo(AuctionStatus.CANCELLED);
-        // Last check timestamp stamped so cadence gate is satisfied for any
-        // remaining (pointless, post-clear) ticks.
         assertThat(a.getLastOwnershipCheckAt()).isEqualTo(OffsetDateTime.now(fixed));
         verify(auctionRepo).save(a);
-        // Should NOT route through the ACTIVE-suspension path.
         verify(suspensionService, never()).suspendForOwnershipChange(any(Auction.class), any());
     }
 
     @Test
     void cancelledWatchOpen_ownerMatches_doesNotRaiseFlag() {
-        // Seller re-buys their own parcel within 48h â€” alt-account round-trip
-        // edge case from spec Â§6.4. Owner still resolves to seller's avatar
-        // UUID, so no flag raised.
         Auction a = buildActive();
         a.setStatus(AuctionStatus.CANCELLED);
         a.setPostCancelWatchUntil(OffsetDateTime.now(fixed).plusHours(24));
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
-                .thenReturn(
-                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+                .thenReturn(Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
         verify(suspensionService, never()).raiseCancelAndSellFlag(any(), any(), any());
-        // Watch window stays open â€” no flag, no clear.
         assertThat(a.getPostCancelWatchUntil()).isNotNull();
-        // But the cadence timestamp advanced.
         assertThat(a.getLastOwnershipCheckAt()).isEqualTo(OffsetDateTime.now(fixed));
         verify(auctionRepo).save(a);
     }
 
     @Test
     void cancelledWatchExpired_shortCircuits_noWorldApiCall() {
-        // Belt-and-braces guard: even if the scheduler dispatched an id
-        // whose watch window has since closed (race between query and
-        // async execution), the task itself short-circuits.
         Auction a = buildActive();
         a.setStatus(AuctionStatus.CANCELLED);
         a.setPostCancelWatchUntil(OffsetDateTime.now(fixed).minusMinutes(1));
@@ -247,9 +271,6 @@ class OwnershipCheckTaskTest {
 
     @Test
     void cancelledNoWatchUntil_shortCircuits_noWorldApiCall() {
-        // CANCELLED auctions without an open watch window don't get probed
-        // (e.g. pre-active or active-without-bids cancellations whose
-        // postCancelWatchUntil was never set).
         Auction a = buildActive();
         a.setStatus(AuctionStatus.CANCELLED);
         a.setPostCancelWatchUntil(null);
@@ -271,16 +292,12 @@ class OwnershipCheckTaskTest {
         verifyNoInteractions(suspensionService);
     }
 
-    // Epic 04 Task 7 â€” prove the lock entry path is the pessimistic variant.
-    // A regression that reverts to findById would hide the race between a
-    // bid placement and an ownership suspension.
     @Test
     void lockEntryPath_usesFindByIdForUpdate_notFindById() {
         Auction a = buildActive();
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(worldApi.fetchParcelPage(PARCEL_UUID))
-                .thenReturn(
-                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+                .thenReturn(Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), UUID.randomUUID())));
 
         task.checkOne(AUCTION_ID);
 
@@ -289,7 +306,7 @@ class OwnershipCheckTaskTest {
     }
 
     // -------------------------------------------------------------------------
-    // Case-3 expected-owner â€” spec Â§8.4
+    // Case-3 expected-owner
     // -------------------------------------------------------------------------
 
     @Test
@@ -311,8 +328,9 @@ class OwnershipCheckTaskTest {
     }
 
     @Test
-    void runOnce_case3_parcelOwnerNoLongerMatches_flagsAndSuspends() {
+    void runOnce_case3_parcelOwnerNoLongerMatches_streakGatedSuspend() {
         Auction a = buildCase3();
+        a.setConsecutiveOwnerMismatches(1);
         when(auctionRepo.findByIdForUpdate(AUCTION_ID)).thenReturn(Optional.of(a));
         when(slGroupRepo.findById(SL_GROUP_REG_ID)).thenReturn(Optional.of(buildSlGroupReg(SL_GROUP_UUID)));
         ParcelMetadata changed = meta(OTHER_GROUP_UUID, "group");
@@ -322,7 +340,6 @@ class OwnershipCheckTaskTest {
         task.checkOne(AUCTION_ID);
 
         verify(suspensionService).suspendForOwnershipChange(a, changed);
-        verify(auctionRepo, never()).save(any(Auction.class));
     }
 
     @Test
@@ -333,7 +350,6 @@ class OwnershipCheckTaskTest {
 
         task.checkOne(AUCTION_ID);
 
-        // expectedOwner unresolvable -- World API is never called and nothing is mutated.
         verifyNoInteractions(worldApi);
         verifyNoInteractions(suspensionService);
         verify(auctionRepo, never()).save(any(Auction.class));
@@ -350,11 +366,11 @@ class OwnershipCheckTaskTest {
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).listingFeePaid(true)
                 .currentBid(0L).bidCount(0)
                 .consecutiveWorldApiFailures(0)
+                .consecutiveOwnerMismatches(0)
                 .commissionRate(new BigDecimal("0.05"))
                 .tags(new HashSet<>())
                 .build();

@@ -8,10 +8,12 @@ import com.slparcelauctions.backend.bot.BotTaskStatus;
 import com.slparcelauctions.backend.bot.BotTaskType;
 
 /**
- * Bot queue projection returned by the claim endpoint. Exposes monitor
- * fields (escrowId + expected* + positions + nextRunAt) so the worker has
- * everything it needs for a one-shot decision without follow-up lookups.
- * Excludes resultData and updatedAt — bot workers do not need them.
+ * Bot queue projection returned by the claim endpoint. After the
+ * ownership-only verification refactor (spec 2026-05-16) the
+ * MONITOR_AUCTION-specific expected_auth_buyer_uuid +
+ * expected_sale_price_lindens fields are gone; the remaining
+ * historical-shape fields stay for forensic compatibility with the bot
+ * worker's wire contract.
  */
 public record BotTaskResponse(
         Long id,
@@ -26,8 +28,6 @@ public record BotTaskResponse(
         Double positionZ,
         Long sentinelPrice,
         UUID expectedOwnerUuid,
-        UUID expectedAuthBuyerUuid,
-        Long expectedSalePriceLindens,
         UUID expectedWinnerUuid,
         UUID expectedSellerUuid,
         Long expectedMaxSalePriceLindens,
@@ -52,8 +52,6 @@ public record BotTaskResponse(
                 t.getPositionZ(),
                 t.getSentinelPrice(),
                 t.getExpectedOwnerUuid(),
-                t.getExpectedAuthBuyerUuid(),
-                t.getExpectedSalePriceLindens(),
                 t.getExpectedWinnerUuid(),
                 t.getExpectedSellerUuid(),
                 t.getExpectedMaxSalePriceLindens(),
