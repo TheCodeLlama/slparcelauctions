@@ -19,10 +19,6 @@ public sealed class TaskLoopTests
 
         var loop = new TaskLoop(session, backend.Object,
             Mock.Of<IIdleParker>(), new BotActivityState(),
-            () => new VerifyHandler(session, backend.Object,
-                    NullLogger<VerifyHandler>.Instance),
-            () => new MonitorHandler(session, backend.Object,
-                    NullLogger<MonitorHandler>.Instance),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
@@ -45,10 +41,6 @@ public sealed class TaskLoopTests
 
         var loop = new TaskLoop(session, backend.Object,
             Mock.Of<IIdleParker>(), new BotActivityState(),
-            () => new VerifyHandler(session, backend.Object,
-                    NullLogger<VerifyHandler>.Instance),
-            () => new MonitorHandler(session, backend.Object,
-                    NullLogger<MonitorHandler>.Instance),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
@@ -61,37 +53,39 @@ public sealed class TaskLoopTests
     }
 
     [Fact]
-    public async Task HandlerCrash_DoesNotCallback_LoopContinues()
+    public async Task HandlerCrash_LoopContinues()
     {
         var session = new FakeBotSession();
         session.SimulateLoginSuccess();
-        session.TeleportPolicy = _ => throw new InvalidOperationException("boom");
         var backend = new Mock<IBackendClient>();
         var claims = 0;
         backend.Setup(b => b.ClaimAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(() =>
                {
                    claims++;
-                   if (claims == 1) return MakeVerifyTask();
+                   if (claims == 1) return MakeWithdrawTask();
                    return null;
                });
 
+        // Use a Mock<IBotSession> that throws on GiveGroupMoney so the handler
+        // raises an exception the TaskLoop must swallow.
+        var throwingSession = new Mock<IBotSession>();
+        throwingSession.SetupGet(s => s.State).Returns(SessionState.Online);
+        throwingSession.SetupGet(s => s.BotUuid).Returns(Guid.NewGuid());
+        throwingSession.Setup(s => s.GiveGroupMoney(
+                It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>()))
+            .Throws(new InvalidOperationException("boom"));
+
         var loop = new TaskLoop(session, backend.Object,
             Mock.Of<IIdleParker>(), new BotActivityState(),
-            () => new VerifyHandler(session, backend.Object,
-                    NullLogger<VerifyHandler>.Instance),
-            () => new MonitorHandler(session, backend.Object,
-                    NullLogger<MonitorHandler>.Instance),
-            () => new WithdrawGroupHandler(session, backend.Object,
+            () => new WithdrawGroupHandler(throwingSession.Object, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
         await loop.RunAsync(cts.Token);
 
-        backend.Verify(b => b.CompleteVerifyAsync(It.IsAny<long>(),
-                It.IsAny<BotTaskCompleteRequest>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+        // Handler crashed — the loop must keep ticking and claim at least once.
         claims.Should().BeGreaterOrEqualTo(1);
     }
 
@@ -107,10 +101,6 @@ public sealed class TaskLoopTests
 
         var loop = new TaskLoop(session, backend.Object,
             parker.Object, new BotActivityState(),
-            () => new VerifyHandler(session, backend.Object,
-                    NullLogger<VerifyHandler>.Instance),
-            () => new MonitorHandler(session, backend.Object,
-                    NullLogger<MonitorHandler>.Instance),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
@@ -136,10 +126,6 @@ public sealed class TaskLoopTests
 
         var loop = new TaskLoop(session, backend.Object,
             parker.Object, new BotActivityState(),
-            () => new VerifyHandler(session, backend.Object,
-                    NullLogger<VerifyHandler>.Instance),
-            () => new MonitorHandler(session, backend.Object,
-                    NullLogger<MonitorHandler>.Instance),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
@@ -165,16 +151,12 @@ public sealed class TaskLoopTests
                .ReturnsAsync(() =>
                {
                    claims++;
-                   return claims == 1 ? MakeVerifyTask() : null;
+                   return claims == 1 ? MakeWithdrawTask() : null;
                });
         var activity = new BotActivityState();
 
         var loop = new TaskLoop(session, backend.Object,
             Mock.Of<IIdleParker>(), activity,
-            () => new VerifyHandler(session, backend.Object,
-                    NullLogger<VerifyHandler>.Instance),
-            () => new MonitorHandler(session, backend.Object,
-                    NullLogger<MonitorHandler>.Instance),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
@@ -187,10 +169,24 @@ public sealed class TaskLoopTests
         snap.CurrentTaskId.Should().BeNull();    // cleared in finally
     }
 
-    private static BotTaskResponse MakeVerifyTask() => new(
-        1, BotTaskType.VERIFY, BotTaskStatus.IN_PROGRESS,
-        42, null, Guid.NewGuid(), "Ahern", 128, 128, 20,
-        999_999_999, null, null, null, null, null, null,
-        Guid.NewGuid(), null, null, null,
-        DateTimeOffset.UtcNow, null);
+    private static BotTaskResponse MakeWithdrawTask() => new(
+        Id: 1,
+        TaskType: BotTaskType.WITHDRAW_GROUP,
+        Status: BotTaskStatus.IN_PROGRESS,
+        AuctionId: 0,
+        EscrowId: null,
+        ParcelUuid: Guid.Empty,
+        RegionName: null,
+        PositionX: null,
+        PositionY: null,
+        PositionZ: null,
+        SentinelPrice: 0,
+        AssignedBotUuid: Guid.NewGuid(),
+        FailureReason: null,
+        NextRunAt: null,
+        RecurrenceIntervalSeconds: null,
+        CreatedAt: DateTimeOffset.UtcNow,
+        CompletedAt: null,
+        RecipientUuid: Guid.NewGuid(),
+        AmountL: 1500);
 }

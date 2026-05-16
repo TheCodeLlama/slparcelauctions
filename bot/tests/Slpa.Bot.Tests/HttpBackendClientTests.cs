@@ -1,8 +1,6 @@
 using System.Net;
-using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Slpa.Bot.Backend;
 using Slpa.Bot.Backend.Models;
 using Slpa.Bot.Options;
@@ -46,14 +44,16 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
                 .WithBody("""
                           {
                             "id": 1,
-                            "taskType": "VERIFY",
+                            "taskType": "WITHDRAW_GROUP",
                             "status": "IN_PROGRESS",
-                            "auctionId": 42,
+                            "auctionId": 0,
                             "escrowId": null,
                             "parcelUuid": "11111111-1111-1111-1111-111111111111",
-                            "regionName": "Ahern",
-                            "sentinelPrice": 999999999,
-                            "createdAt": "2026-04-22T12:00:00Z"
+                            "regionName": null,
+                            "sentinelPrice": 0,
+                            "createdAt": "2026-04-22T12:00:00Z",
+                            "recipientUuid": "22222222-2222-2222-2222-222222222222",
+                            "amountL": 1500
                           }
                           """));
 
@@ -61,7 +61,7 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
 
         task.Should().NotBeNull();
         task!.Id.Should().Be(1);
-        task.TaskType.Should().Be(BotTaskType.VERIFY);
+        task.TaskType.Should().Be(BotTaskType.WITHDRAW_GROUP);
     }
 
     [Fact]
@@ -124,35 +124,6 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CompleteVerify_200_ReturnsWithoutThrow()
-    {
-        _server
-            .Given(Request.Create().WithPath("/api/v1/bot/tasks/5/verify").UsingPut())
-            .RespondWith(Response.Create().WithStatusCode(200)
-                .WithBody("{\"id\":5,\"taskType\":\"VERIFY\",\"status\":\"COMPLETED\",\"auctionId\":42,\"parcelUuid\":\"11111111-1111-1111-1111-111111111111\",\"sentinelPrice\":999999999,\"createdAt\":\"2026-04-22T12:00:00Z\"}"));
-
-        await _client.CompleteVerifyAsync(
-            5,
-            new BotTaskCompleteRequest("SUCCESS", Guid.NewGuid(), 999_999_999,
-                Guid.NewGuid(), "Parcel", 1024, "Ahern", 128, 128, 20, null),
-            default);
-    }
-
-    [Fact]
-    public async Task PostMonitor_200_ReturnsWithoutThrow()
-    {
-        _server
-            .Given(Request.Create().WithPath("/api/v1/bot/tasks/9/monitor").UsingPost())
-            .RespondWith(Response.Create().WithStatusCode(200)
-                .WithBody("{\"id\":9,\"taskType\":\"MONITOR_AUCTION\",\"status\":\"PENDING\",\"auctionId\":42,\"parcelUuid\":\"11111111-1111-1111-1111-111111111111\",\"sentinelPrice\":999999999,\"createdAt\":\"2026-04-22T12:00:00Z\"}"));
-
-        await _client.PostMonitorAsync(
-            9,
-            new BotMonitorResultRequest(MonitorOutcome.ALL_GOOD, null, null, null, null),
-            default);
-    }
-
-    [Fact]
     public async Task Heartbeat_200_ReturnsWithoutThrow()
     {
         _server
@@ -167,7 +138,7 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
                 "Online",
                 "Hadron",
                 "7",
-                "MONITOR_AUCTION",
+                "WITHDRAW_GROUP",
                 DateTimeOffset.UnixEpoch),
             default);
     }
