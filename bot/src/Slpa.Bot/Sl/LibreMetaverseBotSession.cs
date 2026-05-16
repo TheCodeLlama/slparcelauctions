@@ -32,6 +32,10 @@ public sealed class LibreMetaverseBotSession : IBotSession
     private CancellationTokenSource? _runCts;
     private Task? _runTask;
     private int _stateValue = (int)SessionState.Starting;
+    // Belief-based seated signal. SittingOn is unreliable on a headless
+    // client (object tracking off), so a successful SitAsync sets this; any
+    // teleport-issue or disconnect clears it. Volatile: read off the task loop.
+    private volatile bool _seatedBelief;
 
     public LibreMetaverseBotSession(
         IOptions<BotOptions> opts,
@@ -59,9 +63,13 @@ public sealed class LibreMetaverseBotSession : IBotSession
         }
     }
 
-    /// <inheritdoc/>
-    /// <remarks>Implemented in T4 (bot-idle-chair-sit). Belief is set by SitAsync.</remarks>
-    public bool IsSeated => throw new NotImplementedException("Implemented in T4");
+    /// <summary>
+    /// Belief-based seated signal: set by a successful <see cref="SitAsync"/>,
+    /// cleared on any real teleport or disconnect, and gated on the session
+    /// still being Online. SittingOn is unreliable headless (object tracking
+    /// off), so this in-process belief is the idle-park "still parked?" signal.
+    /// </summary>
+    public bool IsSeated => _seatedBelief && State == SessionState.Online;
 
     public Task StartAsync(CancellationToken ct)
     {
@@ -153,6 +161,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
             }
             if (ct.IsCancellationRequested) return;
 
+            _seatedBelief = false; // disconnect un-seats the avatar in-world
             TransitionTo(SessionState.Reconnecting);
             _log.LogWarning("Bot {Uuid} disconnected; reconnecting", BotUuid);
         }
@@ -222,9 +231,53 @@ public sealed class LibreMetaverseBotSession : IBotSession
     }
 
     /// <inheritdoc/>
-    /// <remarks>Implemented in T4 (bot-idle-chair-sit).</remarks>
-    public Task<SitResult> SitAsync(Guid chairUuid, CancellationToken ct)
-        => throw new NotImplementedException("Implemented in T4");
+    public async Task<SitResult> SitAsync(Guid chairUuid, CancellationToken ct)
+    {
+        if (State != SessionState.Online)
+        {
+            throw new SessionLostException($"Cannot sit in state {State}");
+        }
+
+        var target = new UUID(chairUuid.ToString());
+        var tcs = new TaskCompletionSource<SitResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        EventHandler<AvatarSitResponseEventArgs>? handler = null;
+        handler = (_, e) =>
+        {
+            if (e.ObjectID != target) return;
+            _client.Self.AvatarSitResponse -= handler!;
+            // Sim acknowledged a sit target for our object; commit the sit.
+            // We treat the acknowledged response as success (belief) —
+            // SittingOn is unreliable headless.
+            _client.Self.Sit();
+            tcs.TrySetResult(SitResult.Ok());
+        };
+        _client.Self.AvatarSitResponse += handler;
+
+        EventHandler<DisconnectedEventArgs>? disc = null;
+        disc = (_, _) => tcs.TrySetException(
+            new SessionLostException("Disconnected mid-sit"));
+        _client.Network.Disconnected += disc;
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+        var registration = timeoutCts.Token.Register(() =>
+            tcs.TrySetResult(SitResult.Fail(SitFailureKind.Timeout)));
+        try
+        {
+            _client.Self.RequestSit(target, Vector3.Zero);
+            var result = await tcs.Task.ConfigureAwait(false);
+            if (result.Success) _seatedBelief = true;
+            return result;
+        }
+        finally
+        {
+            registration.Dispose();
+            _client.Self.AvatarSitResponse -= handler;
+            _client.Network.Disconnected -= disc!;
+        }
+    }
 
     public async Task<TeleportResult> TeleportAsync(
         string regionName, double x, double y, double z,
@@ -292,6 +345,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
             tcs.TrySetResult(TeleportResult.Fail(TeleportFailureKind.Timeout)));
         try
         {
+            _seatedBelief = false; // a real teleport stands the avatar up
             _client.Self.Teleport(regionName, new Vector3((float)x, (float)y, (float)z));
             return await tcs.Task.ConfigureAwait(false);
         }
