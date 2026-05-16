@@ -93,21 +93,45 @@ export function AgentCommissionPreview({
     .replace(/\.0$/, "");
 
   return (
-    <div className="flex flex-col gap-1" data-testid="agent-commission-preview">
-      <p className="text-sm text-gray-600 mt-2">
-        If this lists at L${startingBid.toLocaleString()}, you{"'"}ll receive{" "}
-        <strong>L${agentSlice.toLocaleString()}</strong> (your {ratePct}%
-        commission of earnings after platform commission).{" "}
-        <strong>{groupName}</strong> earns{" "}
-        <strong>L${groupSlice.toLocaleString()}</strong>.
-      </p>
+    <div className="flex flex-col gap-2 mt-2" data-testid="agent-commission-preview">
+      <dl className="flex flex-col rounded-lg bg-bg-subtle px-4 py-3 text-sm">
+        <div className="flex justify-between gap-4 py-1">
+          <dt className="text-fg-muted">List price</dt>
+          <dd className="tabular-nums font-medium text-fg">
+            L${startingBid.toLocaleString()}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-4 py-1">
+          <dt className="text-fg-muted">Platform commission at list price</dt>
+          <dd className="tabular-nums font-medium text-fg">
+            L${platformCommission.toLocaleString()}{" "}
+            <span className="text-fg-muted font-normal">(5%)</span>
+          </dd>
+        </div>
+        <div className="flex justify-between gap-4 py-1">
+          <dt className="text-fg-muted">Your earnings at list price</dt>
+          <dd className="tabular-nums font-medium text-fg">
+            L${agentSlice.toLocaleString()}{" "}
+            <span className="text-fg-muted font-normal">
+              ({ratePct}% of remaining)
+            </span>
+          </dd>
+        </div>
+        <div className="flex justify-between gap-4 py-1">
+          <dt className="text-fg-muted">{groupName} earnings at list price</dt>
+          <dd className="tabular-nums font-medium text-fg">
+            L${groupSlice.toLocaleString()}{" "}
+            <span className="text-fg-muted font-normal">(remaining)</span>
+          </dd>
+        </div>
+      </dl>
       {insufficient && balance !== null ? (
-        <p className="text-sm text-danger mt-1">
+        <p className="text-sm text-danger">
           Group wallet has L${balance.toLocaleString()}; deposit L$
           {shortfall.toLocaleString()} to publish.
         </p>
       ) : balance !== null ? (
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-xs text-fg-muted">
           Listing fee paid from {groupName} wallet — current balance L$
           {balance.toLocaleString()}.
         </p>

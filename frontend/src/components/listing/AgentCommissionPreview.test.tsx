@@ -38,13 +38,23 @@ describe("AgentCommissionPreview (case 3)", () => {
     );
 
     const preview = await screen.findByTestId("agent-commission-preview");
-    // Compact assertion against the rendered text — normalize whitespace
-    // for robustness across the JSX line breaks.
     await waitFor(() => {
-      const text = preview.textContent?.replace(/\s+/g, " ") ?? "";
+      // dt/dd siblings have no inline whitespace between them, so the
+      // visible "<label> <value>" is "labelvalue" in textContent. Assert
+      // on each row's components separately to stay robust against
+      // future layout tweaks.
+      const text = preview.textContent ?? "";
+      expect(text).toContain("List price");
+      expect(text).toContain("L$1,000");
+      expect(text).toContain("Platform commission at list price");
+      expect(text).toContain("L$50");
+      expect(text).toContain("(5%)");
+      expect(text).toContain("Your earnings at list price");
       expect(text).toContain("L$95");
-      expect(text).toContain("your 10% commission");
-      expect(text).toContain("Sunset Realty earns L$855");
+      expect(text).toContain("(10% of remaining)");
+      expect(text).toContain("Sunset Realty earnings at list price");
+      expect(text).toContain("L$855");
+      expect(text).toContain("(remaining)");
     });
   });
 
@@ -64,11 +74,14 @@ describe("AgentCommissionPreview (case 3)", () => {
 
     const preview = await screen.findByTestId("agent-commission-preview");
     await waitFor(() => {
-      const text = preview.textContent?.replace(/\s+/g, " ") ?? "";
+      const text = preview.textContent ?? "";
       // Rate 0 falls under the < 0.01 branch → "0.00%".
-      expect(text).toContain("your 0.00% commission");
+      expect(text).toContain("Your earnings at list price");
+      expect(text).toContain("L$0");
+      expect(text).toContain("(0.00% of remaining)");
       // L$1000 - 50 platform = 950 group slice when agent rate = 0.
-      expect(text).toContain("Sunset Realty earns L$950");
+      expect(text).toContain("Sunset Realty earnings at list price");
+      expect(text).toContain("L$950");
     });
   });
 
