@@ -105,6 +105,10 @@ class EscrowNotificationIntegrationTest {
                     if (id != null) {
                         st.execute("DELETE FROM notification WHERE user_id = " + id);
                         st.execute("DELETE FROM refresh_tokens WHERE user_id = " + id);
+                        // Wallet-model refund migration: ESCROW_REFUND
+                        // ledger row written when escrow freezes; clear
+                        // before deleting the user.
+                        st.execute("DELETE FROM user_ledger WHERE user_id = " + id);
                         st.execute("DELETE FROM users WHERE id = " + id);
                     }
                 }

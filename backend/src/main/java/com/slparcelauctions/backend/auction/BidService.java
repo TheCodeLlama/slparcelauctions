@@ -33,7 +33,6 @@ import com.slparcelauctions.backend.wallet.WalletService;
 import com.slparcelauctions.backend.wallet.exception.InsufficientAvailableBalanceException;
 import com.slparcelauctions.backend.wallet.exception.PenaltyOutstandingException;
 
-import org.springframework.beans.factory.annotation.Value;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -97,9 +96,11 @@ public class BidService {
      * don't deposit before bidding) continue to pass. When set true on a
      * deployed environment, every bid validates penalty == 0 and
      * available >= amount, and a hard reservation is swapped from the prior
-     * high bidder to the new bidder.
+     * high bidder to the new bidder. Separate migration -- the wallet-model
+     * refund migration in this commit only changes refund routing, not
+     * bid-time enforcement.
      */
-    @Value("${slpa.wallet.enforcement-enabled:false}")
+    @org.springframework.beans.factory.annotation.Value("${slpa.wallet.enforcement-enabled:false}")
     private boolean walletEnforcementEnabled;
 
     /**

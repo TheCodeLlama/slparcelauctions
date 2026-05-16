@@ -137,12 +137,17 @@ class AdminDisputeServiceTest {
         Escrow persisted = loadEscrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.EXPIRED);
 
-        // Terminal REFUND command must have been queued.
+        // Wallet-model refund migration: the refund is an instant wallet
+        // credit, NOT a TerminalCommand REFUND. No in-world payout rows
+        // are emitted; the bidder's user_ledger picks up an ESCROW_REFUND
+        // entry instead. We assert the absence of the legacy path here
+        // and let the wallet-credit assertions live in
+        // EscrowDisputeIntegrationTest.
         long refundCount = new TransactionTemplate(txManager).execute(s ->
                 terminalCommandRepo.findAll().stream()
                         .filter(c -> c.getEscrowId() != null && c.getEscrowId().equals(escrowId))
                         .count());
-        assertThat(refundCount).isGreaterThanOrEqualTo(1);
+        assertThat(refundCount).isZero();
 
         // Auction must have been cancelled.
         Auction auction = new TransactionTemplate(txManager).execute(s ->
@@ -183,11 +188,14 @@ class AdminDisputeServiceTest {
         Escrow persisted = loadEscrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.EXPIRED);
 
+        // Wallet-model refund migration: refund credits the bidder's
+        // wallet via an instant ESCROW_REFUND ledger row, not via a
+        // TerminalCommand REFUND. No in-world payout rows expected.
         long refundCount = new TransactionTemplate(txManager).execute(s ->
                 terminalCommandRepo.findAll().stream()
                         .filter(c -> c.getEscrowId() != null && c.getEscrowId().equals(escrowId))
                         .count());
-        assertThat(refundCount).isGreaterThanOrEqualTo(1);
+        assertThat(refundCount).isZero();
     }
 
     @Test
@@ -404,6 +412,11 @@ class AdminDisputeServiceTest {
                         st.execute("DELETE FROM notification WHERE user_id = " + uid);
                         st.execute("DELETE FROM sl_im_message WHERE user_id = " + uid);
                         st.execute("DELETE FROM refresh_tokens WHERE user_id = " + uid);
+                        // Wallet-model refund migration writes a
+                        // user_ledger ESCROW_REFUND row when escrow
+                        // EXPIRES. Clear the bidder's ledger before the
+                        // user delete or the FK constraint fires.
+                        st.execute("DELETE FROM user_ledger WHERE user_id = " + uid);
                         st.execute("DELETE FROM users WHERE id = " + uid);
                     }
                 }

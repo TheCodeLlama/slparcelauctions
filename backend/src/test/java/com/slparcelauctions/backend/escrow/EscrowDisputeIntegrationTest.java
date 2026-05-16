@@ -88,6 +88,8 @@ class EscrowDisputeIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowTransactionRepository escrowTxRepo;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired NotificationRepository notificationRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -110,6 +112,14 @@ class EscrowDisputeIntegrationTest {
         if (seededAuctionId == null) return;
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
+            if (seededEscrowId != null) {
+                // Wallet-model refund migration: the dispute resolution
+                // path writes an AUCTION_ESCROW_REFUND row on the
+                // escrow's transaction ledger when crediting the winner's
+                // wallet. Clear those before deleting the escrow.
+                escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(seededEscrowId)
+                        .forEach(escrowTxRepo::delete);
+            }
             escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
@@ -125,6 +135,9 @@ class EscrowDisputeIntegrationTest {
                         VerificationCodeType.PARCEL)
                         .forEach(verificationCodeRepo::delete);
                 notificationRepo.deleteAllByUserId(userId);
+                // Wallet-model refund migration: same as above, the
+                // refund credits the winner's user_ledger.
+                userLedgerRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });

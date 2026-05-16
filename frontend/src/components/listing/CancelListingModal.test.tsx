@@ -332,7 +332,7 @@ describe("CancelListingModal", () => {
       { auth: "authenticated" },
     );
     expect(
-      screen.getByText(/Refund: L\$100.*full refund/i),
+      screen.getByText(/Refund: L\$100.*credited instantly/i),
     ).toBeInTheDocument();
   });
 

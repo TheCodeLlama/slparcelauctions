@@ -43,6 +43,7 @@ import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
 
@@ -105,6 +106,7 @@ class ListingFeeFlowIntegrationTest {
     @Autowired BidRepository bidRepo;
     @Autowired ProxyBidRepository proxyBidRepo;
     @Autowired UserRepository userRepo;
+    @Autowired UserLedgerRepository userLedgerRepo;
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowTransactionRepository ledgerRepo;
@@ -144,6 +146,10 @@ class ListingFeeFlowIntegrationTest {
                         VerificationCodeType.PLAYER).forEach(verificationCodeRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(seededSellerId,
                         VerificationCodeType.PARCEL).forEach(verificationCodeRepo::delete);
+                // Wallet-model refund migration: the refund job writes a
+                // user_ledger row for the seller. Clear it before deleting
+                // the user or the FK constraint fires.
+                userLedgerRepo.deleteAllByUserId(seededSellerId);
                 userRepo.findById(seededSellerId).ifPresent(userRepo::delete);
             }
             terminalRepo.findById(TERMINAL_ID).ifPresent(terminalRepo::delete);
@@ -239,73 +245,45 @@ class ListingFeeFlowIntegrationTest {
     }
 
     @Test
-    void pendingRefund_isQueuedByProcessorAndFlipsToProcessedOnCallback() {
+    void pendingRefund_isProcessedByJobAsInstantWalletCredit() {
         seedDraftAuctionWithTerminal();
         seedPendingRefund();
 
-        // Before sweep: refund PENDING, no command stamped.
+        // Before sweep: refund PENDING.
         ListingFeeRefund before = listingFeeRefundRepo.findById(seededRefundId).orElseThrow();
         assertThat(before.getStatus()).isEqualTo(RefundStatus.PENDING);
-        assertThat(before.getTerminalCommandId()).isNull();
-        assertThat(before.getLastQueuedAt()).isNull();
+
+        long sellerBalanceBefore = userRepo.findById(seededSellerId)
+                .orElseThrow().getBalanceLindens();
 
         // Run the processor explicitly.
         listingFeeRefundProcessorJob.drainPending();
 
-        // After sweep: terminalCommandId + lastQueuedAt stamped, a
-        // LISTING_FEE_REFUND TerminalCommand exists with recipient=seller.
+        // Per the wallet-model-always-on refund migration: the refund is
+        // an instant wallet credit, NOT a TerminalCommand REFUND. The
+        // refund row flips straight to PROCESSED inside the job; no
+        // terminal callback is needed.
         ListingFeeRefund afterSweep = listingFeeRefundRepo.findById(seededRefundId).orElseThrow();
-        assertThat(afterSweep.getStatus()).isEqualTo(RefundStatus.PENDING);
-        assertThat(afterSweep.getTerminalCommandId()).isNotNull();
-        assertThat(afterSweep.getLastQueuedAt()).isNotNull();
-
-        TerminalCommand cmd = cmdRepo.findById(afterSweep.getTerminalCommandId()).orElseThrow();
-        seededCommandId = cmd.getId();
-        assertThat(cmd.getPurpose()).isEqualTo(TerminalCommandPurpose.LISTING_FEE_REFUND);
-        assertThat(cmd.getAction()).isEqualTo(TerminalCommandAction.REFUND);
-        assertThat(cmd.getListingFeeRefundId()).isEqualTo(seededRefundId);
-        assertThat(cmd.getRecipientUuid()).isEqualTo(seededSellerAvatarUuid.toString());
-        assertThat(cmd.getAmount()).isEqualTo(100L);
-        assertThat(cmd.getStatus()).isEqualTo(TerminalCommandStatus.QUEUED);
-
-        // Second sweep is idempotent: terminalCommandId is already set so
-        // the refund is skipped by findPendingAwaitingDispatch.
-        listingFeeRefundProcessorJob.drainPending();
+        assertThat(afterSweep.getStatus()).isEqualTo(RefundStatus.PROCESSED);
+        assertThat(afterSweep.getProcessedAt()).isNotNull();
+        // No TerminalCommand for this refund -- the legacy in-world payout
+        // path is gone.
         assertThat(cmdRepo.findAll().stream()
                 .filter(c -> c.getListingFeeRefundId() != null
                         && c.getListingFeeRefundId().equals(seededRefundId))
-                .count()).isEqualTo(1L);
+                .count()).isZero();
 
-        // Simulate the terminal's success callback via the Task 7 path.
-        String slTxn = "sl-txn-refund-" + UUID.randomUUID();
-        terminalCommandService.applyCallback(new PayoutResultRequest(
-                cmd.getIdempotencyKey(), true, slTxn, null, TERMINAL_ID, SHARED_SECRET));
+        // Seller's user wallet balance bumped by the refund amount.
+        long sellerBalanceAfter = userRepo.findById(seededSellerId)
+                .orElseThrow().getBalanceLindens();
+        assertThat(sellerBalanceAfter - sellerBalanceBefore).isEqualTo(100L);
 
-        // Refund flipped to PROCESSED with processedAt + txnRef; command
-        // flipped to COMPLETED; one COMPLETED LISTING_FEE_REFUND ledger row.
-        ListingFeeRefund afterCallback = listingFeeRefundRepo.findById(seededRefundId).orElseThrow();
-        assertThat(afterCallback.getStatus()).isEqualTo(RefundStatus.PROCESSED);
-        assertThat(afterCallback.getProcessedAt()).isNotNull();
-        assertThat(afterCallback.getTxnRef()).isEqualTo(slTxn);
-
-        TerminalCommand finalCmd = cmdRepo.findById(cmd.getId()).orElseThrow();
-        assertThat(finalCmd.getStatus()).isEqualTo(TerminalCommandStatus.COMPLETED);
-        assertThat(finalCmd.getCompletedAt()).isNotNull();
-
-        List<EscrowTransaction> refundLedger = ledgerRepo.findAll().stream()
-                .filter(r -> r.getAuction() != null
-                        && r.getAuction().getId().equals(seededAuctionId)
-                        && r.getType() == EscrowTransactionType.LISTING_FEE_REFUND)
-                .toList();
-        assertThat(refundLedger).hasSize(1);
-        EscrowTransaction row = refundLedger.get(0);
-        assertThat(row.getStatus()).isEqualTo(EscrowTransactionStatus.COMPLETED);
-        assertThat(row.getAmount()).isEqualTo(100L);
-        assertThat(row.getSlTransactionId()).isEqualTo(slTxn);
-        // command.terminalId only gets stamped when the dispatcher actually
-        // POSTs the command; we're skipping that phase, so terminalId on the
-        // refund ledger row mirrors command.terminalId=null.
-        assertThat(row.getTerminalId()).isNull();
+        // Second sweep is idempotent: refund is already PROCESSED so the
+        // job skips it under the status guard.
+        listingFeeRefundProcessorJob.drainPending();
+        long sellerBalanceAfterSecondSweep = userRepo.findById(seededSellerId)
+                .orElseThrow().getBalanceLindens();
+        assertThat(sellerBalanceAfterSecondSweep).isEqualTo(sellerBalanceAfter);
     }
 
     // -------------------------------------------------------------------------

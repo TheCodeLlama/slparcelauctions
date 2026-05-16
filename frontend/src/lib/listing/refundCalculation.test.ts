@@ -10,10 +10,16 @@ describe("computeRefund", () => {
   });
 
   it("returns FULL for DRAFT_PAID with the persisted listingFeeAmt", () => {
-    expect(computeRefund("DRAFT_PAID", 100)).toMatchObject({
-      kind: "FULL",
-      amountLindens: 100,
-    });
+    const r = computeRefund("DRAFT_PAID", 100);
+    expect(r).toMatchObject({ kind: "FULL", amountLindens: 100 });
+    expect(r.copy).toMatch(/your SLParcels wallet/);
+    expect(r.copy).toMatch(/instantly/);
+  });
+
+  it("uses the group-wallet phrasing when isGroupListing is true", () => {
+    const r = computeRefund("DRAFT_PAID", 100, true);
+    expect(r.copy).toMatch(/the group's SLParcels wallet/);
+    expect(r.copy).not.toMatch(/your SLParcels wallet/);
   });
 
   it("returns FULL for VERIFICATION_PENDING", () => {
