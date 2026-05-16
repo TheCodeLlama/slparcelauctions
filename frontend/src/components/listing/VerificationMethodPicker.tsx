@@ -12,10 +12,16 @@ import type {
 } from "@/types/auction";
 import { activateAuctionKey } from "@/hooks/useActivateAuction";
 
+type MethodBody = string | React.ReactNode;
+
 interface MethodCard {
   key: VerificationMethod;
   title: string;
-  body: string;
+  body: MethodBody;
+  /** Button label. Defaults to "Use this method"; method 3 overrides to
+   *  "Verify" because the user has to set up the parcel sale in SL
+   *  BEFORE clicking. */
+  actionLabel?: string;
 }
 
 const METHODS: readonly MethodCard[] = [
@@ -34,8 +40,32 @@ const METHODS: readonly MethodCard[] = [
   {
     key: "SALE_TO_BOT",
     title: "Sale-to-bot",
-    body:
-      "Set your land for sale to the SLPAEscrow Resident account at L$999,999,999. Our bot detects the sale and verifies. Required for group-owned land.",
+    actionLabel: "Verify",
+    body: (
+      <>
+        <p className="text-xs text-fg-muted">
+          Required for group-owned land. Set the parcel for sale to our
+          escrow account first, THEN click Verify so the bot starts
+          watching.
+        </p>
+        <ol className="list-decimal pl-4 flex flex-col gap-0.5 text-xs text-fg">
+          <li>Open the SL Land menu on the parcel.</li>
+          <li>
+            Choose <em>Set Land for Sale&hellip;</em>
+          </li>
+          <li>
+            Buyer: <strong>SLPAEscrow Resident</strong>
+          </li>
+          <li>
+            Price: <strong>L$999,999,999</strong>
+          </li>
+          <li>
+            Click <em>Sell</em> to confirm in-world.
+          </li>
+          <li>Come back here and click Verify.</li>
+        </ol>
+      </>
+    ),
   },
 ];
 
@@ -140,28 +170,33 @@ export function VerificationMethodPicker({
         </div>
       )}
       <div className="grid gap-4 md:grid-cols-3">
-        {METHODS.map((method) => (
-          <article
-            key={method.key}
-            className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4"
-          >
-            <h3 className="text-sm font-semibold tracking-tight text-fg">{method.title}</h3>
-            <p className="text-xs text-fg-muted">
-              {method.body}
-            </p>
-            <div className="mt-auto">
-              <Button
-                onClick={() => mutation.mutate(method.key)}
-                disabled={mutation.isPending}
-                loading={mutation.isPending && mutation.variables === method.key}
-              >
-                {mutation.isPending && mutation.variables === method.key
-                  ? "Starting…"
-                  : "Use this method"}
-              </Button>
-            </div>
-          </article>
-        ))}
+        {METHODS.map((method) => {
+          const label = method.actionLabel ?? "Use this method";
+          return (
+            <article
+              key={method.key}
+              className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-4"
+            >
+              <h3 className="text-sm font-semibold tracking-tight text-fg">{method.title}</h3>
+              {typeof method.body === "string" ? (
+                <p className="text-xs text-fg-muted">{method.body}</p>
+              ) : (
+                <div className="flex flex-col gap-2">{method.body}</div>
+              )}
+              <div className="mt-auto">
+                <Button
+                  onClick={() => mutation.mutate(method.key)}
+                  disabled={mutation.isPending}
+                  loading={mutation.isPending && mutation.variables === method.key}
+                >
+                  {mutation.isPending && mutation.variables === method.key
+                    ? "Starting…"
+                    : label}
+                </Button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );
