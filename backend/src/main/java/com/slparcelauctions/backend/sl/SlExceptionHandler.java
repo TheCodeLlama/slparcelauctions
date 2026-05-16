@@ -110,11 +110,12 @@ public class SlExceptionHandler {
     }
 
     // -------------------------------------------------------------------------
-    // Method B (POST /api/v1/sl/parcel/verify) — auction-package exceptions.
-    // The auction-package {@code AuctionExceptionHandler} is scoped to
-    // {@code basePackages = "backend.auction"} and does not apply to this
-    // controller; we re-handle the same exception types here so the LSL
-    // response stays narrow (no leakage of unrelated auction internals).
+    // Auction-package exceptions surfacing from sl/** endpoints (escrow
+    // terminal, founder-via-terminal, etc.). The auction-package
+    // {@code AuctionExceptionHandler} is scoped to
+    // {@code basePackages = "backend.auction"} and does not apply to
+    // these controllers; we re-handle the same exception types here so
+    // the LSL response stays narrow.
     // -------------------------------------------------------------------------
 
     @ExceptionHandler(AuctionNotFoundException.class)
@@ -190,11 +191,11 @@ public class SlExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(
             IllegalArgumentException e, HttpServletRequest req) {
-        // Method B validation failures (parcel UUID mismatch, owner UUID mismatch)
-        // surface as IllegalArgumentException inside SlParcelVerifyService. Map to
-        // 400 with the message passed through so the LSL script can surface it on
-        // the in-world whisper. Keep this handler narrow: it only runs for
-        // controllers in the sl package (advice is package-scoped).
+        // Validation failures inside sl/** controllers surface as
+        // IllegalArgumentException. Map to 400 with the message passed
+        // through so the LSL script can surface it on the in-world whisper.
+        // Keep this handler narrow: it only runs for controllers in the
+        // sl package (advice is package-scoped).
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, e.getMessage());
         pd.setType(URI.create("https://slpa.example/problems/sl/invalid-request"));
