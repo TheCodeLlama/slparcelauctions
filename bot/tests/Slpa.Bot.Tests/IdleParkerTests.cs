@@ -9,7 +9,10 @@ namespace Slpa.Bot.Tests;
 
 public sealed class IdleParkerTests
 {
-    private static IdleParkOptions Opts() => new();
+    private static IdleParkOptions Opts() => new() { Chairs = new() };
+
+    private static IdleParkOptions OptsWithChairs(params string[] chairs) =>
+        new() { Chairs = chairs.ToList() };
 
     private static Func<double> Seq(params double[] xs)
     {
@@ -226,5 +229,167 @@ public sealed class IdleParkerTests
 
         var act = async () => await parker.ParkIfNeededAsync(default);
         await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    private static readonly string ChairA = "11111111-1111-1111-1111-111111111111";
+    private static readonly string ChairB = "22222222-2222-2222-2222-222222222222";
+
+    [Fact]
+    public void DeriveState_Seated_WhenSeatedWithRecordedChair()
+    {
+        var s = IdleParker.DeriveState(
+            isSeated: true, seatedChair: Guid.NewGuid(),
+            loc: new BotLocation("Hadron", 200, 200), opts: Opts());
+        s.Should().Be(IdleParker.IdleRestState.Seated);
+    }
+
+    [Fact]
+    public void DeriveState_InRectangle_WhenInsideAndNotSeated()
+    {
+        var s = IdleParker.DeriveState(
+            isSeated: false, seatedChair: null,
+            loc: new BotLocation("Hadron", 37, 69), opts: Opts());
+        s.Should().Be(IdleParker.IdleRestState.InRectangle);
+    }
+
+    [Fact]
+    public void DeriveState_Adrift_WhenOutsideRectOrRegion()
+    {
+        IdleParker.DeriveState(false, null, new BotLocation("Hadron", 200, 200), Opts())
+            .Should().Be(IdleParker.IdleRestState.Adrift);
+        IdleParker.DeriveState(false, null, new BotLocation("Ahern", 37, 69), Opts())
+            .Should().Be(IdleParker.IdleRestState.Adrift);
+    }
+
+    [Fact]
+    public void DeriveState_Adrift_WhenSeatedFlagButNoRecordedChair()
+    {
+        IdleParker.DeriveState(true, null, new BotLocation("Hadron", 37, 69), Opts())
+            .Should().Be(IdleParker.IdleRestState.InRectangle);
+    }
+
+    [Fact]
+    public async Task InRectangle_WithChairs_SitsOnRandomChair()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+            IsSeated = false,
+        };
+        var parker = Make(session, OptsWithChairs(ChairA, ChairB),
+            () => DateTimeOffset.UnixEpoch, () => 0.0);
+
+        await parker.ParkIfNeededAsync(default);
+
+        session.TeleportCalls.Should().BeEmpty();
+        var call = session.SitCalls.Should().ContainSingle().Subject;
+        call.ChairUuid.Should().Be(Guid.Parse(ChairA)); // rng 0.0 -> index 0
+    }
+
+    [Fact]
+    public async Task InRectangle_WithChairs_RngPicksLastChair()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+        };
+        var parker = Make(session, OptsWithChairs(ChairA, ChairB),
+            () => DateTimeOffset.UnixEpoch, () => 0.99);
+
+        await parker.ParkIfNeededAsync(default);
+
+        session.SitCalls.Should().ContainSingle()
+            .Which.ChairUuid.Should().Be(Guid.Parse(ChairB));
+    }
+
+    [Fact]
+    public async Task Seated_NoFurtherActions()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+            IsSeated = false,
+        };
+        var parker = Make(session, OptsWithChairs(ChairA),
+            () => DateTimeOffset.UnixEpoch, () => 0.0);
+
+        await parker.ParkIfNeededAsync(default);          // sits
+        session.IsSeated = true;                          // now seated
+        await parker.ParkIfNeededAsync(default);          // should noop
+
+        session.SitCalls.Should().HaveCount(1);
+        session.TeleportCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Unseated_ClearsRecordAndReSits()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+        };
+        var now = DateTimeOffset.UnixEpoch;
+        var parker = Make(session, OptsWithChairs(ChairA),
+            () => now, () => 0.0);
+
+        await parker.ParkIfNeededAsync(default);          // sit #1
+        session.IsSeated = true;
+        await parker.ParkIfNeededAsync(default);          // seated -> noop
+        session.IsSeated = false;                         // a task teleported it away
+        now = DateTimeOffset.UnixEpoch.AddSeconds(999);   // past cooldown
+        await parker.ParkIfNeededAsync(default);          // re-sit
+
+        session.SitCalls.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task SitFails_StaysStanding_NoChairIteration_SetsCooldown()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+            SitPolicy = _ => SitResult.Fail(SitFailureKind.Timeout),
+        };
+        var now = DateTimeOffset.UnixEpoch;
+        var parker = Make(session, OptsWithChairs(ChairA, ChairB),
+            () => now, () => 0.0);
+
+        await parker.ParkIfNeededAsync(default);          // one attempt, fails
+        await parker.ParkIfNeededAsync(default);          // same clock -> cooldown blocks
+
+        session.SitCalls.Should().HaveCount(1);           // exactly one, no iteration
+        session.TeleportCalls.Should().BeEmpty();         // already in rect
+    }
+
+    [Fact]
+    public async Task Adrift_WithChairs_TeleportsFirst_NoSitSameCycle()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Ahern", 50, 50),
+        };
+        var parker = Make(session, OptsWithChairs(ChairA),
+            () => DateTimeOffset.UnixEpoch, () => 0.5);
+
+        await parker.ParkIfNeededAsync(default);
+
+        session.TeleportCalls.Should().ContainSingle();   // positioned this cycle
+        session.SitCalls.Should().BeEmpty();              // sit is next cycle's action
+    }
+
+    [Fact]
+    public async Task Chairs_AllUnparseable_BehavesAsRectangleOnly()
+    {
+        var session = new FakeBotSession
+        {
+            CurrentLocation = new BotLocation("Hadron", 37, 69),
+        };
+        var parker = Make(session, OptsWithChairs("not-a-uuid", "also-bad"),
+            () => DateTimeOffset.UnixEpoch, () => 0.0);
+
+        await parker.ParkIfNeededAsync(default);
+
+        session.SitCalls.Should().BeEmpty();
+        session.TeleportCalls.Should().BeEmpty();         // in rect, no chairs -> parked
     }
 }

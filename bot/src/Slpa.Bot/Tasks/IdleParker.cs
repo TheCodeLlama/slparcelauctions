@@ -15,14 +15,22 @@ public interface IIdleParker
 }
 
 /// <summary>
-/// Relocates an idle bot into the configured rectangle. Stateless except for
-/// a cooldown timestamp: each idle cycle re-checks rectangle membership, so
-/// being inside the rectangle is its own idempotency. Observation-only state
-/// (heartbeat/activity) is deliberately NOT consulted here — "idle" is solely
-/// "TaskLoop.ClaimAsync returned null".
+/// Drives an idle bot toward its resting state. Resting state is derived each
+/// cycle from observable session signals (never stored), so a task teleport
+/// that unseats the bot is handled automatically next cycle:
+/// <list type="bullet">
+/// <item>Adrift — not seated, outside the rectangle/region → teleport in.</item>
+/// <item>InRectangle — standing in the rectangle → sit on a random chair
+/// (or, with no chairs configured, this IS the goal: today's behavior).</item>
+/// <item>Seated — believed seated on a recorded chair → done.</item>
+/// </list>
+/// Observation-only state (heartbeat/activity) is deliberately NOT consulted —
+/// "idle" is solely "TaskLoop.ClaimAsync returned null".
 /// </summary>
 public sealed class IdleParker : IIdleParker
 {
+    internal enum IdleRestState { Adrift, InRectangle, Seated }
+
     private readonly IBotSession _session;
     private readonly IdleParkOptions _opts;
     private readonly ILogger<IdleParker> _log;
@@ -31,6 +39,8 @@ public sealed class IdleParker : IIdleParker
 
     private DateTimeOffset _nextParkUtc = DateTimeOffset.MinValue;
     private bool _warnedDisabled;
+    private bool _warnedBadChair;
+    private Guid? _seatedChair;
 
     public IdleParker(
         IBotSession session,
@@ -55,6 +65,29 @@ public sealed class IdleParker : IIdleParker
         _rng = rng;
     }
 
+    /// <summary>
+    /// Pure resting-state classifier. <paramref name="loc"/> must be non-null
+    /// (the caller handles the no-location case before calling this).
+    /// </summary>
+    internal static IdleRestState DeriveState(
+        bool isSeated, Guid? seatedChair, BotLocation loc, IdleParkOptions opts)
+    {
+        if (isSeated && seatedChair is not null)
+            return IdleRestState.Seated;
+
+        double minX = Math.Min(opts.Corner1X, opts.Corner2X);
+        double maxX = Math.Max(opts.Corner1X, opts.Corner2X);
+        double minY = Math.Min(opts.Corner1Y, opts.Corner2Y);
+        double maxY = Math.Max(opts.Corner1Y, opts.Corner2Y);
+
+        bool inRect = string.Equals(
+                loc.Region, opts.Region, StringComparison.OrdinalIgnoreCase)
+            && loc.X >= minX && loc.X <= maxX
+            && loc.Y >= minY && loc.Y <= maxY;
+
+        return inRect ? IdleRestState.InRectangle : IdleRestState.Adrift;
+    }
+
     public async Task ParkIfNeededAsync(CancellationToken ct)
     {
         try
@@ -75,43 +108,73 @@ public sealed class IdleParker : IIdleParker
             var now = _now();
             if (now < _nextParkUtc) return;
 
+            bool isSeated = _session.IsSeated;
+            if (!isSeated) _seatedChair = null; // sole unseat-detection
+
             var loc = _session.CurrentLocation;
-            if (loc is null) return;
+            if (!isSeated && loc is null) return; // can't position yet, no cooldown
 
-            double minX = Math.Min(_opts.Corner1X, _opts.Corner2X);
-            double maxX = Math.Max(_opts.Corner1X, _opts.Corner2X);
-            double minY = Math.Min(_opts.Corner1Y, _opts.Corner2Y);
-            double maxY = Math.Max(_opts.Corner1Y, _opts.Corner2Y);
+            var state = isSeated && _seatedChair is not null
+                ? IdleRestState.Seated
+                : DeriveState(isSeated, _seatedChair, loc!, _opts);
 
-            bool inRegion = string.Equals(
-                loc.Region, _opts.Region, StringComparison.OrdinalIgnoreCase);
-            bool inRect = inRegion
-                && loc.X >= minX && loc.X <= maxX
-                && loc.Y >= minY && loc.Y <= maxY;
-            if (inRect) return; // already parked — no teleport, no cooldown
-
-            double x = minX + _rng() * (maxX - minX);
-            double y = minY + _rng() * (maxY - minY);
-            double z = _opts.Z;
-
-            _nextParkUtc = now + TimeSpan.FromSeconds(_opts.ParkCooldownSeconds);
-
-            var result = await _session
-                .TeleportAsync(_opts.Region, x, y, z, ct, forceMove: true)
-                .ConfigureAwait(false);
-
-            if (result.Success)
+            switch (state)
             {
-                _log.LogInformation(
-                    "Idle-parked to {Region} ({X:F1},{Y:F1},{Z:F1})",
-                    _opts.Region, x, y, z);
-            }
-            else
-            {
-                _log.LogWarning(
-                    "Idle-park teleport to {Region} failed: {Failure}; " +
-                    "backing off {Cooldown}s",
-                    _opts.Region, result.Failure, _opts.ParkCooldownSeconds);
+                case IdleRestState.Seated:
+                    return; // goal reached
+
+                case IdleRestState.Adrift:
+                {
+                    double minX = Math.Min(_opts.Corner1X, _opts.Corner2X);
+                    double maxX = Math.Max(_opts.Corner1X, _opts.Corner2X);
+                    double minY = Math.Min(_opts.Corner1Y, _opts.Corner2Y);
+                    double maxY = Math.Max(_opts.Corner1Y, _opts.Corner2Y);
+
+                    double x = minX + _rng() * (maxX - minX);
+                    double y = minY + _rng() * (maxY - minY);
+                    double z = _opts.Z;
+
+                    _nextParkUtc = now + TimeSpan.FromSeconds(_opts.ParkCooldownSeconds);
+
+                    var tp = await _session
+                        .TeleportAsync(_opts.Region, x, y, z, ct, forceMove: true)
+                        .ConfigureAwait(false);
+
+                    if (tp.Success)
+                        _log.LogInformation(
+                            "Idle-parked to {Region} ({X:F1},{Y:F1},{Z:F1})",
+                            _opts.Region, x, y, z);
+                    else
+                        _log.LogWarning(
+                            "Idle-park teleport to {Region} failed: {Failure}; "
+                            + "backing off {Cooldown}s",
+                            _opts.Region, tp.Failure, _opts.ParkCooldownSeconds);
+                    return;
+                }
+
+                case IdleRestState.InRectangle:
+                {
+                    var chairs = ParseChairs();
+                    if (chairs.Count == 0) return; // no chairs -> this IS the goal
+
+                    var chair = chairs[(int)(_rng() * chairs.Count)];
+                    _nextParkUtc = now + TimeSpan.FromSeconds(_opts.ParkCooldownSeconds);
+
+                    var sr = await _session.SitAsync(chair, ct).ConfigureAwait(false);
+                    if (sr.Success)
+                    {
+                        _seatedChair = chair;
+                        _log.LogInformation("Idle-sat on chair {Chair}", chair);
+                    }
+                    else
+                    {
+                        _log.LogWarning(
+                            "Idle-sit on {Chair} failed: {Failure}; staying "
+                            + "standing, backing off {Cooldown}s",
+                            chair, sr.Failure, _opts.ParkCooldownSeconds);
+                    }
+                    return;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -120,7 +183,7 @@ public sealed class IdleParker : IIdleParker
         }
         catch (Exception ex)
         {
-            // Re-read the clock: TeleportAsync may have thrown after an
+            // Re-read the clock: the awaited call may have thrown after an
             // unpredictable delay, so the pre-await `now` is a stale anchor.
             _nextParkUtc = _now()
                 + TimeSpan.FromSeconds(_opts.ParkCooldownSeconds);
@@ -128,5 +191,24 @@ public sealed class IdleParker : IIdleParker
                 "Idle-park attempt threw; backing off {Cooldown}s",
                 _opts.ParkCooldownSeconds);
         }
+    }
+
+    private List<Guid> ParseChairs()
+    {
+        var list = new List<Guid>(_opts.Chairs.Count);
+        foreach (var s in _opts.Chairs)
+        {
+            if (Guid.TryParse(s, out var g))
+            {
+                list.Add(g);
+            }
+            else if (!_warnedBadChair)
+            {
+                _log.LogWarning(
+                    "IdlePark.Chairs has unparseable entry '{Entry}'; skipping.", s);
+                _warnedBadChair = true;
+            }
+        }
+        return list;
     }
 }
