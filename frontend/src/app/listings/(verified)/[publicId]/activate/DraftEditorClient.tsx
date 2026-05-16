@@ -14,6 +14,8 @@ import {
   SellerProfileCard,
   type SellerProfileCardSeller,
 } from "@/components/auction/SellerProfileCard";
+import { GroupSellerProfileCard } from "@/components/auction/GroupSellerProfileCard";
+import { useRealtyGroup } from "@/hooks/realty/useRealtyGroups";
 import { EditablePhotoGallery } from "@/components/listing/draft-editor/EditablePhotoGallery";
 import { BidPanelPreview } from "@/components/listing/draft-editor/BidPanelPreview";
 import { DraftActionBar } from "@/components/listing/draft-editor/DraftActionBar";
@@ -64,6 +66,10 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
   const feeQ = useListingFeeConfig();
   const groupPublicId = auction.realtyGroup?.publicId ?? null;
   const isGroupListing = groupPublicId !== null;
+  // Fetch the group profile so the seller-card preview shows the buyer
+  // view: group as primary seller with group stats. The hook is gated by
+  // groupPublicId so user-listed drafts never fire it.
+  const groupProfileQ = useRealtyGroup(groupPublicId ?? undefined);
   // Only one of these is meaningfully populated: the user wallet drives
   // personal listings, the group wallet drives group-attributed ones.
   // Backend MeWalletController.payListingFee routes the debit the same
@@ -225,7 +231,20 @@ export function DraftEditorClient({ auction }: DraftEditorClientProps) {
             />
             <ParcelLayoutMapPlaceholder />
             <BidHistoryList auctionPublicId={auction.publicId} />
-            <SellerProfileCard seller={sellerCardData} />
+            {auction.realtyGroup &&
+            !auction.realtyGroup.dissolved &&
+            auction.listingAgent ? (
+              <GroupSellerProfileCard
+                group={auction.realtyGroup}
+                agent={auction.listingAgent}
+                averageRating={groupProfileQ.data?.rating?.averageRating ?? null}
+                reviewCount={groupProfileQ.data?.rating?.reviewCount ?? 0}
+                completedSales={groupProfileQ.data?.completedSalesCount ?? 0}
+                foundedAt={groupProfileQ.data?.memberSince ?? null}
+              />
+            ) : (
+              <SellerProfileCard seller={sellerCardData} />
+            )}
           </div>
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-24">

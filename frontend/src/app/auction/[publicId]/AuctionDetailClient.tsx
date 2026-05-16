@@ -24,6 +24,8 @@ import {
   SellerProfileCard,
   type SellerProfileCardSeller,
 } from "@/components/auction/SellerProfileCard";
+import { GroupSellerProfileCard } from "@/components/auction/GroupSellerProfileCard";
+import { useRealtyGroup } from "@/hooks/realty/useRealtyGroups";
 import { VisitInSecondLifeBlock } from "@/components/auction/VisitInSecondLifeBlock";
 import { BidPanel } from "@/components/auction/BidPanel";
 import { BidHistoryList } from "@/components/auction/BidHistoryList";
@@ -408,7 +410,17 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           ) : null}
           <ParcelLayoutMapPlaceholder />
           <BidHistoryList auctionPublicId={publicId} />
-          <SellerProfileCard seller={sellerCardData} />
+          {auction.realtyGroup &&
+          !auction.realtyGroup.dissolved &&
+          auction.listingAgent ? (
+            <GroupSellerProfileCardContainer
+              group={auction.realtyGroup}
+              agent={auction.listingAgent}
+              fallbackSeller={sellerCardData}
+            />
+          ) : (
+            <SellerProfileCard seller={sellerCardData} />
+          )}
         </div>
         <aside className="hidden lg:block lg:col-span-4">
           <div
@@ -453,6 +465,42 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         </BidSheet>
       </div>
     </main>
+  );
+}
+
+/**
+ * Lazily fetches the group profile so the seller card can show group-
+ * level rating, lifetime sales, and founded-at without making the parent
+ * suspend on it. While the fetch is in flight (or on error) the card
+ * still renders — with the attribution data we already have from
+ * {@code auction.realtyGroup} — so layout doesn't shift on resolve.
+ */
+function GroupSellerProfileCardContainer({
+  group,
+  agent,
+  fallbackSeller,
+}: {
+  group: NonNullable<PublicAuctionResponse["realtyGroup"]>;
+  agent: NonNullable<PublicAuctionResponse["listingAgent"]>;
+  fallbackSeller: SellerProfileCardSeller;
+}) {
+  const groupQuery = useRealtyGroup(group.publicId);
+  if (groupQuery.isError) {
+    // Group fetch failed — fall back to the individual seller card so
+    // the page still shows something meaningful. The attribution line
+    // at the top still tells the buyer it's a group listing.
+    return <SellerProfileCard seller={fallbackSeller} />;
+  }
+  const profile = groupQuery.data;
+  return (
+    <GroupSellerProfileCard
+      group={group}
+      agent={agent}
+      averageRating={profile?.rating?.averageRating ?? null}
+      reviewCount={profile?.rating?.reviewCount ?? 0}
+      completedSales={profile?.completedSalesCount ?? 0}
+      foundedAt={profile?.memberSince ?? null}
+    />
   );
 }
 
