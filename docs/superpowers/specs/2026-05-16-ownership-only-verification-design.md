@@ -1,7 +1,7 @@
 # Ownership-Only Verification (Design)
 
 **Date:** 2026-05-16
-**Status:** Draft — pending review
+**Status:** Approved — open questions resolved 2026-05-16
 **Author:** Heath / Claude
 **Scope:** Backend (verification flow, bot task lifecycle, fraud-flag emissions), Bot (delete dead paths), Frontend (verification UI), Docs (FOOTGUNS, README).
 
@@ -44,21 +44,21 @@ No `VERIFICATION_PENDING` intermediate state — the World API call is synchrono
 
 ### ACTIVE-state monitoring
 - `OwnershipCheckTask.checkOne` runs on its existing schedule (already implemented). On owner mismatch → `SuspensionService.suspendForOwnershipChange`.
-- **New: streak requirement.** Today the task suspends on a single observation. We add `consecutiveOwnerMismatches` to `Auction` (defaults to 0), increment on mismatch, reset on match. Suspend only when the counter crosses `slpa.ownership-monitor.mismatch-streak-threshold` (default **2**). This defends against transient World API blips without measurably weakening the fraud signal.
+- **New: streak requirement.** Today the task suspends on a single observation. We add `consecutiveOwnerMismatches` to `Auction` (defaults to 0), increment on mismatch, reset on match. Suspend only when the counter crosses `slpa.ownership-monitor.mismatch-streak-threshold` (default **2**). This defends against transient World API bliCleanps without measurably weakening the fraud signal.
 - The bot's `MONITOR_AUCTION` task type stops being created. The dispatcher code path for auction monitoring is removed; the bot worker's `ClassifyAuction` is removed.
 
 ### Escrow-phase monitoring
-Unchanged. `EscrowOwnershipCheckTask` already uses World API and is the source of truth for transfer confirmation. See §6 for a separate decision on whether to keep the bot's `MONITOR_ESCROW` path or retire it too.
+World API only via `EscrowOwnershipCheckTask`. The bot's `MONITOR_ESCROW` path is retired (see §6 for details and pre-ship confirmation steps).
 
 ## 4. Code surface (delta)
 
 ### Backend
 
-**Remove or no-op:**
-- `VerificationMethod` enum stays as a column for historical rows but new auctions use a single internal kind; UI no longer exposes the choice.
+**Remove (clean break):**
+- `VerificationMethod` enum and the `auctions.verification_method` column — drop both in this PR. No phased keep-nullable interlude. (Confirmed: no in-flight listings depend on the old column; current production listings have all been cancelled.)
 - `BotMonitorDispatcher.dispatchAuction(...)` — entire method, plus the `BOT_PRICE_DRIFT`, `BOT_AUTH_BUYER_REVOKED`, `BOT_ACCESS_REVOKED` (auction variant) branches.
-- `BotTaskService` paths that create `MONITOR_AUCTION` tasks.
-- `Auction.expectedAuthBuyerUuid`, `Auction.expectedSalePriceLindens` — drop columns (or keep nullable for a release before removing).
+- `BotTaskService` paths that create `MONITOR_AUCTION` tasks, plus `BotTaskType.MONITOR_AUCTION` enum value.
+- `Auction.expectedAuthBuyerUuid`, `Auction.expectedSalePriceLindens`, `Auction.verificationMethod` — drop columns.
 
 **Keep but rename / extend:**
 - `OwnershipCheckTask` — add the streak field and threshold. No structural change.
@@ -75,8 +75,14 @@ Unchanged. `EscrowOwnershipCheckTask` already uses World API and is the source o
 - `BotTaskResponse.ExpectedAuthBuyerUuid`, `ExpectedSalePriceLindens` — drop from the bot wire shape too.
 - `VerifyHandler` — entire class, plus the `BotTaskType.VERIFY` enum value.
 
+**Remove (escrow path too, per §6):**
+- `MonitorHandler.ClassifyEscrow`, plus the `MONITOR_ESCROW` / `TRANSFER_READY` / `TRANSFER_COMPLETE` / `STILL_WAITING` / `PRICE_MISMATCH_INFO` outcomes that only that path consumes.
+- `BotTaskType.MONITOR_ESCROW` enum value.
+- `BotMonitorDispatcher.dispatchEscrow(...)` — entire method.
+- `BotTaskService` paths that create `MONITOR_ESCROW` tasks.
+- Backend `escrowService.publishTransferReadyObserved(...)` wiring if no other path emits it (sweep at implementation time).
+
 **Keep:**
-- `MonitorHandler.ClassifyEscrow` — used by `MONITOR_ESCROW` (subject to §6).
 - IM dispatch, idle parking, withdraw-group handling.
 
 ### Frontend
@@ -117,26 +123,30 @@ DRAFT
 
 No `VERIFICATION_PENDING` in the new flow.
 
-## 6. Open question: bot `MONITOR_ESCROW`
+## 6. Bot `MONITOR_ESCROW` — retire (decided)
 
-`EscrowOwnershipCheckTask` uses the World API to detect transfer completion. The bot's `MONITOR_ESCROW` also runs in parallel (via `BotMonitorDispatcher.dispatchEscrow`), and reports `TRANSFER_COMPLETE`, `TRANSFER_READY`, etc. Two paths watching the same thing.
+`EscrowOwnershipCheckTask` uses the World API to detect transfer completion. The bot's `MONITOR_ESCROW` runs in parallel (via `BotMonitorDispatcher.dispatchEscrow`) and reports `TRANSFER_COMPLETE`, `TRANSFER_READY`, etc. — two paths watching the same thing.
 
-Options:
-- **(a) Retire bot escrow monitor too.** World API is the source of truth; the bot version is redundant. Simplifies the bot to two roles: IM dispatch + idle. Cleaner architecture.
-- **(b) Keep both.** Bot has a different failure mode than World API; running both catches different transient outages. Costs ~one bot session for the escrow watch task.
+**Decision: retire the bot escrow monitor too.** World API becomes the only source of truth for transfer detection. Simplifies the bot to two roles: IM dispatch + idle presence.
 
-**Recommendation: (a),** assuming `EscrowOwnershipCheckTask`'s cadence is fast enough that buyers don't notice the difference. Confirm before shipping.
+**Cadence check.** `EscrowOwnershipMonitorJob` sweeps every 5 minutes (`@Scheduled(fixedDelayString = "${slpa.escrow.ownership-monitor-job.fixed-delay:PT5M}")` at `EscrowOwnershipMonitorJob.java:42`). For a manual seller-to-winner transfer (which takes seconds in-world), 5-minute worst-case detection latency is acceptable — buyers don't stare at a stopwatch waiting for confirmation, they get a notification when the escrow flips to COMPLETED.
 
-## 7. Migration
+**Pre-ship confirmation (during implementation):**
+1. Validate that `EscrowOwnershipCheckTask` already handles the full set of outcomes that `BotMonitorDispatcher.dispatchEscrow` handles today: TRANSFER_COMPLETE (owner == winner → confirmTransfer), STILL_WAITING (owner == seller → stampChecked), UNKNOWN_OWNER (third party → freeze), PARCEL_DELETED, World API failure threshold. Spot-check via `EscrowOwnershipCheckTask.java:108-147`.
+2. Confirm no `TRANSFER_READY_KEY` consumer depends on the bot's emission — if there is, replace with a World-API-driven equivalent or document the regression and pick a different escrow-ready signal.
+3. If neither check surfaces a gap, retire `MONITOR_ESCROW` in the same PR.
+4. If a gap is found, the spec gets re-scoped: keep the bot escrow monitor for now, file a follow-up to migrate the missing capability to the World API path, and ship the rest.
 
-Two failure modes to manage:
+## 7. Migration — none required
 
-1. **Listings in DRAFT_PAID waiting for the seller to pick a verification method.** On deploy, they automatically see the new single-button UI. Backend simply doesn't read `verificationMethod` for the new path.
-2. **Listings in VERIFICATION_PENDING.** A bot task may be in flight (UUID_ENTRY callback awaited, REZZABLE terminal hit awaited, or SALE_TO_BOT bot polling). One-time backfill:
-   - On deploy, scan for `status = VERIFICATION_PENDING` auctions; run the new World-API check immediately and transition each auction to ACTIVE (match) or VERIFICATION_FAILED (miss).
-   - Cancel any in-flight bot `VERIFY` tasks for these auctions.
+All current production listings have been cancelled. There are no in-flight DRAFT_PAID, VERIFICATION_PENDING, or ACTIVE auctions whose state depends on the columns or task types being removed. Clean cut-over at deploy time:
 
-This is a one-shot batch executed by a deploy-gated job (single-tx, idempotent, logged per-auction). No long-tail "old code path" support beyond the deploy.
+- Drop `auctions.verification_method`, `auctions.expected_auth_buyer_uuid`, `auctions.expected_sale_price_lindens` columns in the migration.
+- Drop `pending_verification` table if it exists and is no longer referenced.
+- Drop `bot_tasks` rows of `task_type IN ('VERIFY', 'MONITOR_AUCTION', 'MONITOR_ESCROW')` in the migration (defensive — should be empty given the cancellation, but cheap to include).
+- Backend deploys, frontend deploys, the new flow is live. No backfill job, no dual-path support.
+
+If a prod listing slips in between spec sign-off and deploy, cancel it manually before the merge.
 
 ## 8. Rollout
 
@@ -162,9 +172,9 @@ No phased rollout / feature flag. Memory `feedback_production_not_mvp` says "eve
 - Changing the bot's IM-dispatch role.
 - Adding a brand-new monitoring mechanism. Reusing `OwnershipCheckTask` exactly as it stands plus a streak field.
 
-## 11. Open questions for review
+## 11. Resolved questions (2026-05-16)
 
-1. **§6 — escrow monitor:** retire bot `MONITOR_ESCROW` (option a) or keep both paths (option b)?
-2. **§3 — streak threshold:** is `2` the right default, or do you want `3`?
-3. **§7 — migration:** are you OK with a one-shot backfill at deploy time, or would you rather drain in-flight listings under the old rules?
-4. **VerificationMethod column:** drop it now (clean break) or keep nullable for the next release and remove later?
+1. **§6 — escrow monitor:** Retire bot `MONITOR_ESCROW` (option a). Confirm `EscrowOwnershipCheckTask` covers all outcomes before shipping (§6 pre-ship checks).
+2. **§3 — streak threshold:** Default `2`.
+3. **§7 — migration:** No migration. All current listings cancelled; clean cut-over.
+4. **VerificationMethod column:** Clean drop in the same PR.
