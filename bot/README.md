@@ -23,9 +23,10 @@ auction monitoring, BOT-tier escrow monitoring).
 | `IdlePark__Corner2Y`            | no       | `65`                                   | opposite corner Y                          |
 | `IdlePark__Z`                   | no       | `25`                                   | landing altitude                           |
 | `IdlePark__ParkCooldownSeconds` | no       | `180`                                  | min interval between park attempts         |
+| `IdlePark__Chairs__0..N`        | no       | 8 Hadron chairs                        | idle bot sits on a random one; empty = stand only |
 | `Heartbeat__IntervalSeconds`    | no       | `60`                                   | heartbeat cadence; backend TTL is 180s     |
 
-Idle-parking is on by default with the Hadron rectangle baked in. When a bot has no task to service and is outside the configured rectangle, it teleports to a random point inside it. The heartbeat runs independently of the task loop and of session state, so a logged-in bot always appears in the admin Bot-pool panel.
+Idle-parking is on by default with the Hadron rectangle baked in. When a bot has no task to service and is outside the configured rectangle, it teleports to a random point inside it. The heartbeat runs independently of the task loop and of session state, so a logged-in bot always appears in the admin Bot-pool panel. When `IdlePark.Chairs` is non-empty (8 chairs ship by default), an idle bot in the rectangle sits on one chair chosen at random; one attempt per idle cycle, and if it fails the bot just stays standing in the rectangle. Clear the list to revert to stand-only parking.
 
 ASP.NET uses `__` (double underscore) as the section separator for
 environment variables. In `appsettings.json` these are nested under
@@ -71,6 +72,12 @@ tests never touch `GridClient` directly.
 9. Open the admin Infrastructure page, Bot pool section. Within ~60 s the
    bot shows as `1/1 healthy` with its region. Kill the bot process; after
    ~180 s the row flips red (Redis TTL lapsed).
+10. With chairs configured, leave a bot idle ~1 min: confirm it teleports
+    into the rectangle then sits (log line `Idle-sat on chair <uuid>`).
+    Confirm it does NOT re-sit every cooldown while seated, and that after a
+    task teleports it away it re-sits next idle cycle. A rejected/occupied
+    chair logs `Idle-sit on <uuid> failed: NotSittable` and the bot stays
+    standing.
 
 ## Prerequisites
 

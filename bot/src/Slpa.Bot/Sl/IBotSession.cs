@@ -17,6 +17,15 @@ public interface IBotSession : IAsyncDisposable
     /// </summary>
     BotLocation? CurrentLocation { get; }
 
+    /// <summary>
+    /// True when the bot is seated on a chair it successfully sat on this
+    /// rest (belief-based — set by <see cref="SitAsync"/>, cleared by any
+    /// teleport or disconnect). Object tracking is off on the headless
+    /// client so a localID-&gt;UUID mapping is unreliable; this belief is the
+    /// idle-park "still parked?" signal.
+    /// </summary>
+    bool IsSeated { get; }
+
     /// <summary>Starts the login loop. Idempotent; returns when state != Starting.</summary>
     Task StartAsync(CancellationToken ct);
 
@@ -36,6 +45,16 @@ public interface IBotSession : IAsyncDisposable
     Task<TeleportResult> TeleportAsync(
         string regionName, double x, double y, double z,
         CancellationToken ct, bool forceMove = false);
+
+    /// <summary>
+    /// Sits the bot on the object <paramref name="chairUuid"/>. Mirrors
+    /// <see cref="TeleportAsync"/>'s event-race: issues RequestSit, awaits
+    /// the AvatarSitResponse for that object vs. a ~15s timeout, throws
+    /// <see cref="SessionLostException"/> if the session drops mid-sit.
+    /// Scripted sit targets seat the avatar region-wide, so being in the
+    /// rectangle (guaranteed by the prior teleport) is sufficient.
+    /// </summary>
+    Task<SitResult> SitAsync(Guid chairUuid, CancellationToken ct);
 
     /// <summary>
     /// Requests ParcelProperties for the parcel at (x, y) within the
