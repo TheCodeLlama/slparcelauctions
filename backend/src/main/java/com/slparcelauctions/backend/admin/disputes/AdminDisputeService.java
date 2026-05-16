@@ -10,8 +10,8 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.CancellationService;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
-import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +46,7 @@ import java.util.Map;
 public class AdminDisputeService {
 
     private final EscrowRepository escrowRepo;
-    private final TerminalCommandService terminalCommandService;
+    private final EscrowService escrowService;
     private final CancellationService cancellationService;
     private final NotificationPublisher notificationPublisher;
     private final AdminActionService adminActionService;
@@ -99,12 +99,14 @@ public class AdminDisputeService {
         escrow.setState(newState);
         escrowRepo.save(escrow);
 
-        // Queue refund when escrow reaches EXPIRED, but only if funded.
-        // An unfunded escrow has no L$ to refund — queueing a REFUND command
-        // for a never-funded escrow would send L$ the winner never paid.
+        // Credit refund when escrow reaches EXPIRED, but only if funded.
+        // An unfunded escrow has no L$ to refund -- crediting it would
+        // invent L$ the winner never paid. Refund goes to the winner's
+        // SLParcels wallet (they can withdraw separately if they want it
+        // out of the system).
         boolean refundQueued = false;
         if (reachedExpired && escrow.getFundedAt() != null) {
-            terminalCommandService.queueRefund(escrow);
+            escrowService.queueRefundIfFunded(escrow);
             refundQueued = true;
         }
 

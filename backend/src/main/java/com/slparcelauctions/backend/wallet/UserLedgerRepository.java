@@ -49,6 +49,14 @@ public interface UserLedgerRepository
     List<UserLedgerEntry> findTop50ByUserIdOrderByCreatedAtDesc(Long userId);
 
     /**
+     * Test-only convenience for clearing ledger rows during teardown.
+     * Production code paths never delete from the append-only ledger;
+     * this exists so integration tests that seed users can satisfy the
+     * {@code user_ledger_user_id_fkey} constraint at cleanup time.
+     */
+    void deleteAllByUserId(Long userId);
+
+    /**
      * Cursor pagination for the {@code /me/wallet/ledger} endpoint.
      */
     Page<UserLedgerEntry> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
