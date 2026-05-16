@@ -16,11 +16,13 @@ Backend (Spring Boot 4 / Java 26 / PostgreSQL / Redis / MinIO)
 In-World (Second Life LSL Scripts)      Bot (.NET 8 / LibreMetaverse)
 ```
 
-**Backend services**: Auth & Identity, Auction Engine, Escrow Manager, Verification Service, Notifications, SL World API Client (ownership polling), Bot Task Queue.
+**Backend services**: Auth & Identity, Auction Engine, Escrow Manager, Verification Service, Notifications, SL World API Client (synchronous ownership verification + ongoing ownership polling), Bot Task Queue.
 
 **Frontend pages**: Register/Verify, Browse Listings, Auction Room (live WebSocket), Dashboard (My Bids/Sales).
 
-**Bot worker**: .NET 8 / LibreMetaverse worker that logs in as `SLPABot*` accounts and services backend tasks (Method C verification, BOT-tier ownership/escrow monitoring). See `bot/README.md`.
+**Verification**: a single synchronous SL World API ownership check at listing-activation time (spec `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md`). No bot involvement, no in-world setup. Active-state ownership monitoring also runs from the backend via `OwnershipCheckTask`.
+
+**Bot worker**: .NET 8 / LibreMetaverse worker that logs in as `SLPABot*` accounts. Current roles: SL IM dispatch, idle parking, and `WITHDRAW_GROUP` task handling (realty-group wallet payouts). The bot has no role in listing-phase verification or active-state ownership monitoring. See `bot/README.md`.
 
 ## Commands
 

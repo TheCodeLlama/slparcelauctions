@@ -13,11 +13,9 @@ import jakarta.validation.constraints.Size;
  * current parcel UUID, {@code AuctionService.update} performs a fresh
  * lookup and refreshes the parcel snapshot in place.
  *
- * <p>Per sub-spec 2 §7.1/§7.2, {@code verificationMethod} is intentionally
- * omitted here — it is chosen by the seller on PUT /auctions/{id}/verify
- * (see {@code AuctionVerifyRequest}), which is the sole place the group-land
- * gate is enforced. Accepting it via the general update endpoint would let
- * a client bypass that gate.
+ * <p>Verification metadata is not accepted here -- the ownership-only
+ * verification flow is triggered by {@code PUT /auctions/{publicId}/verify}
+ * with an empty body and reads owner UUIDs straight from the World API.
  */
 public record AuctionUpdateRequest(
         UUID slParcelUuid,

@@ -10,12 +10,6 @@ public interface IBackendClient
     /// </summary>
     Task<BotTaskResponse?> ClaimAsync(Guid botUuid, CancellationToken ct);
 
-    /// <summary>Report VERIFY outcome. Task becomes COMPLETED / FAILED.</summary>
-    Task CompleteVerifyAsync(long taskId, BotTaskCompleteRequest body, CancellationToken ct);
-
-    /// <summary>Report MONITOR_* outcome. Backend re-arms or cancels the row.</summary>
-    Task PostMonitorAsync(long taskId, BotMonitorResultRequest body, CancellationToken ct);
-
     /// <summary>
     /// Best-effort heartbeat (blocking: awaits the shared bearer auth + 5xx
     /// retry ladder). Throws <see cref="AuthConfigException"/> on 401 (the

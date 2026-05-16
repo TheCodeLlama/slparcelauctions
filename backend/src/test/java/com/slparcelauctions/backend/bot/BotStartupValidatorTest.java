@@ -50,7 +50,7 @@ class BotStartupValidatorTest {
 
     private static BotTaskConfigProperties props(String secret, UUID primaryEscrow) {
         return new BotTaskConfigProperties(
-                new Bot(secret, null, null, 3, 6),
-                new BotTask(999_999_999L, primaryEscrow, null, null, null));
+                new Bot(secret),
+                new BotTask(primaryEscrow));
     }
 }

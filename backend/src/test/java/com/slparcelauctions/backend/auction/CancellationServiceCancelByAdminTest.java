@@ -116,7 +116,7 @@ class CancellationServiceCancelByAdminTest {
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(1000L)
                     .currentBid(bidCount > 0 ? 1500L : 0L)

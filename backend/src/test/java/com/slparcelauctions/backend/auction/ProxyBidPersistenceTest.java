@@ -153,7 +153,7 @@ class ProxyBidPersistenceTest {
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1_000L)
                 .durationHours(168)

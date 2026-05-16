@@ -177,34 +177,23 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
   driven by a new `BotTaskType.LAYOUT_MAP`. Do not scaffold until the
   design lands.
 
-### TRANSFER_READY_OBSERVED envelope shape
+### TRANSFER_READY_OBSERVED envelope shape — RESOLVED (2026-05-16)
 - **From:** Epic 06 Task 5 (`BotMonitorDispatcher` MONITOR_ESCROW
   TRANSFER_READY branch)
-- **Why:** `EscrowService.publishTransferReadyObserved` is a stub
-  (logs + no-op publisher) awaiting the real escrow WS envelope shape.
-  The dispatcher's first-transition log + call already lands; only the
-  outbound envelope payload is deferred.
-- **When:** Epic 05 follow-up — fold in when a second escrow WS
-  envelope needs extending so the shape can be designed once across the
-  family (status change + transfer-ready-observed together).
-- **Notes:** Sub-spec 1's escrow envelopes use cache-invalidation-only
-  semantics (FOOTGUNS §F.82). The TRANSFER_READY_OBSERVED envelope
-  should follow that convention — carry only `{ auctionId, escrowId,
-  observedAt }`, not the bot's raw observation.
+- **Resolution:** Closed by the ownership-only verification refactor
+  (spec `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md`).
+  `BotMonitorDispatcher` and the `MONITOR_ESCROW` task type are gone;
+  `EscrowOwnershipCheckTask` (World API) is the sole transfer-detection
+  path. No outbound envelope needs designing — the existing
+  cache-invalidation-only ESCROW_* envelope family already covers what
+  the UI needs.
 
-### BotMonitorDispatcher strategy split
+### BotMonitorDispatcher strategy split — RESOLVED (2026-05-16)
 - **From:** Epic 06 Task 5 (`BotMonitorDispatcher` size)
-- **Why:** The dispatcher is already ~300 LoC handling 8 `MonitorOutcome`
-  values across MONITOR_AUCTION + MONITOR_ESCROW. If a third MONITOR_*
-  type is added or the branching grows further, splitting into per-type
-  strategy classes (`MonitorAuctionStrategy` + `MonitorEscrowStrategy`
-  behind a `MonitorDispatchStrategy` interface) would keep the single
-  class manageable.
-- **When:** Opportunistic — pull in on the next touch that grows the
-  branching beyond the current 13 dispatch-table entries.
-- **Notes:** Tests are already structured per-outcome in
-  `BotMonitorDispatcherTest` so a strategy-split refactor can rehome
-  tests without rewriting assertions.
+- **Resolution:** Closed by the ownership-only verification refactor
+  (spec `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md`).
+  `BotMonitorDispatcher` was deleted in full along with the MONITOR_AUCTION
+  and MONITOR_ESCROW task types it dispatched against.
 
 ### Public StatsBar on homepage (activity-threshold gated)
 - **From:** Epic 07 sub-spec 2 (Task 3)

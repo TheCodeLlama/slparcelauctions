@@ -74,7 +74,6 @@ class CancellationServiceBrokerCancelTest {
     @Mock CancellationLogRepository logRepo;
     @Mock ListingFeeRefundRepository refundRepo;
     @Mock UserRepository userRepo;
-    @Mock com.slparcelauctions.backend.bot.BotMonitorLifecycleService monitorLifecycle;
     @Mock AuctionBroadcastPublisher broadcastPublisher;
     @Mock NotificationPublisher notificationPublisher;
     @Mock BanCheckService banCheckService;
@@ -105,7 +104,7 @@ class CancellationServiceBrokerCancelTest {
                 new CancellationPenaltyProperties.Penalty(1000L, 2500L, 30),
                 48);
         service = new CancellationService(
-                auctionRepo, bidRepo, logRepo, refundRepo, userRepo, monitorLifecycle,
+                auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
                 realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
 
@@ -157,8 +156,7 @@ class CancellationServiceBrokerCancelTest {
         assertThat(seller.getBannedFromListing()).isFalse();
         assertThat(out.getPostCancelWatchUntil()).isNull();
 
-        // Lifecycle + notification + broadcast all fired.
-        verify(monitorLifecycle).onAuctionClosed(out);
+        // Notification + broadcast both fired.
         verify(notificationPublisher).brokerCancelled(
                 eq(LISTING_AGENT_ID), eq(AUCTION_ID), eq("Case 3 Test Lot"),
                 eq(BROKER_ID), eq("agent removed listing"));
@@ -338,7 +336,7 @@ class CancellationServiceBrokerCancelTest {
         Auction a = Auction.builder()
                 .title("Case 3 Test Lot")
                 .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID).status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false)
                 .listingFeePaid(listingFeePaid)

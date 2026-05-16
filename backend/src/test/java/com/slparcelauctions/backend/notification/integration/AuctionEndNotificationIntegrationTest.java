@@ -29,7 +29,6 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.Bid;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidType;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.notification.Notification;
@@ -123,7 +122,7 @@ class AuctionEndNotificationIntegrationTest {
                     .slParcelUuid(parcelUuid)
                     .seller(userRepo.findById(sellerId).orElseThrow())
                     .status(AuctionStatus.ACTIVE)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)
                     .reservePrice(reserve)

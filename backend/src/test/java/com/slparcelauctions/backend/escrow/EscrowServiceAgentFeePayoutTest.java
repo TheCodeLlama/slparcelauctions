@@ -27,7 +27,6 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.escrow.broadcast.CapturingEscrowBroadcastPublisher;
@@ -203,7 +202,7 @@ class EscrowServiceAgentFeePayoutTest {
                     .realtyGroupSlGroupId(slGroup.getId())
                     .agentCommissionRate(agentCommissionRate)
                     .status(AuctionStatus.ENDED)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)
                     .reservePrice(1_000L)

@@ -14,13 +14,19 @@ import lombok.Setter;
  * §8.8 for the World API failure-threshold semantics.
  *
  * <ul>
- *   <li>{@code enabled} — master kill-switch for the monitor scheduler.</li>
- *   <li>{@code checkIntervalMinutes} — target cadence between checks for a
+ *   <li>{@code enabled} -- master kill-switch for the monitor scheduler.</li>
+ *   <li>{@code checkIntervalMinutes} -- target cadence between checks for a
  *       given auction.</li>
- *   <li>{@code schedulerFrequency} — how often the scheduler wakes to pick
+ *   <li>{@code schedulerFrequency} -- how often the scheduler wakes to pick
  *       due auctions.</li>
- *   <li>{@code jitterMaxMinutes} — random jitter added to the per-auction
+ *   <li>{@code jitterMaxMinutes} -- random jitter added to the per-auction
  *       check interval to spread load.</li>
+ *   <li>{@code mismatchStreakThreshold} -- count of consecutive World API
+ *       owner mismatches required before an ACTIVE auction is suspended.
+ *       Defaults to 2 so a single transient World API result cannot tip a
+ *       live listing into SUSPENDED. Does NOT apply to the post-cancel
+ *       watcher path -- that flow is a one-shot forensic probe and flags
+ *       on the first observed mismatch.</li>
  * </ul>
  */
 @Configuration
@@ -33,4 +39,5 @@ public class OwnershipMonitorProperties {
     private int checkIntervalMinutes = 30;
     private Duration schedulerFrequency = Duration.ofSeconds(30);
     private int jitterMaxMinutes = 5;
+    private int mismatchStreakThreshold = 2;
 }

@@ -103,7 +103,7 @@ class AuctionControllerTest {
                 "Sample Listing",
                 null,
                 AuctionStatus.CANCELLED,
-                null, null, null, null,
+                null, null,
                 100L, null, null, 0L, 0,
                 null, 0L, null,
                 24, false, null,
@@ -127,7 +127,7 @@ class AuctionControllerTest {
         when(cancellationService.brokerCancel(
                 eq(CALLER_USER_ID), eq(AUCTION_INTERNAL_ID), eq("Listing withdrawn at owner request."), anyString()))
                 .thenReturn(cancelled);
-        when(mapper.toSellerResponse(eq(cancelled), eq(null))).thenReturn(stubResponse());
+        when(mapper.toSellerResponse(eq(cancelled))).thenReturn(stubResponse());
 
         mockMvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/broker-cancel")
                         .contentType(MediaType.APPLICATION_JSON)

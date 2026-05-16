@@ -290,7 +290,7 @@ class ParcelLockingRaceIntegrationTest {
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.DRAFT_PAID)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .startingBid(1000L)
                     .durationHours(168)
                     .snipeProtect(false)

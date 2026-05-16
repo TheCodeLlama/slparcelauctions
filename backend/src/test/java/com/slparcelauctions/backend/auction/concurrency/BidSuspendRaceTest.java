@@ -29,7 +29,6 @@ import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.BidService;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.AuctionAlreadyEndedException;
@@ -295,7 +294,7 @@ class BidSuspendRaceTest {
                 .slParcelUuid(pUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1_000L)
                 .durationHours(168)
@@ -305,6 +304,10 @@ class BidSuspendRaceTest {
                 .currentBid(0L)
                 .bidCount(0)
                 .consecutiveWorldApiFailures(0)
+                // Seed the mismatch streak at threshold-1 so the single
+                // ownership check this test fires immediately triggers the
+                // suspension branch (default threshold is 2).
+                .consecutiveOwnerMismatches(1)
                 .startsAt(now.minusHours(1))
                 .endsAt(now.plusDays(1))
                 .originalEndsAt(now.plusDays(1))

@@ -19,10 +19,8 @@ import lombok.RequiredArgsConstructor;
  * of activations (e.g. multiple sellers verifying around the same time) does
  * not cause all their first checks to fall in the same scheduler sweep.
  *
- * <p>Called by Method A ({@link com.slparcelauctions.backend.auction.AuctionVerificationService}),
- * Method B ({@link com.slparcelauctions.backend.sl.SlParcelVerifyService}),
- * and Method C ({@link com.slparcelauctions.backend.bot.BotTaskService}) just
- * before the save that persists the ACTIVE status. See spec §8.2.
+ * <p>Called by {@link com.slparcelauctions.backend.auction.AuctionVerificationService}
+ * just before the save that persists the ACTIVE status. See spec §8.2.
  *
  * <p>Uses {@link ThreadLocalRandom} because jitter is non-security; an
  * attacker gains nothing from predicting when a particular listing will

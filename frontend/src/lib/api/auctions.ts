@@ -4,7 +4,6 @@ import type {
   AuctionCancelRequest,
   AuctionCreateRequest,
   AuctionUpdateRequest,
-  AuctionVerifyRequest,
   BidHistoryEntry,
   BidResponse,
   ProxyBidResponse,
@@ -17,9 +16,10 @@ import type {
  * require an SL-verified seller — unverified callers get 403 problem details
  * which bubble up as ApiError.
  *
- * verificationMethod is intentionally not accepted on create/update — it is
- * selected by the seller at activate time via {@link triggerVerify} (see
- * sub-spec 2 §7.2 and AuctionVerifyRequest).
+ * Ownership verification is a single synchronous backend call invoked via
+ * {@link triggerVerify} at activate time. The backend reads the parcel
+ * owner via the SL World API and flips the auction to ACTIVE on match or
+ * VERIFICATION_FAILED on miss; no body parameters required.
  */
 export function createAuction(
   body: AuctionCreateRequest,
@@ -80,11 +80,20 @@ export function listMyAuctions(
   });
 }
 
+/**
+ * PUT /api/v1/auctions/{id}/verify — synchronous ownership check.
+ *
+ * <p>The backend reads the parcel via the SL World API and compares the
+ * owner UUID to the expected value (seller's avatar for individual
+ * listings; the realty group's registered SL group for group listings).
+ * The response is the updated auction with {@code status: "ACTIVE"} on
+ * match or {@code status: "VERIFICATION_FAILED"} on miss / World API
+ * error. No request body is required.
+ */
 export function triggerVerify(
   id: number | string,
-  body: AuctionVerifyRequest,
 ): Promise<SellerAuctionResponse> {
-  return api.put<SellerAuctionResponse>(`/api/v1/auctions/${id}/verify`, body);
+  return api.put<SellerAuctionResponse>(`/api/v1/auctions/${id}/verify`, {});
 }
 
 export function cancelAuction(

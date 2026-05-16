@@ -25,6 +25,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
+/**
+ * Bot worker task row. After the ownership-only verification refactor
+ * (spec 2026-05-16) the three task types VERIFY / MONITOR_AUCTION /
+ * MONITOR_ESCROW are retired -- World API drives all of those flows.
+ * The entity and table stay in place as future-extension scaffolding;
+ * new task types can plug in by adding values to {@link BotTaskType}
+ * without re-deriving the entity mapping. No production caller currently
+ * persists a row.
+ */
 @Entity
 @Table(name = "bot_tasks")
 @Getter
@@ -46,7 +55,7 @@ public class BotTask extends BaseMutableEntity {
     @JoinColumn(name = "auction_id", nullable = false)
     private Auction auction;
 
-    /** Set for MONITOR_ESCROW rows; null for VERIFY and MONITOR_AUCTION. */
+    /** Historical: was set for MONITOR_ESCROW rows. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "escrow_id")
     private Escrow escrow;
@@ -57,7 +66,6 @@ public class BotTask extends BaseMutableEntity {
     @Column(name = "region_name", length = 100)
     private String regionName;
 
-    /** Denormalized from Parcel at task creation so the worker does not need to look up. */
     @Column(name = "position_x")
     private Double positionX;
 
@@ -70,39 +78,25 @@ public class BotTask extends BaseMutableEntity {
     @Column(name = "sentinel_price", nullable = false)
     private Long sentinelPrice;
 
-    /** MONITOR_AUCTION: expected parcel owner at each check. */
+    /** Historical: was set for MONITOR_AUCTION rows. */
     @Column(name = "expected_owner_uuid")
     private UUID expectedOwnerUuid;
 
-    /** MONITOR_AUCTION: expected AuthBuyerID (normally the primary escrow UUID). */
-    @Column(name = "expected_auth_buyer_uuid")
-    private UUID expectedAuthBuyerUuid;
-
-    /** MONITOR_AUCTION: expected SalePrice (normally the sentinel). */
-    @Column(name = "expected_sale_price_lindens")
-    private Long expectedSalePriceLindens;
-
-    /** MONITOR_ESCROW: expected winner SL UUID (signals TRANSFER_COMPLETE when observed owner). */
+    /** Historical: was set for MONITOR_ESCROW rows. */
     @Column(name = "expected_winner_uuid")
     private UUID expectedWinnerUuid;
 
-    /** MONITOR_ESCROW: expected seller SL UUID (normal STILL_WAITING state). */
+    /** Historical: was set for MONITOR_ESCROW rows. */
     @Column(name = "expected_seller_uuid")
     private UUID expectedSellerUuid;
 
-    /**
-     * MONITOR_ESCROW: SalePrice threshold below which TRANSFER_READY fires
-     * (in addition to the AuthBuyerID-matches-winner condition). Default 1
-     * tolerates sellers who set L$1 by habit. See FOOTGUNS and spec §4.6.
-     */
+    /** Historical: was set for MONITOR_ESCROW rows. */
     @Column(name = "expected_max_sale_price_lindens")
     private Long expectedMaxSalePriceLindens;
 
-    /** MONITOR_*: scheduled time for the next check. Null for VERIFY. */
     @Column(name = "next_run_at")
     private OffsetDateTime nextRunAt;
 
-    /** MONITOR_*: interval between checks; null for VERIFY. */
     @Column(name = "recurrence_interval_seconds")
     private Integer recurrenceIntervalSeconds;
 
@@ -113,14 +107,12 @@ public class BotTask extends BaseMutableEntity {
     @Column(name = "result_data", columnDefinition = "jsonb")
     private Map<String, Object> resultData;
 
-    /** Stamped on every monitor callback. Null for VERIFY. */
     @Column(name = "last_check_at")
     private OffsetDateTime lastCheckAt;
 
     @Column(name = "failure_reason", length = 500)
     private String failureReason;
 
-    /** Set on terminal states only (COMPLETED / FAILED / CANCELLED). */
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
 }

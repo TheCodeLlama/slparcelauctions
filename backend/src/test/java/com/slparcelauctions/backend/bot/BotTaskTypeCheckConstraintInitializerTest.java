@@ -10,8 +10,10 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Verifies that the bot_tasks CHECK constraints cover all enum values after
- * ApplicationReadyEvent fires. Regression guard for Hibernate ddl-auto:update
- * not widening CHECKs on enum value additions (see FOOTGUNS).
+ * ApplicationReadyEvent fires. After the ownership-only verification
+ * refactor the {@link BotTaskType} enum is empty, so the type-check
+ * constraint is dropped on startup (Postgres rejects {@code IN ()}). The
+ * status constraint still covers every {@link BotTaskStatus} value.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -21,18 +23,15 @@ class BotTaskTypeCheckConstraintInitializerTest {
     private JdbcTemplate jdbc;
 
     @Test
-    void taskTypeCheckConstraintCoversAllEnumValues() {
-        String constraintDef = jdbc.queryForObject(
+    void taskTypeCheckConstraintAbsentWhenEnumEmpty() {
+        Integer count = jdbc.queryForObject(
                 """
-                SELECT pg_get_constraintdef(oid)
+                SELECT COUNT(*)
                   FROM pg_constraint
                  WHERE conname = 'bot_tasks_task_type_check'
                 """,
-                String.class);
-        assertThat(constraintDef)
-                .contains("VERIFY")
-                .contains("MONITOR_AUCTION")
-                .contains("MONITOR_ESCROW");
+                Integer.class);
+        assertThat(count).isZero();
     }
 
     @Test

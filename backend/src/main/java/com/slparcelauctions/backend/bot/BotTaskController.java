@@ -4,31 +4,24 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.slparcelauctions.backend.bot.dto.BotMonitorResultRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskClaimRequest;
-import com.slparcelauctions.backend.bot.dto.BotTaskCompleteRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Bot worker queue + callback surface. Auth: bearer token (see
- * {@link BotSharedSecretAuthorizer}, Task 3). Endpoints:
- *
- * <ul>
- *   <li>{@code POST /claim} — atomic claim of the next due task (Task 2).</li>
- *   <li>{@code PUT /{id}/verify} — VERIFY callback (Task 4).</li>
- *   <li>{@code POST /{id}/monitor} — MONITOR_* callback (Task 5).</li>
- *   <li>{@code GET /pending} — read-only debug view of the PENDING queue.</li>
- * </ul>
+ * Bot worker queue surface. Auth: bearer token (see
+ * {@link BotSharedSecretAuthorizer}). After the ownership-only
+ * verification refactor (spec 2026-05-16) the verify + monitor task
+ * types are retired; the {@code /claim} and {@code /pending} endpoints
+ * stay as future-extension scaffolding and return 204 / [] until a
+ * future task type starts producing rows.
  */
 @RestController
 @RequestMapping("/api/v1/bot/tasks")
@@ -46,37 +39,13 @@ public class BotTaskController {
 
     /**
      * Read-only debug view of the PENDING queue. Retained for admin
-     * triage — production workers use {@code POST /claim} which is atomic
-     * and race-safe.
+     * triage; production workers use {@code POST /claim} which is
+     * atomic and race-safe.
      */
     @GetMapping("/pending")
     public List<BotTaskResponse> pending() {
         return service.findPending().stream()
                 .map(BotTaskResponse::from)
                 .toList();
-    }
-
-    /**
-     * VERIFY callback: terminates the task (COMPLETED/FAILED) and
-     * transitions the auction. See {@link BotTaskService#complete} for
-     * the full contract.
-     */
-    @PutMapping("/{taskId}/verify")
-    public BotTaskResponse completeVerify(
-            @PathVariable Long taskId,
-            @Valid @RequestBody BotTaskCompleteRequest body) {
-        return BotTaskResponse.from(service.complete(taskId, body));
-    }
-
-    /**
-     * MONITOR callback: applies the bot's observation and re-arms or
-     * cancels the row per dispatcher logic. See
-     * {@link BotTaskService#recordMonitorResult}.
-     */
-    @PostMapping("/{taskId}/monitor")
-    public BotTaskResponse recordMonitorResult(
-            @PathVariable Long taskId,
-            @Valid @RequestBody BotMonitorResultRequest body) {
-        return BotTaskResponse.from(service.recordMonitorResult(taskId, body));
     }
 }

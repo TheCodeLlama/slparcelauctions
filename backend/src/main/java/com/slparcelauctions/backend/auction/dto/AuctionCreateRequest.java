@@ -11,11 +11,10 @@ import jakarta.validation.constraints.Size;
 /**
  * Request body for POST /api/v1/auctions.
  *
- * <p>Per Epic 03 sub-spec 2 §7.1, {@code verificationMethod} is no longer
- * part of auction creation. It is chosen by the seller at activate time
- * and sent on {@code PUT /api/v1/auctions/{id}/verify} via
- * {@link AuctionVerifyRequest}. {@code Auction.verificationMethod} stays
- * null between create and the verify trigger.
+ * <p>Verification is no longer chosen at create time. The seller fires
+ * {@code PUT /api/v1/auctions/{publicId}/verify} (empty body) after
+ * paying the listing fee and the backend performs a single synchronous
+ * World API ownership check (see {@code AuctionVerificationService}).
  *
  * <p>{@code slParcelUuid} replaced the legacy {@code parcelId} field —
  * the caller supplies the SL parcel UUID and the backend performs a live

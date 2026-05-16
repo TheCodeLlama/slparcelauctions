@@ -256,7 +256,7 @@ class DevAuctionControllerTest {
                 .slParcelUuid(sellerParcelUuid)
                 .seller(seller)
                 .status(status)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(1000L)
                 .durationHours(168)

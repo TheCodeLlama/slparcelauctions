@@ -10,8 +10,8 @@ describe("statusToStepperIndex", () => {
     expect(statusToStepperIndex("DRAFT")).toBe(0);
     expect(statusToStepperIndex("DRAFT_PAID")).toBe(1);
     expect(statusToStepperIndex("VERIFICATION_FAILED")).toBe(1);
-    expect(statusToStepperIndex("VERIFICATION_PENDING")).toBe(2);
-    expect(statusToStepperIndex("ACTIVE")).toBe(3);
+    expect(statusToStepperIndex("VERIFICATION_PENDING")).toBe(1);
+    expect(statusToStepperIndex("ACTIVE")).toBe(2);
   });
 });
 

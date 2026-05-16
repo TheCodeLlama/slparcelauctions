@@ -23,7 +23,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.BidService;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
@@ -114,7 +113,7 @@ class BidNotificationIntegrationTest {
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
                 .status(AuctionStatus.ACTIVE)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .verificationTier(VerificationTier.SCRIPT)
                 .startingBid(startingBid)
                 .durationHours(168)

@@ -36,10 +36,23 @@ public sealed class HeartbeatLoopTests
         var activity = new BotActivityState();
         activity.RecordClaim(
             new BotTaskResponse(
-                7, BotTaskType.MONITOR_AUCTION, BotTaskStatus.IN_PROGRESS,
-                42, null, Guid.NewGuid(), "Hadron", 1, 2, 3, 999,
-                null, null, null, null, null, null, Guid.NewGuid(),
-                null, null, null, DateTimeOffset.UnixEpoch, null),
+                Id: 7,
+                TaskType: BotTaskType.WITHDRAW_GROUP,
+                Status: BotTaskStatus.IN_PROGRESS,
+                AuctionId: 42,
+                EscrowId: null,
+                ParcelUuid: Guid.NewGuid(),
+                RegionName: "Hadron",
+                PositionX: 1,
+                PositionY: 2,
+                PositionZ: 3,
+                SentinelPrice: 999,
+                AssignedBotUuid: Guid.NewGuid(),
+                FailureReason: null,
+                NextRunAt: null,
+                RecurrenceIntervalSeconds: null,
+                CreatedAt: DateTimeOffset.UnixEpoch,
+                CompletedAt: null),
             DateTimeOffset.UnixEpoch.AddMinutes(2));
 
         BotHeartbeatRequest? captured = null;
@@ -58,7 +71,7 @@ public sealed class HeartbeatLoopTests
         captured.SessionState.Should().Be("Online");
         captured.CurrentRegion.Should().Be("Hadron");
         captured.CurrentTaskKey.Should().Be("7");
-        captured.CurrentTaskType.Should().Be("MONITOR_AUCTION");
+        captured.CurrentTaskType.Should().Be("WITHDRAW_GROUP");
         captured.LastClaimAt.Should().Be(DateTimeOffset.UnixEpoch.AddMinutes(2));
     }
 

@@ -39,8 +39,9 @@ public interface IBotSession : IAsyncDisposable
     /// <see cref="SessionLostException"/> if the session drops mid-teleport.
     /// When <paramref name="forceMove"/> is false (default) and the bot is
     /// already in the target sim, the teleport is skipped (returns Ok) — this
-    /// preserves the documented false-ACCESS_DENIED fix for monitor/verify.
-    /// Idle-park passes <c>forceMove: true</c> to relocate within a sim.
+    /// avoids the spurious-fail signature LibreMetaverse emits on same-region
+    /// re-teleports. Idle-park passes <c>forceMove: true</c> to relocate
+    /// within a sim.
     /// </summary>
     Task<TeleportResult> TeleportAsync(
         string regionName, double x, double y, double z,

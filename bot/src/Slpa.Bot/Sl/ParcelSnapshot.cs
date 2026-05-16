@@ -1,9 +1,9 @@
 namespace Slpa.Bot.Sl;
 
 /// <summary>
-/// Snapshot of ParcelProperties the bot can observe. Mirrors the backend's
-/// BotTaskCompleteRequest shape — the worker passes this straight through
-/// to the VERIFY callback.
+/// Snapshot of ParcelProperties the bot can observe via
+/// <see cref="IBotSession.ReadParcelAsync"/>. Retained as session
+/// infrastructure for future task types — no current handler consumes it.
 /// </summary>
 public sealed record ParcelSnapshot(
     Guid OwnerId,

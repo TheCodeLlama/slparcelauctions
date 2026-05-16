@@ -269,12 +269,12 @@ class GroupCommissionAnalyticsServiceTest {
             long auctionId;
             try (var ps = conn.prepareStatement("""
                     INSERT INTO auctions (
-                        bid_count, bot_check_failures, current_bid, duration_hours,
+                        bid_count, current_bid, duration_hours,
                         listing_fee_paid, snipe_protect, starting_bid, status, title,
                         seller_id, realty_group_id, realty_group_sl_group_id,
                         sl_parcel_uuid, created_at, updated_at, public_id
                     )
-                    VALUES (0, 0, 0, 72, false, false, 1000, 'ACTIVE', 'Test Auction',
+                    VALUES (0, 0, 72, false, false, 1000, 'ACTIVE', 'Test Auction',
                             ?, ?, ?, ?, now(), now(), ?)
                     RETURNING id
                     """)) {

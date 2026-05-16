@@ -8,11 +8,23 @@ namespace Slpa.Bot.Tests;
 public sealed class BotActivityStateTests
 {
     private static BotTaskResponse Task1() => new(
-        7, BotTaskType.MONITOR_AUCTION, BotTaskStatus.IN_PROGRESS,
-        42, null, Guid.NewGuid(), "Hadron", 1, 2, 3,
-        999, null, null, null, null, null, null,
-        Guid.NewGuid(), null, null, null,
-        DateTimeOffset.UnixEpoch, null);
+        Id: 7,
+        TaskType: BotTaskType.WITHDRAW_GROUP,
+        Status: BotTaskStatus.IN_PROGRESS,
+        AuctionId: 42,
+        EscrowId: null,
+        ParcelUuid: Guid.NewGuid(),
+        RegionName: "Hadron",
+        PositionX: 1,
+        PositionY: 2,
+        PositionZ: 3,
+        SentinelPrice: 999,
+        AssignedBotUuid: Guid.NewGuid(),
+        FailureReason: null,
+        NextRunAt: null,
+        RecurrenceIntervalSeconds: null,
+        CreatedAt: DateTimeOffset.UnixEpoch,
+        CompletedAt: null);
 
     [Fact]
     public void RecordClaim_WithTask_SetsIdTypeAndLastClaim()
@@ -24,7 +36,7 @@ public sealed class BotActivityStateTests
 
         var snap = s.Current;
         snap.CurrentTaskId.Should().Be(7);
-        snap.CurrentTaskType.Should().Be("MONITOR_AUCTION");
+        snap.CurrentTaskType.Should().Be("WITHDRAW_GROUP");
         snap.LastClaimAt.Should().Be(t);
     }
 

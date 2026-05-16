@@ -22,9 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.auction.dto.AuctionCancelRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
-import com.slparcelauctions.backend.auction.dto.AuctionVerifyRequest;
 import com.slparcelauctions.backend.auction.dto.BrokerCancelRequest;
-import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
@@ -85,7 +83,7 @@ public class AuctionController {
         } else {
             created = auctionService.create(principal.userId(), req, ip);
         }
-        return mapper.toSellerResponse(created, null);
+        return mapper.toSellerResponse(created);
     }
 
     @GetMapping("/auctions/{publicId}")
@@ -108,7 +106,7 @@ public class AuctionController {
             }
             return mapper.toPublicResponse(a);
         }
-        return mapper.toSellerResponse(a, null);
+        return mapper.toSellerResponse(a);
     }
 
     @GetMapping("/users/me/auctions")
@@ -125,7 +123,7 @@ public class AuctionController {
         // Sub-project G section 6.1 -- batch entry point pre-loads
         // group + primary photo + winner publicId via three batched queries
         // instead of one query per auction per dimension.
-        return mapper.toBatchSellerResponses(auctions, null, escrows);
+        return mapper.toBatchSellerResponses(auctions, escrows);
     }
 
     @PutMapping("/auctions/{publicId}")
@@ -137,21 +135,26 @@ public class AuctionController {
         requireVerified(principal.userId());
         Auction existing = auctionService.loadForSellerByPublicId(publicId, principal.userId());
         Auction updated = auctionService.update(existing.getId(), principal.userId(), req);
-        return mapper.toSellerResponse(updated, null);
+        return mapper.toSellerResponse(updated);
     }
 
+    /**
+     * Triggers the synchronous World API ownership check. No body is
+     * required -- the expected owner UUID is derived from the auction
+     * (seller's avatar, or registered SL group UUID for case-3 listings).
+     * On match the auction transitions DRAFT_PAID -> ACTIVE; on any
+     * miss it transitions to VERIFICATION_FAILED with a retryable note.
+     */
     @PutMapping("/auctions/{publicId}/verify")
     @org.springframework.transaction.annotation.Transactional
     public SellerAuctionResponse verify(
             @PathVariable UUID publicId,
-            @AuthenticationPrincipal AuthPrincipal principal,
-            @Valid @RequestBody AuctionVerifyRequest body) {
+            @AuthenticationPrincipal AuthPrincipal principal) {
         Long userId = principal.userId();
         requireVerified(userId);
         Auction existing = auctionService.loadForSellerByPublicId(publicId, userId);
-        Auction a = verificationService.triggerVerification(existing.getId(), body.method(), userId);
-        PendingVerification pending = verificationService.buildPendingVerification(a);
-        return mapper.toSellerResponse(a, pending);
+        Auction a = verificationService.triggerVerification(existing.getId(), userId);
+        return mapper.toSellerResponse(a);
     }
 
     @PutMapping("/auctions/{publicId}/cancel")
@@ -168,7 +171,7 @@ public class AuctionController {
         Auction existing = auctionService.loadForSellerByPublicId(publicId, principal.userId());
         String ip = httpRequest.getRemoteAddr();
         Auction cancelled = cancellationService.cancel(existing.getId(), req.reason(), ip);
-        return mapper.toSellerResponse(cancelled, null);
+        return mapper.toSellerResponse(cancelled);
     }
 
     /**
@@ -192,7 +195,7 @@ public class AuctionController {
         String ip = httpRequest.getRemoteAddr();
         Auction cancelled = cancellationService.brokerCancel(
                 principal.userId(), existing.getId(), req.reason(), ip);
-        return mapper.toSellerResponse(cancelled, null);
+        return mapper.toSellerResponse(cancelled);
     }
 
     @GetMapping("/auctions/{publicId}/preview")
@@ -201,7 +204,7 @@ public class AuctionController {
             @PathVariable UUID publicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
         Auction a = auctionService.loadForSellerByPublicId(publicId, principal.userId());
-        return mapper.toSellerResponse(a, null);
+        return mapper.toSellerResponse(a);
     }
 
     /**

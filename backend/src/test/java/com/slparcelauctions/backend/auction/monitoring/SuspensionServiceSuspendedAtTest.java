@@ -21,7 +21,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
@@ -79,7 +78,7 @@ class SuspensionServiceSuspendedAtTest {
                 .title("Test parcel auction")
                 .status(AuctionStatus.ACTIVE)
                 .verificationTier(VerificationTier.SCRIPT)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(100L)
                 .durationHours(24)
                 .consecutiveWorldApiFailures(0)

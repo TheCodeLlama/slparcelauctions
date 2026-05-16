@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
 import com.slparcelauctions.backend.auction.dto.AuctionPhotoResponse;
 import com.slparcelauctions.backend.auction.dto.GroupAttributionDto;
 import com.slparcelauctions.backend.auction.dto.ListingAgentDto;
-import com.slparcelauctions.backend.auction.dto.PendingVerification;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionResponse.SellerSummary;
 import com.slparcelauctions.backend.auction.dto.PublicAuctionStatus;
@@ -41,9 +40,9 @@ import lombok.RequiredArgsConstructor;
  * mapper is called.
  *
  * <p>Photo / group / winner resolution: single-DTO entry points
- * ({@link #toPublicResponse(Auction)} / {@link #toSellerResponse(Auction, PendingVerification)})
+ * ({@link #toPublicResponse(Auction)} / {@link #toSellerResponse(Auction)})
  * resolve each per row via {@code findById}. Batch callers should use
- * {@link #toBatchPublicResponses(List, Map)} / {@link #toBatchSellerResponses(List, Map, Map)}
+ * {@link #toBatchPublicResponses(List, Map)} / {@link #toBatchSellerResponses(List, Map)}
  * which build a {@link MapperBatchContext} once and pre-load groups + primary
  * photos + winner publicIds in three batch queries -- one per dimension regardless
  * of input cardinality. Sub-project G section 6.1.
@@ -171,17 +170,16 @@ public class AuctionDtoMapper {
                 resolveListingAgent(a));
     }
 
-    public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending) {
-        return toSellerResponse(a, pending, resolveEscrow(a), null);
+    public SellerAuctionResponse toSellerResponse(Auction a) {
+        return toSellerResponse(a, resolveEscrow(a), null);
     }
 
     /**
      * Batch-safe overload -- pass the already-loaded escrow (or null) to avoid
-     * the fallback fetch inside {@link #toSellerResponse(Auction,
-     * PendingVerification)}.
+     * the fallback fetch inside {@link #toSellerResponse(Auction)}.
      */
-    public SellerAuctionResponse toSellerResponse(Auction a, PendingVerification pending, Escrow escrow) {
-        return toSellerResponse(a, pending, escrow, null);
+    public SellerAuctionResponse toSellerResponse(Auction a, Escrow escrow) {
+        return toSellerResponse(a, escrow, null);
     }
 
     /**
@@ -191,16 +189,14 @@ public class AuctionDtoMapper {
      * Sub-project G section 6.1.
      */
     public SellerAuctionResponse toSellerResponse(
-            Auction a, PendingVerification pending, Escrow escrow, MapperBatchContext ctx) {
+            Auction a, Escrow escrow, MapperBatchContext ctx) {
         return new SellerAuctionResponse(
                 a.getPublicId(),
                 a.getSeller().getPublicId(),
                 a.getTitle(),
                 ParcelResponse.from(a.getParcelSnapshot()),
                 a.getStatus(),
-                a.getVerificationMethod(),
                 a.getVerificationTier(),
-                pending,
                 a.getVerificationNotes(),
                 a.getStartingBid(),
                 a.getReservePrice(),
@@ -257,13 +253,11 @@ public class AuctionDtoMapper {
      */
     public List<SellerAuctionResponse> toBatchSellerResponses(
             List<Auction> auctions,
-            Map<Long, PendingVerification> pendingByAuctionId,
             Map<Long, Escrow> escrowsByAuctionId) {
         MapperBatchContext ctx = MapperBatchContext.build(auctions, realtyGroupRepo, photoRepo, userRepo);
         return auctions.stream()
                 .map(a -> toSellerResponse(
                         a,
-                        pendingByAuctionId == null ? null : pendingByAuctionId.get(a.getId()),
                         escrowsByAuctionId == null ? null : escrowsByAuctionId.get(a.getId()),
                         ctx))
                 .toList();

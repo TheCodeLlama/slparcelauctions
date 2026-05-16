@@ -1,8 +1,12 @@
 # SLParcels Bot Service
 
 C#/.NET 8 worker that logs into Second Life as an `SLPABot*` account and
-services tasks from the SLParcels backend (Method C verification, BOT-tier
-auction monitoring, BOT-tier escrow monitoring).
+services tasks from the SLParcels backend. Verification and active-auction
+ownership monitoring are handled exclusively by the backend's World API
+path; the bot does not participate in those flows. The bot's remaining
+roles are: SL IM dispatch, idle parking, and `WITHDRAW_GROUP` task
+handling (in-world group-money transfers issued by
+`WithdrawGroupHandler`).
 
 ## Environment
 
@@ -62,22 +66,18 @@ tests never touch `GridClient` directly.
 2. Start backend locally (`cd backend && ./mvnw spring-boot:run`).
 3. Start bot: `docker compose up bot-1` (Task 11).
 4. Verify `GET http://localhost:8081/health` → `Online` within ~10 s.
-5. Queue a VERIFY task via the Postman `Dev/Bot simulate verify` helper.
-6. Confirm the bot teleports and posts to `PUT /api/v1/bot/tasks/{id}/verify`.
-7. Verify bot reads the correct parcel at the landing coordinates, not an
-   arbitrary parcel in the same region.
-8. Leave the bot with an empty task queue for ~1 min. Confirm it teleports
+5. Leave the bot with an empty task queue for ~1 min. Confirm it teleports
    into the configured rectangle (region `Hadron`, X 30-44, Y 65-73). An
    idle bot already inside the rectangle stays put (no teleport churn).
-9. Open the admin Infrastructure page, Bot pool section. Within ~60 s the
+6. Open the admin Infrastructure page, Bot pool section. Within ~60 s the
    bot shows as `1/1 healthy` with its region. Kill the bot process; after
    ~180 s the row flips red (Redis TTL lapsed).
-10. With chairs configured, leave a bot idle ~1 min: confirm it teleports
-    into the rectangle then sits (log line `Idle-sat on chair <uuid>`).
-    Confirm it does NOT re-sit every cooldown while seated, and that after a
-    task teleports it away it re-sits next idle cycle. A rejected/occupied
-    chair logs `Idle-sit on <uuid> failed: NotSittable` and the bot stays
-    standing.
+7. With chairs configured, leave a bot idle ~1 min: confirm it teleports
+   into the rectangle then sits (log line `Idle-sat on chair <uuid>`).
+   Confirm it does NOT re-sit every cooldown while seated, and that after a
+   task teleports it away it re-sits next idle cycle. A rejected/occupied
+   chair logs `Idle-sit on <uuid> failed: NotSittable` and the bot stays
+   standing.
 
 ## Prerequisites
 

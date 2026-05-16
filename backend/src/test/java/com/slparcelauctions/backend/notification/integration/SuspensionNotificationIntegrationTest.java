@@ -22,7 +22,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
@@ -105,7 +104,7 @@ class SuspensionNotificationIntegrationTest {
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
                     .status(AuctionStatus.ACTIVE)
-                    .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(1000L)
                     .currentBid(0L)
@@ -165,17 +164,4 @@ class SuspensionNotificationIntegrationTest {
         assertThat(notifs).hasSize(1);
     }
 
-    @Test
-    void suspendForBotObservation_publishesListingSuspended() {
-        User seller = newUser("bot-seller"); sellerId = seller.getId();
-        Auction a = seedActiveAuction(seller);
-
-        suspensionService.suspendForBotObservation(
-                a, FraudFlagReason.BOT_PRICE_DRIFT, Map.of("sentinel", "mismatch"));
-
-        var notifs = notifRepo.findAllByUserId(sellerId).stream()
-                .filter(n -> n.getCategory() == NotificationCategory.LISTING_SUSPENDED)
-                .toList();
-        assertThat(notifs).hasSize(1);
-    }
 }

@@ -26,7 +26,6 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
-import com.slparcelauctions.backend.auction.VerificationMethod;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
@@ -85,7 +84,7 @@ class AdminFraudFlagServiceListTest {
                 .title("Suspended fraud auction")
                 .status(AuctionStatus.SUSPENDED)
                 .verificationTier(VerificationTier.SCRIPT)
-                .verificationMethod(VerificationMethod.UUID_ENTRY)
+
                 .startingBid(100L)
                 .durationHours(24)
                 .endsAt(OffsetDateTime.now().plusHours(24))

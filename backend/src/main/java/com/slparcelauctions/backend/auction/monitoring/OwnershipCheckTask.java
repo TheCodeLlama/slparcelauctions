@@ -16,6 +16,7 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.CancellationLog;
 import com.slparcelauctions.backend.auction.CancellationLogRepository;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
+import com.slparcelauctions.backend.auction.monitoring.config.OwnershipMonitorProperties;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
@@ -23,7 +24,6 @@ import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -58,7 +58,6 @@ import lombok.extern.slf4j.Slf4j;
  * share the private {@link #doCheck(Auction)} helper.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class OwnershipCheckTask {
 
@@ -68,6 +67,24 @@ public class OwnershipCheckTask {
     private final CancellationLogRepository cancellationLogRepo;
     private final RealtyGroupSlGroupRepository slGroupRepo;
     private final Clock clock;
+    private final int mismatchStreakThreshold;
+
+    public OwnershipCheckTask(
+            AuctionRepository auctionRepo,
+            SlWorldApiClient worldApi,
+            SuspensionService suspensionService,
+            CancellationLogRepository cancellationLogRepo,
+            RealtyGroupSlGroupRepository slGroupRepo,
+            OwnershipMonitorProperties props,
+            Clock clock) {
+        this.auctionRepo = auctionRepo;
+        this.worldApi = worldApi;
+        this.suspensionService = suspensionService;
+        this.cancellationLogRepo = cancellationLogRepo;
+        this.slGroupRepo = slGroupRepo;
+        this.clock = clock;
+        this.mismatchStreakThreshold = props.getMismatchStreakThreshold();
+    }
 
     @Async
     @Transactional
@@ -184,25 +201,44 @@ public class OwnershipCheckTask {
                 if (ownerMatch) {
                     auction.setLastOwnershipCheckAt(now);
                     auction.setConsecutiveWorldApiFailures(0);
+                    auction.setConsecutiveOwnerMismatches(0);
                     auctionRepo.save(auction);
                     log.debug("Ownership check OK for auction {} (owner={})", auction.getId(), observed);
                 } else if (cancelledWatchPath) {
-                    // Post-cancel mismatch — raise the CANCEL_AND_SELL flag. Clear
+                    // Post-cancel mismatch -- raise the CANCEL_AND_SELL flag. Clear
                     // {@code postCancelWatchUntil} on the same row so subsequent
                     // ticks during the original window don't re-flag the same
-                    // cancellation. The flag carries the rich evidence map per
-                    // spec §6.3 so admin reviewers can score temporal proximity.
+                    // cancellation. The flag carries the rich evidence map so
+                    // admin reviewers can score temporal proximity. The
+                    // mismatch-streak gate is intentionally bypassed here -- the
+                    // post-cancel probe is one-shot forensic, not a live
+                    // suspension trigger.
                     suspensionService.raiseCancelAndSellFlag(auction, observed,
                             resolveCancelledAt(auction));
                     auction.setLastOwnershipCheckAt(now);
                     auction.setPostCancelWatchUntil(null);
                     auctionRepo.save(auction);
                 } else if (activePath) {
-                    // ACTIVE mismatch — existing flow. SuspensionService handles
-                    // the status flip (ACTIVE → SUSPENDED), the fraud-flag write,
-                    // and removes the auction from the watcher query naturally
-                    // since the status is no longer ACTIVE.
-                    suspensionService.suspendForOwnershipChange(auction, result);
+                    // ACTIVE mismatch -- gate suspension behind the configured
+                    // consecutive-mismatch streak so a single transient World API
+                    // result cannot tip a live listing into SUSPENDED. The
+                    // counter accumulates across scheduler sweeps and resets to
+                    // 0 on any owner match.
+                    int prior = auction.getConsecutiveOwnerMismatches() == null
+                            ? 0 : auction.getConsecutiveOwnerMismatches();
+                    int next = prior + 1;
+                    auction.setConsecutiveOwnerMismatches(next);
+                    auction.setLastOwnershipCheckAt(now);
+                    if (next >= mismatchStreakThreshold) {
+                        // SuspensionService handles the status flip
+                        // (ACTIVE -> SUSPENDED), the fraud-flag write, and
+                        // persists the streak counter alongside the suspension.
+                        suspensionService.suspendForOwnershipChange(auction, result);
+                    } else {
+                        auctionRepo.save(auction);
+                        log.info("Ownership mismatch for auction {} (streak {}/{}); not yet suspending",
+                                auction.getId(), next, mismatchStreakThreshold);
+                    }
                 }
                 // For other statuses, record the outcome without side-effect.
             }

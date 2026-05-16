@@ -32,22 +32,7 @@ export type AuctionStatus =
   | "DISPUTED"
   | "SUSPENDED";
 
-export type VerificationMethod = "UUID_ENTRY" | "REZZABLE" | "SALE_TO_BOT";
-
 export type VerificationTier = "SCRIPT" | "BOT" | "OWNERSHIP_TRANSFER";
-
-/**
- * Populated on SellerAuctionResponse only while status ==
- * VERIFICATION_PENDING. UUID_ENTRY is synchronous and never surfaces a
- * pendingVerification object (its transitions bypass this field).
- */
-export interface PendingVerification {
-  method: VerificationMethod;
-  code: string | null;
-  codeExpiresAt: string | null;
-  botTaskId: number | null;
-  instructions: string | null;
-}
 
 export interface AuctionPhotoDto {
   publicId: string;
@@ -93,9 +78,7 @@ export interface SellerAuctionResponse {
   title: string;
   parcel: ParcelDto;
   status: AuctionStatus;
-  verificationMethod: VerificationMethod | null;
   verificationTier: VerificationTier | null;
-  pendingVerification: PendingVerification | null;
   verificationNotes: string | null;
   startingBid: number;
   reservePrice: number | null;
@@ -174,10 +157,6 @@ export type AuctionUpdateRequest = Partial<
   Omit<AuctionCreateRequest, "slParcelUuid">
 >;
 
-export interface AuctionVerifyRequest {
-  method: VerificationMethod;
-}
-
 export interface AuctionCancelRequest {
   reason?: string;
 }
@@ -194,9 +173,8 @@ export type PublicAuctionStatus = "ACTIVE" | "ENDED";
  * Public auction view returned by GET /api/v1/auctions/{publicId} to non-sellers
  * and by the user-scoped active-listings endpoint. Deliberately excludes
  * winnerPublicId, reservePrice (exposes only hasReserve + reserveMet),
- * listing-fee + commission fields, verification notes, pendingVerification,
- * and seller-only verification metadata — mirrors
- * {@code PublicAuctionResponse} server-side.
+ * listing-fee + commission fields, verification notes, and seller-only
+ * verification metadata — mirrors {@code PublicAuctionResponse} server-side.
  */
 export interface PublicAuctionResponse {
   publicId: string;
