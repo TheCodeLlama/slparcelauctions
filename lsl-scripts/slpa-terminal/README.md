@@ -1,16 +1,24 @@
 # SLParcels Terminal (wallet model)
 
-In-world wallet kiosk for SLParcels. Two touch-menu options (Deposit-instructions,
-Withdraw) plus a lockless `money()` deposit handler. Also accepts
-backend-initiated PAYOUT/WITHDRAW commands via HTTP-in.
+In-world wallet kiosk for SLParcels. Two scripts that go in the **same
+prim**, sharing the same `config` notecard:
 
-When the sister [`slpa-terminal-group`](../slpa-terminal-group/) script
-is dropped into the **same prim**, the touch menu gains a third option
-"Pay to group" that routes a `money()` event into a realty group's
-wallet instead of the payer's personal wallet. The two scripts
-coordinate via `llMessageLinked` (PING/PONG/START/CLAIM/RELEASE); each
-keeps its own state and HTTP path. See the sister script's README for
-the protocol details.
+- `slpa-terminal.lsl` — touch/dialog, lockless `money()` -> personal
+  wallet deposit, touch-initiated withdraw, HTTP-in for backend
+  PAYOUT/WITHDRAW commands. This is the core wallet kiosk.
+- `slpa-terminal-group.lsl` — optional sister script. Adds a "Pay to
+  group" touch-menu option that routes `money()` into a realty group's
+  wallet instead of the payer's personal wallet. Lives in the same
+  prim as the wallet script and coordinates with it via
+  `llMessageLinked` (PING/PONG/START/CLAIM/RELEASE protocol). The
+  split exists because both flows in one script tripped Stack-Heap
+  Collision -- each LSL script gets its own 64KB heap. See the "Pay to
+  group sister script" section below.
+
+Drop the wallet script alone for legacy-shape terminals (Deposit +
+Withdraw only). Drop both scripts together to enable the third menu
+option. Each script silently ignores notecard keys it doesn't recognise,
+so the same `config` notecard works whichever scripts are present.
 
 SL Group Verify (founder-of-an-SL-group verification, sub-project E spec
 section 7.3) is **not** on this terminal. It lives on the SLParcels
@@ -82,6 +90,12 @@ Never publish on Marketplace.
    - Right-click the prim → Pay → L$10. Confirm `deposit ok L$10 from <name>`.
    - Touch → Withdraw → enter L$5 → Yes. Confirm withdrawal arrives in your
      SL avatar within ~30s.
+7. **(Optional) Pay to group:** drop `slpa-terminal-group.lsl` into the
+   same prim. `CHANGED_INVENTORY` auto-resets it; accept a SECOND
+   `PERMISSION_DEBIT` dialog (each script needs its own grant). The
+   wallet's startup PING will hear the sister's PONG and the touch
+   menu will now include "Pay to group". See the section below for
+   the protocol + smoke tests.
 
 The new SLParcels Parcel Verifier Giver prim (separate; see
 `lsl-scripts/slpa-verifier-giver/`) handles parcel-verifier give-out — it is
@@ -91,13 +105,14 @@ The new SLParcels Parcel Verifier Giver prim (separate; see
 
 | Key | Description |
 | --- | --- |
-| `REGISTER_URL` | Full URL of `/api/v1/sl/terminal/register`. Required. |
-| `DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/deposit`. Required. |
-| `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required. |
-| `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required. |
-| `HEARTBEAT_URL` | Full URL of `/api/v1/sl/terminal/heartbeat`. Optional but recommended — see Architecture summary. |
-| `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. |
-| `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. |
+| `REGISTER_URL` | Full URL of `/api/v1/sl/terminal/register`. Required (wallet). |
+| `DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/deposit`. Required (wallet). |
+| `WITHDRAW_REQUEST_URL` | Full URL of `/api/v1/sl/wallet/withdraw-request`. Required (wallet). |
+| `PAYOUT_RESULT_URL` | Full URL of `/api/v1/sl/escrow/payout-result`. Required (wallet). |
+| `HEARTBEAT_URL` | Full URL of `/api/v1/sl/terminal/heartbeat`. Optional but recommended (wallet) — see Architecture summary. |
+| `GROUP_DEPOSIT_URL` | Full URL of `/api/v1/sl/wallet/group-deposit`. Required only when `slpa-terminal-group.lsl` is also in the prim. |
+| `SHARED_SECRET` | The shared secret. **Required.** Obtain from `slpa.escrow.terminal-shared-secret`. Read by both scripts. |
+| `TERMINAL_ID` | Optional. Defaults to `(string)llGetKey()`. Read by both scripts; they should agree. |
 | `REGION_NAME` | Optional. Defaults to `llGetRegionName()`. |
 | `DEBUG_MODE` | Optional. `true`/`false`, default `true`. Per-event owner-say. |
 
@@ -205,3 +220,112 @@ responses on `/api/v1/sl/**` paths to `Content-Type: application/json`.
 
 If you add a new SL-facing endpoint that returns 4xx/5xx, the advice
 covers it automatically by path prefix — no per-endpoint work needed.
+
+## Pay to group sister script (`slpa-terminal-group.lsl`)
+
+Optional sister script that goes in the **same prim** as the wallet
+script. Adds a "Pay to group" touch-menu option that routes a `money()`
+event into a realty group's wallet via `/sl/wallet/group-deposit`
+instead of crediting the payer's personal wallet via `/sl/wallet/deposit`.
+The split exists because the combined feature set tripped Stack-Heap
+Collision on real terminals — each LSL script gets its own 64KB heap,
+so two scripts in one prim doubles the budget.
+
+### Coordination protocol
+
+`llMessageLinked` between the two scripts, fixed integer codes:
+
+| Code | Direction | Meaning |
+| ---- | --------- | ------- |
+| `10 PING` | wallet → group | "Are you here?" sent at wallet's `state_entry`. |
+| `11 PONG` | group → wallet | Response to PING. Wallet uses this to decide whether to show the "Pay to group" button. |
+| `12 START` | wallet → group | "Avatar X just tapped Pay to group." |
+| `13 CLAIM` | group → wallet | "Avatar X has typed a group name; skip your personal-deposit POST when their next `money()` event fires." |
+| `14 RELEASE` | group → wallet | "Drop the claim on avatar X." Sent after the group script handles the `money()` or when the slot expires. |
+
+`money()` fires in BOTH scripts when an avatar pays. The wallet's
+`money()` handler checks its claimed-avatars list on every event; if
+the payer is in it, wallet skips its `/sl/wallet/deposit` POST and
+lets this sister script POST `/sl/wallet/group-deposit` instead.
+Single ledger credit per payment.
+
+### Flow
+
+1. Touch the prim → wallet dialog `[Deposit, Pay to group, Withdraw]`
+   (third button only present when the sister script answered PING).
+2. User picks "Pay to group" → wallet `llMessageLinked`s START to the
+   sister → sister opens its own `llTextBox` on its own channel:
+   "Type the realty group's name."
+3. User types a name → sister stores a 60-second deposit slot keyed
+   by `(avatarKey, groupName)` and sends CLAIM to wallet.
+4. User has 60 seconds to right-click → Pay → enter L$. `money()`
+   fires in both scripts. Wallet sees CLAIMed → skips. Sister sees
+   matching slot → POSTs `/sl/wallet/group-deposit` with `groupName`.
+5. Sister sends RELEASE after handling. Slot is one-shot.
+
+### Refund discipline
+
+Per [CLAUDE.md](../../CLAUDE.md) "always refund on deposit error".
+L$ is in the sister script's hands by the time `money()` fires. Every
+post-auth failure — `REFUND/UNKNOWN_GROUP` (typo on the typed name),
+permission revoked, group dissolved, suspended, frozen depositor,
+unparseable response, retry exhaustion, expired slot — bounces the
+L$ back via `llTransferLindenDollars`.
+
+Retry chain mirrors the wallet's personal-deposit chain: 10s / 30s /
+90s / 5m / 15m. Idempotent on `slTransactionKey`. After the five-try
+chain exhausts, the sister script refunds the payer and logs CRITICAL.
+
+### Deployment
+
+Prerequisite: wallet script is already in the prim and running.
+
+1. Drop `slpa-terminal-group.lsl` into the prim's contents. The script
+   auto-resets via `CHANGED_INVENTORY`.
+2. Accept the **second** `PERMISSION_DEBIT` dialog (each script needs
+   its own grant for `llTransferLindenDollars`).
+3. Confirm on owner-say:
+   - `SLParcels Group Pay: config loaded.`
+   - The wallet's PING triggers a PONG and the touch menu now includes
+     "Pay to group".
+4. Smoke-test:
+   - Touch → Pay to group → type a real group's display name → wait
+     for "You have 60 seconds..." chat → right-click → Pay → L$10.
+     Confirm `ok L$10 to '<group name>'` and the `MEMBER_DEPOSIT` row
+     on the group's wallet ledger.
+   - Touch → Pay to group → type a non-existent name → Pay → L$10.
+     Confirm `refunded (UNKNOWN_GROUP)` and the L$ comes back.
+   - Touch → Pay to group → type a name → wait > 65 seconds → Pay →
+     L$10. Confirm the slot-expired refund path fires.
+
+### Operations (sister script)
+
+In steady state with `DEBUG_MODE=true`:
+
+- `SLParcels Group Pay: config loaded.` — startup confirmation.
+- `SLParcels Group Pay: ok L$<N> to '<group name>'` — successful deposit.
+- `SLParcels Group Pay: refunded (<REASON>) L$<N> to <payer>` — backend
+  returned REFUND; L$ bounced.
+- `SLParcels Group Pay: refunded on ERROR (<REASON>) L$<N> to <payer>`
+  — backend returned ERROR; L$ bounced defensively.
+- `SLParcels Group Pay: retry N/5: status=<code>` — transient backend
+  error; retrying on the same `slTransactionKey`.
+- `SLParcels Group Pay: slot expired before pay, refunded L$<N> to
+  <payer>` — payer paid more than 60s after typing the group name.
+- `CRITICAL: SLParcels Group Pay: deposit ... not acknowledged after 5
+  retries; refunded payer` — POST failed five times; L$ refunded, log
+  for ops reconciliation.
+- `CRITICAL: SLParcels Group Pay: PERMISSION_DEBIT denied.` — owner
+  declined the debit dialog; refunds-on-error won't work.
+- `CRITICAL: SLParcels Group Pay: incomplete config notecard.` —
+  `GROUP_DEPOSIT_URL`, `SHARED_SECRET`, or `TERMINAL_ID` missing.
+
+### Troubleshooting (sister script)
+
+| Symptom | Likely cause |
+| --- | --- |
+| Touch menu doesn't show "Pay to group" | Sister script not present, or its `state_entry` halted before sending PONG. Check owner-say for `incomplete config notecard` or `PERMISSION_DEBIT denied`. |
+| "Pay to group" button does nothing | Wallet sent START but the sister's `link_message` handler didn't fire — script halted or DEBIT was denied. Reset and re-accept. |
+| Pay L$ went to the payer's personal wallet, not the group | The 60-second slot expired before they paid, OR the text-box was cancelled. The wallet's claim was released, so personal deposit took over. |
+| `REFUND/UNKNOWN_GROUP` on a name that should exist | Backend's case-insensitive match against active groups returned empty. The group is dissolved, suspended, or the typed name contains a typo (whitespace, Unicode confusables). |
+| Both scripts log "ok" for the same pay | Coordination bug — CLAIM didn't propagate. Reset both scripts; check that the wallet's startup PING fires before any avatar can interact. |
