@@ -11,8 +11,8 @@ import com.slparcelauctions.backend.bot.BotTaskConfigProperties.BotTask;
 class BotSharedSecretAuthorizerTest {
 
     private final BotTaskConfigProperties props = new BotTaskConfigProperties(
-            new Bot("secret-value-12345678", null, null, 3, 6),
-            new BotTask(0L, null, null, null, null));
+            new Bot("secret-value-12345678"),
+            new BotTask(null));
 
     private final BotSharedSecretAuthorizer authorizer = new BotSharedSecretAuthorizer(props);
 
