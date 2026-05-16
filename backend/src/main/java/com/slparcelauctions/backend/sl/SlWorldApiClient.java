@@ -60,6 +60,9 @@ public class SlWorldApiClient {
     private static final Pattern RESIDENT_UUID_FROM_HREF = Pattern.compile(
             "/resident/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
 
+    private static final Pattern GROUP_UUID_FROM_HREF = Pattern.compile(
+            "/group/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
+
     private final WebClient webClient;
     private final int retryAttempts;
     private final long retryBackoffMs;
@@ -159,10 +162,22 @@ public class SlWorldApiClient {
     private ParcelPageData parseParcelHtml(UUID parcelUuid, String html) {
         Document doc = Jsoup.parse(html);
         String[] xyz = parseLocation(meta(doc, "name", "location"));
+        String ownerType = meta(doc, "name", "ownertype");
+        // Linden populates the <meta name="ownerid"> tag asynchronously --
+        // for a few minutes after a deed/sale, the meta tag is empty even
+        // though `ownertype` already says "group" and the body's <a class
+        // ="person" href="/group/<UUID>"> link carries the real owner UUID.
+        // Fall back to the body link when the meta is missing, so the
+        // listing-eligibility filter doesn't black-hole the picker during
+        // the propagation window.
+        UUID ownerUuid = optionalUuid(meta(doc, "name", "ownerid"));
+        if (ownerUuid == null && "group".equalsIgnoreCase(ownerType)) {
+            ownerUuid = parseOwnerGroupUuidFromBody(doc);
+        }
         ParcelMetadata parcel = new ParcelMetadata(
                 parcelUuid,
-                optionalUuid(meta(doc, "name", "ownerid")),
-                meta(doc, "name", "ownertype"),
+                ownerUuid,
+                ownerType,
                 meta(doc, "name", "owner"),
                 meta(doc, "name", "parcel"),
                 meta(doc, "name", "region"),
@@ -297,6 +312,29 @@ public class SlWorldApiClient {
         } catch (IllegalArgumentException e) {
             throw new ParcelIngestException(
                     "region link UUID failed to parse: " + m.group(1), e);
+        }
+    }
+
+    /**
+     * Fallback owner-UUID resolution for group-owned parcels when the
+     * {@code <meta name="ownerid">} tag is empty (Linden's "Loading..."
+     * propagation window). The rendered body always carries
+     * {@code <a class="person" href="/group/<UUID>">Loading...</a>} as
+     * soon as the deed is recorded -- only the meta tag and display name
+     * lag. We return {@code null} (not throw) when the link is also
+     * missing, so the caller keeps surfacing "owner unknown" rather than
+     * breaking the lookup entirely.
+     */
+    private UUID parseOwnerGroupUuidFromBody(Document doc) {
+        Element link = doc.selectFirst("a.person[href^=/group/]");
+        if (link == null) return null;
+        String href = link.attr("href");
+        Matcher m = GROUP_UUID_FROM_HREF.matcher(href);
+        if (!m.find()) return null;
+        try {
+            return UUID.fromString(m.group(1));
+        } catch (IllegalArgumentException e) {
+            return null;
         }
     }
 

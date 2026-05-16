@@ -112,10 +112,9 @@ class SlWorldApiClientTest {
     }
 
     @Test
-    void fetchParcel_groupOwnedParcel_ownerUuidIsNull() {
-        // Group-owned parcels: SL omits a parseable ownerid (the field renders
-        // empty or with a non-UUID placeholder). Parser must tolerate this so
-        // the lookup succeeds; ownership is settled later at script verify time.
+    void fetchParcel_groupOwnedParcel_emptyMetaAndNoBodyLink_ownerUuidIsNull() {
+        // No body link either -- truly unknown owner. Parser must tolerate this
+        // so the lookup succeeds; the caller decides whether to bail.
         UUID parcelUuid = UUID.randomUUID();
         String html = fixtureHtml(parcelUuid, "group", "");
         wireMock.stubFor(get(urlPathMatching("/place/.*"))
@@ -128,6 +127,45 @@ class SlWorldApiClientTest {
         assertThat(result.ownerType()).isEqualTo("group");
         assertThat(result.ownerUuid()).isNull();
         assertThat(result.regionName()).isEqualTo("Tula");
+    }
+
+    @Test
+    void fetchParcel_groupOwnedParcel_emptyMetaButOwnerLinkInBody_recoversFromLink() {
+        // Linden's loading state: <meta name="ownerid"> is empty for the first
+        // few minutes after a deed/sale but the body's <a class="person"
+        // href="/group/<UUID>"> link carries the real owner UUID immediately.
+        // Without this fallback the listing-eligible-groups picker silently
+        // returns empty during the propagation window.
+        UUID parcelUuid = UUID.randomUUID();
+        UUID ownerUuid = UUID.fromString("f66a4677-bef1-be1a-cd7c-64c2cb037ba8");
+        String html = """
+                <html><head>
+                <meta name="region" content="Tula">
+                <meta name="parcel" content="Cheap Land">
+                <meta name="parcelid" content="%s">
+                <meta name="area" content="512">
+                <meta name="ownerid" content="">
+                <meta name="ownertype" content="group">
+                <meta name="owner" content="Loading...">
+                <meta name="location" content="80/104/0">
+                </head><body>
+                  <div class="info">
+                    <span class="syscat">Owner:</span>
+                    <a href="/group/%s" class="person" style="display:inline;">Loading...</a>
+                  </div>
+                  <p class="desc">A rectangle.</p>
+                  <a href="/region/f54a1a30-2dbf-4922-8871-3e5b3de81fcf">Tula</a>
+                </body></html>
+                """.formatted(parcelUuid, ownerUuid);
+        wireMock.stubFor(get(urlPathMatching("/place/.*"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "text/html").withBody(html)));
+
+        client = newClient();
+        ParcelMetadata result = client.fetchParcelPage(parcelUuid).block().parcel();
+
+        assertThat(result).isNotNull();
+        assertThat(result.ownerType()).isEqualTo("group");
+        assertThat(result.ownerUuid()).isEqualTo(ownerUuid);
     }
 
     @Test
