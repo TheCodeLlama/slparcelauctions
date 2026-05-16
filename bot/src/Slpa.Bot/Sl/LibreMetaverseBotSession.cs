@@ -59,6 +59,10 @@ public sealed class LibreMetaverseBotSession : IBotSession
         }
     }
 
+    /// <inheritdoc/>
+    /// <remarks>Implemented in T4 (bot-idle-chair-sit). Belief is set by SitAsync.</remarks>
+    public bool IsSeated => throw new NotImplementedException("Implemented in T4");
+
     public Task StartAsync(CancellationToken ct)
     {
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -216,6 +220,11 @@ public sealed class LibreMetaverseBotSession : IBotSession
             registration.Dispose();
         }
     }
+
+    /// <inheritdoc/>
+    /// <remarks>Implemented in T4 (bot-idle-chair-sit).</remarks>
+    public Task<SitResult> SitAsync(Guid chairUuid, CancellationToken ct)
+        => throw new NotImplementedException("Implemented in T4");
 
     public async Task<TeleportResult> TeleportAsync(
         string regionName, double x, double y, double z,
