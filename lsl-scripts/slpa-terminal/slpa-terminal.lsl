@@ -36,11 +36,6 @@ string  DEPOSIT_URL           = "";
 string  WITHDRAW_REQUEST_URL  = "";
 string  PAYOUT_RESULT_URL     = "";
 string  HEARTBEAT_URL         = "";
-// Optional URL for the "Pay to group" flow (sub-project H). When empty
-// the touch menu hides the "Pay to group" button (backwards compat for
-// not-yet-updated terminals -- legacy Deposit/Withdraw-only behaviour
-// is preserved).
-string  GROUP_DEPOSIT_URL     = "";
 string  SHARED_SECRET         = "";
 string  TERMINAL_ID           = "";
 string  REGION_NAME           = "";
@@ -65,6 +60,30 @@ integer registerNextRetryAt = 0;
 integer mainChan       = 0;
 integer mainListenHandle = -1;
 
+// === "Pay to group" sister-script handshake ===
+// The pay-to-group flow lives in a separate script in the same prim
+// (lsl-scripts/slpa-terminal-group/slpa-terminal-group.lsl) so its
+// state + retry chain don't pile onto this script's heap. We
+// coordinate via llMessageLinked on a small fixed protocol:
+//   PING (num=10)  wallet -> group : "are you here?" at state_entry
+//   PONG (num=11)  group  -> wallet: "yes, present"
+//   START (num=12) wallet -> group : "user X picked Pay to group"
+//   CLAIM (num=13) group  -> wallet: "user X has a pending group
+//                                     deposit; route their next
+//                                     money() to me"
+//   RELEASE(num=14) group -> wallet: "drop the claim on user X"
+// claimedAvatars is a small list of avatar keys -- when money() fires
+// for an avatar in this list, wallet skips its personal-deposit POST
+// and lets the group script handle that money() in parallel.
+integer LM_PING    = 10;
+integer LM_PONG    = 11;
+integer LM_START   = 12;
+integer LM_CLAIM   = 13;
+integer LM_RELEASE = 14;
+integer groupScriptPresent = FALSE;
+list    claimedAvatars     = [];
+integer CLAIMED_CAP        = 4;
+
 // === Per-flow withdraw slots ===
 // Strided 3-wide list: [avatarKey, amountOrMinusOne, expiresAt, ...]
 //   amountOrMinusOne: -1 = awaiting amount; >0 = awaiting confirm
@@ -72,49 +91,6 @@ list    withdrawSessions   = [];
 integer MAX_WITHDRAW_SESSIONS = 4;
 integer SESSION_TTL_SECONDS = 60;
 integer SLOT_STRIDE = 3;
-
-// === "Pay to group" pending-deposit slots ===
-// Strided 3-wide list: [avatarKey, groupNameStr, expiresAt, ...]
-//   Set when an avatar has typed a group name at the "Pay to group"
-//   text-box prompt. Consumed in money() if not expired -> POST
-//   /sl/wallet/group-deposit with groupName. Falls through to the
-//   personal-wallet deposit flow when missing or expired (preserves the
-//   existing right-click -> Pay semantics).
-//
-//   groupNameStr is the user-typed string, trimmed once before storage.
-//   Backend does a case-insensitive name match against active groups.
-list    pendingGroupDeposits   = [];
-integer MAX_GROUP_DEPOSIT_SLOTS = 4;
-integer GROUP_DEPOSIT_SLOT_TTL  = 60;
-integer GROUP_DEPOSIT_SLOT_STRIDE = 3;
-
-// === "Pay to group" pending text-box input ===
-// Single-slot scalar state. When an avatar taps "Pay to group" we open
-// llTextBox and remember which avatar is expected to type a group name
-// next. The listen handler routes the typed text into pendingGroupDeposits.
-// Single-slot rather than per-avatar list because the strided list shape
-// tripped Stack-Heap Collision on real terminals (sub-project H §8.3).
-key     pendingNameAvatar     = NULL_KEY;
-integer pendingNameExpiresAt  = 0;
-integer GROUP_NAME_INPUT_TTL  = 60;
-// Max characters accepted for a group name. The realty-group entity caps
-// names well below this; the bound keeps a runaway paste from inflating
-// the slot.
-integer GROUP_NAME_MAX_CHARS  = 64;
-
-// === In-flight /group-deposit request tracking ===
-// /group-deposit request -> mirrors paymentReqId/paymentPayer/... for the
-// existing personal deposit. Reuses the same retry schedule. Only one
-// concurrent group-deposit per terminal (mirrors the existing single-
-// concurrent personal-deposit retry slot — the rest are awaiting on the
-// 10s/30s/90s/5m/15m chain in the timer).
-key     groupDepositReqId      = NULL_KEY;
-key     groupDepositPayer      = NULL_KEY;
-integer groupDepositAmount     = 0;
-string  groupDepositTxKey      = "";
-string  groupDepositGroupName  = "";
-integer groupDepositRetryCount = 0;
-integer groupDepositNextRetryAt = 0;
 
 // === Background deposit retry (per money() event) ===
 key     paymentReqId       = NULL_KEY;
@@ -162,7 +138,6 @@ integer TIMER_SESSION_SWEEP     = 1;
 integer TIMER_PAYMENT_RETRY     = 2;
 integer TIMER_REGISTER_RETRY    = 3;
 integer TIMER_WITHDRAW_RETRY    = 4;
-integer TIMER_GROUP_DEPOSIT_RETRY = 5;
 integer timerPhase              = 0;
 
 // ---------------------------------------------------------------------------
@@ -189,7 +164,6 @@ parseConfigLine(string line) {
     else if (k == "WITHDRAW_REQUEST_URL")  WITHDRAW_REQUEST_URL  = v;
     else if (k == "PAYOUT_RESULT_URL")     PAYOUT_RESULT_URL     = v;
     else if (k == "HEARTBEAT_URL")         HEARTBEAT_URL         = v;
-    else if (k == "GROUP_DEPOSIT_URL")     GROUP_DEPOSIT_URL     = v;
     else if (k == "SHARED_SECRET")         SHARED_SECRET         = v;
     else if (k == "TERMINAL_ID")           TERMINAL_ID           = v;
     else if (k == "REGION_NAME")           REGION_NAME           = v;
@@ -297,17 +271,11 @@ firePayment() {
 
 schedulePaymentRetry() {
     if (paymentRetryCount >= 5) {
-        // Final-failure refund discipline (CLAUDE.md "always refund on
-        // deposit error"): L$ is still in the script's hands and the
-        // backend hasn't acked after ~22 minutes of retries. Bounce to
-        // the payer rather than stranding the funds, then log CRITICAL
-        // for ops reconciliation. Mirrors scheduleGroupDepositRetry.
-        llTransferLindenDollars(paymentPayer, paymentAmount);
         llOwnerSay("CRITICAL: SLParcels Terminal: deposit from "
             + (string)paymentPayer
             + " L$" + (string)paymentAmount
             + " key " + paymentTxKey
-            + " not acknowledged after 5 retries; refunded payer");
+            + " not acknowledged after 5 retries");
         paymentReqId      = NULL_KEY;
         paymentPayer      = NULL_KEY;
         paymentAmount     = 0;
@@ -442,127 +410,6 @@ sweepExpiredSlots() {
     }
 }
 
-// ---------------- Group-deposit slot helpers ----------------
-
-integer findGroupDepositSlot(key avatar) {
-    integer i;
-    integer count = llGetListLength(pendingGroupDeposits) / GROUP_DEPOSIT_SLOT_STRIDE;
-    for (i = 0; i < count; ++i) {
-        key k = llList2Key(pendingGroupDeposits, i * GROUP_DEPOSIT_SLOT_STRIDE);
-        if (k == avatar) return i;
-    }
-    return -1;
-}
-
-releaseGroupDepositSlot(key avatar) {
-    integer slotIdx = findGroupDepositSlot(avatar);
-    if (slotIdx < 0) return;
-    integer start = slotIdx * GROUP_DEPOSIT_SLOT_STRIDE;
-    pendingGroupDeposits = llDeleteSubList(pendingGroupDeposits,
-        start, start + GROUP_DEPOSIT_SLOT_STRIDE - 1);
-}
-
-// Insert a new pending group-deposit slot. Per-avatar dedup (last-write-
-// wins) and a global cap of MAX_GROUP_DEPOSIT_SLOTS — when the cap is hit
-// without an existing avatar slot, evict the oldest (head of the strided
-// list) to make room (spec §8.3).
-setGroupDepositSlot(key avatar, string groupName) {
-    releaseGroupDepositSlot(avatar);
-    integer count = llGetListLength(pendingGroupDeposits) / GROUP_DEPOSIT_SLOT_STRIDE;
-    if (count >= MAX_GROUP_DEPOSIT_SLOTS) {
-        pendingGroupDeposits = llDeleteSubList(pendingGroupDeposits,
-            0, GROUP_DEPOSIT_SLOT_STRIDE - 1);
-    }
-    pendingGroupDeposits += [
-        avatar,
-        groupName,
-        llGetUnixTime() + GROUP_DEPOSIT_SLOT_TTL
-    ];
-}
-
-sweepExpiredGroupDepositSlots() {
-    integer now = llGetUnixTime();
-    integer i = llGetListLength(pendingGroupDeposits) / GROUP_DEPOSIT_SLOT_STRIDE - 1;
-    while (i >= 0) {
-        integer expiresAt = llList2Integer(pendingGroupDeposits,
-            i * GROUP_DEPOSIT_SLOT_STRIDE + 2);
-        if (expiresAt < now) {
-            pendingGroupDeposits = llDeleteSubList(pendingGroupDeposits,
-                i * GROUP_DEPOSIT_SLOT_STRIDE,
-                i * GROUP_DEPOSIT_SLOT_STRIDE + GROUP_DEPOSIT_SLOT_STRIDE - 1);
-        }
-        --i;
-    }
-}
-
-// ---------------- Group-name input slot helpers ----------------
-
-releaseNameInputSlot() {
-    pendingNameAvatar    = NULL_KEY;
-    pendingNameExpiresAt = 0;
-}
-
-setNameInputSlot(key avatar) {
-    pendingNameAvatar    = avatar;
-    pendingNameExpiresAt = llGetUnixTime() + GROUP_NAME_INPUT_TTL;
-}
-
-sweepExpiredNameInputSlot() {
-    if (pendingNameAvatar != NULL_KEY
-            && pendingNameExpiresAt < llGetUnixTime()) {
-        releaseNameInputSlot();
-    }
-}
-
-// ---------------- /group-deposit POST + retry chain ----------------
-
-fireGroupDeposit() {
-    string body = "{"
-        + "\"payerUuid\":\"" + (string)groupDepositPayer + "\","
-        + "\"groupName\":\"" + escapeJson(groupDepositGroupName) + "\","
-        + "\"amount\":" + (string)groupDepositAmount + ","
-        + "\"slTransactionKey\":\"" + groupDepositTxKey + "\","
-        + "\"terminalId\":\"" + escapeJson(TERMINAL_ID) + "\","
-        + "\"sharedSecret\":\"" + escapeJson(SHARED_SECRET) + "\""
-        + "}";
-    groupDepositReqId = llHTTPRequest(GROUP_DEPOSIT_URL,
-        [HTTP_METHOD, "POST",
-         HTTP_MIMETYPE, "application/json",
-         HTTP_BODY_MAXLENGTH, 16384],
-        body);
-}
-
-scheduleGroupDepositRetry() {
-    if (groupDepositRetryCount >= 5) {
-        // Final-failure refund discipline: by this point L$ is still in
-        // the script's hands and the backend hasn't acked. Bounce to the
-        // payer rather than stranding the funds, then log CRITICAL for
-        // ops reconciliation.
-        llTransferLindenDollars(groupDepositPayer, groupDepositAmount);
-        llOwnerSay("CRITICAL: SLParcels Terminal: group deposit from "
-            + (string)groupDepositPayer
-            + " L$" + (string)groupDepositAmount
-            + " to group " + groupDepositGroupName
-            + " key " + groupDepositTxKey
-            + " not acknowledged after 5 retries; refunded payer");
-        groupDepositReqId      = NULL_KEY;
-        groupDepositPayer      = NULL_KEY;
-        groupDepositAmount     = 0;
-        groupDepositTxKey      = "";
-        groupDepositGroupName  = "";
-        groupDepositRetryCount = 0;
-        if (timerPhase == TIMER_GROUP_DEPOSIT_RETRY) {
-            timerPhase = TIMER_SESSION_SWEEP;
-            llSetTimerEvent(10.0);
-        }
-        return;
-    }
-    integer delay = retryDelay(groupDepositRetryCount);
-    groupDepositNextRetryAt = llGetUnixTime() + delay;
-    timerPhase = TIMER_GROUP_DEPOSIT_RETRY;
-    llSetTimerEvent((float)delay);
-}
-
 // ---------------- HTTP-in inflight ----------------
 
 addInflightCommand(key txKey, string idempotencyKey, key recipient, integer amount) {
@@ -606,7 +453,6 @@ default {
         WITHDRAW_REQUEST_URL  = "";
         PAYOUT_RESULT_URL     = "";
         HEARTBEAT_URL         = "";
-        GROUP_DEPOSIT_URL     = "";
         SHARED_SECRET         = "";
         TERMINAL_ID           = "";
         REGION_NAME           = "";
@@ -622,16 +468,6 @@ default {
         registerAttempt     = 0;
         registerNextRetryAt = 0;
         withdrawSessions    = [];
-        pendingGroupDeposits   = [];
-        pendingNameAvatar      = NULL_KEY;
-        pendingNameExpiresAt   = 0;
-        groupDepositReqId      = NULL_KEY;
-        groupDepositPayer      = NULL_KEY;
-        groupDepositAmount     = 0;
-        groupDepositTxKey      = "";
-        groupDepositGroupName  = "";
-        groupDepositRetryCount = 0;
-        groupDepositNextRetryAt = 0;
         paymentReqId        = NULL_KEY;
         paymentPayer        = NULL_KEY;
         paymentAmount       = 0;
@@ -653,6 +489,8 @@ default {
         // the heartbeat refreshes lastSeenAt on a known-good terminal.
         nextHeartbeatAt     = llGetUnixTime() + HEARTBEAT_INTERVAL_SECONDS;
         timerPhase          = TIMER_NONE;
+        groupScriptPresent  = FALSE;
+        claimedAvatars      = [];
 
         // Mainland-only grid guard
         if (llGetEnv("sim_channel") != "Second Life Server") {
@@ -677,6 +515,36 @@ default {
         // 10-second timer for session sweep + retry checks.
         timerPhase = TIMER_SESSION_SWEEP;
         llSetTimerEvent(10.0);
+
+        // Ask the sister "Pay to group" script if it's loaded in this
+        // prim. If we hear a PONG within a few ticks, we'll add the
+        // "Pay to group" button to the touch menu.
+        llMessageLinked(LINK_THIS, LM_PING, "", NULL_KEY);
+    }
+
+    link_message(integer sender, integer num, string str, key id) {
+        if (num == LM_PONG) {
+            groupScriptPresent = TRUE;
+            return;
+        }
+        if (num == LM_CLAIM) {
+            // Group script took ownership of the next money() from `id`.
+            // Track it so our own money() handler skips the personal POST.
+            integer existing = llListFindList(claimedAvatars, [id]);
+            if (existing != -1) return;
+            if (llGetListLength(claimedAvatars) >= CLAIMED_CAP) {
+                claimedAvatars = llDeleteSubList(claimedAvatars, 0, 0);
+            }
+            claimedAvatars += [id];
+            return;
+        }
+        if (num == LM_RELEASE) {
+            integer slot = llListFindList(claimedAvatars, [id]);
+            if (slot != -1) {
+                claimedAvatars = llDeleteSubList(claimedAvatars, slot, slot);
+            }
+            return;
+        }
     }
 
     on_rez(integer n) {
@@ -850,6 +718,15 @@ default {
     }
 
     money(key payer, integer amount) {
+        // If the sister "Pay to group" script has claimed this payer's next
+        // money() event, skip the personal-deposit POST and let the group
+        // script's own money() handler (running in parallel) handle the
+        // L$. The group script will refund on failure, so we don't.
+        if (llListFindList(claimedAvatars, [payer]) != -1) {
+            integer slot = llListFindList(claimedAvatars, [payer]);
+            claimedAvatars = llDeleteSubList(claimedAvatars, slot, slot);
+            return;
+        }
         // Defensive: if config is missing or DEPOSIT_URL is empty, refund
         // immediately and shout. Without this guard, llHTTPRequest("", ...)
         // would silently fail and the L$ would be stranded in the prim.
@@ -861,36 +738,6 @@ default {
             llTransferLindenDollars(payer, amount);
             return;
         }
-
-        // "Pay to group" routing: if the payer picked a group within the
-        // last GROUP_DEPOSIT_SLOT_TTL seconds, route this money() event to
-        // /sl/wallet/group-deposit instead of the personal /sl/wallet/deposit
-        // flow. The sweeper evicts expired slots out-of-band, but we still
-        // double-check expiresAt here in case money() fires between the slot
-        // expiring and the next sweeper tick.
-        integer groupSlotIdx = findGroupDepositSlot(payer);
-        if (groupSlotIdx >= 0) {
-            integer expiresAt = llList2Integer(pendingGroupDeposits,
-                groupSlotIdx * GROUP_DEPOSIT_SLOT_STRIDE + 2);
-            if (expiresAt >= llGetUnixTime()
-                    && GROUP_DEPOSIT_URL != ""
-                    && groupDepositReqId == NULL_KEY) {
-                string groupName = llList2String(pendingGroupDeposits,
-                    groupSlotIdx * GROUP_DEPOSIT_SLOT_STRIDE + 1);
-                releaseGroupDepositSlot(payer);
-                groupDepositPayer      = payer;
-                groupDepositAmount     = amount;
-                groupDepositTxKey      = (string)llGenerateKey();
-                groupDepositGroupName  = groupName;
-                groupDepositRetryCount = 0;
-                fireGroupDeposit();
-                return;
-            }
-            // Expired (or another group deposit already in flight on this
-            // terminal). Clear stale slot and fall through to personal.
-            releaseGroupDepositSlot(payer);
-        }
-
         // Lockless: every money() event is a personal-wallet deposit.
         paymentPayer      = payer;
         paymentAmount     = amount;
@@ -902,13 +749,13 @@ default {
     touch_start(integer num) {
         key toucher = llDetectedKey(0);
         // Per-toucher dialog filtered by avatar key in the listen handler.
-        // "Pay to group" appears only when GROUP_DEPOSIT_URL is configured
-        // -- pre-deploy terminals (notecard without the key) keep the
-        // legacy 2-button menu.
+        // "Pay to group" appears only when the sister script answered our
+        // startup PING -- if it's missing, the wallet keeps the legacy
+        // 2-button menu.
         list buttons = ["Deposit"];
         string prompt = "What would you like to do?\n\n"
             + "Deposit: right-click & pay (any amount)\n";
-        if (GROUP_DEPOSIT_URL != "") {
+        if (groupScriptPresent) {
             buttons += ["Pay to group"];
             prompt += "Pay to group: deposit L$ into a realty group wallet\n";
         }
@@ -920,7 +767,7 @@ default {
     listen(integer chan, string name, key id, string msg) {
         if (chan != mainChan) return;
 
-        // Top-level menu responses (Deposit / Pay to group / Withdraw)
+        // Top-level menu responses (Deposit / Withdraw)
         if (msg == "Deposit") {
             llDialog(id,
                 "To deposit: right-click this terminal → Pay → enter any L$ amount. "
@@ -929,21 +776,12 @@ default {
             return;
         }
         if (msg == "Pay to group") {
-            if (GROUP_DEPOSIT_URL == "") {
-                // Defensive: button shouldn't have been shown. Fall through
-                // silently rather than POST to an empty URL.
-                return;
-            }
-            // Single-slot last-write-wins: a second avatar starting the
-            // flow clobbers the first's pending text-box input. Acceptable
-            // -- typed-text from the first avatar just falls through to
-            // the "unrouted message" branch below and gets ignored.
-            setNameInputSlot(id);
-            llTextBox(id,
-                "Type the realty group's name (the name as shown on the "
-                + "group's profile page). You then have 60 seconds to "
-                + "right-click -> Pay to deposit.",
-                mainChan);
+            // Hand off to the sister "Pay to group" script. It owns the
+            // text-box, the slot, and the /sl/wallet/group-deposit POST.
+            // If the sister isn't loaded the message goes nowhere
+            // (groupScriptPresent stays FALSE and this button isn't
+            // shown, so this branch is unreachable in that state).
+            llMessageLinked(LINK_THIS, LM_START, "", id);
             return;
         }
         if (msg == "Withdraw") {
@@ -953,29 +791,6 @@ default {
                 return;
             }
             llTextBox(id, "Enter L$ amount to withdraw:", mainChan);
-            return;
-        }
-
-        // ---- "Pay to group" text-box response (typed group name) ----
-        // The avatar just tapped "Pay to group" and now typed a name.
-        // Trim, length-cap, and route into pendingGroupDeposits so the
-        // next money() event from this payer credits the named group.
-        if (pendingNameAvatar == id) {
-            releaseNameInputSlot();
-            string typed = llStringTrim(msg, STRING_TRIM);
-            if (typed == "") {
-                llRegionSayTo(id, 0,
-                    "Cancelled: no group name typed.");
-                return;
-            }
-            if (llStringLength(typed) > GROUP_NAME_MAX_CHARS) {
-                typed = llGetSubString(typed, 0, GROUP_NAME_MAX_CHARS - 1);
-            }
-            setGroupDepositSlot(id, typed);
-            llRegionSayTo(id, 0,
-                "You have 60 seconds to right-click -> Pay -> enter L$ amount "
-                + "to deposit into '" + typed + "'. The deposit refunds if "
-                + "the group name doesn't match a registered realty group.");
             return;
         }
 
@@ -1147,55 +962,6 @@ default {
             return;
         }
 
-        // ----- /group-deposit response -----
-        if (req == groupDepositReqId) {
-            groupDepositReqId = NULL_KEY;
-            if (status >= 200 && status < 300) {
-                string s = llJsonGetValue(body, ["status"]);
-                if (s == "OK") {
-                    if (DEBUG_MODE)
-                        llOwnerSay("SLParcels Terminal: group deposit ok L$"
-                            + (string)groupDepositAmount
-                            + " to " + groupDepositGroupName);
-                } else if (s == "REFUND") {
-                    string reason = llJsonGetValue(body, ["reason"]);
-                    llTransferLindenDollars(groupDepositPayer, groupDepositAmount);
-                    if (DEBUG_MODE)
-                        llOwnerSay("SLParcels Terminal: group deposit refunded ("
-                            + reason + ") L$" + (string)groupDepositAmount
-                            + " to " + (string)groupDepositPayer);
-                } else if (s == "ERROR") {
-                    // Mirrors the personal-deposit ERROR branch: bounce L$
-                    // defensively. By the time this endpoint runs, L$ is in
-                    // the script's hands and the payer is a real avatar
-                    // (pre-flight shared-secret / SL headers already
-                    // validated). See CLAUDE.md "always refund on deposit
-                    // error".
-                    string reason = llJsonGetValue(body, ["reason"]);
-                    llTransferLindenDollars(groupDepositPayer, groupDepositAmount);
-                    if (DEBUG_MODE)
-                        llOwnerSay("SLParcels Terminal: group deposit refunded on ERROR ("
-                            + reason + ") L$" + (string)groupDepositAmount
-                            + " to " + (string)groupDepositPayer);
-                }
-                groupDepositPayer      = NULL_KEY;
-                groupDepositAmount     = 0;
-                groupDepositTxKey      = "";
-                groupDepositGroupName  = "";
-                groupDepositRetryCount = 0;
-                return;
-            }
-            // Transient: schedule retry. Idempotent by groupDepositTxKey
-            // server-side.
-            ++groupDepositRetryCount;
-            if (DEBUG_MODE)
-                llOwnerSay("SLParcels Terminal: group deposit retry "
-                    + (string)groupDepositRetryCount + "/5: status=" + (string)status);
-            debugSayUser(groupDepositPayer, "group-deposit", status, body);
-            scheduleGroupDepositRetry();
-            return;
-        }
-
         // ----- Heartbeat ack -----
         if (req == heartbeatReqId) {
             heartbeatReqId = NULL_KEY;
@@ -1214,9 +980,8 @@ default {
     }
 
     timer() {
-        // Multi-purpose 10-second timer: sweeps expired withdraw +
-        // group-deposit + group-dialog slots, checks for due register /
-        // deposit / withdraw / group-deposit retries, then continues.
+        // Multi-purpose 10-second timer: sweeps expired withdraw slots,
+        // checks for due register/deposit/withdraw retries, then continues.
         integer now = llGetUnixTime();
 
         if (timerPhase == TIMER_REGISTER_RETRY && now >= registerNextRetryAt) {
@@ -1227,10 +992,6 @@ default {
         }
         if (timerPhase == TIMER_WITHDRAW_RETRY && now >= withdrawNextRetryAt) {
             fireWithdrawRequest();
-        }
-        if (timerPhase == TIMER_GROUP_DEPOSIT_RETRY
-                && now >= groupDepositNextRetryAt) {
-            fireGroupDeposit();
         }
 
         // Heartbeat tick (independent of timerPhase — runs on its own
@@ -1243,8 +1004,6 @@ default {
         }
 
         sweepExpiredSlots();
-        sweepExpiredGroupDepositSlots();
-        sweepExpiredNameInputSlot();
 
         // Always reschedule for the next sweep.
         timerPhase = TIMER_SESSION_SWEEP;
