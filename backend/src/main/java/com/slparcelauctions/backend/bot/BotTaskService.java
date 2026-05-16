@@ -172,23 +172,25 @@ public class BotTaskService {
                     "result must be SUCCESS or FAILURE, got: " + body.result());
         }
 
-        // SUCCESS path: validate escrow UUID + sentinel price before doing anything.
-        if (body.authBuyerId() == null || !body.authBuyerId().equals(primaryEscrowUuid)) {
-            throw new IllegalArgumentException(
-                    "authBuyerId must equal the SLParcels primary escrow UUID");
-        }
-        if (body.salePrice() == null || body.salePrice().longValue() != sentinelPrice) {
-            throw new IllegalArgumentException(
-                    "salePrice must equal the sentinel price L$" + sentinelPrice);
-        }
+        // SUCCESS path validation. The two listing modes use different
+        // intent signals:
+        //
+        //   Case 3 (auction.realtyGroupSlGroupId != null) -- the parcel
+        //   owner SL group is registered (and founder-verified) to the
+        //   realty group. The registration itself proves the realty group
+        //   controls the SL group, and CREATE_LISTING permission gates
+        //   who in the realty group can list. We don't require the
+        //   parcel to be set-for-sale at the sentinel price; the only
+        //   gate is "parcel owner == registered SL group UUID".
+        //
+        //   Case 1/2 (individual seller) -- there's no group-registration
+        //   trust anchor, so we require an explicit Sale-to-bot setup:
+        //   authBuyerId = SLParcels escrow + salePrice = sentinel. These
+        //   two together are the seller's deliberate "I authorize this
+        //   parcel for SLParcels listing" signal.
+        boolean isCase3 = auction.getRealtyGroupSlGroupId() != null;
 
-        // Case-3 (SL group listing) ownership check — spec §8.3. The
-        // registered SL group UUID must match the parcelOwner the bot
-        // reported. Guards against the realty group registering SL group A
-        // while the parcel is actually owned by SL group B (also set-for-sale
-        // to the escrow bot). Defensive on null reg (deleted between create
-        // and bot complete) and null reported owner.
-        if (auction.getRealtyGroupSlGroupId() != null) {
+        if (isCase3) {
             RealtyGroupSlGroup reg = slGroupRepo
                     .findById(auction.getRealtyGroupSlGroupId())
                     .orElse(null);
@@ -206,6 +208,15 @@ public class BotTaskService {
                 log.info("Bot task {} case-3 ownership mismatch: auctionId={} reported={} expected={}",
                         taskId, auction.getId(), reported, reg == null ? null : reg.getSlGroupUuid());
                 return task;
+            }
+        } else {
+            if (body.authBuyerId() == null || !body.authBuyerId().equals(primaryEscrowUuid)) {
+                throw new IllegalArgumentException(
+                        "authBuyerId must equal the SLParcels primary escrow UUID");
+            }
+            if (body.salePrice() == null || body.salePrice().longValue() != sentinelPrice) {
+                throw new IllegalArgumentException(
+                        "salePrice must equal the sentinel price L$" + sentinelPrice);
             }
         }
 
