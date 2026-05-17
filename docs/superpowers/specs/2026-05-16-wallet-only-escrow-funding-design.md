@@ -1,7 +1,7 @@
 # Wallet-Only Escrow Funding (Design)
 
 **Date:** 2026-05-16
-**Status:** Draft — pending review
+**Status:** Approved — open questions resolved 2026-05-16
 **Author:** Heath / Claude
 **Scope:** Backend (escrow funding, bid reservation, terminal callback), Frontend (escrow page, AUCTION_WON notification copy, bid form), LSL (terminal scripts), Docs.
 
@@ -156,8 +156,8 @@ No phased rollout / feature flag (the flag IS what's flipping). Per memory `feed
 - Escrow seller payout (wallet → avatar via terminal) — stays unchanged.
 - Admin disbursement — stays unchanged.
 
-## 11. Open questions
+## 11. Resolved questions (2026-05-16)
 
-1. **`paymentDeadline` column.** Today set to `endedAt + PAYMENT_DEADLINE_HOURS` (24h). Post-change, every escrow funds immediately at creation, so the field is set-then-immediately-irrelevant. Drop the column or keep for audit?
-2. **`ESCROW_PENDING` enum value.** Externally never observable post-change. Keep for the transactional intermediate (preserves a clear state machine), or collapse?
-3. **Terminal-side LSL response copy.** When a user tries to pay escrow via terminal during the rollout window, the terminal refunds + says... what? "Escrow payments now happen automatically — bid via web; SLParcels has refunded your L$"? Or keep it terse?
+1. **`Escrow.paymentDeadline` column** — DROP. New Flyway migration removes the column; the entity field goes too. The 48h transfer deadline (`transferDeadline`) is unrelated and stays.
+2. **`ESCROW_PENDING` enum value** — KEEP as the transactional intermediate. Externally never observed post-change, but preserves the clear state-machine vocabulary inside `createForEndedAuction`.
+3. **LSL terminal response copy** — N/A. Self-test only; no users in the rollout window. Don't bother with the polished copy; the existing generic `ESCROW_EXPIRED` refund response is fine for the defensive path.
