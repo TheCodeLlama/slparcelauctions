@@ -41,7 +41,13 @@ export default async function EscrowStatusPage({ params }: Props) {
   try {
     auction = await getAuction(publicId);
   } catch (err) {
-    if (isApiError(err) && err.status === 404) notFound();
+    // 404 = auction missing. 400 = the route param wasn't a valid UUID
+    // (e.g. a legacy notification deeplink that carried the internal
+    // Long auctionId — /auction/14/escrow). Both render as a clean 404
+    // rather than crashing the page into the Next.js error boundary.
+    if (isApiError(err) && (err.status === 404 || err.status === 400)) {
+      notFound();
+    }
     throw err;
   }
   if (!auction) notFound();

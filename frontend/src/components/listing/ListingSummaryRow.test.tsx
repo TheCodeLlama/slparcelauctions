@@ -245,6 +245,28 @@ describe("ListingSummaryRow", () => {
     expect(screen.queryByText(/^Ended/)).not.toBeInTheDocument();
   });
 
+  it("renders a graceful 'Auction ended' fallback when ENDED row arrives without endOutcome (legacy backend)", () => {
+    // Regression guard: prior versions threw an Error from EndedBidSummary
+    // when endOutcome was null on an ENDED row, which React-errored the
+    // entire My Listings page out into the Next.js error boundary the
+    // first time a seller's auction reached ENDED before the backend
+    // projection was widened. The fallback prevents a single-row data
+    // gap from nuking the whole dashboard.
+    renderWithProviders(
+      <ListingSummaryRow
+        auction={baseAuction({
+          status: "ENDED",
+          bidCount: 0,
+          // Deliberately do NOT set endOutcome — exercises the fallback path.
+        })}
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByText(/Auction ended/i)).toBeInTheDocument();
+    // Must NOT crash the row; status badge and primary actions still render.
+    expect(screen.getByTestId(/^listing-row-/)).toBeInTheDocument();
+  });
+
   it("renders Sold for ENDED + SOLD when DTO explicitly sets endOutcome", () => {
     renderWithProviders(
       <ListingSummaryRow

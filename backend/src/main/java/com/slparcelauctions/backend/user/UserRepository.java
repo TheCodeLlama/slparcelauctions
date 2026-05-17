@@ -92,6 +92,41 @@ public interface UserRepository extends JpaRepository<User, Long> {
         UUID getPublicId();
     }
 
+    /**
+     * Batch display-name lookup keyed by user id. Used by the seller-side
+     * auction DTO mapper to populate {@code winnerDisplayName} on ENDED
+     * rows so the seller's My Listings can render "Sold to @bob" without a
+     * follow-up profile fetch. Falls back to {@code username} when
+     * {@code displayName} is null so the projected value is never blank.
+     *
+     * <p>One query per call regardless of input cardinality. Empty input
+     * accepted and returns an empty map.
+     */
+    @Query("SELECT u.id AS id, u.displayName AS displayName, u.username AS username "
+         + "FROM User u WHERE u.id IN :ids")
+    List<UserIdDisplayNameProjection> findIdDisplayNameProjections(@Param("ids") Set<Long> ids);
+
+    default Map<Long, String> findDisplayNamesByIds(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> out = new HashMap<>(ids.size());
+        for (UserIdDisplayNameProjection p : findIdDisplayNameProjections(ids)) {
+            String name = p.getDisplayName();
+            if (name == null || name.isBlank()) {
+                name = p.getUsername();
+            }
+            out.put(p.getId(), name);
+        }
+        return out;
+    }
+
+    interface UserIdDisplayNameProjection {
+        Long getId();
+        String getDisplayName();
+        String getUsername();
+    }
+
     @Modifying
     @Transactional
     @Query("UPDATE User u SET u.role = com.slparcelauctions.backend.user.Role.ADMIN " +

@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -57,6 +58,25 @@ public record SellerAuctionResponse(
         OffsetDateTime updatedAt,
         EscrowState escrowState,
         OffsetDateTime transferConfirmedAt,
+        /**
+         * Populated when the auction transitions out of ACTIVE (sweeper expiry,
+         * inline buy-now close, or admin force-end). {@code null} for pre-ENDED
+         * statuses. The seller's My Listings row reads this to render
+         * "Sold for L$X to @winner" vs "Ended with no bids" vs "Reserve not met"
+         * — without it the row used to crash on the first ENDED row in the list.
+         */
+        AuctionEndOutcome endOutcome,
+        /**
+         * Final winning bid amount for SOLD / BOUGHT_NOW outcomes; null for
+         * other outcomes and pre-ENDED statuses.
+         */
+        Long finalBidAmount,
+        /**
+         * Winner's display name (or username fallback). Populated for SOLD /
+         * BOUGHT_NOW outcomes so the seller's row can show "Sold to @bob"
+         * without a follow-up profile fetch. Null for pre-ENDED or no-bid outcomes.
+         */
+        String winnerDisplayName,
         GroupAttributionDto realtyGroup,
         ListingAgentDto listingAgent) {
 }
