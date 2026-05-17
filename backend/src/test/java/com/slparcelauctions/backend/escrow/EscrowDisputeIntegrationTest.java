@@ -306,7 +306,6 @@ class EscrowDisputeIntegrationTest {
                     .finalBidAmount(finalBid)
                     .commissionAmt(commissionCalculator.commission(finalBid))
                     .payoutAmt(commissionCalculator.payout(finalBid))
-                    .paymentDeadline(now.plusHours(48))
                     .consecutiveWorldApiFailures(0);
 
             if (funded || startingState == EscrowState.TRANSFER_PENDING

@@ -174,42 +174,10 @@ class EscrowTimeoutIntegrationTest {
         seededBidderId = null;
     }
 
-    @Test
-    void escrowPendingPastPaymentDeadline_expiresWithoutRefund_broadcastsPaymentTimeout() {
-        OffsetDateTime base = OffsetDateTime.now(testClock);
-        // paymentDeadline 1h ahead of base now; advance clock 2h to push past.
-        seedPendingEscrow(base.plusHours(1));
-        testClock.advance(Duration.ofHours(2));
-
-        job.sweep();
-
-        Escrow refreshed = escrowRepo.findById(seededEscrowId).orElseThrow();
-        assertThat(refreshed.getState()).isEqualTo(EscrowState.EXPIRED);
-        assertThat(refreshed.getExpiredAt()).isNotNull();
-        assertThat(refreshed.getExpiredAt())
-                .isEqualTo(OffsetDateTime.now(testClock));
-
-        // No refund queued â€” the winner never paid, no L$ is held.
-        List<TerminalCommand> commands = cmdRepo.findAll().stream()
-                .filter(c -> seededEscrowId.equals(c.getEscrowId()))
-                .toList();
-        assertThat(commands).isEmpty();
-
-        assertThat(capturingEscrowPublisher.expired).hasSize(1);
-        EscrowExpiredEnvelope env = capturingEscrowPublisher.expired.get(0);
-        assertThat(env.type()).isEqualTo("ESCROW_EXPIRED");
-        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
-        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
-        assertThat(env.state()).isEqualTo(EscrowState.EXPIRED);
-        assertThat(env.reason()).isEqualTo("PAYMENT_TIMEOUT");
-
-        // Epic 08 sub-spec 1 Â§6.1: a payment-timeout is buyer-fault, not
-        // seller-fault. The seller's escrowExpiredUnfulfilled counter must
-        // stay at zero â€” if it incremented here, a seller's completion rate
-        // would drop every time a winner failed to pay.
-        User seller = userRepo.findById(seededSellerId).orElseThrow();
-        assertThat(seller.getEscrowExpiredUnfulfilled()).isEqualTo(0);
-    }
+    // Wallet-only escrow funding (spec 2026-05-16): the payment-timeout
+    // sweep is retired. ESCROW_PENDING is a transactional intermediate
+    // that never persists past createForEndedAuction's commit, so there is
+    // no longer a "winner-never-paid" expiry path.
 
     @Test
     void transferPendingPastTransferDeadline_expiresAndQueuesRefund_broadcastsTransferTimeout() {
@@ -280,90 +248,14 @@ class EscrowTimeoutIntegrationTest {
         assertThat(capturingEscrowPublisher.expired).isEmpty();
     }
 
-    @Test
-    void escrowPendingWithFutureDeadline_noop() {
-        OffsetDateTime base = OffsetDateTime.now(testClock);
-        // paymentDeadline 100h ahead of base â€” well outside the sweep window.
-        seedPendingEscrow(base.plusHours(100));
-
-        job.sweep();
-
-        Escrow refreshed = escrowRepo.findById(seededEscrowId).orElseThrow();
-        assertThat(refreshed.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
-        assertThat(refreshed.getExpiredAt()).isNull();
-
-        assertThat(capturingEscrowPublisher.expired).isEmpty();
-        List<TerminalCommand> commands = cmdRepo.findAll().stream()
-                .filter(c -> seededEscrowId.equals(c.getEscrowId()))
-                .toList();
-        assertThat(commands).isEmpty();
-    }
+    // escrowPendingWithFutureDeadline_noop deleted — paymentDeadline + the
+    // ESCROW_PENDING sweep are retired in spec 2026-05-16.
 
     // -------------------------------------------------------------------------
     // Seeding
     // -------------------------------------------------------------------------
 
-    private void seedPendingEscrow(OffsetDateTime paymentDeadline) {
-        TransactionTemplate tx = new TransactionTemplate(txManager);
-        tx.executeWithoutResult(status -> {
-            User seller = saveSeller();
-            User bidder = saveBidder();
-            UUID parcelUuid = UUID.randomUUID();
-            OffsetDateTime base = OffsetDateTime.now(testClock);
-            long finalBid = 5_000L;
-            Auction auction = auctionRepo.save(Auction.builder()
-                    .title("Test listing")
-                    .slParcelUuid(parcelUuid)
-                    .seller(seller)
-                    .status(AuctionStatus.ENDED)
-
-                    .verificationTier(VerificationTier.SCRIPT)
-                    .startingBid(500L)
-                    .reservePrice(1_000L)
-                    .currentBid(finalBid)
-                    .bidCount(2)
-                    .durationHours(168)
-                    .snipeProtect(false)
-                    .listingFeePaid(true)
-                    .consecutiveWorldApiFailures(0)
-                    .commissionRate(new BigDecimal("0.05"))
-                    .startsAt(base.minusHours(3))
-                    .endsAt(base.minusHours(1))
-                    .originalEndsAt(base.minusHours(1))
-                    .endedAt(base.minusHours(1))
-                    .endOutcome(AuctionEndOutcome.SOLD)
-                    .winnerUserId(bidder.getId())
-                    .finalBidAmount(finalBid)
-                    .build());
-            auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
-                    .slParcelUuid(parcelUuid)
-                    .ownerUuid(seller.getSlAvatarUuid())
-                    .ownerType("agent")
-                    .parcelName("Timeout Test Parcel")
-                    .regionName("Coniston")
-                    .regionMaturityRating("GENERAL")
-                    .areaSqm(1024)
-                    .positionX(128.0).positionY(64.0).positionZ(22.0)
-                    .build());
-            auctionRepo.save(auction);
-            Escrow escrow = escrowRepo.save(Escrow.builder()
-                    .auction(auction)
-                    .state(EscrowState.ESCROW_PENDING)
-                    .finalBidAmount(finalBid)
-                    .commissionAmt(commissionCalculator.commission(finalBid))
-                    .payoutAmt(commissionCalculator.payout(finalBid))
-                    .paymentDeadline(paymentDeadline)
-                    .consecutiveWorldApiFailures(0)
-                    .build());
-
-            seededSellerId = seller.getId();
-            seededBidderId = bidder.getId();
-            seededAuctionId = auction.getId();
-            seededEscrowId = escrow.getId();
-            seededAuctionPublicId = auction.getPublicId();
-            seededEscrowPublicId = escrow.getPublicId();
-        });
-    }
+    // seedPendingEscrow deleted with the ESCROW_PENDING sweep tests.
 
     private void seedTransferPendingEscrow(OffsetDateTime transferDeadline,
                                            OffsetDateTime fundedAt) {
@@ -415,7 +307,6 @@ class EscrowTimeoutIntegrationTest {
                     .finalBidAmount(finalBid)
                     .commissionAmt(commissionCalculator.commission(finalBid))
                     .payoutAmt(commissionCalculator.payout(finalBid))
-                    .paymentDeadline(fundedAt)
                     .transferDeadline(transferDeadline)
                     .fundedAt(fundedAt)
                     .consecutiveWorldApiFailures(0)

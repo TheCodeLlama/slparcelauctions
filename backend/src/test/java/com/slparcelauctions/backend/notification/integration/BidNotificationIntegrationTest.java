@@ -74,6 +74,16 @@ class BidNotificationIntegrationTest {
     void cleanup() throws Exception {
         if (auctionId != null) {
             new TransactionTemplate(txManager).executeWithoutResult(s -> {
+                // Wallet-only escrow funding: bid_reservations FK to
+                // bids; drop them first.
+                try (var conn = dataSource.getConnection()) {
+                    conn.setAutoCommit(true);
+                    try (var st = conn.createStatement()) {
+                        st.execute("DELETE FROM bid_reservations WHERE auction_id = " + auctionId);
+                    }
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
                 bidRepo.deleteAllByAuctionId(auctionId);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             });
@@ -83,6 +93,7 @@ class BidNotificationIntegrationTest {
             try (var st = conn.createStatement()) {
                 for (Long id : new Long[]{sellerId, aliceId, bobId}) {
                     if (id != null) {
+                        st.execute("DELETE FROM user_ledger WHERE user_id = " + id);
                         st.execute("DELETE FROM notification WHERE user_id = " + id);
                         st.execute("DELETE FROM refresh_tokens WHERE user_id = " + id);
                         st.execute("DELETE FROM users WHERE id = " + id);
@@ -102,6 +113,11 @@ class BidNotificationIntegrationTest {
                 .displayName(prefix)
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
+                // Wallet-only escrow funding (spec 2026-05-16): seed
+                // balance so wallet reservation passes during placeBid.
+                .balanceLindens(1_000_000L)
+                .reservedLindens(0L)
+                .penaltyBalanceOwed(0L)
                 .build());
     }
 

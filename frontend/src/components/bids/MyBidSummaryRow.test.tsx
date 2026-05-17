@@ -137,7 +137,10 @@ describe("MyBidSummaryRow", () => {
       transferConfirmedAt: null,
     });
     render(<MyBidSummaryRow bid={bid} />);
-    expect(screen.getByText(/pay escrow/i)).toBeInTheDocument();
+    // Wallet-only escrow spec (2026-05-16): the legacy ESCROW_PENDING
+    // chip now reads "Escrow pending" (passive) rather than "Pay escrow"
+    // (action). The view-escrow link is unchanged.
+    expect(screen.getByText(/escrow pending/i)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view escrow/i });
     expect(link).toHaveAttribute("href", `/auction/${bid.auction.publicId}/escrow`);
   });
@@ -145,7 +148,7 @@ describe("MyBidSummaryRow", () => {
   it("keeps existing view-auction link when escrowState is null", () => {
     const bid = summary({ auctionPublicId: "00000000-0000-0000-0000-000000000065", escrowState: null });
     render(<MyBidSummaryRow bid={bid} />);
-    expect(screen.queryByText(/pay escrow/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/escrow pending/i)).not.toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view auction/i });
     expect(link).toHaveAttribute("href", `/auction/${bid.auction.publicId}`);
   });

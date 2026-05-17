@@ -95,11 +95,12 @@ class EscrowControllerSliceTest {
     }
 
     private EscrowStatusResponse stubResponse(EscrowState state) {
-        OffsetDateTime now = OffsetDateTime.now();
+        // Wallet-only escrow funding (spec 2026-05-16): paymentDeadline
+        // is gone from EscrowStatusResponse; transferDeadline replaces it.
         return new EscrowStatusResponse(
                 ESCROW_PUBLIC_ID, AUCTION_PUBLIC_ID, state,
                 5_000L, 250L, 4_750L,
-                now.plusHours(48), null, null, null, null,
+                null, null, null, null,
                 null, null, null,
                 null, null, null,
                 List.of());

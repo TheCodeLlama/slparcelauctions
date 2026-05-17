@@ -30,14 +30,15 @@ import lombok.experimental.SuperBuilder;
 /**
  * Per-auction escrow lifecycle row (spec §3.1, §4). Created synchronously by
  * AuctionEndTask.closeOne on SOLD or BOUGHT_NOW outcomes. Deadlines:
- * paymentDeadline = auction.endedAt + 48h; transferDeadline = fundedAt + 72h.
+ * transferDeadline = fundedAt + 72h. (paymentDeadline retired in
+ * spec 2026-05-16: escrows auto-fund at creation, so the wait-for-payment
+ * window no longer exists.)
  * Commission computed at creation and immutable.
  */
 @Entity
 @Table(name = "escrows",
         indexes = {
                 @Index(name = "ix_escrows_state", columnList = "state"),
-                @Index(name = "ix_escrows_payment_deadline", columnList = "payment_deadline"),
                 @Index(name = "ix_escrows_transfer_deadline", columnList = "transfer_deadline")
         })
 @Getter
@@ -63,9 +64,6 @@ public class Escrow extends BaseMutableEntity {
 
     @Column(name = "payout_amt", nullable = false)
     private Long payoutAmt;
-
-    @Column(name = "payment_deadline", nullable = false)
-    private OffsetDateTime paymentDeadline;
 
     @Column(name = "transfer_deadline")
     private OffsetDateTime transferDeadline;

@@ -60,20 +60,15 @@ public class EscrowTimeoutJob {
     @Scheduled(fixedDelayString = "${slpa.escrow.timeout-job.fixed-delay:PT5M}")
     public void sweep() {
         OffsetDateTime now = OffsetDateTime.now(clock);
-        List<Long> pendingIds = escrowRepo.findExpiredPendingIds(now);
+        // Payment-timeout sweep retired in spec 2026-05-16: escrows
+        // auto-fund inside createForEndedAuction, so ESCROW_PENDING is
+        // a transactional intermediate that never persists past commit.
+        // Only TRANSFER_PENDING (seller-never-transferred) survives.
         List<Long> transferIds = escrowRepo.findExpiredTransferPendingIds(now);
-        if (pendingIds.isEmpty() && transferIds.isEmpty()) {
+        if (transferIds.isEmpty()) {
             return;
         }
-        log.info("EscrowTimeoutJob processing {} payment-timeout + {} transfer-timeout",
-                pendingIds.size(), transferIds.size());
-        for (Long id : pendingIds) {
-            try {
-                timeoutTask.expirePayment(id, now);
-            } catch (RuntimeException e) {
-                log.error("Escrow payment-timeout failed for {}: {}", id, e.getMessage(), e);
-            }
-        }
+        log.info("EscrowTimeoutJob processing {} transfer-timeout", transferIds.size());
         for (Long id : transferIds) {
             try {
                 timeoutTask.expireTransfer(id, now);

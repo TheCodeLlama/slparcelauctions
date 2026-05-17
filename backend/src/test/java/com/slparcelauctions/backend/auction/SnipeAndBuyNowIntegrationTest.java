@@ -107,7 +107,20 @@ class SnipeAndBuyNowIntegrationTest {
                 "33333333-aaaa-bbbb-cccc-000000000103");
         bidder2Id = userRepository.findByUsername("snipe-bidder-2@example.com").orElseThrow().getId();
 
+        // Wallet-only escrow funding (spec 2026-05-16): every bid hard-
+        // reserves L$ from the bidder's wallet. Seed both bidders.
+        seedBidderBalance(bidder1Id, 10_000_000L);
+        seedBidderBalance(bidder2Id, 10_000_000L);
+
         sellerParcelUuid = seedParcel();
+    }
+
+    private void seedBidderBalance(Long userId, long lindens) {
+        User u = userRepository.findById(userId).orElseThrow();
+        u.setBalanceLindens(lindens);
+        u.setReservedLindens(0L);
+        u.setPenaltyBalanceOwed(0L);
+        userRepository.save(u);
     }
 
     // ------------------------------------------------------------------

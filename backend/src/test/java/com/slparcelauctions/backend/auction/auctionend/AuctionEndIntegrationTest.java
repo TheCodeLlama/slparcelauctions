@@ -31,13 +31,18 @@ import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.Bid;
 import com.slparcelauctions.backend.auction.BidRepository;
+import com.slparcelauctions.backend.auction.BidType;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
+import com.slparcelauctions.backend.wallet.BidReservation;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.broadcast.CapturingAuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.escrow.EscrowTransactionRepository;
 import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -94,8 +99,12 @@ class AuctionEndIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired NotificationRepository notificationRepo;
+    @Autowired BidReservationRepository bidReservationRepo;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepo;
     @Autowired PlatformTransactionManager txManager;
+    @Autowired javax.sql.DataSource dataSource;
     @Autowired CapturingAuctionBroadcastPublisher capturingPublisher;
 
     private Long seededAuctionId;
@@ -134,7 +143,14 @@ class AuctionEndIntegrationTest {
         tx.executeWithoutResult(status -> {
             // Escrow row (Epic 05 Task 2+) must be deleted BEFORE the auction
             // because of the FK from escrows.auction_id â†’ auctions.id.
-            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
+            bidReservationRepo.findAll().stream()
+                    .filter(r -> seededAuctionId.equals(r.getAuctionId()))
+                    .forEach(bidReservationRepo::delete);
+            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrow -> {
+                escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
+                        .forEach(escrowTxRepo::delete);
+                escrowRepo.delete(escrow);
+            });
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
@@ -149,6 +165,7 @@ class AuctionEndIntegrationTest {
                         com.slparcelauctions.backend.verification.VerificationCodeType.PARCEL)
                         .forEach(verificationCodeRepo::delete);
                 notificationRepo.deleteAllByUserId(userId);
+                userLedgerRepo.deleteAllByUserId(userId);
                 userRepo.findById(userId).ifPresent(userRepo::delete);
             }
         });
@@ -245,12 +262,22 @@ class AuctionEndIntegrationTest {
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
                     .build());
+            // Wallet-only escrow funding (spec 2026-05-16): seed balance
+            // + an active reservation so auto-fund-from-wallet at
+            // auction-close lands the escrow at TRANSFER_PENDING for SOLD
+            // outcomes. Below-reserve cases skip the reservation, so
+            // reservedLindens must stay zero or reconciliation will
+            // flag denorm-drift.
+            boolean willSell = bidCount > 0 && currentBid > 0L && currentBid >= reserve;
             User bidder = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("end-bidder-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName(bidderDisplayName)
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
+                    .balanceLindens(currentBid > 0 ? currentBid : 1_000_000L)
+                    .reservedLindens(willSell ? currentBid : 0L)
+                    .penaltyBalanceOwed(0L)
                     .build());
             UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
@@ -287,6 +314,25 @@ class AuctionEndIntegrationTest {
                     .positionX(128.0).positionY(64.0).positionZ(22.0)
                     .build());
             auctionRepo.save(auction);
+
+            // For SOLD outcomes (currentBid >= reserve and bidCount > 0)
+            // createForEndedAuction auto-funds from the active
+            // BidReservation, so seed a bid + reservation row.
+            if (bidCount > 0 && currentBid >= reserve && currentBid > 0L) {
+                Bid bid = bidRepo.save(Bid.builder()
+                        .auction(auction)
+                        .bidder(bidder)
+                        .amount(currentBid)
+                        .bidType(BidType.MANUAL)
+                        .build());
+                bidReservationRepo.save(BidReservation.builder()
+                        .userId(bidder.getId())
+                        .auctionId(auction.getId())
+                        .bidId(bid.getId())
+                        .amount(currentBid)
+                        .build());
+            }
+
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();
             seededBidderPublicId = bidder.getPublicId();

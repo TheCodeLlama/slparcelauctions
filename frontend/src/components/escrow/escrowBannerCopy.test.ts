@@ -2,29 +2,23 @@ import { describe, it, expect } from "vitest";
 import { escrowBannerCopy, type BannerTone } from "./escrowBannerCopy";
 
 describe("escrowBannerCopy", () => {
-  it("ESCROW_PENDING winner = Pay escrow + action tone", () => {
-    const { headline, detail, tone } = escrowBannerCopy({
-      state: "ESCROW_PENDING",
-      role: "winner",
-      transferConfirmedAt: null,
-      fundedAt: null,
-    });
-    expect(headline).toBe("Pay escrow");
-    expect(detail).toContain("terminal");
-    expect(tone).toBe<BannerTone>("action");
-  });
-
-  it("ESCROW_PENDING seller = Escrow pending + waiting tone", () => {
-    const { headline, detail, tone } = escrowBannerCopy({
-      state: "ESCROW_PENDING",
-      role: "seller",
-      transferConfirmedAt: null,
-      fundedAt: null,
-    });
-    expect(headline).toBe("Escrow pending");
-    expect(detail).toContain("buyer");
-    expect(tone).toBe<BannerTone>("waiting");
-  });
+  // Wallet-only escrow spec (2026-05-16): ESCROW_PENDING is a
+  // transactional intermediate that never persists past commit; both
+  // roles see a passive "funding in progress" banner. Only legacy
+  // historical rows reach this branch.
+  it.each(["winner", "seller"] as const)(
+    "ESCROW_PENDING %s = passive funding-in-progress banner",
+    (role) => {
+      const { headline, tone } = escrowBannerCopy({
+        state: "ESCROW_PENDING",
+        role,
+        transferConfirmedAt: null,
+        fundedAt: null,
+      });
+      expect(headline).toBe("Escrow pending");
+      expect(tone).toBe<BannerTone>("waiting");
+    },
+  );
 
   it("TRANSFER_PENDING pre-confirmation winner = Awaiting transfer + waiting tone", () => {
     const { headline, detail, tone } = escrowBannerCopy({

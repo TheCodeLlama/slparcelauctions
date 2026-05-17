@@ -17,7 +17,6 @@ public record EscrowCreatedEnvelope(
         UUID auctionPublicId,
         UUID escrowPublicId,
         EscrowState state,
-        OffsetDateTime paymentDeadline,
         OffsetDateTime serverTime) implements EscrowEnvelope {
 
     public static EscrowCreatedEnvelope of(Escrow e, OffsetDateTime serverTime) {
@@ -26,7 +25,6 @@ public record EscrowCreatedEnvelope(
                 e.getAuction().getPublicId(),
                 e.getPublicId(),
                 e.getState(),
-                e.getPaymentDeadline(),
                 serverTime);
     }
 }

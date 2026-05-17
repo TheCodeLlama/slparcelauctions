@@ -1,11 +1,9 @@
 package com.slparcelauctions.backend.escrow;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,13 +29,10 @@ import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.BidRepository;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.VerificationTier;
-import com.slparcelauctions.backend.auction.fraud.FraudFlag;
-import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
 import com.slparcelauctions.backend.escrow.broadcast.CapturingEscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
-import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
 import com.slparcelauctions.backend.escrow.payment.EscrowCallbackResponseReason;
 import com.slparcelauctions.backend.escrow.payment.dto.EscrowPaymentRequest;
 import com.slparcelauctions.backend.escrow.payment.dto.SlCallbackResponse;
@@ -157,59 +152,49 @@ class EscrowPaymentIntegrationTest {
         seededWinnerSlUuid = null;
     }
 
+    // Wallet-only escrow funding (spec 2026-05-16): the terminal is no
+    // longer a valid funding channel for escrow. Escrows auto-fund from
+    // the winner's bid reservation in createForEndedAuction. This
+    // endpoint is preserved only as a defensive refund path so a mis-
+    // rezzed legacy terminal can't get L$ stuck; every call returns an
+    // ESCROW_EXPIRED REFUND after writing a FAILED ledger row.
+
     @Test
     void validPayment_transitionsToTransferPendingAndBroadcasts() {
-        // Payment deadline 48h ahead so now() is safely inside the window.
-        seedAuctionWithPendingEscrow(OffsetDateTime.now().plusHours(48));
+        // Renamed semantics: even a "valid" payment now refunds with
+        // ESCROW_EXPIRED and writes a FAILED ledger row. State unchanged.
+        seedAuctionWithPendingEscrow();
 
-        OffsetDateTime before = OffsetDateTime.now();
         SlCallbackResponse resp = escrowService.acceptPayment(new EscrowPaymentRequest(
                 seededAuctionId, seededWinnerSlUuid.toString(), seededFinalBid,
                 "sl-txn-" + UUID.randomUUID(), TERMINAL_ID, SHARED_SECRET));
-        OffsetDateTime after = OffsetDateTime.now();
 
-        assertThat(resp.status()).isEqualTo("OK");
-        assertThat(resp.reason()).isNull();
-        assertThat(resp.message()).isNull();
+        assertThat(resp.status()).isEqualTo("REFUND");
+        assertThat(resp.reason()).isEqualTo(EscrowCallbackResponseReason.ESCROW_EXPIRED);
+        assertThat(resp.message()).contains("SLParcels wallet");
 
         Escrow persisted = escrowRepo.findById(seededEscrowId).orElseThrow();
-        assertThat(persisted.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
-        assertThat(persisted.getFundedAt()).isNotNull();
-        assertThat(persisted.getFundedAt()).isBetween(before, after);
-        // transferDeadline = fundedAt + 72h.
-        assertThat(persisted.getTransferDeadline())
-                .isCloseTo(persisted.getFundedAt().plusHours(72),
-                        within(1, ChronoUnit.MICROS));
+        assertThat(persisted.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
+        assertThat(persisted.getFundedAt()).isNull();
+        assertThat(persisted.getTransferDeadline()).isNull();
 
-        // Exactly one COMPLETED ledger row for the payment.
         List<EscrowTransaction> ledger = escrowTxRepo
                 .findByEscrowIdOrderByCreatedAtAsc(seededEscrowId);
         assertThat(ledger).hasSize(1);
-        EscrowTransaction ledgerRow = ledger.get(0);
-        assertThat(ledgerRow.getType()).isEqualTo(EscrowTransactionType.AUCTION_ESCROW_PAYMENT);
-        assertThat(ledgerRow.getStatus()).isEqualTo(EscrowTransactionStatus.COMPLETED);
-        assertThat(ledgerRow.getAmount()).isEqualTo(seededFinalBid);
-        assertThat(ledgerRow.getTerminalId()).isEqualTo(TERMINAL_ID);
-        assertThat(ledgerRow.getPayer()).isNotNull();
-        assertThat(ledgerRow.getPayer().getId()).isEqualTo(seededBidderId);
-        assertThat(ledgerRow.getCompletedAt()).isNotNull();
+        assertThat(ledger.get(0).getStatus()).isEqualTo(EscrowTransactionStatus.FAILED);
+        assertThat(ledger.get(0).getErrorMessage()).isEqualTo("ESCROW_EXPIRED");
 
-        // ESCROW_FUNDED envelope fired afterCommit.
-        assertThat(capturingEscrowPublisher.funded).hasSize(1);
-        EscrowFundedEnvelope env = capturingEscrowPublisher.funded.get(0);
-        assertThat(env.type()).isEqualTo("ESCROW_FUNDED");
-        assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
-        assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
-        assertThat(env.state()).isEqualTo(EscrowState.TRANSFER_PENDING);
-        assertThat(env.transferDeadline())
-                .isCloseTo(persisted.getTransferDeadline(), within(1, ChronoUnit.MICROS));
-
+        assertThat(capturingEscrowPublisher.funded).isEmpty();
         assertThat(fraudFlagRepo.findByAuctionId(seededAuctionId)).isEmpty();
     }
 
     @Test
     void wrongPayer_createsFraudFlagAndRefundsWithoutTransition() {
-        seedAuctionWithPendingEscrow(OffsetDateTime.now().plusHours(48));
+        // Wrong-payer detection is gone too — every terminal payment
+        // refunds with ESCROW_EXPIRED regardless of payer identity. No
+        // fraud flag is created because the path no longer reaches the
+        // payer-match check.
+        seedAuctionWithPendingEscrow();
 
         UUID imposter = UUID.randomUUID();
         String txnKey = "sl-txn-" + UUID.randomUUID();
@@ -218,42 +203,29 @@ class EscrowPaymentIntegrationTest {
                 txnKey, TERMINAL_ID, SHARED_SECRET));
 
         assertThat(resp.status()).isEqualTo("REFUND");
-        assertThat(resp.reason()).isEqualTo(EscrowCallbackResponseReason.WRONG_PAYER);
-        assertThat(resp.message()).contains("Payer does not match");
+        assertThat(resp.reason()).isEqualTo(EscrowCallbackResponseReason.ESCROW_EXPIRED);
 
-        // State unchanged â€” still ESCROW_PENDING, not funded.
         Escrow persisted = escrowRepo.findById(seededEscrowId).orElseThrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
         assertThat(persisted.getFundedAt()).isNull();
         assertThat(persisted.getTransferDeadline()).isNull();
 
-        // One fraud flag with the expected reason + evidence payload.
-        List<FraudFlag> flags = fraudFlagRepo.findByAuctionId(seededAuctionId);
-        assertThat(flags).hasSize(1);
-        FraudFlag flag = flags.get(0);
-        assertThat(flag.getReason()).isEqualTo(FraudFlagReason.ESCROW_WRONG_PAYER);
-        assertThat(flag.isResolved()).isFalse();
-        assertThat(flag.getDetectedAt()).isNotNull();
-        assertThat(flag.getEvidenceJson())
-                .containsEntry("expectedPayerUuid", seededWinnerSlUuid.toString())
-                .containsEntry("actualPayerUuid", imposter.toString())
-                .containsEntry("slTransactionKey", txnKey);
-
-        // FAILED ledger row recorded for forensic replay.
         List<EscrowTransaction> ledger = escrowTxRepo
                 .findByEscrowIdOrderByCreatedAtAsc(seededEscrowId);
         assertThat(ledger).hasSize(1);
         assertThat(ledger.get(0).getStatus()).isEqualTo(EscrowTransactionStatus.FAILED);
-        assertThat(ledger.get(0).getErrorMessage()).isEqualTo("WRONG_PAYER");
+        assertThat(ledger.get(0).getErrorMessage()).isEqualTo("ESCROW_EXPIRED");
 
-        // No ESCROW_FUNDED envelope on a refund.
+        // No fraud flag in the wallet-only path.
+        assertThat(fraudFlagRepo.findByAuctionId(seededAuctionId)).isEmpty();
         assertThat(capturingEscrowPublisher.funded).isEmpty();
     }
 
     @Test
     void expiredDeadline_refundsWithoutTransition() {
-        // paymentDeadline 1h in the past â†’ ESCROW_EXPIRED branch.
-        seedAuctionWithPendingEscrow(OffsetDateTime.now().minusHours(1));
+        // paymentDeadline is retired; this test now asserts the same
+        // unconditional refund behavior that the other two assert.
+        seedAuctionWithPendingEscrow();
 
         SlCallbackResponse resp = escrowService.acceptPayment(new EscrowPaymentRequest(
                 seededAuctionId, seededWinnerSlUuid.toString(), seededFinalBid,
@@ -267,7 +239,6 @@ class EscrowPaymentIntegrationTest {
         assertThat(persisted.getFundedAt()).isNull();
         assertThat(persisted.getTransferDeadline()).isNull();
 
-        // FAILED ledger row with the expired reason.
         List<EscrowTransaction> ledger = escrowTxRepo
                 .findByEscrowIdOrderByCreatedAtAsc(seededEscrowId);
         assertThat(ledger).hasSize(1);
@@ -284,7 +255,7 @@ class EscrowPaymentIntegrationTest {
     // can cross-match the payerUuid.
     // -------------------------------------------------------------------------
 
-    private void seedAuctionWithPendingEscrow(OffsetDateTime paymentDeadline) {
+    private void seedAuctionWithPendingEscrow() {
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
             User seller = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
@@ -348,7 +319,6 @@ class EscrowPaymentIntegrationTest {
                     .finalBidAmount(finalBid)
                     .commissionAmt(commissionCalculator.commission(finalBid))
                     .payoutAmt(commissionCalculator.payout(finalBid))
-                    .paymentDeadline(paymentDeadline)
                     .consecutiveWorldApiFailures(0)
                     .build());
 

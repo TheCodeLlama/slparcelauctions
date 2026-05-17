@@ -282,7 +282,6 @@ class TerminalCommandRetryIntegrationTest {
                     .finalBidAmount(finalBid)
                     .commissionAmt(commissionCalculator.commission(finalBid))
                     .payoutAmt(commissionCalculator.payout(finalBid))
-                    .paymentDeadline(now.minusMinutes(30))
                     .transferDeadline(now.plusHours(70))
                     .fundedAt(now.minusMinutes(30))
                     .transferConfirmedAt(now.minusMinutes(5))

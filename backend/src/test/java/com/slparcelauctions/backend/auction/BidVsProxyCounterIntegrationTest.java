@@ -100,7 +100,21 @@ class BidVsProxyCounterIntegrationTest {
                 "33333333-aaaa-bbbb-cccc-000000000503");
         bId = userRepository.findByUsername("cnt-bob@example.com").orElseThrow().getId();
 
+        // Wallet-only escrow funding (spec 2026-05-16): every bid hard-
+        // reserves L$ from the bidder's wallet. Seed both bidders with
+        // enough balance to cover the proxy-cap.
+        seedBidderBalance(aId, 1_000_000L);
+        seedBidderBalance(bId, 1_000_000L);
+
         sellerParcelUuid = seedParcel();
+    }
+
+    private void seedBidderBalance(Long userId, long lindens) {
+        User u = userRepository.findById(userId).orElseThrow();
+        u.setBalanceLindens(lindens);
+        u.setReservedLindens(0L);
+        u.setPenaltyBalanceOwed(0L);
+        userRepository.save(u);
     }
 
     @Test

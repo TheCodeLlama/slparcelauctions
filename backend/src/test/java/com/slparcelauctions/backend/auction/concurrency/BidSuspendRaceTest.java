@@ -124,15 +124,20 @@ class BidSuspendRaceTest {
                     stmt.execute("DELETE FROM fraud_flags WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM cancellation_logs WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM listing_fee_refunds WHERE auction_id = " + auctionId);
+                    // Wallet-only escrow funding: bid_reservations FK to
+                    // bids; clear them first.
+                    stmt.execute("DELETE FROM bid_reservations WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM bids WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auction_tags WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + auctionId);
                     stmt.execute("DELETE FROM auctions WHERE id = " + auctionId);
                     if (bidderId != null) {
+                        stmt.execute("DELETE FROM user_ledger WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM notification WHERE user_id = " + bidderId);
                         stmt.execute("DELETE FROM users WHERE id = " + bidderId);
                     }
                     if (sellerId != null) {
+                        stmt.execute("DELETE FROM user_ledger WHERE user_id = " + sellerId);
                         stmt.execute("DELETE FROM notification WHERE user_id = " + sellerId);
                         stmt.execute("DELETE FROM users WHERE id = " + sellerId);
                     }
@@ -286,6 +291,9 @@ class BidSuspendRaceTest {
                 .displayName("Suspend Race Bidder")
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
+                .balanceLindens(1_000_000L)
+                .reservedLindens(0L)
+                .penaltyBalanceOwed(0L)
                 .build());
         UUID pUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();

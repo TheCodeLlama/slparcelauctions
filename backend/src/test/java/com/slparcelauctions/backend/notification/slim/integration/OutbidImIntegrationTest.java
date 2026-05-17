@@ -72,6 +72,13 @@ class OutbidImIntegrationTest {
     @AfterEach
     void cleanup() throws Exception {
         if (auctionId != null) {
+            try (var conn = dataSource.getConnection()) {
+                conn.setAutoCommit(true);
+                try (var st = conn.createStatement()) {
+                    // bid_reservations FK to bids; drop first.
+                    st.execute("DELETE FROM bid_reservations WHERE auction_id = " + auctionId);
+                }
+            }
             new TransactionTemplate(txManager).executeWithoutResult(s -> {
                 bidRepo.deleteAllByAuctionId(auctionId);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
@@ -82,6 +89,7 @@ class OutbidImIntegrationTest {
             try (var st = conn.createStatement()) {
                 for (Long id : userIds) {
                     if (id != null) {
+                        st.execute("DELETE FROM user_ledger WHERE user_id = " + id);
                         st.execute("DELETE FROM sl_im_message WHERE user_id = " + id);
                         st.execute("DELETE FROM notification WHERE user_id = " + id);
                         st.execute("DELETE FROM refresh_tokens WHERE user_id = " + id);
@@ -194,6 +202,11 @@ class OutbidImIntegrationTest {
             .passwordHash("hash")
             .displayName("TestUser")
             .verified(true)
+            // Wallet-only escrow funding (spec 2026-05-16): seed balance
+            // so wallet reservation passes during placeBid.
+            .balanceLindens(1_000_000L)
+            .reservedLindens(0L)
+            .penaltyBalanceOwed(0L)
             .build();
         if (hasAvatar) {
             u.setSlAvatarUuid(UUID.randomUUID());

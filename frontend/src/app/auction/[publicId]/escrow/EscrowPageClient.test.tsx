@@ -107,10 +107,13 @@ describe("EscrowPageClient", () => {
       <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId="00000000-0000-0000-0000-00000000002a" />,
       { auth: "authenticated", authUser: winnerUser },
     );
-    // PendingStateCard winner headline is "Pay L$ 5,000" — match the
-    // "Pay L$" prefix case-insensitively so the locale-formatted amount
-    // doesn't break the assertion.
-    expect(await screen.findByText(/pay l\$/i)).toBeInTheDocument();
+    // Wallet-only escrow spec (2026-05-16): PendingStateCard renders a
+    // passive "funding in progress" headline for both roles — the
+    // active "Pay L$" CTA was retired when escrow funding moved to the
+    // wallet auto-debit path.
+    expect(
+      await screen.findByText(/escrow funding in progress/i),
+    ).toBeInTheDocument();
     // Header renders the role label — confirms sellerPublicId-vs-user.publicId
     // resolution picked `winner`.
     expect(screen.getByText(/escrow · winner/i)).toBeInTheDocument();
@@ -200,8 +203,9 @@ describe("EscrowPageClient", () => {
       { auth: "authenticated", authUser: winnerUser },
     );
 
-    // First render lands on the pending-winner card.
-    await screen.findByText(/pay l\$/i);
+    // First render lands on the pending card (passive funding-in-progress
+    // headline; post-wallet-only-escrow spec there's no per-role split).
+    await screen.findByText(/escrow funding in progress/i);
 
     // Drive the captured envelope handler. subscribe was called with
     // (destination, onMessage) — pull the second arg off call 0.
@@ -273,9 +277,12 @@ describe("EscrowPageClient", () => {
       <EscrowPageClient auctionPublicId="00000000-0000-0000-0000-000000000007" sellerPublicId={sellerUser.publicId} />,
       { auth: "authenticated", authUser: sellerUser },
     );
-    // Seller variant of the PendingStateCard headline.
+    // Wallet-only escrow spec (2026-05-16): PendingStateCard renders the
+    // same passive headline for both roles — escrows auto-fund inside
+    // createForEndedAuction so there is no per-role "awaiting payment"
+    // vs "pay now" split anymore.
     expect(
-      await screen.findByText(/awaiting payment from/i),
+      await screen.findByText(/escrow funding in progress/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/escrow · seller/i)).toBeInTheDocument();
   });

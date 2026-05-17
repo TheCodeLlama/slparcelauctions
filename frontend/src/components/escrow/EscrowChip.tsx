@@ -29,9 +29,10 @@ function resolveChip(
 ): { label: string; tone: EscrowChipTone } {
   switch (state) {
     case "ESCROW_PENDING":
-      if (role === "winner") return { label: "Pay escrow", tone: "action" };
-      if (role === "seller") return { label: "Awaiting payment", tone: "action" };
-      return { label: "Escrow pending", tone: "action" };
+      // Wallet-only escrow funding (spec 2026-05-16): this state is now a
+      // transactional intermediate that never persists past commit. Any
+      // visible row in ESCROW_PENDING is a legacy historical row.
+      return { label: "Escrow pending", tone: "waiting" };
     case "FUNDED":
     case "TRANSFER_PENDING":
       if (transferConfirmedAt) {

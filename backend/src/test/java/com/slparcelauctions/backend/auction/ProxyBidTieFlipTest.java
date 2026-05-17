@@ -98,7 +98,20 @@ class ProxyBidTieFlipTest {
                 "33333333-aaaa-bbbb-cccc-000000000403");
         bId = userRepository.findByUsername("tie-bob@example.com").orElseThrow().getId();
 
+        // Wallet-only escrow funding (spec 2026-05-16): seed both
+        // bidders with balance to cover their proxy caps.
+        seedBidderBalance(aId, 1_000_000L);
+        seedBidderBalance(bId, 1_000_000L);
+
         sellerParcelUuid = seedParcel();
+    }
+
+    private void seedBidderBalance(Long userId, long lindens) {
+        User u = userRepository.findById(userId).orElseThrow();
+        u.setBalanceLindens(lindens);
+        u.setReservedLindens(0L);
+        u.setPenaltyBalanceOwed(0L);
+        userRepository.save(u);
     }
 
     @Test

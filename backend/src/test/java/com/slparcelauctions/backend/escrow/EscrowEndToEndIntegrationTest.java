@@ -354,7 +354,6 @@ class EscrowEndToEndIntegrationTest {
                     .finalBidAmount(finalBid)
                     .commissionAmt(commissionCalculator.commission(finalBid))
                     .payoutAmt(commissionCalculator.payout(finalBid))
-                    .paymentDeadline(now.minusMinutes(30))
                     .transferDeadline(now.plusHours(71))
                     .fundedAt(now.minusMinutes(30))
                     .consecutiveWorldApiFailures(0)

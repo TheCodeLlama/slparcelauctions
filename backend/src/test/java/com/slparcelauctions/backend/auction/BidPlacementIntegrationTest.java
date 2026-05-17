@@ -92,6 +92,10 @@ class BidPlacementIntegrationTest {
                 "bid-bidder@example.com", "BidBidder",
                 "22222222-aaaa-bbbb-cccc-000000000002");
         bidderId = userRepository.findByUsername("bid-bidder@example.com").orElseThrow().getId();
+        // Wallet-only escrow funding (spec 2026-05-16): every bid hard-
+        // reserves L$ from the bidder's wallet. Seed enough balance to
+        // cover any bid amount the tests below use.
+        seedBidderBalance(bidderId, 10_000_000L);
 
         unverifiedAccessToken = registerUser("bid-unverified@example.com", "BidUnverified");
 
@@ -344,6 +348,14 @@ class BidPlacementIntegrationTest {
                 .andExpect(status().isOk());
 
         return parcelUuid;
+    }
+
+    private void seedBidderBalance(Long userId, long lindens) {
+        User u = userRepository.findById(userId).orElseThrow();
+        u.setBalanceLindens(lindens);
+        u.setReservedLindens(0L);
+        u.setPenaltyBalanceOwed(0L);
+        userRepository.save(u);
     }
 
     private Auction seedAuction(AuctionStatus status, long currentBid, int bidCount) {
