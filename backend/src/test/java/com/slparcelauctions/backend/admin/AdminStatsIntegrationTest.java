@@ -154,7 +154,6 @@ class AdminStatsIntegrationTest {
                 .finalBidAmount(1_000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(OffsetDateTime.now().plusHours(48))
                 .build());
             escrow1Id = escrow1.getId();
 
@@ -164,7 +163,6 @@ class AdminStatsIntegrationTest {
                 .finalBidAmount(2_000L)
                 .commissionAmt(100L)
                 .payoutAmt(1_900L)
-                .paymentDeadline(OffsetDateTime.now().plusHours(48))
                 .build());
             escrow2Id = escrow2.getId();
 
@@ -174,7 +172,6 @@ class AdminStatsIntegrationTest {
                 .finalBidAmount(5_000L)
                 .commissionAmt(250L)
                 .payoutAmt(4_750L)
-                .paymentDeadline(OffsetDateTime.now().minusHours(70))
                 .transferDeadline(OffsetDateTime.now().minusHours(46))
                 .fundedAt(OffsetDateTime.now().minusHours(70))
                 .transferConfirmedAt(OffsetDateTime.now().minusHours(2))

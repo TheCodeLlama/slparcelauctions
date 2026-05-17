@@ -81,7 +81,6 @@ public class EscrowService {
             EscrowState.FROZEN, Set.of()
     );
 
-    private static final long PAYMENT_DEADLINE_HOURS = 48;
     private static final long TRANSFER_DEADLINE_HOURS = 72;
 
     private final EscrowRepository escrowRepo;
@@ -97,19 +96,6 @@ public class EscrowService {
     private final NotificationPublisher notificationPublisher;
     private final DisputeEvidenceUploadService evidenceUploadService;
     private final WalletService walletService;
-
-    /**
-     * Bid-time wallet enforcement flag. Paired with the same flag on
-     * {@link com.slparcelauctions.backend.auction.BidService}: when true,
-     * bids reserve from the bidder's wallet and the ended-auction escrow
-     * auto-funds from that reservation. When false (default), no L$ moves
-     * at bid time; the winner pays the escrow in-world via the SLPA
-     * Terminal after the auction closes. The wallet-model refund
-     * migration in this commit is independent -- it changes ONLY refund
-     * routing (escrow refund + listing-fee refund), not bid-time funding.
-     */
-    @org.springframework.beans.factory.annotation.Value("${slpa.wallet.enforcement-enabled:false}")
-    private boolean walletEnforcementEnabled;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -154,7 +140,6 @@ public class EscrowService {
                 .finalBidAmount(finalBid)
                 .commissionAmt(commission.commission(finalBid))
                 .payoutAmt(payoutAmt)
-                .paymentDeadline(endedAt.plusHours(PAYMENT_DEADLINE_HOURS))
                 .consecutiveWorldApiFailures(0)
                 .build();
         Escrow saved = escrowRepo.save(escrow);
@@ -171,66 +156,68 @@ public class EscrowService {
         log.info("Escrow {} created for auction {} (final L${}, commission L${}, payout L${})",
                 saved.getId(), auction.getId(), finalBid, saved.getCommissionAmt(), saved.getPayoutAmt());
 
-        // Wallet enforcement: auto-fund the escrow immediately by consuming
-        // the winner's bid reservation and debiting their wallet balance.
-        // Transitions ESCROW_PENDING → FUNDED → TRANSFER_PENDING in this
-        // same transaction so external observers only see TRANSFER_PENDING.
-        if (walletEnforcementEnabled && auction.getWinnerUserId() != null) {
-            User winner = userRepo.findByIdForUpdate(auction.getWinnerUserId()).orElseThrow();
-            try {
-                walletService.autoFundEscrow(auction.getId(), winner, finalBid, saved.getId());
-            } catch (BidReservationAmountMismatchException e) {
-                log.error("BID-RESERVATION-AMOUNT-MISMATCH for auction {}: reservation=L${} != finalBid=L${}; freezing escrow",
-                        auction.getId(), e.getReservationAmount(), e.getFinalBidAmount());
-                saved.setState(EscrowState.FROZEN);
-                saved.setFrozenAt(endedAt);
-                return escrowRepo.save(saved);
-            } catch (IllegalStateException e) {
-                log.error("Auto-fund failed for auction {}: {}", auction.getId(), e.getMessage());
-                saved.setState(EscrowState.FROZEN);
-                saved.setFrozenAt(endedAt);
-                return escrowRepo.save(saved);
-            }
-            // Transition ESCROW_PENDING → FUNDED → TRANSFER_PENDING
-            saved.setState(EscrowState.FUNDED);
-            saved.setFundedAt(endedAt);
-            saved.setState(EscrowState.TRANSFER_PENDING);
-            saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
-            saved = escrowRepo.save(saved);
-
-            // Append escrow_transactions ledger row
-            ledgerRepo.save(EscrowTransaction.builder()
-                    .escrow(saved)
-                    .auction(auction)
-                    .type(EscrowTransactionType.AUCTION_ESCROW_PAYMENT)
-                    .status(EscrowTransactionStatus.COMPLETED)
-                    .amount(finalBid)
-                    .payer(winner)
-                    .completedAt(endedAt)
-                    .build());
-
-            // Notify seller of funded state
-            notificationPublisher.escrowFunded(
-                    auction.getSeller().getId(),
-                    auction.getId(),
-                    saved.getId(),
-                    auction.getTitle(),
-                    saved.getTransferDeadline());
-
-            final Escrow finalEscrow = saved;
-            final EscrowFundedEnvelope fundedEnvelope = EscrowFundedEnvelope.of(finalEscrow, endedAt);
-            TransactionSynchronizationManager.registerSynchronization(
-                    new TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            broadcastPublisher.publishFunded(fundedEnvelope);
-                        }
-                    });
-
-            log.info("Escrow {} auto-funded from wallet (auction {}, amount L${})",
-                    saved.getId(), auction.getId(), finalBid);
+        // Wallet-only escrow funding (spec 2026-05-16): auto-fund the
+        // escrow immediately by consuming the winner's bid reservation and
+        // debiting their wallet balance. Transitions
+        // ESCROW_PENDING → FUNDED → TRANSFER_PENDING in this same
+        // transaction so external observers only see TRANSFER_PENDING.
+        // ESCROW_PENDING is the transactional intermediate.
+        if (auction.getWinnerUserId() == null) {
+            return saved;
         }
+        User winner = userRepo.findByIdForUpdate(auction.getWinnerUserId()).orElseThrow();
+        try {
+            walletService.autoFundEscrow(auction.getId(), winner, finalBid, saved.getId());
+        } catch (BidReservationAmountMismatchException e) {
+            log.error("BID-RESERVATION-AMOUNT-MISMATCH for auction {}: reservation=L${} != finalBid=L${}; freezing escrow",
+                    auction.getId(), e.getReservationAmount(), e.getFinalBidAmount());
+            saved.setState(EscrowState.FROZEN);
+            saved.setFrozenAt(endedAt);
+            return escrowRepo.save(saved);
+        } catch (IllegalStateException e) {
+            log.error("Auto-fund failed for auction {}: {}", auction.getId(), e.getMessage());
+            saved.setState(EscrowState.FROZEN);
+            saved.setFrozenAt(endedAt);
+            return escrowRepo.save(saved);
+        }
+        // Transition ESCROW_PENDING → FUNDED → TRANSFER_PENDING
+        saved.setState(EscrowState.FUNDED);
+        saved.setFundedAt(endedAt);
+        saved.setState(EscrowState.TRANSFER_PENDING);
+        saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
+        saved = escrowRepo.save(saved);
 
+        // Append escrow_transactions ledger row
+        ledgerRepo.save(EscrowTransaction.builder()
+                .escrow(saved)
+                .auction(auction)
+                .type(EscrowTransactionType.AUCTION_ESCROW_PAYMENT)
+                .status(EscrowTransactionStatus.COMPLETED)
+                .amount(finalBid)
+                .payer(winner)
+                .completedAt(endedAt)
+                .build());
+
+        // Notify seller of funded state
+        notificationPublisher.escrowFunded(
+                auction.getSeller().getId(),
+                auction.getId(),
+                saved.getId(),
+                auction.getTitle(),
+                saved.getTransferDeadline());
+
+        final Escrow finalEscrow = saved;
+        final EscrowFundedEnvelope fundedEnvelope = EscrowFundedEnvelope.of(finalEscrow, endedAt);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishFunded(fundedEnvelope);
+                    }
+                });
+
+        log.info("Escrow {} auto-funded from wallet (auction {}, amount L${})",
+                saved.getId(), auction.getId(), finalBid);
         return saved;
     }
 
@@ -457,7 +444,7 @@ public class EscrowService {
         return new EscrowStatusResponse(
                 escrow.getPublicId(), escrow.getAuction().getPublicId(), escrow.getState(),
                 escrow.getFinalBidAmount(), escrow.getCommissionAmt(), escrow.getPayoutAmt(),
-                escrow.getPaymentDeadline(), escrow.getTransferDeadline(),
+                escrow.getTransferDeadline(),
                 escrow.getFundedAt(), escrow.getTransferConfirmedAt(), escrow.getCompletedAt(),
                 escrow.getDisputedAt(), escrow.getFrozenAt(), escrow.getExpiredAt(),
                 escrow.getDisputeReasonCategory(), escrow.getDisputeDescription(),
@@ -539,164 +526,50 @@ public class EscrowService {
      */
     @Transactional
     public SlCallbackResponse acceptPayment(EscrowPaymentRequest req) {
-        // 1. Shared secret — the single authoritative check point. Neither
-        // the SL-gated controller nor the dev-profile controller pre-
-        // validate this; every entry path runs through here.
+        // Wallet-only escrow funding (spec 2026-05-16): the terminal is no
+        // longer a valid funding channel for escrow. Escrows auto-fund
+        // from the winner's bid reservation inside createForEndedAuction.
+        // This endpoint is preserved only as a defensive refund path so a
+        // mis-rezzed legacy terminal can't get L$ stuck — every call
+        // returns an ESCROW_EXPIRED REFUND after writing a FAILED ledger
+        // row (for idempotent replays + audit trail).
         terminalService.assertSharedSecret(req.sharedSecret());
 
-        // 2. Idempotency check on slTransactionKey. A COMPLETED row means the
-        // previous attempt succeeded; a FAILED row means the previous attempt
-        // was rejected. Replays of either short-circuit with the same answer.
+        // Idempotency: replay of the same slTransactionKey reuses the
+        // previous decision (will always be a FAILED refund row post-spec).
         Optional<EscrowTransaction> existing = ledgerRepo
                 .findFirstBySlTransactionIdAndType(
                         req.slTransactionKey(), EscrowTransactionType.AUCTION_ESCROW_PAYMENT);
         if (existing.isPresent()) {
             EscrowTransaction tx = existing.get();
             if (tx.getStatus() == EscrowTransactionStatus.COMPLETED) {
+                // Pre-spec rows may exist for historical funded escrows.
+                // Treat as success replay.
                 return SlCallbackResponse.ok();
             }
             return parseRefundFromLedger(tx);
         }
 
-        // 3. Terminal must be registered (known, not necessarily live). Keeps
-        // arbitrary attackers with a leaked secret from minting REFUND rows.
         if (!terminalRepo.existsById(req.terminalId())) {
             return SlCallbackResponse.error(
                     EscrowCallbackResponseReason.UNKNOWN_TERMINAL,
                     "Terminal not registered: " + req.terminalId());
         }
 
-        // 4. Load escrow by auctionId. Unknown auction → ERROR (terminal does
-        // NOT refund — there's no matching record for this payment).
         Escrow escrow = escrowRepo.findByAuctionId(req.auctionId()).orElse(null);
         if (escrow == null) {
             return SlCallbackResponse.error(
                     EscrowCallbackResponseReason.UNKNOWN_AUCTION,
                     "No escrow for auction " + req.auctionId());
         }
-
-        // 5. Pessimistic lock so the payment path serialises against the
-        // dispute / timeout / monitor paths that take the same lock.
         escrow = escrowRepo.findByIdForUpdate(escrow.getId()).orElseThrow();
 
-        // 6. State check. FUNDED / TRANSFER_PENDING / COMPLETED → ALREADY_FUNDED
-        // REFUND. EXPIRED / DISPUTED / FROZEN → ESCROW_EXPIRED REFUND.
-        EscrowState state = escrow.getState();
-        if (state == EscrowState.TRANSFER_PENDING
-                || state == EscrowState.COMPLETED
-                || state == EscrowState.FUNDED) {
-            writeFailedLedger(escrow, req, EscrowCallbackResponseReason.ALREADY_FUNDED);
-            return SlCallbackResponse.refund(
-                    EscrowCallbackResponseReason.ALREADY_FUNDED,
-                    "Escrow already funded for this auction");
-        }
-        if (state == EscrowState.EXPIRED
-                || state == EscrowState.DISPUTED
-                || state == EscrowState.FROZEN) {
-            writeFailedLedger(escrow, req, EscrowCallbackResponseReason.ESCROW_EXPIRED);
-            return SlCallbackResponse.refund(
-                    EscrowCallbackResponseReason.ESCROW_EXPIRED,
-                    "Escrow is no longer accepting payment");
-        }
-        // else: ESCROW_PENDING — fall through to the remaining gates.
-
-        // 7. Deadline check.
-        OffsetDateTime now = OffsetDateTime.now(clock);
-        if (now.isAfter(escrow.getPaymentDeadline())) {
-            writeFailedLedger(escrow, req, EscrowCallbackResponseReason.ESCROW_EXPIRED);
-            return SlCallbackResponse.refund(
-                    EscrowCallbackResponseReason.ESCROW_EXPIRED,
-                    "Payment deadline exceeded");
-        }
-
-        // 8. Payer match. Wrong payer → fraud flag + REFUND. We compare the
-        // winner's sl_avatar_uuid case-insensitively to accommodate LSL's
-        // habit of upper-casing key dumps.
-        User winner = userRepo.findById(escrow.getAuction().getWinnerUserId()).orElseThrow();
-        if (winner.getSlAvatarUuid() == null
-                || !winner.getSlAvatarUuid().toString().equalsIgnoreCase(req.payerUuid())) {
-            String expected = winner.getSlAvatarUuid() == null
-                    ? "<null>" : winner.getSlAvatarUuid().toString();
-            FraudFlag flag = FraudFlag.builder()
-                    .auction(escrow.getAuction())
-                    .slParcelUuid(escrow.getAuction().getSlParcelUuid())
-                    .reason(FraudFlagReason.ESCROW_WRONG_PAYER)
-                    .detectedAt(now)
-                    .evidenceJson(Map.of(
-                            "expectedPayerUuid", expected,
-                            "actualPayerUuid", req.payerUuid(),
-                            "auctionId", req.auctionId(),
-                            "amount", req.amount(),
-                            "slTransactionKey", req.slTransactionKey()))
-                    .resolved(false)
-                    .build();
-            fraudFlagRepo.save(flag);
-            writeFailedLedger(escrow, req, EscrowCallbackResponseReason.WRONG_PAYER);
-            log.warn("Escrow wrong-payer fraud flag on auction {}: expected={}, actual={}",
-                    req.auctionId(), expected, req.payerUuid());
-            return SlCallbackResponse.refund(
-                    EscrowCallbackResponseReason.WRONG_PAYER,
-                    "Payer does not match auction winner");
-        }
-
-        // 9. Amount match.
-        if (!req.amount().equals(escrow.getFinalBidAmount())) {
-            writeFailedLedger(escrow, req, EscrowCallbackResponseReason.WRONG_AMOUNT);
-            return SlCallbackResponse.refund(
-                    EscrowCallbackResponseReason.WRONG_AMOUNT,
-                    "Expected L$" + escrow.getFinalBidAmount() + ", got L$" + req.amount());
-        }
-
-        // 10. Atomic ESCROW_PENDING → FUNDED → TRANSFER_PENDING within this
-        // transaction. We validate both transitions against the state
-        // machine so a future edit to ALLOWED_TRANSITIONS can't silently
-        // break the invariant. External observers only ever see the
-        // TRANSFER_PENDING landing state.
-        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.FUNDED);
-        escrow.setState(EscrowState.FUNDED);
-        escrow.setFundedAt(now);
-        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.TRANSFER_PENDING);
-        escrow.setState(EscrowState.TRANSFER_PENDING);
-        escrow.setTransferDeadline(now.plusHours(TRANSFER_DEADLINE_HOURS));
-        escrow = escrowRepo.save(escrow);
-
-        // 11. Write the COMPLETED ledger row with the L$ amount and payer.
-        ledgerRepo.save(EscrowTransaction.builder()
-                .escrow(escrow)
-                .auction(escrow.getAuction())
-                .type(EscrowTransactionType.AUCTION_ESCROW_PAYMENT)
-                .status(EscrowTransactionStatus.COMPLETED)
-                .amount(req.amount())
-                .payer(winner)
-                .slTransactionId(req.slTransactionKey())
-                .terminalId(req.terminalId())
-                .completedAt(now)
-                .build());
-
-        // 12. Broadcast afterCommit so subscribers never observe a row that
-        // gets rolled back on a late DB failure.
-        final Escrow finalEscrow = escrow;
-        final EscrowFundedEnvelope envelope = EscrowFundedEnvelope.of(finalEscrow, now);
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        broadcastPublisher.publishFunded(envelope);
-                    }
-                });
-
-        // Notify seller that the buyer funded escrow (spec §4: ESCROW_FUNDED → seller only).
-        notificationPublisher.escrowFunded(
-                escrow.getAuction().getSeller().getId(),
-                escrow.getAuction().getId(),
-                escrow.getId(),
-                escrow.getAuction().getTitle(),
-                escrow.getTransferDeadline());
-
-        log.info("Escrow {} FUNDED (auction {}, amount L${}, txn {})",
-                escrow.getId(), req.auctionId(), req.amount(), req.slTransactionKey());
-
-        return SlCallbackResponse.ok();
+        writeFailedLedger(escrow, req, EscrowCallbackResponseReason.ESCROW_EXPIRED);
+        log.warn("Terminal escrow payment received post-wallet-only migration: auctionId={}, amount=L${}, terminal={} - refunding",
+                req.auctionId(), req.amount(), req.terminalId());
+        return SlCallbackResponse.refund(
+                EscrowCallbackResponseReason.ESCROW_EXPIRED,
+                "Escrow payments now happen automatically from your SLParcels wallet. L$ refunded.");
     }
 
     /**
@@ -847,53 +720,6 @@ public class EscrowService {
         escrow.setLastCheckedAt(now);
         escrow.setConsecutiveWorldApiFailures(0);
         escrowRepo.save(escrow);
-    }
-
-    /**
-     * Expires an {@link EscrowState#ESCROW_PENDING} escrow whose 48h
-     * {@code paymentDeadline} has passed — the winner never paid. No refund
-     * is queued because no L$ is held in the terminal account. Stamps
-     * {@code expiredAt} and registers an {@link EscrowExpiredEnvelope}
-     * ({@code reason=PAYMENT_TIMEOUT}) on {@code afterCommit} so subscribers
-     * never observe an expiry that gets rolled back on a late DB failure.
-     * Spec §4.6.
-     *
-     * <p>{@link Propagation#MANDATORY} so a stray call outside the
-     * timeout-task transaction fails fast — the caller must hold a
-     * pessimistic write lock on the escrow row for the afterCommit envelope
-     * to be sound.
-     */
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void expirePayment(Escrow escrow, OffsetDateTime now) {
-        enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.EXPIRED);
-        escrow.setState(EscrowState.EXPIRED);
-        escrow.setExpiredAt(now);
-        escrow = escrowRepo.save(escrow);
-
-
-        final EscrowExpiredEnvelope envelope =
-                EscrowExpiredEnvelope.of(escrow, "PAYMENT_TIMEOUT", now);
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        broadcastPublisher.publishExpired(envelope);
-                    }
-                });
-
-        // Notify both parties of payment-timeout expiry.
-        String paymentExpiredParcel = escrow.getAuction().getTitle();
-        long paymentExpiredAuctionId = escrow.getAuction().getId();
-        long paymentExpiredEscrowId = escrow.getId();
-        notificationPublisher.escrowExpired(
-                escrow.getAuction().getWinnerUserId(),
-                paymentExpiredAuctionId, paymentExpiredEscrowId, paymentExpiredParcel);
-        notificationPublisher.escrowExpired(
-                escrow.getAuction().getSeller().getId(),
-                paymentExpiredAuctionId, paymentExpiredEscrowId, paymentExpiredParcel);
-
-        log.info("Escrow {} EXPIRED (payment timeout, no refund): auction {}",
-                escrow.getId(), escrow.getAuction().getId());
     }
 
     /**

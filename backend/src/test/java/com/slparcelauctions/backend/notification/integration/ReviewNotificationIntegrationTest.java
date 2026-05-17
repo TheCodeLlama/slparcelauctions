@@ -145,7 +145,6 @@ class ReviewNotificationIntegrationTest {
                     .finalBidAmount(1500L)
                     .commissionAmt(75L)
                     .payoutAmt(1425L)
-                    .paymentDeadline(OffsetDateTime.now().minusDays(9))
                     .consecutiveWorldApiFailures(0)
                     .fundedAt(OffsetDateTime.now().minusDays(9))
                     .completedAt(completedAt)

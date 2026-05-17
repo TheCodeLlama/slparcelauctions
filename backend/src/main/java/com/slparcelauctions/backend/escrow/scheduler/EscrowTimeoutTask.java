@@ -47,21 +47,6 @@ public class EscrowTimeoutTask {
     private final TerminalCommandRepository terminalCommandRepo;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void expirePayment(Long escrowId, OffsetDateTime now) {
-        Escrow escrow = escrowRepo.findByIdForUpdate(escrowId).orElse(null);
-        if (escrow == null || escrow.getState() != EscrowState.ESCROW_PENDING) {
-            log.debug("Escrow {} payment-timeout skipped: state changed between sweep and lock",
-                    escrowId);
-            return;
-        }
-        if (escrow.getPaymentDeadline() == null || escrow.getPaymentDeadline().isAfter(now)) {
-            log.debug("Escrow {} payment-timeout skipped: deadline not yet past", escrowId);
-            return;
-        }
-        escrowService.expirePayment(escrow, now);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void expireTransfer(Long escrowId, OffsetDateTime now) {
         Escrow escrow = escrowRepo.findByIdForUpdate(escrowId).orElse(null);
         if (escrow == null || escrow.getState() != EscrowState.TRANSFER_PENDING) {

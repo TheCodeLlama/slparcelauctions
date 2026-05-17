@@ -92,18 +92,6 @@ public class BidService {
     private final BidEligibilityService bidEligibilityService;
 
     /**
-     * Wallet enforcement flag. Default false so existing test fixtures (which
-     * don't deposit before bidding) continue to pass. When set true on a
-     * deployed environment, every bid validates penalty == 0 and
-     * available >= amount, and a hard reservation is swapped from the prior
-     * high bidder to the new bidder. Separate migration -- the wallet-model
-     * refund migration in this commit only changes refund routing, not
-     * bid-time enforcement.
-     */
-    @org.springframework.beans.factory.annotation.Value("${slpa.wallet.enforcement-enabled:false}")
-    private boolean walletEnforcementEnabled;
-
-    /**
      * Places a manual bid on an auction. See class javadoc for the
      * concurrency model.
      *
@@ -148,23 +136,26 @@ public class BidService {
         }
         bidEligibilityService.assertCanBid(auction, bidder);
 
-        // Wallet preconditions (gated by feature flag).
-        if (walletEnforcementEnabled) {
-            long owed = bidder.getPenaltyBalanceOwed() == null ? 0L : bidder.getPenaltyBalanceOwed();
-            if (owed > 0) {
-                throw new PenaltyOutstandingException(owed);
-            }
-            // Re-fetch with lock for the wallet check + reservation swap.
-            // Note: bidder fetched above is unlocked; lock now to read the
-            // committed balance + reservedLindens consistently.
-            User lockedBidder = userRepo.findByIdForUpdate(bidderId).orElseThrow();
-            if (lockedBidder.availableLindens() < amount) {
-                throw new InsufficientAvailableBalanceException(
-                        lockedBidder.availableLindens(), amount);
-            }
-            // Replace bidder reference with locked instance for downstream use.
-            bidder = lockedBidder;
+        // Wallet preconditions. Wallet-only-escrow design (spec
+        // 2026-05-16-wallet-only-escrow-funding): every bid hard-reserves
+        // the L$ from the bidder's wallet up front. This is the gate that
+        // makes auto-funded escrow possible at auction-end — by the time
+        // the winning bid commits, the funds are already reserved against
+        // the bidder's wallet and can move into the escrow atomically.
+        long owed = bidder.getPenaltyBalanceOwed() == null ? 0L : bidder.getPenaltyBalanceOwed();
+        if (owed > 0) {
+            throw new PenaltyOutstandingException(owed);
         }
+        // Re-fetch with lock for the wallet check + reservation swap.
+        // Note: bidder fetched above is unlocked; lock now to read the
+        // committed balance + reservedLindens consistently.
+        User lockedBidder = userRepo.findByIdForUpdate(bidderId).orElseThrow();
+        if (lockedBidder.availableLindens() < amount) {
+            throw new InsufficientAvailableBalanceException(
+                    lockedBidder.availableLindens(), amount);
+        }
+        // Replace bidder reference with locked instance for downstream use.
+        bidder = lockedBidder;
 
         // Step 5 — minimum-bid gate. First bid must clear startingBid;
         // subsequent bids must clear currentBid + minIncrement(currentBid).
@@ -238,23 +229,20 @@ public class BidService {
         auction.setBidCount(nextBidCount);
         auctionRepo.save(auction);
 
-        // Hard reservation swap (gated by feature flag). Releases the prior
-        // active reservation on this auction (if any) and reserves the new
-        // top bidder's amount. Lock ordering: auction (held) → users in
-        // ascending id order.
-        if (walletEnforcementEnabled) {
-            BidReservation prior = reservationRepo.findActiveForAuction(auctionId).orElse(null);
-            User newReserver;
-            if (top.getBidder().getId().equals(bidderId)) {
-                newReserver = bidder;  // already locked above
-            } else {
-                // Top is a PROXY_AUTO bid by a different user (the proxy owner);
-                // lock that user's row. If prior is the same user, they're
-                // already-resolved.
-                newReserver = userRepo.findByIdForUpdate(top.getBidder().getId()).orElseThrow();
-            }
-            walletService.swapReservation(auctionId, newReserver, top.getAmount(), prior, top.getId());
+        // Hard reservation swap. Releases the prior active reservation on
+        // this auction (if any) and reserves the new top bidder's amount.
+        // Lock ordering: auction (held) → users in ascending id order.
+        BidReservation prior = reservationRepo.findActiveForAuction(auctionId).orElse(null);
+        User newReserver;
+        if (top.getBidder().getId().equals(bidderId)) {
+            newReserver = bidder;  // already locked above
+        } else {
+            // Top is a PROXY_AUTO bid by a different user (the proxy owner);
+            // lock that user's row. If prior is the same user, they're
+            // already-resolved.
+            newReserver = userRepo.findByIdForUpdate(top.getBidder().getId()).orElseThrow();
         }
+        walletService.swapReservation(auctionId, newReserver, top.getAmount(), prior, top.getId());
 
         // Notify the displaced bidder (if any). previousHighBidderId is non-null
         // when someone was already winning; the new top must be a different user

@@ -99,7 +99,6 @@ class ReviewServiceSubmitTest {
                 .finalBidAmount(1_000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(NOW.minusDays(3))
                 .build();
     }
 

@@ -26,6 +26,7 @@ import com.slparcelauctions.backend.auction.broadcast.AuctionBroadcastPublisher;
 import com.slparcelauctions.backend.auction.exception.BidTooLowException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
 
 /**
  * Success Criterion Â§1 regression test: two concurrent {@code placeBid}
@@ -54,6 +55,8 @@ class BidBidRaceTest {
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
     @Autowired UserRepository userRepository;
+    @Autowired BidReservationRepository bidReservationRepository;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepository;
     @Autowired PlatformTransactionManager txManager;
 
     // Task 2 runs without a real STOMP broker â€” swap the publisher for a
@@ -77,19 +80,21 @@ class BidBidRaceTest {
         cleanup.executeWithoutResult(status -> {
             if (auctionId != null) {
                 auctionRepository.findById(auctionId).ifPresent(a -> {
+                    // bid_reservations FK to bids — drop reservations
+                    // before bids.
+                    bidReservationRepository.findAll().stream()
+                            .filter(r -> a.getId().equals(r.getAuctionId()))
+                            .forEach(bidReservationRepository::delete);
                     bidRepository.findByAuctionIdOrderByCreatedAtAsc(a.getId())
                             .forEach(bidRepository::delete);
                     auctionRepository.delete(a);
                 });
             }
-            if (bidderAId != null) {
-                userRepository.findById(bidderAId).ifPresent(userRepository::delete);
-            }
-            if (bidderBId != null) {
-                userRepository.findById(bidderBId).ifPresent(userRepository::delete);
-            }
-            if (sellerId != null) {
-                userRepository.findById(sellerId).ifPresent(userRepository::delete);
+            for (Long id : new Long[]{bidderAId, bidderBId, sellerId}) {
+                if (id != null) {
+                    userLedgerRepository.deleteAllByUserId(id);
+                    userRepository.findById(id).ifPresent(userRepository::delete);
+                }
             }
         });
         auctionId = null;
@@ -199,12 +204,17 @@ class BidBidRaceTest {
                 .verified(true)
                 .slAvatarUuid(UUID.randomUUID())
                 .build());
+        // Wallet-only escrow funding: every bid hard-reserves L$; seed
+        // both bidders with enough balance to cover the bid amount.
         User bidderA = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-bidder-a-" + UUID.randomUUID() + "@example.com")
                 .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                 .displayName("Race Bidder A")
                 .verified(true)
                 .slAvatarUuid(UUID.randomUUID())
+                .balanceLindens(1_000_000L)
+                .reservedLindens(0L)
+                .penaltyBalanceOwed(0L)
                 .build());
         User bidderB = userRepository.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                 .email("race-bidder-b-" + UUID.randomUUID() + "@example.com")
@@ -212,6 +222,9 @@ class BidBidRaceTest {
                 .displayName("Race Bidder B")
                 .verified(true)
                 .slAvatarUuid(UUID.randomUUID())
+                .balanceLindens(1_000_000L)
+                .reservedLindens(0L)
+                .penaltyBalanceOwed(0L)
                 .build());
         UUID parcelUuid = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();

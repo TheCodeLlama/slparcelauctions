@@ -40,6 +40,10 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.wallet.BidReservation;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
+import com.slparcelauctions.backend.auction.Bid;
+import com.slparcelauctions.backend.auction.BidType;
 
 /**
  * Integration test: {@link EscrowService#createForEndedAuction} sets
@@ -73,6 +77,7 @@ class EscrowServiceAgentFeePayoutTest {
 
     @Autowired EscrowService escrowService;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
@@ -83,7 +88,10 @@ class EscrowServiceAgentFeePayoutTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired NotificationRepository notificationRepo;
+    @Autowired BidReservationRepository bidReservationRepo;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepo;
     @Autowired PlatformTransactionManager txManager;
+    @Autowired javax.sql.DataSource dataSource;
 
     private Long seededAuctionId;
     private Long seededSellerId;
@@ -96,7 +104,14 @@ class EscrowServiceAgentFeePayoutTest {
         if (seededAuctionId == null) return;
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
-            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
+            bidReservationRepo.findAll().stream()
+                    .filter(r -> seededAuctionId.equals(r.getAuctionId()))
+                    .forEach(bidReservationRepo::delete);
+            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrow -> {
+                escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
+                        .forEach(escrowTxRepo::delete);
+                escrowRepo.delete(escrow);
+            });
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
@@ -110,6 +125,7 @@ class EscrowServiceAgentFeePayoutTest {
             }
             for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
                 if (userId == null) continue;
+                userLedgerRepo.deleteAllByUserId(userId);
                 refreshTokenRepo.findAllByUserId(userId).forEach(refreshTokenRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId, VerificationCodeType.PLAYER)
                         .forEach(verificationCodeRepo::delete);
@@ -176,6 +192,12 @@ class EscrowServiceAgentFeePayoutTest {
                     .displayName("Case3 Bidder")
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
+                    // Wallet-only escrow funding (spec 2026-05-16):
+                    // balance + reserved match so the auto-fund debit
+                    // succeeds when createForEndedAuction runs.
+                    .balanceLindens(finalBid)
+                    .reservedLindens(finalBid)
+                    .penaltyBalanceOwed(0L)
                     .build());
 
             String suffix = UUID.randomUUID().toString().substring(0, 8);
@@ -232,6 +254,20 @@ class EscrowServiceAgentFeePayoutTest {
                     .positionX(128.0).positionY(64.0).positionZ(22.0)
                     .build());
             auctionRepo.save(auction);
+
+            // Seed a bid + active reservation so auto-fund consumes it.
+            Bid bid = bidRepo.save(Bid.builder()
+                    .auction(auction)
+                    .bidder(bidder)
+                    .amount(finalBid)
+                    .bidType(BidType.MANUAL)
+                    .build());
+            bidReservationRepo.save(BidReservation.builder()
+                    .userId(bidder.getId())
+                    .auctionId(auction.getId())
+                    .bidId(bid.getId())
+                    .amount(finalBid)
+                    .build());
 
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();

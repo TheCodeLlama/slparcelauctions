@@ -15,7 +15,6 @@ export function fakeEscrow(
     finalBidAmount: 5000,
     commissionAmt: 250,
     payoutAmt: 4750,
-    paymentDeadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
     transferDeadline: null,
     fundedAt: null,
     transferConfirmedAt: null,
@@ -45,7 +44,6 @@ export function fakeEscrowEnvelope<T extends EscrowEnvelopeType>(
       return {
         type: "ESCROW_CREATED",
         state: "ESCROW_PENDING",
-        paymentDeadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
         ...baseCommon,
         ...overrides,
       } as EscrowEnvelope;

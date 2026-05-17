@@ -42,6 +42,7 @@ import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
 
 /**
  * End-to-end coverage for Escrow row creation on the inline buy-it-now close
@@ -93,9 +94,13 @@ class EscrowCreateOnBuyNowIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired NotificationRepository notificationRepo;
+    @Autowired BidReservationRepository bidReservationRepo;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepo;
     @Autowired PlatformTransactionManager txManager;
+    @Autowired javax.sql.DataSource dataSource;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
     private Long seededAuctionId;
@@ -113,12 +118,20 @@ class EscrowCreateOnBuyNowIntegrationTest {
         if (seededAuctionId == null) return;
         TransactionTemplate tx = new TransactionTemplate(txManager);
         tx.executeWithoutResult(status -> {
-            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
+            bidReservationRepo.findAll().stream()
+                    .filter(r -> seededAuctionId.equals(r.getAuctionId()))
+                    .forEach(bidReservationRepo::delete);
+            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrow -> {
+                escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
+                        .forEach(escrowTxRepo::delete);
+                escrowRepo.delete(escrow);
+            });
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
             for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
                 if (userId == null) continue;
+                userLedgerRepo.deleteAllByUserId(userId);
                 refreshTokenRepo.findAllByUserId(userId)
                         .forEach(refreshTokenRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
@@ -160,45 +173,30 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(refreshed.getWinnerUserId()).isEqualTo(seededBidderId);
 
         Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
-        assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
+        // Wallet-only escrow funding (spec 2026-05-16): the auto-fund
+        // path runs in the same transaction as createForEndedAuction, so
+        // observers see the row at TRANSFER_PENDING (FUNDED is an
+        // intermediate transition).
+        assertThat(escrow.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(bidAmount);
-        // Commission math lives in EscrowCommissionCalculator (spec Â§4.3 â€”
-        // max(bid * 5%, L$50) floor). Assert against the calculator so
-        // test expectations track the business rule instead of duplicating
-        // its arithmetic. At Phase-1 rates 10000*0.05 = 500 clears the L$50
-        // floor, so commissionAmt=500 and payoutAmt=9500 â€” kept in the
-        // comment so a reviewer sees the expected numeric value too.
         assertThat(escrow.getCommissionAmt())
                 .isEqualTo(commissionCalculator.commission(bidAmount));
         assertThat(escrow.getPayoutAmt())
                 .isEqualTo(commissionCalculator.payout(bidAmount));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
-        assertThat(escrow.getTransferDeadline()).isNull();
-        assertThat(escrow.getFundedAt()).isNull();
-        // paymentDeadline, auction.endedAt, and the envelope serverTime are
-        // all anchored to the same `now` read in BidService.placeBid (step
-        // 3); it's threaded through applySnipeAndBuyNow (endedAt),
-        // createForEndedAuction (paymentDeadline = now + 48h), and
-        // AuctionEndedEnvelope.of(..., now) (serverTime). So
-        // paymentDeadline == endedAt + 48h exactly, modulo Postgres
-        // TIMESTAMPTZ nanosecondâ†’microsecond rounding on the persisted
-        // column (1Î¼s tolerance covers it).
-        assertThat(escrow.getPaymentDeadline())
-                .isCloseTo(refreshed.getEndedAt().plusHours(48), within(1, ChronoUnit.MICROS));
+        assertThat(escrow.getFundedAt()).isNotNull();
+        // transferDeadline = fundedAt + 72h.
+        assertThat(escrow.getTransferDeadline())
+                .isCloseTo(escrow.getFundedAt().plusHours(72), within(1, ChronoUnit.MICROS));
 
         assertThat(capturingEscrowPublisher.created).hasSize(1);
         EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_CREATED");
         assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
         assertThat(env.escrowPublicId()).isEqualTo(escrow.getPublicId());
+        // The ESCROW_CREATED envelope is registered before the auto-fund
+        // transition, so it carries the initial ESCROW_PENDING state.
         assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
-        // Envelope serverTime + 48h = paymentDeadline â€” both derive from the
-        // SAME `now` read so this round-trips exactly (modulo 1Î¼s Postgres
-        // TIMESTAMPTZ rounding on the persisted paymentDeadline side).
-        assertThat(env.paymentDeadline())
-                .isCloseTo(escrow.getPaymentDeadline(), within(1, ChronoUnit.MICROS));
-        assertThat(escrow.getPaymentDeadline())
-                .isCloseTo(env.serverTime().plusHours(48), within(1, ChronoUnit.MICROS));
     }
 
     // -------------------------------------------------------------------------
@@ -221,6 +219,12 @@ class EscrowCreateOnBuyNowIntegrationTest {
                     .displayName("Escrow BuyNow Bidder")
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
+                    // Wallet-only escrow funding: balance must cover the
+                    // buy-now bid so the wallet precondition + reservation
+                    // swap pass, then auto-fund consumes the reservation.
+                    .balanceLindens(1_000_000L)
+                    .reservedLindens(0L)
+                    .penaltyBalanceOwed(0L)
                     .build());
             UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();

@@ -59,6 +59,39 @@ class SlImMessageDaoTest {
                     DELETE FROM realty_groups
                      WHERE leader_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
                     """);
+                stmt.execute("""
+                    DELETE FROM user_ledger
+                     WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
+                stmt.execute("""
+                    DELETE FROM notification
+                     WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
+                // Defensive: clear auctions seeded by other tests that
+                // forgot to clean up (auctions FK seller_id blocks the
+                // users delete otherwise).
+                stmt.execute("""
+                    DELETE FROM bid_reservations
+                     WHERE auction_id IN (
+                       SELECT id FROM auctions
+                        WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local'))
+                    """);
+                stmt.execute("""
+                    DELETE FROM bids
+                     WHERE auction_id IN (
+                       SELECT id FROM auctions
+                        WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local'))
+                    """);
+                stmt.execute("""
+                    DELETE FROM auction_parcel_snapshots
+                     WHERE auction_id IN (
+                       SELECT id FROM auctions
+                        WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local'))
+                    """);
+                stmt.execute("""
+                    DELETE FROM auctions
+                     WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
                 stmt.execute("DELETE FROM users WHERE email LIKE 'u-%@test.local'");
             }
         }

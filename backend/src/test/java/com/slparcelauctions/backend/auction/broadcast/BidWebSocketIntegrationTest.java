@@ -87,6 +87,8 @@ class BidWebSocketIntegrationTest {
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
     @Autowired UserRepository userRepository;
+    @Autowired com.slparcelauctions.backend.wallet.BidReservationRepository bidReservationRepository;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepository;
     @Autowired PlatformTransactionManager txManager;
 
     private WebSocketStompClient stompClient;
@@ -223,6 +225,9 @@ class BidWebSocketIntegrationTest {
                     .displayName("WS Bidder")
                     .verified(true)
                     .slAvatarUuid(UUID.randomUUID())
+                    .balanceLindens(1_000_000L)
+                    .reservedLindens(0L)
+                    .penaltyBalanceOwed(0L)
                     .build());
             UUID parcelUuid = UUID.randomUUID();
             UUID ownerUuid = UUID.randomUUID();
@@ -272,16 +277,19 @@ class BidWebSocketIntegrationTest {
         tx.executeWithoutResult(status -> {
             if (auctionId != null) {
                 auctionRepository.findById(auctionId).ifPresent(a -> {
+                    bidReservationRepository.findAll().stream()
+                            .filter(r -> a.getId().equals(r.getAuctionId()))
+                            .forEach(bidReservationRepository::delete);
                     bidRepository.findByAuctionIdOrderByCreatedAtAsc(a.getId())
                             .forEach(bidRepository::delete);
                     auctionRepository.delete(a);
                 });
             }
-            if (bidderId != null) {
-                userRepository.findById(bidderId).ifPresent(userRepository::delete);
-            }
-            if (sellerId != null) {
-                userRepository.findById(sellerId).ifPresent(userRepository::delete);
+            for (Long id : new Long[]{bidderId, sellerId}) {
+                if (id != null) {
+                    userLedgerRepository.deleteAllByUserId(id);
+                    userRepository.findById(id).ifPresent(userRepository::delete);
+                }
             }
         });
         auctionId = null;

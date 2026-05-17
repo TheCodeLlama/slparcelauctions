@@ -38,6 +38,8 @@ import com.slparcelauctions.backend.notification.NotificationWsBroadcasterPort;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservation;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
 
 /**
  * Vertical-slice integration tests for auction-end notifications.
@@ -66,6 +68,8 @@ class AuctionEndNotificationIntegrationTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired com.slparcelauctions.backend.escrow.EscrowTransactionRepository escrowTxRepo;
+    @Autowired BidReservationRepository bidReservationRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired DataSource dataSource;
 
@@ -81,7 +85,14 @@ class AuctionEndNotificationIntegrationTest {
     void cleanup() throws Exception {
         if (auctionId != null) {
             new TransactionTemplate(txManager).executeWithoutResult(s -> {
-                escrowRepo.findByAuctionId(auctionId).ifPresent(escrowRepo::delete);
+                bidReservationRepo.findAll().stream()
+                        .filter(r -> auctionId.equals(r.getAuctionId()))
+                        .forEach(bidReservationRepo::delete);
+                escrowRepo.findByAuctionId(auctionId).ifPresent(escrow -> {
+                    escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
+                            .forEach(escrowTxRepo::delete);
+                    escrowRepo.delete(escrow);
+                });
                 bidRepo.deleteAllByAuctionId(auctionId);
                 auctionRepo.findById(auctionId).ifPresent(auctionRepo::delete);
             });
@@ -91,6 +102,7 @@ class AuctionEndNotificationIntegrationTest {
             try (var st = conn.createStatement()) {
                 for (Long id : new Long[]{sellerId, bidderId, loserBidderId}) {
                     if (id != null) {
+                        st.execute("DELETE FROM user_ledger WHERE user_id = " + id);
                         st.execute("DELETE FROM notification WHERE user_id = " + id);
                         st.execute("DELETE FROM refresh_tokens WHERE user_id = " + id);
                         st.execute("DELETE FROM users WHERE id = " + id);
@@ -110,6 +122,11 @@ class AuctionEndNotificationIntegrationTest {
                 .displayName(prefix)
                 .slAvatarUuid(UUID.randomUUID())
                 .verified(true)
+                // Wallet-only escrow funding (spec 2026-05-16): seed
+                // balance so any winning bid's reservation can be debited.
+                .balanceLindens(1_000_000L)
+                .reservedLindens(0L)
+                .penaltyBalanceOwed(0L)
                 .build()));
     }
 
@@ -147,12 +164,26 @@ class AuctionEndNotificationIntegrationTest {
                     .build());
             auctionRepo.save(a);
             if (currentBidderId != null) {
-                bidRepo.save(Bid.builder()
+                Bid bid = bidRepo.save(Bid.builder()
                         .auction(a)
                         .bidder(userRepo.findById(currentBidderId).orElseThrow())
                         .amount(currentBid)
                         .bidType(BidType.MANUAL)
                         .build());
+                // Wallet-only escrow funding: a winning bidder must have
+                // an active reservation so createForEndedAuction can
+                // consume it. Reflect the reservation in the user too.
+                if (currentBid >= (reserve == null ? 0L : reserve)) {
+                    User cb = userRepo.findById(currentBidderId).orElseThrow();
+                    cb.setReservedLindens(currentBid);
+                    userRepo.save(cb);
+                    bidReservationRepo.save(BidReservation.builder()
+                            .userId(currentBidderId)
+                            .auctionId(a.getId())
+                            .bidId(bid.getId())
+                            .amount(currentBid)
+                            .build());
+                }
             }
         });
     }

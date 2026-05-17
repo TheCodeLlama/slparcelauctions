@@ -75,80 +75,10 @@ class EscrowTimeoutTaskTest {
         task = new EscrowTimeoutTask(escrowRepo, escrowService, terminalCommandRepo);
     }
 
-    // -------------------------------------------------------------------------
-    // expirePayment
-    // -------------------------------------------------------------------------
-
-    @Test
-    void expirePayment_pendingWithPastDeadline_delegatesToService() {
-        Escrow escrow = buildEscrow(EscrowState.ESCROW_PENDING);
-        escrow.setPaymentDeadline(now.minusHours(1));
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-
-        task.expirePayment(ESCROW_ID, now);
-
-        verify(escrowService).expirePayment(escrow, now);
-        verify(escrowService, never()).expireTransfer(any(), any());
-    }
-
-    @Test
-    void expirePayment_wrongState_shortCircuits_noServiceCall() {
-        Escrow escrow = buildEscrow(EscrowState.TRANSFER_PENDING);
-        escrow.setPaymentDeadline(now.minusHours(1));
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-
-        task.expirePayment(ESCROW_ID, now);
-
-        verifyNoInteractions(escrowService);
-    }
-
-    @Test
-    void expirePayment_fundedState_shortCircuits_noServiceCall() {
-        Escrow escrow = buildEscrow(EscrowState.FUNDED);
-        escrow.setPaymentDeadline(now.minusHours(1));
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-
-        task.expirePayment(ESCROW_ID, now);
-
-        verifyNoInteractions(escrowService);
-    }
-
-    @Test
-    void expirePayment_missingEscrow_shortCircuits_noServiceCall() {
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.empty());
-
-        task.expirePayment(ESCROW_ID, now);
-
-        verifyNoInteractions(escrowService);
-    }
-
-    @Test
-    void expirePayment_deadlineNotYetPast_shortCircuits_noServiceCall() {
-        // Race window: sweep picked this escrow up but a concurrent
-        // mutation already pushed paymentDeadline into the future (e.g. an
-        // admin tool).  The per-task lock caught the state correctly but
-        // the deadline re-check defuses the stale decision.
-        Escrow escrow = buildEscrow(EscrowState.ESCROW_PENDING);
-        escrow.setPaymentDeadline(now.plusHours(1));
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-
-        task.expirePayment(ESCROW_ID, now);
-
-        verify(escrowService, never()).expirePayment(any(), any());
-    }
-
-    @Test
-    void expirePayment_nullDeadline_shortCircuits_noServiceCall() {
-        // Defensive: an ESCROW_PENDING row with a null paymentDeadline is
-        // a data integrity bug but must not crash the sweep.
-        Escrow escrow = buildEscrow(EscrowState.ESCROW_PENDING);
-        escrow.setPaymentDeadline(null);
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-
-        task.expirePayment(ESCROW_ID, now);
-
-        verify(escrowService, never()).expirePayment(any(), any());
-    }
+    // Wallet-only escrow funding (spec 2026-05-16): payment-timeout
+    // sweep is retired. ESCROW_PENDING is a transactional intermediate
+    // that never persists past commit, so no expirePayment path exists
+    // any more. Only expireTransfer (seller-never-transferred) survives.
 
     // -------------------------------------------------------------------------
     // expireTransfer
@@ -164,7 +94,6 @@ class EscrowTimeoutTaskTest {
         task.expireTransfer(ESCROW_ID, now);
 
         verify(escrowService).expireTransfer(escrow, now);
-        verify(escrowService, never()).expirePayment(any(), any());
     }
 
     @Test
@@ -183,7 +112,6 @@ class EscrowTimeoutTaskTest {
         task.expireTransfer(ESCROW_ID, now);
 
         verify(escrowService, never()).expireTransfer(any(), any());
-        verify(escrowService, never()).expirePayment(any(), any());
     }
 
     @Test
@@ -241,11 +169,14 @@ class EscrowTimeoutTaskTest {
 
     @Test
     void lockEntryPath_usesFindByIdForUpdate_notFindById() {
-        Escrow escrow = buildEscrow(EscrowState.ESCROW_PENDING);
-        escrow.setPaymentDeadline(now.minusHours(1));
+        // Per-task lock must be the row-locking variant; the same lock is
+        // re-taken by the ownership confirm path so they serialise.
+        Escrow escrow = buildEscrow(EscrowState.TRANSFER_PENDING);
+        escrow.setTransferDeadline(now.minusHours(1));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(terminalCommandRepo.countActivePayoutCommands(ESCROW_ID)).thenReturn(0L);
 
-        task.expirePayment(ESCROW_ID, now);
+        task.expireTransfer(ESCROW_ID, now);
 
         verify(escrowRepo).findByIdForUpdate(ESCROW_ID);
         verify(escrowRepo, never()).findById(ESCROW_ID);

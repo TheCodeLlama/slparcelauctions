@@ -44,6 +44,36 @@ class SlImMessageRepositoryTest {
             conn.setAutoCommit(true);
             try (var stmt = conn.createStatement()) {
                 stmt.execute("DELETE FROM sl_im_message");
+                stmt.execute("""
+                    DELETE FROM user_ledger
+                     WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
+                stmt.execute("""
+                    DELETE FROM notification
+                     WHERE user_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
+                stmt.execute("""
+                    DELETE FROM bid_reservations
+                     WHERE auction_id IN (
+                       SELECT id FROM auctions
+                        WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local'))
+                    """);
+                stmt.execute("""
+                    DELETE FROM bids
+                     WHERE auction_id IN (
+                       SELECT id FROM auctions
+                        WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local'))
+                    """);
+                stmt.execute("""
+                    DELETE FROM auction_parcel_snapshots
+                     WHERE auction_id IN (
+                       SELECT id FROM auctions
+                        WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local'))
+                    """);
+                stmt.execute("""
+                    DELETE FROM auctions
+                     WHERE seller_id IN (SELECT id FROM users WHERE email LIKE 'u-%@test.local')
+                    """);
                 stmt.execute("DELETE FROM users WHERE email LIKE 'u-%@test.local'");
             }
         }

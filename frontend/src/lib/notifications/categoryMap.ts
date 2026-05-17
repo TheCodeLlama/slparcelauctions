@@ -41,7 +41,7 @@ export const categoryMap: Record<NotificationCategory, CategoryMapEntry> = {
     iconBgClass: "bg-brand-soft text-brand",
     toastVariant: "success",
     deeplink: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow`,
-    action: { label: "Pay escrow", href: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow` },
+    action: { label: "View escrow", href: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow` },
   },
   AUCTION_LOST: {
     group: "auction_result",

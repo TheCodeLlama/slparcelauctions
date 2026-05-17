@@ -42,9 +42,11 @@ export interface EscrowStatusResponse {
   commissionAmt: number;
   payoutAmt: number;
 
-  // Deadlines
-  paymentDeadline: string;            // ISO-8601
-  transferDeadline: string | null;    // null until funded
+  // Transfer deadline = fundedAt + 72h. Null until the escrow funds.
+  // (paymentDeadline retired in spec 2026-05-16-wallet-only-escrow-funding:
+  // escrows auto-fund inside createForEndedAuction so the pre-fund window
+  // never persists.)
+  transferDeadline: string | null;
 
   // Timestamps (nullable until the respective transition stamps them)
   fundedAt: string | null;
@@ -92,7 +94,7 @@ export interface EscrowEnvelopeBase {
 }
 
 export type EscrowEnvelope =
-  | (EscrowEnvelopeBase & { type: "ESCROW_CREATED"; paymentDeadline: string })
+  | (EscrowEnvelopeBase & { type: "ESCROW_CREATED" })
   | (EscrowEnvelopeBase & { type: "ESCROW_FUNDED"; transferDeadline: string })
   | (EscrowEnvelopeBase & {
       type: "ESCROW_TRANSFER_CONFIRMED";

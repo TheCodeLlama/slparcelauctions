@@ -412,7 +412,6 @@ class TerminalCommandDispatcherTaskTest {
                 .id(ESCROW_ID).auction(auction)
                 .state(EscrowState.TRANSFER_PENDING)
                 .finalBidAmount(5000L).commissionAmt(250L).payoutAmt(4750L)
-                .paymentDeadline(OffsetDateTime.now(fixed).minusHours(1))
                 .transferDeadline(OffsetDateTime.now(fixed).plusHours(70))
                 .fundedAt(OffsetDateTime.now(fixed).minusHours(2))
                 .consecutiveWorldApiFailures(0)
