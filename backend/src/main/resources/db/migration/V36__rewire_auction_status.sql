@@ -5,6 +5,14 @@
 
 BEGIN;
 
+-- Drop the V12 auctions_status_check CHECK constraint FIRST so the
+-- translation UPDATEs below can set rows to 'FROZEN' (a new value not in
+-- the V12 constraint). The new constraint is re-added at the bottom of
+-- the migration with the post-rewire value set. Both ends run inside the
+-- same transaction so no window exists where the column is unconstrained
+-- from other writers' perspective.
+ALTER TABLE auctions DROP CONSTRAINT IF EXISTS auctions_status_check;
+
 -- ENDED + COMPLETED escrow -> COMPLETED
 UPDATE auctions a
 SET status = 'COMPLETED'
@@ -59,12 +67,10 @@ UPDATE auctions
 SET status = 'TRANSFER_PENDING'
 WHERE status IN ('ESCROW_PENDING', 'ESCROW_FUNDED');
 
--- Rewire the auctions_status_check CHECK constraint defined in V12.
--- ENDED / ESCROW_PENDING / ESCROW_FUNDED are dropped from AuctionStatus;
--- FROZEN is added. The translation UPDATEs above already moved every
--- existing row off the dropped values, so the new constraint can be
--- enforced without violations.
-ALTER TABLE auctions DROP CONSTRAINT IF EXISTS auctions_status_check;
+-- Re-add the auctions_status_check CHECK constraint with the post-rewire
+-- value set. ENDED / ESCROW_PENDING / ESCROW_FUNDED are dropped; FROZEN
+-- is added. The translation UPDATEs above moved every existing row off
+-- the dropped values, so the new constraint enforces cleanly.
 ALTER TABLE auctions ADD CONSTRAINT auctions_status_check CHECK (status IN (
     'DRAFT', 'DRAFT_PAID', 'VERIFICATION_PENDING', 'VERIFICATION_FAILED',
     'ACTIVE', 'TRANSFER_PENDING', 'DISPUTED',
