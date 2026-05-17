@@ -200,6 +200,9 @@ class EscrowDisputeIntegrationTest {
                 List.of());
 
         assertThat(resp.state()).isEqualTo(EscrowState.DISPUTED);
+        // The status DTO should surface the winner's SL avatar name so the
+        // seller's TRANSFER_PENDING card can show it next to a copy button.
+        assertThat(resp.winnerSlAvatarName()).isEqualTo("Dispute Winner Resident");
 
         Escrow persisted = escrowRepo.findById(seededEscrowId).orElseThrow();
         assertThat(persisted.getState()).isEqualTo(EscrowState.DISPUTED);
@@ -258,6 +261,7 @@ class EscrowDisputeIntegrationTest {
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName("Escrow Dispute Bidder")
                     .slAvatarUuid(UUID.randomUUID())
+                    .slAvatarName("Dispute Winner Resident")
                     .verified(true)
                     .build());
             UUID parcelUuid = UUID.randomUUID();
