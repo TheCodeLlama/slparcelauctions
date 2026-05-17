@@ -170,7 +170,9 @@ class EscrowCreateOnAuctionEndIntegrationTest {
                 .andExpect(status().isOk());
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // SOLD close: EscrowService.createForEndedAuction flips status
+        // to TRANSFER_PENDING after auto-funding from winner's reservation.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
         assertThat(refreshed.getFinalBidAmount()).isEqualTo(currentBid);
         assertThat(refreshed.getEndedAt()).isNotNull();
@@ -214,7 +216,8 @@ class EscrowCreateOnAuctionEndIntegrationTest {
                 .andExpect(status().isOk());
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // NO_BIDS close: no escrow opens, status flips to EXPIRED directly.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.EXPIRED);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.NO_BIDS);
 
         assertThat(escrowRepo.findByAuctionId(seededAuctionId)).isEmpty();
@@ -230,7 +233,8 @@ class EscrowCreateOnAuctionEndIntegrationTest {
                 .andExpect(status().isOk());
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // RESERVE_NOT_MET close: no escrow opens, status flips to EXPIRED directly.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.EXPIRED);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
 
         assertThat(escrowRepo.findByAuctionId(seededAuctionId)).isEmpty();

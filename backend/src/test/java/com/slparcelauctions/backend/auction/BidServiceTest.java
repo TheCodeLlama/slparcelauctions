@@ -130,12 +130,12 @@ class BidServiceTest {
 
     @Test
     void throwsInvalidAuctionStateException_whenStatusNotActive() {
-        activeAuction.setStatus(AuctionStatus.ENDED);
+        activeAuction.setStatus(AuctionStatus.TRANSFER_PENDING);
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
 
         assertThatThrownBy(() -> service.placeBid(500L, 20L, 1000L, "1.2.3.4"))
                 .isInstanceOfSatisfying(InvalidAuctionStateException.class, e -> {
-                    assertThat(e.getCurrentState()).isEqualTo(AuctionStatus.ENDED);
+                    assertThat(e.getCurrentState()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
                     assertThat(e.getAttemptedAction()).isEqualTo("BID");
                 });
         verify(bidRepo, never()).save(any());

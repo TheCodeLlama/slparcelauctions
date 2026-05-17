@@ -209,18 +209,20 @@ public class BidService {
 
         // Step 9 — snipe extension + inline buy-it-now. Both evaluate every
         // emitted bid in order. Snipe may stamp newEndsAt on each qualifying
-        // bid and push auction.endsAt forward. Buy-it-now may flip the
-        // auction to ENDED with endOutcome=BOUGHT_NOW; when that happens
-        // every ACTIVE proxy on the auction is marked EXHAUSTED so the
-        // partial unique index is cleared and no zombie proxies linger.
+        // bid and push auction.endsAt forward. Buy-it-now may stamp
+        // endOutcome=BOUGHT_NOW (leaving status at ACTIVE — the
+        // TRANSFER_PENDING flip is owned by EscrowService.createForEndedAuction
+        // below); when that happens every ACTIVE proxy on the auction is
+        // marked EXHAUSTED so the partial unique index is cleared and no
+        // zombie proxies linger.
         BidPlacementHelpers.applySnipeAndBuyNow(auction, emitted, now, proxyBidRepo);
 
         // Step 8 — update auction aggregate state. The last emitted bid is
         // always the current top (for Task 3 that's the same as the only
         // emitted bid; for Task 4's proxy counter it's the auto-reply row).
-        // These updates happen regardless of whether buy-it-now flipped the
-        // status to ENDED — the ENDED state is derivative; the top bidder
-        // is still the current bidder for read-path consistency.
+        // These updates happen regardless of whether buy-it-now triggered —
+        // the close transition is derivative; the top bidder is still the
+        // current bidder for read-path consistency.
         Bid top = emitted.getLast();
         User topBidder = top.getBidder();
         auction.setCurrentBid(top.getAmount());
@@ -263,7 +265,7 @@ public class BidService {
             );
         }
 
-        // Inline buy-it-now closes stamp the ESCROW_PENDING row in the same
+        // Inline buy-it-now closes stamp the escrow row in the same
         // transaction as the status flip so close + escrow are atomic; a
         // rollback reverts both. The single `now` read at step 3 is threaded
         // through applySnipeAndBuyNow (stamps auction.endedAt), the escrow
@@ -275,7 +277,12 @@ public class BidService {
         // event ordering. ESCROW_CREATED is registered on afterCommit
         // inside createForEndedAuction and fires BEFORE the AUCTION_ENDED
         // afterCommit below (registration order).
-        final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
+        //
+        // Post state-machine-rewire, applySnipeAndBuyNow leaves the auction
+        // at ACTIVE on buy-now close (status flip to TRANSFER_PENDING is
+        // owned by EscrowService.createForEndedAuction). The "did inline
+        // buy-now fire?" signal is endOutcome — only stamped on buy-now.
+        final boolean ended = auction.getEndOutcome() != null;
         if (ended) {
             escrowService.createForEndedAuction(auction, now);
         }

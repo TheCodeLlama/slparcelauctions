@@ -13,8 +13,12 @@ import type { ParcelDto } from "./parcel";
 import type { ParcelTagDto } from "./parcelTag";
 
 /**
- * Full auction lifecycle, sub-spec 2 §6. All 14 statuses are represented so
- * UI primitives (e.g., ListingStatusBadge) can compile-time check coverage.
+ * Full auction lifecycle. Mirrors the backend
+ * {@code com.slparcelauctions.backend.auction.AuctionStatus} enum post
+ * state-machine-rewire (spec 2026-05-17): {@code ENDED},
+ * {@code ESCROW_PENDING}, {@code ESCROW_FUNDED} are gone; {@code FROZEN} is new.
+ * All 12 statuses are represented so UI primitives (e.g.,
+ * {@code ListingStatusBadge}) can compile-time check coverage.
  */
 export type AuctionStatus =
   | "DRAFT"
@@ -22,14 +26,12 @@ export type AuctionStatus =
   | "VERIFICATION_PENDING"
   | "VERIFICATION_FAILED"
   | "ACTIVE"
-  | "ENDED"
-  | "ESCROW_PENDING"
-  | "ESCROW_FUNDED"
   | "TRANSFER_PENDING"
+  | "DISPUTED"
   | "COMPLETED"
   | "CANCELLED"
   | "EXPIRED"
-  | "DISPUTED"
+  | "FROZEN"
   | "SUSPENDED";
 
 export type VerificationTier = "SCRIPT" | "BOT" | "OWNERSHIP_TRANSFER";

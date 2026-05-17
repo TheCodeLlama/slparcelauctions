@@ -89,7 +89,7 @@ class AuctionSearchResultMapperTest {
     @Test
     void endOutcome_populated_whenSetOnAuction() {
         Auction a = auction(10L, 500L, null);
-        a.setStatus(AuctionStatus.ENDED);
+        a.setStatus(AuctionStatus.COMPLETED);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         AuctionSearchResultDto dto = mapOne(a);
         assertThat(dto.endOutcome()).isEqualTo(AuctionEndOutcome.SOLD);

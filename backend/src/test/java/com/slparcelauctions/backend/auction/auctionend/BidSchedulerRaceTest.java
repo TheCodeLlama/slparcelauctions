@@ -182,8 +182,9 @@ class BidSchedulerRaceTest {
 
         // Deterministic outcome: either the bid extended endsAt (status still
         // ACTIVE, no close published) OR the scheduler closed the auction
-        // (status ENDED, bid rejected with AuctionAlreadyEndedException or
-        // InvalidAuctionStateException).
+        // (status flipped to a terminal/post-active state by the auction-end +
+        // escrow-create pipeline; bid rejected with AuctionAlreadyEndedException
+        // or InvalidAuctionStateException).
         if (reloaded.getStatus() == AuctionStatus.ACTIVE) {
             // Bid won the race. The scheduler's re-check must have seen
             // endsAt in the future and skipped â€” closeOne returned cleanly,
@@ -197,7 +198,10 @@ class BidSchedulerRaceTest {
         } else {
             // Scheduler won. Exactly one of the two threads committed the
             // close; the bidder must have surfaced one of the two 409s.
-            assertThat(reloaded.getStatus()).isEqualTo(AuctionStatus.ENDED);
+            // Status lands at TRANSFER_PENDING (SOLD/BOUGHT_NOW) or EXPIRED
+            // (NO_BIDS / RESERVE_NOT_MET) depending on outcome.
+            assertThat(reloaded.getStatus())
+                    .isIn(AuctionStatus.TRANSFER_PENDING, AuctionStatus.EXPIRED);
             assertThat(reloaded.getEndOutcome()).isNotNull();
             assertThat(closeSucceeded.get())
                     .as("closeOne must have returned cleanly when it wins the race")

@@ -87,6 +87,16 @@ public interface NotificationPublisher {
     void listingWarned(long sellerUserId, long auctionId, String parcelName, String notes);
 
     /**
+     * Winner-facing notification fired when an admin cancels a listing whose
+     * escrow is in TRANSFER_PENDING. The winner's escrow has already been
+     * refunded to their SLParcels wallet by
+     * {@code CancellationService.cancelByAdminFromEscrow} before this method
+     * runs.
+     */
+    void listingCancelledDuringEscrow(long winnerUserId, long auctionId, long escrowId,
+                                       String parcelName, String adminNote);
+
+    /**
      * Sub-project E section 11.5 -- the broker cancelled the listing on behalf of the
      * realty group. Notifies the original listing agent (commission recipient,
      * may differ from current seller_id). Body copy + fan-out will be fleshed

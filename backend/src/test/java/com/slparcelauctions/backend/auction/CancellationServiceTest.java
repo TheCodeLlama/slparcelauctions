@@ -55,6 +55,8 @@ class CancellationServiceTest {
     @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
     @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
     @Mock WalletService walletService;
+    @Mock com.slparcelauctions.backend.escrow.EscrowService escrowService;
+    @Mock com.slparcelauctions.backend.escrow.EscrowRepository escrowRepo;
 
     CancellationService service;
 
@@ -71,7 +73,8 @@ class CancellationServiceTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
-                realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
+                realtyGroupAuthorizer, listingSuspensionRepo, walletService,
+                escrowService, escrowRepo, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)
@@ -186,16 +189,16 @@ class CancellationServiceTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void cancel_ended_throwsInvalidState() {
-        Auction a = build(AuctionStatus.ENDED, false, 0);
+    void cancel_transferPending_throwsInvalidState() {
+        Auction a = build(AuctionStatus.TRANSFER_PENDING, false, 0);
 
         assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
     }
 
     @Test
-    void cancel_escrowPending_throwsInvalidState() {
-        Auction a = build(AuctionStatus.ESCROW_PENDING, false, 0);
+    void cancel_expired_throwsInvalidState() {
+        Auction a = build(AuctionStatus.EXPIRED, false, 0);
 
         assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);
@@ -212,14 +215,6 @@ class CancellationServiceTest {
     @Test
     void cancel_alreadyCancelled_throwsInvalidState() {
         Auction a = build(AuctionStatus.CANCELLED, false, 0);
-
-        assertThatThrownBy(() -> cancel(a, null))
-                .isInstanceOf(InvalidAuctionStateException.class);
-    }
-
-    @Test
-    void cancel_expired_throwsInvalidState() {
-        Auction a = build(AuctionStatus.EXPIRED, false, 0);
 
         assertThatThrownBy(() -> cancel(a, null))
                 .isInstanceOf(InvalidAuctionStateException.class);

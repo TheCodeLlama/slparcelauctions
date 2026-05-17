@@ -130,7 +130,11 @@ public class AdminListingService {
         Long auctionId = auction.getId();
 
         try {
-            cancellationService.cancelByAdmin(auctionId, adminUserId, notes);
+            if (auction.getStatus() == AuctionStatus.TRANSFER_PENDING) {
+                cancellationService.cancelByAdminFromEscrow(auctionId, adminUserId, notes);
+            } else {
+                cancellationService.cancelByAdmin(auctionId, adminUserId, notes);
+            }
         } catch (AuctionNotFoundException e) {
             throw new AdminListingStateException("LISTING_NOT_FOUND", e.getMessage());
         } catch (InvalidAuctionStateException e) {

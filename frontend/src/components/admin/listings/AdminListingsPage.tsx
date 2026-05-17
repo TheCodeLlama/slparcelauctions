@@ -26,9 +26,8 @@ function isSortColumn(s: string): s is AdminListingsSortColumn {
 function isAuctionStatus(s: string): s is AuctionStatus {
   return [
     "DRAFT", "DRAFT_PAID", "VERIFICATION_PENDING", "VERIFICATION_FAILED",
-    "ACTIVE", "ENDED", "ESCROW_PENDING", "ESCROW_FUNDED",
-    "TRANSFER_PENDING", "COMPLETED", "CANCELLED", "EXPIRED",
-    "DISPUTED", "SUSPENDED",
+    "ACTIVE", "TRANSFER_PENDING", "DISPUTED",
+    "COMPLETED", "CANCELLED", "EXPIRED", "FROZEN", "SUSPENDED",
   ].includes(s);
 }
 

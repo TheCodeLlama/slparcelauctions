@@ -24,33 +24,53 @@ import type { AuctionStatus } from "@/types/auction";
 
 /**
  * Truly terminal statuses — no further state transitions possible.
- * A listing in one of these states is archive-only.
+ * A listing in one of these states is archive-only. {@code DISPUTED} is a
+ * resolvable mid-flight state in the post-rewire enum (admin can resume to
+ * {@code TRANSFER_PENDING} or expire to {@code EXPIRED}) so it is NOT
+ * terminal; {@code FROZEN} is the genuine fraud-hold sink.
  */
 export const TERMINAL_STATUSES: AuctionStatus[] = [
   "CANCELLED",
   "SUSPENDED",
   "EXPIRED",
   "COMPLETED",
+  "FROZEN",
+];
+
+/**
+ * Post-ACTIVE statuses where the auction-detail page should render the
+ * ended-view (winner / outcome panel) instead of the live bid form.
+ * Covers every internal terminal plus the mid-flight settlement states
+ * ({@code TRANSFER_PENDING}, {@code DISPUTED}) — bidding never resumes
+ * from any of these. Pre-rewire this was just {@code "ENDED"}.
+ *
+ * Public viewers receive {@link PublicAuctionStatus} which still uses
+ * {@code "ENDED"} to collapse all of these — callers consuming the union
+ * DTO should use {@link isEndedView} which understands both.
+ */
+export const ENDED_VIEW_STATUSES: AuctionStatus[] = [
+  "TRANSFER_PENDING",
   "DISPUTED",
+  "COMPLETED",
+  "EXPIRED",
+  "FROZEN",
+  "CANCELLED",
 ];
 
 /**
  * Statuses at which the activate-page polling should stop — either
  * because activation succeeded (ACTIVE and downstream escrow/transfer
  * states indicate the wizard has handed off to the auction runtime) or
- * because the listing has reached a terminal failure. ENDED is included
- * because a completed auction cycle has no more activate-flow work.
+ * because the listing has reached a terminal failure.
  */
 export const ACTIVATE_POLLING_STOP: AuctionStatus[] = [
   "ACTIVE",
   "CANCELLED",
   "SUSPENDED",
-  "ENDED",
   "EXPIRED",
   "COMPLETED",
   "DISPUTED",
-  "ESCROW_PENDING",
-  "ESCROW_FUNDED",
+  "FROZEN",
   "TRANSFER_PENDING",
 ];
 
@@ -80,6 +100,18 @@ export function isActivatePollingStop(s: AuctionStatus): boolean {
 }
 
 /**
+ * True when the auction-detail page should show the ended-view (winner /
+ * outcome panel) instead of the live bid form. Accepts either the public
+ * collapsed status ({@code "ENDED"}) or any internal post-ACTIVE status
+ * from {@link ENDED_VIEW_STATUSES}, so consumers narrowing on the
+ * {@code PublicAuctionResponse | SellerAuctionResponse} union don't have
+ * to enumerate both vocabularies at every call site.
+ */
+export function isEndedView(s: string): boolean {
+  return s === "ENDED" || (ENDED_VIEW_STATUSES as string[]).includes(s);
+}
+
+/**
  * User-facing filter buckets used by the My Listings tab. Order is the
  * intended tab-order in the UI.
  */
@@ -92,12 +124,11 @@ export const FILTER_GROUPS: Record<string, AuctionStatus[]> = {
     "VERIFICATION_FAILED",
   ],
   Ended: [
-    "ENDED",
-    "ESCROW_PENDING",
-    "ESCROW_FUNDED",
     "TRANSFER_PENDING",
+    "DISPUTED",
     "COMPLETED",
     "EXPIRED",
+    "FROZEN",
   ],
   Cancelled: ["CANCELLED"],
   Suspended: ["SUSPENDED"],

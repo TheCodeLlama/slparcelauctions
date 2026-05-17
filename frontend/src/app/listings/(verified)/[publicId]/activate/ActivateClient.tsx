@@ -27,11 +27,9 @@ export interface ActivateClientProps {
 const TERMINAL_REDIRECT_STATUSES = new Set([
   "CANCELLED",
   "SUSPENDED",
-  "ENDED",
   "EXPIRED",
   "COMPLETED",
-  "ESCROW_PENDING",
-  "ESCROW_FUNDED",
+  "FROZEN",
   "TRANSFER_PENDING",
   "DISPUTED",
 ]);

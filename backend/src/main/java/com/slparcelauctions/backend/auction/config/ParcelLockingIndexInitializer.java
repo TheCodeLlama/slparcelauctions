@@ -32,11 +32,15 @@ public class ParcelLockingIndexInitializer {
             DROP INDEX IF EXISTS uq_auctions_parcel_locked_status
             """;
 
+    // Status alone determines the parcel lock — no escrow join needed.
+    // Every status here corresponds to a live phase of the listing
+    // lifecycle (active auction, post-close transfer in flight, or disputed).
+    // Terminal statuses (COMPLETED, CANCELLED, EXPIRED, FROZEN) release
+    // the lock so the parcel can be re-listed. See spec §8.3.
     private static final String DDL = """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_auctions_parcel_locked_status
               ON auctions(sl_parcel_uuid)
-              WHERE status IN ('ACTIVE', 'ENDED', 'ESCROW_PENDING',
-                               'ESCROW_FUNDED', 'TRANSFER_PENDING', 'DISPUTED')
+              WHERE status IN ('ACTIVE', 'TRANSFER_PENDING', 'DISPUTED')
             """;
 
     private final DataSource dataSource;

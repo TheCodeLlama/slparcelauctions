@@ -223,7 +223,7 @@ class EscrowServiceAgentFeePayoutTest {
                     .realtyGroupId(group.getId())
                     .realtyGroupSlGroupId(slGroup.getId())
                     .agentCommissionRate(agentCommissionRate)
-                    .status(AuctionStatus.ENDED)
+                    .status(AuctionStatus.TRANSFER_PENDING)
 
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)

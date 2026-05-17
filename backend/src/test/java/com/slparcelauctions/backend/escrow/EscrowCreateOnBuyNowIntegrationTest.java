@@ -167,7 +167,9 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(resp.buyNowTriggered()).isTrue();
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // BOUGHT_NOW close: EscrowService.createForEndedAuction flips status
+        // to TRANSFER_PENDING after auto-funding from winner's reservation.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
         assertThat(refreshed.getFinalBidAmount()).isEqualTo(bidAmount);
         assertThat(refreshed.getWinnerUserId()).isEqualTo(seededBidderId);

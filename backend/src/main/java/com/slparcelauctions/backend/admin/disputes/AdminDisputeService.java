@@ -7,6 +7,8 @@ import com.slparcelauctions.backend.admin.disputes.exception.AlsoCancelInvalidFo
 import com.slparcelauctions.backend.admin.disputes.exception.DisputeActionInvalidForStateException;
 import com.slparcelauctions.backend.admin.disputes.exception.DisputeNotFoundException;
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
 import com.slparcelauctions.backend.auction.CancellationService;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
@@ -50,6 +52,7 @@ public class AdminDisputeService {
     private final CancellationService cancellationService;
     private final NotificationPublisher notificationPublisher;
     private final AdminActionService adminActionService;
+    private final AuctionStatusFlipper statusFlipper;
     private final Clock clock;
 
     @Transactional
@@ -96,8 +99,24 @@ public class AdminDisputeService {
         };
         boolean reachedExpired = newState == EscrowState.EXPIRED;
 
+        // Compute the auction status that should accompany the escrow flip.
+        // For RESET_TO_FUNDED + alsoCancel, leave auction status alone here —
+        // cancelByDisputeResolution sets CANCELLED itself below.
+        AuctionStatus newAuctionStatus = switch (action) {
+            case RECOGNIZE_PAYMENT -> AuctionStatus.TRANSFER_PENDING;
+            case RESET_TO_FUNDED -> alsoCancel
+                    ? null
+                    : AuctionStatus.TRANSFER_PENDING;
+            case RESUME_TRANSFER -> AuctionStatus.TRANSFER_PENDING;
+            case MARK_EXPIRED -> AuctionStatus.EXPIRED;
+        };
+
         escrow.setState(newState);
         escrowRepo.save(escrow);
+
+        if (newAuctionStatus != null) {
+            statusFlipper.flip(escrow, newAuctionStatus);
+        }
 
         // Credit refund when escrow reaches EXPIRED, but only if funded.
         // An unfunded escrow has no L$ to refund -- crediting it would

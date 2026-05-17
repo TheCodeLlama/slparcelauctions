@@ -33,7 +33,8 @@ public class SlImLinkResolver {
                 base + "/auction/" + auctionUrlId(data) + "/escrow";
             case ESCROW_FUNDED, ESCROW_TRANSFER_CONFIRMED, ESCROW_PAYOUT,
                  ESCROW_EXPIRED, ESCROW_DISPUTED, ESCROW_FROZEN,
-                 ESCROW_PAYOUT_STALLED, ESCROW_TRANSFER_REMINDER ->
+                 ESCROW_PAYOUT_STALLED, ESCROW_TRANSFER_REMINDER,
+                 LISTING_CANCELLED_DURING_ESCROW ->
                 base + "/auction/" + auctionUrlId(data) + "/escrow";
             case LISTING_SUSPENDED, LISTING_REINSTATED, LISTING_REVIEW_REQUIRED ->
                 base + "/dashboard/listings";

@@ -187,7 +187,9 @@ class AuctionEndIntegrationTest {
                 .andExpect(jsonPath("$.processed", org.hamcrest.Matchers.hasItem(seededAuctionId.intValue())));
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // SOLD close: EscrowService.createForEndedAuction flips ACTIVE -> TRANSFER_PENDING
+        // after auto-funding from the winner's bid reservation.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
         assertThat(refreshed.getWinnerUserId()).isEqualTo(seededBidderId);
         assertThat(refreshed.getFinalBidAmount()).isEqualTo(currentBid);
@@ -221,7 +223,8 @@ class AuctionEndIntegrationTest {
                 .andExpect(jsonPath("$.processed", org.hamcrest.Matchers.hasItem(seededAuctionId.intValue())));
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // RESERVE_NOT_MET close: no escrow opens, status flips to EXPIRED directly.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.EXPIRED);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
         assertThat(refreshed.getWinnerUserId()).isNull();
         assertThat(refreshed.getFinalBidAmount()).isNull();
@@ -243,7 +246,8 @@ class AuctionEndIntegrationTest {
                 .andExpect(jsonPath("$.closedId").value(seededAuctionId.intValue()));
 
         Auction refreshed = auctionRepo.findById(seededAuctionId).orElseThrow();
-        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // SOLD close: EscrowService.createForEndedAuction flips ACTIVE -> TRANSFER_PENDING.
+        assertThat(refreshed.getStatus()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
         assertThat(refreshed.getEndOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
     }
 

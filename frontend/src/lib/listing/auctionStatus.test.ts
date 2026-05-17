@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isActivatePollingStop,
   isEditable,
+  isEndedView,
   isPreActive,
   isTerminal,
 } from "./auctionStatus";
@@ -12,14 +13,11 @@ describe("auctionStatus predicates", () => {
       expect(isTerminal("ACTIVE")).toBe(false);
     });
 
-    it("returns false for the escrow/transfer in-flight states", () => {
-      expect(isTerminal("ESCROW_PENDING")).toBe(false);
-      expect(isTerminal("ESCROW_FUNDED")).toBe(false);
+    it("returns false for the mid-flight settlement states", () => {
       expect(isTerminal("TRANSFER_PENDING")).toBe(false);
-    });
-
-    it("returns false for ENDED (cycle done but escrow/transfer may still run)", () => {
-      expect(isTerminal("ENDED")).toBe(false);
+      // DISPUTED is resolvable post-rewire (admin routes back to
+      // TRANSFER_PENDING or EXPIRED); FROZEN is the genuine sink.
+      expect(isTerminal("DISPUTED")).toBe(false);
     });
 
     it("returns true for genuinely terminal statuses", () => {
@@ -27,7 +25,7 @@ describe("auctionStatus predicates", () => {
       expect(isTerminal("SUSPENDED")).toBe(true);
       expect(isTerminal("EXPIRED")).toBe(true);
       expect(isTerminal("COMPLETED")).toBe(true);
-      expect(isTerminal("DISPUTED")).toBe(true);
+      expect(isTerminal("FROZEN")).toBe(true);
     });
 
     it("returns false for pre-active draft statuses", () => {
@@ -53,9 +51,7 @@ describe("auctionStatus predicates", () => {
       expect(isActivatePollingStop("VERIFICATION_FAILED")).toBe(false);
     });
 
-    it("returns true for escrow/transfer states (activate page handed off)", () => {
-      expect(isActivatePollingStop("ESCROW_PENDING")).toBe(true);
-      expect(isActivatePollingStop("ESCROW_FUNDED")).toBe(true);
+    it("returns true for the mid-flight settlement state (activate handed off)", () => {
       expect(isActivatePollingStop("TRANSFER_PENDING")).toBe(true);
     });
 
@@ -65,7 +61,34 @@ describe("auctionStatus predicates", () => {
       expect(isActivatePollingStop("EXPIRED")).toBe(true);
       expect(isActivatePollingStop("COMPLETED")).toBe(true);
       expect(isActivatePollingStop("DISPUTED")).toBe(true);
-      expect(isActivatePollingStop("ENDED")).toBe(true);
+      expect(isActivatePollingStop("FROZEN")).toBe(true);
+    });
+  });
+
+  describe("isEndedView", () => {
+    it("returns true for the public collapsed 'ENDED' status", () => {
+      expect(isEndedView("ENDED")).toBe(true);
+    });
+
+    it("returns true for every internal post-ACTIVE status", () => {
+      expect(isEndedView("TRANSFER_PENDING")).toBe(true);
+      expect(isEndedView("DISPUTED")).toBe(true);
+      expect(isEndedView("COMPLETED")).toBe(true);
+      expect(isEndedView("EXPIRED")).toBe(true);
+      expect(isEndedView("FROZEN")).toBe(true);
+      expect(isEndedView("CANCELLED")).toBe(true);
+    });
+
+    it("returns false for ACTIVE and pre-active statuses", () => {
+      expect(isEndedView("ACTIVE")).toBe(false);
+      expect(isEndedView("DRAFT")).toBe(false);
+      expect(isEndedView("DRAFT_PAID")).toBe(false);
+      expect(isEndedView("VERIFICATION_PENDING")).toBe(false);
+      expect(isEndedView("VERIFICATION_FAILED")).toBe(false);
+    });
+
+    it("returns false for SUSPENDED (parcel released, not an ended-view)", () => {
+      expect(isEndedView("SUSPENDED")).toBe(false);
     });
   });
 

@@ -442,7 +442,10 @@ public class ProxyBidService {
      * silent paths (winning cap-raise, cancel) should skip calling this.
      */
     private void publishAfterCommit(Auction auction, List<Bid> emitted) {
-        final boolean ended = auction.getStatus() == AuctionStatus.ENDED;
+        // applySnipeAndBuyNow leaves status at ACTIVE on buy-now close —
+        // EscrowService.createForEndedAuction owns the flip to TRANSFER_PENDING.
+        // endOutcome is the inline-close signal (only stamped on buy-now).
+        final boolean ended = auction.getEndOutcome() != null;
         final User topBidder = emitted.isEmpty() ? null : emitted.getLast().getBidder();
         final BidSettlementEnvelope settlement = ended
                 ? null

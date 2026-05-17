@@ -4,9 +4,8 @@ import type { Preset } from "@/components/admin/listings/PresetChips";
 import type { AuctionStatus } from "@/lib/admin/types";
 
 const LIVE_STATUSES: AuctionStatus[] = [
-  "ACTIVE", "ENDED", "ESCROW_PENDING", "ESCROW_FUNDED",
-  "TRANSFER_PENDING", "COMPLETED", "CANCELLED", "EXPIRED",
-  "DISPUTED", "SUSPENDED",
+  "ACTIVE", "TRANSFER_PENDING", "DISPUTED",
+  "COMPLETED", "CANCELLED", "EXPIRED", "FROZEN", "SUSPENDED",
 ];
 
 const PRESETS: Preset[] = [
@@ -26,7 +25,11 @@ const PRESETS: Preset[] = [
   {
     key: "live-escrow",
     label: "Live escrow",
-    statuses: ["ESCROW_PENDING", "ESCROW_FUNDED", "TRANSFER_PENDING", "DISPUTED"],
+    // Post the auction-status state-machine rewire (spec 2026-05-17) the
+    // mid-flight settlement set is just TRANSFER_PENDING + DISPUTED; the
+    // legacy {@code ESCROW_PENDING}/{@code ESCROW_FUNDED} stops collapse
+    // into TRANSFER_PENDING.
+    statuses: ["TRANSFER_PENDING", "DISPUTED"],
     sort: { column: "createdAt", direction: "asc" },
   },
   {
@@ -38,7 +41,9 @@ const PRESETS: Preset[] = [
   {
     key: "recently-ended",
     label: "Recently ended",
-    statuses: ["ENDED"],
+    // {@code ENDED} no longer exists as a status; recently-closed cycles
+    // sit at COMPLETED / EXPIRED / FROZEN / CANCELLED.
+    statuses: ["COMPLETED", "EXPIRED", "FROZEN", "CANCELLED"],
     sort: { column: "endsAt", direction: "desc" },
   },
 ];
