@@ -18,6 +18,11 @@ import com.slparcelauctions.backend.auction.exception.BrokerCancelNotApplicableE
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.monitoring.ListingSuspension;
 import com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository;
+import com.slparcelauctions.backend.escrow.Escrow;
+import com.slparcelauctions.backend.escrow.EscrowRepository;
+import com.slparcelauctions.backend.escrow.EscrowService;
+import com.slparcelauctions.backend.escrow.EscrowState;
+import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
@@ -84,6 +89,8 @@ public class CancellationService {
     private final RealtyGroupAuthorizer realtyGroupAuthorizer;
     private final ListingSuspensionRepository listingSuspensionRepo;
     private final WalletService walletService;
+    private final EscrowService escrowService;
+    private final EscrowRepository escrowRepo;
     private final Clock clock;
 
     @Transactional
@@ -303,6 +310,85 @@ public class CancellationService {
         } else {
             broadcastPublisher.publishCancelled(envelope);
         }
+
+        return saved;
+    }
+
+    /**
+     * Admin cancels a listing whose escrow is in TRANSFER_PENDING. Refunds
+     * the winner from escrow, marks the escrow EXPIRED with reason
+     * ADMIN_CANCEL, and flips the auction to CANCELLED. The seller's
+     * penalty ladder is NOT touched -- staff action, not a seller offense.
+     *
+     * <p>Caller is {@link com.slparcelauctions.backend.admin.listings.AdminListingService#cancel(java.util.UUID, Long, String)};
+     * the seller-initiated and pre-active admin paths route through
+     * {@link #cancelByAdmin(Long, Long, String)} instead.
+     */
+    @Transactional
+    public Auction cancelByAdminFromEscrow(Long auctionId, Long adminUserId, String notes) {
+        Auction a = auctionRepo.findByIdForUpdate(auctionId)
+                .orElseThrow(() -> new AuctionNotFoundException(auctionId));
+        if (a.getStatus() != AuctionStatus.TRANSFER_PENDING) {
+            throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "ADMIN_CANCEL_FROM_ESCROW");
+        }
+        Escrow escrow = escrowRepo.findByAuctionId(a.getId())
+                .orElseThrow(() -> new IllegalStateException(
+                    "Auction " + a.getId() + " in TRANSFER_PENDING has no escrow row"));
+        if (escrow.getState() != EscrowState.TRANSFER_PENDING) {
+            throw new IllegalStateException(
+                "Escrow " + escrow.getId() + " not in TRANSFER_PENDING (actual=" + escrow.getState() + ")");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
+
+        // Refund winner. queueRefundIfFunded is idempotent on fundedAt; for
+        // wallet-only-escrow rows fundedAt is always set, so the refund fires.
+        escrowService.queueRefundIfFunded(escrow);
+
+        // Escrow -> EXPIRED with reason ADMIN_CANCEL.
+        EscrowService.enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.EXPIRED);
+        escrow.setState(EscrowState.EXPIRED);
+        escrow.setExpiredAt(now);
+        escrow.setFreezeReason(FreezeReason.ADMIN_CANCEL.name());
+        escrowRepo.save(escrow);
+
+        // Audit trail: cancellation_logs row with cancelledByAdminId set so the
+        // penalty-ladder counters don't bill the seller.
+        logRepo.save(CancellationLog.builder()
+                .auction(a)
+                .seller(a.getSeller())
+                .cancelledFromStatus(AuctionStatus.TRANSFER_PENDING.name())
+                .hadBids(true)
+                .reason(notes)
+                .penaltyKind(CancellationOffenseKind.NONE)
+                .penaltyAmountL(null)
+                .cancelledByAdminId(adminUserId)
+                .build());
+
+        a.setStatus(AuctionStatus.CANCELLED);
+        Auction saved = auctionRepo.save(a);
+
+        notificationPublisher.listingRemovedByAdmin(
+                a.getSeller().getId(), a.getId(), a.getTitle(), notes);
+        notificationPublisher.listingCancelledDuringEscrow(
+                a.getWinnerUserId(),
+                a.getId(), escrow.getId(), a.getTitle(), notes);
+
+        final boolean hadBids = true;
+        AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(saved, hadBids, now);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override public void afterCommit() {
+                            broadcastPublisher.publishCancelled(envelope);
+                        }
+                    });
+        } else {
+            broadcastPublisher.publishCancelled(envelope);
+        }
+
+        log.info("Auction {} admin-cancelled from TRANSFER_PENDING by adminUserId={} (escrow {} refunded, marked EXPIRED/ADMIN_CANCEL)",
+                a.getId(), adminUserId, escrow.getId());
 
         return saved;
     }

@@ -14,5 +14,12 @@ public enum FreezeReason {
      * to UNKNOWN_OWNER for state transition purposes; the FraudFlag reason
      * differs to keep the admin-dashboard signal source explicit.
      */
-    BOT_OWNERSHIP_CHANGED
+    BOT_OWNERSHIP_CHANGED,
+    /**
+     * Set when admin cancels a TRANSFER_PENDING listing via
+     * {@code CancellationService.cancelByAdminFromEscrow}. The escrow
+     * transitions to EXPIRED (refund-and-close) and the auction to
+     * CANCELLED in the same transaction.
+     */
+    ADMIN_CANCEL
 }

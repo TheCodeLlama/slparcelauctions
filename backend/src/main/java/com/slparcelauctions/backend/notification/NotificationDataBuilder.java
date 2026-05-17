@@ -155,6 +155,18 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    public static Map<String, Object> listingCancelledDuringEscrow(
+            long auctionId, long escrowId, String parcelName, String adminNote) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("auctionId", auctionId);
+        data.put("escrowId", escrowId);
+        data.put("parcelName", parcelName);
+        if (adminNote != null && !adminNote.isBlank()) {
+            data.put("adminNote", adminNote);
+        }
+        return data;
+    }
+
     public static Map<String, Object> listingWarned(long auctionId, String parcelName, String notes) {
         Map<String, Object> m = base(auctionId, parcelName);
         m.put("notes", notes);

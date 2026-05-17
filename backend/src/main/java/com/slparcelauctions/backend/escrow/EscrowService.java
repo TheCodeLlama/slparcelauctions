@@ -673,6 +673,12 @@ public class EscrowService {
             case PARCEL_DELETED -> FraudFlagReason.ESCROW_PARCEL_DELETED;
             case WORLD_API_PERSISTENT_FAILURE -> FraudFlagReason.ESCROW_WORLD_API_FAILURE;
             case BOT_OWNERSHIP_CHANGED -> FraudFlagReason.BOT_OWNERSHIP_CHANGED;
+            // ADMIN_CANCEL is not a fraud-freeze reason. It is set by
+            // CancellationService.cancelByAdminFromEscrow on the EXPIRED path
+            // (refund-and-close), never as part of freezeForFraud. Fail fast
+            // if a caller routes it through here by mistake.
+            case ADMIN_CANCEL -> throw new IllegalArgumentException(
+                "ADMIN_CANCEL is not a valid FreezeReason for freezeForFraud");
         };
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(escrow.getAuction())

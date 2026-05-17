@@ -344,6 +344,21 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     }
 
     @Override
+    public void listingCancelledDuringEscrow(long winnerUserId, long auctionId, long escrowId,
+                                              String parcelName, String adminNote) {
+        String title = "Listing cancelled during escrow: " + parcelName;
+        String body = "An admin cancelled this listing. Your escrow has been refunded to your SLParcels wallet.";
+        notificationService.publish(new NotificationEvent(
+            winnerUserId, NotificationCategory.LISTING_CANCELLED_DURING_ESCROW, title, body,
+            withAuctionPublicId(
+                NotificationDataBuilder.listingCancelledDuringEscrow(
+                    auctionId, escrowId, parcelName, adminNote),
+                auctionId),
+            null
+        ));
+    }
+
+    @Override
     public void brokerCancelled(Long listingAgentUserId, Long auctionId, String auctionTitle,
                                 Long brokerUserId, String reason) {
         // Phase 4 stub — log-only, matching the pattern used for group wallet
