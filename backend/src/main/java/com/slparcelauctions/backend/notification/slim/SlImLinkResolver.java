@@ -28,19 +28,19 @@ public class SlImLinkResolver {
                  LISTING_VERIFIED, LISTING_CANCELLED_BY_SELLER,
                  LISTING_REMOVED_BY_ADMIN, LISTING_WARNED,
                  REVIEW_RECEIVED, REVIEW_RESPONSE_WINDOW_CLOSING ->
-                base + "/auction/" + data.get("auctionId");
+                base + "/auction/" + auctionUrlId(data);
             case AUCTION_WON ->
-                base + "/auction/" + data.get("auctionId") + "/escrow";
+                base + "/auction/" + auctionUrlId(data) + "/escrow";
             case ESCROW_FUNDED, ESCROW_TRANSFER_CONFIRMED, ESCROW_PAYOUT,
                  ESCROW_EXPIRED, ESCROW_DISPUTED, ESCROW_FROZEN,
                  ESCROW_PAYOUT_STALLED, ESCROW_TRANSFER_REMINDER ->
-                base + "/auction/" + data.get("auctionId") + "/escrow";
+                base + "/auction/" + auctionUrlId(data) + "/escrow";
             case LISTING_SUSPENDED, LISTING_REINSTATED, LISTING_REVIEW_REQUIRED ->
                 base + "/dashboard/listings";
             case SYSTEM_ANNOUNCEMENT ->
                 base + "/notifications";
             case DISPUTE_FILED_AGAINST_SELLER, DISPUTE_RESOLVED ->
-                base + "/auction/" + data.get("auctionId") + "/escrow";
+                base + "/auction/" + auctionUrlId(data) + "/escrow";
             case RECONCILIATION_MISMATCH, WITHDRAWAL_COMPLETED, WITHDRAWAL_FAILED ->
                 base + "/admin/infrastructure";
             case WALLET_WITHDRAWAL_COMPLETED, WALLET_WITHDRAWAL_REVERSED,
@@ -68,5 +68,20 @@ public class SlImLinkResolver {
             case GROUP_REPORT_THRESHOLD_REACHED ->
                 base + "/admin/realty-groups/" + data.get("groupPublicId") + "/reports";
         };
+    }
+
+    /**
+     * Pulls the URL-safe auction identifier from the data blob, preferring
+     * the wire-stable {@code auctionPublicId} (UUID, written by
+     * {@code NotificationPublisherImpl.withAuctionPublicId}) and falling
+     * back to the historical {@code auctionId} (internal {@code Long}) for
+     * notification rows persisted before the publicId backfill. Frontend
+     * routes live at {@code /auction/[publicId]}; an integer fallback
+     * resolves to a 404, but that beats a NullPointerException at SL IM
+     * dispatch time.
+     */
+    private static Object auctionUrlId(Map<String, Object> data) {
+        Object publicId = data.get("auctionPublicId");
+        return publicId != null ? publicId : data.get("auctionId");
     }
 }

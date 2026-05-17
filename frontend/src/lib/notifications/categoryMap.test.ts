@@ -34,12 +34,29 @@ describe("categoryMap", () => {
     }
   });
 
-  it("deeplink returns a string for representative categories", () => {
+  it("deeplink prefers auctionPublicId (UUID) for auction routes", () => {
+    const data = {
+      auctionId: 42,
+      auctionPublicId: "00000000-0000-0000-0000-0000000002a",
+      escrowId: 7,
+    };
+    expect(categoryMap.OUTBID.deeplink(data)).toBe(
+      "/auction/00000000-0000-0000-0000-0000000002a",
+    );
+    expect(categoryMap.ESCROW_FUNDED.deeplink(data)).toBe(
+      "/auction/00000000-0000-0000-0000-0000000002a/escrow",
+    );
+    expect(categoryMap.LISTING_SUSPENDED.deeplink(data)).toBe("/dashboard/listings");
+    expect(categoryMap.SYSTEM_ANNOUNCEMENT.deeplink(data)).toBe("/notifications");
+  });
+
+  it("deeplink falls back to auctionId when auctionPublicId is absent (legacy rows)", () => {
+    // Notification rows persisted before the publicId backfill carry only
+    // the internal Long auctionId; the resulting URL routes to a 404 but
+    // we prefer that over a NullPointerException at click time.
     const data = { auctionId: 42, escrowId: 7 };
     expect(categoryMap.OUTBID.deeplink(data)).toBe("/auction/42");
     expect(categoryMap.ESCROW_FUNDED.deeplink(data)).toBe("/auction/42/escrow");
-    expect(categoryMap.LISTING_SUSPENDED.deeplink(data)).toBe("/dashboard/listings");
-    expect(categoryMap.SYSTEM_ANNOUNCEMENT.deeplink(data)).toBe("/notifications");
   });
 });
 

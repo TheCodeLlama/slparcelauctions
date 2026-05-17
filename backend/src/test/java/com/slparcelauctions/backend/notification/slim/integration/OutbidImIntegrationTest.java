@@ -109,10 +109,13 @@ class OutbidImIntegrationTest {
             .filter(m -> m.getUserId().equals(alice.getId()))
             .toList();
         assertThat(aliceRows).hasSize(1);
+        // SL IM links now use the wire-stable auctionPublicId (UUID)
+        // rather than the internal Long id. The frontend route lives at
+        // /auction/[publicId] and would 404 on the integer.
         assertThat(aliceRows.get(0).getMessageText())
             .contains("[SLParcels] You've been outbid")
             .contains("L$2,000")
-            .endsWith("/auction/" + a.getId());
+            .endsWith("/auction/" + a.getPublicId());
 
         // Bob (the new high bidder) gets nothing on this side.
         long bobRows = slImRepo.findAll().stream()

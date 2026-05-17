@@ -30,6 +30,7 @@ public class AdminAuditController {
     private final RealtyGroupRepository realtyGroupRepository;
 
     @GetMapping
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public PagedResponse<AdminUserModerationRowDto> list(
             @RequestParam(required = false) AdminActionTargetType targetType,
             @RequestParam(required = false) Long targetId,
