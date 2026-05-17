@@ -4,8 +4,6 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +12,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.slparcelauctions.backend.admin.infrastructure.terminals.TerminalSecretService;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
 import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
@@ -78,16 +77,7 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
-
-    // EscrowService and TerminalCommandService form a dependency cycle:
-    // EscrowService injects TerminalCommandService to queue payout commands,
-    // and TerminalCommandService needs EscrowService.flipAuctionStatus to
-    // keep auction.status in lockstep when the escrow actually completes.
-    // @Lazy field injection breaks the cycle at bean-creation time without
-    // splitting flipAuctionStatus into a separate helper bean.
-    @Autowired
-    @Lazy
-    private EscrowService escrowService;
+    private final AuctionStatusFlipper statusFlipper;
 
     /**
      * Queues an escrow payout to the seller's SL terminal. Sub-project G §8.1
@@ -297,7 +287,7 @@ public class TerminalCommandService {
         escrow = escrowRepo.save(escrow);
         // Lockstep auction-status flip: this is the real escrow → COMPLETED
         // transition site, so the auction also lands at COMPLETED here.
-        escrowService.flipAuctionStatus(escrow, AuctionStatus.COMPLETED);
+        statusFlipper.flip(escrow, AuctionStatus.COMPLETED);
 
         // Epic 08 sub-spec 1 §3.4 / §6.1: track completed sales for the
         // seller. The counter has been declared on User since Epic 02 but
@@ -395,7 +385,7 @@ public class TerminalCommandService {
         // Lockstep auction-status flip: case-3 zero-payout still transitions
         // the escrow to COMPLETED inline (no terminal round-trip), so the
         // auction lands at COMPLETED here too.
-        escrowService.flipAuctionStatus(escrow, AuctionStatus.COMPLETED);
+        statusFlipper.flip(escrow, AuctionStatus.COMPLETED);
 
         User seller = escrow.getAuction().getSeller();
         int prior = seller.getCompletedSales() == null ? 0 : seller.getCompletedSales();

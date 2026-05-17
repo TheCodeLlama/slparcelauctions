@@ -18,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
-import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
@@ -87,7 +87,7 @@ public class EscrowService {
     private static final long TRANSFER_DEADLINE_HOURS = 72;
 
     private final EscrowRepository escrowRepo;
-    private final AuctionRepository auctionRepo;
+    private final AuctionStatusFlipper statusFlipper;
     private final EscrowTransactionRepository ledgerRepo;
     private final EscrowCommissionCalculator commission;
     private final Clock clock;
@@ -190,7 +190,7 @@ public class EscrowService {
         saved.setState(EscrowState.TRANSFER_PENDING);
         saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
         saved = escrowRepo.save(saved);
-        flipAuctionStatus(saved, AuctionStatus.TRANSFER_PENDING);
+        statusFlipper.flip(saved, AuctionStatus.TRANSFER_PENDING);
 
         // Append escrow_transactions ledger row
         ledgerRepo.save(EscrowTransaction.builder()
@@ -294,7 +294,7 @@ public class EscrowService {
         escrow.setWinnerEvidenceImages(uploaded);
         escrow.setSlTransactionKey(req.slTransactionKey());
         escrow = escrowRepo.save(escrow);
-        flipAuctionStatus(escrow, AuctionStatus.DISPUTED);
+        statusFlipper.flip(escrow, AuctionStatus.DISPUTED);
 
 
         queueRefundIfFunded(escrow);
@@ -666,7 +666,7 @@ public class EscrowService {
         escrow.setFreezeReason(reason.name());
         escrow.setLastCheckedAt(now);
         escrow = escrowRepo.save(escrow);
-        flipAuctionStatus(escrow, AuctionStatus.FROZEN);
+        statusFlipper.flip(escrow, AuctionStatus.FROZEN);
 
         FraudFlagReason flagReason = switch (reason) {
             case UNKNOWN_OWNER -> FraudFlagReason.ESCROW_UNKNOWN_OWNER;
@@ -770,7 +770,7 @@ public class EscrowService {
         escrow.setState(EscrowState.EXPIRED);
         escrow.setExpiredAt(now);
         escrow = escrowRepo.save(escrow);
-        flipAuctionStatus(escrow, AuctionStatus.EXPIRED);
+        statusFlipper.flip(escrow, AuctionStatus.EXPIRED);
 
 
         queueRefundIfFunded(escrow);
@@ -896,28 +896,6 @@ public class EscrowService {
      * for future review paths; the bot-monitor caller that used to invoke
      * it was retired with the ownership-only verification refactor.
      */
-    /**
-     * Used by {@link EscrowService} and
-     * {@link com.slparcelauctions.backend.escrow.command.TerminalCommandService}
-     * to keep {@code auction.status} in lockstep with {@code escrow.state}
-     * transitions. Caller is responsible for ensuring the new auction status
-     * reflects the escrow's new state (e.g. {@link AuctionStatus#TRANSFER_PENDING}
-     * when escrow → {@link EscrowState#TRANSFER_PENDING},
-     * {@link AuctionStatus#COMPLETED} when escrow → {@link EscrowState#COMPLETED}).
-     *
-     * <p>The auction is already a managed entity inside this {@code @Transactional}
-     * boundary; the explicit save flushes the change with the rest of the
-     * escrow-side writes. Public so {@code TerminalCommandService} (different
-     * package: {@code backend.escrow.command} vs {@code backend.escrow}) can
-     * call it from the payout-success sites where the escrow actually
-     * completes.
-     */
-    public void flipAuctionStatus(Escrow escrow, AuctionStatus newStatus) {
-        Auction auction = escrow.getAuction();
-        auction.setStatus(newStatus);
-        auctionRepo.save(auction);
-    }
-
     @Transactional
     public void markReviewRequired(Escrow escrow) {
         if (Boolean.TRUE.equals(escrow.getReviewRequired())) {
