@@ -3,22 +3,22 @@ import { renderWithProviders, screen } from "@/test/render";
 import { EscrowChip } from "./EscrowChip";
 
 describe("EscrowChip", () => {
-  describe("ESCROW_PENDING", () => {
-    it("shows PAY ESCROW for winner", () => {
-      renderWithProviders(<EscrowChip state="ESCROW_PENDING" role="winner" />);
-      expect(screen.getByText(/pay escrow/i)).toBeInTheDocument();
-    });
-    it("shows AWAITING PAYMENT for seller", () => {
-      renderWithProviders(<EscrowChip state="ESCROW_PENDING" role="seller" />);
-      expect(screen.getByText(/awaiting payment/i)).toBeInTheDocument();
-    });
-    it("applies action tone class", () => {
-      renderWithProviders(<EscrowChip state="ESCROW_PENDING" role="winner" />);
-      expect(screen.getByText(/pay escrow/i)).toHaveAttribute(
-        "data-tone",
-        "action",
-      );
-    });
+  describe("ESCROW_PENDING (legacy transactional intermediate)", () => {
+    // Wallet-only escrow spec (2026-05-16): both roles see "Escrow pending"
+    // with waiting tone. The state never persists past commit in production
+    // post-spec; chip copy applies only to legacy historical rows.
+    it.each(["winner", "seller", undefined] as const)(
+      "renders 'Escrow pending' with waiting tone (role=%s)",
+      (role) => {
+        const { unmount } = renderWithProviders(
+          <EscrowChip state="ESCROW_PENDING" role={role} />,
+        );
+        const chip = screen.getByText(/escrow pending/i);
+        expect(chip).toBeInTheDocument();
+        expect(chip).toHaveAttribute("data-tone", "waiting");
+        unmount();
+      },
+    );
   });
 
   describe("TRANSFER_PENDING sub-split", () => {
@@ -93,8 +93,4 @@ describe("EscrowChip", () => {
     });
   });
 
-  it("falls back to role-neutral label when role is omitted", () => {
-    renderWithProviders(<EscrowChip state="ESCROW_PENDING" />);
-    expect(screen.getByText(/escrow pending/i)).toBeInTheDocument();
-  });
 });

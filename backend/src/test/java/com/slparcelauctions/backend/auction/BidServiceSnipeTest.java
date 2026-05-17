@@ -72,7 +72,12 @@ class BidServiceSnipeTest {
         seller = User.builder().id(10L).email("seller@example.com").username("seller")
                 .displayName("Seller").verified(true).build();
         bidder = User.builder().id(20L).email("bidder@example.com").username("bidder")
-                .displayName("Bidder").verified(true).build();
+                .displayName("Bidder").verified(true)
+                .balanceLindens(1_000_000L).reservedLindens(0L).penaltyBalanceOwed(0L)
+                .build();
+        // Wallet preconditions: BidService re-fetches the bidder with a
+        // pessimistic lock for the balance + reservation swap.
+        lenient().when(userRepo.findByIdForUpdate(20L)).thenReturn(Optional.of(bidder));
 
         auction = Auction.builder()
                 .title("Test listing")

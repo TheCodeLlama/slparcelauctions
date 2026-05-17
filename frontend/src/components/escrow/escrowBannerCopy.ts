@@ -36,16 +36,12 @@ export function escrowBannerCopy(input: BannerCopyInput): BannerCopyResult {
 
   switch (state) {
     case "ESCROW_PENDING":
-      if (role === "winner") {
-        return {
-          headline: "Pay escrow",
-          detail: "at an SLParcels terminal in-world.",
-          tone: "action",
-        };
-      }
+      // Post wallet-only-escrow spec (2026-05-16) this state is a
+      // transactional intermediate that never persists past commit. Any
+      // row observed in this state is a legacy historical row.
       return {
         headline: "Escrow pending",
-        detail: "waiting for buyer to pay.",
+        detail: "funding in progress.",
         tone: "waiting",
       };
 

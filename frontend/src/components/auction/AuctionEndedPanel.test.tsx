@@ -236,9 +236,12 @@ describe("AuctionEndedPanel", () => {
     renderWithProviders(
       <AuctionEndedPanel auction={auction} currentUser={{ publicId: "00000000-0000-0000-0000-00000000002a" }} />,
     );
+    // Wallet-only escrow spec (2026-05-16): ESCROW_PENDING renders as a
+    // passive "funding in progress" banner; the active "Pay escrow" CTA
+    // is retired. Both roles see the same waiting-tone banner.
     const banner = screen.getByTestId("auction-ended-escrow-banner");
-    expect(banner).toHaveAttribute("data-tone", "action");
-    expect(banner).toHaveTextContent(/pay escrow/i);
+    expect(banner).toHaveAttribute("data-tone", "waiting");
+    expect(banner).toHaveTextContent(/escrow pending/i);
     expect(
       screen.getByRole("link", { name: /view escrow/i }),
     ).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-000000000007/escrow");

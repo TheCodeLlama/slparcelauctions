@@ -416,7 +416,13 @@ describe("ListingSummaryRow", () => {
     renderWithProviders(<ListingSummaryRow auction={auction} />, {
       auth: "authenticated",
     });
-    expect(screen.getByText(/awaiting payment/i)).toBeInTheDocument();
+    // Wallet-only escrow spec (2026-05-16): the seller-side ESCROW_PENDING
+    // chip is now "Escrow pending" (passive) instead of "Awaiting payment"
+    // (action) — escrows auto-fund inside createForEndedAuction so the
+    // pre-fund waiting window no longer exists. Both the ListingStatusBadge
+    // (status) and the EscrowChip (escrowState) render "Escrow pending",
+    // hence getAllByText.
+    expect(screen.getAllByText(/escrow pending/i).length).toBeGreaterThanOrEqual(1);
     const link = screen.getByRole("link", { name: /view escrow/i });
     expect(link).toHaveAttribute("href", `/auction/${auction.publicId}/escrow`);
   });

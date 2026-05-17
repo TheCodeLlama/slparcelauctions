@@ -143,6 +143,8 @@ Server components and Amplify build-time prerendering have surprised us repeated
 
 Once L$ has reached an SLParcels Terminal script (the `money()` event has fired), every non-OK backend response **must** bounce the L$ back via `llTransferLindenDollars`. The earlier "ERROR could be an attacker probing, owner-say only" rationale was wrong — SL header + shared-secret pre-flight rejects bad senders before any L$-bearing path runs, so a real ERROR reaching the deposit response handler is a legitimate-but-failed deposit, not an attack. Backend `/sl/wallet/deposit` returns REFUND (not ERROR) for any failure after L$ is in hand; the LSL script also refunds on ERROR responses defensively. Withdraw-side errors are different — no L$ has moved, ERROR is fine there.
 
+**Terminal payment channels (post wallet-only escrow spec 2026-05-16):** wallet top-up, listing-fee payment, group-wallet deposit, withdrawal receipts, and seller escrow-payout receipts. Auction-escrow funding from the WINNER is **not** a terminal channel — it auto-debits from the winner's SLParcels wallet inside `EscrowService.createForEndedAuction` via their `BidReservation`. The `/api/v1/sl/escrow/payment` endpoint is preserved only as a defensive refund path that always returns `ESCROW_EXPIRED`; any terminal mistakenly POSTing there gets the L$ bounced back.
+
 ## AWS / Prod Ops
 
 - **AWS CLI is on PATH.** Run `aws` directly. (Earlier Claude Code sessions inherited a stale PATH from IntelliJ-spawned shells started before the install — if `aws` ever doesn't resolve in a tool call, restart the parent terminal so the new env propagates.)

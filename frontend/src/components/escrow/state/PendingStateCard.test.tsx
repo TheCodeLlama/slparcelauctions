@@ -1,128 +1,46 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { renderWithProviders, screen } from "@/test/render";
 import { PendingStateCard } from "./PendingStateCard";
 import { fakeEscrow } from "@/test/fixtures/escrow";
 
+/**
+ * Post wallet-only-escrow spec (2026-05-16), ESCROW_PENDING is a
+ * transactional intermediate inside createForEndedAuction — it never
+ * persists past commit. The card renders a passive "funding in progress"
+ * status for legacy historical rows only; no terminal CTA, no dispute
+ * link, no payment-deadline badge (column was dropped).
+ */
 describe("PendingStateCard", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  describe("seller view", () => {
-    it("renders 'Awaiting payment' headline with counterparty display name", () => {
-      renderWithProviders(
+  it("renders passive 'funding in progress' copy for both roles", () => {
+    for (const role of ["seller", "winner"] as const) {
+      const { unmount } = renderWithProviders(
         <PendingStateCard
-          escrow={fakeEscrow({
-            state: "ESCROW_PENDING",
-            paymentDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="seller"
+          escrow={fakeEscrow({ state: "ESCROW_PENDING", finalBidAmount: 5000 })}
+          role={role}
         />,
       );
+      expect(screen.getByText(/escrow funding in progress/i)).toBeInTheDocument();
+      expect(screen.getByText(/L\$\s*5,?000/i)).toBeInTheDocument();
       expect(
-        screen.getByText(/awaiting payment from the winner/i),
+        screen.getByText(/transferred from the winner's slparcels wallet/i),
       ).toBeInTheDocument();
-    });
-
-    it("renders a deadline badge", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({
-            state: "ESCROW_PENDING",
-            paymentDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="seller"
-        />,
-      );
-      expect(screen.getByText(/left$/i)).toBeInTheDocument();
-    });
-
-    it("renders a dispute link with correct href", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING", auctionPublicId: "00000000-0000-0000-0000-00000000002a" })}
-          role="seller"
-        />,
-      );
-      const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
-    });
-
-    it("does not render 'Find a terminal' or 'Pay L$' copy", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING" })}
-          role="seller"
-        />,
-      );
+      // Terminal affordance, dispute link, and "pay" CTA are all gone.
       expect(screen.queryByText(/find a terminal/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/pay l\$/i)).not.toBeInTheDocument();
-    });
+      expect(screen.queryByRole("link", { name: /file a dispute/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/pay escrow/i)).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
-  describe("winner view", () => {
-    it("renders 'Pay L$ {finalBidAmount}' headline", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({
-            state: "ESCROW_PENDING",
-            finalBidAmount: 5000,
-          })}
-          role="winner"
-        />,
-      );
-      expect(screen.getByText(/pay l\$\s*5,?000/i)).toBeInTheDocument();
-    });
-
-    it("renders terminal instructions body copy", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING" })}
-          role="winner"
-        />,
-      );
-      expect(
-        screen.getByText(/slparcels terminal in-world/i),
-      ).toBeInTheDocument();
-    });
-
-    it("renders a disabled 'Find a terminal' button (inert placeholder)", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING" })}
-          role="winner"
-        />,
-      );
-      const btn = screen.getByRole("button", { name: /find a terminal/i });
-      expect(btn).toBeDisabled();
-    });
-
-    it("renders a deadline badge", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({
-            state: "ESCROW_PENDING",
-            paymentDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="winner"
-        />,
-      );
-      expect(screen.getByText(/left$/i)).toBeInTheDocument();
-    });
-
-    it("renders a dispute link with correct href", () => {
-      renderWithProviders(
-        <PendingStateCard
-          escrow={fakeEscrow({ state: "ESCROW_PENDING", auctionPublicId: "00000000-0000-0000-0000-00000000002a" })}
-          role="winner"
-        />,
-      );
-      const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
-    });
+  it("carries the data-state / data-role hooks for downstream tests", () => {
+    renderWithProviders(
+      <PendingStateCard
+        escrow={fakeEscrow({ state: "ESCROW_PENDING" })}
+        role="winner"
+      />,
+    );
+    const card = screen.getByTestId("escrow-state-card");
+    expect(card).toHaveAttribute("data-state", "ESCROW_PENDING");
+    expect(card).toHaveAttribute("data-role", "winner");
   });
 });

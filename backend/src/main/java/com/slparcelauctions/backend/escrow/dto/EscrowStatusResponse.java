@@ -21,7 +21,12 @@ public record EscrowStatusResponse(
         Long finalBidAmount,
         Long commissionAmt,
         Long payoutAmt,
-        OffsetDateTime paymentDeadline,
+        /**
+         * Transfer deadline = fundedAt + 72h. Populated once the escrow
+         * transitions through FUNDED → TRANSFER_PENDING. The retired
+         * paymentDeadline column from before the wallet-only escrow spec
+         * is no longer projected.
+         */
         OffsetDateTime transferDeadline,
         OffsetDateTime fundedAt,
         OffsetDateTime transferConfirmedAt,

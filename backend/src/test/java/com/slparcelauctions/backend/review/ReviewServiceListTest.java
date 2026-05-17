@@ -94,7 +94,6 @@ class ReviewServiceListTest {
                 .finalBidAmount(1_000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(NOW.minusDays(3))
                 .build();
     }
 
@@ -300,7 +299,6 @@ class ReviewServiceListTest {
                 .finalBidAmount(1_000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(NOW.minusDays(12))
                 .build();
 
         Auction auctionMid = Auction.builder()
@@ -318,7 +316,6 @@ class ReviewServiceListTest {
                 .finalBidAmount(1_000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(NOW.minusDays(7))
                 .build();
 
         Auction auctionNew = Auction.builder()
@@ -336,7 +333,6 @@ class ReviewServiceListTest {
                 .finalBidAmount(1_000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(NOW.minusDays(2))
                 .build();
 
         // Mock returns rows already sorted ASC by completedAt (mimics the

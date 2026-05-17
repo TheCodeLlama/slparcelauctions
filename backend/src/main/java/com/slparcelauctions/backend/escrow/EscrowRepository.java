@@ -47,20 +47,6 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
     List<Long> findTransferPendingIds();
 
     /**
-     * Returns every escrow id whose 48h {@code paymentDeadline} has already
-     * passed while the row is still {@link EscrowState#ESCROW_PENDING} — the
-     * winner never paid. Used by the timeout sweeper (spec §4.6) to flip
-     * these rows to {@link EscrowState#EXPIRED}; no L$ is held so no refund
-     * is queued.
-     */
-    @Query("""
-            SELECT e.id FROM Escrow e
-            WHERE e.state = com.slparcelauctions.backend.escrow.EscrowState.ESCROW_PENDING
-              AND e.paymentDeadline < :now
-            """)
-    List<Long> findExpiredPendingIds(@Param("now") OffsetDateTime now);
-
-    /**
      * Returns every escrow id whose 72h {@code transferDeadline} has already
      * passed while the row is still {@link EscrowState#TRANSFER_PENDING} —
      * the seller never transferred the parcel — AND there is no active

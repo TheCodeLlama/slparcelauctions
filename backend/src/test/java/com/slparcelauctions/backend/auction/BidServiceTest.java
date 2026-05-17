@@ -81,7 +81,13 @@ class BidServiceTest {
         seller = User.builder().id(10L).email("seller@example.com").username("seller")
                 .displayName("Seller").verified(true).build();
         bidder = User.builder().id(20L).email("bidder@example.com").username("bidder")
-                .displayName("Bidder").verified(true).build();
+                .displayName("Bidder").verified(true)
+                .balanceLindens(1_000_000L).reservedLindens(0L).penaltyBalanceOwed(0L)
+                .build();
+        // findByIdForUpdate is the locked re-fetch used by the wallet
+        // precondition + reservation swap; stub it to return the same
+        // bidder mock so tests that reach the wallet path see a balance.
+        lenient().when(userRepo.findByIdForUpdate(20L)).thenReturn(Optional.of(bidder));
 
         activeAuction = Auction.builder()
                 .title("Test listing")

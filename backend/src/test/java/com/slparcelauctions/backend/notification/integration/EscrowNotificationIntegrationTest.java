@@ -34,8 +34,6 @@ import com.slparcelauctions.backend.escrow.EscrowTransactionRepository;
 import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.escrow.EscrowDisputeReasonCategory;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
-import com.slparcelauctions.backend.escrow.payment.dto.EscrowPaymentRequest;
-import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
 import com.slparcelauctions.backend.notification.Notification;
 import com.slparcelauctions.backend.notification.NotificationCategory;
@@ -173,7 +171,6 @@ class EscrowNotificationIntegrationTest {
                     .finalBidAmount(1500L)
                     .commissionAmt(75L)
                     .payoutAmt(1425L)
-                    .paymentDeadline(now.plusHours(47))
                     .consecutiveWorldApiFailures(0)
                     .build());
             escrowId = e.getId();
@@ -199,36 +196,10 @@ class EscrowNotificationIntegrationTest {
 
     // â”€â”€ tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    @Test
-    void funded_publishesEscrowFundedToSellerOnly() {
-        User seller = newUser("esc-funded-seller"); sellerId = seller.getId();
-        User winner = newUser("esc-funded-winner"); winnerId = winner.getId();
-        seedPendingEscrow();
-
-        // Register a terminal so acceptPayment's terminal check passes.
-        terminalId = "escrow-notif-terminal-" + UUID.randomUUID();
-        new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            terminalRepo.save(Terminal.builder()
-                    .terminalId(terminalId)
-                    .httpInUrl("https://test.sim/cap/abc")
-                    .regionName("TestRegion")
-                    .active(true)
-                    .lastSeenAt(OffsetDateTime.now())
-                    .build());
-        });
-
-        User freshWinner = new TransactionTemplate(txManager).execute(s ->
-                userRepo.findById(winnerId).orElseThrow());
-        EscrowPaymentRequest req = new EscrowPaymentRequest(
-                auctionId, freshWinner.getSlAvatarUuid().toString(),
-                1500L, "sl-txn-" + UUID.randomUUID(), terminalId, SHARED_SECRET);
-
-        new TransactionTemplate(txManager).executeWithoutResult(s ->
-                escrowService.acceptPayment(req));
-
-        assertThat(notifFor(sellerId, NotificationCategory.ESCROW_FUNDED)).hasSize(1);
-        assertThat(notifFor(winnerId, NotificationCategory.ESCROW_FUNDED)).isEmpty();
-    }
+    // Wallet-only escrow funding (spec 2026-05-16): the terminal payment
+    // path is now a defensive refund-only branch and no longer fires
+    // ESCROW_FUNDED. The seller-only fanout for that notification is
+    // covered alongside auction-end auto-funding in EscrowCreateOnAuctionEndIntegrationTest.
 
     @Test
     void disputed_publishesToBothParties() {
@@ -265,20 +236,9 @@ class EscrowNotificationIntegrationTest {
         assertThat(notifFor(winnerId, NotificationCategory.ESCROW_FROZEN)).hasSize(1);
     }
 
-    @Test
-    void expirePayment_publishesToBothParties() {
-        User seller = newUser("esc-exp-seller"); sellerId = seller.getId();
-        User winner = newUser("esc-exp-winner"); winnerId = winner.getId();
-        seedPendingEscrow();
-
-        new TransactionTemplate(txManager).executeWithoutResult(s -> {
-            Escrow e = escrowRepo.findById(escrowId).orElseThrow();
-            escrowService.expirePayment(e, OffsetDateTime.now());
-        });
-
-        assertThat(notifFor(sellerId, NotificationCategory.ESCROW_EXPIRED)).hasSize(1);
-        assertThat(notifFor(winnerId, NotificationCategory.ESCROW_EXPIRED)).hasSize(1);
-    }
+    // Wallet-only escrow funding (spec 2026-05-16): EscrowService.expirePayment
+    // is deleted. ESCROW_PENDING never persists past createForEndedAuction's
+    // commit, so the 48h payment-timeout sweep no longer exists.
 
     @Test
     void transferConfirmed_publishesToBothParties() {

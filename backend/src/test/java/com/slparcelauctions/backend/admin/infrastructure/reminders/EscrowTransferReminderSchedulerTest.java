@@ -139,7 +139,6 @@ class EscrowTransferReminderSchedulerTest {
                 .finalBidAmount(1000L)
                 .commissionAmt(50L)
                 .payoutAmt(950L)
-                .paymentDeadline(OffsetDateTime.now(fixed).plusHours(48))
                 .transferDeadline(transferDeadline)
                 .fundedAt(OffsetDateTime.now(fixed).minusHours(48))
                 .build();

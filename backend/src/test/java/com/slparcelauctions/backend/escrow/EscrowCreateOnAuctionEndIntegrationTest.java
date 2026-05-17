@@ -31,10 +31,15 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.Bid;
 import com.slparcelauctions.backend.auction.BidRepository;
+import com.slparcelauctions.backend.auction.BidType;
 import com.slparcelauctions.backend.auction.ProxyBidRepository;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.auth.RefreshTokenRepository;
+import com.slparcelauctions.backend.wallet.BidReservation;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
+// EscrowTransactionRepository is in this package
 import com.slparcelauctions.backend.escrow.broadcast.CapturingEscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
@@ -95,9 +100,13 @@ class EscrowCreateOnAuctionEndIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired NotificationRepository notificationRepo;
+    @Autowired BidReservationRepository bidReservationRepo;
+    @Autowired com.slparcelauctions.backend.wallet.UserLedgerRepository userLedgerRepo;
     @Autowired PlatformTransactionManager txManager;
+    @Autowired javax.sql.DataSource dataSource;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
     private Long seededAuctionId;
@@ -117,12 +126,20 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         tx.executeWithoutResult(status -> {
             // Escrow row (if any) must be deleted BEFORE the auction because
             // of the FK from escrows.auction_id â†’ auctions.id.
-            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
+            bidReservationRepo.findAll().stream()
+                    .filter(r -> seededAuctionId.equals(r.getAuctionId()))
+                    .forEach(bidReservationRepo::delete);
+            escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrow -> {
+                escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
+                        .forEach(escrowTxRepo::delete);
+                escrowRepo.delete(escrow);
+            });
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
             auctionRepo.findById(seededAuctionId).ifPresent(auctionRepo::delete);
             for (Long userId : new Long[]{seededBidderId, seededSellerId}) {
                 if (userId == null) continue;
+                userLedgerRepo.deleteAllByUserId(userId);
                 refreshTokenRepo.findAllByUserId(userId)
                         .forEach(refreshTokenRepo::delete);
                 verificationCodeRepo.findByUserIdAndTypeAndUsedFalse(userId,
@@ -159,34 +176,29 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         assertThat(refreshed.getEndedAt()).isNotNull();
 
         Escrow escrow = escrowRepo.findByAuctionId(seededAuctionId).orElseThrow();
-        assertThat(escrow.getState()).isEqualTo(EscrowState.ESCROW_PENDING);
+        // Wallet-only escrow funding (spec 2026-05-16): createForEndedAuction
+        // auto-funds from the winner's bid reservation in the same
+        // transaction, so external observers see TRANSFER_PENDING.
+        assertThat(escrow.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
         assertThat(escrow.getFinalBidAmount()).isEqualTo(currentBid);
-        // Commission math lives in EscrowCommissionCalculator (spec Â§4.3 â€”
-        // max(bid * 5%, L$50) floor). Assert against the calculator so
-        // test expectations track the business rule instead of duplicating
-        // its arithmetic. At Phase-1 rates 5000*0.05 = 250 clears the L$50
-        // floor, so commissionAmt=250 and payoutAmt=4750 â€” kept in the
-        // comment so a reviewer sees the expected numeric value too.
         assertThat(escrow.getCommissionAmt())
                 .isEqualTo(commissionCalculator.commission(currentBid));
         assertThat(escrow.getPayoutAmt())
                 .isEqualTo(commissionCalculator.payout(currentBid));
         assertThat(escrow.getConsecutiveWorldApiFailures()).isZero();
-        // paymentDeadline = endedAt + 48h. Allow 1Î¼s tolerance for Postgres
-        // TIMESTAMPTZ nanosecondâ†’microsecond rounding.
-        assertThat(escrow.getPaymentDeadline())
-                .isCloseTo(refreshed.getEndedAt().plusHours(48), within(1, ChronoUnit.MICROS));
-        assertThat(escrow.getTransferDeadline()).isNull();
-        assertThat(escrow.getFundedAt()).isNull();
+        // transferDeadline = fundedAt + 72h; both stamped during auto-fund.
+        assertThat(escrow.getFundedAt()).isNotNull();
+        assertThat(escrow.getTransferDeadline())
+                .isCloseTo(escrow.getFundedAt().plusHours(72), within(1, ChronoUnit.MICROS));
 
         assertThat(capturingEscrowPublisher.created).hasSize(1);
         EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);
         assertThat(env.type()).isEqualTo("ESCROW_CREATED");
         assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
         assertThat(env.escrowPublicId()).isEqualTo(escrow.getPublicId());
+        // The ESCROW_CREATED envelope is emitted with the row's initial
+        // state (ESCROW_PENDING) before the same-transaction auto-fund.
         assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
-        assertThat(env.paymentDeadline())
-                .isCloseTo(escrow.getPaymentDeadline(), within(1, ChronoUnit.MICROS));
         // serverTime should match the auction's endedAt exactly â€” both come
         // from the same OffsetDateTime.now(clock) call in closeOne.
         assertThat(env.serverTime())
@@ -241,12 +253,22 @@ class EscrowCreateOnAuctionEndIntegrationTest {
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
                     .build());
+            // Wallet-only escrow funding (spec 2026-05-16): seed enough
+            // balance + an active reservation so createForEndedAuction
+            // can debit + transition to TRANSFER_PENDING.
+            // Only the SOLD path needs reservedLindens; NO_BIDS and
+            // RESERVE_NOT_MET cases leave reservedLindens=0 so the
+            // reconciliation invariant holds across the suite.
+            boolean willSell = bidCount > 0 && currentBid > 0L && currentBid >= reserve;
             User bidder = userRepo.save(User.builder().username("u-" + UUID.randomUUID().toString().substring(0, 8))
                     .email("escrow-end-bidder-" + UUID.randomUUID() + "@example.com")
                     .passwordHash("$2a$10$dummy.hash.value.for.test.only.aaaaaaaaaaaaaaaaaaaa")
                     .displayName(bidderDisplayName)
                     .slAvatarUuid(UUID.randomUUID())
                     .verified(true)
+                    .balanceLindens(currentBid > 0L ? currentBid : 0L)
+                    .reservedLindens(willSell ? currentBid : 0L)
+                    .penaltyBalanceOwed(0L)
                     .build());
             UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
@@ -282,6 +304,28 @@ class EscrowCreateOnAuctionEndIntegrationTest {
                     .positionX(128.0).positionY(64.0).positionZ(22.0)
                     .build());
             auctionRepo.save(auction);
+
+            // For SOLD outcomes auto-fund consumes a BidReservation; seed
+            // a bid row + reservation only when the auction will actually
+            // close as SOLD (currentBid >= reserve) so the reconciliation
+            // invariant (sum of reservedLindens == sum of active
+            // reservations) stays intact across the test suite.
+            if (willSell) {
+                Bid bid = bidRepo.save(Bid.builder()
+                        .auction(auction)
+                        .bidder(bidder)
+                        .amount(currentBid)
+                        .bidType(BidType.MANUAL)
+                        .ipAddress("127.0.0.1")
+                        .build());
+                bidReservationRepo.save(BidReservation.builder()
+                        .userId(bidder.getId())
+                        .auctionId(auction.getId())
+                        .bidId(bid.getId())
+                        .amount(currentBid)
+                        .build());
+            }
+
             seededSellerId = seller.getId();
             seededBidderId = bidder.getId();
             seededAuctionId = auction.getId();

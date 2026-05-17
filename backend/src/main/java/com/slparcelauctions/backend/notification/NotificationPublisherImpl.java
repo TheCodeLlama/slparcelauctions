@@ -136,7 +136,9 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void auctionWon(long winnerUserId, long auctionId, String parcelName, long winningBidL) {
         String title = "You won " + parcelName + "!";
-        String body = String.format("Pay L$%,d into escrow within 24 hours to claim the parcel.", winningBidL);
+        String body = String.format(
+            "L$%,d has been transferred from your SLParcels wallet to escrow. The seller will transfer the parcel next.",
+            winningBidL);
         notificationService.publish(new NotificationEvent(
             winnerUserId, NotificationCategory.AUCTION_WON, title, body,
             withAuctionPublicId(NotificationDataBuilder.auctionWon(auctionId, parcelName, winningBidL), auctionId),
