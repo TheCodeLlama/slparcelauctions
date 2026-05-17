@@ -188,8 +188,7 @@ the pre-active + `ACTIVE` set. The path:
    timeout (`TRANSFER_TIMEOUT`) or system-initiated freeze.
 5. Flip the auction to `CANCELLED`.
 6. Notify seller (`LISTING_REMOVED_BY_ADMIN`) and winner (new
-   `LISTING_CANCELLED_DURING_ESCROW` category, or reuse
-   `ESCROW_EXPIRED` — see §9 Q5).
+   `LISTING_CANCELLED_DURING_ESCROW` category — §9 Q5).
 7. Write the `CancellationLog` with `cancelledByAdminId` set so the
    penalty-ladder counters do not bill the seller.
 8. Publish `AUCTION_CANCELLED` envelope on the STOMP topic.
@@ -303,10 +302,9 @@ Touch points:
    `V36__rewire_auction_status.sql` Flyway migration completes in
    milliseconds. Backend container starts against translated rows.
 
-5. **Outstanding sub-question (admin-cancel-from-escrow notification
-   category for the winner):** new `LISTING_CANCELLED_DURING_ESCROW`
-   category or reuse `ESCROW_EXPIRED`? I'll go with **reuse
-   `ESCROW_EXPIRED`** — semantically the winner experience is identical
-   ("escrow concluded without a transfer, refund credited"). New
-   category only buys finer-grained UI copy, which we can add later if
-   needed. Flag if you'd rather have the dedicated category.
+5. **Winner notification on admin-cancel-from-escrow: new
+   `LISTING_CANCELLED_DURING_ESCROW` category.** Distinct from
+   `ESCROW_EXPIRED` so the winner-side copy and any analytics
+   downstream can tell admin intervention apart from a natural
+   transfer-timeout. Title/body copy lands in `NotificationPublisher`
+   and `NotificationDataBuilder` per existing patterns.
