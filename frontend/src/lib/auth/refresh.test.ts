@@ -52,10 +52,11 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
       })
     );
 
-    const token = await ensureFreshAccessToken();
+    const result = await ensureFreshAccessToken();
 
     expect(refreshCount).toBe(1);
-    expect(token).toBe("fresh-token-A");
+    expect(result.accessToken).toBe("fresh-token-A");
+    expect(result.user).toMatchObject({ id: 1 });
     expect(getAccessToken()).toBe("fresh-token-A");
     expect(queryClient.getQueryData(["auth", "session"])).toMatchObject({
       id: 1,
@@ -89,7 +90,11 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
     ]);
 
     expect(refreshCount).toBe(1);
-    expect(results).toEqual(["fresh-token-B", "fresh-token-B", "fresh-token-B"]);
+    expect(results.map((r) => r.accessToken)).toEqual([
+      "fresh-token-B",
+      "fresh-token-B",
+      "fresh-token-B",
+    ]);
     expect(getAccessToken()).toBe("fresh-token-B");
   });
 
@@ -124,9 +129,9 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
 
     // Second call — proves inFlightRefresh was cleared in the finally block
     // on the failure path. Fetch is called a SECOND time and resolves fresh.
-    const token = await ensureFreshAccessToken();
+    const result = await ensureFreshAccessToken();
     expect(refreshCount).toBe(2);
-    expect(token).toBe("fresh-token-C");
+    expect(result.accessToken).toBe("fresh-token-C");
     expect(getAccessToken()).toBe("fresh-token-C");
   });
 });

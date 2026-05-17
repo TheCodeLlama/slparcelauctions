@@ -13,12 +13,25 @@ import { setAccessToken } from "./session";
 import type { AuthUser } from "./session";
 
 let queryClientRef: QueryClient | null = null;
-let inFlightRefresh: Promise<string> | null = null;
+let inFlightRefresh: Promise<RefreshResult> | null = null;
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 const SESSION_QUERY_KEY = ["auth", "session"] as const;
 
 type RefreshResponse = { accessToken: string; user: AuthUser };
+
+/**
+ * Resolved value of {@link ensureFreshAccessToken}. Callers that only need
+ * the access token (401 interceptor, STOMP {@code beforeConnect}) can
+ * destructure {@code accessToken}; the {@code useAuth} bootstrap also
+ * needs {@code user} to populate the session cache when running in a
+ * context where {@link configureRefresh} hasn't been wired up (e.g.
+ * test wrappers that build their own {@code QueryClient}).
+ */
+export interface RefreshResult {
+  accessToken: string;
+  user: AuthUser;
+}
 
 export class RefreshFailedError extends Error {
   readonly status: number;
@@ -35,14 +48,14 @@ export function configureRefresh(queryClient: QueryClient): void {
 
 /**
  * Refreshes the access token, deduping concurrent callers onto a single
- * in-flight promise. Returns the new access token string. On failure, clears
- * the in-memory access token and the session query cache, then throws
- * RefreshFailedError.
+ * in-flight promise. Returns the new access token and the user payload.
+ * On failure, clears the in-memory access token and the session query
+ * cache, then throws RefreshFailedError.
  *
  * Callers that need redirect-to-login behavior (HTTP 401 interceptor) do so
  * after catching RefreshFailedError.
  */
-export async function ensureFreshAccessToken(): Promise<string> {
+export async function ensureFreshAccessToken(): Promise<RefreshResult> {
   if (inFlightRefresh) return inFlightRefresh;
 
   inFlightRefresh = (async () => {
@@ -70,7 +83,7 @@ export async function ensureFreshAccessToken(): Promise<string> {
       if (queryClientRef) {
         queryClientRef.setQueryData(SESSION_QUERY_KEY, body.user);
       }
-      return body.accessToken;
+      return { accessToken: body.accessToken, user: body.user };
     } finally {
       inFlightRefresh = null;
     }

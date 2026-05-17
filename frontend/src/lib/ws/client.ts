@@ -87,8 +87,8 @@ function getOrCreateClient(): Client {
       if (!client) return;
       setState({ status: "connecting" });
       try {
-        const token = await ensureFreshAccessToken();
-        client.connectHeaders = { Authorization: `Bearer ${token}` };
+        const { accessToken } = await ensureFreshAccessToken();
+        client.connectHeaders = { Authorization: `Bearer ${accessToken}` };
       } catch (e) {
         // Do NOT throw from beforeConnect — stompjs handles a thrown
         // beforeConnect as a catastrophic failure. Instead, let stompjs

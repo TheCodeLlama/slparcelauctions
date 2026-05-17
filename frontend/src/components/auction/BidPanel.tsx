@@ -59,23 +59,52 @@ export interface BidPanelProps {
    * extensions can omit it entirely.
    */
   snipeExtension?: SnipeExtensionSignal;
+  /**
+   * The auth bootstrap is in flight. When true, render the public auction
+   * data (current bid, bidder count, buy-now callout) with a spinner in
+   * place of the form / sign-in CTA — never flash the "Sign in to bid"
+   * card to a viewer whose session is still resolving. Defaults to false.
+   *
+   * Without this, the loading state collapsed to the {@code unauth}
+   * variant and signed-in users saw "Sign in to bid" for the duration of
+   * the bootstrap (sub-second on the happy path, but multi-second when
+   * the backend refresh path is degraded — see spec
+   * 2026-05-16-ownership-only-verification for the related backend race).
+   */
+  authLoading?: boolean;
 }
 
-type Variant = "unauth" | "unverified" | "seller" | "ended" | "bidder";
+type Variant =
+  | "loading"
+  | "unauth"
+  | "unverified"
+  | "seller"
+  | "ended"
+  | "bidder";
 
 /**
  * Selects a BidPanel variant from viewer + auction state, per spec §9's
- * variant table. Order matters: the {@code ended} status trumps
- * variant-specific checks so a seller viewing their closed auction sees
- * the ended panel, not the read-only seller callout.
+ * variant table. Order matters:
+ * <ol>
+ *   <li>{@code ended} trumps everything else so a seller viewing their
+ *       closed auction sees the ended panel, not the read-only seller
+ *       callout.</li>
+ *   <li>{@code loading} runs second so an authenticated viewer whose
+ *       session is still bootstrapping doesn't briefly see the
+ *       {@code unauth} CTA. The loading variant renders the same public
+ *       data the unauth variant would, minus the sign-in card.</li>
+ *   <li>Everything else falls through to the identity-aware variants.</li>
+ * </ol>
  *
  * Exported for unit-level coverage of the dispatch matrix.
  */
 export function deriveBidPanelVariant(
   auction: PublicAuctionResponse | SellerAuctionResponse,
   currentUser: BidPanelUser | null,
+  authLoading: boolean = false,
 ): Variant {
   if (auction.status === "ENDED") return "ended";
+  if (authLoading) return "loading";
   if (!currentUser) return "unauth";
   if (!currentUser.verified) return "unverified";
   if (currentUser.publicId === auction.sellerPublicId) return "seller";
@@ -212,6 +241,65 @@ function formatHighBid(value: number | string | null): string {
 }
 
 /**
+ * Auth-bootstrap-in-flight variant. Renders the public auction data
+ * (current bid, bidder count, buy-now callout) immediately — that data
+ * is in the SSR payload and never depends on viewer identity — but
+ * replaces the form / sign-in CTA slot with a quiet spinner. Resolves
+ * to one of the identity-aware variants once {@code authLoading}
+ * flips to false.
+ *
+ * Order-of-operations note: callers must pass {@code authLoading=true}
+ * during the bootstrap window, not just "currentUser is null". A null
+ * currentUser after the bootstrap settled is a real unauthenticated
+ * viewer and should see the {@code unauth} sign-in CTA, not this
+ * spinner.
+ */
+function BidPanelAuthLoading({
+  auction,
+}: {
+  auction: PublicAuctionResponse | SellerAuctionResponse;
+}) {
+  return (
+    <div
+      data-testid="bid-panel-auth-loading"
+      className="flex flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-sm"
+      aria-busy="true"
+    >
+      <CurrentBidDisplay auction={auction} />
+
+      {auction.reservePrice != null ? (
+        <ReserveStatusIndicator auction={auction} />
+      ) : null}
+
+      {auction.buyNowPrice != null ? (
+        <div
+          data-testid="bid-panel-auth-loading-buy-now"
+          className="rounded-lg bg-bg-subtle p-3 text-xs text-fg"
+        >
+          Buy now for{" "}
+          <span className="font-semibold">
+            L${auction.buyNowPrice.toLocaleString()}
+          </span>
+          .
+        </div>
+      ) : null}
+
+      <div
+        className="flex flex-col items-center justify-center gap-2 rounded-lg bg-bg-subtle px-4 py-6 text-xs text-fg-muted"
+        role="status"
+        aria-live="polite"
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-border border-t-brand"
+        />
+        <span>Checking sign-in&hellip;</span>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Variant dispatcher for the auction bid panel. Lives in the sticky
  * sidebar slot of {@code AuctionDetailClient} — one mount per page.
  *
@@ -232,10 +320,13 @@ export function BidPanel({
   connectionState,
   currentUserIsWinning = false,
   snipeExtension,
+  authLoading = false,
 }: BidPanelProps) {
-  const variant = deriveBidPanelVariant(auction, currentUser);
+  const variant = deriveBidPanelVariant(auction, currentUser, authLoading);
 
   switch (variant) {
+    case "loading":
+      return <BidPanelAuthLoading auction={auction} />;
     case "unauth":
       return <AuthGateMessage kind="unauth" auctionPublicId={auction.publicId} />;
     case "unverified":
