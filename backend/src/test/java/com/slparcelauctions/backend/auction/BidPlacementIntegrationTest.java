@@ -36,6 +36,8 @@ import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.dto.ParcelPageData;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
+import com.slparcelauctions.backend.wallet.BidReservation;
+import com.slparcelauctions.backend.wallet.BidReservationRepository;
 
 import reactor.core.publisher.Mono;
 
@@ -68,6 +70,7 @@ class BidPlacementIntegrationTest {
     @Autowired AuctionRepository auctionRepository;
     @Autowired BidRepository bidRepository;
     @Autowired UserRepository userRepository;
+    @Autowired BidReservationRepository reservationRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -132,6 +135,41 @@ class BidPlacementIntegrationTest {
         assertThat(row.getBidType()).isEqualTo(BidType.MANUAL);
         assertThat(row.getProxyBidId()).isNull();
         assertThat(row.getBidder().getId()).isEqualTo(bidderId);
+    }
+
+    @Test
+    void placeBid_sameBidderRaisesOwnBid_succeedsWithoutUniqueViolation() throws Exception {
+        // Regression: the same user re-bidding on the same auction used to
+        // trip bid_reservations_active_idx (the partial unique index on
+        // (user_id, auction_id) WHERE released_at IS NULL). Hibernate's
+        // default action queue flushed the new reservation INSERT before
+        // the prior reservation's release UPDATE, so both rows were briefly
+        // active for the same (user, auction) cell. Different-user outbids
+        // weren't affected because their (user, auction) cells differ.
+        // WalletService.swapReservation now calls reservationRepository
+        // .flush() right after marking the prior reservation released, so
+        // the UPDATE lands before the INSERT.
+        Auction auction = seedAuction(AuctionStatus.ACTIVE, 0L, 0);
+
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
+                        .header("Authorization", "Bearer " + bidderAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":1000}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
+                        .header("Authorization", "Bearer " + bidderAccessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":1500}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.amount").value(1500));
+
+        List<BidReservation> active = reservationRepository.findAllActiveForAuction(auction.getId());
+        assertThat(active).hasSize(1);
+        BidReservation only = active.getFirst();
+        assertThat(only.getAmount()).isEqualTo(1500L);
+        assertThat(only.getUserId()).isEqualTo(bidderId);
+        assertThat(only.getReleasedAt()).isNull();
     }
 
     // -------------------------------------------------------------------------
