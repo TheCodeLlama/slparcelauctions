@@ -221,6 +221,13 @@ public class AuctionVerificationService {
      * status}. Excludes the candidate auction itself (which is still
      * DRAFT_PAID / VERIFICATION_FAILED at this point and therefore not
      * locking).
+     *
+     * <p>Status alone is the single source of truth for the parcel-lock
+     * decision: an auction's presence in {@code LOCKING_STATUSES} is necessary
+     * and sufficient to hold the parcel. No escrow-state join is required
+     * because every locking transition (ACTIVE / TRANSFER_PENDING / DISPUTED)
+     * is owned by a service that drives status and escrow state in lockstep
+     * inside the same transaction.
      */
     private void assertParcelNotLocked(Auction candidate) {
         UUID slParcelUuid = candidate.getSlParcelUuid();
