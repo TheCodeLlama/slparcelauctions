@@ -128,6 +128,78 @@ class ParcelLockingRaceIntegrationTest {
     // Sequential verify: service-layer check catches the second one.
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+     // Post-rewire (2026-05-17) locking matrix
+     //
+     // LOCKING_STATUSES = {ACTIVE, TRANSFER_PENDING, DISPUTED}.
+     // Terminals (COMPLETED, CANCELLED, EXPIRED, FROZEN) release the lock.
+     // The tests below pin the new fan-out: any LOCKING_STATUS row on the same
+     // parcel must block a second verify attempt; any terminal row must not.
+     // -------------------------------------------------------------------------
+
+    @Test
+    void transferPendingAuctionLocksParcel_secondVerifyReturns409() throws Exception {
+        stubWorldApiOwnership(sellerAvatar, "agent");
+        // Seed an already-TRANSFER_PENDING auction on the parcel; the second
+        // auction must collide with the partial unique index + service check.
+        AuctionRef locked = seedAuctionInStatus(AuctionStatus.TRANSFER_PENDING);
+        AuctionRef candidate = seedDraftPaidAuction();
+
+        mockMvc.perform(put("/api/v1/auctions/" + candidate.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PARCEL_ALREADY_LISTED"))
+                .andExpect(jsonPath("$.blockingAuctionId").value(locked.id()));
+    }
+
+    @Test
+    void terminalStatusesReleaseLock_secondVerifySucceeds() throws Exception {
+        // For each terminal status on the parcel, a fresh DRAFT_PAID auction
+        // on the same parcel must be allowed to verify cleanly.
+        AuctionStatus[] terminals = {
+                AuctionStatus.COMPLETED,
+                AuctionStatus.CANCELLED,
+                AuctionStatus.EXPIRED,
+                AuctionStatus.FROZEN};
+        for (AuctionStatus terminal : terminals) {
+            stubWorldApiOwnership(sellerAvatar, "agent");
+            // Pre-create an auction in the terminal status on this parcel,
+            // then attempt verify on a second auction. The terminal row
+            // does not appear in LOCKING_STATUSES so the partial unique
+            // index permits the second auction to flip ACTIVE.
+            AuctionRef priorTerminal = seedAuctionInStatus(terminal);
+            AuctionRef candidate = seedDraftPaidAuction();
+
+            mockMvc.perform(put("/api/v1/auctions/" + candidate.publicId() + "/verify")
+                    .header("Authorization", "Bearer " + sellerAccessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"method\":\"UUID_ENTRY\"}"))
+                    .andExpect(r -> {
+                        int code = r.getResponse().getStatus();
+                        assertThat(code)
+                                .as("terminal status %s on the same parcel must NOT lock; got HTTP %d body=%s",
+                                        terminal, code, r.getResponse().getContentAsString())
+                                .isEqualTo(200);
+                    })
+                    .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+            // Clean up the two auctions we just seeded so the next loop
+            // iteration starts from an empty parcel-lock state. This test
+            // does not use @Transactional so leftover rows would collide.
+            try (var conn = dataSource.getConnection()) {
+                conn.setAutoCommit(true);
+                try (var stmt = conn.createStatement()) {
+                    stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id IN ("
+                            + priorTerminal.id() + ", " + candidate.id() + ")");
+                    stmt.execute("DELETE FROM auctions WHERE id IN ("
+                            + priorTerminal.id() + ", " + candidate.id() + ")");
+                }
+            }
+        }
+    }
+
     @Test
     void sequentialVerify_secondAuctionOnSameParcel_returns409() throws Exception {
         stubWorldApiOwnership(sellerAvatar, "agent");
@@ -280,6 +352,46 @@ class ParcelLockingRaceIntegrationTest {
     /** Holds both the internal numeric id (for service-layer calls) and the
      *  public UUID (for HTTP path segments after the PT18 publicId migration). */
     private record AuctionRef(Long id, UUID publicId) {}
+
+    /**
+     * Seeds an auction in the given status (DRAFT_PAID or terminal /
+     * mid-flight) on the test's shared parcel. Used by the locking-matrix
+     * tests to plant rows that LOCKING_STATUSES does (or doesn't) cover.
+     */
+    private AuctionRef seedAuctionInStatus(AuctionStatus status) {
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        return tx.execute(ts -> {
+            User seller = userRepository.findById(sellerId).orElseThrow();
+            Auction a = Auction.builder()
+                    .title("Pre-status seed " + status)
+                    .slParcelUuid(parcelUuid)
+                    .seller(seller)
+                    .status(status)
+                    .startingBid(1000L)
+                    .durationHours(168)
+                    .snipeProtect(false)
+                    .listingFeePaid(true)
+                    .listingFeeAmt(100L)
+                    .currentBid(0L)
+                    .bidCount(0)
+                    .consecutiveWorldApiFailures(0)
+                    .commissionRate(new BigDecimal("0.05"))
+                    .build();
+            a = auctionRepository.save(a);
+            a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                    .slParcelUuid(parcelUuid)
+                    .ownerUuid(sellerAvatar)
+                    .ownerType("agent")
+                    .parcelName("Locking Parcel")
+                    .regionName("Coniston")
+                    .regionMaturityRating("GENERAL")
+                    .areaSqm(1024)
+                    .positionX(128.0).positionY(64.0).positionZ(22.0)
+                    .build());
+            Auction saved = auctionRepository.save(a);
+            return new AuctionRef(saved.getId(), saved.getPublicId());
+        });
+    }
 
     private AuctionRef seedDraftPaidAuction() {
         TransactionTemplate tx = new TransactionTemplate(txManager);

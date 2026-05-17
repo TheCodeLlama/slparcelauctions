@@ -219,7 +219,9 @@ class SnipeAndBuyNowIntegrationTest {
                 .andExpect(jsonPath("$.buyNowTriggered").value(true));
 
         Auction reloaded = auctionRepository.findById(auction.getId()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // BOUGHT_NOW close: EscrowService.createForEndedAuction flips status
+        // to TRANSFER_PENDING after auto-funding from winner's reservation.
+        assertThat(reloaded.getStatus()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
         assertThat(reloaded.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
         assertThat(reloaded.getWinnerUserId()).isEqualTo(bidder1Id);
         assertThat(reloaded.getFinalBidAmount()).isEqualTo(10_000L);
@@ -233,7 +235,7 @@ class SnipeAndBuyNowIntegrationTest {
                         .content("{\"amount\":15000}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("AUCTION_NOT_ACTIVE"))
-                .andExpect(jsonPath("$.currentState").value("ENDED"));
+                .andExpect(jsonPath("$.currentState").value("TRANSFER_PENDING"));
     }
 
     // ------------------------------------------------------------------
@@ -259,7 +261,9 @@ class SnipeAndBuyNowIntegrationTest {
                 .andExpect(jsonPath("$.buyNowTriggered").value(true));
 
         Auction reloaded = auctionRepository.findById(auction.getId()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // BOUGHT_NOW close: EscrowService.createForEndedAuction flips status
+        // to TRANSFER_PENDING after auto-funding from winner's reservation.
+        assertThat(reloaded.getStatus()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
         assertThat(reloaded.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
         assertThat(reloaded.getWinnerUserId()).isEqualTo(bidder1Id);
         assertThat(reloaded.getFinalBidAmount()).isEqualTo(10_000L);

@@ -192,7 +192,7 @@ class EscrowTimeoutTaskTest {
         Auction auction = Auction.builder()
                 .title("Test listing")
                 .id(AUCTION_ID).seller(seller).slParcelUuid(PARCEL_UUID)
-                .status(AuctionStatus.ENDED)
+                .status(AuctionStatus.TRANSFER_PENDING)
 
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).listingFeePaid(true)

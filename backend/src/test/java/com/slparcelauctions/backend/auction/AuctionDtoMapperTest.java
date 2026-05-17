@@ -47,8 +47,7 @@ class AuctionDtoMapperTest {
 
     @ParameterizedTest
     @EnumSource(value = AuctionStatus.class, names = {
-            "ENDED", "ESCROW_PENDING", "ESCROW_FUNDED",
-            "TRANSFER_PENDING", "COMPLETED", "CANCELLED", "EXPIRED", "DISPUTED"})
+            "TRANSFER_PENDING", "COMPLETED", "CANCELLED", "EXPIRED", "FROZEN", "DISPUTED"})
     void toPublicStatus_postActiveCollapsesToEnded(AuctionStatus status) {
         assertThat(mapper.toPublicStatus(status)).isEqualTo(PublicAuctionStatus.ENDED);
     }

@@ -308,11 +308,18 @@ class AdminDisputeServiceTest {
             UUID parcelUuid = UUID.randomUUID();
             OffsetDateTime now = OffsetDateTime.now();
             long finalBid = 5_000L;
+            // Mirror the auction status to the escrow's starting state so the
+            // dispute-resolve assertions can see a status flip happen.
+            AuctionStatus auctionStartingStatus = switch (startingState) {
+                case DISPUTED -> AuctionStatus.DISPUTED;
+                case FROZEN -> AuctionStatus.FROZEN;
+                default -> AuctionStatus.TRANSFER_PENDING;
+            };
             Auction auction = auctionRepo.save(Auction.builder()
                     .title("Dispute Resolve Test Lot")
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
-                    .status(AuctionStatus.ENDED)
+                    .status(auctionStartingStatus)
 
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)

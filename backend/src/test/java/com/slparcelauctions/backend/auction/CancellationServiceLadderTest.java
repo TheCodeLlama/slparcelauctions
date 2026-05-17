@@ -60,6 +60,8 @@ class CancellationServiceLadderTest {
     @Mock com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer realtyGroupAuthorizer;
     @Mock com.slparcelauctions.backend.auction.monitoring.ListingSuspensionRepository listingSuspensionRepo;
     @Mock WalletService walletService;
+    @Mock com.slparcelauctions.backend.escrow.EscrowService escrowService;
+    @Mock com.slparcelauctions.backend.escrow.EscrowRepository escrowRepo;
 
     CancellationService service;
 
@@ -78,7 +80,8 @@ class CancellationServiceLadderTest {
         service = new CancellationService(
                 auctionRepo, bidRepo, logRepo, refundRepo, userRepo,
                 broadcastPublisher, notificationPublisher, penaltyProps, banCheckService,
-                realtyGroupAuthorizer, listingSuspensionRepo, walletService, fixed);
+                realtyGroupAuthorizer, listingSuspensionRepo, walletService,
+                escrowService, escrowRepo, fixed);
         seller = User.builder().id(42L).email("s@example.com").username("s")
                 .cancelledWithBids(0)
                 .penaltyBalanceOwed(0L)

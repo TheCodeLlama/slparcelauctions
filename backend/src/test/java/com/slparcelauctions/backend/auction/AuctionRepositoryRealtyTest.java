@@ -64,11 +64,11 @@ class AuctionRepositoryRealtyTest {
     }
 
     @Test
-    void existsActiveListingsByGroupId_false_when_only_ended() {
-        User seller = userRepo.save(buildUser("ended-seller"));
-        RealtyGroup g = groupRepo.save(buildGroup("Ended Group", "ended-group", seller.getId()));
+    void existsActiveListingsByGroupId_false_when_only_completed() {
+        User seller = userRepo.save(buildUser("completed-seller"));
+        RealtyGroup g = groupRepo.save(buildGroup("Completed Group", "completed-group", seller.getId()));
 
-        auctionRepo.save(buildAuction(seller, g.getId(), AuctionStatus.ENDED));
+        auctionRepo.save(buildAuction(seller, g.getId(), AuctionStatus.COMPLETED));
 
         assertThat(auctionRepo.existsActiveListingsByGroupId(g.getId())).isFalse();
     }
@@ -100,8 +100,8 @@ class AuctionRepositoryRealtyTest {
         case3Active.setRealtyGroupSlGroupId(slGroup.getId());
         case3Active = auctionRepo.save(case3Active);
 
-        // Case-3 ENDED â€” outside the pre-terminal status set.
-        Auction case3Ended = buildAuction(member, g.getId(), AuctionStatus.ENDED);
+        // Case-3 terminal (COMPLETED) â€” outside the pre-terminal status set.
+        Auction case3Ended = buildAuction(member, g.getId(), AuctionStatus.COMPLETED);
         case3Ended.setListingAgent(member);
         case3Ended.setRealtyGroupSlGroupId(slGroup.getId());
         case3Ended = auctionRepo.save(case3Ended);

@@ -379,7 +379,7 @@ class RealtyGroupListingControllerTest {
 
         saveAuction(caller, group, AuctionStatus.ACTIVE);
         saveAuction(caller, group, AuctionStatus.ACTIVE);
-        saveAuction(caller, group, AuctionStatus.ENDED);
+        saveAuction(caller, group, AuctionStatus.COMPLETED);
 
         mvc.perform(get("/api/v1/realty/groups/" + group.getPublicId() + "/listings"))
             .andExpect(status().isOk())
@@ -395,10 +395,10 @@ class RealtyGroupListingControllerTest {
 
         saveAuction(caller, group, AuctionStatus.ACTIVE);
         saveAuction(caller, group, AuctionStatus.ACTIVE);
-        saveAuction(caller, group, AuctionStatus.ENDED);
+        saveAuction(caller, group, AuctionStatus.COMPLETED);
 
         mvc.perform(get("/api/v1/realty/groups/" + group.getPublicId() + "/listings")
-                .param("status", "ACTIVE,ENDED"))
+                .param("status", "ACTIVE,COMPLETED"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content.length()").value(3));
     }

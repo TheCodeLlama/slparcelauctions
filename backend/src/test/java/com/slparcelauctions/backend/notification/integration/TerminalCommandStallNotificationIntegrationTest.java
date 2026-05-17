@@ -121,7 +121,7 @@ class TerminalCommandStallNotificationIntegrationTest {
                     .title("Stall Test Lot")
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
-                    .status(AuctionStatus.ENDED)
+                    .status(AuctionStatus.TRANSFER_PENDING)
                     .endOutcome(AuctionEndOutcome.SOLD)
 
                     .verificationTier(VerificationTier.SCRIPT)

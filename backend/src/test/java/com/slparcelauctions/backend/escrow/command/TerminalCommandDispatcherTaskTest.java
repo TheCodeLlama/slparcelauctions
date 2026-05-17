@@ -386,7 +386,7 @@ class TerminalCommandDispatcherTaskTest {
         Auction auction = Auction.builder()
                 .title("Test listing")
                 .id(1001L).seller(seller).slParcelUuid(parcelUuid)
-                .status(AuctionStatus.ENDED)
+                .status(AuctionStatus.TRANSFER_PENDING)
 
                 .startingBid(1000L).durationHours(168)
                 .snipeProtect(false).listingFeePaid(true)

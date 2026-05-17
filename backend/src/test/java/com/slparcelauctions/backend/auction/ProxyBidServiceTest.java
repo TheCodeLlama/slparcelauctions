@@ -130,13 +130,13 @@ class ProxyBidServiceTest {
 
     @Test
     void createProxy_throwsInvalidAuctionState_whenNotActive() {
-        activeAuction.setStatus(AuctionStatus.ENDED);
+        activeAuction.setStatus(AuctionStatus.TRANSFER_PENDING);
         when(auctionRepo.findByIdForUpdate(500L)).thenReturn(Optional.of(activeAuction));
 
         assertThatThrownBy(() -> service.createProxy(500L, 20L, 1500L))
                 .isInstanceOfSatisfying(InvalidAuctionStateException.class, e -> {
                     assertThat(e.getAttemptedAction()).isEqualTo("PROXY_BID");
-                    assertThat(e.getCurrentState()).isEqualTo(AuctionStatus.ENDED);
+                    assertThat(e.getCurrentState()).isEqualTo(AuctionStatus.TRANSFER_PENDING);
                 });
     }
 

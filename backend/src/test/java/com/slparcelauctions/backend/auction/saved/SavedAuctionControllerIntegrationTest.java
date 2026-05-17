@@ -357,7 +357,7 @@ class SavedAuctionControllerIntegrationTest {
     }
 
     private Auction seedEndedAuction(int idx) {
-        Auction a = seedAuction(idx, AuctionStatus.ENDED);
+        Auction a = seedAuction(idx, AuctionStatus.COMPLETED);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setEndedAt(OffsetDateTime.now().minusHours(1));
         return auctionRepository.save(a);

@@ -110,7 +110,7 @@ class ReviewNotificationIntegrationTest {
                     .title("Review Test Lot")
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
-                    .status(AuctionStatus.ENDED)
+                    .status(AuctionStatus.COMPLETED)
                     .endOutcome(AuctionEndOutcome.SOLD)
 
                     .verificationTier(VerificationTier.SCRIPT)
