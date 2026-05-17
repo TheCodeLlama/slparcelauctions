@@ -1,7 +1,7 @@
 # Auction Status State Machine Rewire
 
 **Date:** 2026-05-17
-**Status:** Draft — awaiting sign-off before implementation.
+**Status:** Signed off — implementation in progress. Sign-off answers recorded in §9.
 
 ## 1. Problem
 
@@ -79,7 +79,7 @@ TRANSFER_PENDING ──> COMPLETED     (transfer confirmed, payout queued)
                  ──> DISPUTED      (dispute filed)
                  ──> EXPIRED       (transfer deadline missed; escrow refund issued)
                  ──> FROZEN        (admin/system freeze; escrow refund issued)
-                 ──> CANCELLED     (admin alsoCancelListing via dispute resolve — rare)
+                 ──> CANCELLED     (admin cancel from escrow; winner refunded, escrow → EXPIRED w/ reason ADMIN_CANCEL)
 
 DISPUTED ──> COMPLETED             (resolved in favor of buyer, transfer completed)
          ──> EXPIRED               (resolved in favor of seller / refund-and-close)
@@ -168,11 +168,41 @@ Other escrow-state transitions need matching auction-status flips:
 
 ### 7.4 Cancellation service
 
-`CancellationService.CANCELLABLE` set drops `ENDED` (since it's gone) and
-keeps the existing pre-active + `ACTIVE` set. Admin-cancel from later
-phases (`TRANSFER_PENDING`, `DISPUTED`, etc.) is **out of scope** for this
-spec — those listings have an active escrow and the existing dispute /
-freeze flows already handle resolution.
+`CancellationService.CANCELLABLE` (governing seller-initiated cancel)
+drops `ENDED` and keeps the existing pre-active + `ACTIVE` set —
+unchanged scope from today. Sellers still can't cancel mid-escrow.
+
+**Admin-cancel from `TRANSFER_PENDING` (new, per §9 Q2 sign-off).**
+`AdminListingService.cancel` accepts `TRANSFER_PENDING` in addition to
+the pre-active + `ACTIVE` set. The path:
+
+1. Acquire pessimistic write locks on the auction + escrow.
+2. Validate escrow exists and `state = TRANSFER_PENDING`. Reject
+   otherwise (e.g. already `COMPLETED` / `FROZEN` / `EXPIRED`).
+3. Refund the winner via `EscrowService.queueRefundIfFunded` (credits
+   the winner's SLParcels wallet for `escrow.finalBidAmount` and appends
+   an `AUCTION_ESCROW_REFUND` ledger row — same path used by
+   `freezeForFraud` and `expireTransfer`).
+4. Flip the escrow to `EXPIRED` with a new freeze/expire reason
+   `ADMIN_CANCEL` so the audit trail distinguishes it from a transfer
+   timeout (`TRANSFER_TIMEOUT`) or system-initiated freeze.
+5. Flip the auction to `CANCELLED`.
+6. Notify seller (`LISTING_REMOVED_BY_ADMIN`) and winner (new
+   `LISTING_CANCELLED_DURING_ESCROW` category, or reuse
+   `ESCROW_EXPIRED` — see §9 Q5).
+7. Write the `CancellationLog` with `cancelledByAdminId` set so the
+   penalty-ladder counters do not bill the seller.
+8. Publish `AUCTION_CANCELLED` envelope on the STOMP topic.
+
+The implementation lives on `CancellationService` (e.g. a new
+`cancelByAdminFromEscrow` method) so the existing penalty-ladder /
+fanout helpers stay shared. `cancelByAdmin` (the pre-active + `ACTIVE`
+path) is unchanged.
+
+`DISPUTED` cancellation continues to go through
+`AdminDisputeService.resolve` with `alsoCancelListing=true`, which
+already routes via `CancellationService.cancelByDisputeResolve`. Out of
+scope for this spec.
 
 ### 7.5 DTOs + admin filters
 
@@ -241,37 +271,42 @@ Touch points:
 
 ## 8. Out of scope
 
-- Admin "force-cancel an in-flight TRANSFER_PENDING listing." Existing
-  freeze / dispute paths cover the relevant operational cases. Revisit
-  if a real need surfaces.
+- Admin-cancel from `DISPUTED`. Goes through
+  `AdminDisputeService.resolve` with `alsoCancelListing=true` (existing
+  path; already correct).
 - Unfreeze (re-debit the winner, resume escrow). Deferred per earlier
   YAGNI call.
 - Re-classifying historical `escrow.state` rows. Escrow state machine is
   untouched by this spec.
 
-## 9. Questions for sign-off
+## 9. Sign-off decisions
 
-1. **Ownership of the `ACTIVE → TRANSFER_PENDING` flip in the buy-now
-   path.** Option A: `EscrowService.createForEndedAuction` owns it
-   (auction stays at `ACTIVE` until the escrow service runs, then jumps
-   to `TRANSFER_PENDING` atomically). Option B: `BidPlacementHelpers`
-   sets `TRANSFER_PENDING` before calling `createForEndedAuction`. (A)
-   is cleaner — single source of truth for "status reflects escrow
-   phase" — but means the auction is briefly at `ACTIVE` after
-   `endsAt` inside the same transaction. Either is correct; flag if
-   you have a preference.
+1. **Ownership of the `ACTIVE → TRANSFER_PENDING` flip in the close
+   path: option A.** `EscrowService.createForEndedAuction` owns the
+   transition. `BidPlacementHelpers` and `AuctionEndTask` leave the
+   auction at `ACTIVE` after deciding the outcome; the escrow service
+   then flips it atomically inside the same close transaction. Single
+   source of truth: every "auction is now in escrow" transition lives
+   in one method. Branches that don't open escrow (`NO_BIDS` /
+   `RESERVE_NOT_MET`) set `EXPIRED` directly in
+   `AuctionEndTask` / `BidPlacementHelpers` since the escrow service is
+   never invoked.
 
-2. **Admin-cancel from `TRANSFER_PENDING`.** The spec calls this out of
-   scope. Confirm that's right — i.e. once a listing is in escrow, the
-   only "remove it" paths are dispute resolution + freeze, not
-   admin-cancel.
+2. **Admin-cancel from `TRANSFER_PENDING`: in scope.** Detailed flow in
+   §7.4. New `cancelByAdminFromEscrow` method on `CancellationService`.
 
-3. **`PublicAuctionStatus` change.** Current is `ACTIVE | ENDED`. I'm
-   keeping it as-is — every internal terminal collapses to public
-   `ENDED`. Confirm you don't want a more granular public status (e.g.
-   exposing `COMPLETED` vs `EXPIRED` to non-sellers).
+3. **`PublicAuctionStatus` stays `ACTIVE | ENDED`.** All internal
+   terminals collapse to public `ENDED` for non-sellers. No new public
+   surface.
 
-4. **Migration timing.** The Flyway migration runs on backend deploy,
-   before the new code paths take effect. There's a brief window
-   (seconds) where the new app sees the new statuses. Should be safe
-   given migration speed, but flag if you want a maintenance gate.
+4. **Migration runs on deploy without a maintenance gate.** Single
+   `V36__rewire_auction_status.sql` Flyway migration completes in
+   milliseconds. Backend container starts against translated rows.
+
+5. **Outstanding sub-question (admin-cancel-from-escrow notification
+   category for the winner):** new `LISTING_CANCELLED_DURING_ESCROW`
+   category or reuse `ESCROW_EXPIRED`? I'll go with **reuse
+   `ESCROW_EXPIRED`** — semantically the winner experience is identical
+   ("escrow concluded without a transfer, refund credited"). New
+   category only buys finer-grained UI copy, which we can add later if
+   needed. Flag if you'd rather have the dedicated category.
