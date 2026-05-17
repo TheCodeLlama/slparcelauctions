@@ -34,6 +34,14 @@ export interface StickyBidBarProps {
    * {@link StickyBidBar} is stateless.
    */
   onOpenSheet: () => void;
+  /**
+   * Auth bootstrap is in flight. While true, the sticky bar renders the
+   * public bid readout on the left and a spinner on the right rather
+   * than flashing the "Sign in to bid" CTA to a viewer whose session
+   * has not yet resolved. Defaults to false. See the matching prop on
+   * {@link BidPanel} for the desktop equivalent.
+   */
+  authLoading?: boolean;
 }
 
 /**
@@ -51,19 +59,29 @@ type EndedExtensions = {
   winnerDisplayName?: string | null;
 };
 
-type Variant = "unauth" | "unverified" | "seller" | "bidder" | "ended";
+type Variant =
+  | "loading"
+  | "unauth"
+  | "unverified"
+  | "seller"
+  | "bidder"
+  | "ended";
 
 /**
  * Picks the sticky-bar variant from viewer + auction state. Mirrors
- * {@code deriveBidPanelVariant} in {@link BidPanel} — terminal state
+ * {@code deriveBidPanelVariant} in {@link BidPanel}: terminal state
  * trumps viewer-specific variants so a seller viewing their closed
- * auction sees the {@code ended} copy, not the read-only seller row.
+ * auction sees the {@code ended} copy; the {@code loading} variant
+ * sits between {@code ended} and the identity-aware variants so a
+ * still-bootstrapping session doesn't flash the sign-in CTA.
  */
 function deriveVariant(
   auction: PublicAuctionResponse | SellerAuctionResponse,
   currentUser: StickyBidBarUser | null,
+  authLoading: boolean,
 ): Variant {
   if (auction.status === "ENDED") return "ended";
+  if (authLoading) return "loading";
   if (!currentUser) return "unauth";
   if (!currentUser.verified) return "unverified";
   if (currentUser.publicId === auction.sellerPublicId) return "seller";
@@ -85,8 +103,9 @@ export function StickyBidBar({
   currentUser,
   connectionState,
   onOpenSheet,
+  authLoading = false,
 }: StickyBidBarProps) {
-  const variant = deriveVariant(auction, currentUser);
+  const variant = deriveVariant(auction, currentUser, authLoading);
   const connected = connectionState.status === "connected";
   const ended = auction as (
     | PublicAuctionResponse
@@ -124,6 +143,8 @@ export function StickyBidBar({
         ) : variant === "ended" ? (
           <EndedLeft auction={auction} ended={ended} />
         ) : (
+          // loading, unauth, unverified, bidder all share the public
+          // current-bid + countdown readout.
           <BidReadout auction={auction} expiresAt={expiresAt} />
         )}
 
@@ -285,6 +306,23 @@ function RightSlot({
 }) {
   if (variant === "seller" || variant === "ended") {
     return null;
+  }
+
+  if (variant === "loading") {
+    // Auth still bootstrapping — show a quiet spinner. Don't render the
+    // sign-in CTA: an authenticated user whose session is still
+    // resolving would briefly see "Sign in to bid" otherwise.
+    return (
+      <div
+        data-testid="sticky-bid-bar-cta"
+        data-kind="loading"
+        role="status"
+        aria-label="Checking sign-in"
+        className="inline-flex h-11 shrink-0 items-center justify-center px-5"
+      >
+        <Loader2 className="size-4 animate-spin text-fg-muted" aria-hidden="true" />
+      </div>
+    );
   }
 
   if (variant === "unauth") {

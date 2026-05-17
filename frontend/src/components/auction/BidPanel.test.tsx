@@ -105,6 +105,28 @@ describe("deriveBidPanelVariant", () => {
       deriveBidPanelVariant(publicAuction(), { publicId: "00000000-0000-0000-0000-000000000001", verified: true }),
     ).toBe("bidder");
   });
+
+  it("returns 'loading' when authLoading is true (regardless of currentUser)", () => {
+    // null currentUser + loading → loading, not unauth. This is the bug
+    // fix: don't flash "Sign in to bid" during auth bootstrap.
+    expect(deriveBidPanelVariant(publicAuction(), null, true)).toBe("loading");
+    // Even with a populated currentUser, authLoading wins until the
+    // bootstrap settles. (In practice the parent only sets authLoading
+    // when currentUser is null, but defending the precedence here makes
+    // the contract explicit.)
+    expect(
+      deriveBidPanelVariant(
+        publicAuction(),
+        { publicId: "00000000-0000-0000-0000-000000000001", verified: true },
+        true,
+      ),
+    ).toBe("loading");
+  });
+
+  it("ENDED still trumps authLoading", () => {
+    const ended = { ...publicAuction(), status: "ENDED" as const };
+    expect(deriveBidPanelVariant(ended, null, true)).toBe("ended");
+  });
 });
 
 describe("BidPanel", () => {
@@ -127,6 +149,26 @@ describe("BidPanel", () => {
       "data-kind",
       "unauth",
     );
+  });
+
+  it("renders the public-data loading variant when authLoading is true", () => {
+    renderWithProviders(
+      <BidPanel
+        auction={publicAuction()}
+        currentUser={null}
+        authLoading
+        existingProxy={null}
+        connectionState={connected}
+      />,
+    );
+    // Loading panel mounts; the unauth sign-in card does NOT.
+    expect(screen.getByTestId("bid-panel-auth-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("auth-gate-message")).not.toBeInTheDocument();
+    // The current-bid readout (public data, no auth needed) is visible
+    // immediately — that's the whole point of Option B.
+    expect(screen.getByTestId("bid-panel-current-high")).toBeInTheDocument();
+    // The form / sign-in slot is replaced with a status spinner.
+    expect(screen.getByText(/Checking sign-in/i)).toBeInTheDocument();
   });
 
   it("renders the unverified gate when user.verified is false", () => {

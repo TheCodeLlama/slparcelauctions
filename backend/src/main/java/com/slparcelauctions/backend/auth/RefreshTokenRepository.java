@@ -1,6 +1,8 @@
 package com.slparcelauctions.backend.auth;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +15,20 @@ import com.slparcelauctions.backend.admin.users.dto.UserIpProjection;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
     Optional<RefreshToken> findByTokenHash(String tokenHash);
+
+    /**
+     * Pessimistic-lock variant for the rotation path. Two concurrent
+     * {@code /auth/refresh} calls with the same cookie used to race the
+     * optimistic {@code @Version} check on commit and surface as
+     * {@link org.springframework.orm.ObjectOptimisticLockingFailureException}
+     * (500). With {@code SELECT ... FOR UPDATE}, the second caller blocks
+     * until the first commits, then re-reads the row and sees
+     * {@code revokedAt != null} — handled deterministically by
+     * {@code RefreshTokenService.rotate}.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rt FROM RefreshToken rt WHERE rt.tokenHash = :hash")
+    Optional<RefreshToken> findByTokenHashForUpdate(@Param("hash") String hash);
 
     List<RefreshToken> findAllByUserId(Long userId);
 

@@ -97,7 +97,7 @@ class RefreshTokenServiceTest {
                 .expiresAt(OffsetDateTime.now().plusDays(3))
                 .build();
 
-        when(repository.findByTokenHash(hash)).thenReturn(Optional.of(existing));
+        when(repository.findByTokenHashForUpdate(hash)).thenReturn(Optional.of(existing));
         when(repository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
 
         RefreshTokenService.RotationResult result =
@@ -129,7 +129,7 @@ class RefreshTokenServiceTest {
                 .expiresAt(OffsetDateTime.now().minusDays(1))
                 .build();
 
-        when(repository.findByTokenHash(hash)).thenReturn(Optional.of(expired));
+        when(repository.findByTokenHashForUpdate(hash)).thenReturn(Optional.of(expired));
 
         assertThatThrownBy(() -> service.rotate(rawToken, "UA", "1.2.3.4"))
                 .isInstanceOf(TokenExpiredException.class);
@@ -152,7 +152,7 @@ class RefreshTokenServiceTest {
                 .revokedAt(OffsetDateTime.now().minusHours(1))  // already revoked
                 .build();
 
-        when(repository.findByTokenHash(hash)).thenReturn(Optional.of(reused));
+        when(repository.findByTokenHashForUpdate(hash)).thenReturn(Optional.of(reused));
 
         assertThatThrownBy(() -> service.rotate(rawToken, "evil-UA", "5.6.7.8"))
                 .isInstanceOf(RefreshTokenReuseDetectedException.class);
@@ -174,10 +174,32 @@ class RefreshTokenServiceTest {
         String rawToken = TokenHasher.secureRandomBase64Url(32);
         String hash = TokenHasher.sha256Hex(rawToken);
 
-        when(repository.findByTokenHash(hash)).thenReturn(Optional.empty());
+        when(repository.findByTokenHashForUpdate(hash)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.rotate(rawToken, "UA", "1.2.3.4"))
                 .isInstanceOf(TokenInvalidException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // Pessimistic-lock canary — rotate uses findByTokenHashForUpdate (SELECT
+    // FOR UPDATE) so concurrent rotations serialize at the DB level instead
+    // of racing the @Version optimistic check on commit. The non-locking
+    // findByTokenHash variant must NOT be used here.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void rotate_usesPessimisticLockingQuery() {
+        String rawToken = TokenHasher.secureRandomBase64Url(32);
+        String hash = TokenHasher.sha256Hex(rawToken);
+
+        when(repository.findByTokenHashForUpdate(hash)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.rotate(rawToken, "UA", "1.2.3.4"))
+                .isInstanceOf(TokenInvalidException.class);
+
+        // Confirm rotate hits the locked query, not the unlocked variant.
+        verify(repository).findByTokenHashForUpdate(hash);
+        verify(repository, never()).findByTokenHash(any());
     }
 
     // -------------------------------------------------------------------------
