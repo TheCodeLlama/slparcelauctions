@@ -19,7 +19,7 @@ This document complements the deeper per-epic testing guides under `docs/testing
 | Manual UI                                      | Browser at `http://localhost:3000`                      | n/a                                                                            | Docker Compose stack                 |
 | LSL in-world                                   | Touch + observe in Second Life                          | `lsl-scripts/<script>/`                                                        | Manual smoke (§9)                    |
 
-Backend has **268** Java test files (`@SpringBootTest`, `@WebMvcTest`, `@DataJpaTest`, plain JUnit). Frontend has **244** `*.test.{ts,tsx}` siblings. Bot has **10** xUnit test files. CI runs everything except the LSL and manual surfaces.
+Backend has **268** Java test files (`@SpringBootTest`, `@WebMvcTest`, `@DataJpaTest`, plain JUnit). Frontend has **244** `*.test.{ts,tsx}` siblings. Bot has **10** xUnit test files. CI currently runs only the frontend and bot suites, and only on push to `main` (see §5) — backend, LSL, and manual surfaces have no CI gate.
 
 ---
 
@@ -255,13 +255,23 @@ The state machine is exercised through `IBotSession`. Tests never touch `GridCli
 
 ## 5. CI gates
 
-CI runs on every push / PR:
+**CI is currently main-only.** As of 2026-05-16 the two CI workflows fire on
+**push to `main`** only — the `dev`-push and `pull_request` triggers are
+commented out (kept in-file as comments for trivial restore). There is **no
+pre-merge CI on `dev` or PRs**, and no backend-test CI workflow exists at all.
 
-- Backend: `./mvnw test` (the full Java suite)
-- Frontend: `npm run lint`, `npm test`, `npm run verify` (all four guards)
-- Bot: `dotnet test` on PRs that touch `bot/**` (`.github/workflows/bot-ci.yml`)
+What runs, on push to `main`:
 
-Run `npm run verify` and `./mvnw test` locally before pushing — they're the most common CI breakers.
+- Frontend: `npm run lint`, `npm test`, `npm run build`, `npm run verify`
+  when `frontend/**` changes (`.github/workflows/frontend-ci.yml`)
+- Bot: `dotnet test` when `bot/**` changes (`.github/workflows/bot-ci.yml`)
+- Backend: no CI workflow — `./mvnw test` is not run automatically anywhere
+
+Because nothing gates `dev` or PRs, run the relevant suite locally before
+pushing: frontend `npm run lint && npm test && npm run build && npm run verify`,
+bot `dotnet test`, backend `./mvnw test`. To restore pre-merge CI, uncomment
+the `branches: [dev, main]` line and the `pull_request:` block in both CI
+workflow files.
 
 ---
 
