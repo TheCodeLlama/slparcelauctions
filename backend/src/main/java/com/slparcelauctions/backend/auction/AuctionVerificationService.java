@@ -217,21 +217,55 @@ public class AuctionVerificationService {
 
     /**
      * Throws {@link ParcelAlreadyListedException} if any other auction on the
-     * same parcel is in a {@link AuctionStatusConstants#LOCKING_STATUSES locking
-     * status}. Excludes the candidate auction itself (which is still
-     * DRAFT_PAID / VERIFICATION_FAILED at this point and therefore not
-     * locking).
+     * same parcel holds the parcel lock. Excludes the candidate auction itself
+     * (which is still DRAFT_PAID / VERIFICATION_FAILED at this point and
+     * therefore not locking).
+     *
+     * <p>Two-pass check:
+     * <ol>
+     *   <li>Hard-locking statuses ({@link AuctionStatusConstants#LOCKING_STATUSES})
+     *       — currently {@code ACTIVE} plus the unwired escrow-stage statuses.
+     *       Any match unconditionally blocks.</li>
+     *   <li>ENDED auctions with an in-flight escrow. ENDED itself is not a
+     *       hard lock because the escrow may have reached a terminal state
+     *       ({@code COMPLETED} / {@code FROZEN} / {@code EXPIRED}) or never
+     *       opened at all ({@code NO_BIDS} / {@code RESERVE_NOT_MET}), all of
+     *       which release the parcel. Only ENDED auctions whose escrow is in
+     *       {@code ESCROW_PENDING}, {@code FUNDED}, {@code TRANSFER_PENDING},
+     *       or {@code DISPUTED} still hold the parcel — the escrow is
+     *       expected to transfer the parcel to the winner imminently.</li>
+     * </ol>
      */
     private void assertParcelNotLocked(Auction candidate) {
         UUID slParcelUuid = candidate.getSlParcelUuid();
-        boolean exists = auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
-                slParcelUuid, AuctionStatusConstants.LOCKING_STATUSES, candidate.getId());
-        if (!exists) return;
 
-        Long blockingId = auctionRepo
-                .findFirstBySlParcelUuidAndStatusIn(slParcelUuid, AuctionStatusConstants.LOCKING_STATUSES)
-                .map(Auction::getId)
-                .orElse(-1L);
-        throw new ParcelAlreadyListedException(candidate.getId(), blockingId);
+        boolean hardLocked = auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
+                slParcelUuid, AuctionStatusConstants.LOCKING_STATUSES, candidate.getId());
+        if (hardLocked) {
+            Long blockingId = auctionRepo
+                    .findFirstBySlParcelUuidAndStatusIn(slParcelUuid, AuctionStatusConstants.LOCKING_STATUSES)
+                    .map(Auction::getId)
+                    .orElse(-1L);
+            throw new ParcelAlreadyListedException(candidate.getId(), blockingId);
+        }
+
+        Long endedBlockingId = auctionRepo
+                .findFirstEndedWithActiveEscrowByParcel(
+                        slParcelUuid, candidate.getId(), ACTIVE_ESCROW_STATES)
+                .orElse(null);
+        if (endedBlockingId != null) {
+            throw new ParcelAlreadyListedException(candidate.getId(), endedBlockingId);
+        }
     }
+
+    /**
+     * Escrow states that keep an ENDED auction's parcel locked. Anything outside
+     * this set ({@code COMPLETED}, {@code FROZEN}, {@code EXPIRED}, or no escrow
+     * row at all) releases the parcel for re-listing.
+     */
+    private static final Set<com.slparcelauctions.backend.escrow.EscrowState> ACTIVE_ESCROW_STATES = Set.of(
+            com.slparcelauctions.backend.escrow.EscrowState.ESCROW_PENDING,
+            com.slparcelauctions.backend.escrow.EscrowState.FUNDED,
+            com.slparcelauctions.backend.escrow.EscrowState.TRANSFER_PENDING,
+            com.slparcelauctions.backend.escrow.EscrowState.DISPUTED);
 }

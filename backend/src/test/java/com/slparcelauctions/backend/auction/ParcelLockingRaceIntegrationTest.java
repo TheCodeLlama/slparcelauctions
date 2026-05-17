@@ -198,6 +198,131 @@ class ParcelLockingRaceIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
+    // ENDED auction with a terminal-state escrow releases the parcel lock so
+    // the seller can re-list. Mirrors the prod incident on auction 17 (BOUGHT_NOW
+    // close, escrow FROZEN with UNKNOWN_OWNER) where the parcel stayed locked
+    // forever despite the sale never completing.
+    // -------------------------------------------------------------------------
+
+    @Test
+    void endedAuction_withFrozenEscrow_releasesParcelLock() throws Exception {
+        stubWorldApiOwnership(sellerAvatar, "agent");
+        AuctionRef a1 = seedDraftPaidAuction();
+        AuctionRef a2 = seedDraftPaidAuction();
+
+        // A1 -> ACTIVE
+        mockMvc.perform(put("/api/v1/auctions/" + a1.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isOk());
+
+        // Drive A1 to ENDED with a FROZEN escrow row using direct DB updates —
+        // the production BidService + EscrowService path involves wallet seeding
+        // and is over-scoped for this lock-release assertion.
+        try (var conn = dataSource.getConnection()) {
+            conn.setAutoCommit(true);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("UPDATE auctions SET status = 'ENDED' WHERE id = " + a1.id());
+                stmt.execute(
+                    "INSERT INTO escrows (auction_id, state, final_bid_amount, commission_amt, "
+                    + "payout_amt, consecutive_world_api_failures, frozen_at, freeze_reason, "
+                    + "public_id, created_at, updated_at, version) VALUES ("
+                    + a1.id() + ", 'FROZEN', 1000, 50, 950, 0, NOW(), 'UNKNOWN_OWNER', "
+                    + "gen_random_uuid(), NOW(), NOW(), 0)");
+            }
+        }
+
+        // A2 verify -> succeeds because A1's escrow is in a terminal failure
+        // state. The parcel is releasable.
+        mockMvc.perform(put("/api/v1/auctions/" + a2.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        // Tidy up the escrow row so cleanUp()'s auction delete doesn't trip on the FK.
+        try (var conn = dataSource.getConnection()) {
+            conn.setAutoCommit(true);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("DELETE FROM escrows WHERE auction_id = " + a1.id());
+            }
+        }
+    }
+
+    @Test
+    void endedAuction_withTransferPendingEscrow_stillHoldsParcelLock() throws Exception {
+        stubWorldApiOwnership(sellerAvatar, "agent");
+        AuctionRef a1 = seedDraftPaidAuction();
+        AuctionRef a2 = seedDraftPaidAuction();
+
+        mockMvc.perform(put("/api/v1/auctions/" + a1.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isOk());
+
+        // A1 ENDED with TRANSFER_PENDING escrow — sale is still mid-flight.
+        try (var conn = dataSource.getConnection()) {
+            conn.setAutoCommit(true);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("UPDATE auctions SET status = 'ENDED' WHERE id = " + a1.id());
+                stmt.execute(
+                    "INSERT INTO escrows (auction_id, state, final_bid_amount, commission_amt, "
+                    + "payout_amt, consecutive_world_api_failures, funded_at, transfer_deadline, "
+                    + "public_id, created_at, updated_at, version) VALUES ("
+                    + a1.id() + ", 'TRANSFER_PENDING', 1000, 50, 950, 0, NOW(), "
+                    + "NOW() + INTERVAL '72 hours', gen_random_uuid(), NOW(), NOW(), 0)");
+            }
+        }
+
+        mockMvc.perform(put("/api/v1/auctions/" + a2.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PARCEL_ALREADY_LISTED"))
+                .andExpect(jsonPath("$.blockingAuctionId").value(a1.id()));
+
+        try (var conn = dataSource.getConnection()) {
+            conn.setAutoCommit(true);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("DELETE FROM escrows WHERE auction_id = " + a1.id());
+            }
+        }
+    }
+
+    @Test
+    void endedAuction_withNoEscrowRow_releasesParcelLock() throws Exception {
+        // Mirrors NO_BIDS / RESERVE_NOT_MET outcomes: auction ENDED, no escrow
+        // ever opened, parcel should be free to re-list.
+        stubWorldApiOwnership(sellerAvatar, "agent");
+        AuctionRef a1 = seedDraftPaidAuction();
+        AuctionRef a2 = seedDraftPaidAuction();
+
+        mockMvc.perform(put("/api/v1/auctions/" + a1.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isOk());
+
+        try (var conn = dataSource.getConnection()) {
+            conn.setAutoCommit(true);
+            try (var stmt = conn.createStatement()) {
+                stmt.execute("UPDATE auctions SET status = 'ENDED' WHERE id = " + a1.id());
+            }
+        }
+
+        mockMvc.perform(put("/api/v1/auctions/" + a2.publicId() + "/verify")
+                .header("Authorization", "Bearer " + sellerAccessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"method\":\"UUID_ENTRY\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    // -------------------------------------------------------------------------
     // Concurrent race: two parallel verify calls, only one wins.
     // -------------------------------------------------------------------------
 

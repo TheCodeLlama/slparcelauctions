@@ -51,6 +51,32 @@ public interface AuctionRepository extends JpaRepository<Auction, Long>, JpaSpec
             UUID slParcelUuid, Collection<AuctionStatus> statuses);
 
     /**
+     * Second parcel-lock check used alongside {@link #existsBySlParcelUuidAndStatusInAndIdNot}.
+     * ENDED auctions are not unconditionally locking — once their escrow reaches a
+     * terminal state ({@code COMPLETED}, {@code FROZEN}, {@code EXPIRED}) the parcel
+     * is releasable, and ENDED auctions with no escrow row at all ({@code NO_BIDS} /
+     * {@code RESERVE_NOT_MET}) never locked the parcel in the first place. This
+     * query identifies the case that DOES still lock: an ENDED auction whose escrow
+     * is mid-flight (any state where transfer to the winner is still expected).
+     * Returns the blocking auction id when one is found.
+     */
+    @Query("""
+            SELECT a.id FROM Auction a
+            WHERE a.slParcelUuid = :slParcelUuid
+              AND a.status = com.slparcelauctions.backend.auction.AuctionStatus.ENDED
+              AND a.id <> :excludeAuctionId
+              AND EXISTS (
+                SELECT 1 FROM Escrow e
+                WHERE e.auction.id = a.id
+                  AND e.state IN :activeStates
+              )
+            """)
+    Optional<Long> findFirstEndedWithActiveEscrowByParcel(
+            @Param("slParcelUuid") UUID slParcelUuid,
+            @Param("excludeAuctionId") Long excludeAuctionId,
+            @Param("activeStates") Collection<com.slparcelauctions.backend.escrow.EscrowState> activeStates);
+
+    /**
      * Eagerly fetches {@code parcel} + {@code tags} — see class-level note on
      * {@link #findBySellerIdOrderByCreatedAtDesc}.
      */

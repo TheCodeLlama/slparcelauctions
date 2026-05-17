@@ -32,10 +32,16 @@ public class ParcelLockingIndexInitializer {
             DROP INDEX IF EXISTS uq_auctions_parcel_locked_status
             """;
 
+    // ENDED intentionally not in the index WHERE clause. An ENDED auction is
+    // not a hard parcel-lock — its escrow may have settled to a terminal
+    // state (COMPLETED, FROZEN, EXPIRED) or never opened at all (NO_BIDS /
+    // RESERVE_NOT_MET), in which cases the parcel is free to re-list. The
+    // service-layer assertParcelNotLocked() consults the escrow row for the
+    // ENDED-with-active-escrow case. See AuctionStatusConstants javadoc.
     private static final String DDL = """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_auctions_parcel_locked_status
               ON auctions(sl_parcel_uuid)
-              WHERE status IN ('ACTIVE', 'ENDED', 'ESCROW_PENDING',
+              WHERE status IN ('ACTIVE', 'ESCROW_PENDING',
                                'ESCROW_FUNDED', 'TRANSFER_PENDING', 'DISPUTED')
             """;
 
