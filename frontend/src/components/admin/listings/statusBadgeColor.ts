@@ -9,15 +9,12 @@ export function statusBadgeClass(status: AuctionStatus): string {
   switch (status) {
     case "ACTIVE":
       return "bg-success-bg text-success";
-    case "ENDED":
     case "COMPLETED":
-      return "bg-info-bg text-info";
-    case "ESCROW_PENDING":
-    case "ESCROW_FUNDED":
     case "TRANSFER_PENDING":
       return "bg-info-bg text-info";
     case "DISPUTED":
       return "bg-warning-bg text-warning";
+    case "FROZEN":
     case "SUSPENDED":
       return "bg-danger text-white";
     case "CANCELLED":

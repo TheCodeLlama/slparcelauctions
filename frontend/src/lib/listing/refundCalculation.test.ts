@@ -51,7 +51,8 @@ describe("computeRefund", () => {
 
   it("returns NONE for terminal statuses with cannot-be-cancelled copy", () => {
     expect(computeRefund("COMPLETED", 100).copy).toMatch(/cannot be cancelled/i);
-    expect(computeRefund("ENDED", 100).copy).toMatch(/cannot be cancelled/i);
+    expect(computeRefund("EXPIRED", 100).copy).toMatch(/cannot be cancelled/i);
+    expect(computeRefund("FROZEN", 100).copy).toMatch(/cannot be cancelled/i);
     expect(computeRefund("CANCELLED", 100).copy).toMatch(/cannot be cancelled/i);
     expect(computeRefund("SUSPENDED", 100).copy).toMatch(/cannot be cancelled/i);
   });

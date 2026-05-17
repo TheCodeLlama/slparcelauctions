@@ -13,12 +13,13 @@ const ALL_CATEGORIES: NotificationCategory[] = [
   "ESCROW_FROZEN", "ESCROW_PAYOUT_STALLED", "ESCROW_TRANSFER_REMINDER",
   "LISTING_VERIFIED", "LISTING_SUSPENDED",
   "LISTING_REVIEW_REQUIRED", "LISTING_CANCELLED_BY_SELLER",
+  "LISTING_CANCELLED_DURING_ESCROW",
   "REVIEW_RECEIVED", "SYSTEM_ANNOUNCEMENT",
 ];
 
 describe("categoryMap", () => {
-  it("covers all 22 notification categories", () => {
-    expect(Object.keys(categoryMap)).toHaveLength(22);
+  it("covers all 23 notification categories", () => {
+    expect(Object.keys(categoryMap)).toHaveLength(23);
     for (const cat of ALL_CATEGORIES) {
       expect(categoryMap).toHaveProperty(cat);
     }
@@ -46,6 +47,9 @@ describe("categoryMap", () => {
     expect(categoryMap.ESCROW_FUNDED.deeplink(data)).toBe(
       "/auction/00000000-0000-0000-0000-0000000002a/escrow",
     );
+    expect(categoryMap.LISTING_CANCELLED_DURING_ESCROW.deeplink(data)).toBe(
+      "/auction/00000000-0000-0000-0000-0000000002a/escrow",
+    );
     expect(categoryMap.LISTING_SUSPENDED.deeplink(data)).toBe("/dashboard/listings");
     expect(categoryMap.SYSTEM_ANNOUNCEMENT.deeplink(data)).toBe("/notifications");
   });
@@ -57,6 +61,9 @@ describe("categoryMap", () => {
     const data = { auctionId: 42, escrowId: 7 };
     expect(categoryMap.OUTBID.deeplink(data)).toBe("/auction/42");
     expect(categoryMap.ESCROW_FUNDED.deeplink(data)).toBe("/auction/42/escrow");
+    expect(categoryMap.LISTING_CANCELLED_DURING_ESCROW.deeplink(data)).toBe(
+      "/auction/42/escrow",
+    );
   });
 });
 

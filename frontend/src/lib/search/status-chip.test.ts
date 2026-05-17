@@ -38,12 +38,16 @@ describe("deriveStatusChip", () => {
   });
 
   it("RESERVE NOT MET / NO BIDS / CANCELLED / SUSPENDED", () => {
+    // Post the auction-status state-machine rewire (2026-05-17), the
+    // backend emits the internal terminals (COMPLETED / EXPIRED / FROZEN /
+    // CANCELLED) directly — the legacy {@code ENDED} collapse only lives
+    // on PublicAuctionResponse and never reaches the search DTO.
     expect(
-      deriveStatusChip(base({ status: "ENDED", endOutcome: "RESERVE_NOT_MET" }))
+      deriveStatusChip(base({ status: "EXPIRED", endOutcome: "RESERVE_NOT_MET" }))
         .label,
     ).toBe("RESERVE NOT MET");
     expect(
-      deriveStatusChip(base({ status: "ENDED", endOutcome: "NO_BIDS" })).label,
+      deriveStatusChip(base({ status: "EXPIRED", endOutcome: "NO_BIDS" })).label,
     ).toBe("NO BIDS");
     expect(
       deriveStatusChip(base({ status: "CANCELLED", endOutcome: null })).label,
