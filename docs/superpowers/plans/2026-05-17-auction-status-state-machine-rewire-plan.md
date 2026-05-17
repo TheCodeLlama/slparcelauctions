@@ -6,15 +6,16 @@
 
 **Goal:** Wire the `AuctionStatus` enum to mirror the real listing lifecycle so parcel-lock semantics fall out of status alone. Drop `ENDED`, `ESCROW_PENDING`, `ESCROW_FUNDED`; add `FROZEN`; thread accurate status transitions through every close, escrow, dispute, and admin-cancel path.
 
-**Architecture:** Enum + constants change ships first as the foundation. The Flyway migration translates existing prod rows in one pass. Service-layer transitions are wired one path at a time (close → escrow lifecycle → dispute → admin-cancel-from-escrow), each one atomic with its escrow-side counterpart. DTO + frontend type updates trail the backend. Tests update in lockstep with the code they cover.
+**Architecture:** Enum + constants + index DDL ship first. The Flyway migration translates existing prod rows in one pass. Service-layer transitions are wired path-by-path (close → escrow lifecycle → dispute → admin-cancel-from-escrow). DTO + admin filter sweep + frontend types follow. Tests update in lockstep.
 
 **Tech Stack:** Java 26 / Spring Boot 4 / JPA, Flyway, Postgres, JUnit 5 / Mockito / AssertJ, Vitest (frontend types only).
 
----
+## Notes for subagents executing this plan
 
-## Task ordering
-
-Tasks are mostly independent but share the `AuctionStatus` enum + `LOCKING_STATUSES`, so Task 1 must land first. Tasks 2–10 can be implemented in parallel by separate subagents; Task 11 (DTO mapper + admin filter sweep) and Task 12 (frontend types) depend on the enum landing. Task 13 (final integration sweep + cleanup) runs last.
+- **`NotificationCategory.ESCROW_FUNDED` ≠ `AuctionStatus.ESCROW_FUNDED`.** The notification category is the "buyer funded escrow" notification (used on the natural-end SOLD path). It stays. Only the **auction-status** enum value `ESCROW_FUNDED` is being dropped. Don't touch the notification category.
+- **Compile-broken window.** After Task 1 lands, the project does NOT compile until Task 11 finishes. Each task between 2 and 11 fixes a slice of the compile breakage. Do not skip ahead — execute in order.
+- **`AuctionStatus.ENDED` lives in ~40 production + test files.** Task 11 is the explicit sweep; tasks before that fix only the files within their scope.
+- The `escrow.getAuction()` reference inside `EscrowService` returns a managed entity from the same persistence context, so `auctionRepo.save(...)` is the explicit way to flush the status change. Don't rely on Hibernate dirty checking — be explicit.
 
 ---
 
@@ -27,7 +28,8 @@ Tasks are mostly independent but share the `AuctionStatus` enum + `LOCKING_STATU
 
 - [ ] **Step 1: Update `AuctionStatus` enum**
 
-Remove `ENDED`, `ESCROW_PENDING`, `ESCROW_FUNDED`. Add `FROZEN`. Update the class-level javadoc that enumerates terminal "why-it-ended" states to read: `COMPLETED, CANCELLED, EXPIRED, FROZEN, DISPUTED collapse to ENDED in PublicAuctionStatus`.
+Remove `ENDED`, `ESCROW_PENDING`, `ESCROW_FUNDED`. Add `FROZEN`. Update the class-level javadoc that enumerates terminal "why-it-ended" states to read:
+`COMPLETED, CANCELLED, EXPIRED, FROZEN, DISPUTED collapse to ENDED in PublicAuctionStatus`.
 
 ```java
 public enum AuctionStatus {
@@ -56,7 +58,7 @@ public static final Set<AuctionStatus> LOCKING_STATUSES = Set.of(
         AuctionStatus.DISPUTED);
 ```
 
-Update the javadoc to reflect that the set now consists entirely of statuses that are actually transitioned into by code (no more defensive entries).
+Update the javadoc to reflect that the set now consists entirely of statuses code actually transitions into (no more defensive dead values).
 
 - [ ] **Step 3: Update `ParcelLockingIndexInitializer` DDL**
 
@@ -68,14 +70,9 @@ private static final String DDL = """
         """;
 ```
 
-The existing `DROP_OLD` + `CREATE` idempotent pattern handles the rebuild on next boot. Update the inline comment to match the spec rationale.
+The existing idempotent `DROP_OLD` + `CREATE` pattern handles the rebuild on next boot. Update the inline comment to match the spec rationale (status alone determines lock; no escrow join needed).
 
-- [ ] **Step 4: Verify the project still compiles**
-
-Run: `cd backend && ./mvnw -q compile`
-Expected: success. References to `AuctionStatus.ENDED` etc. will surface as compile errors — that's expected and the subsequent tasks fix them.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add backend/src/main/java/com/slparcelauctions/backend/auction/AuctionStatus.java \
@@ -84,7 +81,7 @@ git add backend/src/main/java/com/slparcelauctions/backend/auction/AuctionStatus
 git commit -m "refactor(auction): drop ENDED/ESCROW_PENDING/ESCROW_FUNDED, add FROZEN to status enum"
 ```
 
-**Note on compile errors:** After Task 1 the project will not compile until Tasks 2–10 land. That's by design — every reference to a dropped status must be rewritten with the correct replacement based on context. Each subsequent task picks a related cluster.
+**Compile note:** Project won't compile after this commit. Subsequent tasks fix it.
 
 ---
 
@@ -94,8 +91,6 @@ git commit -m "refactor(auction): drop ENDED/ESCROW_PENDING/ESCROW_FUNDED, add F
 - Create: `backend/src/main/resources/db/migration/V36__rewire_auction_status.sql`
 
 - [ ] **Step 1: Write the migration**
-
-Translation rules per spec §7.7:
 
 ```sql
 -- V36__rewire_auction_status.sql
@@ -114,8 +109,8 @@ WHERE a.id = e.auction_id
   AND e.state = 'COMPLETED';
 
 -- ENDED + TRANSFER_PENDING / FUNDED / ESCROW_PENDING escrow → TRANSFER_PENDING
--- (FUNDED and ESCROW_PENDING are transient escrow stops post wallet-only-
--- escrow; if any persisted for legacy reasons we treat them as mid-flight.)
+-- (FUNDED and ESCROW_PENDING are transient escrow stops; if any persisted
+-- for legacy reasons we treat them as mid-flight.)
 UPDATE auctions a
 SET status = 'TRANSFER_PENDING'
 FROM escrows e
@@ -153,9 +148,8 @@ SET status = 'EXPIRED'
 WHERE status = 'ENDED'
   AND id NOT IN (SELECT auction_id FROM escrows WHERE auction_id IS NOT NULL);
 
--- Defensive: nothing should sit at ESCROW_PENDING / ESCROW_FUNDED today
--- (no code path sets them), but if a stale row exists it maps to the same
--- mid-flight state.
+-- Defensive: nothing should sit at ESCROW_PENDING / ESCROW_FUNDED today,
+-- but if a stale row exists it maps to the same mid-flight state.
 UPDATE auctions
 SET status = 'TRANSFER_PENDING'
 WHERE status IN ('ESCROW_PENDING', 'ESCROW_FUNDED');
@@ -165,11 +159,21 @@ COMMIT;
 
 - [ ] **Step 2: Stage on dev DB before merging**
 
-The dev Postgres bind-mount accepts migrations on backend restart. Run:
 ```bash
 docker compose restart backend
 ```
-Tail the backend logs to confirm `V36__rewire_auction_status.sql` applied without errors. Then `docker compose exec postgres psql -U slpa -d slpa -c "SELECT status, COUNT(*) FROM auctions GROUP BY status"` to spot-check the row counts.
+Tail the backend logs to confirm `V36__rewire_auction_status.sql` applied without errors:
+```bash
+docker compose logs backend --tail 100 | grep -i 'V36\|flyway\|migrate'
+```
+
+Spot-check row counts:
+```bash
+docker compose exec postgres psql -U slpa -d slpa -c \
+    "SELECT status, COUNT(*) FROM auctions GROUP BY status ORDER BY status"
+```
+
+Expect zero rows at `ENDED`, `ESCROW_PENDING`, `ESCROW_FUNDED` post-migration.
 
 - [ ] **Step 3: Commit**
 
@@ -180,227 +184,319 @@ git commit -m "migration(V36): translate auction.status rows post-state-machine-
 
 ---
 
-### Task 3: Auction-close paths set EXPIRED for no-sale outcomes
+### Task 3: Auction-close paths
 
 **Files:**
 - Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/auctionend/AuctionEndTask.java`
 - Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/BidPlacementHelpers.java`
 
-Per spec §9 Q1 sign-off, `EscrowService.createForEndedAuction` owns the `ACTIVE → TRANSFER_PENDING` flip for SOLD/BOUGHT_NOW outcomes. The close paths only own the `ACTIVE → EXPIRED` transition for NO_BIDS / RESERVE_NOT_MET (no escrow opens, no escrow service involvement).
+Per spec §9 Q1, `EscrowService.createForEndedAuction` owns the `ACTIVE → TRANSFER_PENDING` flip for SOLD/BOUGHT_NOW outcomes. The close paths only own the `ACTIVE → EXPIRED` transition for NO_BIDS / RESERVE_NOT_MET.
 
 - [ ] **Step 1: Update `AuctionEndTask.closeOne` outcome routing**
 
-Where the current code does `auction.setStatus(ENDED)`, replace with conditional routing:
+Find every `auction.setStatus(AuctionStatus.ENDED)` call in the file. Replace with conditional routing based on the resolved `endOutcome`:
 
 ```java
 auction.setEndOutcome(outcome);
 if (outcome == AuctionEndOutcome.SOLD || outcome == AuctionEndOutcome.BOUGHT_NOW) {
-    // Status flip to TRANSFER_PENDING is owned by EscrowService.createForEndedAuction
-    // below — leave the auction at ACTIVE briefly inside this transaction.
+    // Status flip to TRANSFER_PENDING is owned by
+    // EscrowService.createForEndedAuction (called below). Leave the
+    // auction at ACTIVE here so all the post-ACTIVE status writes live
+    // in one place.
 } else {
     // NO_BIDS / RESERVE_NOT_MET: no escrow opens, terminal failure.
     auction.setStatus(AuctionStatus.EXPIRED);
 }
 ```
 
-For SOLD outcomes the existing call `escrowService.createForEndedAuction(auction, now)` runs next; Task 4 flips the status there.
-
 - [ ] **Step 2: Update `BidPlacementHelpers` buy-now close path**
 
-Same pattern: drop `setStatus(ENDED)`. Buy-now is always `BOUGHT_NOW` outcome, so the helper hands off to `EscrowService.createForEndedAuction` which owns the flip. Verify by reading the call site in `BidService.acceptBid`.
+Same pattern. Buy-now is always `BOUGHT_NOW` outcome, so the helper hands off to `EscrowService.createForEndedAuction` which owns the flip. The helper itself just drops its old `setStatus(ENDED)` call.
 
-- [ ] **Step 3: Run touched tests**
+- [ ] **Step 3: Verify these two files compile after the change**
 
 ```bash
-cd backend && ./mvnw -Dtest='AuctionEndIntegrationTest,BidServiceBuyNowTest,BidServiceSnipeTest' test
+cd backend && ./mvnw -q -pl . compile 2>&1 | grep -E "AuctionEndTask|BidPlacementHelpers"
 ```
 
-Tests likely fail at assertions checking `status=ENDED` — those are updated in their own tasks (Tasks 7–9). Skip past assertion failures for now; what matters is no compile errors and no transition logic regressions.
+Errors in OTHER files are expected (and fixed by subsequent tasks). What matters is no error inside the two files this task touched.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add backend/src/main/java/com/slparcelauctions/backend/auction/auctionend/AuctionEndTask.java \
         backend/src/main/java/com/slparcelauctions/backend/auction/BidPlacementHelpers.java
-git commit -m "refactor(auction): NO_BIDS/RESERVE_NOT_MET closes go to EXPIRED; SOLD/BOUGHT_NOW hands off to escrow"
+git commit -m "refactor(auction): NO_BIDS/RESERVE_NOT_MET closes go to EXPIRED; SOLD/BOUGHT_NOW hands off"
 ```
 
 ---
 
-### Task 4: EscrowService owns ACTIVE → TRANSFER_PENDING
+### Task 4: Inject `AuctionRepository` into `EscrowService` and wire all status transitions
 
 **Files:**
 - Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java`
 
-- [ ] **Step 1: Add the status flip inside `createForEndedAuction`**
+- [ ] **Step 1: Inject `AuctionRepository`**
 
-Find the point in `createForEndedAuction` where escrow has been auto-funded and transitioned to `TRANSFER_PENDING` (just before the post-transition save). Add:
-
+Add the field next to the existing repos:
 ```java
-// Auction status mirrors escrow phase: ACTIVE → TRANSFER_PENDING when
-// the close transaction opens an escrow row. The auction param is already
-// the locked row from the caller's transaction; this flip commits with
-// the rest of the close.
-auction.setStatus(AuctionStatus.TRANSFER_PENDING);
-auctionRepo.save(auction);
+private final AuctionRepository auctionRepo;
 ```
+The class uses Lombok's `@RequiredArgsConstructor`, so adding the field is sufficient — Lombok regenerates the constructor.
 
-Confirm `auctionRepo` is already injected — it is (`BidService` and others use it). If not, inject via the constructor.
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java
-git commit -m "refactor(escrow): createForEndedAuction owns ACTIVE -> TRANSFER_PENDING flip"
-```
-
----
-
-### Task 5: EscrowService.confirmTransfer flips auction to COMPLETED
-
-**Files:**
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java`
-
-- [ ] **Step 1: Add status flip inside `confirmTransfer`**
-
-After the escrow row transitions to `COMPLETED` (or whichever terminal state confirmTransfer lands at — check the current code), add:
-
+Add the import if it's not present:
 ```java
-escrow.getAuction().setStatus(AuctionStatus.COMPLETED);
-auctionRepo.save(escrow.getAuction());
+import com.slparcelauctions.backend.auction.AuctionRepository;
 ```
 
-- [ ] **Step 2: Run targeted test**
+- [ ] **Step 2: Add a private helper for the status flip**
 
-```bash
-./mvnw -Dtest='EscrowEndToEndIntegrationTest,EscrowOwnershipMonitorIntegrationTest' test
-```
-
-Expected: assertions on `auction.status` fail until those tests are updated in Task 12. Compile + logic must pass.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java
-git commit -m "refactor(escrow): confirmTransfer flips auction to COMPLETED"
-```
-
----
-
-### Task 6: EscrowService.freezeForFraud flips auction to FROZEN
-
-**Files:**
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java`
-
-- [ ] **Step 1: Add status flip inside `freezeForFraud`**
-
-After the escrow row transitions to `FROZEN`, add:
-
-```java
-escrow.getAuction().setStatus(AuctionStatus.FROZEN);
-auctionRepo.save(escrow.getAuction());
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java
-git commit -m "refactor(escrow): freezeForFraud flips auction to FROZEN"
-```
-
----
-
-### Task 7: EscrowService.expireTransfer flips auction to EXPIRED
-
-**Files:**
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java` (or `EscrowTimeoutTask` — wherever the transfer-timeout path lives)
-
-- [ ] **Step 1: Locate the transfer-timeout path**
-
-```bash
-grep -rn "expireTransfer\|TRANSFER.*EXPIRED" backend/src/main/java
-```
-
-- [ ] **Step 2: Add auction status flip at the transfer-timeout site**
-
-After the escrow row transitions to `EXPIRED`:
-
-```java
-escrow.getAuction().setStatus(AuctionStatus.EXPIRED);
-auctionRepo.save(escrow.getAuction());
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add backend/src/main/java/com/slparcelauctions/backend/escrow/...
-git commit -m "refactor(escrow): transfer-timeout flips auction to EXPIRED"
-```
-
----
-
-### Task 8: EscrowService.fileDispute flips auction to DISPUTED + resolution paths
-
-**Files:**
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java`
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/admin/disputes/AdminDisputeService.java`
-
-- [ ] **Step 1: `fileDispute` flips auction to DISPUTED**
-
-In `EscrowService.fileDispute`, after the escrow row transitions to `DISPUTED`:
-
-```java
-escrow.getAuction().setStatus(AuctionStatus.DISPUTED);
-auctionRepo.save(escrow.getAuction());
-```
-
-- [ ] **Step 2: `AdminDisputeService.resolve` routes auction status by resolution**
-
-In the resolution path (where the escrow lands at `COMPLETED` / `EXPIRED` depending on the admin's decision), match the escrow transition:
-
-```java
-escrow.getAuction().setStatus(
-    resolution == DisputeResolution.IN_FAVOR_OF_BUYER
-        ? AuctionStatus.COMPLETED
-        : AuctionStatus.EXPIRED);
-auctionRepo.save(escrow.getAuction());
-```
-
-(The `alsoCancelListing=true` branch already routes through `cancellationService.cancelByDisputeResolve` which sets `CANCELLED` — no change needed there.)
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java \
-        backend/src/main/java/com/slparcelauctions/backend/admin/disputes/AdminDisputeService.java
-git commit -m "refactor(escrow,disputes): dispute lifecycle mirrors auction status"
-```
-
----
-
-### Task 9: New admin-cancel-from-escrow path
-
-**Files:**
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/CancellationService.java`
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/admin/listings/AdminListingService.java`
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/FreezeReason.java` (add `ADMIN_CANCEL`) — OR a new `EscrowExpireReason` if `FreezeReason` isn't reused for EXPIRED. Inspect first.
-
-- [ ] **Step 1: Add the cancel-from-escrow reason**
-
-```bash
-grep -rn "enum FreezeReason\|enum.*ExpireReason" backend/src/main/java
-```
-
-Pick the right enum (likely `FreezeReason` even though the escrow lands at EXPIRED, since the freeze/expire reasons share a column in many designs — verify by reading the `Escrow` entity). Add `ADMIN_CANCEL`.
-
-- [ ] **Step 2: Add `cancelByAdminFromEscrow` on `CancellationService`**
+Near the bottom of `EscrowService`, before the closing brace:
 
 ```java
 /**
- * Admin cancels a listing that's already in escrow (status =
- * TRANSFER_PENDING). Refunds the winner, marks the escrow EXPIRED with
- * reason ADMIN_CANCEL, and flips the auction to CANCELLED. The seller's
- * penalty ladder is NOT touched — staff action.
+ * Flips the auction status in lockstep with an escrow state transition.
+ * Caller is responsible for ensuring the new status is valid given the
+ * escrow's new state (e.g. TRANSFER_PENDING when escrow → TRANSFER_PENDING).
+ * The auction is already a managed entity inside this @Transactional
+ * boundary; the explicit save flushes the change with the rest of the
+ * escrow-side writes.
+ */
+private void flipAuctionStatus(Escrow escrow, AuctionStatus newStatus) {
+    Auction auction = escrow.getAuction();
+    auction.setStatus(newStatus);
+    auctionRepo.save(auction);
+}
+```
+
+Add imports as needed: `com.slparcelauctions.backend.auction.Auction`, `com.slparcelauctions.backend.auction.AuctionStatus`.
+
+- [ ] **Step 3: `createForEndedAuction` → TRANSFER_PENDING**
+
+Find the line where escrow is saved post auto-fund transition (in the wallet-only-escrow path — escrow has just been set to `TRANSFER_PENDING` and `transferDeadline` stamped). Immediately after that save:
+
+```java
+flipAuctionStatus(saved, AuctionStatus.TRANSFER_PENDING);
+```
+
+Note: the escrow's `auction` reference is the same managed entity the caller passed in, so the flip is atomic with the close transaction.
+
+- [ ] **Step 4: `confirmTransfer` → COMPLETED**
+
+In `confirmTransfer`, after the escrow row transitions to its terminal state and the `escrowRepo.save(...)` call:
+
+```java
+flipAuctionStatus(escrow, AuctionStatus.COMPLETED);
+```
+
+- [ ] **Step 5: `freezeForFraud` → FROZEN**
+
+After the escrow row transitions to `FROZEN` and the save:
+
+```java
+flipAuctionStatus(escrow, AuctionStatus.FROZEN);
+```
+
+- [ ] **Step 6: `expireTransfer` → EXPIRED**
+
+After the escrow row transitions to `EXPIRED` (transfer-deadline timeout path):
+
+```java
+flipAuctionStatus(escrow, AuctionStatus.EXPIRED);
+```
+
+- [ ] **Step 7: `fileDispute` → DISPUTED**
+
+After the escrow row transitions to `DISPUTED`:
+
+```java
+flipAuctionStatus(escrow, AuctionStatus.DISPUTED);
+```
+
+- [ ] **Step 8: Sweep `EscrowService.java` for any leftover `AuctionStatus.ENDED` references**
+
+```bash
+grep -n "AuctionStatus\.ENDED\|AuctionStatus\.ESCROW_PENDING\|AuctionStatus\.ESCROW_FUNDED" \
+    backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java
+```
+
+Update each: context-dependent. Most likely they were guard checks (e.g. `if (auction.getStatus() != ENDED) ...`) — those now check `TRANSFER_PENDING` or whatever the new mid-flight status is.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add backend/src/main/java/com/slparcelauctions/backend/escrow/EscrowService.java
+git commit -m "refactor(escrow): EscrowService owns auction-status transitions in lockstep with escrow state"
+```
+
+---
+
+### Task 5: AdminDisputeService routes auction status per resolution action
+
+**Files:**
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/admin/disputes/AdminDisputeService.java`
+
+`AdminDisputeService.resolve` has four `AdminDisputeAction` values. Map each to an auction-status transition that mirrors the escrow's resolved state.
+
+| Action | Escrow result | Auction status target |
+|---|---|---|
+| `RECOGNIZE_PAYMENT` | `TRANSFER_PENDING` | `TRANSFER_PENDING` (dispute closed; transfer resumes) |
+| `RESET_TO_FUNDED` + `!alsoCancel` | `FUNDED` | `TRANSFER_PENDING` (FUNDED is treated as mid-flight; no separate auction status) |
+| `RESET_TO_FUNDED` + `alsoCancel` | `EXPIRED` | `CANCELLED` (set by `cancelByDisputeResolution` — already correct) |
+| `RESUME_TRANSFER` | `TRANSFER_PENDING` | `TRANSFER_PENDING` (unfreeze) |
+| `MARK_EXPIRED` | `EXPIRED` | `EXPIRED` |
+
+- [ ] **Step 1: Inject `AuctionRepository`**
+
+Same pattern as Task 4: add the field, Lombok regenerates the constructor.
+
+- [ ] **Step 2: Compute the auction-status target alongside the escrow target**
+
+After the existing `EscrowState newState = switch (action) { ... };` block, add:
+
+```java
+AuctionStatus newAuctionStatus = switch (action) {
+    case RECOGNIZE_PAYMENT -> AuctionStatus.TRANSFER_PENDING;
+    case RESET_TO_FUNDED -> alsoCancel
+            ? null    // cancelByDisputeResolution sets CANCELLED itself
+            : AuctionStatus.TRANSFER_PENDING;
+    case RESUME_TRANSFER -> AuctionStatus.TRANSFER_PENDING;
+    case MARK_EXPIRED -> AuctionStatus.EXPIRED;
+};
+```
+
+- [ ] **Step 3: Flip the auction unless `alsoCancel` is handling it**
+
+After the existing `escrowRepo.save(escrow);` and before the refund-credit block:
+
+```java
+if (newAuctionStatus != null) {
+    auction.setStatus(newAuctionStatus);
+    auctionRepo.save(auction);
+}
+```
+
+(The `alsoCancel` path's `cancelByDisputeResolution` call already sets `auction.status = CANCELLED`, so we skip the explicit flip there to avoid double-write contention.)
+
+- [ ] **Step 4: Sweep this file for `AuctionStatus.ENDED` references**
+
+```bash
+grep -n "AuctionStatus\.ENDED" \
+    backend/src/main/java/com/slparcelauctions/backend/admin/disputes/AdminDisputeService.java
+```
+
+Update any remaining references in guard checks or audit-detail strings.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/src/main/java/com/slparcelauctions/backend/admin/disputes/AdminDisputeService.java
+git commit -m "refactor(disputes): AdminDisputeService routes auction status per resolution action"
+```
+
+---
+
+### Task 6: Admin-cancel-from-escrow (new path)
+
+**Files:**
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/escrow/FreezeReason.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/CancellationService.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/admin/listings/AdminListingService.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/notification/NotificationCategory.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisher.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisherImpl.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/notification/NotificationDataBuilder.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/notification/slim/SlImLinkResolver.java`
+
+- [ ] **Step 1: Add `ADMIN_CANCEL` to `FreezeReason`**
+
+The escrow row's `freeze_reason` column is also used by the `EXPIRED` path (a single text column, just different state). Add the value:
+
+```java
+public enum FreezeReason {
+    UNKNOWN_OWNER,
+    PARCEL_DELETED,
+    WORLD_API_PERSISTENT_FAILURE,
+    BOT_OWNERSHIP_CHANGED,
+    /**
+     * Set when admin cancels a TRANSFER_PENDING listing via
+     * {@code CancellationService.cancelByAdminFromEscrow}. The escrow
+     * transitions to EXPIRED (refund-and-close) and the auction to
+     * CANCELLED in the same transaction.
+     */
+    ADMIN_CANCEL
+}
+```
+
+- [ ] **Step 2: Add the new notification category**
+
+In `NotificationCategory.java`, add `LISTING_CANCELLED_DURING_ESCROW`. Mirror the existing category-enum ordering (alphabetical or by-domain — match the file's convention).
+
+- [ ] **Step 3: Add the publisher signature**
+
+In `NotificationPublisher.java`:
+
+```java
+void listingCancelledDuringEscrow(
+        long winnerUserId, long auctionId, long escrowId,
+        String parcelName, String adminNote);
+```
+
+- [ ] **Step 4: Implement in `NotificationPublisherImpl`**
+
+```java
+@Override
+public void listingCancelledDuringEscrow(long winnerUserId, long auctionId, long escrowId,
+                                          String parcelName, String adminNote) {
+    String title = "Listing cancelled during escrow: " + parcelName;
+    String body = "An admin cancelled this listing. Your escrow has been refunded to your SLParcels wallet.";
+    notificationService.publish(new NotificationEvent(
+        winnerUserId, NotificationCategory.LISTING_CANCELLED_DURING_ESCROW, title, body,
+        withAuctionPublicId(
+            NotificationDataBuilder.listingCancelledDuringEscrow(
+                auctionId, escrowId, parcelName, adminNote),
+            auctionId),
+        null
+    ));
+}
+```
+
+- [ ] **Step 5: Implement the data builder**
+
+In `NotificationDataBuilder.java`:
+
+```java
+public static Map<String, Object> listingCancelledDuringEscrow(
+        long auctionId, long escrowId, String parcelName, String adminNote) {
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("auctionId", auctionId);
+    data.put("escrowId", escrowId);
+    data.put("parcelName", parcelName);
+    if (adminNote != null && !adminNote.isBlank()) {
+        data.put("adminNote", adminNote);
+    }
+    return data;
+}
+```
+
+- [ ] **Step 6: Add the SL IM link resolver mapping**
+
+`SlImLinkResolver.java` switches on `NotificationCategory`. Add `LISTING_CANCELLED_DURING_ESCROW` to the same group as the other escrow-related categories (deeplink resolves to `/auction/{publicId}/escrow`).
+
+- [ ] **Step 7: Add `cancelByAdminFromEscrow` to `CancellationService`**
+
+Inject `EscrowService` + `EscrowRepository` if not already present. Then:
+
+```java
+/**
+ * Admin cancels a listing whose escrow is in TRANSFER_PENDING. Refunds
+ * the winner from escrow, marks the escrow EXPIRED with reason
+ * ADMIN_CANCEL, and flips the auction to CANCELLED. The seller's
+ * penalty ladder is NOT touched -- staff action, not a seller offense.
+ *
+ * <p>Caller is {@link AdminListingService#cancel(UUID, Long, String)};
+ * the seller-initiated and pre-active admin paths route through
+ * {@link #cancelByAdmin(Long, Long, String)} instead.
  */
 @Transactional
 public Auction cancelByAdminFromEscrow(Long auctionId, Long adminUserId, String notes) {
@@ -409,7 +505,7 @@ public Auction cancelByAdminFromEscrow(Long auctionId, Long adminUserId, String 
     if (a.getStatus() != AuctionStatus.TRANSFER_PENDING) {
         throw new InvalidAuctionStateException(a.getId(), a.getStatus(), "ADMIN_CANCEL_FROM_ESCROW");
     }
-    Escrow escrow = escrowRepo.findByAuctionIdForUpdate(a.getId())
+    Escrow escrow = escrowRepo.findByAuctionId(a.getId())
             .orElseThrow(() -> new IllegalStateException(
                 "Auction " + a.getId() + " in TRANSFER_PENDING has no escrow row"));
     if (escrow.getState() != EscrowState.TRANSFER_PENDING) {
@@ -419,16 +515,19 @@ public Auction cancelByAdminFromEscrow(Long auctionId, Long adminUserId, String 
 
     OffsetDateTime now = OffsetDateTime.now(clock);
 
-    // Refund winner.
+    // Refund winner. queueRefundIfFunded is idempotent on fundedAt; for
+    // wallet-only-escrow rows fundedAt is always set, so the refund fires.
     escrowService.queueRefundIfFunded(escrow);
 
     // Escrow → EXPIRED with reason ADMIN_CANCEL.
+    EscrowService.enforceTransitionAllowed(escrow.getId(), escrow.getState(), EscrowState.EXPIRED);
     escrow.setState(EscrowState.EXPIRED);
     escrow.setExpiredAt(now);
     escrow.setFreezeReason(FreezeReason.ADMIN_CANCEL.name());
     escrowRepo.save(escrow);
 
-    // CancellationLog with cancelledByAdminId set.
+    // Audit trail: cancellation_logs row with cancelledByAdminId set so the
+    // penalty-ladder counters don't bill the seller.
     logRepo.save(CancellationLog.builder()
             .auction(a)
             .seller(a.getSeller())
@@ -443,22 +542,24 @@ public Auction cancelByAdminFromEscrow(Long auctionId, Long adminUserId, String 
     a.setStatus(AuctionStatus.CANCELLED);
     Auction saved = auctionRepo.save(a);
 
-    // Notify seller (existing) + winner (new category).
     notificationPublisher.listingRemovedByAdmin(
             a.getSeller().getId(), a.getId(), a.getTitle(), notes);
     notificationPublisher.listingCancelledDuringEscrow(
-            escrow.getAuction().getWinnerUserId(),
+            a.getWinnerUserId(),
             a.getId(), escrow.getId(), a.getTitle(), notes);
 
-    // Broadcast AUCTION_CANCELLED on the STOMP topic so the auction-detail
-    // page transitions for any subscribed viewer.
-    AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(saved, true, now);
-    TransactionSynchronizationManager.registerSynchronization(
-            new TransactionSynchronization() {
-                @Override public void afterCommit() {
-                    broadcastPublisher.publishCancelled(envelope);
-                }
-            });
+    final boolean hadBids = true;
+    AuctionCancelledEnvelope envelope = AuctionCancelledEnvelope.of(saved, hadBids, now);
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override public void afterCommit() {
+                        broadcastPublisher.publishCancelled(envelope);
+                    }
+                });
+    } else {
+        broadcastPublisher.publishCancelled(envelope);
+    }
 
     log.info("Auction {} admin-cancelled from TRANSFER_PENDING by adminUserId={} (escrow {} refunded, marked EXPIRED/ADMIN_CANCEL)",
             a.getId(), adminUserId, escrow.getId());
@@ -467,13 +568,9 @@ public Auction cancelByAdminFromEscrow(Long auctionId, Long adminUserId, String 
 }
 ```
 
-Inject `EscrowRepository` + `EscrowService` if not already present (check the existing constructor).
+Add imports as needed: `EscrowService`, `EscrowRepository`, `Escrow`, `EscrowState`, `FreezeReason`.
 
-- [ ] **Step 3: Add winner-notification path**
-
-Wire up `NotificationPublisher.listingCancelledDuringEscrow(winnerUserId, auctionId, escrowId, parcelName, adminNotes)` + a new category `LISTING_CANCELLED_DURING_ESCROW` in `NotificationCategory`. Mirror the existing `escrowFunded` / `listingRemovedByAdmin` patterns for title/body composition and link resolution. Title: `"Listing cancelled during escrow: {parcelName}"`. Body: `"Admin cancelled this listing. Your escrow has been refunded to your SLParcels wallet."`.
-
-- [ ] **Step 4: Route from `AdminListingService.cancel`**
+- [ ] **Step 8: Route from `AdminListingService.cancel`**
 
 ```java
 @Transactional
@@ -506,27 +603,29 @@ public void cancel(UUID publicId, Long adminUserId, String notes) {
 }
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add backend/src/main/java/com/slparcelauctions/backend/auction/CancellationService.java \
+git add backend/src/main/java/com/slparcelauctions/backend/escrow/FreezeReason.java \
+        backend/src/main/java/com/slparcelauctions/backend/auction/CancellationService.java \
         backend/src/main/java/com/slparcelauctions/backend/admin/listings/AdminListingService.java \
-        backend/src/main/java/com/slparcelauctions/backend/escrow/FreezeReason.java \
         backend/src/main/java/com/slparcelauctions/backend/notification/NotificationCategory.java \
         backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisher.java \
         backend/src/main/java/com/slparcelauctions/backend/notification/NotificationPublisherImpl.java \
-        backend/src/main/java/com/slparcelauctions/backend/notification/NotificationDataBuilder.java
+        backend/src/main/java/com/slparcelauctions/backend/notification/NotificationDataBuilder.java \
+        backend/src/main/java/com/slparcelauctions/backend/notification/slim/SlImLinkResolver.java
 git commit -m "feat(admin): cancel listing from TRANSFER_PENDING refunds escrow and notifies winner"
 ```
 
 ---
 
-### Task 10: AssertParcelNotLocked collapses to single check
+### Task 7: `assertParcelNotLocked` collapse + `toPublicStatus` update
 
 **Files:**
 - Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/AuctionVerificationService.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/AuctionDtoMapper.java`
 
-- [ ] **Step 1: Replace the two-pass check with the original single `existsBy...` call**
+- [ ] **Step 1: `assertParcelNotLocked` returns to the single-pass check**
 
 ```java
 private void assertParcelNotLocked(Auction candidate) {
@@ -543,26 +642,9 @@ private void assertParcelNotLocked(Auction candidate) {
 }
 ```
 
-No escrow join. The status enum itself now encodes the lock decision.
+Status alone encodes the lock decision now. No escrow join helper, no separate ACTIVE_ESCROW_STATES set. Update the javadoc to match.
 
-- [ ] **Step 2: Commit**
-
-```bash
-git add backend/src/main/java/com/slparcelauctions/backend/auction/AuctionVerificationService.java
-git commit -m "refactor(auction): collapse parcel-lock check now that status reflects escrow phase"
-```
-
----
-
-### Task 11: DTO mapper + admin filter sweep
-
-**Files:**
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/AuctionDtoMapper.java`
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/dto/PublicAuctionStatus.java` (if needed)
-- Modify: `backend/src/main/java/com/slparcelauctions/backend/admin/listings/AdminListingService.java` (filter / sort references)
-- Modify: anywhere else that switches on `AuctionStatus.ENDED`
-
-- [ ] **Step 1: Update `AuctionDtoMapper.toPublicStatus`**
+- [ ] **Step 2: Update `AuctionDtoMapper.toPublicStatus`**
 
 ```java
 private PublicAuctionStatus toPublicStatus(AuctionStatus internal) {
@@ -577,95 +659,75 @@ private PublicAuctionStatus toPublicStatus(AuctionStatus internal) {
 }
 ```
 
-- [ ] **Step 2: Sweep all references to `AuctionStatus.ENDED`**
+`DRAFT`, `DRAFT_PAID`, `VERIFICATION_PENDING`, `VERIFICATION_FAILED`, `SUSPENDED` continue to be hidden by 404 at the controller layer — they fall through to the `default` throw.
+
+- [ ] **Step 3: Commit**
 
 ```bash
-grep -rn "AuctionStatus\.ENDED\|AuctionStatus\.ESCROW_PENDING\|AuctionStatus\.ESCROW_FUNDED" backend/src/main backend/src/test
+git add backend/src/main/java/com/slparcelauctions/backend/auction/AuctionVerificationService.java \
+        backend/src/main/java/com/slparcelauctions/backend/auction/AuctionDtoMapper.java
+git commit -m "refactor(auction): collapse parcel-lock check; map terminals to public ENDED"
 ```
 
-Update every occurrence based on context:
-- Filter / sort lists: replace `ENDED` with the new terminal set
-  (`COMPLETED, EXPIRED, FROZEN, CANCELLED`) or with the in-flight set
-  (`TRANSFER_PENDING, DISPUTED`), whichever the call site means.
-- Comments: rewrite to match the new model.
+---
 
-- [ ] **Step 3: Verify backend compiles**
+### Task 8: Production-side `AuctionStatus.ENDED` sweep
+
+**Files (production code only — tests are Task 11):**
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/BidService.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/ProxyBidService.java`
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/mybids/MyBidsService.java`
+- Plus any other file surfacing in the grep below.
+
+- [ ] **Step 1: Find every remaining production reference**
 
 ```bash
-cd backend && ./mvnw -q test-compile
+grep -rln 'AuctionStatus\.ENDED\|AuctionStatus\.ESCROW_PENDING\|AuctionStatus\.ESCROW_FUNDED' \
+    backend/src/main/java
 ```
+
+This should now list only the files in this task plus anything missed in Tasks 1–7. If files from earlier tasks reappear, finish their context first.
+
+- [ ] **Step 2: For each file, decide the correct replacement**
+
+Per-call-site interpretation:
+
+- **Status guards that mean "is this auction over?"** → replace with a check against the terminal set `{COMPLETED, EXPIRED, FROZEN, CANCELLED}`, or expose a helper `auction.isTerminal()`.
+- **Status guards that mean "is this auction post-close but pre-settlement?"** → replace with `TRANSFER_PENDING`.
+- **Status guards that mean "auction is no longer accepting bids"** → replace with `!= AuctionStatus.ACTIVE` (the cleanest formulation).
+- **Filter / search arrays** → replace with the right subset of terminals.
+
+Common patterns to expect:
+- `if (auction.getStatus() == AuctionStatus.ENDED)` → usually means "auction closed" → check terminal set or `!= ACTIVE`.
+- `if (auction.getStatus() == AuctionStatus.ESCROW_PENDING || ... == ESCROW_FUNDED || ... == TRANSFER_PENDING)` → collapse to just `== TRANSFER_PENDING`.
+
+- [ ] **Step 3: Compile-check after the sweep**
+
+```bash
+cd backend && ./mvnw -q compile
+```
+
+Expect a clean build.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add backend/src/main/java/com/slparcelauctions/backend/auction/AuctionDtoMapper.java
-# + every file the sweep touched
-git commit -m "refactor(dto,admin): map new statuses and replace ENDED references"
+git add backend/src/main/java
+git commit -m "refactor(auction): replace ENDED/ESCROW_PENDING/ESCROW_FUNDED references in production code"
 ```
 
 ---
 
-### Task 12: Test sweep
-
-**Files:**
-- Modify: tests across `backend/src/test/java/**`
-
-- [ ] **Step 1: Find every test assertion on the dropped statuses**
-
-```bash
-grep -rn "AuctionStatus\.ENDED\|AuctionStatus\.ESCROW_PENDING\|AuctionStatus\.ESCROW_FUNDED\|\"ENDED\"" backend/src/test
-```
-
-- [ ] **Step 2: Update each assertion**
-
-For each test, decide the new expected status based on what the production code now sets in that scenario. Common patterns:
-
-- BOUGHT_NOW / SOLD close + escrow auto-fund → `TRANSFER_PENDING`
-- NO_BIDS / RESERVE_NOT_MET close → `EXPIRED`
-- confirmTransfer → `COMPLETED`
-- freezeForFraud → `FROZEN`
-- transfer-timeout → `EXPIRED`
-- fileDispute → `DISPUTED`
-- admin-cancel-from-escrow → `CANCELLED`
-
-- [ ] **Step 3: Add new admin-cancel-from-escrow tests**
-
-Cover:
-- Cancelling a TRANSFER_PENDING listing refunds the winner, marks the escrow `EXPIRED/ADMIN_CANCEL`, and flips the auction to `CANCELLED`.
-- Cancelling a non-TRANSFER_PENDING listing through this path rejects with `INVALID_STATUS_FOR_ACTION`.
-- Winner receives a `LISTING_CANCELLED_DURING_ESCROW` notification; seller receives `LISTING_REMOVED_BY_ADMIN`.
-
-- [ ] **Step 4: Add/update parcel-lock tests**
-
-In `ParcelLockingRaceIntegrationTest`:
-- Drop the PR #319 stopgap tests (no longer needed).
-- Add: `TRANSFER_PENDING` auction locks the parcel.
-- Add: `FROZEN`/`EXPIRED`/`COMPLETED`/`CANCELLED`/`SUSPENDED` auctions don't lock the parcel.
-
-- [ ] **Step 5: Run full backend test suite**
-
-```bash
-cd backend && ./mvnw test
-```
-
-Expected: all green.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add backend/src/test
-git commit -m "test: update status assertions for state-machine rewire; add admin-cancel-from-escrow coverage"
-```
-
----
-
-### Task 13: Frontend types + final integration sweep
+### Task 9: Frontend types + notification wiring
 
 **Files:**
 - Modify: `frontend/src/types/auction.ts`
-- Modify: any frontend file matching `status === "ENDED"` for seller-context UI
+- Modify: `frontend/src/lib/notifications/types.ts`
+- Modify: `frontend/src/lib/notifications/categoryMap.ts`
+- Modify: `frontend/src/lib/notifications/categoryMap.test.ts`
+- Plus any frontend file surfacing `status === "ENDED"` for seller-context UI.
 
-- [ ] **Step 1: Update `AuctionStatus` mirror in `frontend/src/types/auction.ts`**
+- [ ] **Step 1: Update `AuctionStatus` mirror**
 
 ```ts
 export type AuctionStatus =
@@ -685,36 +747,196 @@ export type AuctionStatus =
 
 `PublicAuctionStatus` stays `"ACTIVE" | "ENDED"` — unchanged.
 
-- [ ] **Step 2: Sweep seller-context UI**
+- [ ] **Step 2: Add the new notification category**
+
+In `frontend/src/lib/notifications/types.ts`:
+
+```ts
+export type NotificationCategory =
+  // ...existing entries...
+  | "LISTING_CANCELLED_DURING_ESCROW";
+
+// in NotificationData mapping
+export interface NotificationData {
+  // ...existing...
+  LISTING_CANCELLED_DURING_ESCROW: {
+    auctionId: number;
+    escrowId: number;
+    parcelName: string;
+    adminNote?: string;
+  };
+}
+```
+
+(Match the exact shape conventions of the file.)
+
+- [ ] **Step 3: Add the category to `categoryMap.ts`**
+
+Mirror the existing escrow-related entries — deeplink resolves to `/auction/{publicIdOrId}/escrow`. The auction publicId comes through the `auctionPublicId` decorator on the data payload (already wired by `withAuctionPublicId` on the backend, see Task 6).
+
+- [ ] **Step 4: Add the test entry**
+
+`categoryMap.test.ts` includes a deeplink assertion for each category. Add the matching test.
+
+- [ ] **Step 5: Sweep frontend for seller-context `"ENDED"` checks**
 
 ```bash
 grep -rn 'status === "ENDED"\|status: "ENDED"' frontend/src
 ```
 
-Decide per-file whether the comparison should target the public collapse (`PublicAuctionStatus.ENDED`) or one of the new internal terminals (`COMPLETED`, `EXPIRED`, `FROZEN`, `CANCELLED`). Public components (browse, anonymous viewers) should continue to read `"ENDED"` from `PublicAuctionResponse.status`. Seller dashboard / listing-detail components that already consume `SellerAuctionResponse.status` need to switch on the new terminal set.
+For each match, decide:
+- **Public-context UI (browse, anonymous listing)** consuming `PublicAuctionResponse.status` → leave the `"ENDED"` literal alone (public type still has it).
+- **Seller-context UI** consuming `SellerAuctionResponse.status` → switch to the matching internal terminal (`COMPLETED`/`EXPIRED`/`FROZEN`/`CANCELLED`) or to a helper that recognizes the terminal set.
 
-- [ ] **Step 3: Run frontend typecheck + tests**
+- [ ] **Step 6: Run frontend typecheck + Vitest**
 
 ```bash
 cd frontend && npx tsc --noEmit && npx vitest run
 ```
 
-Expected: all green.
+Expect green. There's a pre-existing typecheck error in `useBulkCommissionEdit.test.tsx` — that's unrelated to this task; skip it if it appears.
 
-- [ ] **Step 4: Commit + push**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add frontend/src/types/auction.ts
-# + anything the sweep touched
-git commit -m "refactor(frontend): mirror backend status enum changes"
-git push
+git add frontend/src
+git commit -m "refactor(frontend): mirror backend status enum + wire LISTING_CANCELLED_DURING_ESCROW notification"
 ```
 
 ---
 
-### Task 14: Open PR into `dev` and final smoke
+### Task 10: `MyBidStatusDeriver` + any other status-derived UI logic
 
-- [ ] **Step 1: Open PR**
+**Files:**
+- Modify: `backend/src/main/java/com/slparcelauctions/backend/auction/mybids/MyBidStatusDeriver.java` (if it references the dropped statuses — verify with grep)
+- Plus any other status-derived helper.
+
+- [ ] **Step 1: Locate**
+
+```bash
+grep -rn 'AuctionStatus\.ENDED\|AuctionStatus\.ESCROW_PENDING\|AuctionStatus\.ESCROW_FUNDED' \
+    backend/src/main/java/com/slparcelauctions/backend/auction/mybids
+```
+
+- [ ] **Step 2: Update the derivation logic**
+
+`MyBidStatusDeriver` maps an auction's lifecycle position to a buyer-facing `MyBidStatus`. After Task 8 the auction will already be at `COMPLETED`/`EXPIRED`/`FROZEN`/`CANCELLED`/`DISPUTED`/`TRANSFER_PENDING`; the deriver should branch on these.
+
+Mapping:
+- `auction.status = ACTIVE` + caller is currently highest bidder → `LEADING`
+- `auction.status = ACTIVE` + caller is outbid → `OUTBID`
+- `auction.status ∈ {TRANSFER_PENDING, DISPUTED}` + caller is winner → `WON_AWAITING_TRANSFER`
+- `auction.status = COMPLETED` + caller is winner → `WON_COMPLETED`
+- `auction.status ∈ {EXPIRED, FROZEN, CANCELLED}` + caller is winner → `WON_THEN_LOST` (or whichever existing terminal-loss status name applies)
+- Caller is not winner / no longer leading → `LOST` / `OUTBID_TERMINAL`
+
+Match the existing `MyBidStatus` enum names — don't invent new ones unless the existing set genuinely doesn't cover the case.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add backend/src/main/java/com/slparcelauctions/backend/auction/mybids
+git commit -m "refactor(mybids): derive bid status from new auction-status terminals"
+```
+
+---
+
+### Task 11: Backend test sweep
+
+**Files:** see grep output for full list — expect ~30 test files.
+
+- [ ] **Step 1: Find every test reference**
+
+```bash
+grep -rln 'AuctionStatus\.ENDED\|AuctionStatus\.ESCROW_PENDING\|AuctionStatus\.ESCROW_FUNDED\|"ENDED"' \
+    backend/src/test
+```
+
+- [ ] **Step 2: For each file, update assertions per production reality**
+
+Common patterns to expect:
+- `AuctionEndIntegrationTest`, `BidServiceBuyNowTest`, `SnipeAndBuyNowIntegrationTest`,
+  `BidPlacementIntegrationTest`, `EscrowCreateOnAuctionEndIntegrationTest`,
+  `EscrowCreateOnBuyNowIntegrationTest`:
+  - SOLD/BOUGHT_NOW close → expect `auction.status = TRANSFER_PENDING`
+  - NO_BIDS/RESERVE_NOT_MET close → expect `auction.status = EXPIRED`
+- `EscrowOwnershipMonitorIntegrationTest`, `EscrowEndToEndIntegrationTest`:
+  - confirmTransfer → expect `COMPLETED`
+  - freezeForFraud → expect `FROZEN`
+- `EscrowTimeoutIntegrationTest`, `EscrowTimeoutTaskTest`:
+  - transfer-timeout → expect `EXPIRED`
+- `EscrowDisputeIntegrationTest`, `AdminDisputeServiceTest`:
+  - fileDispute → expect `DISPUTED`
+  - resolve(action) → expect status per the table in Task 5
+- `CancellationServiceTest`: cancel paths set `CANCELLED`. Should mostly be unchanged.
+- `ParcelLockingRaceIntegrationTest`: add/update to cover the new locking set
+  (TRANSFER_PENDING locks, terminals don't). Drop any leftover PR #319 stopgap tests.
+- `MyBidsServiceTest`, `MyBidStatusDeriverTest`, `MyBidsIntegrationTest`: update per Task 10.
+- `FullFlowSmokeTest`: end-to-end status assertions.
+
+- [ ] **Step 3: Add admin-cancel-from-escrow coverage**
+
+Net new tests:
+- `AdminListingService.cancel` on TRANSFER_PENDING listing succeeds.
+- The escrow is refunded (winner wallet credited; `AUCTION_ESCROW_REFUND` ledger row).
+- The escrow row is `state = EXPIRED, freezeReason = ADMIN_CANCEL`.
+- The auction is `CANCELLED`.
+- Seller receives `LISTING_REMOVED_BY_ADMIN`; winner receives
+  `LISTING_CANCELLED_DURING_ESCROW`.
+- The path rejects with `INVALID_STATUS_FOR_ACTION` for non-TRANSFER_PENDING input.
+
+Pick a single integration test file (e.g. new `AdminListingCancelFromEscrowIntegrationTest`) under
+`backend/src/test/java/com/slparcelauctions/backend/admin/listings/`. Mirror the seeding +
+teardown patterns from `AdminListingServiceTest` or
+`EscrowCreateOnAuctionEndIntegrationTest`.
+
+- [ ] **Step 4: Add parcel-lock coverage for new statuses**
+
+In `ParcelLockingRaceIntegrationTest`:
+- `TRANSFER_PENDING` auction locks the parcel.
+- `FROZEN`/`EXPIRED`/`COMPLETED`/`CANCELLED` auctions don't lock the parcel.
+- Two ENDED-era stopgap tests from the (now-closed) PR #319 attempt should be dropped if any still exist.
+
+- [ ] **Step 5: Run full backend test suite**
+
+```bash
+cd backend && ./mvnw test
+```
+
+Expected: green. Triage any unexpected failures.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/src/test
+git commit -m "test: update status assertions for state-machine rewire; add admin-cancel-from-escrow + parcel-lock coverage"
+```
+
+---
+
+### Task 12: Final integration sweep + PR
+
+- [ ] **Step 1: Final compile + test sweep**
+
+```bash
+cd backend && ./mvnw verify
+cd ../frontend && npx tsc --noEmit && npx vitest run
+```
+
+Triage any straggling reference to the dropped statuses.
+
+- [ ] **Step 2: Manual smoke notes for the PR description**
+
+After deploy:
+- Seller can re-list the previously-stuck parcel (auction 20 / parcel
+  `abac26ab-…` from the prod incident — auction 17's lock should be gone
+  since the migration translated it to `FROZEN`).
+- A new buy-now sale shows `auction.status = TRANSFER_PENDING` until
+  the ownership monitor confirms transfer, then `COMPLETED`.
+- Admin can cancel a TRANSFER_PENDING listing from the admin panel; the
+  winner gets a refund + `LISTING_CANCELLED_DURING_ESCROW` notification.
+
+- [ ] **Step 3: Open PR**
 
 ```bash
 gh pr create --base dev --head feat/auction-status-state-machine-rewire \
@@ -735,25 +957,46 @@ See spec for full state machine, sign-off decisions, and locking semantics.
 ## Test plan
 - [x] Backend tests green
 - [x] Frontend typecheck + vitest green
-- [ ] Post-deploy smoke: re-list the previously-stuck parcel (auction 20)
+- [ ] Post-deploy smoke: re-list the previously-stuck parcel; admin-cancel a TRANSFER_PENDING listing
 EOF
 )"
 ```
 
-- [ ] **Step 2: Wait for user review**
+- [ ] **Step 4: Wait for user review**
 
-The user reviews + merges dev → main themselves per `feedback_no_merge_to_main`.
+User reviews + merges `dev → main` themselves per `feedback_no_merge_to_main`.
 
 ---
 
-## Self-review checklist
+## Self-review checklist (run at end of plan)
 
-After every task completes, before declaring done:
-
-1. **Spec coverage:** Every section of the spec mapped to a task? `LOCKING_STATUSES` change → Task 1. Migration → Task 2. Close paths → Task 3. Escrow lifecycle → Tasks 4–8. Admin-cancel-from-escrow → Task 9. Parcel-lock check collapse → Task 10. DTO + admin → Task 11. Tests → Task 12. Frontend → Task 13. PR → Task 14.
-2. **Type consistency:** Every reference to `AuctionStatus.ENDED` / `ESCROW_PENDING` / `ESCROW_FUNDED` removed?
-3. **Migration determinism:** All `ENDED` + escrow-state pairs covered by the migration; no row left at the dropped statuses?
-4. **No dead code:** `ENDED` reference removed from `AuctionStatus`, `LOCKING_STATUSES`, the index DDL, the public-status mapper, every test, every comment.
-5. **Frontend mirror:** Type definitions match the backend enum.
+1. **Spec coverage:** Every section of the spec mapped to a task?
+   - Enum + constants + index → Task 1
+   - Migration → Task 2
+   - Close paths → Task 3
+   - Escrow lifecycle transitions → Task 4
+   - Dispute resolution → Task 5
+   - Admin-cancel-from-escrow + notification wiring → Task 6
+   - Parcel-lock collapse + public DTO mapper → Task 7
+   - Production ENDED sweep → Task 8
+   - Frontend types + notification mirror → Task 9
+   - MyBids derivation → Task 10
+   - Test sweep + new coverage → Task 11
+   - Final integration + PR → Task 12
+2. **Type consistency:** Method signatures match across tasks?
+   `cancelByAdminFromEscrow(auctionId, adminUserId, notes)` is named the
+   same in Task 6 (definition) and the `AdminListingService.cancel` call
+   site. `listingCancelledDuringEscrow(winnerUserId, auctionId, escrowId,
+   parcelName, adminNote)` matches across the publisher + impl + builder.
+3. **Migration determinism:** Every persisted (`status`, `escrow.state`)
+   combination has a translation rule. No row left at the dropped statuses
+   post-V36.
+4. **No dead code:** `ENDED` / `ESCROW_PENDING` / `ESCROW_FUNDED` removed
+   from `AuctionStatus`, `LOCKING_STATUSES`, the index DDL, public-status
+   mapper, every production file, every test, every comment, frontend
+   types.
+5. **Frontend mirror:** Type definitions match the backend enum; new
+   notification category present in all four touch points (`types.ts`,
+   `categoryMap.ts`, `categoryMap.test.ts`, backend `SlImLinkResolver`).
 
 If any check fails, add a task or extend an existing one. Don't ship with a known gap.
