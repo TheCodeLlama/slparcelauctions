@@ -609,7 +609,12 @@ public class EscrowService {
         escrow.setLastCheckedAt(now);
         escrow.setConsecutiveWorldApiFailures(0);
         escrow = escrowRepo.save(escrow);
-        flipAuctionStatus(escrow, AuctionStatus.COMPLETED);
+        // No auction-status flip here. confirmTransfer only stamps
+        // transferConfirmedAt — the escrow stays in TRANSFER_PENDING, and so
+        // does the auction. The COMPLETED flip happens later in
+        // TerminalCommandService.handleEscrowPayoutSuccess /
+        // runZeroPayoutSuccessInline, where the escrow itself actually
+        // transitions to COMPLETED.
 
         queuePayoutOnConfirm(escrow);
 
@@ -892,14 +897,22 @@ public class EscrowService {
      * it was retired with the ownership-only verification refactor.
      */
     /**
-     * Flips the auction status in lockstep with an escrow state transition.
-     * Caller is responsible for ensuring the new status is valid given the
-     * escrow's new state (e.g. TRANSFER_PENDING when escrow → TRANSFER_PENDING).
-     * The auction is already a managed entity inside this @Transactional
+     * Used by {@link EscrowService} and
+     * {@link com.slparcelauctions.backend.escrow.command.TerminalCommandService}
+     * to keep {@code auction.status} in lockstep with {@code escrow.state}
+     * transitions. Caller is responsible for ensuring the new auction status
+     * reflects the escrow's new state (e.g. {@link AuctionStatus#TRANSFER_PENDING}
+     * when escrow → {@link EscrowState#TRANSFER_PENDING},
+     * {@link AuctionStatus#COMPLETED} when escrow → {@link EscrowState#COMPLETED}).
+     *
+     * <p>The auction is already a managed entity inside this {@code @Transactional}
      * boundary; the explicit save flushes the change with the rest of the
-     * escrow-side writes.
+     * escrow-side writes. Public so {@code TerminalCommandService} (different
+     * package: {@code backend.escrow.command} vs {@code backend.escrow}) can
+     * call it from the payout-success sites where the escrow actually
+     * completes.
      */
-    private void flipAuctionStatus(Escrow escrow, AuctionStatus newStatus) {
+    public void flipAuctionStatus(Escrow escrow, AuctionStatus newStatus) {
         Auction auction = escrow.getAuction();
         auction.setStatus(newStatus);
         auctionRepo.save(auction);
