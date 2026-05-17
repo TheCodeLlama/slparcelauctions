@@ -267,6 +267,15 @@ public class WalletService {
             priorReservation.setReleasedAt(now);
             priorReservation.setReleaseReason(BidReservationReleaseReason.OUTBID);
             reservationRepository.save(priorReservation);
+            // Force the release UPDATE to hit Postgres BEFORE the new
+            // reservation INSERT below. Hibernate's default action queue
+            // flushes INSERTs before UPDATEs, which trips the
+            // (user_id, auction_id) WHERE released_at IS NULL unique index
+            // on the self-rebid case (same user displaces their own prior
+            // reservation on the same auction). Different-user outbids
+            // don't hit this since the rows live in different (user, auction)
+            // cells. The explicit flush is the smallest safe fix.
+            reservationRepository.flush();
             priorUser.setReservedLindens(priorUser.getReservedLindens() - priorReservation.getAmount());
             userRepository.save(priorUser);
             UserLedgerEntry priorEntry = ledgerRepository.save(UserLedgerEntry.builder()
