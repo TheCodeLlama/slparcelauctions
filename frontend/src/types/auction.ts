@@ -224,6 +224,17 @@ export interface PublicAuctionResponse {
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
   transferConfirmedAt?: string | null;
+  /**
+   * Ended-state enrichment. All four are populated once the auction reaches
+   * ENDED; null for pre-ENDED statuses. Without these the buyer/anonymous
+   * view of an ENDED listing throws inside AuctionEndedPanel — the
+   * SellerAuctionResponse already carries them, and the public DTO mirrors
+   * the shape so the detail page renders identically for either viewer.
+   */
+  endOutcome?: AuctionEndOutcome | null;
+  finalBidAmount?: number | null;
+  winnerPublicId?: string | null;
+  winnerDisplayName?: string | null;
   // Realty group attribution — present when the listing was created under a group.
   realtyGroup?: GroupAttribution | null;
   listingAgent?: ListingAgent | null;

@@ -17,6 +17,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
@@ -198,13 +199,20 @@ public class EscrowService {
                 .completedAt(endedAt)
                 .build());
 
-        // Notify seller of funded state
-        notificationPublisher.escrowFunded(
-                auction.getSeller().getId(),
-                auction.getId(),
-                saved.getId(),
-                auction.getTitle(),
-                saved.getTransferDeadline());
+        // Notify seller of funded state — except on the buy-now close path,
+        // where BidService.acceptBid has already published a dedicated
+        // AUCTION_ENDED_BOUGHT_NOW notification with the same L$ amount.
+        // Both reaching the seller as separate rows is duplicate noise (one
+        // event, one notification). Natural auction-end paths still fire
+        // escrowFunded since they don't have a BOUGHT_NOW counterpart.
+        if (auction.getEndOutcome() != AuctionEndOutcome.BOUGHT_NOW) {
+            notificationPublisher.escrowFunded(
+                    auction.getSeller().getId(),
+                    auction.getId(),
+                    saved.getId(),
+                    auction.getTitle(),
+                    saved.getTransferDeadline());
+        }
 
         final Escrow finalEscrow = saved;
         final EscrowFundedEnvelope fundedEnvelope = EscrowFundedEnvelope.of(finalEscrow, endedAt);
