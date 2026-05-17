@@ -59,4 +59,16 @@ UPDATE auctions
 SET status = 'TRANSFER_PENDING'
 WHERE status IN ('ESCROW_PENDING', 'ESCROW_FUNDED');
 
+-- Rewire the auctions_status_check CHECK constraint defined in V12.
+-- ENDED / ESCROW_PENDING / ESCROW_FUNDED are dropped from AuctionStatus;
+-- FROZEN is added. The translation UPDATEs above already moved every
+-- existing row off the dropped values, so the new constraint can be
+-- enforced without violations.
+ALTER TABLE auctions DROP CONSTRAINT IF EXISTS auctions_status_check;
+ALTER TABLE auctions ADD CONSTRAINT auctions_status_check CHECK (status IN (
+    'DRAFT', 'DRAFT_PAID', 'VERIFICATION_PENDING', 'VERIFICATION_FAILED',
+    'ACTIVE', 'TRANSFER_PENDING', 'DISPUTED',
+    'COMPLETED', 'CANCELLED', 'EXPIRED', 'FROZEN', 'SUSPENDED'
+));
+
 COMMIT;
