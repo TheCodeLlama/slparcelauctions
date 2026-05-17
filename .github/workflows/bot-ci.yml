@@ -3,14 +3,17 @@ name: bot CI
 
 on:
   push:
-    branches: [dev, main]
+    # CI is main-only for now. To re-enable pre-merge CI, restore the dev
+    # branch below and uncomment the pull_request block.
+    # branches: [dev, main]
+    branches: [main]
     paths:
       - 'bot/**'
       - '.github/workflows/bot-ci.yml'
-  pull_request:
-    paths:
-      - 'bot/**'
-      - '.github/workflows/bot-ci.yml'
+  # pull_request:
+  #   paths:
+  #     - 'bot/**'
+  #     - '.github/workflows/bot-ci.yml'
 
 jobs:
   test:
