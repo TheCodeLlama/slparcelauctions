@@ -98,7 +98,7 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
     expect(getAccessToken()).toBe("fresh-token-B");
   });
 
-  it("failed refresh clears session, throws RefreshFailedError, and allows the next call to retry", async () => {
+  it("failed refresh throws RefreshFailedError, clears access token, and allows retry — but does NOT touch the React Query cache (handleUnauthorized owns that)", async () => {
     let refreshCount = 0;
     server.use(
       http.post("*/api/v1/auth/refresh", () => {
@@ -122,10 +122,19 @@ describe("ensureFreshAccessToken (stampede canary)", () => {
       })
     );
 
+    // Seed the session cache with some prior data so we can assert below
+    // that the failed refresh did NOT wipe it. Wiping was previously done
+    // inside ensureFreshAccessToken and broke the useAuth bootstrap by
+    // cancelling its own in-flight query mid-fetch. The cache wipe now
+    // lives in handleUnauthorized (lib/api.ts) where it's only invoked on
+    // the 401-recovery path, not on the bootstrap path.
+    queryClient.setQueryData(["auth", "session"], { id: 99 });
+
     // First call — fails.
     await expect(ensureFreshAccessToken()).rejects.toThrow(RefreshFailedError);
     expect(getAccessToken()).toBeNull();
-    expect(queryClient.getQueryData(["auth", "session"])).toBeNull();
+    // CRITICAL: cache must NOT have been cleared by ensureFreshAccessToken.
+    expect(queryClient.getQueryData(["auth", "session"])).toEqual({ id: 99 });
 
     // Second call — proves inFlightRefresh was cleared in the finally block
     // on the failure path. Fetch is called a SECOND time and resolves fresh.

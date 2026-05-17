@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.notification;
 
+import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.notification.NotificationDao.UpsertResult;
 import com.slparcelauctions.backend.notification.dto.NotificationDto;
 import com.slparcelauctions.backend.notification.slim.SlImChannelDispatcher;
@@ -57,6 +58,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private final RealtyGroupRepository realtyGroupRepository;
     private final RealtyGroupMemberRepository realtyGroupMemberRepository;
     private final UserRepository userRepository;
+    private final AuctionRepository auctionRepository;
 
     public NotificationPublisherImpl(
             NotificationService notificationService,
@@ -66,7 +68,8 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             SlImChannelDispatcher slImChannelDispatcher,
             RealtyGroupRepository realtyGroupRepository,
             RealtyGroupMemberRepository realtyGroupMemberRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            AuctionRepository auctionRepository) {
         this.notificationService = notificationService;
         this.notificationDao = notificationDao;
         this.wsBroadcaster = wsBroadcaster;
@@ -75,6 +78,33 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         this.realtyGroupRepository = realtyGroupRepository;
         this.realtyGroupMemberRepository = realtyGroupMemberRepository;
         this.userRepository = userRepository;
+        this.auctionRepository = auctionRepository;
+    }
+
+    /**
+     * Decorates a notification data blob with the auction's wire-stable
+     * {@code auctionPublicId} (UUID, serialised as a String). The data
+     * blob carries the internal {@code auctionId} (Long) for historical
+     * reasons, but every URL builder ({@code SlImLinkResolver} backend-side
+     * and {@code categoryMap.ts} frontend-side) needs the public UUID so
+     * the resulting link routes to {@code /auction/[publicId]} rather
+     * than a 404 on {@code /auction/14}. CLAUDE.md BaseEntity convention:
+     * Long IDs never cross a public wire.
+     *
+     * <p>Returns the same {@code Map} instance for ergonomic chaining at
+     * call sites. Cheap: one cached-entity fetch per notification publish.
+     */
+    private Map<String, Object> withAuctionPublicId(Map<String, Object> data, long auctionId) {
+        if (auctionRepository == null) {
+            // Test-only path: some unit tests construct NotificationPublisherImpl
+            // with null AuctionRepository for paths that do not exercise this
+            // enrichment. Skip the lookup; the link resolver falls back to
+            // auctionId for legacy rows that lack auctionPublicId.
+            return data;
+        }
+        auctionRepository.findById(auctionId).ifPresent(a ->
+            data.put("auctionPublicId", a.getPublicId().toString()));
+        return data;
     }
 
     @Override
@@ -86,7 +116,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             : String.format("Current bid is L$%,d.", currentBidL);
         notificationService.publish(new NotificationEvent(
             bidderUserId, NotificationCategory.OUTBID, title, body,
-            NotificationDataBuilder.outbid(auctionId, parcelName, currentBidL, isProxyOutbid, endsAt),
+            withAuctionPublicId(NotificationDataBuilder.outbid(auctionId, parcelName, currentBidL, isProxyOutbid, endsAt), auctionId),
             "outbid:" + bidderUserId + ":" + auctionId
         ));
     }
@@ -98,7 +128,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = String.format("Your max bid (L$%,d) was reached. Place a new proxy to keep bidding.", proxyMaxL);
         notificationService.publish(new NotificationEvent(
             bidderUserId, NotificationCategory.PROXY_EXHAUSTED, title, body,
-            NotificationDataBuilder.proxyExhausted(auctionId, parcelName, proxyMaxL, endsAt),
+            withAuctionPublicId(NotificationDataBuilder.proxyExhausted(auctionId, parcelName, proxyMaxL, endsAt), auctionId),
             "proxy_exhausted:" + bidderUserId + ":" + auctionId
         ));
     }
@@ -109,7 +139,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = String.format("Pay L$%,d into escrow within 24 hours to claim the parcel.", winningBidL);
         notificationService.publish(new NotificationEvent(
             winnerUserId, NotificationCategory.AUCTION_WON, title, body,
-            NotificationDataBuilder.auctionWon(auctionId, parcelName, winningBidL),
+            withAuctionPublicId(NotificationDataBuilder.auctionWon(auctionId, parcelName, winningBidL), auctionId),
             null
         ));
     }
@@ -120,7 +150,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = String.format("Winning bid was L$%,d. Better luck next time.", winningBidL);
         notificationService.publish(new NotificationEvent(
             bidderUserId, NotificationCategory.AUCTION_LOST, title, body,
-            NotificationDataBuilder.auctionLost(auctionId, parcelName, winningBidL),
+            withAuctionPublicId(NotificationDataBuilder.auctionLost(auctionId, parcelName, winningBidL), auctionId),
             null
         ));
     }
@@ -131,7 +161,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = String.format("Winning bid: L$%,d. Awaiting buyer's escrow payment.", winningBidL);
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.AUCTION_ENDED_SOLD, title, body,
-            NotificationDataBuilder.auctionEndedSold(auctionId, parcelName, winningBidL),
+            withAuctionPublicId(NotificationDataBuilder.auctionEndedSold(auctionId, parcelName, winningBidL), auctionId),
             null
         ));
     }
@@ -142,7 +172,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = String.format("Highest bid was L$%,d, below your reserve. The auction has ended.", highestBidL);
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.AUCTION_ENDED_RESERVE_NOT_MET, title, body,
-            NotificationDataBuilder.auctionEndedReserveNotMet(auctionId, parcelName, highestBidL),
+            withAuctionPublicId(NotificationDataBuilder.auctionEndedReserveNotMet(auctionId, parcelName, highestBidL), auctionId),
             null
         ));
     }
@@ -153,7 +183,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your auction ended without any bids. You can re-list at any time.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.AUCTION_ENDED_NO_BIDS, title, body,
-            NotificationDataBuilder.auctionEndedNoBids(auctionId, parcelName),
+            withAuctionPublicId(NotificationDataBuilder.auctionEndedNoBids(auctionId, parcelName), auctionId),
             null
         ));
     }
@@ -164,7 +194,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = String.format("Sold at L$%,d via Buy Now.", buyNowL);
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.AUCTION_ENDED_BOUGHT_NOW, title, body,
-            NotificationDataBuilder.auctionEndedBoughtNow(auctionId, parcelName, buyNowL),
+            withAuctionPublicId(NotificationDataBuilder.auctionEndedBoughtNow(auctionId, parcelName, buyNowL), auctionId),
             null
         ));
     }
@@ -176,7 +206,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Transfer the parcel to escrow within 72 hours to release payout.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_FUNDED, title, body,
-            NotificationDataBuilder.escrowFunded(auctionId, escrowId, parcelName, transferDeadline),
+            withAuctionPublicId(NotificationDataBuilder.escrowFunded(auctionId, escrowId, parcelName, transferDeadline), auctionId),
             null
         ));
     }
@@ -187,7 +217,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Payout is processing.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_TRANSFER_CONFIRMED, title, body,
-            NotificationDataBuilder.escrowTransferConfirmed(auctionId, escrowId, parcelName),
+            withAuctionPublicId(NotificationDataBuilder.escrowTransferConfirmed(auctionId, escrowId, parcelName), auctionId),
             null
         ));
     }
@@ -215,7 +245,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         }
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT, title, body,
-            NotificationDataBuilder.escrowPayout(auctionId, escrowId, parcelName, payoutL),
+            withAuctionPublicId(NotificationDataBuilder.escrowPayout(auctionId, escrowId, parcelName, payoutL), auctionId),
             null
         ));
     }
@@ -226,7 +256,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "The escrow window passed without completion.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_EXPIRED, title, body,
-            NotificationDataBuilder.escrowExpired(auctionId, escrowId, parcelName),
+            withAuctionPublicId(NotificationDataBuilder.escrowExpired(auctionId, escrowId, parcelName), auctionId),
             null
         ));
     }
@@ -238,7 +268,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "A dispute was opened. Awaiting admin review.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_DISPUTED, title, body,
-            NotificationDataBuilder.escrowDisputed(auctionId, escrowId, parcelName, reasonCategory),
+            withAuctionPublicId(NotificationDataBuilder.escrowDisputed(auctionId, escrowId, parcelName, reasonCategory), auctionId),
             null
         ));
     }
@@ -250,7 +280,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Held pending review. Contact support if you need information.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_FROZEN, title, body,
-            NotificationDataBuilder.escrowFrozen(auctionId, escrowId, parcelName, reason),
+            withAuctionPublicId(NotificationDataBuilder.escrowFrozen(auctionId, escrowId, parcelName, reason), auctionId),
             null
         ));
     }
@@ -261,7 +291,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your payout is delayed. We're investigating; no action needed from you.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT_STALLED, title, body,
-            NotificationDataBuilder.escrowPayoutStalled(auctionId, escrowId, parcelName),
+            withAuctionPublicId(NotificationDataBuilder.escrowPayoutStalled(auctionId, escrowId, parcelName), auctionId),
             null
         ));
     }
@@ -273,7 +303,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your escrow window expires soon. Transfer the parcel to release payout.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_TRANSFER_REMINDER, title, body,
-            NotificationDataBuilder.escrowTransferReminder(auctionId, escrowId, parcelName, transferDeadline),
+            withAuctionPublicId(NotificationDataBuilder.escrowTransferReminder(auctionId, escrowId, parcelName, transferDeadline), auctionId),
             "transfer_reminder:" + sellerUserId + ":" + escrowId
         ));
     }
@@ -284,7 +314,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your parcel listing is now live.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_VERIFIED, title, body,
-            NotificationDataBuilder.listingVerified(auctionId, parcelName),
+            withAuctionPublicId(NotificationDataBuilder.listingVerified(auctionId, parcelName), auctionId),
             null
         ));
     }
@@ -295,7 +325,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Reason: " + reason + ". Contact support for details.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_SUSPENDED, title, body,
-            NotificationDataBuilder.listingSuspended(auctionId, parcelName, reason),
+            withAuctionPublicId(NotificationDataBuilder.listingSuspended(auctionId, parcelName, reason), auctionId),
             null
         ));
     }
@@ -306,7 +336,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your listing has been removed by SLParcels staff. Reason: " + reason + ".";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_REMOVED_BY_ADMIN, title, body,
-            NotificationDataBuilder.listingRemovedByAdmin(auctionId, parcelName, reason),
+            withAuctionPublicId(NotificationDataBuilder.listingRemovedByAdmin(auctionId, parcelName, reason), auctionId),
             null
         ));
     }
@@ -326,7 +356,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "An admin has reviewed reports on this listing and issued a warning. Notes: " + notes;
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_WARNED, title, body,
-            NotificationDataBuilder.listingWarned(auctionId, parcelName, notes),
+            withAuctionPublicId(NotificationDataBuilder.listingWarned(auctionId, parcelName, notes), auctionId),
             null
         ));
     }
@@ -338,7 +368,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             + "Ends " + newEndsAt + ".";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_REINSTATED, title, body,
-            NotificationDataBuilder.listingReinstated(auctionId, parcelName, newEndsAt),
+            withAuctionPublicId(NotificationDataBuilder.listingReinstated(auctionId, parcelName, newEndsAt), auctionId),
             null
         ));
     }
@@ -349,7 +379,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Reason: " + reason + ".";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_REVIEW_REQUIRED, title, body,
-            NotificationDataBuilder.listingReviewRequired(auctionId, parcelName, reason),
+            withAuctionPublicId(NotificationDataBuilder.listingReviewRequired(auctionId, parcelName, reason), auctionId),
             null
         ));
     }
@@ -361,7 +391,9 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "A new review has been posted on your transaction.";
         notificationService.publish(new NotificationEvent(
             revieweeUserId, NotificationCategory.REVIEW_RECEIVED, title, body,
-            NotificationDataBuilder.reviewReceived(reviewId, auctionId, parcelName, rating),
+            withAuctionPublicId(
+                NotificationDataBuilder.reviewReceived(reviewId, auctionId, parcelName, rating),
+                auctionId),
             null
         ));
     }
@@ -375,8 +407,10 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         notificationService.publish(new NotificationEvent(
             revieweeUserId, NotificationCategory.REVIEW_RESPONSE_WINDOW_CLOSING,
             title, body,
-            NotificationDataBuilder.reviewResponseWindowClosing(
+            withAuctionPublicId(
+                NotificationDataBuilder.reviewResponseWindowClosing(
                     reviewId, auctionId, parcelName, responseDeadline),
+                auctionId),
             null));
     }
 
@@ -391,8 +425,10 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             sellerUserId,
             NotificationCategory.DISPUTE_FILED_AGAINST_SELLER,
             title, body,
-            NotificationDataBuilder.disputeFiledAgainstSeller(
+            withAuctionPublicId(
+                NotificationDataBuilder.disputeFiledAgainstSeller(
                     auctionId, escrowId, parcelName, amountL, reasonCategory),
+                auctionId),
             null));
     }
 
@@ -408,9 +444,11 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             recipientUserId,
             NotificationCategory.DISPUTE_RESOLVED,
             title, body,
-            NotificationDataBuilder.disputeResolved(
+            withAuctionPublicId(
+                NotificationDataBuilder.disputeResolved(
                     auctionId, escrowId, parcelName, amountL,
                     action.name(), alsoCancelListing, role),
+                auctionId),
             null));
     }
 
@@ -582,7 +620,9 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     public void listingCancelledBySellerFanout(long auctionId, List<Long> bidderUserIds,
                                                 String parcelName, String reason) {
         // Cause-neutral copy — applies to both seller-driven cancel and admin-driven cancel.
-        Map<String, Object> data = NotificationDataBuilder.listingCancelledBySeller(auctionId, parcelName, reason);
+        Map<String, Object> data = withAuctionPublicId(
+            NotificationDataBuilder.listingCancelledBySeller(auctionId, parcelName, reason),
+            auctionId);
         String title = "Auction cancelled: " + parcelName;
         String body = "This auction has been cancelled. Your active proxy bid is no longer in effect. Reason: " + reason + ".";
 
@@ -632,8 +672,10 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your listing " + parcelName
             + " was auto-cancelled because the group suspension on this auction lapsed"
             + " without admin reinstatement. Active bids have been released.";
-        Map<String, Object> data = NotificationDataBuilder.listingCancelledBySeller(
-            auctionId, parcelName, "BULK_SUSPEND_TIMER_EXPIRED");
+        Map<String, Object> data = withAuctionPublicId(
+            NotificationDataBuilder.listingCancelledBySeller(
+                auctionId, parcelName, "BULK_SUSPEND_TIMER_EXPIRED"),
+            auctionId);
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.LISTING_CANCELLED_BY_SELLER, title, body, data,
             /* coalesceKey */ null));

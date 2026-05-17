@@ -1,8 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { awaitAuthReady, getAccessToken } from "@/lib/auth/session";
 import {
-  ensureFreshAccessToken,
+  clearSessionCache,
   configureRefresh,
+  ensureFreshAccessToken,
   RefreshFailedError,
 } from "@/lib/auth/refresh";
 
@@ -97,6 +98,11 @@ async function handleUnauthorized<T>(
     await ensureFreshAccessToken();
   } catch (e) {
     if (e instanceof RefreshFailedError) {
+      // Refresh failed inside the 401-recovery path: the caller's session
+      // is definitively dead. Wipe per-user caches BEFORE the redirect so
+      // wallet / currentUser / dashboard data doesn't survive into the
+      // unauthenticated state and bleed into the login page.
+      clearSessionCache();
       if (typeof window !== "undefined") {
         const next = encodeURIComponent(
           window.location.pathname + window.location.search
