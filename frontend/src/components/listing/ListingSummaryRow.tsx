@@ -256,24 +256,18 @@ function EndedBidSummary({
   auction: ListingRowAuction;
   highBid: number | null;
 }) {
-  // Backend always projects endOutcome on ENDED auctions post Epic 05
-  // sub-spec 1. If this field is ever null on an ENDED auction, it's a
-  // backend invariant violation — let it surface rather than papering
-  // over it with a heuristic.
-  if (auction.endOutcome == null) {
-    throw new Error(
-      `ListingSummaryRow rendered ENDED auction ${auction.publicId} with null endOutcome — ` +
-        "backend enrichment invariant violated (Epic 05 sub-spec 1).",
-    );
-  }
-  const outcome: AuctionEndOutcome = auction.endOutcome;
-
   // Winner display-name fallback mirrors AuctionEndedPanel. The query runs
   // only when we have a winnerId but no inline display name. Same cache key
   // as AuctionEndedPanel so the two share any pre-fetched profile data.
+  //
+  // Hook must be called unconditionally (rules-of-hooks): the
+  // null-endOutcome fallback below cannot short-circuit before this
+  // call. The query's {@code enabled} flag already gates the actual
+  // fetch on the conditions that matter (outcome is SOLD/BOUGHT_NOW,
+  // winnerPublicId present, inline display name missing).
   const winnerPublicId = auction.winnerPublicId;
   const needWinnerFetch =
-    (outcome === "SOLD" || outcome === "BOUGHT_NOW") &&
+    (auction.endOutcome === "SOLD" || auction.endOutcome === "BOUGHT_NOW") &&
     winnerPublicId != null &&
     (auction.winnerDisplayName == null || auction.winnerDisplayName === "");
   const winnerQuery = useQuery<PublicUserProfile>({
@@ -282,6 +276,30 @@ function EndedBidSummary({
     enabled: needWinnerFetch,
     staleTime: 60_000,
   });
+
+  // Backend always projects endOutcome on ENDED auctions post Epic 05
+  // sub-spec 1. If this field is ever null on an ENDED auction, it is a
+  // backend enrichment regression — log loudly so we notice in dev, but
+  // render a graceful fallback rather than throwing. A throw here crashes
+  // the entire My Listings page for every seller as soon as ONE row is
+  // missing the field, which is precisely what happened the first time a
+  // seller's auction reached ENDED before the SellerAuctionResponse
+  // projection was widened to include endOutcome.
+  if (auction.endOutcome == null) {
+    if (typeof console !== "undefined") {
+      console.warn(
+        `ListingSummaryRow: ENDED auction ${auction.publicId} arrived with null endOutcome — ` +
+          "backend enrichment may be stale. Rendering fallback.",
+      );
+    }
+    return (
+      <p className="text-xs text-fg-muted">
+        Auction ended
+      </p>
+    );
+  }
+  const outcome: AuctionEndOutcome = auction.endOutcome;
+
   const winnerDisplayName =
     auction.winnerDisplayName ??
     winnerQuery.data?.displayName ??

@@ -72,7 +72,8 @@ public class AuctionDtoMapper {
     public record MapperBatchContext(
             Map<Long, RealtyGroup> groupsById,
             Map<Long, AuctionPhoto> primaryPhotoByAuctionId,
-            Map<Long, UUID> winnerPublicIdByAuctionId) {
+            Map<Long, UUID> winnerPublicIdByAuctionId,
+            Map<Long, String> winnerDisplayNameByAuctionId) {
 
         public static MapperBatchContext build(
                 List<Auction> auctions,
@@ -100,7 +101,8 @@ public class AuctionDtoMapper {
                     .collect(Collectors.toMap(
                             p -> p.getAuction().getId(), Function.identity()));
             Map<Long, UUID> winners = new HashMap<>(userRepo.findPublicIdsByIds(winnerIds));
-            return new MapperBatchContext(groups, primaryPhotos, winners);
+            Map<Long, String> winnerNames = new HashMap<>(userRepo.findDisplayNamesByIds(winnerIds));
+            return new MapperBatchContext(groups, primaryPhotos, winners, winnerNames);
         }
     }
 
@@ -225,6 +227,9 @@ public class AuctionDtoMapper {
                 a.getUpdatedAt(),
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt(),
+                a.getEndOutcome(),
+                a.getFinalBidAmount(),
+                resolveWinnerDisplayName(a, ctx),
                 resolveGroupAttribution(a, ctx),
                 resolveListingAgent(a));
     }
@@ -364,6 +369,27 @@ public class AuctionDtoMapper {
                     .orElse(null);
         }
         return ctx.winnerPublicIdByAuctionId().get(auction.getWinnerId());
+    }
+
+    /**
+     * Resolves the winner's display name (with username fallback) for
+     * outbound DTO emission. Returns null when the auction has no winner.
+     * Mirrors {@link #resolveWinnerPublicId}: batch callers pass a non-null
+     * context to collapse N+1 queries; single-DTO callers pass null.
+     */
+    private String resolveWinnerDisplayName(Auction auction, MapperBatchContext ctx) {
+        if (auction.getWinnerId() == null) {
+            return null;
+        }
+        if (ctx == null) {
+            return userRepo.findById(auction.getWinnerId())
+                    .map(u -> {
+                        String dn = u.getDisplayName();
+                        return (dn == null || dn.isBlank()) ? u.getUsername() : dn;
+                    })
+                    .orElse(null);
+        }
+        return ctx.winnerDisplayNameByAuctionId().get(auction.getWinnerId());
     }
 
     /**

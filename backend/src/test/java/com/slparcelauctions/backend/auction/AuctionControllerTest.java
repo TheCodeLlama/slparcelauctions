@@ -114,6 +114,9 @@ class AuctionControllerTest {
                 false, null, null, null,
                 new java.math.BigDecimal("0.05"), null,
                 null, null, null, null,
+                /* endOutcome */ null,
+                /* finalBidAmount */ null,
+                /* winnerDisplayName */ null,
                 null, null);
     }
 

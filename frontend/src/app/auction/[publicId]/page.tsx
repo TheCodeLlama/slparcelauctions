@@ -97,7 +97,12 @@ export default async function AuctionPage({ params }: Props) {
       getBidHistory(publicId, { page: 0, size: 20 }),
     ]);
   } catch (err) {
-    if (isApiError(err) && err.status === 404) notFound();
+    // 404 = auction missing. 400 = the route param wasn't a valid UUID
+    // (e.g. a legacy notification deeplink like /auction/14). Both render
+    // as a clean 404 instead of crashing into the Next.js error boundary.
+    if (isApiError(err) && (err.status === 404 || err.status === 400)) {
+      notFound();
+    }
     throw err;
   }
 

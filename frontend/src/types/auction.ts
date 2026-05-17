@@ -118,6 +118,12 @@ export interface SellerAuctionResponse {
   // and an escrow row exists; null otherwise.
   escrowState?: EscrowState | null;
   transferConfirmedAt?: string | null;
+  // ENDED-state enrichment. Populated once the auction transitions out of
+  // ACTIVE; null for pre-ENDED statuses. ListingSummaryRow reads these to
+  // render "Sold for L$X to @winner" without a follow-up profile fetch.
+  endOutcome?: AuctionEndOutcome | null;
+  finalBidAmount?: number | null;
+  winnerDisplayName?: string | null;
   // Realty group attribution — present when the listing was created under a group.
   realtyGroup?: GroupAttribution | null;
   listingAgent?: ListingAgent | null;
