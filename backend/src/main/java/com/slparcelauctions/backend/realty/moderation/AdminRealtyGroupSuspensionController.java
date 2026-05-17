@@ -61,10 +61,19 @@ public class AdminRealtyGroupSuspensionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @org.springframework.transaction.annotation.Transactional
     public SuspensionDto issue(
             @PathVariable UUID publicId,
             @Valid @RequestBody AdminSuspensionRequest body,
             @AuthenticationPrincipal AuthPrincipal admin) {
+        // @Transactional keeps the JPA session open across the
+        // service.issue + mapper.toDto boundary. The service populates
+        // RealtyGroupSuspension.issuedByAdmin via
+        // userRepository.getReferenceById(admin.userId()) — a lazy proxy
+        // that initialises on first non-id getter access. Without an
+        // open session here, mapper.toDto's getPublicId()/getDisplayName()
+        // calls would throw LazyInitializationException at JSON
+        // serialization time. OSIV is disabled (application.yml).
         RealtyGroupSuspension saved = service.issue(
             publicId,
             admin.userId(),

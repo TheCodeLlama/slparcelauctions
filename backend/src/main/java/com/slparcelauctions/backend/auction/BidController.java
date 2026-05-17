@@ -74,9 +74,17 @@ public class BidController {
     }
 
     @GetMapping
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public PagedResponse<BidHistoryEntry> bidHistory(
             @PathVariable UUID auctionPublicId,
             Pageable pageable) {
+        // @Transactional keeps the JPA session open through the stream so
+        // BidHistoryEntry.from can dereference bid.getBidder().getPublicId()
+        // (Bid.bidder is @ManyToOne LAZY). OSIV is disabled in
+        // application.yml so without this annotation the session closes
+        // before the map runs and the lazy proxy throws
+        // LazyInitializationException at serialization time. Matches the
+        // /users/me/auctions guard documented at listMine() below.
         Long auctionId = resolveAuctionId(auctionPublicId);
         return PagedResponse.from(bidRepo.findByAuctionIdOrderByCreatedAtDesc(auctionId, pageable)
                 .map(BidHistoryEntry::from));

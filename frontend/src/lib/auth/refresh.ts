@@ -47,6 +47,23 @@ export function configureRefresh(queryClient: QueryClient): void {
 }
 
 /**
+ * Wipes every cached query and re-establishes the session cache entry as
+ * {@code null}. Called from {@code handleUnauthorized} (lib/api.ts) when
+ * the 401-interceptor's refresh attempt fails — at that point the
+ * caller's session is definitively dead and per-user caches (currentUser,
+ * wallet, ledger, dashboard, etc.) must not survive into the
+ * unauthenticated state. NOT called from the useAuth bootstrap path —
+ * see the {@code ensureFreshAccessToken} failure-branch note for why.
+ *
+ * No-op when no QueryClient has been configured (test harnesses).
+ */
+export function clearSessionCache(): void {
+  if (!queryClientRef) return;
+  queryClientRef.clear();
+  queryClientRef.setQueryData(SESSION_QUERY_KEY, null);
+}
+
+/**
  * Refreshes the access token, deduping concurrent callers onto a single
  * in-flight promise. Returns the new access token and the user payload.
  * On failure, clears the in-memory access token and the session query
@@ -67,14 +84,13 @@ export async function ensureFreshAccessToken(): Promise<RefreshResult> {
 
       if (!response.ok) {
         setAccessToken(null);
-        if (queryClientRef) {
-          // The refresh cookie is invalid / revoked / expired — session is
-          // dead. Wipe every cached query before re-establishing the null
-          // auth entry so per-user caches (currentUser, wallet, ledger,
-          // dashboard, etc.) don't survive into the unauthenticated state.
-          queryClientRef.clear();
-          queryClientRef.setQueryData(SESSION_QUERY_KEY, null);
-        }
+        // NOTE: do NOT call queryClientRef.clear() / setQueryData here.
+        // ensureFreshAccessToken is invoked from inside the useAuth bootstrap
+        // queryFn; calling clear() there cancels the bootstrap query
+        // mid-flight, which leaves useAuth stuck in "loading" forever and
+        // hides the Sign in / Register buttons in the Header. The caller
+        // that needs cache wipe (handleUnauthorized in lib/api.ts on
+        // RefreshFailedError) does that itself via clearSessionCache.
         throw new RefreshFailedError(response.status);
       }
 
