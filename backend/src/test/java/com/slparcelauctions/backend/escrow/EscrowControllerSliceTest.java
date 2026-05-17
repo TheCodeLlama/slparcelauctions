@@ -98,7 +98,8 @@ class EscrowControllerSliceTest {
         // Wallet-only escrow funding (spec 2026-05-16): paymentDeadline
         // is gone from EscrowStatusResponse; transferDeadline replaces it.
         return new EscrowStatusResponse(
-                ESCROW_PUBLIC_ID, AUCTION_PUBLIC_ID, state,
+                ESCROW_PUBLIC_ID, AUCTION_PUBLIC_ID,
+                "Winner Resident", state,
                 5_000L, 250L, 4_750L,
                 null, null, null, null,
                 null, null, null,

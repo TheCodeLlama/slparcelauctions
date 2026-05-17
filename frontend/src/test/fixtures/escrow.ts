@@ -11,6 +11,7 @@ export function fakeEscrow(
   const base: EscrowStatusResponse = {
     escrowPublicId: "00000000-0000-0000-0000-000000000001",
     auctionPublicId: "00000000-0000-0000-0000-000000000007",
+    winnerSlAvatarName: "Winner Resident",
     state: "ESCROW_PENDING",
     finalBidAmount: 5000,
     commissionAmt: 250,

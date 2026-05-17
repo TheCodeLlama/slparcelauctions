@@ -37,6 +37,13 @@ export type EscrowFreezeReason =
 export interface EscrowStatusResponse {
   escrowPublicId: string;
   auctionPublicId: string;
+  /**
+   * Winner's SL avatar name. Shown to the seller in the TRANSFER_PENDING
+   * card so they can paste it into the SL viewer's About Land → Sell Land →
+   * "Sell to" field. Null only for pre-FUNDED states (no winner resolved
+   * yet) — should be present whenever an escrow row exists post-FUNDED.
+   */
+  winnerSlAvatarName: string | null;
   state: EscrowState;
   finalBidAmount: number;
   commissionAmt: number;

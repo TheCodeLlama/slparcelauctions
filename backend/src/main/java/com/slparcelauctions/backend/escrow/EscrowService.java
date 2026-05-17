@@ -454,8 +454,20 @@ public class EscrowService {
 
     private EscrowStatusResponse toStatusResponse(Escrow escrow) {
         List<EscrowTimelineEntry> timeline = buildTimeline(escrow);
+        // Look up the winner's SL avatar name so the seller's
+        // TRANSFER_PENDING card can show it next to a copy button. One
+        // extra query per escrow GET is acceptable for this single-row
+        // endpoint. Null when no winner is resolved yet (pre-FUNDED).
+        String winnerSlAvatarName = null;
+        Long winnerUserId = escrow.getAuction().getWinnerUserId();
+        if (winnerUserId != null) {
+            winnerSlAvatarName = userRepo.findById(winnerUserId)
+                    .map(User::getSlAvatarName)
+                    .orElse(null);
+        }
         return new EscrowStatusResponse(
-                escrow.getPublicId(), escrow.getAuction().getPublicId(), escrow.getState(),
+                escrow.getPublicId(), escrow.getAuction().getPublicId(),
+                winnerSlAvatarName, escrow.getState(),
                 escrow.getFinalBidAmount(), escrow.getCommissionAmt(), escrow.getPayoutAmt(),
                 escrow.getTransferDeadline(),
                 escrow.getFundedAt(), escrow.getTransferConfirmedAt(), escrow.getCompletedAt(),
