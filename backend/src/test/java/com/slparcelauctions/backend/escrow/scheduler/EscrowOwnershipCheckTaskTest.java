@@ -37,6 +37,8 @@ import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.region.dto.RegionPageData;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
@@ -66,12 +68,15 @@ class EscrowOwnershipCheckTaskTest {
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID WINNER_AVATAR = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID STRANGER_AVATAR = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static final UUID GROUP_UUID = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
+    private static final Long REALTY_GROUP_SL_GROUP_ID = 99L;
     private static final int FAILURE_THRESHOLD = 5;
 
     @Mock EscrowRepository escrowRepo;
     @Mock EscrowService escrowService;
     @Mock SlWorldApiClient worldApi;
     @Mock UserRepository userRepo;
+    @Mock RealtyGroupSlGroupRepository slGroupRepo;
     @Mock EscrowConfigProperties props;
 
     EscrowOwnershipCheckTask task;
@@ -80,7 +85,8 @@ class EscrowOwnershipCheckTaskTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-04-20T12:00:00Z"), ZoneOffset.UTC);
-        task = new EscrowOwnershipCheckTask(escrowRepo, escrowService, worldApi, userRepo, props, fixed);
+        task = new EscrowOwnershipCheckTask(
+                escrowRepo, escrowService, worldApi, userRepo, slGroupRepo, props, fixed);
         lenient().when(props.ownershipApiFailureThreshold()).thenReturn(FAILURE_THRESHOLD);
         lenient().when(props.ownershipReminderDelay()).thenReturn(Duration.ofHours(24));
     }
@@ -254,6 +260,82 @@ class EscrowOwnershipCheckTaskTest {
     }
 
     @Test
+    void groupStillOwns_case3_stampsChecked_noFreeze() {
+        // Case 3: group listing. The parcel is owned by the registered SL
+        // group (not the seller's avatar). Pre-transfer ownership should
+        // match the group UUID and the escrow should stay TRANSFER_PENDING
+        // rather than freezing on the first sweep.
+        Escrow escrow = buildPendingGroup();
+        escrow.setFundedAt(OffsetDateTime.now(fixed).minusHours(2));
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(Mono.just(new ParcelPageData(
+                        meta(GROUP_UUID, "group"), java.util.UUID.randomUUID())));
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+                .id(REALTY_GROUP_SL_GROUP_ID)
+                .slGroupUuid(GROUP_UUID)
+                .build();
+        when(slGroupRepo.findById(REALTY_GROUP_SL_GROUP_ID)).thenReturn(Optional.of(reg));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        verify(escrowService).stampChecked(escrow, OffsetDateTime.now(fixed));
+        verify(escrowService, never()).confirmTransfer(any(), any());
+        verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+    }
+
+    @Test
+    void groupListing_winnerNowOwns_delegatesToConfirmTransfer() {
+        // Case 3: group listing where the parcel has already been deeded to
+        // the winning avatar. Should complete the escrow regardless of the
+        // group branch taking precedence in expected-owner resolution.
+        Escrow escrow = buildPendingGroup();
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(Mono.just(new ParcelPageData(
+                        meta(WINNER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        verify(escrowService).confirmTransfer(escrow, OffsetDateTime.now(fixed));
+        verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+        verify(escrowService, never()).stampChecked(any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void groupListing_unknownThirdParty_freezesWithGroupEvidence() {
+        // Case 3: group listing, but parcel reparented to a stranger.
+        // Evidence carries the expected GROUP uuid (not the seller's avatar)
+        // so incident review reflects what the check actually compared.
+        Escrow escrow = buildPendingGroup();
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID))
+                .thenReturn(Mono.just(new ParcelPageData(
+                        meta(STRANGER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+        RealtyGroupSlGroup reg = RealtyGroupSlGroup.builder()
+                .id(REALTY_GROUP_SL_GROUP_ID)
+                .slGroupUuid(GROUP_UUID)
+                .build();
+        when(slGroupRepo.findById(REALTY_GROUP_SL_GROUP_ID)).thenReturn(Optional.of(reg));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        ArgumentCaptor<Map<String, Object>> ev = ArgumentCaptor.forClass(Map.class);
+        verify(escrowService).freezeForFraud(
+                eq(escrow), eq(FreezeReason.UNKNOWN_OWNER), ev.capture(),
+                eq(OffsetDateTime.now(fixed)));
+        assertThat(ev.getValue())
+                .containsEntry("observedOwnerUuid", STRANGER_AVATAR.toString())
+                .containsEntry("expectedWinnerUuid", WINNER_AVATAR.toString())
+                .containsEntry("expectedGroupUuid", GROUP_UUID.toString())
+                .doesNotContainKey("expectedSellerUuid");
+    }
+
+    @Test
     void lockEntryPath_usesFindByIdForUpdate_notFindById() {
         Escrow escrow = buildPending();
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
@@ -321,6 +403,12 @@ class EscrowOwnershipCheckTaskTest {
                 .fundedAt(OffsetDateTime.now(fixed).minusHours(2))
                 .consecutiveWorldApiFailures(0)
                 .build();
+    }
+
+    private Escrow buildPendingGroup() {
+        Escrow base = buildPending();
+        base.getAuction().setRealtyGroupSlGroupId(REALTY_GROUP_SL_GROUP_ID);
+        return base;
     }
 
     private ParcelMetadata meta(UUID owner, String ownerType) {

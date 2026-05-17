@@ -6,6 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
@@ -32,6 +33,15 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
  * page's seller card. {@code completionRate} is server-computed by
  * {@code SellerCompletionRateMapper} so the private {@code cancelledWithBids}
  * and {@code escrowExpiredUnfulfilled} counters never appear in the response.
+ *
+ * <p>{@code endOutcome}, {@code finalBidAmount}, {@code winnerPublicId}, and
+ * {@code winnerDisplayName} are populated on the public DTO once the auction
+ * has ended -- the outcome + winning bid + winner identity are all already
+ * derivable from the public bid history, so emitting them inline lets the
+ * detail page render the ended-state panel without a follow-up profile
+ * fetch. {@code null} for pre-ENDED statuses. Without these the buyer view
+ * of an ENDED listing throws inside AuctionEndedPanel
+ * ({@code endOutcome} invariant), surfacing as an SSR 500.
  */
 public record PublicAuctionResponse(
         UUID publicId,
@@ -60,6 +70,10 @@ public record PublicAuctionResponse(
         SellerSummary seller,
         EscrowState escrowState,
         OffsetDateTime transferConfirmedAt,
+        AuctionEndOutcome endOutcome,
+        Long finalBidAmount,
+        UUID winnerPublicId,
+        String winnerDisplayName,
         GroupAttributionDto realtyGroup,
         ListingAgentDto listingAgent) {
 

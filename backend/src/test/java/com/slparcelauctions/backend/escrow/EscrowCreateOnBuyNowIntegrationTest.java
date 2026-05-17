@@ -199,6 +199,27 @@ class EscrowCreateOnBuyNowIntegrationTest {
         assertThat(env.state()).isEqualTo(EscrowState.ESCROW_PENDING);
     }
 
+    @Test
+    void buyNow_doesNotPublishEscrowFundedNotification_forSeller() {
+        // On the buy-now path BidService.acceptBid publishes a dedicated
+        // AUCTION_ENDED_BOUGHT_NOW notification to the seller; the same
+        // transaction's wallet auto-fund used to also publish ESCROW_FUNDED,
+        // landing two near-duplicate seller rows ("Buy-now exercised" +
+        // "Buyer funded escrow on …") for a single event. Only the
+        // BOUGHT_NOW notification should fire on this path.
+        long bidAmount = 10_000L;
+        seedActiveAuction(bidAmount);
+
+        bidService.placeBid(seededAuctionId, seededBidderId, bidAmount, "1.2.3.4");
+
+        java.util.List<com.slparcelauctions.backend.notification.Notification> sellerNotifs =
+                notificationRepo.findAllByUserId(seededSellerId);
+        assertThat(sellerNotifs)
+                .extracting(com.slparcelauctions.backend.notification.Notification::getCategory)
+                .contains(com.slparcelauctions.backend.notification.NotificationCategory.AUCTION_ENDED_BOUGHT_NOW)
+                .doesNotContain(com.slparcelauctions.backend.notification.NotificationCategory.ESCROW_FUNDED);
+    }
+
     // -------------------------------------------------------------------------
     // Seeding
     // -------------------------------------------------------------------------
