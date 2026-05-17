@@ -368,6 +368,12 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
     session.status === "authenticated"
       ? { publicId: session.user.publicId, verified: session.user.verified }
       : null;
+  // Distinguishes "bootstrap still running" (auth indeterminate; show
+  // the public data + spinner variant) from "session resolved to
+  // unauthenticated" (show the sign-in CTA). Without this distinction,
+  // a slow auth/refresh roundtrip flashes "Sign in to bid" to a viewer
+  // who actually IS signed in.
+  const authLoading = session.status === "loading";
   const viewerIsWinning =
     currentUserPublicId != null &&
     (auction as AuctionCacheEntry).currentBidderPublicId === currentUserPublicId;
@@ -431,6 +437,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             <BidPanel
               auction={auction}
               currentUser={bidPanelUser}
+              authLoading={authLoading}
               existingProxy={myProxyQuery.data ?? null}
               connectionState={connectionState}
               currentUserIsWinning={viewerIsWinning}
@@ -450,6 +457,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
         <StickyBidBar
           auction={auction}
           currentUser={bidPanelUser}
+          authLoading={authLoading}
           connectionState={connectionState}
           onOpenSheet={() => setSheetOpen(true)}
         />
@@ -457,6 +465,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           <BidPanel
             auction={auction}
             currentUser={bidPanelUser}
+            authLoading={authLoading}
             existingProxy={myProxyQuery.data ?? null}
             connectionState={connectionState}
             currentUserIsWinning={viewerIsWinning}

@@ -7,6 +7,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.net.URI;
@@ -90,6 +91,28 @@ public class AuthExceptionHandler {
         pd.setTitle("Refresh token reuse detected");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "AUTH_REFRESH_TOKEN_REUSED");
+        return pd;
+    }
+
+    /**
+     * Defense-in-depth: if a refresh-token rotation race somehow slips past
+     * the pessimistic row lock in {@code RefreshTokenService.rotate}, never
+     * surface it as a 500. Map to 401 so the frontend treats it as
+     * "session needs another refresh / log in again" rather than a server
+     * fault. The row-lock + concurrent-rotation-grace path inside the
+     * service should make this handler dormant in normal operation.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLock(
+            ObjectOptimisticLockingFailureException e, HttpServletRequest req) {
+        log.warn("Auth-slice optimistic lock collision on {}: {}",
+                req.getRequestURI(), e.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+            HttpStatus.UNAUTHORIZED, "Session refresh conflicted. Please retry.");
+        pd.setType(URI.create("https://slpa.example/problems/auth/refresh-conflict"));
+        pd.setTitle("Refresh conflict");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "AUTH_REFRESH_CONFLICT");
         return pd;
     }
 

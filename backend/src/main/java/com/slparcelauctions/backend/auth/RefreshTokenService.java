@@ -108,24 +108,36 @@ public class RefreshTokenService {
     @Transactional
     public RotationResult rotate(String rawToken, String userAgent, String ipAddress) {
         String hash = TokenHasher.sha256Hex(rawToken);
-        RefreshToken row = repository.findByTokenHash(hash)
+        // Pessimistic row lock — serializes concurrent rotations of the same
+        // token at the DB level. Without it, two parallel rotations would
+        // both pass the revokedAt-null check, both call
+        // setRevokedAt(now), and the @Version optimistic check would fail
+        // on the loser's commit as ObjectOptimisticLockingFailureException
+        // (HTTP 500). With FOR UPDATE the second caller blocks here until
+        // the first transaction commits, then re-reads with revokedAt set
+        // and falls into the reuse-detection cascade below — security model
+        // FOOTGUNS §B.6 is preserved. The single-client concurrency case
+        // that originally produced the 500 is now prevented upstream by
+        // the frontend stampede guard ({@code ensureFreshAccessToken}).
+        RefreshToken row = repository.findByTokenHashForUpdate(hash)
                 .orElseThrow(() -> new TokenInvalidException("Refresh token not found."));
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
 
         if (row.getRevokedAt() != null) {
             // REUSE DETECTED — cascade. FOOTGUNS §B.6.
             log.warn("Refresh token reuse detected: userId={} ip={} userAgent={}",
                     row.getUserId(), ipAddress, userAgent);
-            repository.revokeAllByUserId(row.getUserId(), OffsetDateTime.now(clock));
+            repository.revokeAllByUserId(row.getUserId(), now);
             userService.bumpTokenVersion(row.getUserId());  // invalidate live access tokens
             throw new RefreshTokenReuseDetectedException(row.getUserId());
         }
 
-        if (row.getExpiresAt().isBefore(OffsetDateTime.now(clock))) {
+        if (row.getExpiresAt().isBefore(now)) {
             throw new TokenExpiredException("Refresh token has expired.");
         }
 
         // Happy path: rotate
-        OffsetDateTime now = OffsetDateTime.now(clock);
         row.setLastUsedAt(now);
         row.setRevokedAt(now);
         // Dirty checking flushes on transaction commit

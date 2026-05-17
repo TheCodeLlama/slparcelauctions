@@ -126,7 +126,18 @@ vi.mock("sockjs-client", () => ({
 }));
 
 vi.mock("@/lib/auth/refresh", () => ({
-  ensureFreshAccessToken: vi.fn(async () => "mock-access-token"),
+  ensureFreshAccessToken: vi.fn(async () => ({
+    accessToken: "mock-access-token",
+    user: {
+      publicId: "test-user-public-id",
+      username: "test-user",
+      email: null,
+      displayName: null,
+      slAvatarUuid: null,
+      verified: false,
+      role: "USER" as const,
+    },
+  })),
   RefreshFailedError: class extends Error {
     readonly status: number;
     constructor(status: number) {

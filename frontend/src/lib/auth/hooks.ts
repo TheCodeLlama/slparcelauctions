@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { authApi, type LoginRequest, type RegisterRequest } from "./api";
+import { ensureFreshAccessToken } from "./refresh";
 import { markAuthReady, setAccessToken } from "./session";
 import type { AuthSession, AuthUser } from "./session";
 
@@ -12,20 +13,27 @@ const SESSION_QUERY_KEY = ["auth", "session"] as const;
 /**
  * Bootstrap the session by calling POST /api/v1/auth/refresh.
  *
- * The side effect (calling setAccessToken) lives INSIDE queryFn, NOT in
- * onSuccess. TanStack Query's first subscriber receives queryFn's return
- * value directly — onSuccess only fires on subsequent subscribers and
- * refetches. If we put setAccessToken in onSuccess, the first useAuth() call
- * would get the user but the access token ref would stay null until the next
- * refetch (which may never happen with staleTime: Infinity).
+ * Routes through {@link ensureFreshAccessToken} so the in-flight stampede
+ * guard dedupes ALL refresh paths: the {@code useAuth} bootstrap, the
+ * 401 HTTP interceptor, and the STOMP WebSocket {@code beforeConnect}
+ * hook. Before this dedupe was unified, the bootstrap fired
+ * {@code authApi.refresh()} directly in parallel with the WS client
+ * firing {@code ensureFreshAccessToken()} on the same page load — both
+ * with the same refresh cookie. The backend rotation race surfaced as
+ * {@code ObjectOptimisticLockingFailureException} (500) on one of them,
+ * leaving the user with the inconsistent state seen in prod.
  *
- * See FOOTGUNS §F.2.
+ * The query function returns the authenticated user. The access token
+ * and session cache are populated as side effects of
+ * {@code ensureFreshAccessToken}, so the only extra work here is
+ * extracting the user from the cache for React Query's first subscriber.
+ *
+ * See FOOTGUNS §F.2 and §F.4.
  */
 async function bootstrapSession(): Promise<AuthUser> {
   try {
-    const response = await authApi.refresh();
-    setAccessToken(response.accessToken);
-    return response.user;
+    const result = await ensureFreshAccessToken();
+    return result.user;
   } finally {
     // Close the auth-ready gate so api.ts can release any requests that fired
     // in parallel with the bootstrap. Fires on success AND on 401 — the gate's
