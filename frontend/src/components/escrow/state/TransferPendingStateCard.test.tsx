@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderWithProviders, screen } from "@/test/render";
+import { renderWithProviders, screen, fireEvent, waitFor } from "@/test/render";
 import { TransferPendingStateCard } from "./TransferPendingStateCard";
 import { fakeEscrow } from "@/test/fixtures/escrow";
 
@@ -61,6 +61,70 @@ describe("TransferPendingStateCard", () => {
       );
       const link = screen.getByRole("link", { name: /file a dispute/i });
       expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
+    });
+
+    it("renders the winner's SL avatar name with a copy button", async () => {
+      // Real timers for this test so waitFor + the promise-resolution
+      // microtask the copy handler awaits can actually progress.
+      vi.useRealTimers();
+      const writeTextMock = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: writeTextMock },
+        writable: true,
+        configurable: true,
+      });
+
+      renderWithProviders(
+        <TransferPendingStateCard
+          escrow={fakeEscrow({
+            state: "TRANSFER_PENDING",
+            fundedAt: "2026-04-30T12:00:00Z",
+            transferConfirmedAt: null,
+            transferDeadline: "2026-05-03T12:00:00Z",
+            winnerSlAvatarName: "Alice Bidder Resident",
+          })}
+          role="seller"
+        />,
+      );
+
+      expect(screen.getByTestId("winner-sl-avatar-name")).toHaveTextContent(
+        "Alice Bidder Resident",
+      );
+      const copyBtn = screen.getByTestId("copy-winner-sl-avatar-name-btn");
+      expect(copyBtn).toBeInTheDocument();
+
+      fireEvent.click(copyBtn);
+      await waitFor(() => {
+        expect(writeTextMock).toHaveBeenCalledWith("Alice Bidder Resident");
+      });
+      await waitFor(() => {
+        expect(copyBtn).toHaveTextContent(/copied/i);
+      });
+    });
+
+    it("falls back to generic step 3 copy when winnerSlAvatarName is null", () => {
+      renderWithProviders(
+        <TransferPendingStateCard
+          escrow={fakeEscrow({
+            state: "TRANSFER_PENDING",
+            fundedAt: "2026-04-30T12:00:00Z",
+            transferConfirmedAt: null,
+            transferDeadline: "2026-05-03T12:00:00Z",
+            winnerSlAvatarName: null,
+          })}
+          role="seller"
+        />,
+      );
+
+      expect(
+        screen.queryByTestId("winner-sl-avatar-name"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("copy-winner-sl-avatar-name-btn"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/winner's avatar name/i),
+      ).toBeInTheDocument();
     });
   });
 

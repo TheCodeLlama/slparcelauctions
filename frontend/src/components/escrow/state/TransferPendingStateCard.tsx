@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { EscrowDeadlineBadge } from "@/components/escrow/EscrowDeadlineBadge";
@@ -10,10 +11,11 @@ import type { StateCardProps } from "./types";
  * into two sub-phases:
  *
  *  - Pre-confirmation: seller sees a numbered SL-viewer recipe for
- *    transferring the parcel at L$0 to the winner's avatar (plus a
- *    clipboard copy button for the winner's avatar name). Winner sees a
- *    waiting banner with guidance thresholds and an inert "Message seller"
- *    placeholder (real messaging is future work).
+ *    transferring the parcel at L$0 to the winner's avatar. Step 3 renders
+ *    the winner's avatar name in monospace with a "Copy" button next to it
+ *    so the seller can paste it straight into the SL viewer's "Sell to"
+ *    field. Winner sees a waiting banner with guidance thresholds and an
+ *    inert "Message seller" placeholder (real messaging is future work).
  *  - Post-confirmation ("payout pending"): both roles see the same
  *    role-neutral acknowledgement; no dispute link because the backend is
  *    about to flip the escrow to COMPLETED. See spec §3.3.
@@ -73,7 +75,20 @@ function SellerPreConfirmation({
         <li>Right-click the parcel in-world and open About Land.</li>
         <li>Click Sell Land.</li>
         <li>
-          Set &quot;Sell to:&quot; to the winner&apos;s avatar name.
+          {escrow.winnerSlAvatarName ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Set &quot;Sell to:&quot; to:</span>
+              <code
+                data-testid="winner-sl-avatar-name"
+                className="rounded bg-bg-subtle px-1.5 py-0.5 font-mono text-xs text-fg"
+              >
+                {escrow.winnerSlAvatarName}
+              </code>
+              <CopyAvatarNameButton name={escrow.winnerSlAvatarName} />
+            </div>
+          ) : (
+            <>Set &quot;Sell to:&quot; to the winner&apos;s avatar name.</>
+          )}
         </li>
         <li>Set the price to L$ 0 (SLParcels has already escrowed payment).</li>
         <li>Confirm the sale in the SL viewer dialog.</li>
@@ -171,4 +186,33 @@ function formatTimestamp(iso: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+/**
+ * Small inline button that copies the winner's SL avatar name to the
+ * clipboard. Shows a brief "Copied" confirmation for ~1.5s after a
+ * successful copy; clipboard rejection is non-fatal because the name is
+ * also visible on screen.
+ */
+function CopyAvatarNameButton({ name }: { name: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(name);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard rejection is non-fatal; the name is also visible on screen.
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="text-xs font-medium text-brand hover:underline"
+      data-testid="copy-winner-sl-avatar-name-btn"
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
 }
