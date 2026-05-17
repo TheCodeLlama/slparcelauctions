@@ -267,10 +267,6 @@ function BidPanelAuthLoading({
     >
       <CurrentBidDisplay auction={auction} />
 
-      {auction.reservePrice != null ? (
-        <ReserveStatusIndicator auction={auction} />
-      ) : null}
-
       {auction.buyNowPrice != null ? (
         <div
           data-testid="bid-panel-auth-loading-buy-now"
