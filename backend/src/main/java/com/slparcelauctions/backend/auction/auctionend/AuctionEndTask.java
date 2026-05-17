@@ -30,7 +30,9 @@ import lombok.extern.slf4j.Slf4j;
  * Per-auction close worker invoked by {@link AuctionEndScheduler}. Re-acquires
  * the pessimistic lock on the auction row, re-validates the three gates
  * (status=ACTIVE, endsAt<=now, auction still present), classifies the terminal
- * outcome (spec §8), flips the auction to {@link AuctionStatus#ENDED},
+ * outcome (spec §8), routes the auction status per outcome (SOLD hands off to
+ * {@link EscrowService#createForEndedAuction} which flips to TRANSFER_PENDING;
+ * NO_BIDS / RESERVE_NOT_MET go directly to {@link AuctionStatus#EXPIRED}),
  * exhausts every remaining ACTIVE proxy, and schedules an
  * {@link AuctionEndedEnvelope} broadcast on {@code afterCommit}.
  *
@@ -94,9 +96,17 @@ public class AuctionEndTask {
         }
 
         AuctionEndOutcome outcome = classifyOutcome(auction);
-        auction.setStatus(AuctionStatus.ENDED);
         auction.setEndOutcome(outcome);
         auction.setEndedAt(now);
+        if (outcome == AuctionEndOutcome.SOLD || outcome == AuctionEndOutcome.BOUGHT_NOW) {
+            // Status flip to TRANSFER_PENDING is owned by
+            // EscrowService.createForEndedAuction (called below). Leave the
+            // auction at ACTIVE here so all the post-ACTIVE status writes live
+            // in one place.
+        } else {
+            // NO_BIDS / RESERVE_NOT_MET: no escrow opens, terminal failure.
+            auction.setStatus(AuctionStatus.EXPIRED);
+        }
         if (outcome == AuctionEndOutcome.SOLD) {
             auction.setWinnerUserId(auction.getCurrentBidderId());
             auction.setFinalBidAmount(auction.getCurrentBid());
@@ -113,9 +123,10 @@ public class AuctionEndTask {
                     exhausted, auctionId);
         }
 
-        // SOLD outcome stamps the ESCROW_PENDING row in the same transaction
-        // so auction close + escrow creation are atomic — a rollback reverts
-        // both. The ESCROW_CREATED envelope is registered on afterCommit
+        // SOLD outcome stamps the escrow row + flips auction to
+        // TRANSFER_PENDING in the same transaction so auction close + escrow
+        // creation are atomic — a rollback reverts both. The ESCROW_CREATED
+        // envelope is registered on afterCommit
         // INSIDE createForEndedAuction and fires before the AUCTION_ENDED
         // envelope registered below (afterCommit callbacks run in
         // registration order). Clients must therefore tolerate receiving
