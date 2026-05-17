@@ -116,7 +116,10 @@ class AuctionEndTaskTest {
 
         task.closeOne(100L);
 
-        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // SOLD close: AuctionEndTask leaves status at ACTIVE. The status flip
+        // to TRANSFER_PENDING is owned by EscrowService.createForEndedAuction
+        // (mocked here, see verify call below).
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(auction.getEndOutcome()).isEqualTo(AuctionEndOutcome.SOLD);
         assertThat(auction.getWinnerUserId()).isEqualTo(7L);
         assertThat(auction.getFinalBidAmount()).isEqualTo(1500L);
@@ -169,7 +172,8 @@ class AuctionEndTaskTest {
 
         task.closeOne(101L);
 
-        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // RESERVE_NOT_MET: no escrow opens, AuctionEndTask flips ACTIVE -> EXPIRED.
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.EXPIRED);
         assertThat(auction.getEndOutcome()).isEqualTo(AuctionEndOutcome.RESERVE_NOT_MET);
         assertThat(auction.getWinnerUserId()).isNull();
         assertThat(auction.getFinalBidAmount()).isNull();
@@ -210,7 +214,8 @@ class AuctionEndTaskTest {
 
         task.closeOne(102L);
 
-        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // NO_BIDS: no escrow opens, AuctionEndTask flips ACTIVE -> EXPIRED.
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.EXPIRED);
         assertThat(auction.getEndOutcome()).isEqualTo(AuctionEndOutcome.NO_BIDS);
         assertThat(auction.getWinnerUserId()).isNull();
         assertThat(auction.getFinalBidAmount()).isNull();
@@ -262,7 +267,9 @@ class AuctionEndTaskTest {
     @Test
     void skipIfStatusNotActive_noMutationNoPublish() {
         for (AuctionStatus status : new AuctionStatus[]{
-                AuctionStatus.ENDED, AuctionStatus.CANCELLED, AuctionStatus.SUSPENDED}) {
+                AuctionStatus.TRANSFER_PENDING, AuctionStatus.COMPLETED, AuctionStatus.EXPIRED,
+                AuctionStatus.FROZEN, AuctionStatus.DISPUTED,
+                AuctionStatus.CANCELLED, AuctionStatus.SUSPENDED}) {
             Auction auction = Auction.builder()
                 .seller(defaultSeller)
                     .title("Test listing")

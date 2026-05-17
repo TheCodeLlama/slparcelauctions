@@ -8,6 +8,7 @@ import type {
   SellerAuctionResponse,
 } from "@/types/auction";
 import type { ConnectionState } from "@/lib/ws/types";
+import { isEndedView } from "@/lib/listing/auctionStatus";
 import { Button } from "@/components/ui/Button";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { Loader2 } from "@/components/ui/icons";
@@ -80,7 +81,7 @@ function deriveVariant(
   currentUser: StickyBidBarUser | null,
   authLoading: boolean,
 ): Variant {
-  if (auction.status === "ENDED") return "ended";
+  if (isEndedView(auction.status)) return "ended";
   if (authLoading) return "loading";
   if (!currentUser) return "unauth";
   if (!currentUser.verified) return "unverified";

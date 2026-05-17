@@ -84,12 +84,14 @@ public final class BidPlacementHelpers {
 
         // Inline buy-it-now — first bid that meets or exceeds buyNowPrice
         // closes the auction. Winner is always the LAST emitted (the
-        // post-resolution top), not the first-to-hit.
+        // post-resolution top), not the first-to-hit. Status flip to
+        // TRANSFER_PENDING is owned by EscrowService.createForEndedAuction
+        // (invoked by the caller); the auction is left at ACTIVE here so all
+        // the post-ACTIVE status writes live in one place.
         if (auction.getBuyNowPrice() != null) {
             for (Bid bid : emitted) {
                 if (bid.getAmount() >= auction.getBuyNowPrice()) {
                     Bid top = emitted.getLast();
-                    auction.setStatus(AuctionStatus.ENDED);
                     auction.setEndOutcome(AuctionEndOutcome.BOUGHT_NOW);
                     auction.setWinnerUserId(top.getBidder().getId());
                     auction.setFinalBidAmount(top.getAmount());

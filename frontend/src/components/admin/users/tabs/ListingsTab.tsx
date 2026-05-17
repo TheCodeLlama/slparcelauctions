@@ -12,11 +12,12 @@ const PAGE_SIZE = 25;
 function statusLabel(status: AuctionStatus): { label: string; className: string } {
   const map: Partial<Record<AuctionStatus, { label: string; className: string }>> = {
     ACTIVE: { label: "Active", className: "text-brand" },
-    ENDED: { label: "Ended", className: "text-fg-muted" },
+    TRANSFER_PENDING: { label: "Transferring", className: "text-fg-muted" },
     COMPLETED: { label: "Completed", className: "text-success" },
     CANCELLED: { label: "Cancelled", className: "text-danger" },
     SUSPENDED: { label: "Suspended", className: "text-danger font-semibold" },
     EXPIRED: { label: "Expired", className: "text-fg-muted" },
+    FROZEN: { label: "Frozen", className: "text-danger" },
     DRAFT: { label: "Draft", className: "text-fg-muted" },
   };
   return map[status] ?? { label: status, className: "text-fg-muted" };

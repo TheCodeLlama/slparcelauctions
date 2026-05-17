@@ -29,6 +29,7 @@ export type NotificationCategory =
   | "LISTING_SUSPENDED"
   | "LISTING_REVIEW_REQUIRED"
   | "LISTING_CANCELLED_BY_SELLER"
+  | "LISTING_CANCELLED_DURING_ESCROW"
   | "REVIEW_RECEIVED"
   | "SYSTEM_ANNOUNCEMENT";
 
@@ -53,6 +54,7 @@ export type NotificationDataMap = {
   LISTING_SUSPENDED: { auctionId: number; parcelName: string; reason: string };
   LISTING_REVIEW_REQUIRED: { auctionId: number; parcelName: string; reason: string };
   LISTING_CANCELLED_BY_SELLER: { auctionId: number; parcelName: string; reason: string };
+  LISTING_CANCELLED_DURING_ESCROW: { auctionId: number; escrowId: number; parcelName: string; adminNote?: string };
   REVIEW_RECEIVED: { auctionId: number; parcelName: string; reviewId: number; rating: number };
   SYSTEM_ANNOUNCEMENT: Record<string, unknown>;
 };

@@ -10,6 +10,7 @@ import type {
 } from "@/types/auction";
 import type { Page } from "@/types/page";
 import { useConnectionState, useStompSubscription } from "@/lib/ws/hooks";
+import { isEndedView } from "@/lib/listing/auctionStatus";
 import { useAuth } from "@/lib/auth";
 import { useAuction, auctionKey } from "@/hooks/useAuction";
 import { useBidHistory, bidHistoryKey } from "@/hooks/useBidHistory";
@@ -223,10 +224,22 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
           // narrows the union down past the non-type-guard
           // {@code startsWith("ESCROW_")} early-return above so TypeScript
           // can see we only read AUCTION_ENDED fields here.
+          //
+          // Post the auction-status state-machine rewire (spec 2026-05-17)
+          // the cached `status` field carries the public collapsed
+          // {@code "ENDED"} for {@link PublicAuctionResponse} viewers and
+          // one of {@code COMPLETED | EXPIRED | FROZEN | CANCELLED |
+          // TRANSFER_PENDING | DISPUTED} for {@link SellerAuctionResponse}
+          // viewers. The WS envelope doesn't know which DTO underlies the
+          // cache entry, so we don't write `status` here — the trailing
+          // {@code invalidateQueries(auctionKey(publicId))} below refetches
+          // the real status. The auction-ended UI keys off the
+          // {@link isEndedView} helper which understands both vocabularies,
+          // so the brief window between envelope and REST settle still
+          // renders the AuctionEndedPanel correctly once status flips.
           if (env.type === "AUCTION_ENDED") {
             return {
               ...prev,
-              status: "ENDED",
               endsAt: env.endsAt,
               endOutcome: env.endOutcome,
               finalBidAmount: env.finalBid,
@@ -289,6 +302,13 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
       }
 
       if (env.type === "AUCTION_ENDED") {
+        // Refetch the auction so the cache picks up the real terminal
+        // status — PublicAuctionResponse collapses to "ENDED" while
+        // SellerAuctionResponse lands on the actual internal terminal
+        // (COMPLETED / EXPIRED / etc.). See the cache-merger comment
+        // above for the rationale on why the envelope itself doesn't
+        // write `status`.
+        queryClient.invalidateQueries({ queryKey: auctionKey(publicId) });
         queryClient.invalidateQueries({ queryKey: myProxyKey(publicId) });
       }
     },
@@ -411,7 +431,7 @@ export function AuctionDetailClient({ initialAuction, initialBidPage }: Props) {
             positionY={auction.parcel.positionY}
             positionZ={auction.parcel.positionZ}
           />
-          {auction.status === "ENDED" ? (
+          {isEndedView(auction.status) ? (
             <AuctionEndedRow auction={auction} />
           ) : null}
           <ParcelLayoutMapPlaceholder />

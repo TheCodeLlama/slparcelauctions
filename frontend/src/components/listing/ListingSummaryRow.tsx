@@ -21,6 +21,7 @@ import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import { userApi, type PublicUserProfile } from "@/lib/user/api";
 import type {
   AuctionEndOutcome,
+  AuctionStatus,
   SellerAuctionResponse,
 } from "@/types/auction";
 import { ListingStatusBadge } from "./ListingStatusBadge";
@@ -201,10 +202,10 @@ function Thumbnail({ src, alt }: { src: string | null; alt: string }) {
  *       bid-summary repeat.</li>
  * </ul>
  *
- * ENDED rows read {@code endOutcome} directly from the DTO. Backend always
- * projects this field post Epic 05 sub-spec 1; a null value on an ENDED
- * auction is a backend invariant violation and surfaces as an error rather
- * than being papered over with a heuristic.
+ * Ended-view rows read {@code endOutcome} directly from the DTO. Backend
+ * always projects this field once the auction has closed; a null value on
+ * any post-ACTIVE status is a backend invariant violation and surfaces as
+ * an error rather than being papered over with a heuristic.
  */
 function BidSummaryLine({ auction }: { auction: ListingRowAuction }) {
   const highBid = normalizeBid(auction.currentHighBid);
@@ -212,10 +213,27 @@ function BidSummaryLine({ auction }: { auction: ListingRowAuction }) {
   if (auction.status === "ACTIVE") {
     return <ActiveBidSummary auction={auction} highBid={highBid} />;
   }
-  if (auction.status === "ENDED") {
+  // Seller view — the post-rewire backend lands the auction at one of the
+  // post-ACTIVE statuses ({@code TRANSFER_PENDING}, {@code DISPUTED},
+  // {@code COMPLETED}, {@code EXPIRED}, {@code FROZEN}) once the cycle is
+  // done. CANCELLED / SUSPENDED stay omitted: those rows render a dedicated
+  // affordance elsewhere and skip the bid-summary line entirely.
+  if (isEndedSummaryStatus(auction.status)) {
     return <EndedBidSummary auction={auction} highBid={highBid} />;
   }
   return null;
+}
+
+const ENDED_SUMMARY_STATUSES = new Set<AuctionStatus>([
+  "TRANSFER_PENDING",
+  "DISPUTED",
+  "COMPLETED",
+  "EXPIRED",
+  "FROZEN",
+]);
+
+function isEndedSummaryStatus(status: AuctionStatus): boolean {
+  return ENDED_SUMMARY_STATUSES.has(status);
 }
 
 function ActiveBidSummary({
@@ -416,12 +434,10 @@ function PrimaryActions({
           <OverflowMenu items={[cancelItem]} />
         </>
       );
-    case "ENDED":
-    case "ESCROW_PENDING":
-    case "ESCROW_FUNDED":
     case "TRANSFER_PENDING":
     case "COMPLETED":
     case "EXPIRED":
+    case "FROZEN":
       return (
         <Link href={hasEscrow ? escrowHref : publicHref}>
           <Button

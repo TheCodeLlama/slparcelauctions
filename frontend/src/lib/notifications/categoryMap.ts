@@ -164,6 +164,14 @@ export const categoryMap: Record<NotificationCategory, CategoryMapEntry> = {
     toastVariant: "info",
     deeplink: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}`,
   },
+  LISTING_CANCELLED_DURING_ESCROW: {
+    group: "escrow",
+    icon: XCircle,
+    iconBgClass: "bg-danger-bg text-danger",
+    toastVariant: "warning",
+    deeplink: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow`,
+    action: { label: "View escrow", href: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow` },
+  },
   REVIEW_RECEIVED: {
     group: "reviews",
     icon: Star,

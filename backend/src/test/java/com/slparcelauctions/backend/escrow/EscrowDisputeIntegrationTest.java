@@ -267,7 +267,7 @@ class EscrowDisputeIntegrationTest {
                     .title("Test listing")
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
-                    .status(AuctionStatus.ENDED)
+                    .status(AuctionStatus.TRANSFER_PENDING)
 
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)

@@ -372,7 +372,7 @@ class MyBidsIntegrationTest {
                 .title("Test listing")
                 .slParcelUuid(parcelUuid)
                 .seller(seller)
-                .status(AuctionStatus.ENDED)
+                .status(AuctionStatus.COMPLETED)
                 .endOutcome(AuctionEndOutcome.SOLD)
 
                 .verificationTier(VerificationTier.SCRIPT)
@@ -477,8 +477,8 @@ class MyBidsIntegrationTest {
     }
 
     private UUID seedWon() {
-        // ENDED + SOLD, caller is winner.
-        Auction a = seedAuction(parcelUuids.get(2), AuctionStatus.ENDED, 3000L, 1);
+        // SOLD + payout complete -> COMPLETED, caller is winner.
+        Auction a = seedAuction(parcelUuids.get(2), AuctionStatus.COMPLETED, 3000L, 1);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setCurrentBidderId(bidderId);
         a.setWinnerUserId(bidderId);
@@ -490,8 +490,8 @@ class MyBidsIntegrationTest {
     }
 
     private UUID seedLost() {
-        // ENDED + SOLD, someone else is winner; caller bid earlier.
-        Auction a = seedAuction(parcelUuids.get(3), AuctionStatus.ENDED, 4000L, 2);
+        // SOLD + payout complete -> COMPLETED, someone else won; caller bid earlier.
+        Auction a = seedAuction(parcelUuids.get(3), AuctionStatus.COMPLETED, 4000L, 2);
         a.setEndOutcome(AuctionEndOutcome.SOLD);
         a.setCurrentBidderId(otherBidderId);
         a.setWinnerUserId(otherBidderId);
@@ -504,8 +504,8 @@ class MyBidsIntegrationTest {
     }
 
     private UUID seedReserveNotMet() {
-        // ENDED + RESERVE_NOT_MET, caller was the high bidder.
-        Auction a = seedAuction(parcelUuids.get(4), AuctionStatus.ENDED, 1200L, 1);
+        // RESERVE_NOT_MET -> EXPIRED, caller was the high bidder.
+        Auction a = seedAuction(parcelUuids.get(4), AuctionStatus.EXPIRED, 1200L, 1);
         a.setReservePrice(5000L);
         a.setEndOutcome(AuctionEndOutcome.RESERVE_NOT_MET);
         a.setCurrentBidderId(bidderId);

@@ -123,15 +123,14 @@ describe("useMyListings", () => {
     ]);
   });
 
-  it("collapses the six Ended-ish statuses into the Ended filter", async () => {
+  it("collapses the five Ended-ish statuses into the Ended filter", async () => {
     seed([
-      row(1, "ENDED"),
-      row(2, "ESCROW_PENDING"),
-      row(3, "ESCROW_FUNDED"),
-      row(4, "TRANSFER_PENDING"),
-      row(5, "COMPLETED"),
-      row(6, "EXPIRED"),
-      row(7, "ACTIVE"),
+      row(1, "TRANSFER_PENDING"),
+      row(2, "DISPUTED"),
+      row(3, "COMPLETED"),
+      row(4, "EXPIRED"),
+      row(5, "FROZEN"),
+      row(6, "ACTIVE"),
     ]);
     const { result } = renderHook(() => useMyListings("Ended"), {
       wrapper: makeWrapper({ auth: "authenticated" }),
@@ -143,7 +142,6 @@ describe("useMyListings", () => {
       "00000000-0000-0000-0000-000000000003",
       "00000000-0000-0000-0000-000000000004",
       "00000000-0000-0000-0000-000000000005",
-      "00000000-0000-0000-0000-000000000006",
     ]);
   });
 

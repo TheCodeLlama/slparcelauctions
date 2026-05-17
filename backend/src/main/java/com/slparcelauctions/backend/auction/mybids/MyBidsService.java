@@ -120,9 +120,9 @@ public class MyBidsService {
         }
 
         // Batch-load escrows for the page's auctions. ACTIVE auctions have no
-        // escrow row; ENDED and post-ENDED rows do. One query per page replaces
-        // what would otherwise be N separate findByAuctionId calls inside the
-        // summary builder.
+        // escrow row; post-close (TRANSFER_PENDING / DISPUTED / terminal) rows
+        // do. One query per page replaces what would otherwise be N separate
+        // findByAuctionId calls inside the summary builder.
         Map<Long, Escrow> escrowsByAuctionId = new HashMap<>();
         for (Escrow e : escrowRepo.findByAuctionIdIn(ids)) {
             Long aId = e.getAuction() == null ? null : e.getAuction().getId();
@@ -190,15 +190,30 @@ public class MyBidsService {
             if (raw == null) {
                 return new MyBidStatusFilter(null, null);
             }
+            // Post state-machine-rewire (spec 2026-05-17): the dropped ENDED
+            // status fans out across {TRANSFER_PENDING, DISPUTED, COMPLETED,
+            // EXPIRED, FROZEN}. "won" and "lost" both filter to non-ACTIVE
+            // post-close statuses; the post-filter on MyBidStatus narrows the
+            // bucket. CANCELLED and SUSPENDED are listing-side terminals the
+            // bidder ends up in the "lost" bucket on.
             return switch (raw.toLowerCase()) {
                 case "active" -> new MyBidStatusFilter(
                         EnumSet.of(AuctionStatus.ACTIVE), null);
                 case "won" -> new MyBidStatusFilter(
-                        EnumSet.of(AuctionStatus.ENDED),
+                        EnumSet.of(
+                                AuctionStatus.TRANSFER_PENDING,
+                                AuctionStatus.DISPUTED,
+                                AuctionStatus.COMPLETED,
+                                AuctionStatus.EXPIRED,
+                                AuctionStatus.FROZEN),
                         EnumSet.of(MyBidStatus.WON));
                 case "lost" -> new MyBidStatusFilter(
                         EnumSet.of(
-                                AuctionStatus.ENDED,
+                                AuctionStatus.TRANSFER_PENDING,
+                                AuctionStatus.DISPUTED,
+                                AuctionStatus.COMPLETED,
+                                AuctionStatus.EXPIRED,
+                                AuctionStatus.FROZEN,
                                 AuctionStatus.CANCELLED,
                                 AuctionStatus.SUSPENDED),
                         LOST_BUCKET_STATUSES);

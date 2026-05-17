@@ -145,7 +145,10 @@ class BidServiceBuyNowTest {
 
         BidResponse resp = runInTx(() -> service.placeBid(500L, 20L, 10_000L, "1.2.3.4"));
 
-        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // BOUGHT_NOW close: BidPlacementHelpers leaves status at ACTIVE.
+        // EscrowService.createForEndedAuction (mocked here) owns the status
+        // flip to TRANSFER_PENDING.
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(auction.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
         assertThat(auction.getWinnerUserId()).isEqualTo(20L);
         assertThat(auction.getFinalBidAmount()).isEqualTo(10_000L);
@@ -163,7 +166,9 @@ class BidServiceBuyNowTest {
 
         BidResponse resp = runInTx(() -> service.placeBid(500L, 20L, 15_000L, "1.2.3.4"));
 
-        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ENDED);
+        // BOUGHT_NOW close: BidPlacementHelpers leaves status at ACTIVE.
+        // EscrowService.createForEndedAuction (mocked here) owns the status flip.
+        assertThat(auction.getStatus()).isEqualTo(AuctionStatus.ACTIVE);
         assertThat(auction.getEndOutcome()).isEqualTo(AuctionEndOutcome.BOUGHT_NOW);
         assertThat(auction.getWinnerUserId()).isEqualTo(20L);
         assertThat(auction.getFinalBidAmount()).isEqualTo(15_000L);

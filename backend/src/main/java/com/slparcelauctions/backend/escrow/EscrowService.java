@@ -18,6 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
+import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagReason;
 import com.slparcelauctions.backend.auction.fraud.FraudFlagRepository;
@@ -85,6 +87,7 @@ public class EscrowService {
     private static final long TRANSFER_DEADLINE_HOURS = 72;
 
     private final EscrowRepository escrowRepo;
+    private final AuctionStatusFlipper statusFlipper;
     private final EscrowTransactionRepository ledgerRepo;
     private final EscrowCommissionCalculator commission;
     private final Clock clock;
@@ -187,6 +190,7 @@ public class EscrowService {
         saved.setState(EscrowState.TRANSFER_PENDING);
         saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
         saved = escrowRepo.save(saved);
+        statusFlipper.flip(saved, AuctionStatus.TRANSFER_PENDING);
 
         // Append escrow_transactions ledger row
         ledgerRepo.save(EscrowTransaction.builder()
@@ -290,6 +294,7 @@ public class EscrowService {
         escrow.setWinnerEvidenceImages(uploaded);
         escrow.setSlTransactionKey(req.slTransactionKey());
         escrow = escrowRepo.save(escrow);
+        statusFlipper.flip(escrow, AuctionStatus.DISPUTED);
 
 
         queueRefundIfFunded(escrow);
@@ -604,6 +609,12 @@ public class EscrowService {
         escrow.setLastCheckedAt(now);
         escrow.setConsecutiveWorldApiFailures(0);
         escrow = escrowRepo.save(escrow);
+        // No auction-status flip here. confirmTransfer only stamps
+        // transferConfirmedAt — the escrow stays in TRANSFER_PENDING, and so
+        // does the auction. The COMPLETED flip happens later in
+        // TerminalCommandService.handleEscrowPayoutSuccess /
+        // runZeroPayoutSuccessInline, where the escrow itself actually
+        // transitions to COMPLETED.
 
         queuePayoutOnConfirm(escrow);
 
@@ -655,12 +666,19 @@ public class EscrowService {
         escrow.setFreezeReason(reason.name());
         escrow.setLastCheckedAt(now);
         escrow = escrowRepo.save(escrow);
+        statusFlipper.flip(escrow, AuctionStatus.FROZEN);
 
         FraudFlagReason flagReason = switch (reason) {
             case UNKNOWN_OWNER -> FraudFlagReason.ESCROW_UNKNOWN_OWNER;
             case PARCEL_DELETED -> FraudFlagReason.ESCROW_PARCEL_DELETED;
             case WORLD_API_PERSISTENT_FAILURE -> FraudFlagReason.ESCROW_WORLD_API_FAILURE;
             case BOT_OWNERSHIP_CHANGED -> FraudFlagReason.BOT_OWNERSHIP_CHANGED;
+            // ADMIN_CANCEL is not a fraud-freeze reason. It is set by
+            // CancellationService.cancelByAdminFromEscrow on the EXPIRED path
+            // (refund-and-close), never as part of freezeForFraud. Fail fast
+            // if a caller routes it through here by mistake.
+            case ADMIN_CANCEL -> throw new IllegalArgumentException(
+                "ADMIN_CANCEL is not a valid FreezeReason for freezeForFraud");
         };
         fraudFlagRepo.save(FraudFlag.builder()
                 .auction(escrow.getAuction())
@@ -758,6 +776,7 @@ public class EscrowService {
         escrow.setState(EscrowState.EXPIRED);
         escrow.setExpiredAt(now);
         escrow = escrowRepo.save(escrow);
+        statusFlipper.flip(escrow, AuctionStatus.EXPIRED);
 
 
         queueRefundIfFunded(escrow);

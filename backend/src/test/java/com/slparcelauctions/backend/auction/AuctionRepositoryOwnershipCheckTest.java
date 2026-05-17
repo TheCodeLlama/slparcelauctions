@@ -76,8 +76,8 @@ class AuctionRepositoryOwnershipCheckTest {
         Auction fresh = auctionRepo.save(build(seller, u4, AuctionStatus.ACTIVE, now.minusMinutes(5)));
         // 5) SUSPENDED (excluded regardless of timestamp)
         Auction suspended = auctionRepo.save(build(seller, u5, AuctionStatus.SUSPENDED, now.minusHours(5)));
-        // 6) ENDED (excluded regardless of timestamp)
-        Auction ended = auctionRepo.save(build(seller, u6, AuctionStatus.ENDED, now.minusHours(5)));
+        // 6) COMPLETED (terminal — excluded regardless of timestamp)
+        Auction ended = auctionRepo.save(build(seller, u6, AuctionStatus.COMPLETED, now.minusHours(5)));
 
         List<Long> due = auctionRepo.findDueForOwnershipCheck(cutoff, now);
 

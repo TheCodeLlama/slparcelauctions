@@ -122,7 +122,7 @@ describe("MyBidSummaryRow", () => {
   it("omits the countdown when the auction is not ACTIVE", () => {
     render(
       <MyBidSummaryRow
-        bid={summary({ auctionStatus: "ENDED", status: "WON" })}
+        bid={summary({ auctionStatus: "COMPLETED", status: "WON" })}
       />,
     );
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("MyBidSummaryRow", () => {
   it("renders escrow chip + view-escrow link when escrowState is set", () => {
     const bid = summary({
       auctionPublicId: "00000000-0000-0000-0000-000000000065",
-      auctionStatus: "ENDED",
+      auctionStatus: "COMPLETED",
       status: "WON",
       escrowState: "ESCROW_PENDING",
       transferConfirmedAt: null,

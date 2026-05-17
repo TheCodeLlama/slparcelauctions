@@ -321,7 +321,7 @@ class TerminalCommandServiceZeroPayoutTest {
                     .realtyGroupId(group.getId())
                     .realtyGroupSlGroupId(slGroup.getId())
                     .agentCommissionRate(new BigDecimal("0.1000"))
-                    .status(AuctionStatus.ENDED)
+                    .status(AuctionStatus.TRANSFER_PENDING)
 
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)
@@ -409,7 +409,7 @@ class TerminalCommandServiceZeroPayoutTest {
                     .title("Individual Listing")
                     .slParcelUuid(parcelUuid)
                     .seller(seller)
-                    .status(AuctionStatus.ENDED)
+                    .status(AuctionStatus.TRANSFER_PENDING)
 
                     .verificationTier(VerificationTier.SCRIPT)
                     .startingBid(500L)

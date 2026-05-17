@@ -109,12 +109,11 @@ public class AuctionDtoMapper {
     public PublicAuctionStatus toPublicStatus(AuctionStatus internal) {
         return switch (internal) {
             case ACTIVE -> PublicAuctionStatus.ACTIVE;
-            case ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING,
-                    COMPLETED, CANCELLED, EXPIRED, DISPUTED, SUSPENDED -> PublicAuctionStatus.ENDED;
-            case DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED ->
-                    throw new IllegalStateException(
-                            "Non-public status leaked to toPublicStatus: " + internal
-                                    + ". The controller should have 404'd before calling the mapper.");
+            case TRANSFER_PENDING, DISPUTED,
+                 COMPLETED, EXPIRED, FROZEN, CANCELLED -> PublicAuctionStatus.ENDED;
+            default -> throw new IllegalStateException(
+                "Non-public status leaked to toPublicStatus: " + internal
+                    + ". The controller should have 404'd before calling the mapper.");
         };
     }
 
@@ -445,9 +444,9 @@ public class AuctionDtoMapper {
      * On-demand escrow lookup for single-auction mapper entry points. Returns
      * null for unpersisted auctions (tests) and for auctions whose status
      * cannot possibly carry an escrow row (ACTIVE and pre-ACTIVE states, plus
-     * CANCELLED/EXPIRED/SUSPENDED terminal states where no sale occurred).
-     * Batch callers should pre-load escrows and use the
-     * {@code (Auction, Escrow)} overloads to avoid one query per row.
+     * SUSPENDED where no sale occurred). Batch callers should pre-load escrows
+     * and use the {@code (Auction, Escrow)} overloads to avoid one query per
+     * row.
      */
     private Escrow resolveEscrow(Auction a) {
         if (a.getId() == null) {
@@ -461,19 +460,23 @@ public class AuctionDtoMapper {
 
     /**
      * Whether an auction in the given status might have an escrow row. Escrow
-     * rows are created only on ENDED + (SOLD|BOUGHT_NOW) and then follow the
-     * ESCROW_PENDING -> ESCROW_FUNDED -> TRANSFER_PENDING -> COMPLETED lifecycle
-     * (with DISPUTED as a possible off-ramp). ACTIVE and pre-ACTIVE statuses,
-     * plus CANCELLED/EXPIRED/SUSPENDED terminal statuses (where no sale
-     * occurred), never carry an escrow row, so we skip the repo query for
-     * them.
+     * rows are created on SOLD/BOUGHT_NOW close (auction flips
+     * ACTIVE -> TRANSFER_PENDING) and persist through the
+     * TRANSFER_PENDING -> COMPLETED / EXPIRED / FROZEN / DISPUTED lifecycle.
+     * CANCELLED can also carry an escrow row when an admin cancels from
+     * TRANSFER_PENDING (see {@code CancellationService.cancelByAdminFromEscrow}).
+     * ACTIVE and pre-ACTIVE statuses, plus EXPIRED-from-NO_BIDS and SUSPENDED
+     * (where no sale occurred), never carry an escrow row -- but we can't tell
+     * EXPIRED-from-NO_BIDS from EXPIRED-from-transfer-timeout by status alone,
+     * so EXPIRED is treated as escrow-bearing and the repo lookup returns
+     * empty for the NO_BIDS subset.
      */
     private static boolean hasEscrowBearingStatus(AuctionStatus s) {
         return switch (s) {
             case DRAFT, DRAFT_PAID, VERIFICATION_PENDING, VERIFICATION_FAILED,
-                    ACTIVE, CANCELLED, EXPIRED, SUSPENDED -> false;
-            case ENDED, ESCROW_PENDING, ESCROW_FUNDED, TRANSFER_PENDING,
-                    COMPLETED, DISPUTED -> true;
+                    ACTIVE, SUSPENDED -> false;
+            case TRANSFER_PENDING, DISPUTED, COMPLETED,
+                    EXPIRED, FROZEN, CANCELLED -> true;
         };
     }
 }

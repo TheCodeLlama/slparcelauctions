@@ -177,8 +177,9 @@ class BidPlacementIntegrationTest {
 
     @Test
     void placeBid_onEndedAuction_returns409() throws Exception {
-        // status=ENDED triggers AUCTION_NOT_ACTIVE (status != ACTIVE branch).
-        Auction auction = seedAuction(AuctionStatus.ENDED, 0L, 0);
+        // status != ACTIVE triggers AUCTION_NOT_ACTIVE. Use TRANSFER_PENDING
+        // (the post-close mid-flight status) as a concrete non-ACTIVE example.
+        Auction auction = seedAuction(AuctionStatus.TRANSFER_PENDING, 0L, 0);
 
         mockMvc.perform(post("/api/v1/auctions/" + auction.getPublicId() + "/bids")
                         .header("Authorization", "Bearer " + bidderAccessToken)
@@ -186,7 +187,7 @@ class BidPlacementIntegrationTest {
                         .content("{\"amount\":1000}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("AUCTION_NOT_ACTIVE"))
-                .andExpect(jsonPath("$.currentState").value("ENDED"));
+                .andExpect(jsonPath("$.currentState").value("TRANSFER_PENDING"));
     }
 
     @Test

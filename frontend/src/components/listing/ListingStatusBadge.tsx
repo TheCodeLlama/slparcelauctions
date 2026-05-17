@@ -7,8 +7,8 @@ import type { AuctionStatus } from "@/types/auction";
  *
  * The MAP is typed as {@code Record<AuctionStatus, ...>}, so adding a
  * status to {@link AuctionStatus} without updating this file fails the
- * TypeScript build — this is the compile-time check Task 7 promises that
- * all 14 statuses are covered.
+ * TypeScript build — this is the compile-time check that every internal
+ * status is covered (12 post the state-machine rewire).
  */
 const STATUS_MAP: Record<
   AuctionStatus,
@@ -34,18 +34,6 @@ const STATUS_MAP: Record<
     label: "Active",
     cls: "bg-info-bg text-info",
   },
-  ENDED: {
-    label: "Ended",
-    cls: "bg-bg-hover text-fg-muted",
-  },
-  ESCROW_PENDING: {
-    label: "Escrow pending",
-    cls: "bg-info-bg text-info",
-  },
-  ESCROW_FUNDED: {
-    label: "Escrow funded",
-    cls: "bg-info-bg text-info",
-  },
   TRANSFER_PENDING: {
     label: "Transferring",
     cls: "bg-info-bg text-info",
@@ -64,6 +52,10 @@ const STATUS_MAP: Record<
   },
   DISPUTED: {
     label: "Disputed",
+    cls: "bg-danger-bg text-danger",
+  },
+  FROZEN: {
+    label: "Frozen",
     cls: "bg-danger-bg text-danger",
   },
   SUSPENDED: {

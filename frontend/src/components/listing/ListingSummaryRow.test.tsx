@@ -155,12 +155,12 @@ describe("ListingSummaryRow", () => {
     expect(screen.getByRole("timer")).toBeInTheDocument();
   });
 
-  it("renders 'Sold for L$X to @winner' for ENDED + SOLD", () => {
+  it("renders 'Sold for L$X to @winner' for COMPLETED + SOLD", () => {
     renderWithProviders(
       <ListingSummaryRow
         auction={
           baseAuction({
-            status: "ENDED",
+            status: "COMPLETED",
             currentHighBid: 48000,
             bidCount: 4,
             reservePrice: 30000,
@@ -181,12 +181,12 @@ describe("ListingSummaryRow", () => {
     expect(screen.getByText("@WinningBidder")).toBeInTheDocument();
   });
 
-  it("renders 'reserve not met' sub-line for ENDED + RESERVE_NOT_MET", () => {
+  it("renders 'reserve not met' sub-line for EXPIRED + RESERVE_NOT_MET", () => {
     renderWithProviders(
       <ListingSummaryRow
         auction={
           baseAuction({
-            status: "ENDED",
+            status: "EXPIRED",
             currentHighBid: 12000,
             bidCount: 2,
             reservePrice: 30000,
@@ -202,12 +202,12 @@ describe("ListingSummaryRow", () => {
     expect(screen.getByText("L$12,000")).toBeInTheDocument();
   });
 
-  it("renders 'Ended with no bids' for ENDED + NO_BIDS", () => {
+  it("renders 'Ended with no bids' for EXPIRED + NO_BIDS", () => {
     renderWithProviders(
       <ListingSummaryRow
         auction={
           baseAuction({
-            status: "ENDED",
+            status: "EXPIRED",
             currentHighBid: null,
             bidCount: 0,
             ...({ endOutcome: "NO_BIDS" } as Partial<SellerAuctionResponse>)
@@ -245,17 +245,17 @@ describe("ListingSummaryRow", () => {
     expect(screen.queryByText(/^Ended/)).not.toBeInTheDocument();
   });
 
-  it("renders a graceful 'Auction ended' fallback when ENDED row arrives without endOutcome (legacy backend)", () => {
+  it("renders a graceful 'Auction ended' fallback when a post-ACTIVE row arrives without endOutcome (legacy backend)", () => {
     // Regression guard: prior versions threw an Error from EndedBidSummary
-    // when endOutcome was null on an ENDED row, which React-errored the
-    // entire My Listings page out into the Next.js error boundary the
-    // first time a seller's auction reached ENDED before the backend
-    // projection was widened. The fallback prevents a single-row data
-    // gap from nuking the whole dashboard.
+    // when endOutcome was null on a closed-cycle row, which React-errored
+    // the entire My Listings page out into the Next.js error boundary the
+    // first time a seller's auction reached its terminal status before the
+    // backend projection was widened. The fallback prevents a single-row
+    // data gap from nuking the whole dashboard.
     renderWithProviders(
       <ListingSummaryRow
         auction={baseAuction({
-          status: "ENDED",
+          status: "COMPLETED",
           bidCount: 0,
           // Deliberately do NOT set endOutcome — exercises the fallback path.
         })}
@@ -267,12 +267,12 @@ describe("ListingSummaryRow", () => {
     expect(screen.getByTestId(/^listing-row-/)).toBeInTheDocument();
   });
 
-  it("renders Sold for ENDED + SOLD when DTO explicitly sets endOutcome", () => {
+  it("renders Sold for COMPLETED + SOLD when DTO explicitly sets endOutcome", () => {
     renderWithProviders(
       <ListingSummaryRow
         auction={
           baseAuction({
-            status: "ENDED",
+            status: "COMPLETED",
             currentHighBid: 5000,
             bidCount: 3,
             reservePrice: 1000,
@@ -329,18 +329,16 @@ describe("ListingSummaryRow", () => {
   });
 
   it.each([
-    "ENDED",
-    "ESCROW_PENDING",
-    "ESCROW_FUNDED",
     "TRANSFER_PENDING",
     "COMPLETED",
     "EXPIRED",
+    "FROZEN",
   ] as const)(
     "renders only View listing (no cancel menu) for %s",
     (status) => {
-      // ENDED rows need an endOutcome per backend invariant (Epic 05
-      // sub-spec 1). Non-ENDED statuses ignore the field but we set it
-      // uniformly so the it.each fixture is consistent.
+      // Post-ACTIVE rows need an endOutcome per backend invariant (Epic 05
+      // sub-spec 1). Statuses that don't carry one ignore the field but we
+      // set it uniformly so the it.each fixture is consistent.
       renderWithProviders(
         <ListingSummaryRow
           auction={baseAuction({
@@ -407,7 +405,7 @@ describe("ListingSummaryRow", () => {
 
   it("renders escrow chip + view-escrow link when escrowState is set", () => {
     const auction = baseAuction({
-      status: "ESCROW_PENDING",
+      status: "TRANSFER_PENDING",
       ...({
         escrowState: "ESCROW_PENDING",
         transferConfirmedAt: null,
@@ -417,19 +415,19 @@ describe("ListingSummaryRow", () => {
       auth: "authenticated",
     });
     // Wallet-only escrow spec (2026-05-16): the seller-side ESCROW_PENDING
-    // chip is now "Escrow pending" (passive) instead of "Awaiting payment"
-    // (action) — escrows auto-fund inside createForEndedAuction so the
-    // pre-fund waiting window no longer exists. Both the ListingStatusBadge
-    // (status) and the EscrowChip (escrowState) render "Escrow pending",
-    // hence getAllByText.
-    expect(screen.getAllByText(/escrow pending/i).length).toBeGreaterThanOrEqual(1);
+    // escrow chip is "Escrow pending" (passive) instead of "Awaiting payment"
+    // (action). Post the auction-status state-machine rewire (2026-05-17),
+    // the row's listing status sits at TRANSFER_PENDING ("Transferring") for
+    // the same lifecycle window, while the EscrowChip still reads "Escrow
+    // pending" off the escrowState. Assert the escrow-chip copy explicitly.
+    expect(screen.getByText(/escrow pending/i)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /view escrow/i });
     expect(link).toHaveAttribute("href", `/auction/${auction.publicId}/escrow`);
   });
 
   it("keeps existing view-listing link when escrowState is null", () => {
     const auction = baseAuction({
-      status: "ENDED",
+      status: "EXPIRED",
       bidCount: 0,
       ...({ endOutcome: "NO_BIDS" } as Partial<SellerAuctionResponse>),
     });

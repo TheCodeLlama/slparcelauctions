@@ -42,7 +42,10 @@ type EndedAuctionFields = {
 
 /**
  * Terminal-state panel for the auction detail page. Replaces the
- * {@link BidPanel} when {@code auction.status === "ENDED"}. Four outcome
+ * {@link BidPanel} when {@code isEndedView(auction.status)} is true —
+ * either the public collapsed {@code "ENDED"} or any internal post-ACTIVE
+ * status (COMPLETED / EXPIRED / FROZEN / CANCELLED / TRANSFER_PENDING /
+ * DISPUTED) post the auction-status state-machine rewire. Four outcome
  * variants plus three viewer-specific overlays per spec §10.
  *
  * Winner display name falls back to a React Query lookup when the DTO

@@ -106,7 +106,13 @@ class MyBidsServiceTest {
         assertThat(page.getContent())
                 .extracting(MyBidSummary::myBidStatus)
                 .containsExactly(MyBidStatus.WON);
-        assertSqlStatuses(Set.of(AuctionStatus.ENDED));
+        // "won" filter passes the fan-out set replacing legacy ENDED.
+        assertSqlStatuses(EnumSet.of(
+                AuctionStatus.TRANSFER_PENDING,
+                AuctionStatus.DISPUTED,
+                AuctionStatus.COMPLETED,
+                AuctionStatus.EXPIRED,
+                AuctionStatus.FROZEN));
     }
 
     @Test
@@ -134,8 +140,16 @@ class MyBidsServiceTest {
                         MyBidStatus.RESERVE_NOT_MET,
                         MyBidStatus.CANCELLED,
                         MyBidStatus.SUSPENDED);
+        // "lost" filter passes the fan-out set replacing legacy ENDED, plus
+        // CANCELLED + SUSPENDED for listing-side terminals.
         assertSqlStatuses(EnumSet.of(
-                AuctionStatus.ENDED, AuctionStatus.CANCELLED, AuctionStatus.SUSPENDED));
+                AuctionStatus.TRANSFER_PENDING,
+                AuctionStatus.DISPUTED,
+                AuctionStatus.COMPLETED,
+                AuctionStatus.EXPIRED,
+                AuctionStatus.FROZEN,
+                AuctionStatus.CANCELLED,
+                AuctionStatus.SUSPENDED));
     }
 
     @Test
@@ -263,7 +277,14 @@ class MyBidsServiceTest {
     private static Auction endedAuction(
             Long id, AuctionEndOutcome outcome, Long currentBidderId, Long winnerId) {
         Auction a = baseAuction(id);
-        a.setStatus(AuctionStatus.ENDED);
+        // Post-rewire: a SOLD/BOUGHT_NOW-then-paid auction lands at COMPLETED;
+        // a RESERVE_NOT_MET / NO_BIDS auction lands at EXPIRED. Bucket by
+        // outcome so the SQL filter assertions match production behaviour.
+        if (outcome == AuctionEndOutcome.SOLD || outcome == AuctionEndOutcome.BOUGHT_NOW) {
+            a.setStatus(AuctionStatus.COMPLETED);
+        } else {
+            a.setStatus(AuctionStatus.EXPIRED);
+        }
         a.setEndOutcome(outcome);
         a.setCurrentBidderId(currentBidderId);
         a.setWinnerUserId(winnerId);

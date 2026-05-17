@@ -11,6 +11,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.slparcelauctions.backend.admin.infrastructure.terminals.TerminalSecretService;
+import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
 import com.slparcelauctions.backend.auction.ListingFeeRefund;
 import com.slparcelauctions.backend.auction.ListingFeeRefundRepository;
 import com.slparcelauctions.backend.auction.RefundStatus;
@@ -75,6 +77,7 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
+    private final AuctionStatusFlipper statusFlipper;
 
     /**
      * Queues an escrow payout to the seller's SL terminal. Sub-project G §8.1
@@ -282,6 +285,9 @@ public class TerminalCommandService {
         escrow.setState(EscrowState.COMPLETED);
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
+        // Lockstep auction-status flip: this is the real escrow → COMPLETED
+        // transition site, so the auction also lands at COMPLETED here.
+        statusFlipper.flip(escrow, AuctionStatus.COMPLETED);
 
         // Epic 08 sub-spec 1 §3.4 / §6.1: track completed sales for the
         // seller. The counter has been declared on User since Epic 02 but
@@ -376,6 +382,10 @@ public class TerminalCommandService {
         escrow.setState(EscrowState.COMPLETED);
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
+        // Lockstep auction-status flip: case-3 zero-payout still transitions
+        // the escrow to COMPLETED inline (no terminal round-trip), so the
+        // auction lands at COMPLETED here too.
+        statusFlipper.flip(escrow, AuctionStatus.COMPLETED);
 
         User seller = escrow.getAuction().getSeller();
         int prior = seller.getCompletedSales() == null ? 0 : seller.getCompletedSales();
