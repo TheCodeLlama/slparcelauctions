@@ -17,6 +17,8 @@ import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
 import com.slparcelauctions.backend.escrow.FreezeReason;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.sl.SlWorldApiClient;
 import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
 import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
@@ -75,6 +77,7 @@ public class EscrowOwnershipCheckTask {
     private final EscrowService escrowService;
     private final SlWorldApiClient worldApi;
     private final UserRepository userRepo;
+    private final RealtyGroupSlGroupRepository slGroupRepo;
     private final EscrowConfigProperties props;
     private final Clock clock;
 
@@ -108,25 +111,44 @@ public class EscrowOwnershipCheckTask {
             UUID ownerUuid = result.ownerUuid();
             User winner = userRepo.findById(escrow.getAuction().getWinnerUserId()).orElseThrow();
             UUID winnerUuid = winner.getSlAvatarUuid();
-            UUID sellerUuid = escrow.getAuction().getSeller().getSlAvatarUuid();
+            // Pre-transfer expected owner is the seller side: the seller's
+            // avatar for individual listings, or the registered SL group for
+            // case-3 group listings (mirrors OwnershipCheckTask.doCheck).
+            // Without the group branch, a group-owned parcel reports the
+            // group UUID and gets misclassified as UNKNOWN_OWNER on the
+            // first sweep, freezing a perfectly healthy escrow.
+            UUID expectedPreTransfer;
+            String expectedPreTransferLabel;
+            if (escrow.getAuction().getRealtyGroupSlGroupId() != null) {
+                RealtyGroupSlGroup reg = slGroupRepo
+                        .findById(escrow.getAuction().getRealtyGroupSlGroupId())
+                        .orElse(null);
+                expectedPreTransfer = (reg == null) ? null : reg.getSlGroupUuid();
+                expectedPreTransferLabel = "expectedGroupUuid";
+            } else {
+                expectedPreTransfer = escrow.getAuction().getSeller().getSlAvatarUuid();
+                expectedPreTransferLabel = "expectedSellerUuid";
+            }
 
             if (winnerUuid != null && winnerUuid.equals(ownerUuid)) {
                 escrowService.confirmTransfer(escrow, now);
                 return;
             }
-            if (sellerUuid != null && sellerUuid.equals(ownerUuid)) {
+            if (expectedPreTransfer != null && expectedPreTransfer.equals(ownerUuid)) {
                 escrowService.stampChecked(escrow, now);
                 maybeLogReminder(escrow, now);
                 return;
             }
 
-            // Owner is an unknown third party (or a group, or a null-owner
-            // parcel that reparented to somebody else). Freeze the escrow
-            // and let the admin review queue decide the refund path.
+            // Owner is an unknown third party — neither the winner nor the
+            // pre-transfer expected owner (seller avatar or registered group).
+            // Freeze the escrow and let the admin review queue decide the
+            // refund path.
             Map<String, Object> evidence = new HashMap<>();
             evidence.put("observedOwnerUuid", ownerUuid == null ? "<null>" : ownerUuid.toString());
             evidence.put("expectedWinnerUuid", winnerUuid == null ? "<null>" : winnerUuid.toString());
-            evidence.put("expectedSellerUuid", sellerUuid == null ? "<null>" : sellerUuid.toString());
+            evidence.put(expectedPreTransferLabel,
+                    expectedPreTransfer == null ? "<null>" : expectedPreTransfer.toString());
             evidence.put("observedOwnerType", result.ownerType() == null ? "<null>" : result.ownerType());
             escrowService.freezeForFraud(escrow, FreezeReason.UNKNOWN_OWNER, evidence, now);
 

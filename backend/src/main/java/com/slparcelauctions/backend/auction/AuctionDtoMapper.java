@@ -168,6 +168,10 @@ public class AuctionDtoMapper {
                 sellerSummary(a.getSeller()),
                 escrow == null ? null : escrow.getState(),
                 escrow == null ? null : escrow.getTransferConfirmedAt(),
+                a.getEndOutcome(),
+                a.getFinalBidAmount(),
+                resolveWinnerPublicId(a, ctx),
+                resolveWinnerDisplayName(a, ctx),
                 resolveGroupAttribution(a, ctx),
                 resolveListingAgent(a));
     }
