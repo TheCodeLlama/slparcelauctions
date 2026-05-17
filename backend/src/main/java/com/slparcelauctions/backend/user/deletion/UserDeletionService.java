@@ -35,9 +35,8 @@ public class UserDeletionService {
 
     private static final List<AuctionStatus> BLOCKING_AUCTION_STATUSES = List.of(
             AuctionStatus.ACTIVE,
-            AuctionStatus.ESCROW_PENDING,
-            AuctionStatus.ESCROW_FUNDED,
-            AuctionStatus.TRANSFER_PENDING);
+            AuctionStatus.TRANSFER_PENDING,
+            AuctionStatus.DISPUTED);
 
     private static final List<EscrowState> OPEN_ESCROW_STATES = List.of(
             EscrowState.FUNDED,
