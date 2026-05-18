@@ -79,6 +79,7 @@ class EscrowControllerSliceTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean EscrowService escrowService;
+    @MockitoBean EscrowManualActionService manualActionService;
     @MockitoBean AuctionRepository auctionRepository;
     @MockitoBean JwtService jwtService;
     @MockitoBean UserRepository userRepository;

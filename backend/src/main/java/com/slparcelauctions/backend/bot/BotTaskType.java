@@ -12,4 +12,14 @@ package com.slparcelauctions.backend.bot;
  * mapping + claim plumbing from scratch.
  */
 public enum BotTaskType {
+    /**
+     * Escrow Set-Sell-To verification (spec 2026-05-17). The bot teleports
+     * to the parcel and reads {@code ParcelSnapshot.AuthBuyerId} /
+     * {@code SalePrice} — data the SL World API cannot see. This single-purpose
+     * recurring task is NOT a revival of the retired multi-check
+     * {@code MONITOR_ESCROW}. Task creation at funding + the result callback
+     * are wired in Phase 3; Phase 2 only references the type for the manual
+     * "Verify Sell To" expedite path.
+     */
+    VERIFY_SELL_TO
 }
