@@ -18,6 +18,7 @@ public record EscrowConfigProperties(
         Integer ownershipApiFailureThreshold,
         Duration ownershipReminderDelay,
         Duration sellToBotRecurrence,
+        Duration sellToBotRetryBackoff,
         Integer sellToBotFailureThreshold,
         Duration buyParcelFastCadence,
         Duration buyParcelFastWindow,
@@ -31,6 +32,7 @@ public record EscrowConfigProperties(
         if (ownershipApiFailureThreshold == null) ownershipApiFailureThreshold = 5;
         if (ownershipReminderDelay == null) ownershipReminderDelay = Duration.ofHours(24);
         if (sellToBotRecurrence == null) sellToBotRecurrence = Duration.ofMinutes(30);
+        if (sellToBotRetryBackoff == null) sellToBotRetryBackoff = Duration.ofMinutes(2);
         if (sellToBotFailureThreshold == null) sellToBotFailureThreshold = 5;
         if (buyParcelFastCadence == null) buyParcelFastCadence = Duration.ofMinutes(5);
         if (buyParcelFastWindow == null) buyParcelFastWindow = Duration.ofHours(1);
