@@ -366,6 +366,8 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                       // group per the caller's per-member commission rate.
                       <AgentCommissionPreview
                         startingBid={draft.state.startingBid}
+                        reservePrice={settings.reservePrice}
+                        buyNowPrice={settings.buyNowPrice}
                         groupName={selectedGroup.name}
                         groupPublicId={selectedGroup.publicId}
                         agentCommissionRate={selectedGroup.agentCommissionRate}
