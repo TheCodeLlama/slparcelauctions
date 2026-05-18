@@ -5,8 +5,10 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -238,5 +240,50 @@ class EscrowControllerSliceTest {
                 .andExpect(jsonPath("$.code").value("ESCROW_INVALID_TRANSITION"))
                 .andExpect(jsonPath("$.currentState").value("COMPLETED"))
                 .andExpect(jsonPath("$.attemptedTarget").value("DISPUTED"));
+    }
+
+    // ----- POST /escrow/verify-sell-to -----
+
+    @Test
+    @WithMockAuthPrincipal(userId = 100)
+    void verifySellTo_sellerAuthenticated_returns202() throws Exception {
+        when(manualActionService.verifySellTo(eq(AUCTION_ID), eq(SELLER_ID)))
+                .thenReturn(stubResponse(EscrowState.TRANSFER_PENDING));
+
+        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/verify-sell-to"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.state").value("TRANSFER_PENDING"));
+
+        verify(manualActionService).verifySellTo(AUCTION_ID, SELLER_ID);
+    }
+
+    // ----- POST /escrow/verify-transfer -----
+
+    @Test
+    @WithMockAuthPrincipal(userId = 200)
+    void verifyTransfer_winnerAuthenticated_returns200() throws Exception {
+        when(manualActionService.verifyTransfer(eq(AUCTION_ID), eq(WINNER_ID)))
+                .thenReturn(stubResponse(EscrowState.TRANSFER_PENDING));
+
+        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/verify-transfer"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("TRANSFER_PENDING"));
+
+        verify(manualActionService).verifyTransfer(AUCTION_ID, WINNER_ID);
+    }
+
+    // ----- POST /escrow/manual-review -----
+
+    @Test
+    @WithMockAuthPrincipal(userId = 100)
+    void requestManualReview_absentBody_returns200() throws Exception {
+        when(manualActionService.requestManualReview(eq(AUCTION_ID), eq(SELLER_ID), eq(null)))
+                .thenReturn(stubResponse(EscrowState.TRANSFER_PENDING));
+
+        mockMvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/manual-review"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("TRANSFER_PENDING"));
+
+        verify(manualActionService).requestManualReview(AUCTION_ID, SELLER_ID, null);
     }
 }

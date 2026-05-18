@@ -17,9 +17,12 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
      * for an escrow. Used by the manual "Verify Sell To" expedite path to
      * bump {@code next_run_at} forward so the bot re-checks immediately. The
      * "one open task per escrow" invariant (enforced at funding in Phase 3)
-     * means at most one row matches; the helper returns {@code Optional} and
-     * the caller treats absence as a no-op (the 30-min auto-cadence still
-     * applies once Phase 3 creates the task).
+     * means at most one row matches, so the returned {@link List} holds at
+     * most one element. {@code List} (not {@code Optional}) is the safer
+     * return type — if the invariant is ever violated this still binds
+     * cleanly instead of throwing {@code IncorrectResultSizeDataAccessException}.
+     * The caller treats an empty list as a no-op (the 30-min auto-cadence
+     * still applies once Phase 3 creates the task).
      */
     @Query("""
             SELECT t FROM BotTask t
