@@ -34,10 +34,9 @@ export interface ActivateListingPanelProps {
  *
  * Render branches (precedence top-to-bottom):
  *   1. fee or wallet still loading -> spinner
- *   2. wallet ToU not accepted -> "open wallet" CTA
- *   3. outstanding penalty -> "pay penalty first" CTA
- *   4. available < fee -> "top up at any terminal" + refresh balance
- *   5. ready -> Activate Listing button
+ *   2. outstanding penalty -> "pay penalty first" CTA
+ *   3. available < fee -> "top up at any terminal" + refresh balance
+ *   4. ready -> Activate Listing button (opens WalletTermsModal if ToU not yet accepted)
  */
 export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelProps) {
   const qc = useQueryClient();
