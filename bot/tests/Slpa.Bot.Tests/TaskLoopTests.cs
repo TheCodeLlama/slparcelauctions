@@ -21,6 +21,8 @@ public sealed class TaskLoopTests
             Mock.Of<IIdleParker>(), new BotActivityState(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
@@ -43,6 +45,8 @@ public sealed class TaskLoopTests
             Mock.Of<IIdleParker>(), new BotActivityState(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -80,6 +84,8 @@ public sealed class TaskLoopTests
             Mock.Of<IIdleParker>(), new BotActivityState(),
             () => new WithdrawGroupHandler(throwingSession.Object, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
@@ -103,6 +109,8 @@ public sealed class TaskLoopTests
             parker.Object, new BotActivityState(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -128,6 +136,8 @@ public sealed class TaskLoopTests
             parker.Object, new BotActivityState(),
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -159,6 +169,8 @@ public sealed class TaskLoopTests
             Mock.Of<IIdleParker>(), activity,
             () => new WithdrawGroupHandler(session, backend.Object,
                     NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -168,6 +180,75 @@ public sealed class TaskLoopTests
         snap.LastClaimAt.Should().NotBeNull();   // a claim happened
         snap.CurrentTaskId.Should().BeNull();    // cleared in finally
     }
+
+    [Fact]
+    public async Task VerifySellToTask_IsDispatchedToHandler()
+    {
+        var session = new FakeBotSession();
+        session.SimulateLoginSuccess();
+        var winner = Guid.NewGuid();
+        session.ReadPolicy = (_, _) => new ParcelSnapshot(
+            OwnerId: Guid.NewGuid(),
+            GroupId: Guid.Empty,
+            IsGroupOwned: false,
+            AuthBuyerId: winner,
+            SalePrice: 0,
+            Name: "P",
+            Description: "",
+            AreaSqm: 1024,
+            MaxPrims: 234,
+            Category: 0,
+            SnapshotId: Guid.NewGuid(),
+            Flags: 0x00000080);
+
+        var backend = new Mock<IBackendClient>();
+        var claims = 0;
+        backend.Setup(b => b.ClaimAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(() =>
+               {
+                   claims++;
+                   return claims == 1 ? MakeVerifySellToTask(winner) : null;
+               });
+
+        var loop = new TaskLoop(session, backend.Object,
+            Mock.Of<IIdleParker>(), new BotActivityState(),
+            () => new WithdrawGroupHandler(session, backend.Object,
+                    NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
+            NullLogger<TaskLoop>.Instance);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
+        await loop.RunAsync(cts.Token);
+
+        backend.Verify(b => b.ReportTaskResultAsync(
+                55,
+                It.Is<BotTaskResultRequest>(r => r.Outcome == SellToOutcome.SELL_TO_OK),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    private static BotTaskResponse MakeVerifySellToTask(Guid winner) => new(
+        Id: 55,
+        TaskType: BotTaskType.VERIFY_SELL_TO,
+        Status: BotTaskStatus.IN_PROGRESS,
+        AuctionId: 7,
+        EscrowId: 7,
+        ParcelUuid: Guid.NewGuid(),
+        RegionName: "R",
+        PositionX: 128,
+        PositionY: 64,
+        PositionZ: 25,
+        SentinelPrice: 0,
+        AssignedBotUuid: Guid.NewGuid(),
+        FailureReason: null,
+        NextRunAt: null,
+        RecurrenceIntervalSeconds: null,
+        CreatedAt: DateTimeOffset.UtcNow,
+        CompletedAt: null,
+        RecipientUuid: null,
+        AmountL: null,
+        ExpectedWinnerUuid: winner);
 
     private static BotTaskResponse MakeWithdrawTask() => new(
         Id: 1,
