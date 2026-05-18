@@ -191,6 +191,52 @@ class AuctionDtoMapperTest {
     }
 
     @Test
+    void toSellerResponse_carriesSameSellerSummaryAsPublicResponse() {
+        User seller = User.builder()
+                .id(42L).email("s@example.com").username("s")
+                .displayName("Sally Seller")
+                .avgSellerRating(new BigDecimal("4.75"))
+                .totalSellerReviews(8)
+                .completedSales(12)
+                .cancelledWithBids(2)
+                .createdAt(OffsetDateTime.now())
+                .build();
+        UUID parcelUuid = UUID.randomUUID();
+        Auction a = Auction.builder()
+                .title("Test listing")
+                .id(1L).seller(seller).slParcelUuid(parcelUuid)
+                .status(AuctionStatus.ACTIVE)
+                .startingBid(1000L).durationHours(168)
+                .snipeProtect(false).snipeWindowMin(null)
+                .listingFeePaid(false)
+                .currentBid(0L).bidCount(0)
+                .commissionRate(new BigDecimal("0.0500"))
+                .tags(new HashSet<>())
+                .createdAt(OffsetDateTime.now())
+                .updatedAt(OffsetDateTime.now())
+                .build();
+        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(UUID.randomUUID()).ownerType("agent")
+                .parcelName("Test Parcel")
+                .region(TestRegions.mainland())
+                .regionName("Coniston").regionMaturityRating("MODERATE")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+
+        SellerAuctionResponse seller_ = mapper.toSellerResponse(a);
+        PublicAuctionResponse public_ = mapper.toPublicResponse(a);
+
+        assertThat(seller_.seller()).isNotNull();
+        assertThat(seller_.seller()).isEqualTo(public_.seller());
+        assertThat(seller_.seller().averageRating()).isEqualByComparingTo("4.75");
+        assertThat(seller_.seller().reviewCount()).isEqualTo(8);
+        assertThat(seller_.seller().completedSales()).isEqualTo(12);
+        assertThat(seller_.seller().completionRate()).isNotNull();
+    }
+
+    @Test
     void toPublicResponse_individualListing_nullGroupAndAgent() {
         Auction a = buildAuction(AuctionStatus.ACTIVE);
         // realtyGroupId and listingAgent are null by default in buildAuction

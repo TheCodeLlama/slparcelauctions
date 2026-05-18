@@ -100,6 +100,7 @@ class AuctionControllerTest {
         return new SellerAuctionResponse(
                 AUCTION_PUBLIC_ID,
                 UUID.fromString("00000000-0000-0000-0000-0000000000b1"),
+                /* seller */ null,
                 "Sample Listing",
                 null,
                 AuctionStatus.CANCELLED,

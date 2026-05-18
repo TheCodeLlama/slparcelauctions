@@ -199,6 +199,7 @@ public class AuctionDtoMapper {
         return new SellerAuctionResponse(
                 a.getPublicId(),
                 a.getSeller().getPublicId(),
+                sellerSummary(a.getSeller()),
                 a.getTitle(),
                 ParcelResponse.from(a.getParcelSnapshot()),
                 a.getStatus(),
