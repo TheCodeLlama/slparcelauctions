@@ -84,6 +84,7 @@ export {
   Lock,
   Unlock,
   Pencil,
+  Receipt, // neutral fallback for unknown/deploy-skew ledger entry types
 } from "lucide-react";
 
 // Cluster 2 redesign additions (TrustStrip)

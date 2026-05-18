@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useGroupWallet } from "@/hooks/realty/useGroupWallet";
 import { useRealtyGroupSlGroups } from "@/hooks/realty/useRealtyGroupSlGroups";
@@ -130,7 +131,18 @@ export function GroupWalletPage({ publicId, groupName }: GroupWalletPageProps) {
           </h2>
         </Card.Header>
         <Card.Body>
-          <GroupWalletLedgerTable publicId={publicId} />
+          <ErrorBoundary
+            fallback={
+              <div
+                role="alert"
+                className="text-sm text-fg-muted py-8 text-center"
+              >
+                Couldn&apos;t display transactions — try again.
+              </div>
+            }
+          >
+            <GroupWalletLedgerTable publicId={publicId} />
+          </ErrorBoundary>
         </Card.Body>
       </Card>
 

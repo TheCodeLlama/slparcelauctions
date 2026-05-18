@@ -25,6 +25,8 @@ export type UserLedgerEntryType =
   | "LISTING_FEE_REFUND"
   | "PENALTY_DEBIT"
   | "ADJUSTMENT"
+  | "AGENT_FEE_CREDIT"
+  | "AGENT_COMMISSION_CREDIT"
   | "GROUP_WALLET_DEPOSIT_DEBIT";
 
 /**
