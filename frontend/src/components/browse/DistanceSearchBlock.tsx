@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { RangeSlider } from "@/components/ui/RangeSlider";
 import { useRegionSuggest } from "@/hooks/useRegionSuggest";
 import { cn } from "@/lib/cn";
 import type { AuctionSearchQuery } from "@/types/search";
@@ -20,6 +19,17 @@ export interface DistanceSearchBlockProps {
 
 const MIN_DISTANCE = 0;
 const MAX_DISTANCE = 20;
+// Default once a region is selected: the anchor region only. Always
+// sent as an explicit integer so the backend never applies its own
+// (larger) fallback radius.
+const DEFAULT_DISTANCE = 0;
+
+/** Clamp to the 0..20 integer range; non-numeric input is ignored. */
+function clampDistance(raw: number): number | null {
+  if (!Number.isFinite(raw)) return null;
+  const i = Math.round(raw);
+  return Math.min(MAX_DISTANCE, Math.max(MIN_DISTANCE, i));
+}
 
 const REGION_ERROR_MESSAGES: Record<string, string> = {
   REGION_NOT_FOUND: "Couldn't locate that region. Check the spelling.",
@@ -28,18 +38,23 @@ const REGION_ERROR_MESSAGES: Record<string, string> = {
 };
 
 /**
- * Region-name autocomplete + optional distance slider. As the user
- * types, a debounced call to the region-only suggest endpoint
+ * Region-name autocomplete plus a single-value distance control. As
+ * the user types, a debounced call to the region-only suggest endpoint
  * (resolvable distance anchors only) fills an accessible
  * combobox/listbox. The region value is committed to the parent query
- * ONLY on an explicit suggestion-select (click or keyboard) — never on
+ * ONLY on an explicit suggestion-select (click or keyboard), never on
  * a raw typed string. Every committed value is therefore a verbatim
  * name from the {@code regions} table, so the backend never 400s the
  * search. Blurring with un-selected text reverts the input to the last
  * committed region (no doomed search fires). Clearing the field still
- * drops the filter on blur. Distance slider is disabled until a region
- * is set — the backend rejects {@code distance} without
- * {@code near_region}.
+ * drops the filter on blur.
+ *
+ * Distance is a single 0..20 value driven by two synced controls (a
+ * range slider and an editable number input), defaulting to 0 (the
+ * selected region only). Both are disabled until a region is set (the
+ * backend rejects {@code distance} without {@code near_region}). Once a
+ * region is selected an explicit integer distance is always sent (0
+ * included), so the backend never falls back to its own default.
  *
  * The backend's REGION_NOT_FOUND / REGION_LOOKUP_UNAVAILABLE codes
  * still surface inline here when the parent passes {@code errorCode}
@@ -91,15 +106,18 @@ export function DistanceSearchBlock({
   const listboxOpen = open && searchTerm.trim().length >= 2 && suggestions.length > 0;
 
   // Commit a resolvable region (or clear). next === undefined drops the
-  // filter (and distance — the backend rejects distance without
-  // near_region). No-op if it already matches the parent query.
+  // filter (and distance, since the backend rejects distance without
+  // near_region). On region-select we establish an explicit distance
+  // (preserve an already-set value, otherwise default to 0) so the
+  // backend never falls back to its own default. No-op if it already
+  // matches the parent query.
   const commit = (value: string | undefined) => {
     const next = value && value.trim() !== "" ? value : undefined;
     if (next === (query.nearRegion ?? undefined)) return;
     onChange(
       next === undefined
         ? { nearRegion: undefined, distance: undefined }
-        : { nearRegion: next },
+        : { nearRegion: next, distance: query.distance ?? DEFAULT_DISTANCE },
     );
   };
 
@@ -167,7 +185,17 @@ export function DistanceSearchBlock({
   };
 
   const distanceEnabled = Boolean(query.nearRegion);
-  const distance = query.distance ?? MAX_DISTANCE;
+  const distance = query.distance ?? DEFAULT_DISTANCE;
+
+  // Slider/number share one value. Both are gated by distanceEnabled,
+  // so a commit here always has a region in the query already.
+  const commitDistance = (raw: number) => {
+    if (!distanceEnabled) return;
+    const next = clampDistance(raw);
+    if (next === null) return;
+    if (next === distance) return;
+    onChange({ distance: next });
+  };
   const errorMessage = errorCode ? REGION_ERROR_MESSAGES[errorCode] : undefined;
   const activeOptionId =
     listboxOpen && activeIndex >= 0
@@ -247,23 +275,56 @@ export function DistanceSearchBlock({
           </p>
         )}
       </div>
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between text-xs font-medium text-fg-muted">
+      <div className={cn("flex flex-col gap-2", !distanceEnabled && "opacity-50")}>
+        <div className="flex items-center justify-between gap-2 text-xs font-medium text-fg-muted">
           <span>Within</span>
-          <span>{distance} regions</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_DISTANCE}
+              max={MAX_DISTANCE}
+              step={1}
+              value={distance}
+              disabled={!distanceEnabled}
+              aria-label="Within how many regions"
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v.trim() === "") return;
+                commitDistance(Number(v));
+              }}
+              onBlur={(e) => {
+                // Snap a partial/out-of-range entry back to the clamped
+                // value when focus leaves (e.g. typed "99" or "abc").
+                const next = clampDistance(Number(e.target.value));
+                if (next === null || next === distance) {
+                  e.target.value = String(distance);
+                }
+              }}
+              className="h-9 w-16 rounded-lg bg-bg-subtle text-fg px-2 text-center ring-1 ring-transparent focus:bg-surface-raised focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed"
+            />
+            <span>regions</span>
+          </div>
         </div>
-        <div className={cn(!distanceEnabled && "pointer-events-none opacity-50")}>
-          <RangeSlider
-            min={MIN_DISTANCE}
-            max={MAX_DISTANCE}
-            step={1}
-            value={[0, distance]}
-            onChange={([, hi]) =>
-              onChange({ distance: hi === MAX_DISTANCE ? undefined : hi })
-            }
-            ariaLabel={["Minimum distance (regions)", "Maximum distance (regions)"]}
-          />
-        </div>
+        <input
+          type="range"
+          min={MIN_DISTANCE}
+          max={MAX_DISTANCE}
+          step={1}
+          value={distance}
+          disabled={!distanceEnabled}
+          aria-label="Within how many regions (slider)"
+          aria-valuenow={distance}
+          aria-valuemin={MIN_DISTANCE}
+          aria-valuemax={MAX_DISTANCE}
+          onChange={(e) => commitDistance(Number(e.target.value))}
+          className="w-full accent-primary disabled:cursor-not-allowed"
+        />
+        {!distanceEnabled && (
+          <p className="text-xs text-fg-muted">
+            Pick a region first to set distance.
+          </p>
+        )}
       </div>
     </div>
   );
