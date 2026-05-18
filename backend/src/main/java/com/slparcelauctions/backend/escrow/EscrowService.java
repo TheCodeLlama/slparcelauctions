@@ -37,6 +37,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnve
 import com.slparcelauctions.backend.escrow.review.EscrowManualReview;
 import com.slparcelauctions.backend.escrow.review.EscrowManualReviewRepository;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
+import com.slparcelauctions.backend.escrow.scheduler.SellToBotTaskFactory;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.sl.SlurlBuilder;
@@ -109,6 +110,7 @@ public class EscrowService {
     private final WalletService walletService;
     private final EscrowConfigProperties escrowConfig;
     private final EscrowManualReviewRepository manualReviewRepo;
+    private final SellToBotTaskFactory sellToBotTaskFactory;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -200,6 +202,12 @@ public class EscrowService {
         saved.setTransferDeadline(endedAt.plusHours(TRANSFER_DEADLINE_HOURS));
         saved = escrowRepo.save(saved);
         statusFlipper.flip(saved, AuctionStatus.TRANSFER_PENDING);
+
+        // Create the single recurring VERIFY_SELL_TO bot task for the
+        // Set-Sell-To sub-phase (spec §5.1). Same transaction as the
+        // TRANSFER_PENDING transition — the bot worker won't claim the row
+        // until commit, so the "one open task per escrow" invariant holds.
+        sellToBotTaskFactory.create(saved, endedAt);
 
         // Append escrow_transactions ledger row
         ledgerRepo.save(EscrowTransaction.builder()

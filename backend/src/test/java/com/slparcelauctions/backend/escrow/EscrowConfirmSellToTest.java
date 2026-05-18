@@ -33,6 +33,7 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowSellToConfirmedEnvelope;
 import com.slparcelauctions.backend.escrow.dispute.DisputeEvidenceUploadService;
 import com.slparcelauctions.backend.escrow.review.EscrowManualReviewRepository;
+import com.slparcelauctions.backend.escrow.scheduler.SellToBotTaskFactory;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
@@ -77,6 +78,7 @@ class EscrowConfirmSellToTest {
     @Mock WalletService walletService;
     @Mock EscrowConfigProperties props;
     @Mock EscrowManualReviewRepository manualReviewRepo;
+    @Mock SellToBotTaskFactory sellToBotTaskFactory;
 
     EscrowService service;
     Clock fixed;
@@ -89,7 +91,8 @@ class EscrowConfirmSellToTest {
                 escrowRepo, statusFlipper, ledgerRepo, commission, fixed,
                 broadcastPublisher, userRepo, fraudFlagRepo, terminalService,
                 terminalRepo, terminalCommandService, notificationPublisher,
-                evidenceUploadService, walletService, props, manualReviewRepo);
+                evidenceUploadService, walletService, props, manualReviewRepo,
+                sellToBotTaskFactory);
         txTemplate = new TransactionTemplate(new FakeTxManager());
     }
 
