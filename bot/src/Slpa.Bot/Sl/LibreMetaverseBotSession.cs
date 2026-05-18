@@ -446,11 +446,17 @@ public sealed class LibreMetaverseBotSession : IBotSession
             return null;
         }
 
+        // SalePrice persists after a sale, so "is this parcel for sale" must
+        // be read from the ForSale flag bit, not inferred from the price.
+        // ParcelFlags.ForSale is 1<<2 — distinct from ForSaleObjects (1<<7).
+        bool forSale = parcel.Flags.HasFlag(OpenMetaverse.ParcelFlags.ForSale);
+
         _log.LogInformation(
             "ReadParcel resolved LocalID {LocalId} at ({X},{Y}) in {Sim}: " +
-            "name='{Name}' owner={Owner} authBuyer={AuthBuyer} salePrice={Price}",
+            "name='{Name}' owner={Owner} authBuyer={AuthBuyer} salePrice={Price} " +
+            "forSale={ForSale}",
             localId, x, y, sim.Name, parcel.Name, parcel.OwnerID,
-            parcel.AuthBuyerID, parcel.SalePrice);
+            parcel.AuthBuyerID, parcel.SalePrice, forSale);
 
         return new ParcelSnapshot(
             OwnerId: Guid.Parse(parcel.OwnerID.ToString()),
@@ -458,6 +464,7 @@ public sealed class LibreMetaverseBotSession : IBotSession
             IsGroupOwned: parcel.IsGroupOwned,
             AuthBuyerId: Guid.Parse(parcel.AuthBuyerID.ToString()),
             SalePrice: parcel.SalePrice,
+            ForSale: forSale,
             Name: parcel.Name ?? string.Empty,
             Description: parcel.Desc ?? string.Empty,
             AreaSqm: parcel.Area,

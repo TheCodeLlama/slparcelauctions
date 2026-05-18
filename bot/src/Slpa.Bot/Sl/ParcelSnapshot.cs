@@ -11,6 +11,7 @@ public sealed record ParcelSnapshot(
     bool IsGroupOwned,
     Guid AuthBuyerId,
     long SalePrice,
+    bool ForSale,
     string Name,
     string Description,
     int AreaSqm,

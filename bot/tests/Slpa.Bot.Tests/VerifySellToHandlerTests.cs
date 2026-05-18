@@ -13,12 +13,13 @@ namespace Slpa.Bot.Tests;
 /// Spec §5 — VERIFY_SELL_TO handler. Drives the teleport → read-parcel →
 /// classify → report path via the in-test <see cref="FakeBotSession"/>
 /// (TeleportPolicy / ReadPolicy) + a mocked <see cref="IBackendClient"/>;
-/// never touches GridClient. ForSale flag bit = 0x00000080.
+/// never touches GridClient. The for-sale signal is the typed
+/// <c>ParcelSnapshot.ForSale</c> bool (sourced from
+/// <c>OpenMetaverse.ParcelFlags.ForSale</c> in the real session), not the
+/// raw <c>Flags</c> bitfield.
 /// </summary>
 public sealed class VerifySellToHandlerTests
 {
-    private const uint ForSaleFlag = 0x00000080;
-
     private readonly Mock<IBackendClient> _backend = new();
     private readonly FakeBotSession _session = new();
 
@@ -123,6 +124,33 @@ public sealed class VerifySellToHandlerTests
         _captured.ObservedAuthBuyerUuid.Should().Be(winner);
     }
 
+    /// <summary>
+    /// Regression for the prod incident: a correctly group-owned, for-sale,
+    /// L$0, sell-to-winner parcel must classify as SELL_TO_OK. The bot log
+    /// showed owner=&lt;group&gt; authBuyer=&lt;winner&gt; salePrice=0 →
+    /// SELL_TO_NOT_SET because the old code ANDed the raw Flags bitfield with
+    /// 0x00000080 (ParcelFlags.ForSaleObjects, NOT ForSale). The snapshot
+    /// factory deliberately leaves Flags=0 so this would still be
+    /// SELL_TO_NOT_SET under the buggy code, and SELL_TO_OK now that the
+    /// handler reads the typed ParcelSnapshot.ForSale.
+    /// </summary>
+    [Fact]
+    public async Task GroupOwnedForSaleZeroPriceToWinner_ReportsSellToOk_ProdRegression()
+    {
+        var winner = Guid.NewGuid();
+        var group = Guid.NewGuid(); // group owner UUID, distinct from winner
+        _session.ReadPolicy = (_, _) => Snapshot(
+            owner: group, authBuyer: winner, price: 0, forSale: true);
+        var task = BuildVerifySellToTask(winner);
+
+        await NewHandler().HandleAsync(task, CancellationToken.None);
+
+        Reported().Should().Be(SellToOutcome.SELL_TO_OK);
+        _captured!.ObservedForSale.Should().BeTrue();
+        _captured.ObservedSalePrice.Should().Be(0);
+        _captured.ObservedAuthBuyerUuid.Should().Be(winner);
+    }
+
     [Fact]
     public async Task TeleportAccessDenied_ReportsAccessDenied_NoReadParcel()
     {
@@ -169,13 +197,14 @@ public sealed class VerifySellToHandlerTests
         IsGroupOwned: false,
         AuthBuyerId: authBuyer,
         SalePrice: price,
+        ForSale: forSale,
         Name: "P",
         Description: "",
         AreaSqm: 1024,
         MaxPrims: 234,
         Category: 0,
         SnapshotId: Guid.NewGuid(),
-        Flags: forSale ? ForSaleFlag : 0u);
+        Flags: 0u);
 
     private static BotTaskResponse BuildVerifySellToTask(Guid winner) => new(
         Id: 99,
