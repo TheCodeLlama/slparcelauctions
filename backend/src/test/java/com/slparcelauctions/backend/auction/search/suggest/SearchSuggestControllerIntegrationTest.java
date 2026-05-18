@@ -98,6 +98,38 @@ class SearchSuggestControllerIntegrationTest {
     }
 
     @Test
+    void regionsOnly_returnsResolvableRegions_includingNoActiveAuction()
+            throws Exception {
+        regionRepo.save(Region.builder()
+                .slUuid(UUID.randomUUID()).name("Quiet Anchor")
+                .gridX(5.0).gridY(5.0).maturityRating("GENERAL").build());
+        mockMvc.perform(get("/api/v1/search/suggest")
+                        .param("q", "quiet").param("regionsOnly", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.listings").isEmpty())
+                .andExpect(jsonPath("$.totalListings").value(0))
+                .andExpect(jsonPath("$.regions[0].name").value("Quiet Anchor"));
+    }
+
+    @Test
+    void regionsOnly_isPublic_andCached() throws Exception {
+        mockMvc.perform(get("/api/v1/search/suggest")
+                        .param("q", "tula").param("regionsOnly", "true"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control",
+                        org.hamcrest.Matchers.containsString("max-age=15")));
+    }
+
+    @Test
+    void defaultMode_unchanged_whenParamOmitted() throws Exception {
+        // Header-overlay contract: omitting regionsOnly keeps the
+        // active-auction-scoped listings+regions envelope.
+        mockMvc.perform(get("/api/v1/search/suggest").param("q", "waterfront"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.listings[0].title").value("Premium Waterfront"));
+    }
+
+    @Test
     void rateLimitHeader_proves_interceptor_isWired() throws Exception {
         // The 429-on-bucket-drain path is correct-by-construction (mirrors
         // SearchRateLimitInterceptor) — sending 300 requests in a unit
