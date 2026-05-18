@@ -1,9 +1,9 @@
 "use client";
 
 import type { GroupMember } from "@/types/realty";
+import { RatingSummary } from "@/components/reviews/RatingSummary";
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
-import { StarRating } from "./StarRating";
 import { Btn } from "./Btn";
 
 interface MemberRowProps {
@@ -21,7 +21,12 @@ export function MemberRow({ member, role }: MemberRowProps) {
           <Badge tone="neutral">{role}</Badge>
         </div>
         <div className="flex gap-2.5 items-center text-xs text-fg-muted mt-0.5">
-          <StarRating value={member.rating} size={11} />
+          <RatingSummary
+            rating={member.rating > 0 ? member.rating : null}
+            reviewCount={member.rating > 0 ? 1 : 0}
+            size="xs"
+            hideCountText
+          />
           <span>·</span>
           <span>{member.sales} sales</span>
           <span>·</span>
