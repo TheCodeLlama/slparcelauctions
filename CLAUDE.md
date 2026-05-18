@@ -11,7 +11,7 @@ SLParcels is a player-to-player land auction platform for Second Life. It bridge
 ```
 Frontend (Next.js 16 / React 19 / TypeScript 5 / Tailwind CSS 4)
     ↕ REST API + WebSocket (STOMP)
-Backend (Spring Boot 4 / Java 26 / PostgreSQL / Redis / MinIO)
+Backend (Spring Boot 4 / Java 24 / PostgreSQL / Redis / MinIO)
     ↕ HTTP (llHTTPRequest / HTTP-in)         ↕ shared-secret HTTP
 In-World (Second Life LSL Scripts)      Bot (.NET 8 / LibreMetaverse)
 ```
@@ -67,7 +67,7 @@ Requires real SL credentials in `.env.bot-N`. No mock mode. See `bot/README.md`.
 ## Framework Version Warnings
 
 - **Next.js 16.2.3** has breaking changes from earlier versions. Read `frontend/node_modules/next/dist/docs/` before writing frontend code. See `frontend/AGENTS.md`.
-- **Spring Boot 4.0.5** with **Java 26** - use latest conventions.
+- **Spring Boot 4.0.5** targeting **Java 24** (`backend/pom.xml` `<java.version>24</java.version>`). The installed JDK at `JAVA_HOME` is newer (openjdk-26), which is fine; do not override `JAVA_HOME` inline. Use latest conventions.
 - **Tailwind CSS 4** uses the new `@tailwindcss/postcss` plugin (not the legacy `tailwindcss` PostCSS plugin).
 
 ## Key Directories
@@ -86,7 +86,7 @@ Requires real SL credentials in `.env.bot-N`. No mock mode. See `bot/README.md`.
 - **ORM**: Spring Data JPA / Hibernate with Lombok for boilerplate
 - **Database migrations**: `application.yml` sets `ddl-auto: update`, but **Spring Boot 4 silently sets `hibernate.hbm2ddl.auto=none` whenever Flyway is on the classpath** — Flyway is the actual schema manager and Hibernate fills no gaps. The "no migrations until users" intent isn't realised today: entity changes still need a paired Flyway migration (`backend/src/main/resources/db/migration/V<N>__*.sql`). To make the original intent real, set `spring.flyway.enabled: false` and rebuild — until then, write a migration when you change an entity.
 
-  **DB wipe procedure (prod).** RDS is in a private subnet, so `psql -h <rds>` from a dev box can't reach it. Use a one-shot Fargate task with the `postgres:16` image inside the same VPC:
+  **DB wipe procedure (prod).** RDS is in a private subnet, so `psql -h <rds>` from a dev box can't reach it. Use a one-shot Fargate task with the `postgres:17` image inside the same VPC (prod RDS is PostgreSQL 17.x; `docker-compose.yml` also uses `postgres:17-alpine`):
 
   ```bash
   # Task def already lives at .scratch/wipe-task-def.json (subnets + sg of the
@@ -150,7 +150,7 @@ Once L$ has reached an SLParcels Terminal script (the `money()` event has fired)
 - **AWS CLI is on PATH.** Run `aws` directly. (Earlier Claude Code sessions inherited a stale PATH from IntelliJ-spawned shells started before the install — if `aws` ever doesn't resolve in a tool call, restart the parent terminal so the new env propagates.)
 - **Profile**: `slpa-prod` (IAM Identity Center user `heath`, account `486208158127`, region `us-east-1`).
 - **ECS**: cluster `slpa-prod`. Services: `slpa-prod-backend`, `slpa-prod-bot-1`, `slpa-prod-bot-2`. ECS Exec is enabled on the backend service.
-- **CloudWatch logs**: `/aws/ecs/slpa-backend` for backend stdout. Tail with `aws --profile slpa-prod logs tail /aws/ecs/slpa-backend --since 5m --format short`.
+- **CloudWatch logs**: `/aws/ecs/slpa-backend` (backend stdout), `/aws/ecs/slpa-bot-1` and `/aws/ecs/slpa-bot-2` (per-bot worker stdout), `/aws/amplify/dil6fhehya5jf` (frontend build), `/aws/rds/instance/slpa-prod-postgres/postgresql` (RDS). Tail with `aws --profile slpa-prod logs tail /aws/ecs/slpa-backend --since 5m --format short`. NOTE (Windows): Git Bash rewrites a leading `/aws/...` arg into a `C:/Program Files/Git/aws/...` path, so the CLI fails the log-group regex and the call silently returns nothing. Run any `aws logs` command via the PowerShell tool (or prefix `MSYS_NO_PATHCONV=1`).
 - **Amplify**: app id `dil6fhehya5jf`, branch `main`. List recent jobs with `aws --profile slpa-prod amplify list-jobs --app-id dil6fhehya5jf --branch-name main --max-items 5`. Amplify rebuilds on every push to `main` regardless of which paths changed.
 - **RDS**: `slpa-prod-postgres.celewqkic6r2.us-east-1.rds.amazonaws.com`, db `slpa`, user `slpa`. **Private subnet — not reachable from a dev box.** Use the one-shot Fargate task pattern for any psql operation.
 - **SSM Parameter Store** (encrypted, region us-east-1): `/slpa/prod/rds/{username,password}`, `/slpa/prod/jwt/secret`, `/slpa/prod/redis/auth-token`, `/slpa/prod/escrow/terminal-shared-secret`, `/slpa/prod/sl/{primary-escrow-uuid,trusted-owner-keys}`, `/slpa/prod/bot-N/{username,password,uuid}`, `/slpa/prod/notifications/sl-im/dispatcher-secret`. Read with `aws --profile slpa-prod ssm get-parameter --name /slpa/prod/... --with-decryption --query 'Parameter.Value' --output text`. Secrets Manager is empty — everything lives in SSM.
@@ -158,7 +158,9 @@ Once L$ has reached an SLParcels Terminal script (the `money()` event has fired)
 ## Deploy pipelines
 
 - **Backend**: GitHub Actions workflow `.github/workflows/deploy-backend.yml`. Triggers on push to `main` with `paths: backend/**`. Builds + pushes the image to ECR, updates the ECS service. Tail with `gh run list --branch main --workflow 'deploy backend' --limit 3 --json status,conclusion`.
-- **Frontend**: Amplify on its own webhook. Triggers on every push to `main` regardless of paths. Independent of the backend pipeline — frontend can finish *before* the backend is up, which causes "build hits old API shape, fails prerender" timing bugs. Forcing pages to `dynamic = "force-dynamic"` (see Frontend SSR caveats above) is the durable fix; if you need to retrigger Amplify without a code change, use `aws --profile slpa-prod amplify start-job --app-id dil6fhehya5jf --branch-name main --job-type RELEASE`.
+- **Bot**: GitHub Actions workflow `.github/workflows/deploy-bot.yml`. Triggers on push to `main` with `paths: bot/**` (or the workflow file itself). Builds + pushes the bot image to ECR, then fans a task-def revision + service update across every active `slpa-prod-bot-*` service and waits for them to stabilize. Bot ECS services use `deployment_minimum_healthy_percent = 0` so the old task drains fully before the new one starts (named SL creds cannot double-login); a brief per-bot downtime per deploy is expected. Tail with `gh run list --branch main --workflow 'deploy bots' --limit 3 --json status,conclusion`.
+- **Frontend**: Amplify on its own webhook. Triggers on every push to `main` regardless of paths. Independent of the backend pipeline; the frontend can finish *before* the backend is up, which causes "build hits old API shape, fails prerender" timing bugs. Forcing pages to `dynamic = "force-dynamic"` (see Frontend SSR caveats above) is the durable fix; if you need to retrigger Amplify without a code change, use `aws --profile slpa-prod amplify start-job --app-id dil6fhehya5jf --branch-name main --job-type RELEASE`.
+- **CI**: `.github/workflows/frontend-ci.yml` (lint + test + build + verify guards) and `.github/workflows/bot-ci.yml` (dotnet build + test) run **only on push to `main`** (the dev/PR triggers are commented out). There is no backend test CI workflow. Run `./mvnw test`, `npm run lint|test|build|verify`, and `dotnet test` locally before pushing (see memory `project_ci_main_only_temporarily`).
 
 ## Branch / PR workflow
 
