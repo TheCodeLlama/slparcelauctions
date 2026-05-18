@@ -155,4 +155,37 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
             default);
         await act.Should().ThrowAsync<AuthConfigException>();
     }
+
+    [Fact]
+    public async Task ReportTaskResult_204_Succeeds()
+    {
+        _server
+            .Given(Request.Create().WithPath("/api/v1/bot/tasks/42/result").UsingPost()
+                .WithHeader("Authorization", "Bearer test-secret-xxxxxxxx"))
+            .RespondWith(Response.Create().WithStatusCode(204));
+
+        var body = new BotTaskResultRequest(
+            SellToOutcome.SELL_TO_OK,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            0,
+            true);
+
+        var act = async () => await _client.ReportTaskResultAsync(42, body, default);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task ReportTaskResult_401_ThrowsAuthConfigException()
+    {
+        _server
+            .Given(Request.Create().WithPath("/api/v1/bot/tasks/42/result").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(401));
+
+        var body = new BotTaskResultRequest(
+            SellToOutcome.BOT_ERROR, null, null, null, null);
+
+        var act = async () => await _client.ReportTaskResultAsync(42, body, default);
+        await act.Should().ThrowAsync<AuthConfigException>();
+    }
 }
