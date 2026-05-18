@@ -27,7 +27,10 @@ public class SearchSuggestController {
     private final SearchSuggestService service;
 
     @GetMapping
-    public ResponseEntity<SuggestResponse> suggest(@RequestParam String q) {
+    public ResponseEntity<SuggestResponse> suggest(
+            @RequestParam String q,
+            @RequestParam(name = "regionsOnly", defaultValue = "false")
+            boolean regionsOnly) {
         // Empty / short queries return an empty envelope without hitting
         // the DB. The frontend hook also gates on length>=2, but we
         // re-check because the contract is public.
@@ -35,8 +38,17 @@ public class SearchSuggestController {
         if (trimmed.length() < 2) {
             return ResponseEntity.ok(SuggestResponse.empty());
         }
+        // regionsOnly is an additive opt-in for the Browse near_region
+        // autocomplete: same path/auth/rate-limit/cache as the header
+        // overlay, but suggestions are drawn from the full regions
+        // table (resolvable distance anchors) instead of the
+        // active-auction-scoped default. Omitting the param preserves
+        // the header overlay's exact behavior.
+        SuggestResponse body = regionsOnly
+                ? service.suggestRegionsOnly(trimmed)
+                : service.suggest(trimmed);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(Duration.ofSeconds(15)).cachePublic())
-                .body(service.suggest(trimmed));
+                .body(body);
     }
 }

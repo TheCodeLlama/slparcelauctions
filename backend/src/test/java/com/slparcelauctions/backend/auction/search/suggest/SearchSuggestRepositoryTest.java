@@ -141,6 +141,77 @@ class SearchSuggestRepositoryTest {
         assertThat(total).isEqualTo(8);
     }
 
+    // --- resolvable-region suggest (powers the Browse near_region
+    // autocomplete). Sourced from the regions table directly, NOT
+    // scoped to active auctions — every regions row is a valid
+    // near_region distance anchor. ---
+
+    @Test
+    void resolvableRegions_includeRegionsWithoutActiveAuctions() {
+        regionRepo.save(Region.builder()
+                .slUuid(UUID.randomUUID()).name("EmptyAnchor")
+                .gridX(0.0).gridY(0.0).maturityRating("GENERAL").build());
+        em.flush();
+        List<SuggestRegionDto> hits = repo.findResolvableRegions("emptyanchor", 10);
+        assertThat(hits).extracting(SuggestRegionDto::name)
+                .contains("EmptyAnchor");
+    }
+
+    @Test
+    void resolvableRegions_substringMatchIsTrigramFuzzy() {
+        regionRepo.save(Region.builder()
+                .slUuid(UUID.randomUUID()).name("Da Boom")
+                .gridX(1.0).gridY(1.0).maturityRating("GENERAL").build());
+        em.flush();
+        // "boom" is a substring, not a prefix — only the trgm GIN /
+        // ILIKE '%q%' path returns this; a plain LIKE 'q%' would not.
+        List<SuggestRegionDto> hits = repo.findResolvableRegions("boom", 10);
+        assertThat(hits).extracting(SuggestRegionDto::name)
+                .contains("Da Boom");
+    }
+
+    @Test
+    void resolvableRegions_orderedBySimilarityDesc() {
+        regionRepo.save(Region.builder()
+                .slUuid(UUID.randomUUID()).name("Tula")
+                .gridX(0.0).gridY(0.0).maturityRating("GENERAL").build());
+        regionRepo.save(Region.builder()
+                .slUuid(UUID.randomUUID()).name("Tula Beach Annex")
+                .gridX(0.0).gridY(0.0).maturityRating("GENERAL").build());
+        em.flush();
+        List<SuggestRegionDto> hits = repo.findResolvableRegions("tula", 10);
+        // Exact-ish "Tula" outranks the longer "Tula Beach Annex" by
+        // trigram similarity to the query "tula".
+        assertThat(hits).extracting(SuggestRegionDto::name)
+                .containsExactly("Tula", "Tula Beach Annex");
+    }
+
+    @Test
+    void resolvableRegions_cappedAtLimit() {
+        for (int i = 0; i < 12; i++) {
+            regionRepo.save(Region.builder()
+                    .slUuid(UUID.randomUUID()).name("Harbor" + i)
+                    .gridX((double) i).gridY((double) i)
+                    .maturityRating("GENERAL").build());
+        }
+        em.flush();
+        List<SuggestRegionDto> hits = repo.findResolvableRegions("harbor", 8);
+        assertThat(hits).hasSize(8);
+    }
+
+    @Test
+    void resolvableRegions_activeAuctionCountIsZero_notDisplayed() {
+        regionRepo.save(Region.builder()
+                .slUuid(UUID.randomUUID()).name("AnchorOnly")
+                .gridX(2.0).gridY(2.0).maturityRating("GENERAL").build());
+        em.flush();
+        List<SuggestRegionDto> hits = repo.findResolvableRegions("anchoronly", 10);
+        assertThat(hits).hasSize(1);
+        // The autocomplete never renders the count; the field stays for
+        // DTO-shape parity with the header-overlay suggest path.
+        assertThat(hits.get(0).activeAuctionCount()).isZero();
+    }
+
     private Auction seedActive(String regionName, String parcelName, String title) {
         Region region = regionRepo.findByNameIgnoreCase(regionName)
                 .orElseGet(() -> regionRepo.save(Region.builder()

@@ -82,12 +82,6 @@ When finishing a sub-spec that completes a deferred item, remove the entry.
 - **Notes:** The current token mapping (`bg-error` / `text-on-error`) is the load-bearing part. Any polish should NOT switch to raw Tailwind palette classes (`bg-red-500`) — keep it on the M3 token system.
 
 
-### Region autocomplete for DistanceSearchBlock
-- **From:** Epic 07 sub-spec 2 (Task 2b)
-- **Why:** Phase 1 ships a free-form region text input with server-side validation on submit (REGION_NOT_FOUND surfaces inline under the input). Client-side autocomplete needs a new lightweight `/sl/regions/search?q=` endpoint, debounced input, keyboard nav, and a popover primitive — scope for its own design pass.
-- **When:** Phase 2 polish.
-- **Notes:** Touchpoint: `DistanceSearchBlock.tsx`.
-
 ### Infinite-scroll on browse grid
 - **From:** Epic 07 sub-spec 2 (Task 2b)
 - **Why:** Phase 1 ships numbered pagination — shareable URLs, SSR-friendly, back-button sane. Infinite scroll introduces scroll-position restore, focus management, SR announcements that deserve their own scoped design pass.
