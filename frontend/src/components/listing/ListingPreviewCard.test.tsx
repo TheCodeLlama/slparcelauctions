@@ -96,7 +96,7 @@ describe("ListingPreviewCard", () => {
           photos: [
             {
               publicId: "00000000-0000-0000-0000-000000000001",
-              url: "/api/v1/auctions/1/photos/1/bytes",
+              url: "/api/v1/photos/00000000-0000-0000-0000-000000000001",
               contentType: "image/png",
               sizeBytes: 100,
               sortOrder: 0,
@@ -111,6 +111,8 @@ describe("ListingPreviewCard", () => {
     // find it — fall back to a DOM query for the src match.
     const cover = container.querySelector("img");
     // apiUrl prefixes relative paths; assert on the invariant path tail.
-    expect(cover?.getAttribute("src")).toMatch(/photos\/1\/bytes/);
+    expect(cover?.getAttribute("src")).toMatch(
+      /photos\/00000000-0000-0000-0000-000000000001/,
+    );
   });
 });
