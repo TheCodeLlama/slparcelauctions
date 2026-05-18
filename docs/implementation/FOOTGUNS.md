@@ -1877,6 +1877,14 @@ pattern.
 
 **How to apply:** If you lengthen any escrow IM copy, budget for the appended `Parcel:` line and verify total bytes stay under 1024. If escrow IM copy grows materially, move the SLURL out of the ellipsizable body into the reserved (non-truncating) IM component so the in-world clickable link can't be silently dropped.
 
+### F.117 - Broad parallel `./mvnw test` against the shared dev Postgres produces sporadic integration-test pollution; a failure there is not a regression until reproduced in isolation
+
+**Why:** A wide parallel surefire run (`./mvnw test`, or a large `-Dtest='*Glob*'` set, especially when fanned out across subagents) executes many `@SpringBootTest` integration tests concurrently against the long-lived dev Postgres. That shared, persistent database produces sporadic, non-deterministic failures from three distinct causes: (1) orphaned rows left behind by a prior aborted run; (2) FK-ordered `@AfterEach` teardown racing between tests that touch overlapping tables; and (3) assertions bound to time-window row counts over shared data (e.g. `SlImCleanupJobTest` asserts a logger line carrying `expired=N` / `top_users=[...]` derived from a cleanup query that scans rows other concurrent tests are writing). Pure source-scan / unit tests (`PhotoUrlGuardTest`, `UserAvatarUrlGuardTest`, and similar) never touch the DB and are reliable; the DB-touching integration tests are the flaky population.
+
+This session it caused 3 false alarms: a misattributed `PhotoUrlGuardTest` "failure" inside a ~2400-test glob (passes 2/2 standalone), an `SlImCleanupJobTest` failure that reproduces identically on the base commit when run in isolation (so it is pre-existing environmental noise, not a regression introduced here), and an earlier `BotTaskControllerAuthIntegrationTest` / `EscrowOwnershipMonitorIntegrationTest` pair failing on orphaned-row pollution.
+
+**How to apply:** Treat any failure observed only under a broad parallel run as ENVIRONMENTAL until you reproduce it by running that single test class in ISOLATION (`./mvnw test -Dtest=ThatClass`). Do not file or "fix" a regression on the strength of a glob-run failure alone. Mitigation: run targeted suites rather than the full surefire fan-out; verify every suspected regression standalone before acting on it; and when accumulated pollution is suspected, the documented dev DB-wipe / schema-reset clears it.
+
 ## §G Realty groups
 
 ### G.1 `runZeroPayoutSuccessInline` is the entire post-payout work for case-3 escrows
