@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.auction.search.suggest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -43,6 +44,22 @@ class SearchSuggestServiceTest {
         SuggestResponse r = service.suggest("foo");
         assertThat(r.listings()).hasSize(1);
         assertThat(r.totalListings()).isEqualTo(42);
+    }
+
+    @Test
+    void regionsOnly_skipsListings_andSourcesResolvableRegions() {
+        when(repo.findResolvableRegions("tul", 10)).thenReturn(List.of(
+                new SuggestRegionDto("Tula", 0),
+                new SuggestRegionDto("Tula Beach", 0)));
+
+        SuggestResponse r = service.suggestRegionsOnly("tul");
+
+        assertThat(r.listings()).isEmpty();
+        assertThat(r.totalListings()).isZero();
+        assertThat(r.regions()).extracting(SuggestRegionDto::name)
+                .containsExactly("Tula", "Tula Beach");
+        // The listing queries must not run in region-only mode.
+        verifyNoMoreInteractions(repo);
     }
 
     private static SuggestListingDto listing(String title) {

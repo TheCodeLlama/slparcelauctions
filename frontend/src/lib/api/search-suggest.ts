@@ -30,4 +30,17 @@ export const searchSuggestApi = {
     api.get<SuggestResponse>(
       `/api/v1/search/suggest?q=${encodeURIComponent(q)}`,
     ),
+  /**
+   * Region-only variant powering the Browse {@code near_region}
+   * autocomplete. Same endpoint, but {@code regionsOnly=true} sources
+   * suggestions from the full regions table (every name is a
+   * resolvable distance anchor, so selecting one never 400s the
+   * search) rather than the active-auction-scoped header-overlay set.
+   * The envelope shape is identical; {@code listings} is empty and
+   * {@code activeAuctionCount} is 0 (the picker never renders it).
+   */
+  regionSuggest: (q: string) =>
+    api.get<SuggestResponse>(
+      `/api/v1/search/suggest?q=${encodeURIComponent(q)}&regionsOnly=true`,
+    ),
 };

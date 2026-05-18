@@ -85,6 +85,36 @@ public class SearchSuggestRepository {
     }
 
     /**
+     * Top-N region names from the {@code regions} table whose name
+     * substring-matches {@code raw}, ranked by trigram similarity.
+     *
+     * <p>Unlike {@link #findRegions} this is NOT scoped to regions with
+     * an ACTIVE auction: it powers the Browse {@code near_region}
+     * autocomplete, and {@code near_region} resolves against the full
+     * {@code regions} table (any region is a valid distance anchor).
+     * Returning only active-auction regions would hide resolvable
+     * anchors. {@code activeAuctionCount} is reported as 0 — the
+     * autocomplete never renders it; the field stays for DTO-shape
+     * parity with the header-overlay suggest path. The {@code ILIKE
+     * '%q%'} substring predicate and {@code similarity()} ordering both
+     * ride the {@code idx_regions_name_trgm} GIN added in V22, so a
+     * substring/typo query (not just a prefix) still matches.
+     */
+    public List<SuggestRegionDto> findResolvableRegions(String raw, int limit) {
+        String pattern = "%" + raw.toLowerCase() + "%";
+        String sql = """
+                SELECT r.name AS name
+                FROM regions r
+                WHERE LOWER(r.name) LIKE ?
+                ORDER BY similarity(r.name, ?) DESC, r.name ASC
+                LIMIT ?
+                """;
+        return jdbc.query(sql,
+                (rs, i) -> new SuggestRegionDto(rs.getString("name"), 0),
+                pattern, raw, limit);
+    }
+
+    /**
      * Total count of ACTIVE auctions matching the same predicate the
      * listings query uses. Powers the popover's "See all N results"
      * footer; the footer is hidden when this equals the number of rows

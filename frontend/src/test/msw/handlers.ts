@@ -356,6 +356,18 @@ export const notificationHandlers = [
     if (q.trim().length < 2) {
       return HttpResponse.json({ listings: [], regions: [], totalListings: 0 });
     }
+    // regionsOnly mirrors the Browse near_region autocomplete contract:
+    // empty listings, region rows sourced from the full regions table
+    // (activeAuctionCount 0, never rendered by the picker).
+    if (url.searchParams.get("regionsOnly") === "true") {
+      return HttpResponse.json(
+        mockSuggestResponse({
+          listings: [],
+          regions: [{ name: "Tula", activeAuctionCount: 0 }],
+          totalListings: 0,
+        }),
+      );
+    }
     return HttpResponse.json(mockSuggestResponse());
   }),
 ];
