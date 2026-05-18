@@ -100,6 +100,18 @@ differently — read those first.
 - **11. Postman mirroring status.** See the "Postman" section below —
   recorded here so the autonomy log is self-contained.
 
+- **12. `WITHDRAW_GROUP` / `bot_tasks_task_type_check` concern —
+  RESOLVED, SAFE, no action (2026-05-18).** The flagged worry that a
+  `WITHDRAW_GROUP` task type could trip the `bot_tasks_task_type_check`
+  CHECK constraint (enum-widening footgun) is a non-issue: group-wallet
+  withdrawals flow via `terminal_commands`
+  (`TerminalCommandAction.WITHDRAW_GROUP`), never `bot_tasks`; the Java
+  `BotTaskType` enum never had a `WITHDRAW_GROUP` value, so the
+  constraint was never at risk (0 prod constraint violations). The `.NET`
+  bot `TaskLoop` `WITHDRAW_GROUP` dispatch is a .NET-only artifact
+  consuming `terminal_commands`. No migration/code/constraint change.
+  Also logged append-only in `DEFERRED_WORK.md`.
+
 ## Postman mirroring status
 
 The 7 new/changed endpoints to mirror into the `SLPA` collection
