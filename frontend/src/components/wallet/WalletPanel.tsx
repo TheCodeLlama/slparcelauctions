@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { Modal } from "@/components/ui/Modal";
 import { Pagination } from "@/components/ui/Pagination";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { AlertTriangle } from "@/components/ui/icons";
 import {
   withdraw,
@@ -300,10 +301,21 @@ export function WalletPanel() {
         <h3 className="text-lg font-semibold text-fg mb-3">
           Activity
         </h3>
-        <LedgerTable
-          entries={ledgerPage?.content ?? []}
-          isLoading={ledgerFetching && !ledgerPage}
-        />
+        <ErrorBoundary
+          fallback={
+            <div
+              role="alert"
+              className="text-sm text-fg-muted py-8 text-center"
+            >
+              Couldn&apos;t display transactions — try again.
+            </div>
+          }
+        >
+          <LedgerTable
+            entries={ledgerPage?.content ?? []}
+            isLoading={ledgerFetching && !ledgerPage}
+          />
+        </ErrorBoundary>
         {ledgerPage && ledgerPage.totalPages > 1 && (
           <div className="mt-4">
             <Pagination
