@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
@@ -201,29 +202,7 @@ class AuctionDtoMapperTest {
                 .cancelledWithBids(2)
                 .createdAt(OffsetDateTime.now())
                 .build();
-        UUID parcelUuid = UUID.randomUUID();
-        Auction a = Auction.builder()
-                .title("Test listing")
-                .id(1L).seller(seller).slParcelUuid(parcelUuid)
-                .status(AuctionStatus.ACTIVE)
-                .startingBid(1000L).durationHours(168)
-                .snipeProtect(false).snipeWindowMin(null)
-                .listingFeePaid(false)
-                .currentBid(0L).bidCount(0)
-                .commissionRate(new BigDecimal("0.0500"))
-                .tags(new HashSet<>())
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-        a.setParcelSnapshot(AuctionParcelSnapshot.builder()
-                .slParcelUuid(parcelUuid)
-                .ownerUuid(UUID.randomUUID()).ownerType("agent")
-                .parcelName("Test Parcel")
-                .region(TestRegions.mainland())
-                .regionName("Coniston").regionMaturityRating("MODERATE")
-                .areaSqm(1024)
-                .positionX(128.0).positionY(64.0).positionZ(22.0)
-                .build());
+        Auction a = buildAuction(AuctionStatus.ACTIVE, seller);
 
         SellerAuctionResponse seller_ = mapper.toSellerResponse(a);
         PublicAuctionResponse public_ = mapper.toPublicResponse(a);
@@ -233,7 +212,8 @@ class AuctionDtoMapperTest {
         assertThat(seller_.seller().averageRating()).isEqualByComparingTo("4.75");
         assertThat(seller_.seller().reviewCount()).isEqualTo(8);
         assertThat(seller_.seller().completedSales()).isEqualTo(12);
-        assertThat(seller_.seller().completionRate()).isNotNull();
+        assertThat(seller_.seller().completionRate())
+                .isEqualByComparingTo(SellerCompletionRateMapper.compute(12, 2, 0));
     }
 
     @Test
@@ -248,7 +228,10 @@ class AuctionDtoMapperTest {
     }
 
     private Auction buildAuction(AuctionStatus status) {
-        User seller = User.builder().id(42L).email("s@example.com").username("s").build();
+        return buildAuction(status, User.builder().id(42L).email("s@example.com").username("s").build());
+    }
+
+    private Auction buildAuction(AuctionStatus status, User seller) {
         UUID parcelUuid = UUID.randomUUID();
         Auction a = Auction.builder()
                 .title("Test listing")
