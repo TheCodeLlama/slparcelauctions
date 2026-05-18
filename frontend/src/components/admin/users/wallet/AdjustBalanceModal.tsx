@@ -162,7 +162,7 @@ export function AdjustBalanceModal({
                   className="mt-0.5"
                 />
                 <span>
-                  Override reservation floor — I understand this will leave the user&apos;s
+                  Override reservation floor. I understand this will leave the user&apos;s
                   bid reservations under-funded.
                 </span>
               </label>

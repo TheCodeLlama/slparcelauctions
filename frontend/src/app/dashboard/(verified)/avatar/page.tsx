@@ -171,7 +171,7 @@ export default function AvatarOnboardingPage() {
           {source.kind === "ready" ? "Upload a different image" : "Upload an image"}
         </Button>
         <Button variant="tertiary" onClick={handleSkip} disabled={saving}>
-          Skip — no avatar
+          Skip (no avatar)
         </Button>
       </div>
     </div>

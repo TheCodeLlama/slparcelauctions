@@ -290,7 +290,7 @@ function BulkRow({ agent, value, onChange, error, disabled }: BulkRowProps) {
   const currentRateLabel =
     agent.agentCommissionRate != null
       ? `${rateToPercentDisplay(agent.agentCommissionRate)}%`
-      : "—";
+      : "(none)";
   return (
     <li
       className="flex flex-col gap-1 rounded-lg border border-border bg-surface-raised px-3 py-2.5"

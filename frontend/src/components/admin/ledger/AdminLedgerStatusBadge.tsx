@@ -19,7 +19,7 @@ function chipClass(status: string): string {
 }
 
 export function AdminLedgerStatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-fg-muted/50">—</span>;
+  if (!status) return <span className="text-fg-muted/50">(none)</span>;
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${chipClass(status)}`}

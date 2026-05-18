@@ -191,7 +191,7 @@ function VerifyControls({
       </p>
       {escrow.manualReviewStatus === "OPEN" ? (
         <p className="text-xs font-medium text-fg-muted">
-          A manual review is open — SLParcels staff will follow up.
+          A manual review is open. SLParcels staff will follow up.
         </p>
       ) : (
         <Button
@@ -330,7 +330,7 @@ function WinnerBuyParcelCard({ escrow }: { escrow: EscrowStatusResponse }) {
       </h2>
       <p className="text-sm text-fg-muted">
         The seller has listed the parcel for sale to you. Open it in Second
-        Life and buy it now —{" "}
+        Life and buy it now,{" "}
         <span className="font-medium text-fg">
           only if the price shows L$ 0
         </span>

@@ -23,7 +23,7 @@ export function adminListingErrorMessage(err: unknown, fallback: string): string
   const code = (err.problem as { code?: string }).code;
   switch (code) {
     case "INVALID_STATUS_FOR_ACTION":
-      return "This listing's status changed — refresh and try again.";
+      return "This listing's status changed. Refresh and try again.";
     case "ALREADY_SUSPENDED":
       return "This listing is already suspended.";
     case "NOT_SUSPENDED":

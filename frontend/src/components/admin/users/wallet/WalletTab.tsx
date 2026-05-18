@@ -10,7 +10,7 @@ import type { AdminWalletPendingWithdrawal } from "@/lib/admin/types";
 const PAGE_SIZE = 25;
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "(none)";
   return new Date(iso).toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
     hour: "2-digit", minute: "2-digit",
@@ -86,7 +86,7 @@ export function WalletTab({ publicId }: Props) {
         )}
         {wallet.walletTermsAcceptedAt ? (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-info-bg text-info">
-            Terms v{wallet.walletTermsVersion ?? "—"}
+            Terms v{wallet.walletTermsVersion ?? "(none)"}
           </span>
         ) : (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-bg-hover text-fg-muted">
@@ -144,7 +144,7 @@ export function WalletTab({ publicId }: Props) {
                           disabled={!w.canForceFinalize}
                           onClick={() => setPendingAction({ withdrawal: w, mode: "complete" })}
                           data-testid={`force-complete-${w.terminalCommandId}`}
-                          title={!w.canForceFinalize ? "Bot is mid-payout — wait for callback or lease expiry" : undefined}
+                          title={!w.canForceFinalize ? "Bot is mid-payout. Wait for callback or lease expiry." : undefined}
                         >
                           Force complete
                         </Button>
@@ -154,7 +154,7 @@ export function WalletTab({ publicId }: Props) {
                           disabled={!w.canForceFinalize}
                           onClick={() => setPendingAction({ withdrawal: w, mode: "fail" })}
                           data-testid={`force-fail-${w.terminalCommandId}`}
-                          title={!w.canForceFinalize ? "Bot is mid-payout — wait for callback or lease expiry" : undefined}
+                          title={!w.canForceFinalize ? "Bot is mid-payout. Wait for callback or lease expiry." : undefined}
                         >
                           Force fail
                         </Button>
@@ -198,9 +198,9 @@ export function WalletTab({ publicId }: Props) {
                         {row.amount >= 0 ? "+" : ""}{formatLindens(row.amount)}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono text-fg">{formatLindens(row.balanceAfter)}</td>
-                      <td className="px-3 py-2.5 text-fg-muted text-[11px]">{row.description ?? "—"}</td>
+                      <td className="px-3 py-2.5 text-fg-muted text-[11px]">{row.description ?? "(none)"}</td>
                       <td className="px-3 py-2.5 text-fg-muted text-[11px]">
-                        {row.createdByAdminId ? `#${row.createdByAdminId}` : "—"}
+                        {row.createdByAdminId ? `#${row.createdByAdminId}` : "(none)"}
                       </td>
                     </tr>
                   ))}
