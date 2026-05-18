@@ -14,6 +14,7 @@ import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.parceltag.ParcelTag;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserAvatarUrl;
 
 /**
  * Merges a paginated {@link Auction} result with the per-row tag and photo
@@ -140,6 +141,6 @@ public class AuctionSearchResultMapper {
     }
 
     private String avatarUrl(User u) {
-        return u.getPublicId() == null ? null : "/api/v1/users/" + u.getPublicId() + "/avatar/256";
+        return UserAvatarUrl.forUserOrNull(u.getPublicId());
     }
 }

@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.slparcelauctions.backend.review.Review;
 import com.slparcelauctions.backend.review.ReviewResponse;
 import com.slparcelauctions.backend.review.ReviewedRole;
+import com.slparcelauctions.backend.user.UserAvatarUrl;
 
 /**
  * Wire shape for a single review row. {@code of(...)} is the single
@@ -66,7 +67,7 @@ public record ReviewDto(
                 primaryPhotoUrl,
                 r.getReviewer().getPublicId(),
                 r.getReviewer().getDisplayName(),
-                avatarUrl(r.getReviewer().getId()),
+                UserAvatarUrl.forUserOrNull(r.getReviewer().getPublicId()),
                 r.getReviewee().getPublicId(),
                 r.getReviewedRole(),
                 exposeText ? r.getRating() : null,
@@ -76,9 +77,5 @@ public record ReviewDto(
                 exposeText ? r.getSubmittedAt() : null,
                 r.getRevealedAt(),
                 resp.map(ReviewResponseDto::of).orElse(null));
-    }
-
-    private static String avatarUrl(Long userId) {
-        return userId == null ? null : "/api/v1/users/" + userId + "/avatar/256";
     }
 }

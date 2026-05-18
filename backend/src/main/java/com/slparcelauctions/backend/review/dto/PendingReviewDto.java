@@ -10,6 +10,7 @@ import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.review.ReviewService;
 import com.slparcelauctions.backend.review.ReviewedRole;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserAvatarUrl;
 
 /**
  * Wire shape for the dashboard's "reviews waiting for you to submit"
@@ -67,14 +68,10 @@ public record PendingReviewDto(
                 photo,
                 counterparty == null ? null : counterparty.getPublicId(),
                 counterparty == null ? null : counterparty.getDisplayName(),
-                counterparty == null ? null : avatarUrl(counterparty.getId()),
+                counterparty == null ? null : UserAvatarUrl.forUserOrNull(counterparty.getPublicId()),
                 e.getCompletedAt(),
                 windowCloses,
                 hoursRemaining,
                 viewerRole);
-    }
-
-    private static String avatarUrl(Long userId) {
-        return userId == null ? null : "/api/v1/users/" + userId + "/avatar/256";
     }
 }

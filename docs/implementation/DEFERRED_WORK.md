@@ -340,6 +340,13 @@ Spec: `docs/superpowers/specs/2026-05-12-realty-groups-final-cleanup-design.md` 
 - **When:** Indefinite — add an external-link slot to the renderer later if a direct in-app maps link is desired.
 - **Notes:** Backend already emits `parcelMapUrl` / `parcelViewerUrl` in the ESCROW notification data blob; only the in-app render slot is missing.
 
+### ▶ Resolution: `WITHDRAW_GROUP` / `bot_tasks_task_type_check` constraint concern — SAFE, no action
+
+- **From:** Flagged concern that a `WITHDRAW_GROUP` task type could violate the `bot_tasks_task_type_check` CHECK constraint (the enum-widening footgun, FOOTGUNS §F around `BotTaskTypeCheckConstraintInitializer`).
+- **Resolution:** **RESOLVED — SAFE, no action required.** Group-wallet withdrawals flow via `terminal_commands` (`TerminalCommandAction.WITHDRAW_GROUP`), never `bot_tasks`. The Java `BotTaskType` enum never had a `WITHDRAW_GROUP` value, so the `bot_tasks_task_type_check` CHECK constraint was never at risk; 0 prod constraint violations. The `.NET` bot `TaskLoop` `WITHDRAW_GROUP` dispatch is a .NET-only artifact (it consumes `terminal_commands`, not `bot_tasks`). No migration, code, or constraint change needed.
+- **When:** Done (2026-05-18) — closed as no-op.
+- **Notes:** Append-only resolution row, per the ledger's immutability rule. Cross-ref: autonomy decisions log `docs/superpowers/decisions/2026-05-17-escrow-split-autonomy-notes.md`.
+
 ---
 
 ## Removal Criteria
