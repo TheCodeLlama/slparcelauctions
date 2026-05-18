@@ -24,7 +24,7 @@ function reviewDto(overrides: Partial<ReviewDto> = {}): ReviewDto {
     publicId: "00000000-0000-0000-0000-000000000001",
     auctionPublicId: "00000000-0000-0000-0000-00000000000a",
     auctionTitle: "Aurora Parcel",
-    auctionPrimaryPhotoUrl: "/api/v1/auctions/10/photos/1/bytes",
+    auctionPrimaryPhotoUrl: "/api/v1/photos/00000000-0000-0000-0000-000000000001",
     reviewerPublicId: "00000000-0000-0000-0000-00000000002a",
     reviewerDisplayName: "Alice",
     reviewerAvatarUrl: "/api/v1/users/42/avatar/256",
