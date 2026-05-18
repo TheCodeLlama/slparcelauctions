@@ -55,7 +55,7 @@ public class EscrowOwnershipMonitorJob {
         if (ids.isEmpty()) {
             return;
         }
-        log.info("EscrowOwnershipMonitorJob processing {} transfer-pending escrows", ids.size());
+        log.info("EscrowOwnershipMonitorJob processing {} buy-phase escrows due for owner poll", ids.size());
         for (Long id : ids) {
             try {
                 checkTask.checkOne(id);

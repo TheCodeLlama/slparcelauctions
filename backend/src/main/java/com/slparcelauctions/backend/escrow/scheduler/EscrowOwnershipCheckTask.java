@@ -139,8 +139,9 @@ public class EscrowOwnershipCheckTask {
                 // cadence inside the post-Set-Sell-To fast window, slow
                 // cadence afterwards (spec §6). Stamped on the in-memory
                 // entity before stampChecked's save() so it persists in the
-                // same transaction. The finder guarantees sellToConfirmedAt
-                // is non-null here, but guard defensively to never NPE.
+                // same transaction. The sweep finder filters on
+                // sellToConfirmedAt IS NOT NULL, so this is normally non-null;
+                // guard defensively for direct callers to never NPE.
                 OffsetDateTime sellToConfirmedAt = escrow.getSellToConfirmedAt();
                 if (sellToConfirmedAt != null) {
                     Duration sinceSellTo = Duration.between(sellToConfirmedAt, now);
