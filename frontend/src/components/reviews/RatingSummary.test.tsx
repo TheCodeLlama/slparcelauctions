@@ -35,14 +35,63 @@ describe("RatingSummary", () => {
     expect(screen.queryByText(/review/)).not.toBeInTheDocument();
   });
 
+  it("omits the numeric label when hideNumber is set", () => {
+    // Used by the realty review rows, which put the rating next to a
+    // "· <date>" stamp instead of the numeric label.
+    renderWithProviders(
+      <RatingSummary rating={4.0} reviewCount={3} hideNumber hideCountText />,
+    );
+    expect(screen.getAllByTestId("rating-star")).toHaveLength(5);
+    expect(screen.queryByText("4.0")).not.toBeInTheDocument();
+  });
+
+  it("supports the compact xs size for realty rows", () => {
+    renderWithProviders(
+      <RatingSummary rating={4.0} reviewCount={2} size="xs" hideCountText />,
+    );
+    expect(screen.getAllByTestId("rating-star")).toHaveLength(5);
+  });
+
   it("produces the correct per-star fill ratios across rating values", () => {
     expect(starFillRatios(0)).toEqual([0, 0, 0, 0, 0]);
     expect(starFillRatios(2.5)).toEqual([1, 1, 0.5, 0, 0]);
     expect(starFillRatios(5.0)).toEqual([1, 1, 1, 1, 1]);
-    // 4.2 - 4 drifts with floating-point subtraction; assert with tolerance.
-    const fourPointTwo = starFillRatios(4.2);
-    expect(fourPointTwo.slice(0, 4)).toEqual([1, 1, 1, 1]);
-    expect(fourPointTwo[4]).toBeCloseTo(0.2, 10);
+    // Quantization to 1/10th removes the floating-point subtraction drift
+    // the old implementation had — 4.2 now yields an exact 0.2.
+    expect(starFillRatios(4.2)).toEqual([1, 1, 1, 1, 0.2]);
+  });
+
+  it("quantizes the fill ratios to the nearest 1/10th", () => {
+    // 4.27 → 4.3 worth of fill, so the 5th star is exactly 0.3 (not 0.27).
+    expect(starFillRatios(4.27)).toEqual([1, 1, 1, 1, 0.3]);
+    // 4.0 → four full stars and one empty (NOT five).
+    expect(starFillRatios(4.0)).toEqual([1, 1, 1, 1, 0]);
+    // 2.55 → 2.6 quantized → third star 0.6.
+    expect(starFillRatios(2.55)).toEqual([1, 1, 0.6, 0, 0]);
+  });
+
+  it("quantizes the displayed numeric label to the nearest 1/10th", () => {
+    renderWithProviders(<RatingSummary rating={4.27} reviewCount={9} />);
+    expect(screen.getByText("4.3")).toBeInTheDocument();
+    expect(screen.queryByText("4.2")).not.toBeInTheDocument();
+  });
+
+  it("keeps the label and visual fill in agreement for an exact integer", () => {
+    renderWithProviders(<RatingSummary rating={4.0} reviewCount={5} />);
+    expect(screen.getByText("4.0")).toBeInTheDocument();
+    const stars = screen.getAllByTestId("rating-star");
+    expect(stars.map((s) => s.getAttribute("data-fill"))).toEqual([
+      "1.00",
+      "1.00",
+      "1.00",
+      "1.00",
+      "0.00",
+    ]);
+  });
+
+  it("quantizes 2.55 to a 2.6 label", () => {
+    renderWithProviders(<RatingSummary rating={2.55} reviewCount={4} />);
+    expect(screen.getByText("2.6")).toBeInTheDocument();
   });
 
   it("exposes the fill ratio via data-fill for partial stars", () => {
@@ -53,15 +102,30 @@ describe("RatingSummary", () => {
     expect(stars[4].getAttribute("data-fill")).toBe("0.00");
   });
 
-  it("renders in dark mode without hardcoded colors", () => {
+  it("paints the gradient with the real brand / fg-subtle design tokens", () => {
+    const { container } = renderWithProviders(
+      <RatingSummary rating={3.5} reviewCount={2} />,
+    );
+    const html = container.innerHTML;
+    // The filled portion uses the real --color-brand token and the empty
+    // portion uses --color-fg-subtle (both defined + dark-mode-aware in
+    // globals.css). The old dead tokens rendered every star solid black.
+    expect(html).toMatch(/var\(--color-brand\)/);
+    expect(html).toMatch(/var\(--color-fg-subtle\)/);
+    expect(html).not.toMatch(/--color-primary/);
+    expect(html).not.toMatch(/--color-surface-variant/);
+    // Design-system tokens only — no hex literals.
+    expect(html).not.toMatch(/#[0-9a-fA-F]{3,6}/);
+  });
+
+  it("renders in dark mode with the real tokens and no hardcoded colors", () => {
     const { container } = renderWithProviders(
       <RatingSummary rating={3.5} reviewCount={2} />,
       { theme: "dark", forceTheme: true },
     );
-    // Gradient stops use CSS var tokens, not hex literals.
     const html = container.innerHTML;
-    expect(html).toMatch(/var\(--color-primary\)/);
-    expect(html).toMatch(/var\(--color-surface-variant\)/);
+    expect(html).toMatch(/var\(--color-brand\)/);
+    expect(html).toMatch(/var\(--color-fg-subtle\)/);
     expect(html).not.toMatch(/#[0-9a-fA-F]{3,6}/);
   });
 
