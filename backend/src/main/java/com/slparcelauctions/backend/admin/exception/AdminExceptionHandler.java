@@ -115,6 +115,20 @@ public class AdminExceptionHandler {
             .body(AdminApiError.of("ALSO_CANCEL_INVALID_FOR_ACTION", ex.getMessage()));
     }
 
+    @ExceptionHandler(com.slparcelauctions.backend.admin.escrowreview.exception.EscrowReviewNotFoundException.class)
+    public ResponseEntity<AdminApiError> handleEscrowReviewNotFound(
+            com.slparcelauctions.backend.admin.escrowreview.exception.EscrowReviewNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(AdminApiError.of("ESCROW_REVIEW_NOT_FOUND", ex.getMessage()));
+    }
+
+    @ExceptionHandler(com.slparcelauctions.backend.admin.escrowreview.exception.EscrowReviewAlreadyResolvedException.class)
+    public ResponseEntity<AdminApiError> handleEscrowReviewAlreadyResolved(
+            com.slparcelauctions.backend.admin.escrowreview.exception.EscrowReviewAlreadyResolvedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(AdminApiError.of("ESCROW_REVIEW_ALREADY_RESOLVED", ex.getMessage()));
+    }
+
     @ExceptionHandler(com.slparcelauctions.backend.admin.infrastructure.withdrawals.exception.InsufficientBalanceException.class)
     public ResponseEntity<AdminApiError> handleInsufficientBalance(
             com.slparcelauctions.backend.admin.infrastructure.withdrawals.exception.InsufficientBalanceException ex) {
