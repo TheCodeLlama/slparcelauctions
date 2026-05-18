@@ -23,6 +23,7 @@ import com.slparcelauctions.backend.auction.dto.SellerAuctionResponse;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
+import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.testsupport.TestRegions;
 
@@ -191,6 +192,31 @@ class AuctionDtoMapperTest {
     }
 
     @Test
+    void toSellerResponse_carriesSameSellerSummaryAsPublicResponse() {
+        User seller = User.builder()
+                .id(42L).email("s@example.com").username("s")
+                .displayName("Sally Seller")
+                .avgSellerRating(new BigDecimal("4.75"))
+                .totalSellerReviews(8)
+                .completedSales(12)
+                .cancelledWithBids(2)
+                .createdAt(OffsetDateTime.now())
+                .build();
+        Auction a = buildAuction(AuctionStatus.ACTIVE, seller);
+
+        SellerAuctionResponse seller_ = mapper.toSellerResponse(a);
+        PublicAuctionResponse public_ = mapper.toPublicResponse(a);
+
+        assertThat(seller_.seller()).isNotNull();
+        assertThat(seller_.seller()).isEqualTo(public_.seller());
+        assertThat(seller_.seller().averageRating()).isEqualByComparingTo("4.75");
+        assertThat(seller_.seller().reviewCount()).isEqualTo(8);
+        assertThat(seller_.seller().completedSales()).isEqualTo(12);
+        assertThat(seller_.seller().completionRate())
+                .isEqualByComparingTo(SellerCompletionRateMapper.compute(12, 2, 0));
+    }
+
+    @Test
     void toPublicResponse_individualListing_nullGroupAndAgent() {
         Auction a = buildAuction(AuctionStatus.ACTIVE);
         // realtyGroupId and listingAgent are null by default in buildAuction
@@ -202,7 +228,10 @@ class AuctionDtoMapperTest {
     }
 
     private Auction buildAuction(AuctionStatus status) {
-        User seller = User.builder().id(42L).email("s@example.com").username("s").build();
+        return buildAuction(status, User.builder().id(42L).email("s@example.com").username("s").build());
+    }
+
+    private Auction buildAuction(AuctionStatus status, User seller) {
         UUID parcelUuid = UUID.randomUUID();
         Auction a = Auction.builder()
                 .title("Test listing")

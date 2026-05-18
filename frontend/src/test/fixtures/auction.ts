@@ -10,7 +10,98 @@
 // returns response.json()), so a partial object would technically work — but
 // every consumer builds against the type, so keeping the fixture complete
 // avoids spread-override footguns when tests need to tweak one field.
-import type { PublicAuctionResponse } from "@/types/auction";
+import type {
+  PublicAuctionResponse,
+  SellerAuctionResponse,
+} from "@/types/auction";
+
+/**
+ * Canonical enriched seller block. Mirrors the backend
+ * {@code PublicAuctionResponse.SellerSummary} JSON shape (Epic 07 sub-spec 1
+ * Task 2) that both the public and seller-facing auction responses now
+ * carry. Kept here so every fixture consumer (activate / draft-editor
+ * tests, auction detail tests) asserts against one canonical shape.
+ */
+export const fakeAuctionSeller = {
+  publicId: "11111111-1111-1111-1111-111111111111",
+  displayName: "Test Seller",
+  avatarUrl: null,
+  averageRating: 4.5,
+  reviewCount: 12,
+  completedSales: 7,
+  completionRate: 0.92,
+  memberSince: "2025-11-03",
+} as const;
+
+/**
+ * Shared seller-facing auction fixture. Mirrors the backend
+ * {@code SellerAuctionResponse} returned by the seller-scoped
+ * {@code GET /api/v1/auctions/{publicId}} (the activate / draft-editor
+ * flow). Carries the enriched {@code seller} block so the draft preview
+ * renders the real seller card instead of the "You" placeholder.
+ */
+export function fakeSellerAuction(
+  overrides: Partial<SellerAuctionResponse> = {},
+): SellerAuctionResponse {
+  return {
+    publicId: "00000000-0000-0000-0000-00000000002a",
+    sellerPublicId: "00000000-0000-0000-0000-000000000001",
+    title: "Featured Parcel Listing",
+    parcel: {
+      slParcelUuid: "00000000-0000-0000-0000-000000000001",
+      ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
+      ownerType: "agent",
+      regionName: "Heterocera",
+      gridX: 0,
+      gridY: 0,
+      positionX: 128,
+      positionY: 128,
+      positionZ: 0,
+      ownerName: null,
+      parcelName: null,
+      continentName: null,
+      areaSqm: 1024,
+      description: "Beachfront parcel",
+      snapshotUrl: null,
+      slurl: "secondlife://Heterocera/128/128/25",
+      maturityRating: "GENERAL",
+      verified: false,
+      verifiedAt: null,
+      lastChecked: null,
+      createdAt: "2026-04-17T00:00:00Z",
+    },
+    status: "DRAFT_PAID",
+    verificationTier: null,
+    verificationNotes: null,
+    startingBid: 500,
+    reservePrice: null,
+    buyNowPrice: null,
+    currentBid: null,
+    bidCount: 0,
+    currentHighBid: null,
+    bidderCount: 0,
+    winnerPublicId: null,
+    durationHours: 72,
+    snipeProtect: true,
+    snipeWindowMin: 10,
+    startsAt: null,
+    endsAt: null,
+    originalEndsAt: null,
+    sellerDesc: null,
+    tags: [],
+    photos: [],
+    seller: { ...fakeAuctionSeller },
+    listingFeePaid: true,
+    listingFeeAmt: 100,
+    listingFeeTxn: null,
+    listingFeePaidAt: null,
+    commissionRate: 0.05,
+    commissionAmt: null,
+    createdAt: "2026-04-17T00:00:00Z",
+    updatedAt: "2026-04-17T00:00:00Z",
+    ...overrides,
+  };
+}
 
 export function fakePublicAuction(
   overrides: Partial<PublicAuctionResponse> = {},
