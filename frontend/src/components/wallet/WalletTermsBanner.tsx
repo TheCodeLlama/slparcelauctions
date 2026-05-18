@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Wallet } from "@/components/ui/icons";
-import { useAuth } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/user";
 import { useWallet } from "@/lib/wallet/use-wallet";
 import {
   WalletTermsModal,
@@ -28,8 +28,8 @@ import {
  * Spec: docs/superpowers/specs/2026-05-18-wallet-terms-modal-everywhere-design.md
  */
 export function WalletTermsBanner() {
-  const { status, user } = useAuth();
-  const verified = status === "authenticated" && user?.verified === true;
+  const { data: user } = useCurrentUser();
+  const verified = user?.verified === true;
   const { data: wallet } = useWallet(verified);
 
   const [dismissed, setDismissed] = useState(false);
