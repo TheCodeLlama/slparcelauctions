@@ -7,6 +7,9 @@ import { useEscrowReviewsQueue } from "@/lib/admin/escrowReviewHooks";
 import type { AdminEscrowReviewFilters as Filters } from "@/lib/admin/escrowReviews";
 
 export function AdminEscrowReviewsListPage() {
+  // default to the actionable OPEN queue; status chips toggle to RESOLVED/DISMISSED.
+  // Intentionally diverges from the disputes sibling's `{}` initializer — do not
+  // "fix" this back to `{}` for sibling-parity.
   const [filters, setFilters] = useState<Filters>({ status: "OPEN" });
   const { data, isLoading, error } = useEscrowReviewsQueue(filters);
 

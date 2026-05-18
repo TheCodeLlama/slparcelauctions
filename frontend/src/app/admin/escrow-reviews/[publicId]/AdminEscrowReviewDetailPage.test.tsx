@@ -1,9 +1,35 @@
-import { describe, it, expect } from "vitest";
-import { renderWithProviders, screen, userEvent } from "@/test/render";
+import { describe, it, expect, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import {
+  renderWithProviders,
+  screen,
+  userEvent,
+  waitFor,
+} from "@/test/render";
 import { server } from "@/test/msw/server";
 import { adminEscrowReviewsHandlers } from "@/test/msw/handlers";
-import { AdminEscrowReviewDetailPage } from "./AdminEscrowReviewDetailPage";
 import type { AdminEscrowReviewDetail } from "@/lib/admin/escrowReviews";
+
+// next/navigation is globally mocked in vitest.setup.ts, but that mock hands
+// back a fresh vi.fn() for `push` on every render so it can't be asserted on.
+// Override with a stable `push` spy (same pattern as RegisterForm.test.tsx /
+// AdminGroupReportDetailPage.test.tsx) so the resolve success side-effect —
+// router.push("/admin/escrow-reviews") — is observable.
+const push = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push,
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+  usePathname: () => "/admin/escrow-reviews/00000000-0000-0000-0000-000000000001",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+import { AdminEscrowReviewDetailPage } from "./AdminEscrowReviewDetailPage";
 
 const REVIEW_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -109,5 +135,47 @@ describe("AdminEscrowReviewDetailPage", () => {
     expect(
       screen.queryByRole("button", { name: /apply resolution/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("resolve happy path posts the action + note and routes back to the queue", async () => {
+    let resolvePayload: Record<string, unknown> | null = null;
+    server.use(
+      adminEscrowReviewsHandlers.detail(REVIEW_ID, baseDetail),
+      http.post(
+        `*/api/v1/admin/escrow-reviews/${REVIEW_ID}/resolve`,
+        async ({ request }) => {
+          resolvePayload = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({
+            reviewPublicId: REVIEW_ID,
+            newStatus: "RESOLVED",
+            resolution: "FORCE_CONFIRM_SELL_TO",
+            resolvedAt: "2026-05-17T15:00:00Z",
+          });
+        },
+      ),
+    );
+    renderWithProviders(
+      <AdminEscrowReviewDetailPage reviewPublicId={REVIEW_ID} />,
+    );
+
+    await userEvent.click(
+      await screen.findByLabelText(/Force confirm Sell To/),
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText(/What did you verify/i),
+      "Verified Sell To in-world; advancing escrow.",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /apply resolution/i }),
+    );
+
+    await waitFor(() => expect(resolvePayload).not.toBeNull());
+    expect(resolvePayload).toEqual({
+      action: "FORCE_CONFIRM_SELL_TO",
+      adminNote: "Verified Sell To in-world; advancing escrow.",
+    });
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/admin/escrow-reviews"),
+    );
   });
 });
