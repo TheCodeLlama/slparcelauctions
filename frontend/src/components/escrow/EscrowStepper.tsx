@@ -24,14 +24,23 @@ function formatTimestamp(iso: string): string {
 }
 
 /**
- * Resolves the three stepper nodes (Payment, Transfer, Complete) for a
- * non-terminal escrow. Terminal non-happy states (DISPUTED, FROZEN, EXPIRED)
- * render via the interrupt path.
+ * Resolves the four stepper nodes (Payment → Set Sell To → Buy Parcel →
+ * Complete) for a non-terminal escrow, derived from the four lifecycle
+ * timestamps `fundedAt` / `sellToConfirmedAt` / `transferConfirmedAt` /
+ * `completedAt` (spec 2026-05-17 §9). The TRANSFER_PENDING phase is split:
+ * "Set Sell To" is the seller configuring the parcel's "Sell to:" field at
+ * L$0, "Buy Parcel" is the winner buying the now-L$0 parcel. Terminal
+ * non-happy states (DISPUTED, FROZEN, EXPIRED) render via the interrupt path.
+ *
+ * Exactly one node is `current` — the first incomplete node in sequence —
+ * and every node after it is `upcoming`.
  */
 function resolveNodes(escrow: EscrowStatusResponse): ResolvedNode[] {
-  const { fundedAt, transferConfirmedAt, completedAt } = escrow;
+  const { fundedAt, sellToConfirmedAt, transferConfirmedAt, completedAt } =
+    escrow;
 
   const paymentComplete = fundedAt != null;
+  const sellToComplete = sellToConfirmedAt != null;
   const transferComplete = transferConfirmedAt != null;
   const allComplete = completedAt != null;
 
@@ -41,11 +50,21 @@ function resolveNodes(escrow: EscrowStatusResponse): ResolvedNode[] {
     timestamp: paymentComplete ? fundedAt : null,
   };
 
-  const transferNode: ResolvedNode = {
-    label: "Transfer",
-    state: transferComplete
+  const setSellToNode: ResolvedNode = {
+    label: "Set Sell To",
+    state: sellToComplete
       ? "complete"
       : paymentComplete
+        ? "current"
+        : "upcoming",
+    timestamp: sellToComplete ? sellToConfirmedAt : null,
+  };
+
+  const buyParcelNode: ResolvedNode = {
+    label: "Buy Parcel",
+    state: transferComplete
+      ? "complete"
+      : sellToComplete
         ? "current"
         : "upcoming",
     timestamp: transferComplete ? transferConfirmedAt : null,
@@ -61,7 +80,7 @@ function resolveNodes(escrow: EscrowStatusResponse): ResolvedNode[] {
     timestamp: allComplete ? completedAt : null,
   };
 
-  return [paymentNode, transferNode, completeNode];
+  return [paymentNode, setSellToNode, buyParcelNode, completeNode];
 }
 
 type InterruptInfo = {
@@ -73,18 +92,23 @@ type InterruptInfo = {
 function resolveInterrupt(
   escrow: EscrowStatusResponse,
 ): InterruptInfo | null {
-  const { state, fundedAt, transferConfirmedAt } = escrow;
+  const { state, fundedAt, sellToConfirmedAt, transferConfirmedAt } = escrow;
   const paymentNode: ResolvedNode = {
     label: "Payment",
     state: fundedAt ? "complete" : "upcoming",
     timestamp: fundedAt,
   };
-  const transferNode: ResolvedNode = {
-    label: "Transfer",
+  const setSellToNode: ResolvedNode = {
+    label: "Set Sell To",
+    state: sellToConfirmedAt ? "complete" : "upcoming",
+    timestamp: sellToConfirmedAt,
+  };
+  const buyParcelNode: ResolvedNode = {
+    label: "Buy Parcel",
     state: transferConfirmedAt ? "complete" : "upcoming",
     timestamp: transferConfirmedAt,
   };
-  const preceding = [paymentNode, transferNode].filter(
+  const preceding = [paymentNode, setSellToNode, buyParcelNode].filter(
     (n) => n.state === "complete",
   );
 
@@ -113,10 +137,11 @@ function resolveInterrupt(
 }
 
 /**
- * Three-node happy-path stepper (Payment → Transfer → Complete) with a
- * collapse-to-interrupt rendering for terminal non-happy states (DISPUTED,
- * FROZEN, EXPIRED). Preserves completed nodes preceding the interrupt so the
- * viewer can see what phase the escrow reached before it halted.
+ * Four-node happy-path stepper (Payment → Set Sell To → Buy Parcel →
+ * Complete) with a collapse-to-interrupt rendering for terminal non-happy
+ * states (DISPUTED, FROZEN, EXPIRED). Preserves completed nodes preceding the
+ * interrupt — including the Set-Sell-To node — so the viewer can see what
+ * phase the escrow reached before it halted.
  */
 export function EscrowStepper({ escrow, className }: EscrowStepperProps) {
   const interrupt = resolveInterrupt(escrow);
