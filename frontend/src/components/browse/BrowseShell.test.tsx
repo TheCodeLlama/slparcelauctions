@@ -180,6 +180,63 @@ describe("BrowseShell", () => {
     expect(url).toContain("sort=lowest_price");
   });
 
+  it("surfaces an SSR-captured initialErrorCode inline in the sidebar", async () => {
+    // The SSR fetch 400'd on an unknown near_region; the page swallowed it
+    // and passed the code through. With initialData seeding React Query
+    // (so the hook itself is NOT in an error state), the inline region
+    // error must still show because initialErrorCode is threaded in.
+    stubEmptyTags();
+    server.use(
+      http.get("*/api/v1/auctions/search", () =>
+        HttpResponse.json(emptyResponse),
+      ),
+    );
+    searchParamsRef.current = new URLSearchParams("near_region=Bogus");
+    renderWithProviders(
+      <BrowseShell
+        initialQuery={{ ...defaultAuctionSearchQuery, nearRegion: "Bogus" }}
+        initialData={emptyResponse}
+        initialErrorCode="REGION_NOT_FOUND"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /couldn't locate that region/i,
+      ),
+    );
+  });
+
+  it("does not surface a stale initialErrorCode once the query changes", async () => {
+    // After the user edits a filter the React Query hook is authoritative;
+    // a successful refetch has no error so the stale SSR code must drop.
+    stubEmptyTags();
+    server.use(
+      http.get("*/api/v1/auctions/search", () =>
+        HttpResponse.json(emptyResponse),
+      ),
+    );
+    searchParamsRef.current = new URLSearchParams("near_region=Bogus");
+    renderWithProviders(
+      <BrowseShell
+        initialQuery={{ ...defaultAuctionSearchQuery, nearRegion: "Bogus" }}
+        initialData={emptyResponse}
+        initialErrorCode="REGION_NOT_FOUND"
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toBeInTheDocument(),
+    );
+    // Change the sort — applyQuery pushes a new query whose canonical key
+    // no longer matches the SSR query, so the stale code is dropped.
+    await userEvent.selectOptions(
+      screen.getByLabelText(/sort/i),
+      "ending_soonest",
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+  });
+
   it("renders in dark mode", async () => {
     stubEmptyTags();
     server.use(
