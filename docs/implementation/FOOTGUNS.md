@@ -838,6 +838,42 @@ leak the refresh token because the field doesn't exist on the type.
 - If a future contributor proposes a PR that merges the records, the PR review should reference
   this entry and decline.
 
+### B.11 An append-only `*_ledger` table's `amount > 0` CHECK and its `entry_type` CHECK are two separate constraints; a signed admin-adjustment type needs BOTH widened
+
+**Why:** Every `*_ledger` table is created with an inline `amount BIGINT NOT NULL CHECK (amount > 0)`,
+which Postgres auto-names `<table>_amount_check`. Admin wallet adjustments store the request
+amount *signed* (positive credit, negative debit) under a single adjustment entry type. When a
+later migration widens the `<table>_entry_type_check` to admit that adjustment type, it is easy
+to believe the table now accepts adjustments. It does not: the amount-sign CHECK is a wholly
+separate constraint and was never touched, so the first negative-amount adjustment fails the
+insert with `DataIntegrityViolationException` and the endpoint 500s. Credits pass (positive),
+debits fail (negative), so the bug hides until someone debits in production. This has bitten
+twice: `realty_group_ledger` (V26 created `amount > 0`; V29 widened `entry_type` for
+`ADMIN_ADJUSTMENT` but missed the sign; V30 fixed it) and `user_ledger` (V3 created
+`amount > 0`; `AdminWalletService.adjust` wrote signed `ADJUSTMENT`; bug shipped to prod;
+V38 fixed it).
+
+**How to apply:**
+- When introducing or repurposing a `*_ledger` entry type whose `amount` is signed (any admin
+  adjustment), the **same migration** that adds the entry type must also relax the amount CHECK:
+  ```sql
+  ALTER TABLE <table> DROP CONSTRAINT IF EXISTS <table>_amount_check;
+  ALTER TABLE <table> ADD CONSTRAINT <table>_amount_check CHECK (
+      amount <> 0 AND (entry_type = '<SIGNED_TYPE>' OR amount > 0)
+  );
+  ```
+  (See V30 and V38 for the canonical shape.)
+- Never edit the original migration that created the `amount > 0` check to "fix it in place" —
+  Flyway checksum-validates applied migrations and a content change fails startup. Add a new
+  forward migration, exactly as V30 did not touch V26 and V38 did not touch V3.
+- The regression test must actually persist a negative row against real Postgres (a
+  `@SpringBootTest` service/integration test, like `AdminWalletServiceTest` /
+  `AdminRealtyGroupWalletServiceTest`). A mocked-repository unit test cannot catch a DB-level
+  CHECK and gives false confidence.
+- The amount sign is intentional for adjustments; do not "fix" it by storing `abs(amount)` and
+  deriving direction elsewhere. The signed value equals the true balance delta and matches the
+  request DTO contract and the frontend ledger rendering.
+
 This is non-negotiable. Without the meta-discipline of "every catch becomes a ledger entry," the ledger doesn't compound and we re-burn the same lessons.
 
 ---
