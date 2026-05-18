@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@/test/render";
 import { server } from "@/test/msw/server";
+import { fakeSellerAuction } from "@/test/fixtures/auction";
 import type { SellerAuctionResponse } from "@/types/auction";
 import { ActivateClient } from "./ActivateClient";
 
@@ -25,66 +26,13 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// Seller-facing auction fixture. Delegates to the shared
+// `fakeSellerAuction` builder so the enriched `seller` block (Epic 07
+// sub-spec 1 Task 2) is present for every consumer in this file.
 function auctionBase(
   overrides: Partial<SellerAuctionResponse> = {},
 ): SellerAuctionResponse {
-  return {
-    publicId: "00000000-0000-0000-0000-00000000002a",
-    sellerPublicId: "00000000-0000-0000-0000-000000000001",
-    title: "Featured Parcel Listing",
-    parcel: {
-      slParcelUuid: "00000000-0000-0000-0000-000000000001",
-      ownerUuid: "aaaa1111-0000-0000-0000-000000000000",
-      ownerType: "agent",
-      regionName: "Heterocera",
-      gridX: 0,
-      gridY: 0,
-      positionX: 128,
-      positionY: 128,
-      positionZ: 0,
-      ownerName: null,
-      parcelName: null,
-      continentName: null,
-      areaSqm: 1024,
-      description: "Beachfront parcel",
-      snapshotUrl: null,
-      slurl: "secondlife://Heterocera/128/128/25",
-      maturityRating: "GENERAL",
-      verified: false,
-      verifiedAt: null,
-      lastChecked: null,
-      createdAt: "2026-04-17T00:00:00Z",
-    },
-    status: "DRAFT_PAID",
-    verificationTier: null,
-    verificationNotes: null,
-    startingBid: 500,
-    reservePrice: null,
-    buyNowPrice: null,
-    currentBid: null,
-    bidCount: 0,
-    currentHighBid: null,
-    bidderCount: 0,
-    winnerPublicId: null,
-    durationHours: 72,
-    snipeProtect: true,
-    snipeWindowMin: 10,
-    startsAt: null,
-    endsAt: null,
-    originalEndsAt: null,
-    sellerDesc: null,
-    tags: [],
-    photos: [],
-    listingFeePaid: true,
-    listingFeeAmt: 100,
-    listingFeeTxn: null,
-    listingFeePaidAt: null,
-    commissionRate: 0.05,
-    commissionAmt: null,
-    createdAt: "2026-04-17T00:00:00Z",
-    updatedAt: "2026-04-17T00:00:00Z",
-    ...overrides,
-  };
+  return fakeSellerAuction(overrides);
 }
 
 describe("ActivateClient", () => {
@@ -128,6 +76,39 @@ describe("ActivateClient", () => {
       await screen.findByTestId("draft-action-bar-list"),
     ).toBeInTheDocument();
     expect(screen.getByTestId("draft-action-bar-delete")).toBeInTheDocument();
+  });
+
+  it("DRAFT preview renders the real seller card stats, not the You placeholder", async () => {
+    server.use(
+      http.get("*/api/v1/auctions/00000000-0000-0000-0000-00000000002a", () =>
+        HttpResponse.json(auctionBase({ status: "DRAFT" })),
+      ),
+      http.get("*/api/v1/me/wallet", () =>
+        HttpResponse.json({
+          balance: 500,
+          reserved: 0,
+          available: 500,
+          penaltyOwed: 0,
+          queuedForWithdrawal: 0,
+          termsAccepted: true,
+          termsVersion: "v1.0",
+          termsAcceptedAt: "2026-04-17T00:00:00Z",
+          recentLedger: [],
+        }),
+      ),
+    );
+    renderWithProviders(
+      <ActivateClient auctionPublicId="00000000-0000-0000-0000-00000000002a" />,
+      { auth: "authenticated" },
+    );
+
+    const card = await screen.findByTestId("seller-profile-card");
+    expect(card).toHaveTextContent("Test Seller");
+    expect(card).toHaveTextContent("7 completed sale");
+    expect(card).toHaveTextContent("Completion rate: 92%");
+    // The defensive "You" placeholder branch must not be the one rendered
+    // once the backend supplies the enriched seller block.
+    expect(card).not.toHaveTextContent(/\bYou\b/);
   });
 
   it("DRAFT_PAID renders the Verify-ownership button and a click flips the status to ACTIVE", async () => {
