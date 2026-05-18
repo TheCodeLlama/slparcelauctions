@@ -238,11 +238,13 @@ export type GroupLedgerEntryType =
   | "LISTING_FEE_DEBIT"
   | "LISTING_FEE_REFUND"
   | "AGENT_FEE_CREDIT"
+  | "LISTING_PAYOUT"
   | "WITHDRAW_QUEUED"
   | "WITHDRAW_COMPLETED"
   | "WITHDRAW_REVERSED"
   | "DORMANCY_AUTO_RETURN"
   | "ADJUSTMENT"
+  | "ADMIN_ADJUSTMENT"
   | "MEMBER_DEPOSIT";
 
 export interface GroupLedgerEntry {

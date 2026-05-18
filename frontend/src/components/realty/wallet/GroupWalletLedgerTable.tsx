@@ -6,6 +6,7 @@ import {
   ArrowUpFromLine,
   Clock,
   Pencil,
+  Receipt,
   Tag,
   Undo2,
   Wallet,
@@ -13,6 +14,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatRelativeTime } from "@/lib/time/relativeTime";
+import { humanizeEntryType } from "@/lib/wallet/humanizeEntryType";
 import { useGroupLedger } from "@/hooks/realty/useGroupLedger";
 import type { GroupLedgerEntry, GroupLedgerEntryType } from "@/types/realty";
 
@@ -37,17 +39,27 @@ function formatLedgerDate(iso: string): string {
 }
 
 /** Human-readable label for each ledger entry type. */
-function entryTypeLabel(entryType: GroupLedgerEntryType): string {
+export function entryTypeLabel(entryType: GroupLedgerEntryType): string {
   switch (entryType) {
     case "LISTING_FEE_DEBIT": return "Listing fee paid";
     case "LISTING_FEE_REFUND": return "Listing fee refund";
     case "AGENT_FEE_CREDIT": return "Agent fee earned";
+    case "LISTING_PAYOUT": return "Listing payout";
     case "WITHDRAW_QUEUED": return "Withdrawal (Pending)";
     case "WITHDRAW_COMPLETED": return "Withdrawal";
     case "WITHDRAW_REVERSED": return "Withdrawal (Reversed)";
     case "DORMANCY_AUTO_RETURN": return "Dormancy return";
     case "ADJUSTMENT": return "Adjustment";
+    case "ADMIN_ADJUSTMENT": return "Admin adjustment";
     case "MEMBER_DEPOSIT": return "Member deposit";
+    default: {
+      // Compile-time exhaustiveness over the known union: a synced-but-
+      // unhandled value fails `tsc` in CI instead of white-screening prod.
+      const _exhaustive: never = entryType;
+      void _exhaustive;
+      // Runtime safety for deploy skew (unknown backend string).
+      return humanizeEntryType(entryType as unknown as string);
+    }
   }
 }
 
@@ -60,13 +72,15 @@ type EntryVisual = {
  * Icon and colour tone for each entry type. Debits use neutral/muted tones;
  * credits use success green.
  */
-function entryVisual(entryType: GroupLedgerEntryType): EntryVisual {
+export function entryVisual(entryType: GroupLedgerEntryType): EntryVisual {
   switch (entryType) {
     case "LISTING_FEE_DEBIT":
       return { Icon: Tag, tone: "text-fg" };
     case "LISTING_FEE_REFUND":
       return { Icon: ArrowDownToLine, tone: "text-success" };
     case "AGENT_FEE_CREDIT":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
+    case "LISTING_PAYOUT":
       return { Icon: ArrowDownToLine, tone: "text-success" };
     case "WITHDRAW_QUEUED":
       return { Icon: Clock, tone: "text-warning" };
@@ -78,19 +92,32 @@ function entryVisual(entryType: GroupLedgerEntryType): EntryVisual {
       return { Icon: ArrowUpFromLine, tone: "text-fg-muted" };
     case "ADJUSTMENT":
       return { Icon: Pencil, tone: "text-fg-muted" };
+    case "ADMIN_ADJUSTMENT":
+      return { Icon: Pencil, tone: "text-fg-muted" };
     case "MEMBER_DEPOSIT":
       return { Icon: ArrowDownToLine, tone: "text-success" };
+    default: {
+      // Compile-time exhaustiveness over the known union (see entryTypeLabel).
+      const _exhaustive: never = entryType;
+      void _exhaustive;
+      // Runtime safety for deploy skew: a neutral visual, never undefined.
+      return { Icon: Receipt, tone: "text-fg-muted" };
+    }
   }
 }
 
 /**
- * Signed amount display: credits (AGENT_FEE_CREDIT, LISTING_FEE_REFUND,
- * WITHDRAW_REVERSED, DORMANCY_AUTO_RETURN) appear as positive; debits
- * (LISTING_FEE_DEBIT, WITHDRAW_QUEUED, WITHDRAW_COMPLETED) appear as negative.
+ * Signed amount display: credits (AGENT_FEE_CREDIT, LISTING_PAYOUT,
+ * LISTING_FEE_REFUND, WITHDRAW_REVERSED, DORMANCY_AUTO_RETURN, MEMBER_DEPOSIT)
+ * appear as positive; debits (LISTING_FEE_DEBIT, WITHDRAW_QUEUED,
+ * WITHDRAW_COMPLETED) appear as negative. ADJUSTMENT / ADMIN_ADJUSTMENT carry
+ * the sign in the backend amount, so they fall through to the neutral
+ * negative-style branch (the backend amount itself is the source of truth).
  */
 function signedAmount(entry: GroupLedgerEntry): { label: string; tone: string } {
   const isCredit =
     entry.entryType === "AGENT_FEE_CREDIT" ||
+    entry.entryType === "LISTING_PAYOUT" ||
     entry.entryType === "LISTING_FEE_REFUND" ||
     entry.entryType === "WITHDRAW_REVERSED" ||
     entry.entryType === "DORMANCY_AUTO_RETURN" ||
