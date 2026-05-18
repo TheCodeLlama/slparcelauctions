@@ -156,6 +156,11 @@ slpa:
     ownership-api-failure-threshold: 5
     ownership-reminder-delay: PT24H
     sell-to-bot-recurrence: PT30M
+    # Fast retry for transient bot outcomes (BOT_ERROR / ACCESS_DENIED) only —
+    # the parcel is fine, the bot just couldn't observe it, so re-check soon
+    # instead of waiting a full recurrence interval. PARCEL_NOT_FOUND and
+    # definitive negatives stay on sell-to-bot-recurrence.
+    sell-to-bot-retry-backoff: PT2M
     sell-to-bot-failure-threshold: 5
     buy-parcel-fast-cadence: PT5M
     buy-parcel-fast-window: PT1H

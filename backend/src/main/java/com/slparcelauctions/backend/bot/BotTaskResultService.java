@@ -1,6 +1,7 @@
 package com.slparcelauctions.backend.bot;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,15 +52,22 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>{@code ACCESS_DENIED}/{@code BOT_ERROR} → increment
  *       {@code consecutiveSellToBotFailures}, no attempt consumed, clear
  *       {@code manualVerifyPending}; at threshold open an idempotent
- *       {@code EscrowManualReview(BOT_PERSISTENT_FAILURE)}; reschedule.</li>
+ *       {@code EscrowManualReview(BOT_PERSISTENT_FAILURE)}; reschedule on the
+ *       fast {@code sellToBotRetryBackoff} (the parcel is fine — the bot just
+ *       couldn't observe it, so a 30m wait needlessly stalls a healthy
+ *       transfer).</li>
  *   <li>{@code PARCEL_NOT_FOUND} → same streak; at threshold
- *       {@link EscrowService#freezeForFraud}{@code (PARCEL_DELETED)}.</li>
+ *       {@link EscrowService#freezeForFraud}{@code (PARCEL_DELETED)};
+ *       reschedule on the normal {@code sellToBotRecurrence}.</li>
  * </ul>
  *
- * <p>Reschedule = {@code nextRunAt = now + sellToBotRecurrence} only while
+ * <p>Reschedule = {@code nextRunAt = now + backoff} only while
  * {@code transferDeadline} is in the future; once the deadline has elapsed
  * the recurring task is {@code CANCELLED} (the timeout job expires/refunds
- * the escrow — no point re-checking a parcel whose deadline has passed).
+ * the escrow — no point re-checking a parcel whose deadline has passed). The
+ * backoff is {@code sellToBotRetryBackoff} for transient infra failures
+ * ({@code BOT_ERROR}/{@code ACCESS_DENIED}) and {@code sellToBotRecurrence}
+ * for definitive negatives and {@code PARCEL_NOT_FOUND}.
  */
 @Service
 @RequiredArgsConstructor
@@ -132,7 +140,7 @@ public class BotTaskResultService {
             escrow.setManualVerifyPending(false);
         }
         escrowRepo.save(escrow);
-        reschedule(task, escrow, now);
+        reschedule(task, escrow, now, props.sellToBotRecurrence());
     }
 
     private void infraFailure(BotTask task, Escrow escrow, SellToOutcome outcome,
@@ -162,7 +170,15 @@ public class BotTaskResultService {
             }
             openManualReviewIfAbsent(escrow);
         }
-        reschedule(task, escrow, now);
+        // PARCEL_NOT_FOUND keeps the slow recurrence (deliberate negative —
+        // a missing parcel won't reappear in 2 minutes). BOT_ERROR /
+        // ACCESS_DENIED are transient: the parcel is fine, the bot just
+        // couldn't observe it, so retry fast instead of stalling a healthy
+        // transfer for a full recurrence interval.
+        Duration backoff = parcelGone
+                ? props.sellToBotRecurrence()
+                : props.sellToBotRetryBackoff();
+        reschedule(task, escrow, now, backoff);
     }
 
     private void openManualReviewIfAbsent(Escrow escrow) {
@@ -189,13 +205,17 @@ public class BotTaskResultService {
     }
 
     /**
-     * Reschedule the recurring task only while the transfer deadline is in
-     * the future; otherwise cancel it (the timeout job expires/refunds).
+     * Reschedule the recurring task {@code backoff} from now, but only while
+     * the transfer deadline is in the future; otherwise cancel it (the
+     * timeout job expires/refunds). Callers pass {@code sellToBotRetryBackoff}
+     * for transient infra failures and {@code sellToBotRecurrence} for
+     * definitive negatives and {@code PARCEL_NOT_FOUND}.
      */
-    private void reschedule(BotTask task, Escrow escrow, OffsetDateTime now) {
+    private void reschedule(BotTask task, Escrow escrow, OffsetDateTime now,
+                            Duration backoff) {
         OffsetDateTime deadline = escrow.getTransferDeadline();
         if (deadline != null && deadline.isAfter(now)) {
-            task.setNextRunAt(now.plus(props.sellToBotRecurrence()));
+            task.setNextRunAt(now.plus(backoff));
             task.setStatus(BotTaskStatus.PENDING);
             botTaskRepo.save(task);
         } else {
