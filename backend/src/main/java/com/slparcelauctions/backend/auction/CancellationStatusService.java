@@ -1,7 +1,5 @@
 package com.slparcelauctions.backend.auction;
 
-import java.util.Comparator;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -105,11 +103,8 @@ public class CancellationStatusService {
     private String resolvePrimaryPhotoUrl(Auction auction) {
         // Photos are eagerly hydrated by the {@code @EntityGraph} on
         // {@link CancellationLogRepository#findBySellerId} (one LEFT JOIN per
-        // page, not per row), so we read straight off the entity collection
-        // and project to the flat photo URL served by {@link PhotoController}.
-        return auction.getPhotos().stream()
-                .min(Comparator.comparing(AuctionPhoto::getSortOrder))
-                .map(p -> "/api/v1/photos/" + p.getPublicId())
-                .orElse(null);
+        // page, not per row), so we read straight off the entity collection.
+        // Single producer of the flat photo URL lives in {@link PhotoUrl}.
+        return PhotoUrl.primaryForAuction(auction);
     }
 }

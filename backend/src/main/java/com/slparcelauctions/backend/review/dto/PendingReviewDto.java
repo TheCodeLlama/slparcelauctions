@@ -2,10 +2,9 @@ package com.slparcelauctions.backend.review.dto;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.Comparator;
 import java.util.UUID;
 
-import com.slparcelauctions.backend.auction.AuctionPhoto;
+import com.slparcelauctions.backend.auction.PhotoUrl;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.review.ReviewService;
 import com.slparcelauctions.backend.review.ReviewedRole;
@@ -55,12 +54,7 @@ public record PendingReviewDto(
 
         ReviewedRole viewerRole = viewerIsSeller ? ReviewedRole.SELLER : ReviewedRole.BUYER;
 
-        String photo = e.getAuction().getPhotos().stream()
-                .sorted(Comparator.comparing(AuctionPhoto::getSortOrder))
-                .findFirst()
-                .map(p -> "/api/v1/auctions/" + e.getAuction().getId()
-                        + "/photos/" + p.getId() + "/bytes")
-                .orElse(null);
+        String photo = PhotoUrl.primaryForAuction(e.getAuction());
 
         return new PendingReviewDto(
                 e.getAuction().getPublicId(),
