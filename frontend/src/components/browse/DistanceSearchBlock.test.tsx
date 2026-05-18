@@ -71,7 +71,10 @@ describe("DistanceSearchBlock", () => {
     fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith({ nearRegion: "Luna" }),
+      expect(onChange).toHaveBeenCalledWith({
+        nearRegion: "Luna",
+        distance: 0,
+      }),
     );
   });
 
@@ -88,7 +91,10 @@ describe("DistanceSearchBlock", () => {
     // so the selection lands before blur could revert the value).
     fireEvent.mouseDown(await screen.findByRole("option", { name: "Da Boom" }));
     await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith({ nearRegion: "Da Boom" }),
+      expect(onChange).toHaveBeenCalledWith({
+        nearRegion: "Da Boom",
+        distance: 0,
+      }),
     );
   });
 
@@ -173,21 +179,168 @@ describe("DistanceSearchBlock", () => {
     );
   });
 
-  it("distance slider still commits when a region is set", async () => {
+  it("renders both a slider and a number input for distance", () => {
+    renderWithProviders(
+      <DistanceSearchBlock
+        query={{ nearRegion: "Tula", distance: 4 }}
+        onChange={vi.fn()}
+      />,
+    );
+    const slider = screen.getByRole("slider", { name: /within how many regions/i });
+    const number = screen.getByRole("spinbutton", { name: /within how many regions/i });
+    expect(slider).toHaveValue("4");
+    expect(number).toHaveValue(4);
+  });
+
+  it("defaults the displayed distance to 0 when a region is set and no distance in query", () => {
+    renderWithProviders(
+      <DistanceSearchBlock query={{ nearRegion: "Tula" }} onChange={vi.fn()} />,
+    );
+    expect(
+      screen.getByRole("spinbutton", { name: /within how many regions/i }),
+    ).toHaveValue(0);
+    expect(
+      screen.getByRole("slider", { name: /within how many regions/i }),
+    ).toHaveValue("0");
+  });
+
+  it("dragging the slider commits an explicit distance", async () => {
     const onChange = vi.fn();
     renderWithProviders(
       <DistanceSearchBlock
-        query={{ nearRegion: "Tula", distance: 10 }}
+        query={{ nearRegion: "Tula", distance: 0 }}
         onChange={onChange}
       />,
     );
-    const maxThumb = screen.getByLabelText(/maximum distance/i);
-    fireEvent.change(maxThumb, { target: { value: "5" } });
-    await waitFor(() =>
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({ distance: 5 }),
-      ),
+    fireEvent.change(
+      screen.getByRole("slider", { name: /within how many regions/i }),
+      { target: { value: "8" } },
     );
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ distance: 8 }),
+    );
+  });
+
+  it("typing in the number input commits an explicit distance", async () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <DistanceSearchBlock
+        query={{ nearRegion: "Tula", distance: 0 }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: /within how many regions/i }),
+      { target: { value: "12" } },
+    );
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ distance: 12 }),
+    );
+  });
+
+  it("slider and number input stay in sync (both reflect the query value)", () => {
+    renderWithProviders(
+      <DistanceSearchBlock
+        query={{ nearRegion: "Tula", distance: 15 }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("slider", { name: /within how many regions/i }),
+    ).toHaveValue("15");
+    expect(
+      screen.getByRole("spinbutton", { name: /within how many regions/i }),
+    ).toHaveValue(15);
+  });
+
+  it("number input clamps an over-range value to the 0..20 max", async () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <DistanceSearchBlock
+        query={{ nearRegion: "Tula", distance: 0 }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole("spinbutton", { name: /within how many regions/i }),
+      { target: { value: "999" } },
+    );
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ distance: 20 }),
+    );
+  });
+
+  it("number input ignores non-numeric junk (no commit)", async () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <DistanceSearchBlock
+        query={{ nearRegion: "Tula", distance: 3 }}
+        onChange={onChange}
+      />,
+    );
+    const number = screen.getByRole("spinbutton", {
+      name: /within how many regions/i,
+    });
+    // type="number" yields "" for non-numeric input; the empty-string
+    // branch is a no-op so nothing is committed.
+    fireEvent.change(number, { target: { value: "abc" } });
+    await Promise.resolve();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("selecting a region commits an explicit distance of 0", async () => {
+    const onChange = vi.fn();
+    suggestRegions(["Tula"]);
+    renderWithProviders(
+      <DistanceSearchBlock query={{}} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText(/region name/i);
+    fireEvent.change(input, { target: { value: "tul" } });
+    await vi.advanceTimersByTimeAsync(300);
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "Tula" }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        nearRegion: "Tula",
+        distance: 0,
+      }),
+    );
+  });
+
+  it("selecting a region preserves an already-set distance", async () => {
+    const onChange = vi.fn();
+    suggestRegions(["Tula"]);
+    renderWithProviders(
+      <DistanceSearchBlock query={{ distance: 6 }} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText(/region name/i);
+    fireEvent.change(input, { target: { value: "tul" } });
+    await vi.advanceTimersByTimeAsync(300);
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "Tula" }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        nearRegion: "Tula",
+        distance: 6,
+      }),
+    );
+  });
+
+  it("disables both controls and shows helper text when no region is set", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <DistanceSearchBlock query={{}} onChange={onChange} />,
+    );
+    const slider = screen.getByRole("slider", { name: /within how many regions/i });
+    const number = screen.getByRole("spinbutton", { name: /within how many regions/i });
+    expect(slider).toBeDisabled();
+    expect(number).toBeDisabled();
+    expect(
+      screen.getByText(/pick a region first to set distance/i),
+    ).toBeInTheDocument();
+    // Even if a change event is forced past the disabled attribute, the
+    // commit guard refuses to fire without a region.
+    fireEvent.change(slider, { target: { value: "9" } });
+    fireEvent.change(number, { target: { value: "9" } });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("surfaces REGION_NOT_FOUND inline", () => {

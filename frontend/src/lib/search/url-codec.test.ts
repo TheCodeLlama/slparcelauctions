@@ -92,6 +92,40 @@ describe("url codec", () => {
     expect(q.statusFilter).toBe("ended_only");
   });
 
+  describe("distance round-trip", () => {
+    it("round-trips distance=0 (a meaningful anchor-only value, not 'no filter')", () => {
+      const sp = searchParamsFromQuery({
+        ...defaultAuctionSearchQuery,
+        nearRegion: "Tula",
+        distance: 0,
+      });
+      // The classic falsy-skip bug would drop distance when it is 0.
+      expect(sp.get("distance")).toBe("0");
+      const q = queryFromSearchParams(sp);
+      expect(q.distance).toBe(0);
+      expect(q.nearRegion).toBe("Tula");
+    });
+
+    it("round-trips a positive distance", () => {
+      const sp = searchParamsFromQuery({
+        ...defaultAuctionSearchQuery,
+        nearRegion: "Tula",
+        distance: 7,
+      });
+      expect(sp.get("distance")).toBe("7");
+      expect(queryFromSearchParams(sp).distance).toBe(7);
+    });
+
+    it("absent distance stays absent (encode omits it, decode leaves it undefined)", () => {
+      const sp = searchParamsFromQuery({
+        ...defaultAuctionSearchQuery,
+        nearRegion: "Tula",
+      });
+      expect(sp.get("distance")).toBeNull();
+      expect(queryFromSearchParams(sp).distance).toBeUndefined();
+    });
+  });
+
   describe("q field round-trip", () => {
     it("decodes ?q=foo", () => {
       const sp = new URLSearchParams("q=foo");
