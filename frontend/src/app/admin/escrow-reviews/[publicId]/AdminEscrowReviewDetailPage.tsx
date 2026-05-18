@@ -105,7 +105,7 @@ export function AdminEscrowReviewDetailPage({
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
               <Field
                 label="Sell-To last result"
-                value={data.sellToLastResult ?? "—"}
+                value={data.sellToLastResult ?? "(none)"}
               />
               <Field
                 label="Sell-To last checked"
@@ -138,7 +138,7 @@ export function AdminEscrowReviewDetailPage({
             <section className="bg-bg-muted rounded p-4 space-y-2">
               <div className="text-[10px] uppercase opacity-60">Resolution</div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                <Field label="Resolution" value={data.resolution ?? "—"} />
+                <Field label="Resolution" value={data.resolution ?? "(none)"} />
                 <Field label="Resolved at" value={fmt(data.resolvedAt)} />
               </dl>
               {data.adminNotes && (
@@ -175,5 +175,5 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 function fmt(value: string | null) {
-  return value ? new Date(value).toLocaleString() : "—";
+  return value ? new Date(value).toLocaleString() : "(none)";
 }

@@ -19,7 +19,7 @@ type Props = {
 };
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "(none)";
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "2-digit",
   });
@@ -30,8 +30,8 @@ function formatLindens(amount: number): string {
 }
 
 function formatTimeRemaining(endsAt: string | null, status: string): string {
-  if (!endsAt) return "—";
-  if (status !== "ACTIVE") return "—";
+  if (!endsAt) return "(none)";
+  if (status !== "ACTIVE") return "(none)";
   const ends = new Date(endsAt).getTime();
   const now = Date.now();
   const ms = ends - now;
@@ -161,7 +161,7 @@ export function AdminListingsTable({ rows, sort, onSortChange }: Props) {
                         Yes
                       </span>
                     ) : (
-                      <span className="text-[11px] text-fg-muted">—</span>
+                      <span className="text-[11px] text-fg-muted">(none)</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5">
@@ -174,7 +174,7 @@ export function AdminListingsTable({ rows, sort, onSortChange }: Props) {
                         Featured
                       </span>
                     ) : (
-                      <span className="text-[11px] text-fg-muted">—</span>
+                      <span className="text-[11px] text-fg-muted">(none)</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-fg-muted text-[11px]">{formatDate(row.createdAt)}</td>
@@ -186,7 +186,7 @@ export function AdminListingsTable({ rows, sort, onSortChange }: Props) {
                     {formatTimeRemaining(row.endsAt, row.status)}
                   </td>
                   <td className="px-3 py-2.5 text-fg-muted text-[11px]">
-                    {row.region ?? <span className="text-fg-muted/50">—</span>}
+                    {row.region ?? <span className="text-fg-muted/50">(none)</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                     <RowActionMenu

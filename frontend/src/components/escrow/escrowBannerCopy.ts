@@ -84,7 +84,7 @@ export function escrowBannerCopy(input: BannerCopyInput): BannerCopyResult {
       if (role === "winner") {
         return {
           headline: "Buy the parcel",
-          detail: "purchase the parcel — only if it shows L$0.",
+          detail: "purchase the parcel, only if it shows L$0.",
           tone: "action",
         };
       }

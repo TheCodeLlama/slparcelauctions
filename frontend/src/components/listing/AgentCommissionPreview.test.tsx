@@ -142,7 +142,7 @@ describe("AgentCommissionPreview (case 3)", () => {
 
     expect(
       await screen.findByText(
-        /Listing fee paid from Sunset Realty wallet — current balance L\$500/,
+        /Listing fee paid from Sunset Realty wallet\. Current balance L\$500/,
       ),
     ).toBeInTheDocument();
     await waitFor(() => expect(onInsufficient).toHaveBeenCalledWith(false));

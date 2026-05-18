@@ -41,7 +41,7 @@ function statusPillClasses(status: RealtyGroupReportStatus): string {
 }
 
 function formatTimestamp(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "(none)";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return iso;
   return d.toLocaleString();

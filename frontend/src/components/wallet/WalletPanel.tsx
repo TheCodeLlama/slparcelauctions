@@ -307,7 +307,7 @@ export function WalletPanel() {
               role="alert"
               className="text-sm text-fg-muted py-8 text-center"
             >
-              Couldn&apos;t display transactions — try again.
+              Couldn&apos;t display transactions. Try again.
             </div>
           }
         >

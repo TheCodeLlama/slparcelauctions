@@ -13,9 +13,9 @@ export interface AdminGroupAuditTabProps {
 }
 
 function formatTimestamp(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "(none)";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "(none)";
   return d.toLocaleString();
 }
 
@@ -104,7 +104,7 @@ export function AdminGroupAuditTab({ groupPublicId }: AdminGroupAuditTabProps) {
                         {formatTimestamp(row.createdAt)}
                       </td>
                       <td className="py-2 pr-3 text-xs text-fg">
-                        {row.adminDisplayName ?? "—"}
+                        {row.adminDisplayName ?? "(none)"}
                       </td>
                       <td className="py-2 pr-3 text-xs text-fg font-mono">
                         {row.actionType}

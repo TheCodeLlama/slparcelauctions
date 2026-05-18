@@ -45,7 +45,7 @@ function adminWalletErrorMessage(err: unknown, fallback: string): string {
     case "ALREADY_FROZEN": return "Wallet is already frozen.";
     case "NOT_FROZEN": return "Wallet is not frozen.";
     case "NOT_IN_DORMANCY": return "Wallet is not in dormancy state.";
-    case "BOT_PROCESSING": return "Bot is mid-payout — wait for the callback to finish or for the lease to expire.";
+    case "BOT_PROCESSING": return "Bot is mid-payout. Wait for the callback to finish or for the lease to expire.";
     case "WITHDRAWAL_NOT_PENDING": return "Withdrawal already finalized.";
     case "COMMAND_NOT_FOUND": return "Withdrawal not found.";
     case "COMMAND_USER_MISMATCH": return "Withdrawal does not belong to this user.";

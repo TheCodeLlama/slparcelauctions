@@ -229,7 +229,7 @@ export function GroupWithdrawModal({
                 data-testid="withdraw-recipient-sl-group"
                 title={
                   slGroupDisabled
-                    ? "Group registration suspended — choose Leader's avatar instead"
+                    ? "Group registration suspended. Choose Leader's avatar instead."
                     : undefined
                 }
               />
@@ -241,7 +241,7 @@ export function GroupWithdrawModal({
               className="text-xs text-fg-muted"
               data-testid="withdraw-recipient-sl-group-suspended-hint"
             >
-              Group registration suspended — choose Leader&apos;s avatar
+              Group registration suspended. Choose Leader&apos;s avatar
               instead.
             </p>
           ) : null}
