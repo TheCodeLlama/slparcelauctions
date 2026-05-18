@@ -30,12 +30,13 @@ class EscrowStartupValidatorTest {
                 Duration.ofMinutes(5),
                 5,
                 Duration.ofHours(24),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null);
+                null, // sellToBotRecurrence
+                null, // sellToBotRetryBackoff
+                null, // sellToBotFailureThreshold
+                null, // buyParcelFastCadence
+                null, // buyParcelFastWindow
+                null, // buyParcelSlowCadence
+                null); // manualVerifyAttempts
     }
 
     @Test

@@ -27,7 +27,7 @@ public sealed class ParcelReaderTests
     {
         var expected = new ParcelSnapshot(
             Guid.NewGuid(), Guid.Empty, false, Guid.NewGuid(), 999_999_999,
-            "Test Parcel", "desc", 1024, 117, 0, Guid.Empty, 0);
+            true, "Test Parcel", "desc", 1024, 117, 0, Guid.Empty, 0);
         var session = new FakeBotSession { ReadPolicy = (_, _) => expected };
         var snap = await session.ReadParcelAsync(128, 128, default);
         snap.Should().BeEquivalentTo(expected);

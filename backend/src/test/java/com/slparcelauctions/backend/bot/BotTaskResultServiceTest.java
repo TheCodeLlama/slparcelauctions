@@ -78,6 +78,7 @@ class BotTaskResultServiceTest {
         service = new BotTaskResultService(
                 botTaskRepo, escrowRepo, escrowService, manualReviewRepo, props, fixed);
         lenient().when(props.sellToBotRecurrence()).thenReturn(Duration.ofMinutes(30));
+        lenient().when(props.sellToBotRetryBackoff()).thenReturn(Duration.ofMinutes(2));
         lenient().when(props.sellToBotFailureThreshold()).thenReturn(THRESHOLD);
         lenient().when(botTaskRepo.save(any(BotTask.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -167,7 +168,7 @@ class BotTaskResultServiceTest {
     // ---- infra failures ----
 
     @Test
-    void botError_incrementsStreak_noAttempt_clearsPending_belowThreshold_reschedules() {
+    void botError_incrementsStreak_noAttempt_clearsPending_belowThreshold_fastRetry() {
         BotTask task = pendingTask();
         Escrow escrow = transferPending(now.plusHours(70));
         escrow.setManualVerifyPending(true);
@@ -181,8 +182,38 @@ class BotTaskResultServiceTest {
         assertThat(escrow.getSellToVerifyAttempts()).isZero();
         assertThat(escrow.getManualVerifyPending()).isFalse();
         assertThat(task.getStatus()).isEqualTo(BotTaskStatus.PENDING);
-        assertThat(task.getNextRunAt()).isEqualTo(now.plusMinutes(30));
+        // Transient infra failure retries on the fast backoff, not the 30m
+        // recurrence — the parcel is fine, the bot just couldn't observe it.
+        assertThat(task.getNextRunAt()).isEqualTo(now.plusMinutes(2));
         verify(manualReviewRepo, never()).save(any());
+    }
+
+    @Test
+    void accessDenied_belowThreshold_fastRetry() {
+        BotTask task = pendingTask();
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setConsecutiveSellToBotFailures(0);
+        primeLoad(task, escrow);
+
+        service.apply(TASK_ID, req(SellToOutcome.ACCESS_DENIED));
+
+        assertThat(escrow.getConsecutiveSellToBotFailures()).isEqualTo(1);
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.PENDING);
+        assertThat(task.getNextRunAt()).isEqualTo(now.plusMinutes(2));
+        verify(manualReviewRepo, never()).save(any());
+    }
+
+    @Test
+    void botError_pastDeadline_cancelsTask_noFastRetry() {
+        BotTask task = pendingTask();
+        Escrow escrow = transferPending(now.minusHours(1)); // deadline elapsed
+        escrow.setConsecutiveSellToBotFailures(0);
+        primeLoad(task, escrow);
+
+        service.apply(TASK_ID, req(SellToOutcome.BOT_ERROR));
+
+        assertThat(escrow.getConsecutiveSellToBotFailures()).isEqualTo(1);
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.CANCELLED);
     }
 
     @Test
@@ -245,6 +276,8 @@ class BotTaskResultServiceTest {
         assertThat(escrow.getConsecutiveSellToBotFailures()).isEqualTo(1);
         verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
         assertThat(task.getStatus()).isEqualTo(BotTaskStatus.PENDING);
+        // PARCEL_NOT_FOUND keeps the existing 30m recurrence — the fast
+        // retry is scoped to BOT_ERROR/ACCESS_DENIED only.
         assertThat(task.getNextRunAt()).isEqualTo(now.plusMinutes(30));
     }
 

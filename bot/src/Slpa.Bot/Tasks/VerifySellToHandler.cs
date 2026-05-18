@@ -11,15 +11,17 @@ namespace Slpa.Bot.Tasks;
 /// the expected winner, and POSTs a <see cref="SellToOutcome"/> back to the
 /// backend via <see cref="IBackendClient.ReportTaskResultAsync"/>. The
 /// backend's escrow state machine owns the consequences; the bot only
-/// observes + reports. ForSale flag bit = LibreMetaverse
-/// <c>ParcelFlags.ForSale</c> = 0x00000080.
+/// observes + reports. The for-sale signal is read from the strongly-typed
+/// <c>OpenMetaverse.ParcelFlags.ForSale</c> bit (1&lt;&lt;2) in
+/// <see cref="IBotSession.ReadParcelAsync"/> and surfaced as
+/// <see cref="ParcelSnapshot.ForSale"/> — note this is distinct from
+/// <c>ParcelFlags.ForSaleObjects</c> (1&lt;&lt;7, 0x00000080).
 /// </summary>
 public sealed class VerifySellToHandler
 {
     private readonly IBotSession _session;
     private readonly IBackendClient _backend;
     private readonly ILogger<VerifySellToHandler> _log;
-    private const uint ForSaleFlag = 0x00000080;
 
     public VerifySellToHandler(IBotSession session, IBackendClient backend,
         ILogger<VerifySellToHandler> log)
@@ -65,7 +67,7 @@ public sealed class VerifySellToHandler
                 owner = snap.OwnerId;
                 auth = snap.AuthBuyerId;
                 price = snap.SalePrice;
-                forSale = (snap.Flags & ForSaleFlag) != 0;
+                forSale = snap.ForSale;
                 if (snap.OwnerId == task.ExpectedWinnerUuid.Value)
                     outcome = SellToOutcome.OWNER_ALREADY_WINNER;
                 else if (forSale != true || snap.AuthBuyerId == Guid.Empty)

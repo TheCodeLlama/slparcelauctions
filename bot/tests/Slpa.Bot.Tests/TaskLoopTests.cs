@@ -193,6 +193,7 @@ public sealed class TaskLoopTests
             IsGroupOwned: false,
             AuthBuyerId: winner,
             SalePrice: 0,
+            ForSale: true,
             Name: "P",
             Description: "",
             AreaSqm: 1024,
