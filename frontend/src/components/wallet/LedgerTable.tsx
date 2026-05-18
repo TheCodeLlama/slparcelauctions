@@ -8,6 +8,7 @@ import {
   Clock,
   Lock,
   Pencil,
+  Receipt,
   Tag,
   Undo2,
   Unlock,
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
 import { formatRelativeTime } from "@/lib/time/relativeTime";
+import { humanizeEntryType } from "@/lib/wallet/humanizeEntryType";
 import type { LedgerEntry, WithdrawalStatus } from "@/types/wallet";
 
 function formatLindens(amount: number): string {
@@ -29,7 +31,7 @@ function formatLindens(amount: number): string {
  * collapsed-view backend stamps the status and this label drops the
  * suffix (or shows "Reversed" for the rare reversal case).
  */
-function entryTypeLabel(e: LedgerEntry): string {
+export function entryTypeLabel(e: LedgerEntry): string {
   switch (e.entryType) {
     case "DEPOSIT": return "Deposit";
     case "WITHDRAW_QUEUED": {
@@ -52,10 +54,22 @@ function entryTypeLabel(e: LedgerEntry): string {
     case "LISTING_FEE_REFUND": return "Listing fee refund";
     case "PENALTY_DEBIT": return "Penalty paid";
     case "ADJUSTMENT": return "Adjustment";
+    case "AGENT_FEE_CREDIT": return "Agent fee earned";
+    case "AGENT_COMMISSION_CREDIT": return "Commission earned";
     case "GROUP_WALLET_DEPOSIT_DEBIT":
       // Description carries "Deposit to <groupName>" (and optional memo)
       // when set by the service; fall back to a generic label otherwise.
       return e.description ?? "Group wallet deposit";
+    default: {
+      // Compile-time exhaustiveness over the known union: if the backend
+      // enum grows and the union is synced but a `case` is missed, `tsc`
+      // fails here in CI rather than white-screening prod.
+      const _exhaustive: never = e.entryType;
+      void _exhaustive;
+      // Runtime safety for deploy skew (backend ships a new type before the
+      // frontend union catches up): never return undefined / empty.
+      return humanizeEntryType(e.entryType as unknown as string);
+    }
   }
 }
 
@@ -83,7 +97,7 @@ function withdrawalVisual(status: WithdrawalStatus | null): EntryVisual {
  * yellow Clock while pending, green ArrowUpFromLine when completed,
  * red Undo2 if reversed.
  */
-function entryVisual(e: LedgerEntry): EntryVisual {
+export function entryVisual(e: LedgerEntry): EntryVisual {
   switch (e.entryType) {
     case "DEPOSIT":
       return { Icon: ArrowDownToLine, tone: "text-success" };
@@ -109,8 +123,19 @@ function entryVisual(e: LedgerEntry): EntryVisual {
       return { Icon: AlertTriangle, tone: "text-warning" };
     case "ADJUSTMENT":
       return { Icon: Pencil, tone: "text-fg-muted" };
+    case "AGENT_FEE_CREDIT":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
+    case "AGENT_COMMISSION_CREDIT":
+      return { Icon: ArrowDownToLine, tone: "text-success" };
     case "GROUP_WALLET_DEPOSIT_DEBIT":
       return { Icon: ArrowUpFromLine, tone: "text-fg" };
+    default: {
+      // Compile-time exhaustiveness over the known union (see entryTypeLabel).
+      const _exhaustive: never = e.entryType;
+      void _exhaustive;
+      // Runtime safety for deploy skew: a neutral visual, never undefined.
+      return { Icon: Receipt, tone: "text-fg-muted" };
+    }
   }
 }
 
