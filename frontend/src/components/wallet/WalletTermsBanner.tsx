@@ -39,6 +39,7 @@ export function WalletTermsBanner() {
   // unavailable during SSR / the Amplify build, and reading it during
   // render would desync hydration.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(isTermsBannerDismissed(WALLET_TERMS_VERSION));
   }, []);
 
