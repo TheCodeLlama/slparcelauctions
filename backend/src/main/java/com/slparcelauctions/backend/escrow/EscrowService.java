@@ -145,6 +145,11 @@ public class EscrowService {
                 .commissionAmt(commission.commission(finalBid))
                 .payoutAmt(payoutAmt)
                 .consecutiveWorldApiFailures(0)
+                .sellToVerifyAttempts(0)
+                .buyVerifySellerAttempts(0)
+                .buyVerifyBuyerAttempts(0)
+                .consecutiveSellToBotFailures(0)
+                .manualVerifyPending(false)
                 .build();
         Escrow saved = escrowRepo.save(escrow);
 
