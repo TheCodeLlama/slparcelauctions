@@ -6,6 +6,8 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.slparcelauctions.backend.auction.PhotoUrl;
+
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -105,6 +107,10 @@ public class SearchSuggestRepository {
     }
 
     private static String photoUrl(String publicId) {
-        return publicId == null ? null : "/api/v1/photos/" + publicId;
+        // The LEFT JOIN projects a nullable public_id (UUID text). Parse
+        // back to UUID so the canonical URL is produced by the single
+        // {@link PhotoUrl} producer rather than hand-rolled here.
+        return publicId == null ? null
+                : PhotoUrl.forPhotoOrNull(UUID.fromString(publicId));
     }
 }
