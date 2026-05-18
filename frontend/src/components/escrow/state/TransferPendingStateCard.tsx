@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { EscrowDeadlineBadge } from "@/components/escrow/EscrowDeadlineBadge";
 import { Copy, ExternalLink, AlertTriangle } from "@/components/ui/icons";
@@ -28,7 +29,13 @@ import type { EscrowStatusResponse } from "@/types/escrow";
  *    purchase" + review). Seller sees a waiting banner with the same verify +
  *    review affordances.
  *  - **Post-confirmation** (`transferConfirmedAt` set): unchanged
- *    role-neutral payout-pending acknowledgement.
+ *    role-neutral payout-pending acknowledgement; no dispute link because the
+ *    backend is about to flip the escrow to COMPLETED.
+ *
+ * Every pre-confirmation sub-phase card surfaces both the no-fault "Request
+ * manual review" escalation and the separate "File a dispute" link — they are
+ * deliberately coexisting mechanisms (spec §2 decision 2, §12), not
+ * substitutes.
  */
 export function TransferPendingStateCard({ escrow, role }: StateCardProps) {
   const postConfirmation = escrow.transferConfirmedAt != null;
@@ -95,6 +102,25 @@ function DeadlineRow({ escrow }: { escrow: EscrowStatusResponse }) {
       <span className="text-fg-muted">Transfer deadline:</span>
       <EscrowDeadlineBadge deadline={escrow.transferDeadline} />
     </div>
+  );
+}
+
+/**
+ * "File a dispute" link. The no-fault "request manual review" escalation and
+ * the dispute flow are deliberately separate, coexisting mechanisms (spec
+ * 2026-05-17 §2 decision 2, §12). TRANSFER_PENDING is the canonical phase for
+ * filing disputes (e.g. SELLER_NOT_RESPONSIVE), so every pre-confirmation
+ * sub-phase card surfaces it alongside the manual-review control. The
+ * post-confirmation payout-pending card intentionally omits it.
+ */
+function DisputeLink({ escrow }: { escrow: EscrowStatusResponse }) {
+  return (
+    <Link
+      href={`/auction/${escrow.auctionPublicId}/escrow/dispute`}
+      className="text-sm font-medium text-brand hover:underline"
+    >
+      File a dispute
+    </Link>
   );
 }
 
@@ -245,6 +271,7 @@ function SellerSetSellToCard({
       />
 
       <DeadlineRow escrow={escrow} />
+      <DisputeLink escrow={escrow} />
     </section>
   );
 }
@@ -275,6 +302,7 @@ function WinnerWaitingSellToCard({
       </p>
       <ParcelSlurlLink escrow={escrow} />
       <DeadlineRow escrow={escrow} />
+      <DisputeLink escrow={escrow} />
     </section>
   );
 }
@@ -323,6 +351,7 @@ function WinnerBuyParcelCard({ escrow }: { escrow: EscrowStatusResponse }) {
       />
 
       <DeadlineRow escrow={escrow} />
+      <DisputeLink escrow={escrow} />
     </section>
   );
 }
@@ -363,6 +392,7 @@ function SellerWaitingBuyCard({ escrow }: { escrow: EscrowStatusResponse }) {
       />
 
       <DeadlineRow escrow={escrow} />
+      <DisputeLink escrow={escrow} />
     </section>
   );
 }

@@ -145,11 +145,25 @@ describe("TransferPendingStateCard", () => {
       );
       expect(requestReviewMutate).toHaveBeenCalledTimes(1);
     });
+
+    it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
+      renderSeller({ auctionPublicId: "auction-set-sell-to-seller" });
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-set-sell-to-seller/escrow/dispute",
+      );
+    });
   });
 
   describe("Set Sell To (sellToConfirmedAt == null), winner", () => {
-    it("renders waiting copy + the parcel SLURL", () => {
-      renderWithProviders(
+    function renderWinnerWaiting(over = {}) {
+      return renderWithProviders(
         <TransferPendingStateCard
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
@@ -157,10 +171,15 @@ describe("TransferPendingStateCard", () => {
             sellToConfirmedAt: null,
             transferConfirmedAt: null,
             parcelMapUrl: "https://maps.secondlife.com/x/4/5/6",
+            ...over,
           })}
           role="winner"
         />,
       );
+    }
+
+    it("renders waiting copy + the parcel SLURL", () => {
+      renderWinnerWaiting();
       expect(
         screen.getByText(/waiting for the seller/i),
       ).toBeInTheDocument();
@@ -168,6 +187,17 @@ describe("TransferPendingStateCard", () => {
       expect(link).toHaveAttribute(
         "href",
         "https://maps.secondlife.com/x/4/5/6",
+      );
+    });
+
+    it("renders the File a dispute link", () => {
+      renderWinnerWaiting({ auctionPublicId: "auction-set-sell-to-winner" });
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-set-sell-to-winner/escrow/dispute",
       );
     });
   });
@@ -218,11 +248,25 @@ describe("TransferPendingStateCard", () => {
         screen.getByRole("button", { name: /request manual review/i }),
       ).toBeInTheDocument();
     });
+
+    it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
+      renderWinner({ auctionPublicId: "auction-buy-parcel-winner" });
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-buy-parcel-winner/escrow/dispute",
+      );
+    });
   });
 
   describe("Buy Parcel (sellToConfirmedAt set, transferConfirmedAt == null), seller", () => {
-    it("renders waiting + Verify purchase (seller attempts) + request review", () => {
-      renderWithProviders(
+    function renderSellerWaiting(over = {}) {
+      return renderWithProviders(
         <TransferPendingStateCard
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
@@ -230,10 +274,15 @@ describe("TransferPendingStateCard", () => {
             sellToConfirmedAt: "2026-05-01T09:00:00Z",
             transferConfirmedAt: null,
             buyVerifySellerAttemptsRemaining: 2,
+            ...over,
           })}
           role="seller"
         />,
       );
+    }
+
+    it("renders waiting + Verify purchase (seller attempts) + request review", () => {
+      renderSellerWaiting();
       expect(
         screen.getByText(/waiting for the winner/i),
       ).toBeInTheDocument();
@@ -244,6 +293,20 @@ describe("TransferPendingStateCard", () => {
       expect(
         screen.getByRole("button", { name: /request manual review/i }),
       ).toBeInTheDocument();
+    });
+
+    it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
+      renderSellerWaiting({ auctionPublicId: "auction-buy-parcel-seller" });
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-buy-parcel-seller/escrow/dispute",
+      );
     });
   });
 
@@ -287,5 +350,29 @@ describe("TransferPendingStateCard", () => {
       expect(screen.queryByText(/about land/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/sell land/i)).not.toBeInTheDocument();
     });
+
+    it.each(["seller", "winner"] as const)(
+      "renders NEITHER the manual-review affordance NOR the File a dispute link post-confirmation for role=%s",
+      (role) => {
+        renderWithProviders(
+          <TransferPendingStateCard
+            escrow={fakeEscrow({
+              state: "TRANSFER_PENDING",
+              fundedAt: "2026-04-30T12:00:00Z",
+              sellToConfirmedAt: "2026-05-01T09:00:00Z",
+              transferConfirmedAt: "2026-05-01T10:00:00Z",
+              auctionPublicId: "auction-payout-pending",
+            })}
+            role={role}
+          />,
+        );
+        expect(
+          screen.queryByRole("button", { name: /request manual review/i }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: /file a dispute/i }),
+        ).not.toBeInTheDocument();
+      },
+    );
   });
 });
