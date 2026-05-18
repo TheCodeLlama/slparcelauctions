@@ -26,6 +26,15 @@ import com.slparcelauctions.backend.parceltag.dto.ParcelTagResponse;
 public record SellerAuctionResponse(
         UUID publicId,
         UUID sellerPublicId,
+        /**
+         * Seller reputation summary, mirroring
+         * {@link PublicAuctionResponse.SellerSummary} on the buyer-facing view.
+         * Populated identically (same server-computed completionRate via
+         * SellerCompletionRateMapper) so the seller's own draft / activate
+         * preview shows the exact card a buyer would see instead of a
+         * placeholder. Null only when the seller association is unset.
+         */
+        PublicAuctionResponse.SellerSummary seller,
         String title,
         ParcelResponse parcel,
         AuctionStatus status,
