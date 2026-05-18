@@ -232,6 +232,86 @@ describe("PlaceBidForm", () => {
     );
   });
 
+  it("shows a Buy now button when the auction has a buy-now price", () => {
+    const auction = auctionFixture({ buyNowPrice: 25_000, currentHighBid: 0 });
+    renderWithProviders(
+      <PlaceBidForm auction={auction} connectionState={connected} />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByTestId("place-bid-buy-now")).toHaveTextContent(
+      "Buy now · L$25,000",
+    );
+  });
+
+  it("does not show the Buy now button when there is no buy-now price", () => {
+    renderWithProviders(
+      <PlaceBidForm
+        auction={auctionFixture({ buyNowPrice: null })}
+        connectionState={connected}
+      />,
+      { auth: "authenticated" },
+    );
+    expect(
+      screen.queryByTestId("place-bid-buy-now"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Buy now opens the buy-now confirm and places a bid at exactly the buy-now price", async () => {
+    let received: { amount: number } | null = null;
+    server.use(
+      http.post("*/api/v1/auctions/00000000-0000-0000-0000-000000000007/bids", async ({ request }) => {
+        received = (await request.json()) as { amount: number };
+        return HttpResponse.json({
+          bidId: 100,
+          auctionId: 7,
+          amount: received.amount,
+          bidType: "BUY_NOW",
+          bidCount: 1,
+          endsAt: "2026-04-22T00:00:00Z",
+          originalEndsAt: "2026-04-22T00:00:00Z",
+          snipeExtensionMinutes: null,
+          newEndsAt: null,
+          buyNowTriggered: true,
+        });
+      }),
+    );
+    const auction = auctionFixture({ buyNowPrice: 25_000, currentHighBid: 0 });
+    renderWithProviders(
+      <PlaceBidForm auction={auction} connectionState={connected} />,
+      { auth: "authenticated" },
+    );
+    // Type an unrelated bid amount; Buy now must ignore it.
+    const input = screen.getByTestId(
+      "place-bid-amount-input",
+    ) as HTMLInputElement;
+    await userEvent.type(input, "600");
+    await userEvent.click(screen.getByTestId("place-bid-buy-now"));
+    // ConfirmBidDialog buy-now branch is open — its confirm button reads
+    // "Buy now · L$25,000"; scope to the dialog testid since the dedicated
+    // trigger button carries the same accessible name.
+    const dialog = await screen.findByTestId("confirm-bid-dialog");
+    expect(dialog).toHaveTextContent("buy-now at L$25,000");
+    await userEvent.click(
+      screen.getByTestId("confirm-bid-dialog-confirm"),
+    );
+    await waitFor(() => {
+      expect(received).not.toBeNull();
+    });
+    expect(received!.amount).toBe(25_000);
+  });
+
+  it("disables Buy now when disconnected", () => {
+    const auction = auctionFixture({ buyNowPrice: 25_000, currentHighBid: 0 });
+    renderWithProviders(
+      <PlaceBidForm
+        auction={auction}
+        connectionState={{ status: "reconnecting" }}
+      />,
+      { auth: "authenticated" },
+    );
+    expect(screen.getByTestId("place-bid-buy-now")).toBeDisabled();
+  });
+
   it("fires the large-bid confirm dialog when amount > 10,000", async () => {
     // currentHighBid=0 → min = startingBid = 500, so 15000 is valid.
     const auction = auctionFixture({

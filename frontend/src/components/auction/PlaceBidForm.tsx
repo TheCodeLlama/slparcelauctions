@@ -213,6 +213,18 @@ export function PlaceBidForm({ auction, connectionState }: PlaceBidFormProps) {
       >
         {buttonLabel}
       </Button>
+      {buyNow != null ? (
+        <Button
+          type="button"
+          variant="secondary"
+          fullWidth
+          disabled={!isConnected || mutation.isPending}
+          data-testid="place-bid-buy-now"
+          onClick={() => setConfirm({ kind: "buy-now", amount: buyNow })}
+        >
+          {`Buy now · L$${buyNow.toLocaleString()}`}
+        </Button>
+      ) : null}
       {!isConnected ? (
         <p
           className="text-xs text-fg-muted"
