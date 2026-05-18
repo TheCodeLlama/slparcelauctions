@@ -38,6 +38,11 @@ import type {
   AdminDisputeResolveResponse,
 } from "@/lib/admin/disputes";
 import type {
+  AdminEscrowReviewRow,
+  AdminEscrowReviewDetail,
+  AdminEscrowReviewResolveResponse,
+} from "@/lib/admin/escrowReviews";
+import type {
   BotPoolHealthRow,
   AdminTerminalRow,
   TerminalRotationResponse,
@@ -786,6 +791,35 @@ export const adminDisputesHandlers = {
   resolve409: (escrowId: number) =>
     http.post(`*/api/v1/admin/disputes/${escrowId}/resolve`, () =>
       HttpResponse.json({ code: "DISPUTE_ACTION_INVALID_FOR_STATE" }, { status: 409 })),
+};
+
+export const adminEscrowReviewsHandlers = {
+  listEmpty: () =>
+    http.get("*/api/v1/admin/escrow-reviews", () =>
+      HttpResponse.json({ content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 })
+    ),
+  listWithItems: (rows: AdminEscrowReviewRow[]) =>
+    http.get("*/api/v1/admin/escrow-reviews", () =>
+      HttpResponse.json({ content: rows, number: 0, size: 20, totalElements: rows.length, totalPages: 1 })
+    ),
+  detail: (reviewPublicId: string, body: AdminEscrowReviewDetail) =>
+    http.get(`*/api/v1/admin/escrow-reviews/${reviewPublicId}`, () =>
+      HttpResponse.json(body)
+    ),
+  resolveSuccess: (
+    reviewPublicId: string,
+    response: AdminEscrowReviewResolveResponse
+  ) =>
+    http.post(`*/api/v1/admin/escrow-reviews/${reviewPublicId}/resolve`, () =>
+      HttpResponse.json(response)
+    ),
+  resolve409: (reviewPublicId: string) =>
+    http.post(`*/api/v1/admin/escrow-reviews/${reviewPublicId}/resolve`, () =>
+      HttpResponse.json(
+        { code: "ESCROW_REVIEW_ALREADY_RESOLVED" },
+        { status: 409 }
+      )
+    ),
 };
 
 export const adminBotPoolHandlers = {
