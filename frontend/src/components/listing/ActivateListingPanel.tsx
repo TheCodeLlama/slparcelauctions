@@ -59,8 +59,14 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
       // surface inline copy.
       if (isApiError(e)) {
         const code = typeof e.problem.code === "string" ? e.problem.code : null;
+        if (code === "WALLET_TERMS_NOT_ACCEPTED") {
+          // Terms lapsed between render and click (admin cleared them, or a
+          // terms-version bump). Open the modal rather than silently
+          // refetching — the user needs an actionable path.
+          setTermsOpen(true);
+          return;
+        }
         if (
-          code === "WALLET_TERMS_NOT_ACCEPTED" ||
           code === "INSUFFICIENT_AVAILABLE_BALANCE" ||
           code === "PENALTY_OUTSTANDING"
         ) {
@@ -88,36 +94,6 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
 
   const fee = feeQ.data.amountLindens;
   const wallet = walletQ.data;
-
-  if (!wallet.termsAccepted) {
-    return (
-      <>
-        <section
-          aria-labelledby="activate-fee-heading"
-          className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-6"
-        >
-          <h2 id="activate-fee-heading" className="text-base font-bold tracking-tight text-fg">
-            Accept wallet terms first
-          </h2>
-          <p className="text-sm text-fg">
-            Listing fees are paid from your SLParcels wallet. Accept the wallet
-            terms of use to continue.
-          </p>
-          <Button
-            variant="secondary"
-            className="self-start"
-            onClick={() => setTermsOpen(true)}
-          >
-            Accept wallet terms
-          </Button>
-        </section>
-        <WalletTermsModal
-          open={termsOpen}
-          onClose={() => setTermsOpen(false)}
-        />
-      </>
-    );
-  }
 
   if (wallet.penaltyOwed > 0) {
     return (
@@ -171,26 +147,39 @@ export function ActivateListingPanel({ auctionPublicId }: ActivateListingPanelPr
   }
 
   return (
-    <section
-      aria-labelledby="activate-fee-heading"
-      className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-6"
-    >
-      <h2 id="activate-fee-heading" className="text-base font-bold tracking-tight text-fg">
-        Activate this listing
-      </h2>
-      <p className="text-sm text-fg">
-        Listing fee is <strong>{formatLindens(fee)}</strong>, debited from
-        your SLParcels wallet. Available balance:{" "}
-        <strong>{formatLindens(wallet.available)}</strong>.
-      </p>
-      <FormError message={error ?? undefined} />
-      <Button
-        onClick={() => mutation.mutate()}
-        loading={mutation.isPending}
-        disabled={mutation.isPending}
+    <>
+      <section
+        aria-labelledby="activate-fee-heading"
+        className="flex flex-col gap-3 rounded-lg bg-bg-subtle p-6"
       >
-        Activate Listing
-      </Button>
-    </section>
+        <h2 id="activate-fee-heading" className="text-base font-bold tracking-tight text-fg">
+          Activate this listing
+        </h2>
+        <p className="text-sm text-fg">
+          Listing fee is <strong>{formatLindens(fee)}</strong>, debited from
+          your SLParcels wallet. Available balance:{" "}
+          <strong>{formatLindens(wallet.available)}</strong>.
+        </p>
+        <FormError message={error ?? undefined} />
+        <Button
+          onClick={() => {
+            if (!wallet.termsAccepted) {
+              setTermsOpen(true);
+              return;
+            }
+            mutation.mutate();
+          }}
+          loading={mutation.isPending}
+          disabled={mutation.isPending}
+        >
+          Activate Listing
+        </Button>
+      </section>
+      <WalletTermsModal
+        open={termsOpen}
+        onClose={() => setTermsOpen(false)}
+        onAccepted={() => mutation.mutate()}
+      />
+    </>
   );
 }

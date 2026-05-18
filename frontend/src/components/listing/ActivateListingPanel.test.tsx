@@ -76,25 +76,66 @@ describe("ActivateListingPanel", () => {
     expect(screen.getByText(/Loading fee details/i)).toBeInTheDocument();
   });
 
-  it("shows the wallet-terms gate with an inline Accept button when terms are not accepted", async () => {
+  it("opens the WalletTermsModal from the Activate button when terms are not accepted", async () => {
     mockHooks({
-      wallet: walletView({ termsAccepted: false, termsAcceptedAt: null }),
+      fee: 100,
+      wallet: walletView({
+        termsAccepted: false,
+        termsAcceptedAt: null,
+        balance: 1000,
+        available: 1000,
+      }),
     });
     renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
+
+    // The normal Activate affordance is shown (no bespoke gate section).
     expect(
-      screen.getByRole("heading", { name: /Accept wallet terms first/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Activate Listing/i }),
+      screen.queryByRole("heading", { name: /Accept wallet terms first/i }),
     ).not.toBeInTheDocument();
-    // Clicking the gate button opens the WalletTermsModal in-place — no
-    // navigation to /wallet.
+
     await userEvent.click(
-      screen.getByRole("button", { name: /Accept wallet terms/i }),
+      screen.getByRole("button", { name: /Activate Listing/i }),
     );
+
+    // Clicking Activate opens the modal in-place rather than paying.
     expect(
       screen.getByRole("heading", { name: /SLParcels Wallet Terms of Use/i }),
     ).toBeInTheDocument();
+  });
+
+  it("pays the listing fee after accepting terms in the modal", async () => {
+    let posted = false;
+    server.use(
+      http.post("*/api/v1/me/wallet/accept-terms", () =>
+        new HttpResponse(null, { status: 204 }),
+      ),
+      http.post("*/api/v1/me/auctions/00000000-0000-0000-0000-00000000002a/pay-listing-fee", async () => {
+        posted = true;
+        return HttpResponse.json({
+          newBalance: 900,
+          newAvailable: 900,
+          auctionStatus: "DRAFT_PAID",
+        });
+      }),
+    );
+    mockHooks({
+      fee: 100,
+      wallet: walletView({
+        termsAccepted: false,
+        termsAcceptedAt: null,
+        balance: 1000,
+        available: 1000,
+      }),
+    });
+    renderWithProviders(<ActivateListingPanel auctionPublicId="00000000-0000-0000-0000-00000000002a" />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Activate Listing/i }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /^I Accept$/i }),
+    );
+    await waitFor(() => expect(posted).toBe(true));
   });
 
   it("shows the penalty gate when penalty is owed", () => {
