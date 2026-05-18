@@ -305,6 +305,41 @@ Spec: `docs/superpowers/specs/2026-05-12-realty-groups-final-cleanup-design.md` 
 - **When:** Investigate as a separate work item. Not blocking any D functionality.
 - **Notes:** Failing test: `com.slparcelauctions.backend.wallet.reconciliation.ReconciliationServiceTest#staleBalanceRecordsErrorStatus`. All other reconciliation tests pass.
 
+### ▶ Resolution: "bot retired from escrow" (2026-05-16) partially reversed
+
+- **From:** Ownership-only verification spec `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md` retired the bot from all escrow/verification flows (`MONITOR_ESCROW` deleted).
+- **Resolution:** Partially reversed by the escrow transfer-split + Sell-To verification spec `docs/superpowers/specs/2026-05-17-escrow-transfer-split-verification-design.md` (shipped on `feat/escrow-transfer-split-verification`). The bot is re-introduced into the escrow path **only** as the single-purpose recurring `VERIFY_SELL_TO` task (teleport + read the parcel's authorized-buyer field — data the SL World API cannot see). The bot does **not** do `MONITOR_ESCROW` and does **not** monitor active auctions; the World API remains the sole owner-flip detector for the Buy-Parcel sub-step. This row records the decision rationale so the audit trail survives — the prior 2026-05-16 entries (already removed when that spec shipped) are not mutated.
+- **When:** Done (2026-05-17).
+- **Notes:** Append-only resolution row, per the ledger's immutability rule. See also FOOTGUNS §F.113–§F.116 and the autonomy decisions log `docs/superpowers/decisions/2026-05-17-escrow-split-autonomy-notes.md`.
+
+### Follow-up: extract a shared `ParcelOwnershipClassifier`
+
+- **From:** Escrow transfer-split + Sell-To verification (spec 2026-05-17).
+- **Why:** `EscrowManualActionService.verifyTransfer` and `EscrowOwnershipCheckTask.checkOne` independently duplicate the World-API winner / seller / group / `UNKNOWN_OWNER` / `PARCEL_DELETED` classification matrix. Extracting a shared `ParcelOwnershipClassifier` collapses the duplication and also fixes the shared unguarded `auction.getSeller()` deref both paths carry. Explicitly **not** done in this feature PR (scope was the two-step split + escalation + Postman/docs sweep, not a classifier refactor that touches the established 2026-05-16 fraud-safety path).
+- **When:** Indefinite — next escrow/ownership touch.
+- **Notes:** Both callers live under `backend/.../escrow/`. Keep the World-API failure-streak / freeze semantics identical when consolidating.
+
+### Follow-up: optional partial covering index on `escrows` Buy-phase due query
+
+- **From:** Escrow transfer-split + Sell-To verification (spec 2026-05-17).
+- **Why:** `findBuyPhaseEscrowIdsDue` filters `state='TRANSFER_PENDING' AND transfer_confirmed_at IS NULL AND sell_to_confirmed_at IS NOT NULL` paced by `next_owner_check_at`. A partial covering index on `escrows (next_owner_check_at, last_checked_at) WHERE state='TRANSFER_PENDING' AND transfer_confirmed_at IS NULL` would help only if `TRANSFER_PENDING` cardinality grows materially. Not added now (prod has no active listings; premature for current volume).
+- **When:** Indefinite — backlog, revisit if `TRANSFER_PENDING` row count grows.
+- **Notes:** Partial indexes cannot be expressed via JPA `@Index`; follow the existing `*IndexInitializer` boot pattern if added.
+
+### Follow-up: `AdminStatsResponse.QueueStats.openEscrowReviews` count for the admin nav badge
+
+- **From:** Escrow transfer-split + Sell-To verification (spec 2026-05-17).
+- **Why:** The admin-nav "Escrow Reviews" link ships with **no count badge** — `AdminStatsResponse.QueueStats` has no `openEscrowReviews` field, so the frontend has nothing to render a badge from. Disputes-style badge parity would need the stat added server-side. Deliberately out of scope for the feature PR.
+- **When:** Indefinite — add the server-side stat later if a badge is wanted.
+- **Notes:** Mirror the existing open-disputes `QueueStats` field + the admin stats query.
+
+### Follow-up: in-app external-link slot for the parcel SLURL in escrow notifications
+
+- **From:** Escrow transfer-split + Sell-To verification (spec 2026-05-17).
+- **Why:** The in-app notification renderer (`NotificationDropdownRow`) has no external-link slot, so the parcel SLURL on `NotificationGroup.ESCROW` notifications is surfaced via the in-app deeplink → escrow page (which itself shows the SLURL) plus the SL IM body's `Parcel: <viewerUrl>` line — not as a direct in-app maps link. Acceptable: the user always has a path to the SLURL.
+- **When:** Indefinite — add an external-link slot to the renderer later if a direct in-app maps link is desired.
+- **Notes:** Backend already emits `parcelMapUrl` / `parcelViewerUrl` in the ESCROW notification data blob; only the in-app render slot is missing.
+
 ---
 
 ## Removal Criteria

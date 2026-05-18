@@ -22,6 +22,7 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
     public final List<EscrowDisputedEnvelope> disputed = new CopyOnWriteArrayList<>();
     public final List<EscrowFundedEnvelope> funded = new CopyOnWriteArrayList<>();
     public final List<EscrowTransferConfirmedEnvelope> transferConfirmed = new CopyOnWriteArrayList<>();
+    public final List<EscrowSellToConfirmedEnvelope> sellToConfirmed = new CopyOnWriteArrayList<>();
     public final List<EscrowFrozenEnvelope> frozen = new CopyOnWriteArrayList<>();
     public final List<EscrowCompletedEnvelope> completed = new CopyOnWriteArrayList<>();
     public final List<EscrowRefundCompletedEnvelope> refundCompleted = new CopyOnWriteArrayList<>();
@@ -46,6 +47,11 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
     @Override
     public void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope) {
         transferConfirmed.add(envelope);
+    }
+
+    @Override
+    public void publishSellToConfirmed(EscrowSellToConfirmedEnvelope envelope) {
+        sellToConfirmed.add(envelope);
     }
 
     @Override
@@ -79,6 +85,7 @@ public class CapturingEscrowBroadcastPublisher implements EscrowBroadcastPublish
         disputed.clear();
         funded.clear();
         transferConfirmed.clear();
+        sellToConfirmed.clear();
         frozen.clear();
         completed.clear();
         refundCompleted.clear();

@@ -26,6 +26,15 @@ export function fakeEscrow(
     disputeReasonCategory: null,
     disputeDescription: null,
     freezeReason: null,
+    sellToConfirmedAt: null,
+    sellToLastResult: null,
+    sellToVerifyAttemptsRemaining: 3,
+    buyVerifySellerAttemptsRemaining: 3,
+    buyVerifyBuyerAttemptsRemaining: 3,
+    manualReviewStatus: null,
+    manualReviewStep: null,
+    parcelMapUrl: null,
+    parcelViewerUrl: null,
   };
   return { ...base, ...overrides };
 }
@@ -110,6 +119,14 @@ export function fakeEscrowEnvelope<T extends EscrowEnvelopeType>(
         state: "TRANSFER_PENDING",
         attemptCount: 4,
         lastError: "terminal offline",
+        ...baseCommon,
+        ...overrides,
+      } as EscrowEnvelope;
+    case "ESCROW_SELL_TO_SET":
+      return {
+        type: "ESCROW_SELL_TO_SET",
+        state: "TRANSFER_PENDING",
+        sellToConfirmedAt: new Date().toISOString(),
         ...baseCommon,
         ...overrides,
       } as EscrowEnvelope;

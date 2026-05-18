@@ -56,6 +56,11 @@ public class StompEscrowBroadcastPublisher implements EscrowBroadcastPublisher {
     }
 
     @Override
+    public void publishSellToConfirmed(EscrowSellToConfirmedEnvelope envelope) {
+        publish(envelope, envelope.auctionPublicId(), "ESCROW_SELL_TO_SET");
+    }
+
+    @Override
     public void publishFrozen(EscrowFrozenEnvelope envelope) {
         publish(envelope, envelope.auctionPublicId(), "ESCROW_FROZEN");
     }

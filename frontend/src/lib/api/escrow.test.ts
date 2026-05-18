@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { server } from "@/test/msw/server";
 import { http, HttpResponse } from "msw";
-import { fileDispute, getEscrowStatus } from "./escrow";
+import {
+  fileDispute,
+  getEscrowStatus,
+  requestManualReview,
+  verifySellTo,
+  verifyTransfer,
+} from "./escrow";
 import { fakeEscrow } from "@/test/fixtures/escrow";
 
 describe("escrow API client", () => {
@@ -98,6 +104,85 @@ describe("escrow API client", () => {
         status: 409,
         problem: { code: "ESCROW_INVALID_TRANSITION" },
       });
+    });
+  });
+
+  describe("verifySellTo", () => {
+    it("POSTs and returns the updated escrow status", async () => {
+      server.use(
+        http.post("*/api/v1/auctions/7/escrow/verify-sell-to", () =>
+          HttpResponse.json(
+            fakeEscrow({
+              state: "TRANSFER_PENDING",
+              sellToVerifyAttemptsRemaining: 2,
+            }),
+          ),
+        ),
+      );
+      const result = await verifySellTo(7);
+      expect(result.sellToVerifyAttemptsRemaining).toBe(2);
+    });
+  });
+
+  describe("verifyTransfer", () => {
+    it("POSTs and returns the updated escrow status", async () => {
+      server.use(
+        http.post("*/api/v1/auctions/7/escrow/verify-transfer", () =>
+          HttpResponse.json(
+            fakeEscrow({
+              state: "TRANSFER_PENDING",
+              sellToConfirmedAt: "2026-05-17T10:00:00Z",
+              transferConfirmedAt: "2026-05-17T10:05:00Z",
+            }),
+          ),
+        ),
+      );
+      const result = await verifyTransfer(7);
+      expect(result.transferConfirmedAt).toBe("2026-05-17T10:05:00Z");
+    });
+  });
+
+  describe("requestManualReview", () => {
+    it("POSTs the optional note and returns the updated escrow status", async () => {
+      server.use(
+        http.post(
+          "*/api/v1/auctions/7/escrow/manual-review",
+          async ({ request }) => {
+            const body = (await request.json()) as { note?: string };
+            expect(body.note).toBe("seller unresponsive");
+            return HttpResponse.json(
+              fakeEscrow({
+                state: "TRANSFER_PENDING",
+                manualReviewStatus: "OPEN",
+                manualReviewStep: "SET_SELL_TO",
+              }),
+            );
+          },
+        ),
+      );
+      const result = await requestManualReview(7, "seller unresponsive");
+      expect(result.manualReviewStatus).toBe("OPEN");
+      expect(result.manualReviewStep).toBe("SET_SELL_TO");
+    });
+
+    it("POSTs no body when note is omitted", async () => {
+      server.use(
+        http.post(
+          "*/api/v1/auctions/7/escrow/manual-review",
+          async ({ request }) => {
+            const text = await request.text();
+            expect(text).toBe("");
+            return HttpResponse.json(
+              fakeEscrow({
+                state: "TRANSFER_PENDING",
+                manualReviewStatus: "OPEN",
+              }),
+            );
+          },
+        ),
+      );
+      const result = await requestManualReview(7);
+      expect(result.manualReviewStatus).toBe("OPEN");
     });
   });
 });

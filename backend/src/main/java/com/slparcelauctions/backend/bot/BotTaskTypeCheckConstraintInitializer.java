@@ -12,10 +12,10 @@ import lombok.RequiredArgsConstructor;
 /**
  * Refreshes the {@code bot_tasks_task_type_check} constraint on startup so
  * future {@link BotTaskType} enum values pass the CHECK without a manual DDL
- * edit. The ownership-only verification refactor (spec 2026-05-16) retired
- * VERIFY / MONITOR_AUCTION / MONITOR_ESCROW and the enum is intentionally
- * empty for now; the initializer stays in place so a new task type (e.g.
- * WITHDRAW_GROUP) can plug in without re-deriving the constraint plumbing.
+ * edit. The escrow transfer-split spec (2026-05-17) reintroduced
+ * {@code VERIFY_SELL_TO}; the initializer (re)creates the constraint
+ * enumerating the current enum values, and stays in place so additional
+ * task types can plug in without re-deriving the constraint plumbing.
  * See {@link EnumCheckConstraintSync}.
  */
 @Component

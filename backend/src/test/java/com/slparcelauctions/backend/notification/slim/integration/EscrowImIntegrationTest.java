@@ -94,7 +94,7 @@ class EscrowImIntegrationTest {
         new TransactionTemplate(txManager).executeWithoutResult(status ->
             notificationPublisher.escrowFunded(
                 seller.getId(), auctionId, escrowId,
-                "TestParcel", OffsetDateTime.now().plusHours(72)));
+                "TestParcel", OffsetDateTime.now().plusHours(72), "Winner Resident"));
 
         long sellerRows = slImRepo.findAll().stream()
             .filter(m -> m.getUserId().equals(seller.getId())).count();

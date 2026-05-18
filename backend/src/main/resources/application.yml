@@ -155,6 +155,12 @@ slpa:
     command-in-flight-timeout: PT5M
     ownership-api-failure-threshold: 5
     ownership-reminder-delay: PT24H
+    sell-to-bot-recurrence: PT30M
+    sell-to-bot-failure-threshold: 5
+    buy-parcel-fast-cadence: PT5M
+    buy-parcel-fast-window: PT1H
+    buy-parcel-slow-cadence: PT30M
+    manual-verify-attempts: 3
     # --- Scheduled job cadences (Tasks 6/7/8/9 wire the actual jobs) ---
     timeout-job:
       enabled: true

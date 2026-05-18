@@ -43,6 +43,13 @@ import type {
   AdminDisputeResolveResponse,
 } from "./disputes";
 import type {
+  AdminEscrowReviewFilters,
+  AdminEscrowReviewRow,
+  AdminEscrowReviewDetail,
+  AdminEscrowReviewResolveRequest,
+  AdminEscrowReviewResolveResponse,
+} from "./escrowReviews";
+import type {
   BotPoolHealthRow,
   AdminTerminalRow,
   TerminalRotationResponse,
@@ -291,6 +298,25 @@ export const adminApi = {
     },
     resolve(escrowId: number, body: AdminDisputeResolveRequest): Promise<AdminDisputeResolveResponse> {
       return api.post(`/api/v1/admin/disputes/${escrowId}/resolve`, body);
+    },
+  },
+
+  escrowReviews: {
+    list(filters: AdminEscrowReviewFilters): Promise<Page<AdminEscrowReviewRow>> {
+      const search = new URLSearchParams();
+      if (filters.status) search.set("status", filters.status);
+      search.set("page", String(filters.page ?? 0));
+      search.set("size", String(filters.size ?? 20));
+      return api.get(`/api/v1/admin/escrow-reviews?${search.toString()}`);
+    },
+    detail(reviewPublicId: string): Promise<AdminEscrowReviewDetail> {
+      return api.get(`/api/v1/admin/escrow-reviews/${reviewPublicId}`);
+    },
+    resolve(
+      reviewPublicId: string,
+      body: AdminEscrowReviewResolveRequest
+    ): Promise<AdminEscrowReviewResolveResponse> {
+      return api.post(`/api/v1/admin/escrow-reviews/${reviewPublicId}/resolve`, body);
     },
   },
 

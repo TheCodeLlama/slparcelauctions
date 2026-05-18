@@ -30,6 +30,7 @@ builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 builder.Services.AddSingleton<WithdrawGroupHandler>();
+builder.Services.AddSingleton<VerifySellToHandler>();
 builder.Services.AddHostedService<BotSessionBootstrapper>();
 builder.Services.AddHostedService<TaskLoop>();
 builder.Services.AddHostedService<HeartbeatLoop>();

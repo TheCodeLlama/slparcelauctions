@@ -101,11 +101,13 @@ class NotificationDataBuilderTest {
     @Test
     void escrowFunded_writesTransferDeadline() {
         Map<String, Object> d = NotificationDataBuilder.escrowFunded(
-                AUCTION_ID, ESCROW_ID, PARCEL_NAME, DEADLINE);
+                AUCTION_ID, ESCROW_ID, PARCEL_NAME, DEADLINE, "Carol Resident");
 
-        assertThat(d).containsKeys("auctionId", "escrowId", "parcelName", "transferDeadline");
+        assertThat(d).containsKeys("auctionId", "escrowId", "parcelName",
+                "transferDeadline", "winnerSlAvatarName");
         assertThat(d).containsEntry("escrowId", ESCROW_ID);
         assertThat(d.get("transferDeadline")).isEqualTo(DEADLINE.toString());
+        assertThat(d).containsEntry("winnerSlAvatarName", "Carol Resident");
     }
 
     @Test

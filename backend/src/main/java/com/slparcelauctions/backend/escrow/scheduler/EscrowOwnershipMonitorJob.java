@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.escrow.scheduler;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -13,8 +15,12 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Scheduled sweep that every {@code slpa.escrow.ownership-monitor-job.fixed-delay}
- * (default 5m) queries every {@code TRANSFER_PENDING} escrow id and dispatches
- * each through {@link EscrowOwnershipCheckTask#checkOne}. Spec §4.5.
+ * (default 5m) queries every Buy-Parcel-sub-phase escrow id that is due for a
+ * World-API owner poll ({@code TRANSFER_PENDING} with {@code sellToConfirmedAt}
+ * set, {@code transferConfirmedAt} null, and {@code nextOwnerCheckAt} due) and
+ * dispatches each through {@link EscrowOwnershipCheckTask#checkOne}. Escrows
+ * still in the Set-Sell-To sub-phase are excluded by the finder — the bot
+ * hard gate (spec §6). Spec §4.5.
  *
  * <p>The sweep runs on the default Spring task scheduler thread. Per-escrow
  * work is synchronous (one escrow at a time) because TRANSFER_PENDING
@@ -38,14 +44,18 @@ public class EscrowOwnershipMonitorJob {
 
     private final EscrowRepository escrowRepo;
     private final EscrowOwnershipCheckTask checkTask;
+    private final Clock clock;
 
     @Scheduled(fixedDelayString = "${slpa.escrow.ownership-monitor-job.fixed-delay:PT5M}")
     public void sweep() {
-        List<Long> ids = escrowRepo.findTransferPendingIds();
+        // Step-3 (Buy Parcel) sweep only — escrows still in the Set-Sell-To
+        // sub-phase (sellToConfirmedAt == null) are excluded by the finder
+        // (the bot hard gate, spec §6). Per-escrow pacing via nextOwnerCheckAt.
+        List<Long> ids = escrowRepo.findBuyPhaseEscrowIdsDue(OffsetDateTime.now(clock));
         if (ids.isEmpty()) {
             return;
         }
-        log.info("EscrowOwnershipMonitorJob processing {} transfer-pending escrows", ids.size());
+        log.info("EscrowOwnershipMonitorJob processing {} buy-phase escrows due for owner poll", ids.size());
         for (Long id : ids) {
             try {
                 checkTask.checkOne(id);

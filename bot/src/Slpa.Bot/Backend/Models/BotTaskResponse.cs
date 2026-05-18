@@ -19,4 +19,5 @@ public sealed record BotTaskResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt,
     Guid? RecipientUuid = null,
-    long? AmountL = null);
+    long? AmountL = null,
+    Guid? ExpectedWinnerUuid = null);

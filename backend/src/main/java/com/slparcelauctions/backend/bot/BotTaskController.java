@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.slparcelauctions.backend.bot.dto.BotTaskClaimRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskResponse;
+import com.slparcelauctions.backend.bot.dto.BotTaskResultRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 public class BotTaskController {
 
     private final BotTaskService service;
+    private final BotTaskResultService botTaskResultService;
 
     @PostMapping("/claim")
     public ResponseEntity<BotTaskResponse> claim(@Valid @RequestBody BotTaskClaimRequest body) {
@@ -47,5 +50,16 @@ public class BotTaskController {
         return service.findPending().stream()
                 .map(BotTaskResponse::from)
                 .toList();
+    }
+
+    /**
+     * Bot {@code VERIFY_SELL_TO} result callback (spec §5.1). Idempotent on
+     * terminal task state — a re-POST after a network blip is a no-op.
+     */
+    @PostMapping("/{taskId}/result")
+    public ResponseEntity<Void> result(@PathVariable Long taskId,
+            @Valid @RequestBody BotTaskResultRequest body) {
+        botTaskResultService.apply(taskId, body);
+        return ResponseEntity.noContent().build();
     }
 }

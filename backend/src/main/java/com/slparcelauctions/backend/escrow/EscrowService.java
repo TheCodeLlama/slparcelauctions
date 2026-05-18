@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
@@ -31,8 +32,15 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowExpiredEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFrozenEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowSellToConfirmedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
+import com.slparcelauctions.backend.escrow.review.EscrowManualReview;
+import com.slparcelauctions.backend.escrow.review.EscrowManualReviewRepository;
+import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
+import com.slparcelauctions.backend.escrow.scheduler.SellToBotTaskFactory;
+import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.sl.SlurlBuilder;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
 import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceAlreadySubmittedException;
@@ -100,6 +108,9 @@ public class EscrowService {
     private final NotificationPublisher notificationPublisher;
     private final DisputeEvidenceUploadService evidenceUploadService;
     private final WalletService walletService;
+    private final EscrowConfigProperties escrowConfig;
+    private final EscrowManualReviewRepository manualReviewRepo;
+    private final SellToBotTaskFactory sellToBotTaskFactory;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -192,6 +203,12 @@ public class EscrowService {
         saved = escrowRepo.save(saved);
         statusFlipper.flip(saved, AuctionStatus.TRANSFER_PENDING);
 
+        // Create the single recurring VERIFY_SELL_TO bot task for the
+        // Set-Sell-To sub-phase (spec §5.1). Same transaction as the
+        // TRANSFER_PENDING transition — the bot worker won't claim the row
+        // until commit, so the "one open task per escrow" invariant holds.
+        sellToBotTaskFactory.create(saved, endedAt);
+
         // Append escrow_transactions ledger row
         ledgerRepo.save(EscrowTransaction.builder()
                 .escrow(saved)
@@ -215,7 +232,8 @@ public class EscrowService {
                     auction.getId(),
                     saved.getId(),
                     auction.getTitle(),
-                    saved.getTransferDeadline());
+                    saved.getTransferDeadline(),
+                    winner.getSlAvatarName());
         }
 
         final Escrow finalEscrow = saved;
@@ -465,6 +483,37 @@ public class EscrowService {
                     .map(User::getSlAvatarName)
                     .orElse(null);
         }
+        int cap = escrowConfig.manualVerifyAttempts();
+        int sellToConsumed = escrow.getSellToVerifyAttempts() == null
+                ? 0 : escrow.getSellToVerifyAttempts();
+        int buySellerConsumed = escrow.getBuyVerifySellerAttempts() == null
+                ? 0 : escrow.getBuyVerifySellerAttempts();
+        int buyBuyerConsumed = escrow.getBuyVerifyBuyerAttempts() == null
+                ? 0 : escrow.getBuyVerifyBuyerAttempts();
+
+        String reviewStatus = null;
+        String reviewStep = null;
+        EscrowManualReview openReview = manualReviewRepo
+                .findByEscrowIdAndStatus(escrow.getId(), ManualReviewStatus.OPEN)
+                .orElse(null);
+        if (openReview != null) {
+            reviewStatus = openReview.getStatus().name();
+            reviewStep = openReview.getStep() == null ? null : openReview.getStep().name();
+        }
+
+        // SLURL from the auction parcel snapshot. Null-safe: a pre-FUNDED
+        // escrow may not have a snapshot resolved yet — render no slurl
+        // rather than fabricating the 128/128/0 fallback off a null region.
+        String parcelMapUrl = null;
+        String parcelViewerUrl = null;
+        AuctionParcelSnapshot snap = escrow.getAuction().getParcelSnapshot();
+        if (snap != null) {
+            parcelMapUrl = SlurlBuilder.mapUrl(
+                    snap.getRegionName(), snap.getPositionX(), snap.getPositionY(), snap.getPositionZ());
+            parcelViewerUrl = SlurlBuilder.viewerUrl(
+                    snap.getRegionName(), snap.getPositionX(), snap.getPositionY(), snap.getPositionZ());
+        }
+
         return new EscrowStatusResponse(
                 escrow.getPublicId(), escrow.getAuction().getPublicId(),
                 winnerSlAvatarName, escrow.getState(),
@@ -473,7 +522,16 @@ public class EscrowService {
                 escrow.getFundedAt(), escrow.getTransferConfirmedAt(), escrow.getCompletedAt(),
                 escrow.getDisputedAt(), escrow.getFrozenAt(), escrow.getExpiredAt(),
                 escrow.getDisputeReasonCategory(), escrow.getDisputeDescription(),
-                escrow.getFreezeReason(), timeline);
+                escrow.getFreezeReason(), timeline,
+                escrow.getSellToConfirmedAt(),
+                escrow.getSellToLastResult(),
+                Math.max(0, cap - sellToConsumed),
+                Math.max(0, cap - buySellerConsumed),
+                Math.max(0, cap - buyBuyerConsumed),
+                reviewStatus,
+                reviewStep,
+                parcelMapUrl,
+                parcelViewerUrl);
     }
 
     private List<EscrowTimelineEntry> buildTimeline(Escrow e) {
@@ -615,6 +673,57 @@ public class EscrowService {
      * {@code terminalCommandService.queuePayout(escrow)} so the dispatcher
      * picks up the payout on the next 30s tick.
      */
+    /**
+     * Confirms the Set-Sell-To sub-phase: stamps the hard-gate
+     * {@code sellToConfirmedAt}, re-stamps the 72h {@code transferDeadline}
+     * so the Buy-Parcel window starts fresh (spec §2.7), primes the
+     * variable-cadence step-3 owner poll ({@code nextOwnerCheckAt = now}),
+     * resets the bot infra-failure streak, clears the manual-verify-pending
+     * flag and the last definitive-negative result, notifies the buyer that
+     * the parcel is now set for sale to them, and broadcasts the envelope on
+     * {@code afterCommit}.
+     *
+     * <p>Called from the bot {@code SELL_TO_OK} result-application path and
+     * the admin force-confirm path (Phases 3 / 6). {@link Propagation#MANDATORY}
+     * mirrors {@link #confirmTransfer}: a stray call outside the locked-escrow
+     * transaction is a bug we want to fail fast rather than silently persist a
+     * gate flip with no row to roll back with. The {@code afterCommit}
+     * registration matches the established pattern so subscribers never observe
+     * a rolled-back confirmation.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void confirmSellTo(Escrow escrow, OffsetDateTime now) {
+        escrow.setSellToConfirmedAt(now);
+        escrow.setTransferDeadline(now.plusHours(TRANSFER_DEADLINE_HOURS));
+        escrow.setNextOwnerCheckAt(now);
+        escrow.setConsecutiveSellToBotFailures(0);
+        escrow.setManualVerifyPending(false);
+        escrow.setSellToLastResult(null);
+        Escrow saved = escrowRepo.save(escrow);
+
+        Long winnerUserId = saved.getAuction().getWinnerUserId();
+        long auctionId = saved.getAuction().getId();
+        long escrowId = saved.getId();
+        String parcelName = saved.getAuction().getParcelSnapshot() != null
+                ? saved.getAuction().getParcelSnapshot().getParcelName() : null;
+        if (winnerUserId != null) {
+            notificationPublisher.escrowSellToSet(winnerUserId, auctionId, escrowId, parcelName);
+        }
+
+        final EscrowSellToConfirmedEnvelope envelope =
+                EscrowSellToConfirmedEnvelope.of(saved, now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishSellToConfirmed(envelope);
+                    }
+                });
+
+        log.info("Escrow {} sell-to confirmed for auction {} (deadline reset to {})",
+                escrowId, auctionId, saved.getTransferDeadline());
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void confirmTransfer(Escrow escrow, OffsetDateTime now) {
         escrow.setTransferConfirmedAt(now);

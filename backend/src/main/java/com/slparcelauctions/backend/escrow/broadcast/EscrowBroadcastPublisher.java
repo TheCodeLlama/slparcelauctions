@@ -44,6 +44,15 @@ public interface EscrowBroadcastPublisher {
     void publishTransferConfirmed(EscrowTransferConfirmedEnvelope envelope);
 
     /**
+     * Publishes an {@link EscrowSellToConfirmedEnvelope} after the
+     * Set-Sell-To confirmation transaction commits. Called by
+     * {@code EscrowService.confirmSellTo} (bot {@code SELL_TO_OK} or admin
+     * force-confirm) via an {@code afterCommit} callback so subscribers
+     * never see a Sell-To confirmation that gets rolled back.
+     */
+    void publishSellToConfirmed(EscrowSellToConfirmedEnvelope envelope);
+
+    /**
      * Publishes an {@link EscrowFrozenEnvelope} after the freeze transaction
      * commits. Called by {@code EscrowService.freezeForFraud} via an
      * {@code afterCommit} callback so subscribers never see a freeze that

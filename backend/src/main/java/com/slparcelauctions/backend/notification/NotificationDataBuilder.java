@@ -63,10 +63,16 @@ public final class NotificationDataBuilder {
     }
 
     public static Map<String, Object> escrowFunded(long auctionId, long escrowId, String parcelName,
-                                                    OffsetDateTime transferDeadline) {
+                                                    OffsetDateTime transferDeadline,
+                                                    String winnerSlAvatarName) {
         Map<String, Object> m = baseEscrow(auctionId, escrowId, parcelName);
         m.put("transferDeadline", transferDeadline.toString());
+        m.put("winnerSlAvatarName", winnerSlAvatarName);
         return m;
+    }
+
+    public static Map<String, Object> escrowSellToSet(long auctionId, long escrowId, String parcelName) {
+        return baseEscrow(auctionId, escrowId, parcelName);
     }
 
     public static Map<String, Object> escrowTransferConfirmed(long auctionId, long escrowId, String parcelName) {

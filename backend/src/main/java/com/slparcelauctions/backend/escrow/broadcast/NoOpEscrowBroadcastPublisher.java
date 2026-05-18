@@ -55,6 +55,13 @@ public class NoOpEscrowBroadcastPublisher {
             }
 
             @Override
+            public void publishSellToConfirmed(EscrowSellToConfirmedEnvelope envelope) {
+                log.debug("no-op publishSellToConfirmed: auctionId={}, escrowId={}, state={}, sellToConfirmedAt={}",
+                        envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),
+                        envelope.sellToConfirmedAt());
+            }
+
+            @Override
             public void publishFrozen(EscrowFrozenEnvelope envelope) {
                 log.debug("no-op publishFrozen: auctionId={}, escrowId={}, state={}, reason={}",
                         envelope.auctionPublicId(), envelope.escrowPublicId(), envelope.state(),

@@ -348,6 +348,9 @@ class EscrowEndToEndIntegrationTest {
                     .build());
             auctionRepo.save(auction);
 
+            // Buy-Parcel sub-phase: sellToConfirmedAt is set so the step-3
+            // owner-poll hard gate (findBuyPhaseEscrowIdsDue, spec §6) returns
+            // this escrow and the happy-path sweep can confirm the transfer.
             Escrow escrow = escrowRepo.save(Escrow.builder()
                     .auction(auction)
                     .state(EscrowState.TRANSFER_PENDING)
@@ -356,6 +359,7 @@ class EscrowEndToEndIntegrationTest {
                     .payoutAmt(commissionCalculator.payout(finalBid))
                     .transferDeadline(now.plusHours(71))
                     .fundedAt(now.minusMinutes(30))
+                    .sellToConfirmedAt(now.minusMinutes(15))
                     .consecutiveWorldApiFailures(0)
                     .build());
 

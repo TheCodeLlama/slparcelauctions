@@ -12,6 +12,32 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
 
     List<BotTask> findByStatusOrderByCreatedAtAsc(BotTaskStatus status);
 
+    /** All bot tasks ever created for an escrow (any status). */
+    List<BotTask> findByEscrowId(Long escrowId);
+
+    /**
+     * The single open (PENDING / IN_PROGRESS) recurring task of a given type
+     * for an escrow. Used by the manual "Verify Sell To" expedite path to
+     * bump {@code next_run_at} forward so the bot re-checks immediately. The
+     * "one open task per escrow" invariant (enforced at funding in Phase 3)
+     * means at most one row matches, so the returned {@link List} holds at
+     * most one element. {@code List} (not {@code Optional}) is the safer
+     * return type — if the invariant is ever violated this still binds
+     * cleanly instead of throwing {@code IncorrectResultSizeDataAccessException}.
+     * The caller treats an empty list as a no-op (the 30-min auto-cadence
+     * still applies once Phase 3 creates the task).
+     */
+    @Query("""
+            SELECT t FROM BotTask t
+             WHERE t.escrow.id = :escrowId
+               AND t.taskType = :type
+               AND t.status IN (com.slparcelauctions.backend.bot.BotTaskStatus.PENDING,
+                                com.slparcelauctions.backend.bot.BotTaskStatus.IN_PROGRESS)
+             ORDER BY t.createdAt ASC
+            """)
+    List<BotTask> findOpenByEscrowAndType(
+            @Param("escrowId") Long escrowId, @Param("type") BotTaskType type);
+
     /**
      * Atomically claim the next due task. PENDING rows with
      * {@code next_run_at} in the future are skipped. {@code FOR UPDATE
