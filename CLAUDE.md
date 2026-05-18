@@ -20,9 +20,9 @@ In-World (Second Life LSL Scripts)      Bot (.NET 8 / LibreMetaverse)
 
 **Frontend pages**: Register/Verify, Browse Listings, Auction Room (live WebSocket), Dashboard (My Bids/Sales).
 
-**Verification**: a single synchronous SL World API ownership check at listing-activation time (spec `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md`). No bot involvement, no in-world setup. Active-state ownership monitoring also runs from the backend via `OwnershipCheckTask`.
+**Verification**: a single synchronous SL World API ownership check at listing-activation time (spec `docs/superpowers/specs/2026-05-16-ownership-only-verification-design.md`). No bot involvement, no in-world setup. Active-state ownership monitoring also runs from the backend via `OwnershipCheckTask`. (The escrow *transfer* step is the one place the bot still participates — see Bot worker below.)
 
-**Bot worker**: .NET 8 / LibreMetaverse worker that logs in as `SLPABot*` accounts. Current roles: SL IM dispatch, idle parking, and `WITHDRAW_GROUP` task handling (realty-group wallet payouts). The bot has no role in listing-phase verification or active-state ownership monitoring. See `bot/README.md`.
+**Bot worker**: .NET 8 / LibreMetaverse worker that logs in as `SLPABot*` accounts. Current roles: SL IM dispatch, idle parking, `WITHDRAW_GROUP` task handling (realty-group wallet payouts), and a single-purpose escrow **`VERIFY_SELL_TO`** task (teleport + read the parcel's authorized-buyer / sale-price / for-sale flag to confirm the seller set "Sell To" the winning buyer at L$0). The bot has **no** role in listing-phase verification or active-state ownership monitoring. `VERIFY_SELL_TO` is a deliberate, narrow partial reversal of the 2026-05-16 ownership-only-verification spec's "retire bot from escrow" decision (spec `docs/superpowers/specs/2026-05-17-escrow-transfer-split-verification-design.md`) — required because the SL World API cannot read a parcel's authorized-buyer field. It is **not** a revival of the retired multi-check `MONITOR_ESCROW`; the World API remains the sole owner-flip detector for the Buy-Parcel sub-step. See `bot/README.md`.
 
 ## Commands
 

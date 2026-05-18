@@ -1853,6 +1853,30 @@ just on `useCurrentUser` data) so a future cache-clearing regression
 can't render cached content. See `app/wallet/page.tsx` for the canonical
 pattern.
 
+### F.113 — SL `ParcelFlags.ForSale` bit is `0x00000080`
+
+**Why:** The bot `VerifySellToHandler` decides "is the parcel actually set for sale" by testing the for-sale bit in `ParcelSnapshot.Flags`. The SL `ParcelFlags.ForSale` flag is the constant `0x00000080`. A parcel with `AuthBuyerId == winner` and `SalePrice == 0` but the for-sale bit clear is **not** correctly set (the seller filled the buyer + price but never flipped "For Sale"), so the handler reports `SELL_TO_NOT_SET`, not `SELL_TO_OK`.
+
+**How to apply:** Do not infer for-sale from `AuthBuyerId`/`SalePrice` alone — those persist even when the parcel is not for sale. Test the `0x00000080` bit explicitly. If you ever re-derive `ParcelSnapshot.Flags` from a different LibreMetaverse field, keep this exact bit semantics; the backend `SellToOutcome` matrix depends on it (spec 2026-05-17 §5.2 decision-4: pass requires buyer AND price-0 AND for-sale).
+
+### F.114 — `escrow.manual_verify_pending` consume semantics under coincident runs
+
+**Why:** Spec 2026-05-17 §5.4. A seller pressing "Verify Sell To" sets `manual_verify_pending = true` and expedites the recurring bot `VERIFY_SELL_TO` task. The **next definitive-negative** bot result (`SELL_TO_NOT_SET` / `WRONG_BUYER` / `PRICE_NOT_ZERO`) while that flag is set consumes one of the 3 `sell_to_verify_attempts` and clears the flag. A non-manual auto-cadence run that happens to land *first* while the flag is still set will also consume one attempt. This is **intentional and documented** — given the 30-min auto-cadence the chance of a coincident non-manual run beating the expedited one is negligible, and either way the seller did request a check that came back negative, so burning one attempt is the intended behavior, not a bug.
+
+**How to apply:** Don't "fix" this into a per-press correlation id thinking it's a race bug — it was decided as intended semantics. Infrastructure outcomes (`ACCESS_DENIED` / `BOT_ERROR` / `PARCEL_NOT_FOUND`) never consume an attempt and always clear the flag; only definitive negatives consume. Keep that asymmetry if you touch `BotTaskResultService`.
+
+### F.115 — Every `NotificationGroup.ESCROW` publish now does two `auctionRepository.findById`
+
+**Why:** Spec 2026-05-17 §8 centralized SLURL injection into the escrow notification path: every `NotificationGroup.ESCROW` publish runs one `auctionRepository.findById` in `withAuctionPublicId` and a second in `withParcelSlurl` (to source region/position/`slurl` from `AuctionParcelSnapshot`). Two reads per ESCROW notification. This is acceptable because escrow notifications are not on a hot path (a handful per escrow lifecycle, not per-bid).
+
+**How to apply:** If escrow notification volume ever becomes hot (e.g. a high-frequency escrow status ping is added), consolidate the two lookups into a single fetch + reuse before optimizing anything else. Do not pre-optimize now — the duplication is a readability/locality win at current volume.
+
+### F.116 — SL IM escrow body appends `Parcel: <viewerUrl>` to the ellipsizable body
+
+**Why:** Spec 2026-05-17 §8. The SL IM assembly appends a `Parcel: <parcelViewerUrl>` line to the **ellipsizable body** of escrow IMs (not a separate reserved component). SL IM has a 1024-byte cap; the body is what truncates first. Today escrow IM copy is well under the cap so the SLURL always survives, but if escrow IM copy ever grows past 1024 bytes the `Parcel:` line — being at the end of the truncatable body — is the first thing to get cut.
+
+**How to apply:** If you lengthen any escrow IM copy, budget for the appended `Parcel:` line and verify total bytes stay under 1024. If escrow IM copy grows materially, move the SLURL out of the ellipsizable body into the reserved (non-truncating) IM component so the in-world clickable link can't be silently dropped.
+
 ## §G Realty groups
 
 ### G.1 `runZeroPayoutSuccessInline` is the entire post-payout work for case-3 escrows
