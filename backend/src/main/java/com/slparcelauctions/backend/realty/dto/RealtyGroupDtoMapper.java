@@ -22,6 +22,7 @@ import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
 import com.slparcelauctions.backend.realty.rating.GroupRatingService;
 import com.slparcelauctions.backend.realty.rating.dto.GroupRatingDto;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserAvatarUrl;
 import com.slparcelauctions.backend.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -262,8 +263,7 @@ public class RealtyGroupDtoMapper {
     }
 
     private static String avatarUrlFor(User u) {
-        if (u == null || u.getPublicId() == null) return null;
-        return "/api/v1/users/" + u.getPublicId() + "/avatar/256";
+        return u == null ? null : UserAvatarUrl.forUserOrNull(u.getPublicId());
     }
 
     private static String logoUrlFor(RealtyGroup g) {

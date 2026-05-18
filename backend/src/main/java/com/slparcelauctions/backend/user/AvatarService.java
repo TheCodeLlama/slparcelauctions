@@ -84,7 +84,7 @@ public class AvatarService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        user.setProfilePicUrl("/api/v1/users/" + user.getPublicId() + "/avatar/256");
+        user.setProfilePicUrl(UserAvatarUrl.forUser(user.getPublicId()));
         // Uploading an avatar implicitly completes the post-verify avatar
         // onboarding step. Idempotent — re-uploading is a no-op on the flag.
         if (!Boolean.TRUE.equals(user.getAvatarStepCompleted())) {

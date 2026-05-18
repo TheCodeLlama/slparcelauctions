@@ -28,6 +28,7 @@ import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.SellerCompletionRateMapper;
 import com.slparcelauctions.backend.user.User;
+import com.slparcelauctions.backend.user.UserAvatarUrl;
 import com.slparcelauctions.backend.user.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -344,7 +345,7 @@ public class AuctionDtoMapper {
         return new SellerSummary(
                 s.getPublicId(),
                 s.getDisplayName(),
-                s.getPublicId() == null ? null : "/api/v1/users/" + s.getPublicId() + "/avatar/256",
+                UserAvatarUrl.forUserOrNull(s.getPublicId()),
                 s.getAvgSellerRating(),
                 s.getTotalSellerReviews(),
                 completed,
@@ -434,9 +435,7 @@ public class AuctionDtoMapper {
         if (u == null) {
             return null;
         }
-        String avatarUrl = u.getPublicId() == null
-                ? null
-                : "/api/v1/users/" + u.getPublicId() + "/avatar/256";
+        String avatarUrl = UserAvatarUrl.forUserOrNull(u.getPublicId());
         return new ListingAgentDto(u.getPublicId(), u.getDisplayName(), avatarUrl);
     }
 
