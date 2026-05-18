@@ -48,10 +48,15 @@ export interface AgentCommissionPreviewProps {
  * Case-3 ("Realty Groups: E") fee preview for the listing wizard.
  *
  * Case 3 is an agent listing a group-owned parcel under the realty group:
- * the platform takes a 5% commission off the starting bid, then the
- * remaining earnings are split between the agent and the group per the
- * agent's per-member {@code agentCommissionRate}. The group wallet pays the
- * listing fee (which equals the platform commission in Phase 1).
+ * the platform takes a 5% commission, then the remaining earnings are split
+ * between the agent and the group per the agent's per-member
+ * {@code agentCommissionRate}. The visible projection rows (platform
+ * commission, your earnings, group earnings) recompute from the editable
+ * Sell Price input (default {@code buyNowPrice ?? reservePrice ??
+ * startingBid}). The group wallet pays the listing fee, which stays
+ * decoupled from the Sell Price input: it remains {@code floor(startingBid *
+ * 0.05)} (== the platform commission on the starting bid in Phase 1) and is
+ * also what drives the insufficient-balance publish gating.
  *
  * The agent's commission rate arrives as a prop from the wizard, which
  * reads it off the eligible-list row the user picked in
