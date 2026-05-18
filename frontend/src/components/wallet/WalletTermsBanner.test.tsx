@@ -6,12 +6,11 @@ import {
   waitFor,
 } from "@/test/render";
 import type { WalletView } from "@/types/wallet";
-import { mockUser } from "@/test/msw/fixtures";
 import { WALLET_TERMS_VERSION } from "@/components/wallet/WalletTermsModal";
 import { termsBannerDismissalKey } from "@/lib/wallet/terms-banner-dismissed";
 
-vi.mock("@/lib/auth", () => ({
-  useAuth: vi.fn(),
+vi.mock("@/lib/user", () => ({
+  useCurrentUser: vi.fn(),
 }));
 
 vi.mock("@/lib/wallet/use-wallet", async () => {
@@ -21,7 +20,7 @@ vi.mock("@/lib/wallet/use-wallet", async () => {
   return { ...actual, useWallet: vi.fn() };
 });
 
-import { useAuth } from "@/lib/auth";
+import { useCurrentUser } from "@/lib/user";
 import { useWallet } from "@/lib/wallet/use-wallet";
 import { WalletTermsBanner } from "./WalletTermsBanner";
 
@@ -40,14 +39,13 @@ function walletView(overrides: Partial<WalletView> = {}): WalletView {
   };
 }
 
-function setAuth(opts: { authenticated: boolean; verified?: boolean }) {
-  vi.mocked(useAuth).mockReturnValue(
-    opts.authenticated
-      ? {
-          status: "authenticated",
-          user: { ...mockUser, verified: opts.verified ?? true },
-        }
-      : { status: "unauthenticated", user: null },
+function setUser(opts: { verified: boolean } | null) {
+  vi.mocked(useCurrentUser).mockReturnValue(
+    opts === null
+      ? ({ data: undefined } as unknown as ReturnType<typeof useCurrentUser>)
+      : ({
+          data: { verified: opts.verified },
+        } as unknown as ReturnType<typeof useCurrentUser>),
   );
 }
 
@@ -66,7 +64,7 @@ describe("WalletTermsBanner", () => {
   });
 
   it("shows for a verified user who has not accepted terms", () => {
-    setAuth({ authenticated: true, verified: true });
+    setUser({ verified: true });
     setWallet(walletView({ termsAccepted: false }));
     renderWithProviders(<WalletTermsBanner />);
     expect(screen.getByText(BANNER)).toBeInTheDocument();
@@ -79,28 +77,28 @@ describe("WalletTermsBanner", () => {
   });
 
   it("is hidden for guests / unauthenticated", () => {
-    setAuth({ authenticated: false });
+    setUser(null);
     setWallet(undefined);
     renderWithProviders(<WalletTermsBanner />);
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
   });
 
   it("is hidden for an authenticated but unverified user", () => {
-    setAuth({ authenticated: true, verified: false });
+    setUser({ verified: false });
     setWallet(undefined);
     renderWithProviders(<WalletTermsBanner />);
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
   });
 
   it("renders nothing while the wallet query is loading", () => {
-    setAuth({ authenticated: true, verified: true });
+    setUser({ verified: true });
     setWallet(undefined);
     renderWithProviders(<WalletTermsBanner />);
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
   });
 
   it("is hidden once terms are accepted", () => {
-    setAuth({ authenticated: true, verified: true });
+    setUser({ verified: true });
     setWallet(walletView({ termsAccepted: true }));
     renderWithProviders(<WalletTermsBanner />);
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
@@ -111,7 +109,7 @@ describe("WalletTermsBanner", () => {
       termsBannerDismissalKey(WALLET_TERMS_VERSION),
       "1",
     );
-    setAuth({ authenticated: true, verified: true });
+    setUser({ verified: true });
     setWallet(walletView({ termsAccepted: false }));
     renderWithProviders(<WalletTermsBanner />);
     await waitFor(() =>
@@ -120,7 +118,7 @@ describe("WalletTermsBanner", () => {
   });
 
   it("opens the WalletTermsModal on Accept Wallet Terms", async () => {
-    setAuth({ authenticated: true, verified: true });
+    setUser({ verified: true });
     setWallet(walletView({ termsAccepted: false }));
     renderWithProviders(<WalletTermsBanner />);
     await userEvent.click(
@@ -132,7 +130,7 @@ describe("WalletTermsBanner", () => {
   });
 
   it("Don't show again writes localStorage and hides the banner", async () => {
-    setAuth({ authenticated: true, verified: true });
+    setUser({ verified: true });
     setWallet(walletView({ termsAccepted: false }));
     renderWithProviders(<WalletTermsBanner />);
     await userEvent.click(
