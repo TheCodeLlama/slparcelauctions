@@ -24,8 +24,8 @@ CREATE TABLE escrow_manual_reviews (
     resolution           varchar(32),
     admin_notes          text,
     resolved_at          timestamptz,
-    created_at           timestamptz NOT NULL,
-    updated_at           timestamptz NOT NULL,
+    created_at           timestamptz NOT NULL DEFAULT NOW(),
+    updated_at           timestamptz NOT NULL DEFAULT NOW(),
     version              bigint      NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX uq_escrow_manual_review_open

@@ -143,21 +143,26 @@ public class Escrow extends BaseMutableEntity {
     @Column(name = "sell_to_last_checked_at")
     private OffsetDateTime sellToLastCheckedAt;
 
+    @Builder.Default
     @Column(name = "sell_to_verify_attempts", nullable = false)
-    private Integer sellToVerifyAttempts;
+    private Integer sellToVerifyAttempts = 0;
 
+    @Builder.Default
     @Column(name = "buy_verify_seller_attempts", nullable = false)
-    private Integer buyVerifySellerAttempts;
+    private Integer buyVerifySellerAttempts = 0;
 
+    @Builder.Default
     @Column(name = "buy_verify_buyer_attempts", nullable = false)
-    private Integer buyVerifyBuyerAttempts;
+    private Integer buyVerifyBuyerAttempts = 0;
 
+    @Builder.Default
     @Column(name = "consecutive_sell_to_bot_failures", nullable = false)
-    private Integer consecutiveSellToBotFailures;
+    private Integer consecutiveSellToBotFailures = 0;
 
     @Column(name = "next_owner_check_at")
     private OffsetDateTime nextOwnerCheckAt;
 
+    @Builder.Default
     @Column(name = "manual_verify_pending", nullable = false)
-    private Boolean manualVerifyPending;
+    private Boolean manualVerifyPending = false;
 }

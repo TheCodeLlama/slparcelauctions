@@ -15,4 +15,10 @@ class SlurlBuilderTest {
         assertThat(SlurlBuilder.mapUrl("R", null, 0.0, null))
             .isEqualTo("https://maps.secondlife.com/secondlife/R/128/128/0");
     }
+    @Test void mapUrl_roundsFractionalCoords_backendDeliberatelyRoundsForIntegerRegionOffsets() {
+        // Backend deliberately rounds (SL region offsets are integers); this is an
+        // intentional divergence from frontend slurl.ts which interpolates raw.
+        assertThat(SlurlBuilder.mapUrl("R", 12.6, 34.4, 56.5))
+            .isEqualTo("https://maps.secondlife.com/secondlife/R/13/34/57");
+    }
 }
