@@ -374,8 +374,12 @@ function EscrowBannerForPanel({
     state: escrowState,
     role,
     transferConfirmedAt,
-    // fundedAt not surfaced on auction DTO; banner copy doesn't branch on it.
+    // fundedAt and sellToConfirmedAt are not surfaced on the auction DTO
+    // (only escrow DTOs carry them). Passing null keeps the panel banner in
+    // the Set-Sell-To copy; the full escrow page supplies the real
+    // sellToConfirmedAt for the Buy-Parcel split.
     fundedAt: null,
+    sellToConfirmedAt: null,
   });
   return (
     <div

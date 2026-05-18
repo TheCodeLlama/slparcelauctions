@@ -8,6 +8,16 @@ export interface BannerCopyInput {
   role: EscrowChipRole;
   transferConfirmedAt: string | null;
   /**
+   * Splits the TRANSFER_PENDING phase into the two verification sub-phases
+   * (spec 2026-05-17 §9). Null → "Set Sell To" sub-phase (seller is
+   * configuring the parcel's "Sell to:" field); set → "Buy Parcel" sub-phase
+   * (winner buys the now-L$0 parcel). Like {@code fundedAt}, this is only
+   * surfaced on the escrow DTO — the auction-DTO call site
+   * ({@link EscrowBannerForPanel}) passes {@code null}, which keeps it in the
+   * Set-Sell-To copy until the escrow page itself supplies the real value.
+   */
+  sellToConfirmedAt: string | null;
+  /**
    * Reserved for future EXPIRED branching (pre-fund vs post-fund refund copy).
    * The current banner copy table does not branch on {@code fundedAt} — the
    * escrow page's {@code ExpiredStateCard} handles the pre/post-fund split.
@@ -32,7 +42,7 @@ export interface BannerCopyResult {
  * convention.
  */
 export function escrowBannerCopy(input: BannerCopyInput): BannerCopyResult {
-  const { state, role, transferConfirmedAt } = input;
+  const { state, role, transferConfirmedAt, sellToConfirmedAt } = input;
 
   switch (state) {
     case "ESCROW_PENDING":
@@ -54,17 +64,34 @@ export function escrowBannerCopy(input: BannerCopyInput): BannerCopyResult {
           tone: "waiting",
         };
       }
+      if (sellToConfirmedAt == null) {
+        // Set-Sell-To sub-phase: seller configures the parcel's "Sell to:"
+        // field to the winner at L$0; winner waits for verification.
+        if (role === "winner") {
+          return {
+            headline: "Awaiting sell-to",
+            detail: "seller is listing the parcel for sale to you.",
+            tone: "waiting",
+          };
+        }
+        return {
+          headline: "Set parcel for sale",
+          detail: "set the land for sale to the winner at L$0.",
+          tone: "action",
+        };
+      }
+      // Buy-Parcel sub-phase: winner buys the now-L$0 parcel.
       if (role === "winner") {
         return {
-          headline: "Awaiting transfer",
-          detail: "seller is transferring the parcel.",
-          tone: "waiting",
+          headline: "Buy the parcel",
+          detail: "purchase the parcel — only if it shows L$0.",
+          tone: "action",
         };
       }
       return {
-        headline: "Transfer parcel",
-        detail: "set the land for sale to the winner at L$0.",
-        tone: "action",
+        headline: "Awaiting purchase",
+        detail: "winner is buying the parcel.",
+        tone: "waiting",
       };
 
     case "COMPLETED":
