@@ -216,7 +216,7 @@ export function AdminSlGroupDriftRow({
         <td className="py-2 pr-3 text-xs text-fg-muted">
           {row.consecutiveFetchFailures > 0
             ? `${row.consecutiveFetchFailures} fetch failure${row.consecutiveFetchFailures === 1 ? "" : "s"}`
-            : "(none)"}
+            : "0 failures"}
         </td>
         <td className="py-2 text-right">
           <div className="flex flex-col items-end gap-1">
