@@ -16,7 +16,7 @@ import { DetailRow } from "./components/DetailRow";
 import { GroupCover } from "./components/GroupCover";
 import { GroupLogo } from "./components/GroupLogo";
 import { MemberRow } from "./components/MemberRow";
-import { StarRating } from "./components/StarRating";
+import { RatingSummary } from "@/components/reviews/RatingSummary";
 
 interface GroupDetailPageProps {
   group: RealtyGroupCard;
@@ -273,7 +273,13 @@ function ReviewsTab({ reviews }: { reviews: GroupReview[] }) {
             <div className="flex-1">
               <div className="text-sm font-semibold">{r.author}</div>
               <div className="flex items-center gap-1.5">
-                <StarRating value={r.stars} size={11} showNumber={false} />
+                <RatingSummary
+                  rating={r.stars > 0 ? r.stars : null}
+                  reviewCount={r.stars > 0 ? 1 : 0}
+                  size="xs"
+                  hideNumber
+                  hideCountText
+                />
                 <span className="text-xs text-fg-subtle">&middot; {r.when}</span>
               </div>
             </div>
