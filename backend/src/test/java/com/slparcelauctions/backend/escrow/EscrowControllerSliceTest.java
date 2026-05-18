@@ -104,7 +104,9 @@ class EscrowControllerSliceTest {
                 null, null, null, null,
                 null, null, null,
                 null, null, null,
-                List.of());
+                List.of(),
+                null, null, 3, 3, 3,
+                null, null, null, null);
     }
 
     private MockMultipartFile disputePart(String reasonCategory, String description) {

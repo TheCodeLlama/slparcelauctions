@@ -45,4 +45,30 @@ public record EscrowStatusResponse(
         String disputeReasonCategory,
         String disputeDescription,
         String freezeReason,
-        List<EscrowTimelineEntry> timeline) { }
+        List<EscrowTimelineEntry> timeline,
+        /**
+         * Hard-gate timestamp. Null = Set-Sell-To sub-phase; set =
+         * Buy-Parcel sub-phase (spec §3). Derived sub-phase drives the
+         * frontend stepper + state cards.
+         */
+        OffsetDateTime sellToConfirmedAt,
+        /**
+         * Last definitive bot Set-Sell-To outcome for seller-facing copy
+         * (e.g. {@code SELL_TO_NOT_SET} / {@code WRONG_BUYER} /
+         * {@code PRICE_NOT_ZERO}). Null until a definitive negative.
+         */
+        String sellToLastResult,
+        /** Seller manual Set-Sell-To attempts remaining (cap - consumed, floored at 0). */
+        Integer sellToVerifyAttemptsRemaining,
+        /** Seller manual Buy-Parcel attempts remaining. */
+        Integer buyVerifySellerAttemptsRemaining,
+        /** Buyer manual Buy-Parcel attempts remaining. */
+        Integer buyVerifyBuyerAttemptsRemaining,
+        /** null | "OPEN" | "RESOLVED" | "DISMISSED" — status of the escrow's review, if any. */
+        String manualReviewStatus,
+        /** null | "SET_SELL_TO" | "BUY_PARCEL" — step the review was opened against. */
+        String manualReviewStep,
+        /** Clickable SL map URL to the parcel (https maps.secondlife.com). */
+        String parcelMapUrl,
+        /** In-world viewer teleport SLURL to the parcel (secondlife:///app/teleport). */
+        String parcelViewerUrl) { }

@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auction.Auction;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionStatusFlipper;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.auction.fraud.FraudFlag;
@@ -38,6 +39,7 @@ import com.slparcelauctions.backend.escrow.review.EscrowManualReviewRepository;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.sl.SlurlBuilder;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
 import com.slparcelauctions.backend.escrow.dispute.exception.EvidenceAlreadySubmittedException;
@@ -473,6 +475,37 @@ public class EscrowService {
                     .map(User::getSlAvatarName)
                     .orElse(null);
         }
+        int cap = escrowConfig.manualVerifyAttempts();
+        int sellToConsumed = escrow.getSellToVerifyAttempts() == null
+                ? 0 : escrow.getSellToVerifyAttempts();
+        int buySellerConsumed = escrow.getBuyVerifySellerAttempts() == null
+                ? 0 : escrow.getBuyVerifySellerAttempts();
+        int buyBuyerConsumed = escrow.getBuyVerifyBuyerAttempts() == null
+                ? 0 : escrow.getBuyVerifyBuyerAttempts();
+
+        String reviewStatus = null;
+        String reviewStep = null;
+        EscrowManualReview openReview = manualReviewRepo
+                .findByEscrowIdAndStatus(escrow.getId(), ManualReviewStatus.OPEN)
+                .orElse(null);
+        if (openReview != null) {
+            reviewStatus = openReview.getStatus().name();
+            reviewStep = openReview.getStep() == null ? null : openReview.getStep().name();
+        }
+
+        // SLURL from the auction parcel snapshot. Null-safe: a pre-FUNDED
+        // escrow may not have a snapshot resolved yet — render no slurl
+        // rather than fabricating the 128/128/0 fallback off a null region.
+        String parcelMapUrl = null;
+        String parcelViewerUrl = null;
+        AuctionParcelSnapshot snap = escrow.getAuction().getParcelSnapshot();
+        if (snap != null) {
+            parcelMapUrl = SlurlBuilder.mapUrl(
+                    snap.getRegionName(), snap.getPositionX(), snap.getPositionY(), snap.getPositionZ());
+            parcelViewerUrl = SlurlBuilder.viewerUrl(
+                    snap.getRegionName(), snap.getPositionX(), snap.getPositionY(), snap.getPositionZ());
+        }
+
         return new EscrowStatusResponse(
                 escrow.getPublicId(), escrow.getAuction().getPublicId(),
                 winnerSlAvatarName, escrow.getState(),
@@ -481,7 +514,16 @@ public class EscrowService {
                 escrow.getFundedAt(), escrow.getTransferConfirmedAt(), escrow.getCompletedAt(),
                 escrow.getDisputedAt(), escrow.getFrozenAt(), escrow.getExpiredAt(),
                 escrow.getDisputeReasonCategory(), escrow.getDisputeDescription(),
-                escrow.getFreezeReason(), timeline);
+                escrow.getFreezeReason(), timeline,
+                escrow.getSellToConfirmedAt(),
+                escrow.getSellToLastResult(),
+                Math.max(0, cap - sellToConsumed),
+                Math.max(0, cap - buySellerConsumed),
+                Math.max(0, cap - buyBuyerConsumed),
+                reviewStatus,
+                reviewStep,
+                parcelMapUrl,
+                parcelViewerUrl);
     }
 
     private List<EscrowTimelineEntry> buildTimeline(Escrow e) {
