@@ -10,6 +10,7 @@ import {
   queryFromSearchParams,
   searchParamsFromQuery,
 } from "@/lib/search/url-codec";
+import { canonicalKey } from "@/lib/search/canonical-key";
 import { isApiError } from "@/lib/api";
 import type { AuctionSearchQuery, SearchResponse } from "@/types/search";
 import { ActiveFilters } from "./ActiveFilters";
@@ -21,6 +22,15 @@ import { ResultsHeader } from "./ResultsHeader";
 export interface BrowseShellProps {
   initialQuery: AuctionSearchQuery;
   initialData: SearchResponse;
+  /**
+   * Backend ProblemDetail {@code code} captured during the SSR fetch when
+   * a 4xx filter error (e.g. {@code REGION_NOT_FOUND}) was swallowed so
+   * the page could still render. Surfaces the same inline sidebar message
+   * a client-side fetch error would, but only while the user is still
+   * looking at the query that produced it — once they change a filter the
+   * React Query hook becomes authoritative and a stale SSR code is dropped.
+   */
+  initialErrorCode?: string;
   /** Filters "pinned" by the surrounding page (e.g. {@code sellerId}). */
   fixedFilters?: Partial<AuctionSearchQuery>;
   /** Filter groups to hide (e.g. {@code "distance"} on the seller page). */
@@ -56,6 +66,7 @@ const SESSION_KEY = "last-browse-url";
 export function BrowseShell({
   initialQuery,
   initialData,
+  initialErrorCode,
   fixedFilters,
   hiddenFilterGroups,
   title,
@@ -103,10 +114,24 @@ export function BrowseShell({
   }, [pathname, searchParams]);
 
   const result = useAuctionSearch(query, { initialData });
-  const errorCode =
+  // The query that produced the SSR fetch (and therefore
+  // initialErrorCode). fixedFilters always wins, matching the lazy
+  // initializer above so the canonical-key comparison is apples-to-apples.
+  const ssrQueryKey = canonicalKey({
+    ...initialQuery,
+    ...(fixedFilters ?? {}),
+  });
+  const liveErrorCode =
     result.error && isApiError(result.error)
       ? (result.error.problem?.code as string | undefined)
       : undefined;
+  // A live React Query error always wins. Otherwise fall back to the
+  // SSR-captured 4xx code, but only while the user is still on the exact
+  // query that produced it — a stale filter-error message must not linger
+  // after they edit a filter (a successful refetch then has no error).
+  const errorCode =
+    liveErrorCode ??
+    (canonicalKey(query) === ssrQueryKey ? initialErrorCode : undefined);
 
   const applyQuery = (next: AuctionSearchQuery) => {
     const merged = { ...next, ...(fixedFilters ?? {}) };

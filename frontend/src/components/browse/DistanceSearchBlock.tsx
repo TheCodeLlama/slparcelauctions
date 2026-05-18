@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { RangeSlider } from "@/components/ui/RangeSlider";
 import { cn } from "@/lib/cn";
 import type { AuctionSearchQuery } from "@/types/search";
@@ -16,7 +16,6 @@ export interface DistanceSearchBlockProps {
   className?: string;
 }
 
-const DEBOUNCE_MS = 300;
 const MIN_DISTANCE = 0;
 const MAX_DISTANCE = 20;
 
@@ -27,10 +26,16 @@ const REGION_ERROR_MESSAGES: Record<string, string> = {
 };
 
 /**
- * Region-name input + optional distance slider. Typed input debounces at
- * 300ms to avoid firing a search on every keystroke; blur commits
- * immediately. Distance slider is disabled until a non-empty region is
- * set — the backend rejects {@code distance} without {@code near_region}.
+ * Region-name input + optional distance slider. The region value is only
+ * committed to the parent query on a deliberate action (input blur or
+ * Enter), never on every keystroke. The backend rejects unknown region
+ * names with HTTP 400, so committing each partial keystroke ("D", "Da",
+ * "Da Boom") used to 400-storm the search and crash /browse; deferring
+ * the commit to blur/Enter means the search only runs once the user has
+ * finished typing. Clearing the field still commits an empty value
+ * (drops the filter) on blur/Enter. Distance slider is disabled until a
+ * non-empty region is set — the backend rejects {@code distance} without
+ * {@code near_region}.
  *
  * Client-side autocomplete is deferred (see DEFERRED_WORK entry "Region
  * autocomplete for DistanceSearchBlock"). The backend's
@@ -45,7 +50,6 @@ export function DistanceSearchBlock({
 }: DistanceSearchBlockProps) {
   const regionId = useId();
   const [localRegion, setLocalRegion] = useState(query.nearRegion ?? "");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Re-seed local state whenever the parent query changes (e.g. back-button
   // restores a prior URL, "Clear all" resets the query, etc.). External-state
@@ -56,32 +60,35 @@ export function DistanceSearchBlock({
     setLocalRegion(query.nearRegion ?? "");
   }, [query.nearRegion]);
 
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
+  // Commit the typed region to the parent query. Only ever called from a
+  // deliberate action (blur or Enter) — never per keystroke — so a partial
+  // region name can't 400-storm the backend search.
   const commitRegion = (value: string) => {
     const trimmed = value.trim();
     const next = trimmed === "" ? undefined : trimmed;
+    // No-op if the committed value already matches the parent query —
+    // avoids a redundant search/URL replace when the user blurs without
+    // having changed anything.
+    if (next === (query.nearRegion ?? undefined)) return;
     // When the region is cleared, also drop the distance — the backend
     // rejects distance without near_region anyway.
     onChange(next === undefined ? { nearRegion: undefined, distance: undefined } : { nearRegion: next });
   };
 
   const onInput = (value: string) => {
+    // Local-only: typing never commits. The search fires on blur/Enter.
     setLocalRegion(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => commitRegion(value), DEBOUNCE_MS);
   };
 
   const onBlur = () => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
     commitRegion(localRegion);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitRegion(localRegion);
+    }
   };
 
   const distanceEnabled = Boolean(query.nearRegion);
@@ -103,6 +110,7 @@ export function DistanceSearchBlock({
           value={localRegion}
           onChange={(e) => onInput(e.target.value)}
           onBlur={onBlur}
+          onKeyDown={onKeyDown}
           placeholder="e.g. Tula"
           aria-invalid={errorMessage ? true : undefined}
           className="h-10 rounded-lg bg-bg-subtle text-fg placeholder:text-fg-muted px-3 ring-1 ring-transparent focus:bg-surface-raised focus:outline-none focus:ring-2 focus:ring-brand"
