@@ -106,12 +106,12 @@ public class BotTaskResultService {
         switch (outcome) {
             case SELL_TO_OK -> {
                 escrowService.confirmSellTo(escrow, now);
-                completeTask(task);
+                completeTask(task, now);
             }
             case OWNER_ALREADY_WINNER -> {
                 escrowService.confirmSellTo(escrow, now);
                 escrowService.confirmTransfer(escrow, now);
-                completeTask(task);
+                completeTask(task, now);
             }
             case SELL_TO_NOT_SET, WRONG_BUYER, PRICE_NOT_ZERO ->
                     definitiveNegative(task, escrow, outcome, now);
@@ -203,9 +203,9 @@ public class BotTaskResultService {
         }
     }
 
-    private void completeTask(BotTask task) {
+    private void completeTask(BotTask task, OffsetDateTime now) {
         task.setStatus(BotTaskStatus.COMPLETED);
-        task.setCompletedAt(OffsetDateTime.now(clock));
+        task.setCompletedAt(now);
         botTaskRepo.save(task);
     }
 

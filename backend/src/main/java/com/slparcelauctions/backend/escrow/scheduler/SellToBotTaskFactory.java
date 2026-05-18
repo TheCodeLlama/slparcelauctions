@@ -1,7 +1,7 @@
 package com.slparcelauctions.backend.escrow.scheduler;
 
-import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 
@@ -40,7 +40,6 @@ public class SellToBotTaskFactory {
     private final BotTaskRepository botTaskRepo;
     private final UserRepository userRepo;
     private final EscrowConfigProperties props;
-    private final Clock clock;
 
     /**
      * Builds + persists the {@code VERIFY_SELL_TO} task from the auction's
@@ -56,14 +55,14 @@ public class SellToBotTaskFactory {
     public BotTask create(Escrow escrow, OffsetDateTime now) {
         Auction auction = escrow.getAuction();
         AuctionParcelSnapshot snap = auction.getParcelSnapshot();
-        java.util.UUID parcelUuid = snap != null ? snap.getSlParcelUuid()
+        UUID parcelUuid = snap != null ? snap.getSlParcelUuid()
                 : auction.getSlParcelUuid();
         String regionName = snap != null ? snap.getRegionName() : null;
         Double posX = snap != null ? snap.getPositionX() : null;
         Double posY = snap != null ? snap.getPositionY() : null;
         Double posZ = snap != null ? snap.getPositionZ() : null;
 
-        java.util.UUID winnerSlUuid = null;
+        UUID winnerSlUuid = null;
         Long winnerUserId = auction.getWinnerUserId();
         if (winnerUserId != null) {
             winnerSlUuid = userRepo.findById(winnerUserId)

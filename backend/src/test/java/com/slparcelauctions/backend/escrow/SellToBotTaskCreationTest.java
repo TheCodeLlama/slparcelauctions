@@ -59,7 +59,7 @@ class SellToBotTaskCreationTest {
     @BeforeEach
     void setUp() {
         fixed = Clock.fixed(Instant.parse("2026-05-17T12:00:00Z"), ZoneOffset.UTC);
-        factory = new SellToBotTaskFactory(botTaskRepo, userRepo, props, fixed);
+        factory = new SellToBotTaskFactory(botTaskRepo, userRepo, props);
         lenient().when(props.sellToBotRecurrence()).thenReturn(Duration.ofMinutes(30));
         lenient().when(botTaskRepo.save(any(BotTask.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
