@@ -12,6 +12,9 @@ public interface BotTaskRepository extends JpaRepository<BotTask, Long> {
 
     List<BotTask> findByStatusOrderByCreatedAtAsc(BotTaskStatus status);
 
+    /** All bot tasks ever created for an escrow (any status). */
+    List<BotTask> findByEscrowId(Long escrowId);
+
     /**
      * The single open (PENDING / IN_PROGRESS) recurring task of a given type
      * for an escrow. Used by the manual "Verify Sell To" expedite path to

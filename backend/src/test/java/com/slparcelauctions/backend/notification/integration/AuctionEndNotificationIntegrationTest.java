@@ -68,6 +68,7 @@ class AuctionEndNotificationIntegrationTest {
     @Autowired AuctionRepository auctionRepo;
     @Autowired BidRepository bidRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired com.slparcelauctions.backend.bot.BotTaskRepository botTaskRepo;
     @Autowired com.slparcelauctions.backend.escrow.EscrowTransactionRepository escrowTxRepo;
     @Autowired BidReservationRepository bidReservationRepo;
     @Autowired PlatformTransactionManager txManager;
@@ -91,6 +92,11 @@ class AuctionEndNotificationIntegrationTest {
                 escrowRepo.findByAuctionId(auctionId).ifPresent(escrow -> {
                     escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
                             .forEach(escrowTxRepo::delete);
+                    // VERIFY_SELL_TO bot task is created at funding (spec
+                    // 2026-05-17) — clear it before the escrow to satisfy
+                    // the bot_tasks.escrow_id FK.
+                    botTaskRepo.findByEscrowId(escrow.getId())
+                            .forEach(botTaskRepo::delete);
                     escrowRepo.delete(escrow);
                 });
                 bidRepo.deleteAllByAuctionId(auctionId);
