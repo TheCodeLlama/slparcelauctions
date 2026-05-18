@@ -335,6 +335,92 @@ class EscrowOwnershipCheckTaskTest {
                 .doesNotContainKey("expectedSellerUuid");
     }
 
+    // -------------------------------------------------------------------------
+    // Step-3 variable cadence (spec §6) — still-pending branch re-paces the
+    // next owner poll via nextOwnerCheckAt. Inside the fast window
+    // (now - sellToConfirmedAt < fastWindow) → +fastCadence; afterwards →
+    // +slowCadence. Stamped on the entity before stampChecked's save().
+    // -------------------------------------------------------------------------
+
+    @Test
+    void sellerStillOwns_withinFastWindow_setsNextOwnerCheckAt_fastCadence() {
+        Escrow escrow = buildPending();
+        OffsetDateTime now = OffsetDateTime.now(fixed);
+        // Sell-To confirmed 10 min ago — well inside the 1h fast window.
+        escrow.setSellToConfirmedAt(now.minusMinutes(10));
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+        when(props.buyParcelFastWindow()).thenReturn(Duration.ofHours(1));
+        when(props.buyParcelFastCadence()).thenReturn(Duration.ofMinutes(5));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        verify(escrowService).stampChecked(escrow, now);
+        assertThat(escrow.getNextOwnerCheckAt()).isEqualTo(now.plusMinutes(5));
+        verify(escrowService, never()).confirmTransfer(any(), any());
+        verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+    }
+
+    @Test
+    void sellerStillOwns_pastFastWindow_setsNextOwnerCheckAt_slowCadence() {
+        Escrow escrow = buildPending();
+        OffsetDateTime now = OffsetDateTime.now(fixed);
+        // Sell-To confirmed 90 min ago — past the 1h fast window.
+        escrow.setSellToConfirmedAt(now.minusMinutes(90));
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+        when(props.buyParcelFastWindow()).thenReturn(Duration.ofHours(1));
+        when(props.buyParcelSlowCadence()).thenReturn(Duration.ofMinutes(30));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        verify(escrowService).stampChecked(escrow, now);
+        assertThat(escrow.getNextOwnerCheckAt()).isEqualTo(now.plusMinutes(30));
+        verify(escrowService, never()).confirmTransfer(any(), any());
+        verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+    }
+
+    @Test
+    void sellerStillOwns_nullSellToConfirmedAt_doesNotNpe_noCadenceStamp() {
+        // Hard gate: the finder (findBuyPhaseEscrowIdsDue) never returns an
+        // escrow with sellToConfirmedAt == null, so step-3 polling is inert
+        // before Set-Sell-To is bot-confirmed. If one ever reached this code
+        // path defensively, the cadence stamp must be skipped without NPE.
+        Escrow escrow = buildPending();
+        OffsetDateTime now = OffsetDateTime.now(fixed);
+        escrow.setSellToConfirmedAt(null);
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        verify(escrowService).stampChecked(escrow, now);
+        assertThat(escrow.getNextOwnerCheckAt()).isNull();
+    }
+
+    @Test
+    void winnerMatch_doesNotStampNextOwnerCheckAt() {
+        // Cadence re-pacing is the still-pending branch only — a winner match
+        // confirms transfer and must not touch the owner-poll cursor.
+        Escrow escrow = buildPending();
+        escrow.setSellToConfirmedAt(OffsetDateTime.now(fixed).minusMinutes(10));
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
+                Mono.just(new ParcelPageData(meta(WINNER_AVATAR, "agent"), java.util.UUID.randomUUID())));
+        stubWinner();
+
+        task.checkOne(ESCROW_ID);
+
+        verify(escrowService).confirmTransfer(escrow, OffsetDateTime.now(fixed));
+        assertThat(escrow.getNextOwnerCheckAt()).isNull();
+    }
+
     @Test
     void lockEntryPath_usesFindByIdForUpdate_notFindById() {
         Escrow escrow = buildPending();

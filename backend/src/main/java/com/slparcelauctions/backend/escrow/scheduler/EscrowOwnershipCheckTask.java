@@ -135,6 +135,20 @@ public class EscrowOwnershipCheckTask {
                 return;
             }
             if (expectedPreTransfer != null && expectedPreTransfer.equals(ownerUuid)) {
+                // Still pending: re-pace the next step-3 owner poll. Fast
+                // cadence inside the post-Set-Sell-To fast window, slow
+                // cadence afterwards (spec §6). Stamped on the in-memory
+                // entity before stampChecked's save() so it persists in the
+                // same transaction. The finder guarantees sellToConfirmedAt
+                // is non-null here, but guard defensively to never NPE.
+                OffsetDateTime sellToConfirmedAt = escrow.getSellToConfirmedAt();
+                if (sellToConfirmedAt != null) {
+                    Duration sinceSellTo = Duration.between(sellToConfirmedAt, now);
+                    Duration next = sinceSellTo.compareTo(props.buyParcelFastWindow()) < 0
+                            ? props.buyParcelFastCadence()
+                            : props.buyParcelSlowCadence();
+                    escrow.setNextOwnerCheckAt(now.plus(next));
+                }
                 escrowService.stampChecked(escrow, now);
                 maybeLogReminder(escrow, now);
                 return;
