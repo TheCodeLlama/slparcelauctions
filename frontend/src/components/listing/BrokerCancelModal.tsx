@@ -128,7 +128,7 @@ export function BrokerCancelModal({
       </p>
       <p className="text-xs text-fg-muted" data-testid="broker-cancel-bids">
         {bidCount > 0 && highestBid != null
-          ? `${bidCount} bid${bidCount === 1 ? "" : "s"} — current highest L$${highestBid.toLocaleString()}.`
+          ? `${bidCount} bid${bidCount === 1 ? "" : "s"}. Current highest L$${highestBid.toLocaleString()}.`
           : "No bids on this listing yet."}
       </p>
       <p className="text-xs text-fg-muted">

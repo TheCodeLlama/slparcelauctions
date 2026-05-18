@@ -157,7 +157,7 @@ export function PublicGroupProfile({ group }: PublicGroupProfileProps) {
             value={
               reviewCount > 0 && averageRating !== null
                 ? averageRating.toFixed(2)
-                : "—"
+                : "(none)"
             }
             hint={`${reviewCount} reviews`}
           />

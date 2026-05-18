@@ -193,7 +193,7 @@ function LedgerRow({ entry }: LedgerRowProps) {
             Auction
           </a>
         ) : (
-          <span className="text-fg-muted text-xs">—</span>
+          <span className="text-fg-muted text-xs">(none)</span>
         )}
       </td>
 
@@ -202,7 +202,7 @@ function LedgerRow({ entry }: LedgerRowProps) {
         {entry.actor ? (
           <span className="text-xs">{entry.actor.displayName}</span>
         ) : (
-          <span className="text-xs">—</span>
+          <span className="text-xs">(none)</span>
         )}
       </td>
     </tr>

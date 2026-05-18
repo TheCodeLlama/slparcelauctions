@@ -164,7 +164,7 @@ export function SlGroupListRow({ groupPublicId, row }: SlGroupListRowProps) {
               {verifiedViaLabel(row.verifiedVia)}
             </span>
           ) : (
-            <span className="text-fg-muted">—</span>
+            <span className="text-fg-muted">(none)</span>
           )}
         </td>
 

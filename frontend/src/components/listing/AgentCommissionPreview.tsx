@@ -132,7 +132,7 @@ export function AgentCommissionPreview({
         </p>
       ) : balance !== null ? (
         <p className="text-xs text-fg-muted">
-          Listing fee paid from {groupName} wallet — current balance L$
+          Listing fee paid from {groupName} wallet. Current balance L$
           {balance.toLocaleString()}.
         </p>
       ) : null}

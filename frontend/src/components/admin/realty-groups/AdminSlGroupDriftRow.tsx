@@ -33,7 +33,7 @@ function driftLabel(value: SlGroupDriftReason | string | null | undefined): stri
 }
 
 function truncateUuid(uuid: string | null | undefined): string {
-  if (!uuid) return "—";
+  if (!uuid) return "(none)";
   if (uuid.length <= 12) return uuid;
   return `${uuid.slice(0, 8)}…${uuid.slice(-4)}`;
 }
@@ -216,7 +216,7 @@ export function AdminSlGroupDriftRow({
         <td className="py-2 pr-3 text-xs text-fg-muted">
           {row.consecutiveFetchFailures > 0
             ? `${row.consecutiveFetchFailures} fetch failure${row.consecutiveFetchFailures === 1 ? "" : "s"}`
-            : "—"}
+            : "0 failures"}
         </td>
         <td className="py-2 text-right">
           <div className="flex flex-col items-end gap-1">

@@ -67,7 +67,7 @@ export function UserSearchAutocomplete({ onSelect, placeholder = "Search by name
               <span className="text-sm font-medium text-fg">
                 {user.displayName ?? user.username}
               </span>
-              <span className="text-[11px] text-fg-muted">{user.email ?? "—"}</span>
+              <span className="text-[11px] text-fg-muted">{user.email ?? "(none)"}</span>
             </li>
           ))}
         </ul>

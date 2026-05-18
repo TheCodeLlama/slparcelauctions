@@ -18,7 +18,7 @@ const ACTIONS: {
     value: "FORCE_CONFIRM_SELL_TO",
     label: "Force confirm Sell To",
     subtitle:
-      "Same path as the bot SELL_TO_OK outcome — advances escrow to the Buy-Parcel step.",
+      "Same path as the bot SELL_TO_OK outcome. Advances escrow to the Buy-Parcel step.",
   },
   {
     value: "FORCE_COMPLETE_TRANSFER",

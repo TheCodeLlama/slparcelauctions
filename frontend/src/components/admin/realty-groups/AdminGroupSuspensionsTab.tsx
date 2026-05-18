@@ -47,9 +47,9 @@ function statusLabel(value: SuspensionStatus | string | null | undefined): strin
 }
 
 function formatTimestamp(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "(none)";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "(none)";
   return d.toLocaleString();
 }
 
@@ -221,7 +221,7 @@ export function AdminGroupSuspensionsTab({
                             Lift
                           </Button>
                         ) : (
-                          <span className="text-xs text-fg-muted">—</span>
+                          <span className="text-xs text-fg-muted">(none)</span>
                         )}
                       </td>
                     </tr>

@@ -262,8 +262,8 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void escrowSellToSet(long buyerUserId, long auctionId, long escrowId, String parcelName) {
         String title = "Parcel set for sale to you: " + parcelName;
-        String body = "The seller has set the parcel for sale to you. Buy it now — "
-            + "only if the price is L$0.";
+        String body = "The seller has set the parcel for sale to you. Buy it now, "
+            + "but only if the price is L$0.";
         notificationService.publish(new NotificationEvent(
             buyerUserId, NotificationCategory.ESCROW_SELL_TO_SET, title, body,
             withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowSellToSet(auctionId, escrowId, parcelName), auctionId), auctionId),

@@ -28,7 +28,7 @@ const CONFIG: Record<AdminListingAction, ActionConfig> = {
     variant: "destructive",
     body: "The seller will receive a warning notification. The listing remains active.",
     placeholder:
-      'e.g. "Please update your description — the title doesn\'t match the parcel size shown in your photos."',
+      'e.g. "Please update your description. The title doesn\'t match the parcel size shown in your photos."',
   },
   suspend: {
     title: "Suspend listing",
@@ -44,7 +44,7 @@ const CONFIG: Record<AdminListingAction, ActionConfig> = {
     variant: "destructive",
     body: "**This is permanent.** The listing will be terminated and cannot be reinstated. All bidders will be notified. Use Suspend if you may want to reinstate later.",
     placeholder:
-      'e.g. "Cancelled — parcel ownership has changed and seller no longer controls it."',
+      'e.g. "Cancelled. Parcel ownership has changed and seller no longer controls it."',
   },
   reinstate: {
     title: "Reinstate listing",
@@ -58,7 +58,7 @@ const CONFIG: Record<AdminListingAction, ActionConfig> = {
     title: "Feature listing",
     primaryLabel: "Feature listing",
     variant: "primary",
-    body: "The listing will appear on the homepage Featured rail. Optional expiry — leave blank for permanent.",
+    body: "The listing will appear on the homepage Featured rail. Optional expiry; leave blank for permanent.",
     placeholder: "",
   },
   unfeature: {
@@ -209,7 +209,7 @@ export function ListingActionModal({ open, action, row, onClose }: Props) {
               action === "feature" ? (
                 <div className="flex flex-col gap-1">
                   <label htmlFor="featured-until" className="text-xs font-medium text-fg">
-                    Featured until (optional — blank = permanent)
+                    Featured until (optional; blank = permanent)
                   </label>
                   <input
                     id="featured-until"

@@ -87,7 +87,7 @@ describe("BrokerCancelModal", () => {
     );
     expect(screen.getByText("Sunset Plot")).toBeInTheDocument();
     expect(screen.getByTestId("broker-cancel-bids")).toHaveTextContent(
-      /3 bids — current highest L\$1,500/,
+      /3 bids\. Current highest L\$1,500/,
     );
     expect(
       screen.getByText(/refund will be credited to the group wallet/i),

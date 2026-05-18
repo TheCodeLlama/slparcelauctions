@@ -109,7 +109,7 @@ export function AdminLedgerTable({ rows, sort, onSortChange }: Props) {
                       {row.username ?? row.userPublicId.slice(0, 8) + "…"}
                     </Link>
                   ) : (
-                    <span className="text-fg-muted/50">—</span>
+                    <span className="text-fg-muted/50">(none)</span>
                   )}
                 </td>
                 <td className={`px-3 py-2.5 text-right font-mono text-[11px] ${row.amountLindens < 0 ? "text-danger" : "text-fg"}`}>
@@ -130,7 +130,7 @@ export function AdminLedgerTable({ rows, sort, onSortChange }: Props) {
                       {row.counterpartyUsername ?? row.counterpartyPublicId.slice(0, 8) + "…"}
                     </Link>
                   ) : (
-                    <span className="text-fg-muted/50">—</span>
+                    <span className="text-fg-muted/50">(none)</span>
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-[11px] text-fg-muted">
@@ -138,10 +138,10 @@ export function AdminLedgerTable({ rows, sort, onSortChange }: Props) {
                     <span>
                       {row.refType}{row.refId != null ? ` · ${row.refId}` : ""}
                     </span>
-                  ) : <span className="text-fg-muted/50">—</span>}
+                  ) : <span className="text-fg-muted/50">(none)</span>}
                 </td>
                 <td className="px-3 py-2.5 text-[11px] text-fg-muted max-w-[420px] truncate" title={row.description ?? ""}>
-                  {row.description ?? <span className="text-fg-muted/50">—</span>}
+                  {row.description ?? <span className="text-fg-muted/50">(none)</span>}
                 </td>
                 <td className="px-3 py-2.5 text-right">
                   {drill ? (
@@ -153,7 +153,7 @@ export function AdminLedgerTable({ rows, sort, onSortChange }: Props) {
                       →
                     </Link>
                   ) : (
-                    <span className="text-fg-muted/30">—</span>
+                    <span className="text-fg-muted/30">(none)</span>
                   )}
                 </td>
               </tr>
