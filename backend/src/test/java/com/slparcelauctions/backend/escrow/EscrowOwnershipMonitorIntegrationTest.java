@@ -334,6 +334,11 @@ class EscrowOwnershipMonitorIntegrationTest {
                     .build());
             auctionRepo.save(auction);
 
+            // Buy-Parcel sub-phase: sellToConfirmedAt is set so the step-3
+            // owner-poll hard gate (findBuyPhaseEscrowIdsDue, spec §6) returns
+            // this escrow. Before Set-Sell-To confirmation the monitor sweep
+            // is inert by design — these scenarios exercise the post-gate
+            // owner-poll outcomes.
             Escrow escrow = escrowRepo.save(Escrow.builder()
                     .auction(auction)
                     .state(EscrowState.TRANSFER_PENDING)
@@ -342,6 +347,7 @@ class EscrowOwnershipMonitorIntegrationTest {
                     .payoutAmt(commissionCalculator.payout(finalBid))
                     .transferDeadline(now.plusHours(71))
                     .fundedAt(now.minusMinutes(30))
+                    .sellToConfirmedAt(now.minusMinutes(15))
                     .consecutiveWorldApiFailures(0)
                     .build());
 

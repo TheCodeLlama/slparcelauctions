@@ -19,6 +19,7 @@ public sealed class TaskLoop : BackgroundService
 
     private readonly IBotSession _session;
     private readonly Func<WithdrawGroupHandler> _withdrawGroup;
+    private readonly Func<VerifySellToHandler> _verifySellTo;
     private readonly IBackendClient _backend;
     private readonly IIdleParker _idleParker;
     private readonly BotActivityState _activity;
@@ -33,9 +34,10 @@ public sealed class TaskLoop : BackgroundService
         IIdleParker idleParker,
         BotActivityState activity,
         WithdrawGroupHandler withdrawGroup,
+        VerifySellToHandler verifySellTo,
         ILogger<TaskLoop> log)
         : this(session, backend, idleParker, activity,
-            () => withdrawGroup, log)
+            () => withdrawGroup, () => verifySellTo, log)
     {
     }
 
@@ -49,6 +51,7 @@ public sealed class TaskLoop : BackgroundService
         IIdleParker idleParker,
         BotActivityState activity,
         Func<WithdrawGroupHandler> withdrawGroup,
+        Func<VerifySellToHandler> verifySellTo,
         ILogger<TaskLoop> log)
     {
         _session = session;
@@ -56,6 +59,7 @@ public sealed class TaskLoop : BackgroundService
         _idleParker = idleParker;
         _activity = activity;
         _withdrawGroup = withdrawGroup;
+        _verifySellTo = verifySellTo;
         _log = log;
     }
 
@@ -146,6 +150,7 @@ public sealed class TaskLoop : BackgroundService
         return task.TaskType switch
         {
             BotTaskType.WITHDRAW_GROUP => _withdrawGroup().HandleAsync(task, ct),
+            BotTaskType.VERIFY_SELL_TO => _verifySellTo().HandleAsync(task, ct),
             _ => Task.CompletedTask
         };
     }

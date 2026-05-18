@@ -113,6 +113,26 @@ public class EscrowExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(EscrowManualAttemptsExhaustedException.class)
+    public ProblemDetail handleAttemptsExhausted(
+            EscrowManualAttemptsExhaustedException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Manual Verify Attempts Exhausted");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "ESCROW_MANUAL_ATTEMPTS_EXHAUSTED");
+        return pd;
+    }
+
+    @ExceptionHandler(EscrowStepNotReadyException.class)
+    public ProblemDetail handleStepNotReady(
+            EscrowStepNotReadyException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        pd.setTitle("Escrow Step Not Ready");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "ESCROW_STEP_NOT_READY");
+        return pd;
+    }
+
     @ExceptionHandler(EvidenceTooManyImagesException.class)
     public ProblemDetail handleTooManyImages(
             EvidenceTooManyImagesException e, HttpServletRequest req) {

@@ -1,12 +1,24 @@
 # SLParcels Bot Service
 
 C#/.NET 8 worker that logs into Second Life as an `SLPABot*` account and
-services tasks from the SLParcels backend. Verification and active-auction
-ownership monitoring are handled exclusively by the backend's World API
-path; the bot does not participate in those flows. The bot's remaining
-roles are: SL IM dispatch, idle parking, and `WITHDRAW_GROUP` task
+services tasks from the SLParcels backend. Listing-phase verification and
+active-auction ownership monitoring are handled exclusively by the
+backend's World API path; the bot does not participate in those flows.
+The bot's roles are: SL IM dispatch, idle parking, `WITHDRAW_GROUP` task
 handling (in-world group-money transfers issued by
-`WithdrawGroupHandler`).
+`WithdrawGroupHandler`), and the escrow `VERIFY_SELL_TO` task
+(`VerifySellToHandler` — teleport to the parcel and read its
+authorized-buyer / sale-price / for-sale flag to confirm the seller set
+"Sell To" the winning buyer at L$0, reporting a `SellToOutcome` back via
+`POST /api/v1/bot/tasks/{id}/result`). `VERIFY_SELL_TO` is a deliberate,
+narrow partial reversal of the 2026-05-16 ownership-only-verification
+"retire bot from escrow" decision (spec
+`docs/superpowers/specs/2026-05-17-escrow-transfer-split-verification-design.md`)
+— the SL World API cannot read a parcel's authorized-buyer field, so only
+the bot can verify "Sell To". It is single-purpose and is **not** a
+revival of the retired multi-check `MONITOR_ESCROW`; the World API
+remains the sole owner-flip detector for the subsequent Buy-Parcel
+sub-step.
 
 ## Environment
 

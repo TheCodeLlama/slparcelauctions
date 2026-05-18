@@ -24,6 +24,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
     { label: "Fraud Flags", href: "/admin/fraud-flags", badge: stats?.queues.openFraudFlags },
     { label: "Reports", href: "/admin/reports", badge: stats?.queues.openReports },
     { label: "Disputes", href: "/admin/disputes", badge: stats?.queues.activeDisputes },
+    // Escrow Reviews has no badge: the backend AdminStatsResponse.QueueStats
+    // record exposes no openEscrowReviews count, and extending it is outside
+    // the Phase-9 (frontend-only) scope. See decisions doc.
+    { label: "Escrow Reviews", href: "/admin/escrow-reviews" },
     { label: "Bans", href: "/admin/bans" },
     { label: "Ledger", href: "/admin/ledger" },
     { label: "Listings", href: "/admin/listings" },

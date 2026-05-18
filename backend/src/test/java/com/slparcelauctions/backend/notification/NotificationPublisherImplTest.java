@@ -27,6 +27,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
+
+import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
+import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.AuctionStatus;
+import com.slparcelauctions.backend.auction.VerificationTier;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -65,6 +72,7 @@ class NotificationPublisherImplTest {
     @Autowired NotificationPublisher publisher;
     @Autowired NotificationRepository repo;
     @Autowired UserRepository userRepo;
+    @Autowired AuctionRepository auctionRepo;
     @Autowired DataSource dataSource;
     @Autowired PlatformTransactionManager txManager;
 
@@ -75,6 +83,7 @@ class NotificationPublisherImplTest {
     private TransactionTemplate transactionTemplate;
 
     private final List<Long> userIds = new ArrayList<>();
+    private final List<Long> auctionIds = new ArrayList<>();
 
     @BeforeEach
     void setup() {
@@ -90,12 +99,26 @@ class NotificationPublisherImplTest {
                     if (id != null) {
                         stmt.execute("DELETE FROM notification WHERE user_id = " + id);
                         stmt.execute("DELETE FROM refresh_tokens WHERE user_id = " + id);
+                    }
+                }
+                // Auctions + their parcel snapshots first (snapshot FK ->
+                // auctions(id); auctions FK -> users(id) via seller_id) so the
+                // users delete below doesn't trip a constraint.
+                for (Long aid : auctionIds) {
+                    if (aid != null) {
+                        stmt.execute("DELETE FROM auction_parcel_snapshots WHERE auction_id = " + aid);
+                        stmt.execute("DELETE FROM auctions WHERE id = " + aid);
+                    }
+                }
+                for (Long id : userIds) {
+                    if (id != null) {
                         stmt.execute("DELETE FROM users WHERE id = " + id);
                     }
                 }
             }
         }
         userIds.clear();
+        auctionIds.clear();
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -111,6 +134,51 @@ class NotificationPublisherImplTest {
     /** Returns notifications for the given user, scoped to avoid cross-test contamination. */
     private List<Notification> notifFor(Long userId) {
         return repo.findAllByUserId(userId);
+    }
+
+    /**
+     * Persists a real {@link Auction} + {@link AuctionParcelSnapshot} so the
+     * publisher's centralized {@code withParcelSlurl} enrichment
+     * ({@code auctionRepository.findById}) resolves region/position and
+     * stamps {@code parcelMapUrl}/{@code parcelViewerUrl} on the data blob.
+     * The snapshot uses region "Coniston" at 128/64/22 so the asserted
+     * SLURLs are deterministic.
+     */
+    private Auction testAuctionWithSnapshot(User seller) {
+        UUID parcelUuid = UUID.randomUUID();
+        OffsetDateTime now = OffsetDateTime.now();
+        Auction auction = auctionRepo.save(Auction.builder()
+                .title("Coniston Cove")
+                .slParcelUuid(parcelUuid)
+                .seller(seller)
+                .status(AuctionStatus.ACTIVE)
+                .verificationTier(VerificationTier.SCRIPT)
+                .startingBid(500L)
+                .reservePrice(0L)
+                .currentBid(0L)
+                .bidCount(0)
+                .durationHours(168)
+                .snipeProtect(false)
+                .listingFeePaid(true)
+                .consecutiveWorldApiFailures(0)
+                .commissionRate(new BigDecimal("0.05"))
+                .startsAt(now.minusHours(2))
+                .endsAt(now.plusHours(1))
+                .originalEndsAt(now.plusHours(1))
+                .build());
+        auction.setParcelSnapshot(AuctionParcelSnapshot.builder()
+                .slParcelUuid(parcelUuid)
+                .ownerUuid(seller.getSlAvatarUuid())
+                .ownerType("agent")
+                .parcelName("Coniston Cove")
+                .regionName("Coniston")
+                .regionMaturityRating("GENERAL")
+                .areaSqm(1024)
+                .positionX(128.0).positionY(64.0).positionZ(22.0)
+                .build());
+        auction = auctionRepo.save(auction);
+        auctionIds.add(auction.getId());
+        return auction;
     }
 
     // ── Bidding ───────────────────────────────────────────────────────────────
@@ -300,7 +368,7 @@ class NotificationPublisherImplTest {
 
         transactionTemplate.execute(status -> {
             publisher.escrowFunded(seller.getId(), 20L, 200L, "Parcel A",
-                    OffsetDateTime.now().plusHours(72));
+                    OffsetDateTime.now().plusHours(72), "Funded Resident");
             return null;
         });
 
@@ -309,7 +377,90 @@ class NotificationPublisherImplTest {
         Notification n = rows.get(0);
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_FUNDED);
         assertThat(n.getCoalesceKey()).isNull();
-        assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName", "transferDeadline");
+        assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName",
+                "transferDeadline", "winnerSlAvatarName");
+        assertThat(n.getData()).containsEntry("winnerSlAvatarName", "Funded Resident");
+
+        verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
+    }
+
+    @Test
+    void escrowFunded_bodyIncludesSetSellToRecipeAndWinnerNameAndSlurl() {
+        User seller = testUser("escrow-funded-recipe-seller");
+        Auction auction = testAuctionWithSnapshot(seller);
+
+        transactionTemplate.execute(status -> {
+            publisher.escrowFunded(seller.getId(), auction.getId(), 250L, "Coniston Cove",
+                    OffsetDateTime.now().plusHours(72), "Bob Resident");
+            return null;
+        });
+
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
+        assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_FUNDED);
+        // Set-Sell-To recipe summary + winner SL name embedded in the body.
+        assertThat(n.getBody()).contains("Set the parcel for sale to Bob Resident");
+        assertThat(n.getBody()).contains("Sell to: Bob Resident");
+        assertThat(n.getBody()).contains("L$0");
+        assertThat(n.getBody()).contains("About Land");
+        // SLURL injected centrally for the ESCROW_FUNDED category.
+        assertThat(n.getData()).containsEntry(
+                "parcelMapUrl", "https://maps.secondlife.com/secondlife/Coniston/128/64/22");
+        assertThat(n.getData()).containsEntry("winnerSlAvatarName", "Bob Resident");
+
+        verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
+    }
+
+    @Test
+    void escrowSellToSet_publishesBuyerRowWithCopyAndSlurl() {
+        User seller = testUser("sellto-seller");
+        User buyer = testUser("sellto-buyer");
+        Auction auction = testAuctionWithSnapshot(seller);
+
+        transactionTemplate.execute(status -> {
+            publisher.escrowSellToSet(buyer.getId(), auction.getId(), 300L, "Coniston Cove");
+            return null;
+        });
+
+        List<Notification> rows = notifFor(buyer.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
+        assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_SELL_TO_SET);
+        assertThat(n.getCoalesceKey()).isNull();
+        assertThat(n.getData()).containsKeys("auctionId", "escrowId", "parcelName");
+        // Buyer copy: set-for-sale + the L$0-only warning.
+        assertThat(n.getTitle()).isEqualTo("Parcel set for sale to you: Coniston Cove");
+        assertThat(n.getBody()).contains("set the parcel for sale to you");
+        assertThat(n.getBody()).contains("only if the price is L$0");
+        // Centralized SLURL injection (withParcelSlurl) — present on every
+        // escrow-category message, resolved from the auction's parcel snapshot.
+        assertThat(n.getData()).containsEntry(
+                "parcelMapUrl", "https://maps.secondlife.com/secondlife/Coniston/128/64/22");
+        assertThat(n.getData()).containsEntry(
+                "parcelViewerUrl", "secondlife:///app/teleport/Coniston/128/64/22");
+
+        verify(broadcasterPort).broadcastUpsert(eq(buyer.getId()), any(), any());
+    }
+
+    @Test
+    void escrowTransferConfirmed_injectsParcelSlurl() {
+        User seller = testUser("slurl-confirmed-seller");
+        Auction auction = testAuctionWithSnapshot(seller);
+
+        transactionTemplate.execute(status -> {
+            publisher.escrowTransferConfirmed(seller.getId(), auction.getId(), 301L, "Coniston Cove");
+            return null;
+        });
+
+        List<Notification> rows = notifFor(seller.getId());
+        assertThat(rows).hasSize(1);
+        Notification n = rows.get(0);
+        assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_TRANSFER_CONFIRMED);
+        assertThat(n.getData()).containsEntry(
+                "parcelMapUrl", "https://maps.secondlife.com/secondlife/Coniston/128/64/22");
+        assertThat(n.getData()).containsEntry(
+                "parcelViewerUrl", "secondlife:///app/teleport/Coniston/128/64/22");
 
         verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
     }

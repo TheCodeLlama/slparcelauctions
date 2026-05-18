@@ -8,7 +8,7 @@ const ALL_CATEGORIES: NotificationCategory[] = [
   "AUCTION_WON", "AUCTION_LOST",
   "AUCTION_ENDED_SOLD", "AUCTION_ENDED_RESERVE_NOT_MET",
   "AUCTION_ENDED_NO_BIDS", "AUCTION_ENDED_BOUGHT_NOW",
-  "ESCROW_FUNDED", "ESCROW_TRANSFER_CONFIRMED",
+  "ESCROW_FUNDED", "ESCROW_SELL_TO_SET", "ESCROW_TRANSFER_CONFIRMED",
   "ESCROW_PAYOUT", "ESCROW_EXPIRED", "ESCROW_DISPUTED",
   "ESCROW_FROZEN", "ESCROW_PAYOUT_STALLED", "ESCROW_TRANSFER_REMINDER",
   "LISTING_VERIFIED", "LISTING_SUSPENDED",
@@ -18,8 +18,8 @@ const ALL_CATEGORIES: NotificationCategory[] = [
 ];
 
 describe("categoryMap", () => {
-  it("covers all 23 notification categories", () => {
-    expect(Object.keys(categoryMap)).toHaveLength(23);
+  it("covers all 24 notification categories", () => {
+    expect(Object.keys(categoryMap)).toHaveLength(24);
     for (const cat of ALL_CATEGORIES) {
       expect(categoryMap).toHaveProperty(cat);
     }
@@ -52,6 +52,24 @@ describe("categoryMap", () => {
     );
     expect(categoryMap.LISTING_SUSPENDED.deeplink(data)).toBe("/dashboard/listings");
     expect(categoryMap.SYSTEM_ANNOUNCEMENT.deeplink(data)).toBe("/notifications");
+  });
+
+  it("ESCROW_SELL_TO_SET deeplinks + action route the buyer to the escrow page", () => {
+    const data = {
+      auctionId: 42,
+      auctionPublicId: "00000000-0000-0000-0000-0000000002a",
+      escrowId: 7,
+    };
+    const entry = categoryMap.ESCROW_SELL_TO_SET;
+    expect(entry.group).toBe("escrow");
+    expect(entry.toastVariant).toBe("info");
+    expect(entry.deeplink(data)).toBe(
+      "/auction/00000000-0000-0000-0000-0000000002a/escrow",
+    );
+    expect(entry.action?.label).toBe("Buy parcel");
+    expect(entry.action?.href(data)).toBe(
+      "/auction/00000000-0000-0000-0000-0000000002a/escrow",
+    );
   });
 
   it("deeplink falls back to auctionId when auctionPublicId is absent (legacy rows)", () => {

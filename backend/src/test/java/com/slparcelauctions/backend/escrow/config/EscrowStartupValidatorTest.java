@@ -29,7 +29,13 @@ class EscrowStartupValidatorTest {
                 Duration.ofMinutes(15),
                 Duration.ofMinutes(5),
                 5,
-                Duration.ofHours(24));
+                Duration.ofHours(24),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     @Test

@@ -77,6 +77,7 @@ class EscrowServiceAgentFeePayoutTest {
 
     @Autowired EscrowService escrowService;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired com.slparcelauctions.backend.bot.BotTaskRepository botTaskRepo;
     @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
     @Autowired AuctionRepository auctionRepo;
@@ -110,6 +111,11 @@ class EscrowServiceAgentFeePayoutTest {
             escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrow -> {
                 escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId())
                         .forEach(escrowTxRepo::delete);
+                // VERIFY_SELL_TO bot task is created at funding (spec
+                // 2026-05-17) — clear it before the escrow to satisfy the
+                // bot_tasks.escrow_id FK.
+                botTaskRepo.findByEscrowId(escrow.getId())
+                        .forEach(botTaskRepo::delete);
                 escrowRepo.delete(escrow);
             });
             bidRepo.deleteAllByAuctionId(seededAuctionId);

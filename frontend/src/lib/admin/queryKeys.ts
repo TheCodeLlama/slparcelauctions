@@ -6,6 +6,7 @@ import type {
   FraudFlagReason,
 } from "./types";
 import type { AdminDisputeFilters } from "./disputes";
+import type { AdminEscrowReviewFilters } from "./escrowReviews";
 import type { AdminAuditLogFilters } from "./auditLog";
 
 export const adminQueryKeys = {
@@ -58,6 +59,12 @@ export const adminQueryKeys = {
     [...adminQueryKeys.disputes(), "list", filters] as const,
   disputeDetail: (escrowId: number) =>
     [...adminQueryKeys.disputes(), "detail", escrowId] as const,
+
+  escrowReviews: () => [...adminQueryKeys.all, "escrow-reviews"] as const,
+  escrowReviewsList: (filters: AdminEscrowReviewFilters) =>
+    [...adminQueryKeys.escrowReviews(), "list", filters] as const,
+  escrowReviewDetail: (reviewPublicId: string) =>
+    [...adminQueryKeys.escrowReviews(), "detail", reviewPublicId] as const,
 
   botPool: () => [...adminQueryKeys.all, "bot-pool"] as const,
 

@@ -92,7 +92,17 @@ public class SlImChannelDispatcher {
         switch (decision) {
             case QUEUE, QUEUE_BYPASS_PREFS -> {
                 String deeplink = linkResolver.resolve(category, data);
-                String messageText = messageBuilder.assemble(title, body, deeplink);
+                // Escrow categories carry parcelViewerUrl (a secondlife:/// app
+                // URL) injected by NotificationPublisherImpl.withParcelSlurl.
+                // Append it as a dedicated in-world clickable line so the SL IM
+                // recipient can teleport straight to the parcel. Gated on
+                // presence so non-escrow categories are unaffected.
+                String bodyWithParcel = body;
+                Object viewerUrl = data == null ? null : data.get("parcelViewerUrl");
+                if (viewerUrl != null && !viewerUrl.toString().isBlank()) {
+                    bodyWithParcel = body + "\n\nParcel: " + viewerUrl;
+                }
+                String messageText = messageBuilder.assemble(title, bodyWithParcel, deeplink);
                 dao.upsert(userId, user.getSlAvatarUuid().toString(), messageText, coalesceKey);
             }
             case SKIP_NO_AVATAR, SKIP_MUTED, SKIP_GROUP_DISABLED -> {

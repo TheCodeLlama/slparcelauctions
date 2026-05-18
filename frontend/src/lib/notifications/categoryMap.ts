@@ -86,6 +86,14 @@ export const categoryMap: Record<NotificationCategory, CategoryMapEntry> = {
     deeplink: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow`,
     action: { label: "View escrow", href: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow` },
   },
+  ESCROW_SELL_TO_SET: {
+    group: "escrow",
+    icon: BadgeCheck,
+    iconBgClass: "bg-brand-soft text-brand",
+    toastVariant: "info",
+    deeplink: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow`,
+    action: { label: "Buy parcel", href: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}/escrow` },
+  },
   ESCROW_TRANSFER_CONFIRMED: {
     group: "escrow",
     icon: BadgeCheck,

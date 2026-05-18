@@ -16,6 +16,14 @@ public interface IBackendClient
     /// caller swallows it — the claim path is the authoritative 401 handler).
     /// </summary>
     Task SendHeartbeatAsync(BotHeartbeatRequest body, CancellationToken ct);
+
+    /// <summary>
+    /// Posts a <c>VERIFY_SELL_TO</c> classification back to the backend
+    /// (<c>POST /api/v1/bot/tasks/{taskId}/result</c>, 204 on success).
+    /// Shares the bearer auth + 5xx retry ladder. Throws
+    /// <see cref="AuthConfigException"/> on 401.
+    /// </summary>
+    Task ReportTaskResultAsync(long taskId, BotTaskResultRequest body, CancellationToken ct);
 }
 
 /// <summary>

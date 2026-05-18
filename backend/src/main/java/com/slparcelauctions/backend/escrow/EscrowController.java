@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,7 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auth.AuthPrincipal;
 import com.slparcelauctions.backend.escrow.dto.EscrowDisputeRequest;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
+import com.slparcelauctions.backend.escrow.dto.ManualReviewRequest;
 import com.slparcelauctions.backend.escrow.dto.SellerEvidenceRequest;
 
 import jakarta.validation.Valid;
@@ -42,6 +44,7 @@ import lombok.RequiredArgsConstructor;
 public class EscrowController {
 
     private final EscrowService escrowService;
+    private final EscrowManualActionService manualActionService;
     private final AuctionRepository auctionRepository;
 
     @GetMapping
@@ -76,6 +79,35 @@ public class EscrowController {
         return ResponseEntity.ok(escrowService.submitSellerEvidence(
                 escrowId, principal.userId(), body,
                 files != null ? files : List.of()));
+    }
+
+    @PostMapping("/verify-sell-to")
+    public ResponseEntity<EscrowStatusResponse> verifySellTo(
+            @PathVariable UUID auctionPublicId,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        Long auctionId = resolveAuctionId(auctionPublicId);
+        return ResponseEntity.accepted()
+                .body(manualActionService.verifySellTo(auctionId, principal.userId()));
+    }
+
+    @PostMapping("/verify-transfer")
+    public ResponseEntity<EscrowStatusResponse> verifyTransfer(
+            @PathVariable UUID auctionPublicId,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        Long auctionId = resolveAuctionId(auctionPublicId);
+        return ResponseEntity.ok(
+                manualActionService.verifyTransfer(auctionId, principal.userId()));
+    }
+
+    @PostMapping("/manual-review")
+    public ResponseEntity<EscrowStatusResponse> requestManualReview(
+            @PathVariable UUID auctionPublicId,
+            @RequestBody(required = false) @Valid ManualReviewRequest body,
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        Long auctionId = resolveAuctionId(auctionPublicId);
+        String note = body == null ? null : body.note();
+        return ResponseEntity.ok(
+                manualActionService.requestManualReview(auctionId, principal.userId(), note));
     }
 
     private Long resolveAuctionId(UUID auctionPublicId) {

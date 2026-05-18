@@ -31,3 +31,46 @@ export function fileDispute(
     body,
   );
 }
+
+/**
+ * Triggers a manual "Set Sell To" verification (spec 2026-05-17 §9). The
+ * backend responds 202 (the actual verify runs asynchronously via the
+ * SL World API / bot) and returns the updated escrow status reflecting the
+ * decremented attempt count. The eventual result lands on the page via the
+ * `ESCROW_SELL_TO_SET` STOMP envelope → escrow-query invalidation.
+ */
+export function verifySellTo(
+  auctionId: number | string,
+): Promise<EscrowStatusResponse> {
+  return api.post<EscrowStatusResponse>(
+    `/api/v1/auctions/${auctionId}/escrow/verify-sell-to`,
+  );
+}
+
+/**
+ * Triggers a manual buy/transfer verification (spec 2026-05-17 §9). Backend
+ * returns 200 with the updated escrow status (transferConfirmedAt stamped on
+ * success, decremented attempt count otherwise).
+ */
+export function verifyTransfer(
+  auctionId: number | string,
+): Promise<EscrowStatusResponse> {
+  return api.post<EscrowStatusResponse>(
+    `/api/v1/auctions/${auctionId}/escrow/verify-transfer`,
+  );
+}
+
+/**
+ * Requests human review of a stuck escrow (spec 2026-05-17 §9). The optional
+ * `note` is forwarded to the admin queue. Backend returns 200 with the
+ * updated escrow status (manualReviewStatus → OPEN).
+ */
+export function requestManualReview(
+  auctionId: number | string,
+  note?: string,
+): Promise<EscrowStatusResponse> {
+  return api.post<EscrowStatusResponse>(
+    `/api/v1/auctions/${auctionId}/escrow/manual-review`,
+    note ? { note } : undefined,
+  );
+}

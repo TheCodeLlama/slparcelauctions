@@ -47,6 +47,26 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
     List<Long> findTransferPendingIds();
 
     /**
+     * Step-3 (Buy Parcel) sweep finder (spec §6). Returns escrow ids in the
+     * Buy-Parcel sub-phase that are due for a World-API owner poll:
+     * {@code TRANSFER_PENDING} with {@code sellToConfirmedAt} set (the bot
+     * hard gate has cleared), {@code transferConfirmedAt} still null (transfer
+     * not yet observed), and the per-escrow pacing cursor
+     * {@code nextOwnerCheckAt} either unset or already due.
+     *
+     * <p><b>Hard gate:</b> escrows whose {@code sellToConfirmedAt} is null are
+     * never returned — before Set-Sell-To is bot-confirmed, step-3 owner
+     * polling is entirely inert (spec decision §2.1, §6). Ordered by
+     * {@code lastCheckedAt ASC NULLS FIRST} so never-checked / oldest-checked
+     * escrows are swept first, mirroring {@link #findTransferPendingIds}.
+     */
+    @Query("SELECT e.id FROM Escrow e WHERE e.state = 'TRANSFER_PENDING' "
+            + "AND e.sellToConfirmedAt IS NOT NULL AND e.transferConfirmedAt IS NULL "
+            + "AND (e.nextOwnerCheckAt IS NULL OR e.nextOwnerCheckAt <= :now) "
+            + "ORDER BY e.lastCheckedAt ASC NULLS FIRST")
+    List<Long> findBuyPhaseEscrowIdsDue(@Param("now") OffsetDateTime now);
+
+    /**
      * Returns every escrow id whose 72h {@code transferDeadline} has already
      * passed while the row is still {@link EscrowState#TRANSFER_PENDING} —
      * the seller never transferred the parcel — AND there is no active

@@ -10,9 +10,9 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Verifies that the bot_tasks CHECK constraints cover all enum values after
- * ApplicationReadyEvent fires. After the ownership-only verification
- * refactor the {@link BotTaskType} enum is empty, so the type-check
- * constraint is dropped on startup (Postgres rejects {@code IN ()}). The
+ * ApplicationReadyEvent fires. The {@link BotTaskType} enum carries
+ * {@code VERIFY_SELL_TO} again (spec 2026-05-17), so the type-check
+ * constraint is (re)created on startup and must enumerate that value. The
  * status constraint still covers every {@link BotTaskStatus} value.
  */
 @SpringBootTest
@@ -23,15 +23,15 @@ class BotTaskTypeCheckConstraintInitializerTest {
     private JdbcTemplate jdbc;
 
     @Test
-    void taskTypeCheckConstraintAbsentWhenEnumEmpty() {
-        Integer count = jdbc.queryForObject(
+    void taskTypeCheckConstraintCoversAllEnumValues() {
+        String constraintDef = jdbc.queryForObject(
                 """
-                SELECT COUNT(*)
+                SELECT pg_get_constraintdef(oid)
                   FROM pg_constraint
                  WHERE conname = 'bot_tasks_task_type_check'
                 """,
-                Integer.class);
-        assertThat(count).isZero();
+                String.class);
+        assertThat(constraintDef).contains("VERIFY_SELL_TO");
     }
 
     @Test

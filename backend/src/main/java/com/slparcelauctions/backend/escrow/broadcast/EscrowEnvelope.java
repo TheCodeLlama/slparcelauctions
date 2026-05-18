@@ -24,6 +24,7 @@ public sealed interface EscrowEnvelope
                 EscrowDisputedEnvelope,
                 EscrowFundedEnvelope,
                 EscrowTransferConfirmedEnvelope,
+                EscrowSellToConfirmedEnvelope,
                 EscrowFrozenEnvelope,
                 EscrowCompletedEnvelope,
                 EscrowRefundCompletedEnvelope,

@@ -18,6 +18,7 @@ export type NotificationCategory =
   | "AUCTION_ENDED_NO_BIDS"
   | "AUCTION_ENDED_BOUGHT_NOW"
   | "ESCROW_FUNDED"
+  | "ESCROW_SELL_TO_SET"
   | "ESCROW_TRANSFER_CONFIRMED"
   | "ESCROW_PAYOUT"
   | "ESCROW_EXPIRED"
@@ -43,6 +44,13 @@ export type NotificationDataMap = {
   AUCTION_ENDED_NO_BIDS: { auctionId: number; parcelName: string };
   AUCTION_ENDED_BOUGHT_NOW: { auctionId: number; parcelName: string; buyNowL: number };
   ESCROW_FUNDED: { auctionId: number; escrowId: number; parcelName: string; transferDeadline: string };
+  ESCROW_SELL_TO_SET: {
+    auctionId: number;
+    escrowId: number;
+    parcelName: string;
+    parcelMapUrl?: string;
+    parcelViewerUrl?: string;
+  };
   ESCROW_TRANSFER_CONFIRMED: { auctionId: number; escrowId: number; parcelName: string };
   ESCROW_PAYOUT: { auctionId: number; escrowId: number; parcelName: string; payoutL: number };
   ESCROW_EXPIRED: { auctionId: number; escrowId: number; parcelName: string };

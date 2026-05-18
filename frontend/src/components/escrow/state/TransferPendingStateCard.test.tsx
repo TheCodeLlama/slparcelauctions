@@ -1,10 +1,34 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { renderWithProviders, screen, fireEvent, waitFor } from "@/test/render";
+import {
+  renderWithProviders,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@/test/render";
 import { TransferPendingStateCard } from "./TransferPendingStateCard";
 import { fakeEscrow } from "@/test/fixtures/escrow";
 
+const verifySellToMutate = vi.fn();
+const verifyTransferMutate = vi.fn();
+const requestReviewMutate = vi.fn();
+
+vi.mock("@/hooks/useEscrowManualActions", () => ({
+  useVerifySellTo: () => ({ mutate: verifySellToMutate, isPending: false }),
+  useVerifyTransfer: () => ({ mutate: verifyTransferMutate, isPending: false }),
+  useRequestManualReview: () => ({
+    mutate: requestReviewMutate,
+    isPending: false,
+  }),
+}));
+
+beforeEach(() => {
+  verifySellToMutate.mockReset();
+  verifyTransferMutate.mockReset();
+  requestReviewMutate.mockReset();
+});
+
 describe("TransferPendingStateCard", () => {
-  describe("pre-confirmation, seller", () => {
+  describe("Set Sell To (sellToConfirmedAt == null), seller", () => {
     beforeEach(() => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
@@ -13,201 +37,280 @@ describe("TransferPendingStateCard", () => {
       vi.useRealTimers();
     });
 
-    it("renders the 5-step SL viewer recipe", () => {
-      renderWithProviders(
+    function renderSeller(over = {}) {
+      return renderWithProviders(
         <TransferPendingStateCard
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
             fundedAt: "2026-04-30T12:00:00Z",
+            sellToConfirmedAt: null,
             transferConfirmedAt: null,
             transferDeadline: "2026-05-03T12:00:00Z",
+            ...over,
           })}
           role="seller"
         />,
       );
+    }
+
+    it("renders the numbered SL-viewer Set Sell To recipe", () => {
+      renderSeller();
       expect(screen.getByText(/about land/i)).toBeInTheDocument();
       expect(screen.getByText(/sell land/i)).toBeInTheDocument();
       expect(screen.getByText(/l\$\s*0/i)).toBeInTheDocument();
       expect(screen.getByText(/confirm the sale/i)).toBeInTheDocument();
     });
 
-    it("renders the deadline badge with transferDeadline", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="seller"
-        />,
-      );
-      expect(screen.getByText(/left$/i)).toBeInTheDocument();
-    });
-
-    it("renders a dispute link", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            auctionPublicId: "00000000-0000-0000-0000-00000000002a",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="seller"
-        />,
-      );
-      const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
+    it("renders the deadline badge", () => {
+      const { container } = renderSeller();
+      expect(
+        container.querySelector("[data-urgency]"),
+      ).toBeInTheDocument();
     });
 
     it("renders the winner's SL avatar name with a copy button", async () => {
-      // Real timers for this test so waitFor + the promise-resolution
-      // microtask the copy handler awaits can actually progress.
       vi.useRealTimers();
-      const writeTextMock = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+      const writeTextMock = vi
+        .fn<(text: string) => Promise<void>>()
+        .mockResolvedValue(undefined);
       Object.defineProperty(navigator, "clipboard", {
         value: { writeText: writeTextMock },
         writable: true,
         configurable: true,
       });
-
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-            winnerSlAvatarName: "Alice Bidder Resident",
-          })}
-          role="seller"
-        />,
-      );
-
+      renderSeller({ winnerSlAvatarName: "Alice Bidder Resident" });
       expect(screen.getByTestId("winner-sl-avatar-name")).toHaveTextContent(
         "Alice Bidder Resident",
       );
       const copyBtn = screen.getByTestId("copy-winner-sl-avatar-name-btn");
-      expect(copyBtn).toBeInTheDocument();
-
       fireEvent.click(copyBtn);
       await waitFor(() => {
         expect(writeTextMock).toHaveBeenCalledWith("Alice Bidder Resident");
       });
-      await waitFor(() => {
-        expect(copyBtn).toHaveTextContent(/copied/i);
-      });
     });
 
-    it("falls back to generic step 3 copy when winnerSlAvatarName is null", () => {
-      renderWithProviders(
+    it("falls back to generic copy when winnerSlAvatarName is null", () => {
+      renderSeller({ winnerSlAvatarName: null });
+      expect(
+        screen.queryByTestId("winner-sl-avatar-name"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/winner's avatar name/i)).toBeInTheDocument();
+    });
+
+    it("renders the parcel SLURL map link from parcelMapUrl", () => {
+      renderSeller({ parcelMapUrl: "https://maps.secondlife.com/x/1/2/3" });
+      const link = screen.getByRole("link", { name: /open parcel in/i });
+      expect(link).toHaveAttribute(
+        "href",
+        "https://maps.secondlife.com/x/1/2/3",
+      );
+    });
+
+    it("Verify Sell To button shows '3 of 3 attempts' and the 30-min bot warning", () => {
+      renderSeller({ sellToVerifyAttemptsRemaining: 3 });
+      expect(
+        screen.getByRole("button", { name: /verify sell to/i }),
+      ).toBeEnabled();
+      expect(screen.getByText(/3 of 3/i)).toBeInTheDocument();
+      expect(screen.getByText(/every 30 min/i)).toBeInTheDocument();
+    });
+
+    it("clicking Verify Sell To invokes the verifySellTo hook", () => {
+      renderSeller();
+      fireEvent.click(
+        screen.getByRole("button", { name: /verify sell to/i }),
+      );
+      expect(verifySellToMutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables Verify Sell To at 0 attempts remaining and surfaces the review link", () => {
+      renderSeller({ sellToVerifyAttemptsRemaining: 0 });
+      expect(
+        screen.getByRole("button", { name: /verify sell to/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows an inline error when sellToLastResult is set", () => {
+      renderSeller({ sellToLastResult: "WRONG_BUYER" });
+      expect(screen.getByText(/WRONG_BUYER/)).toBeInTheDocument();
+    });
+
+    it("Request manual review invokes the requestManualReview hook", () => {
+      renderSeller();
+      fireEvent.click(
+        screen.getByRole("button", { name: /request manual review/i }),
+      );
+      expect(requestReviewMutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
+      renderSeller({ auctionPublicId: "auction-set-sell-to-seller" });
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-set-sell-to-seller/escrow/dispute",
+      );
+    });
+  });
+
+  describe("Set Sell To (sellToConfirmedAt == null), winner", () => {
+    function renderWinnerWaiting(over = {}) {
+      return renderWithProviders(
         <TransferPendingStateCard
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
             fundedAt: "2026-04-30T12:00:00Z",
+            sellToConfirmedAt: null,
             transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-            winnerSlAvatarName: null,
+            parcelMapUrl: "https://maps.secondlife.com/x/4/5/6",
+            ...over,
+          })}
+          role="winner"
+        />,
+      );
+    }
+
+    it("renders waiting copy + the parcel SLURL", () => {
+      renderWinnerWaiting();
+      expect(
+        screen.getByText(/waiting for the seller/i),
+      ).toBeInTheDocument();
+      const link = screen.getByRole("link", { name: /open parcel in/i });
+      expect(link).toHaveAttribute(
+        "href",
+        "https://maps.secondlife.com/x/4/5/6",
+      );
+    });
+
+    it("renders the File a dispute link", () => {
+      renderWinnerWaiting({ auctionPublicId: "auction-set-sell-to-winner" });
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-set-sell-to-winner/escrow/dispute",
+      );
+    });
+  });
+
+  describe("Buy Parcel (sellToConfirmedAt set, transferConfirmedAt == null), winner", () => {
+    function renderWinner(over = {}) {
+      return renderWithProviders(
+        <TransferPendingStateCard
+          escrow={fakeEscrow({
+            state: "TRANSFER_PENDING",
+            fundedAt: "2026-04-30T12:00:00Z",
+            sellToConfirmedAt: "2026-05-01T09:00:00Z",
+            transferConfirmedAt: null,
+            parcelMapUrl: "https://maps.secondlife.com/x/7/8/9",
+            ...over,
+          })}
+          role="winner"
+        />,
+      );
+    }
+
+    it("renders buy-now guidance, only-if-L$0 warning, and the SLURL", () => {
+      renderWinner();
+      expect(screen.getByText(/buy it now/i)).toBeInTheDocument();
+      expect(screen.getByText(/only if/i)).toBeInTheDocument();
+      expect(screen.getByText(/l\$\s*0/i)).toBeInTheDocument();
+      const link = screen.getByRole("link", { name: /open parcel in/i });
+      expect(link).toHaveAttribute(
+        "href",
+        "https://maps.secondlife.com/x/7/8/9",
+      );
+    });
+
+    it("Verify purchase button shows attempts and invokes verifyTransfer", () => {
+      renderWinner({ buyVerifyBuyerAttemptsRemaining: 3 });
+      expect(screen.getByText(/3 of 3/i)).toBeInTheDocument();
+      const btn = screen.getByRole("button", { name: /verify purchase/i });
+      fireEvent.click(btn);
+      expect(verifyTransferMutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables Verify purchase at 0 attempts and surfaces the review link", () => {
+      renderWinner({ buyVerifyBuyerAttemptsRemaining: 0 });
+      expect(
+        screen.getByRole("button", { name: /verify purchase/i }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
+      renderWinner({ auctionPublicId: "auction-buy-parcel-winner" });
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-buy-parcel-winner/escrow/dispute",
+      );
+    });
+  });
+
+  describe("Buy Parcel (sellToConfirmedAt set, transferConfirmedAt == null), seller", () => {
+    function renderSellerWaiting(over = {}) {
+      return renderWithProviders(
+        <TransferPendingStateCard
+          escrow={fakeEscrow({
+            state: "TRANSFER_PENDING",
+            fundedAt: "2026-04-30T12:00:00Z",
+            sellToConfirmedAt: "2026-05-01T09:00:00Z",
+            transferConfirmedAt: null,
+            buyVerifySellerAttemptsRemaining: 2,
+            ...over,
           })}
           role="seller"
         />,
       );
+    }
 
+    it("renders waiting + Verify purchase (seller attempts) + request review", () => {
+      renderSellerWaiting();
       expect(
-        screen.queryByTestId("winner-sl-avatar-name"),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByTestId("copy-winner-sl-avatar-name-btn"),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.getByText(/winner's avatar name/i),
+        screen.getByText(/waiting for the winner/i),
       ).toBeInTheDocument();
-    });
-  });
-
-  describe("pre-confirmation, winner", () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
-    });
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it("renders the waiting-for-seller headline", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="winner"
-        />,
-      );
+      expect(screen.getByText(/2 of 3/i)).toBeInTheDocument();
+      const btn = screen.getByRole("button", { name: /verify purchase/i });
+      fireEvent.click(btn);
+      expect(verifyTransferMutate).toHaveBeenCalledTimes(1);
       expect(
-        screen.getByText(/waiting for seller to transfer the parcel/i),
+        screen.getByRole("button", { name: /request manual review/i }),
       ).toBeInTheDocument();
     });
 
-    it("renders the guidance thresholds", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="winner"
-        />,
+    it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
+      renderSellerWaiting({ auctionPublicId: "auction-buy-parcel-seller" });
+      expect(
+        screen.getByRole("button", { name: /request manual review/i }),
+      ).toBeInTheDocument();
+      const dispute = screen.getByRole("link", {
+        name: /file a dispute/i,
+      });
+      expect(dispute).toHaveAttribute(
+        "href",
+        "/auction/auction-buy-parcel-seller/escrow/dispute",
       );
-      // Guidance list header + three bullet labels
-      expect(screen.getByText(/what you can do/i)).toBeInTheDocument();
-      expect(screen.getAllByText(/message seller/i).length).toBeGreaterThan(0);
-      expect(screen.getByText(/> 48 hours/i)).toBeInTheDocument();
-    });
-
-    it("renders a disabled 'Message seller' button (inert placeholder)", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="winner"
-        />,
-      );
-      const btn = screen.getByRole("button", { name: /message seller/i });
-      expect(btn).toBeDisabled();
-    });
-
-    it("renders deadline badge + dispute link", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            auctionPublicId: "00000000-0000-0000-0000-00000000002a",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: null,
-            transferDeadline: "2026-05-03T12:00:00Z",
-          })}
-          role="winner"
-        />,
-      );
-      expect(screen.getByText(/left$/i)).toBeInTheDocument();
-      const link = screen.getByRole("link", { name: /file a dispute/i });
-      expect(link).toHaveAttribute("href", "/auction/00000000-0000-0000-0000-00000000002a/escrow/dispute");
     });
   });
 
-  describe("post-confirmation (payout pending) — role-neutral", () => {
+  describe("post-confirmation (payout pending) — unchanged, role-neutral", () => {
     it.each(["seller", "winner"] as const)(
       "renders the payout-pending copy for role=%s",
       (role) => {
@@ -216,6 +319,7 @@ describe("TransferPendingStateCard", () => {
             escrow={fakeEscrow({
               state: "TRANSFER_PENDING",
               fundedAt: "2026-04-30T12:00:00Z",
+              sellToConfirmedAt: "2026-05-01T09:00:00Z",
               transferConfirmedAt: "2026-05-01T10:00:00Z",
               transferDeadline: "2026-05-03T12:00:00Z",
             })}
@@ -225,25 +329,11 @@ describe("TransferPendingStateCard", () => {
         expect(
           screen.getByText(/ownership transferred to the winner/i),
         ).toBeInTheDocument();
-        expect(screen.getByText(/finalizing the transaction/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/finalizing the transaction/i),
+        ).toBeInTheDocument();
       },
     );
-
-    it("does NOT render a dispute link post-confirmation", () => {
-      renderWithProviders(
-        <TransferPendingStateCard
-          escrow={fakeEscrow({
-            state: "TRANSFER_PENDING",
-            fundedAt: "2026-04-30T12:00:00Z",
-            transferConfirmedAt: "2026-05-01T10:00:00Z",
-          })}
-          role="seller"
-        />,
-      );
-      expect(
-        screen.queryByRole("link", { name: /file a dispute/i }),
-      ).not.toBeInTheDocument();
-    });
 
     it("does NOT render the SL viewer recipe post-confirmation", () => {
       renderWithProviders(
@@ -251,6 +341,7 @@ describe("TransferPendingStateCard", () => {
           escrow={fakeEscrow({
             state: "TRANSFER_PENDING",
             fundedAt: "2026-04-30T12:00:00Z",
+            sellToConfirmedAt: "2026-05-01T09:00:00Z",
             transferConfirmedAt: "2026-05-01T10:00:00Z",
           })}
           role="seller"
@@ -259,5 +350,29 @@ describe("TransferPendingStateCard", () => {
       expect(screen.queryByText(/about land/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/sell land/i)).not.toBeInTheDocument();
     });
+
+    it.each(["seller", "winner"] as const)(
+      "renders NEITHER the manual-review affordance NOR the File a dispute link post-confirmation for role=%s",
+      (role) => {
+        renderWithProviders(
+          <TransferPendingStateCard
+            escrow={fakeEscrow({
+              state: "TRANSFER_PENDING",
+              fundedAt: "2026-04-30T12:00:00Z",
+              sellToConfirmedAt: "2026-05-01T09:00:00Z",
+              transferConfirmedAt: "2026-05-01T10:00:00Z",
+              auctionPublicId: "auction-payout-pending",
+            })}
+            role={role}
+          />,
+        );
+        expect(
+          screen.queryByRole("button", { name: /request manual review/i }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: /file a dispute/i }),
+        ).not.toBeInTheDocument();
+      },
+    );
   });
 });
