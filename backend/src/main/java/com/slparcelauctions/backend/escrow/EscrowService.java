@@ -31,7 +31,12 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowDisputedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowExpiredEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFrozenEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowFundedEnvelope;
+import com.slparcelauctions.backend.escrow.broadcast.EscrowSellToConfirmedEnvelope;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowTransferConfirmedEnvelope;
+import com.slparcelauctions.backend.escrow.review.EscrowManualReview;
+import com.slparcelauctions.backend.escrow.review.EscrowManualReviewRepository;
+import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
+import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
@@ -100,6 +105,8 @@ public class EscrowService {
     private final NotificationPublisher notificationPublisher;
     private final DisputeEvidenceUploadService evidenceUploadService;
     private final WalletService walletService;
+    private final EscrowConfigProperties escrowConfig;
+    private final EscrowManualReviewRepository manualReviewRepo;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -616,6 +623,57 @@ public class EscrowService {
      * {@code terminalCommandService.queuePayout(escrow)} so the dispatcher
      * picks up the payout on the next 30s tick.
      */
+    /**
+     * Confirms the Set-Sell-To sub-phase: stamps the hard-gate
+     * {@code sellToConfirmedAt}, re-stamps the 72h {@code transferDeadline}
+     * so the Buy-Parcel window starts fresh (spec §2.7), primes the
+     * variable-cadence step-3 owner poll ({@code nextOwnerCheckAt = now}),
+     * resets the bot infra-failure streak, clears the manual-verify-pending
+     * flag and the last definitive-negative result, notifies the buyer that
+     * the parcel is now set for sale to them, and broadcasts the envelope on
+     * {@code afterCommit}.
+     *
+     * <p>Called from the bot {@code SELL_TO_OK} result-application path and
+     * the admin force-confirm path (Phases 3 / 6). {@link Propagation#MANDATORY}
+     * mirrors {@link #confirmTransfer}: a stray call outside the locked-escrow
+     * transaction is a bug we want to fail fast rather than silently persist a
+     * gate flip with no row to roll back with. The {@code afterCommit}
+     * registration matches the established pattern so subscribers never observe
+     * a rolled-back confirmation.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void confirmSellTo(Escrow escrow, OffsetDateTime now) {
+        escrow.setSellToConfirmedAt(now);
+        escrow.setTransferDeadline(now.plusHours(TRANSFER_DEADLINE_HOURS));
+        escrow.setNextOwnerCheckAt(now);
+        escrow.setConsecutiveSellToBotFailures(0);
+        escrow.setManualVerifyPending(false);
+        escrow.setSellToLastResult(null);
+        Escrow saved = escrowRepo.save(escrow);
+
+        Long winnerUserId = saved.getAuction().getWinnerUserId();
+        long auctionId = saved.getAuction().getId();
+        long escrowId = saved.getId();
+        String parcelName = saved.getAuction().getParcelSnapshot() != null
+                ? saved.getAuction().getParcelSnapshot().getParcelName() : null;
+        if (winnerUserId != null) {
+            notificationPublisher.escrowSellToSet(winnerUserId, auctionId, escrowId, parcelName);
+        }
+
+        final EscrowSellToConfirmedEnvelope envelope =
+                EscrowSellToConfirmedEnvelope.of(saved, now);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        broadcastPublisher.publishSellToConfirmed(envelope);
+                    }
+                });
+
+        log.info("Escrow {} sell-to confirmed for auction {} (deadline reset to {})",
+                escrowId, auctionId, saved.getTransferDeadline());
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void confirmTransfer(Escrow escrow, OffsetDateTime now) {
         escrow.setTransferConfirmedAt(now);
