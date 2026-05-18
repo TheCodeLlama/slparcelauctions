@@ -10,6 +10,7 @@ import com.slparcelauctions.backend.realty.RealtyGroupMember;
 import com.slparcelauctions.backend.realty.RealtyGroupMemberRepository;
 import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.realty.permission.RealtyGroupPermission;
+import com.slparcelauctions.backend.sl.SlurlBuilder;
 import com.slparcelauctions.backend.user.Role;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
@@ -104,6 +105,42 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         }
         auctionRepository.findById(auctionId).ifPresent(a ->
             data.put("auctionPublicId", a.getPublicId().toString()));
+        return data;
+    }
+
+    /**
+     * Decorates a notification data blob with the parcel's two SLURLs
+     * ({@code parcelMapUrl} for the in-app "View parcel in Second Life"
+     * link, {@code parcelViewerUrl} for the in-world clickable line the SL
+     * IM body appends). Sourced from the auction's
+     * {@link com.slparcelauctions.backend.auction.AuctionParcelSnapshot}
+     * (region name + position), so every {@code NotificationGroup.ESCROW}
+     * message carries a parcel link with no interface churn — the publisher
+     * methods still take only {@code auctionId} and resolve region/position
+     * here, mirroring {@link #withAuctionPublicId}.
+     *
+     * <p>Returns the same {@code Map} instance for ergonomic chaining. A
+     * missing snapshot (or region) degrades gracefully: {@link SlurlBuilder}
+     * tolerates a null region and null/zero coordinates (region-centre
+     * 128/128/0 fallback), so the keys are always present and well-formed.
+     */
+    private Map<String, Object> withParcelSlurl(Map<String, Object> data, long auctionId) {
+        if (auctionRepository == null) {
+            // Test-only path: some unit tests construct NotificationPublisherImpl
+            // with a null AuctionRepository for paths that do not exercise this
+            // enrichment. Skip the lookup; the SL IM body line is gated on the
+            // presence of parcelViewerUrl, so its absence is benign.
+            return data;
+        }
+        auctionRepository.findById(auctionId).ifPresent(a -> {
+            var snap = a.getParcelSnapshot();
+            String region = snap == null ? null : snap.getRegionName();
+            Double x = snap == null ? null : snap.getPositionX();
+            Double y = snap == null ? null : snap.getPositionY();
+            Double z = snap == null ? null : snap.getPositionZ();
+            data.put("parcelMapUrl", SlurlBuilder.mapUrl(region, x, y, z));
+            data.put("parcelViewerUrl", SlurlBuilder.viewerUrl(region, x, y, z));
+        });
         return data;
     }
 
@@ -203,12 +240,33 @@ public class NotificationPublisherImpl implements NotificationPublisher {
 
     @Override
     public void escrowFunded(long sellerUserId, long auctionId, long escrowId,
-                              String parcelName, OffsetDateTime transferDeadline) {
+                              String parcelName, OffsetDateTime transferDeadline,
+                              String winnerSlAvatarName) {
         String title = "Buyer funded escrow on " + parcelName;
-        String body = "Transfer the parcel to escrow within 72 hours to release payout.";
+        String buyer = (winnerSlAvatarName == null || winnerSlAvatarName.isBlank())
+            ? "the winning buyer"
+            : winnerSlAvatarName;
+        // Set-Sell-To recipe summary (spec §8): give the seller the exact
+        // in-world steps + the buyer's SL name so they can complete the
+        // first transfer step without leaving the message.
+        String body = "The winning buyer funded escrow. Set the parcel for sale to " + buyer
+            + " to release payout: open About Land, choose Sell Land, set Sell to: " + buyer
+            + ", set the price to L$0, then confirm. Complete this within 72 hours.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_FUNDED, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowFunded(auctionId, escrowId, parcelName, transferDeadline), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowFunded(auctionId, escrowId, parcelName, transferDeadline, winnerSlAvatarName), auctionId), auctionId),
+            null
+        ));
+    }
+
+    @Override
+    public void escrowSellToSet(long buyerUserId, long auctionId, long escrowId, String parcelName) {
+        String title = "Parcel set for sale to you: " + parcelName;
+        String body = "The seller has set the parcel for sale to you. Buy it now — "
+            + "only if the price is L$0.";
+        notificationService.publish(new NotificationEvent(
+            buyerUserId, NotificationCategory.ESCROW_SELL_TO_SET, title, body,
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowSellToSet(auctionId, escrowId, parcelName), auctionId), auctionId),
             null
         ));
     }
@@ -219,7 +277,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Payout is processing.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_TRANSFER_CONFIRMED, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowTransferConfirmed(auctionId, escrowId, parcelName), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowTransferConfirmed(auctionId, escrowId, parcelName), auctionId), auctionId),
             null
         ));
     }
@@ -247,7 +305,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         }
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowPayout(auctionId, escrowId, parcelName, payoutL), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowPayout(auctionId, escrowId, parcelName, payoutL), auctionId), auctionId),
             null
         ));
     }
@@ -258,7 +316,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "The escrow window passed without completion.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_EXPIRED, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowExpired(auctionId, escrowId, parcelName), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowExpired(auctionId, escrowId, parcelName), auctionId), auctionId),
             null
         ));
     }
@@ -270,7 +328,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "A dispute was opened. Awaiting admin review.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_DISPUTED, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowDisputed(auctionId, escrowId, parcelName, reasonCategory), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowDisputed(auctionId, escrowId, parcelName, reasonCategory), auctionId), auctionId),
             null
         ));
     }
@@ -282,7 +340,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Held pending review. Contact support if you need information.";
         notificationService.publish(new NotificationEvent(
             userId, NotificationCategory.ESCROW_FROZEN, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowFrozen(auctionId, escrowId, parcelName, reason), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowFrozen(auctionId, escrowId, parcelName, reason), auctionId), auctionId),
             null
         ));
     }
@@ -293,7 +351,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your payout is delayed. We're investigating; no action needed from you.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT_STALLED, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowPayoutStalled(auctionId, escrowId, parcelName), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowPayoutStalled(auctionId, escrowId, parcelName), auctionId), auctionId),
             null
         ));
     }
@@ -305,7 +363,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "Your escrow window expires soon. Transfer the parcel to release payout.";
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_TRANSFER_REMINDER, title, body,
-            withAuctionPublicId(NotificationDataBuilder.escrowTransferReminder(auctionId, escrowId, parcelName, transferDeadline), auctionId),
+            withParcelSlurl(withAuctionPublicId(NotificationDataBuilder.escrowTransferReminder(auctionId, escrowId, parcelName, transferDeadline), auctionId), auctionId),
             "transfer_reminder:" + sellerUserId + ":" + escrowId
         ));
     }
@@ -350,10 +408,10 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         String body = "An admin cancelled this listing. Your escrow has been refunded to your SLParcels wallet.";
         notificationService.publish(new NotificationEvent(
             winnerUserId, NotificationCategory.LISTING_CANCELLED_DURING_ESCROW, title, body,
-            withAuctionPublicId(
+            withParcelSlurl(withAuctionPublicId(
                 NotificationDataBuilder.listingCancelledDuringEscrow(
                     auctionId, escrowId, parcelName, adminNote),
-                auctionId),
+                auctionId), auctionId),
             null
         ));
     }
@@ -442,10 +500,10 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             sellerUserId,
             NotificationCategory.DISPUTE_FILED_AGAINST_SELLER,
             title, body,
-            withAuctionPublicId(
+            withParcelSlurl(withAuctionPublicId(
                 NotificationDataBuilder.disputeFiledAgainstSeller(
                     auctionId, escrowId, parcelName, amountL, reasonCategory),
-                auctionId),
+                auctionId), auctionId),
             null));
     }
 
@@ -461,11 +519,11 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             recipientUserId,
             NotificationCategory.DISPUTE_RESOLVED,
             title, body,
-            withAuctionPublicId(
+            withParcelSlurl(withAuctionPublicId(
                 NotificationDataBuilder.disputeResolved(
                     auctionId, escrowId, parcelName, amountL,
                     action.name(), alsoCancelListing, role),
-                auctionId),
+                auctionId), auctionId),
             null));
     }
 

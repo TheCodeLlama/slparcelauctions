@@ -10,6 +10,7 @@ public enum NotificationCategory {
     AUCTION_ENDED_NO_BIDS(NotificationGroup.AUCTION_RESULT),
     AUCTION_ENDED_BOUGHT_NOW(NotificationGroup.AUCTION_RESULT),
     ESCROW_FUNDED(NotificationGroup.ESCROW),
+    ESCROW_SELL_TO_SET(NotificationGroup.ESCROW),
     ESCROW_TRANSFER_CONFIRMED(NotificationGroup.ESCROW),
     ESCROW_PAYOUT(NotificationGroup.ESCROW),
     ESCROW_EXPIRED(NotificationGroup.ESCROW),

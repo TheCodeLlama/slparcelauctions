@@ -29,8 +29,28 @@ public interface NotificationPublisher {
     void auctionEndedBoughtNow(long sellerUserId, long auctionId, String parcelName, long buyNowL);
 
     // Escrow lifecycle
+    /**
+     * Seller-facing notification fired when the winner's escrow is funded.
+     * Body carries the Set-Sell-To recipe summary and the winner's SL
+     * avatar name ({@code winnerSlAvatarName}, may be {@code null} if the
+     * winner has no SL name resolved) so the seller can complete the
+     * in-world "Sell To" step without leaving the message. SLURL is
+     * injected centrally for every escrow category.
+     */
     void escrowFunded(long sellerUserId, long auctionId, long escrowId,
-                      String parcelName, OffsetDateTime transferDeadline);
+                      String parcelName, OffsetDateTime transferDeadline,
+                      String winnerSlAvatarName);
+
+    /**
+     * Buyer-facing notification fired when the bot (or an admin force-confirm)
+     * stamps {@code sellToConfirmedAt} on the escrow. Tells the winning buyer
+     * the seller has set the parcel "Sell To" them and to purchase it now,
+     * but only if the in-world price is L$0. The data blob carries the parcel
+     * SLURL (injected centrally for every escrow category) so the SL IM body
+     * and in-app row both link straight to the parcel.
+     */
+    void escrowSellToSet(long buyerUserId, long auctionId, long escrowId, String parcelName);
+
     void escrowTransferConfirmed(long userId, long auctionId, long escrowId, String parcelName);
 
     /**

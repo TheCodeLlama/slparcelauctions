@@ -32,6 +32,13 @@ class SlImLinkResolverTest {
     }
 
     @Test
+    void escrowSellToSet_resolvesToEscrowPage() {
+        assertThat(resolver.resolve(NotificationCategory.ESCROW_SELL_TO_SET,
+                Map.of("auctionId", 42, "escrowId", 100)))
+            .isEqualTo(BASE + "/auction/42/escrow");
+    }
+
+    @Test
     void listingSuspended_resolvesToDashboardListings() {
         assertThat(resolver.resolve(NotificationCategory.LISTING_SUSPENDED,
                 Map.of("auctionId", 42, "reason", "test")))
