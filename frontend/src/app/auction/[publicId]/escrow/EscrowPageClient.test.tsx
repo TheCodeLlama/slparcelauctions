@@ -216,12 +216,13 @@ describe("EscrowPageClient", () => {
       handler(fakeEscrowEnvelope("ESCROW_FUNDED", { auctionPublicId: "00000000-0000-0000-0000-000000000007" }));
     });
 
-    // The invalidation triggers the second MSW response (TRANSFER_PENDING
-    // pre-confirmation, winner variant) — headline is "Waiting for
-    // seller to transfer the parcel".
+    // The invalidation triggers the second MSW response (TRANSFER_PENDING,
+    // Set-Sell-To sub-phase since sellToConfirmedAt is null in the fixture
+    // default — winner variant) whose headline is "Waiting for the seller
+    // to set the parcel for sale".
     await waitFor(() => {
       expect(
-        screen.getByText(/waiting for seller to transfer the parcel/i),
+        screen.getByText(/waiting for the seller to set the parcel for sale/i),
       ).toBeInTheDocument();
     });
   });
