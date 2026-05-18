@@ -3,7 +3,6 @@ package com.slparcelauctions.backend.review;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,8 +18,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.slparcelauctions.backend.auction.Auction;
-import com.slparcelauctions.backend.auction.AuctionPhoto;
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.auction.PhotoUrl;
 import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.escrow.Escrow;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
@@ -449,17 +448,15 @@ public class ReviewService {
     }
 
     /**
-     * Mirrors the listing-detail primary-photo fallback: first photo by
-     * {@code sortOrder}, else the parcel's {@code snapshotUrl}. Returned
-     * URL is the public {@code /api/v1/auctions/{id}/photos/{photoId}/bytes}
-     * proxy path so renderers do not need to know S3 object keys.
+     * The auction's primary-photo URL (first photo by {@code sortOrder},
+     * else {@code null} when there are no photos). Delegates to
+     * {@link PhotoUrl#primaryForAuction(Auction)} so the canonical flat
+     * {@code GET /api/v1/photos/{publicId}} path is produced in exactly one
+     * place — see {@link PhotoUrl} for the history of the
+     * nonexistent-route / numeric-id bug this method used to carry.
      */
     private String resolvePrimaryPhotoUrl(Auction auction) {
-        return auction.getPhotos().stream()
-                .sorted(Comparator.comparing(AuctionPhoto::getSortOrder))
-                .findFirst()
-                .map(p -> "/api/v1/auctions/" + auction.getId() + "/photos/" + p.getId() + "/bytes")
-                .orElse(null);
+        return PhotoUrl.primaryForAuction(auction);
     }
 
     /**
