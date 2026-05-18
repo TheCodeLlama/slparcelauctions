@@ -341,6 +341,13 @@ Spec: `docs/superpowers/specs/2026-05-12-realty-groups-final-cleanup-design.md` 
 - **When:** Done (2026-05-18) — closed as no-op.
 - **Notes:** Append-only resolution row, per the ledger's immutability rule. Cross-ref: autonomy decisions log `docs/superpowers/decisions/2026-05-17-escrow-split-autonomy-notes.md`.
 
+### Systemic: `useAuth().user.verified` is stale after in-SPA verification
+
+- **From:** Wallet-terms-banner bug (2026-05-18). `WalletTermsBanner` didn't appear for a newly-verified user until a full page reload. Root cause: it gated on `useAuth()`, whose session cache (`["auth","session"]`, `staleTime: Infinity`, `refetchOnWindowFocus: false`) is populated once by `bootstrapSession` and never refreshed in-SPA. Avatar verification flips `verified` server-side but the frontend only learns it via `useCurrentUser()` (polled `/me`); nothing refreshes the auth-session cache. The component-level fix shipped (switch the banner to `useCurrentUser`, branch `fix/wallet-terms-banner-verified-source`), mirroring `WalletPill`.
+- **Why deferred:** The component fix removes the symptom for this banner, but the footgun is systemic: any current/future component that gates on `useAuth().user.verified` (or any other post-login-mutable field on the session user, e.g. a future role change) will be stale until a hard reload. A proper fix is broader than this bug and touches deliberately-frozen session semantics (`useAuth` is `staleTime: Infinity` to avoid the refresh-stampede captured in FOOTGUNS §F.2/§F.4), so it warrants its own scoped change rather than being bundled into a one-component hotfix.
+- **When:** Indefinite — next auth/session touch, or sooner if another `useAuth().*.verified`-gated surface regresses.
+- **Notes:** Likely shape: when the verify/onboarding flow observes `/me` flip to `verified: true` (it already polls via `useCurrentUser`), reconcile the auth-session cache from that same fresh user (`queryClient.setQueryData(["auth","session"], freshUser)`) rather than triggering a new `bootstrapSession`/refresh round-trip — keeps the no-stampede guarantee intact. Add a guard test (or lint) that flags `useAuth()`-derived `verified` gating in components so the next consumer is steered to `useCurrentUser`. Touchpoints: `lib/auth/hooks.ts` (`useAuth`, `SESSION_QUERY_KEY`), `lib/user/hooks.ts` (`useCurrentUser`, `CURRENT_USER_KEY`), `components/user/UnverifiedVerifyFlow.tsx` (the existing polling site that would do the reconcile).
+
 ---
 
 ## Removal Criteria
