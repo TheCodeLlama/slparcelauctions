@@ -215,7 +215,8 @@ public class EscrowService {
                     auction.getId(),
                     saved.getId(),
                     auction.getTitle(),
-                    saved.getTransferDeadline());
+                    saved.getTransferDeadline(),
+                    winner.getSlAvatarName());
         }
 
         final Escrow finalEscrow = saved;
