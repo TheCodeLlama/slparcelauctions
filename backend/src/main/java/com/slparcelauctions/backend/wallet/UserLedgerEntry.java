@@ -19,10 +19,12 @@ import lombok.experimental.SuperBuilder;
  * are never updated — withdraw lifecycle (QUEUED → COMPLETED|REVERSED) is
  * three separate appended rows, not mutations of the original.
  *
- * <p>{@code amount} is always positive; direction is implicit in
- * {@link UserLedgerEntryType}. {@code balanceAfter} and {@code reservedAfter}
- * are snapshots written at insert time — they are the authoritative state
- * for the user's wallet at that point in the ledger.
+ * <p>{@code amount} is positive for every entry type except
+ * {@code ADJUSTMENT}, whose sign carries the direction of an admin
+ * correction (positive credit, negative debit); direction for all other
+ * types is implicit in {@link UserLedgerEntryType}. {@code balanceAfter}
+ * and {@code reservedAfter} are snapshots written at insert time; they are
+ * the authoritative state for the user's wallet at that point in the ledger.
  *
  * <p>{@code slTransactionId} (LSL {@code llGenerateKey()}) deduplicates
  * terminal-side retries on {@code /sl/wallet/deposit} and

@@ -2,7 +2,8 @@ package com.slparcelauctions.backend.wallet;
 
 /**
  * Discriminator for {@link UserLedgerEntry} rows. Direction (debit vs credit)
- * is implicit in the entry_type — the entry's {@code amount} is always positive.
+ * is implicit in the entry_type and {@code amount} is positive, except for
+ * {@link #ADJUSTMENT} whose sign carries the direction of an admin correction.
  *
  * <p>See spec docs/superpowers/specs/2026-04-30-wallet-model-design.md §3.2.
  */
@@ -90,8 +91,12 @@ public enum UserLedgerEntryType {
     /**
      * Admin-issued ledger adjustment. {@code created_by_admin_id} required
      * (constraint enforced at the application layer; see
-     * {@code WalletService.adminAdjustment}). Used for forensic corrections
+     * {@code AdminWalletService.adjust}). Used for forensic corrections
      * after manual reconciliation, refunds-of-last-resort, etc.
+     *
+     * <p>Direction is encoded in the sign of {@code amount} (positive credit,
+     * negative debit); the {@code user_ledger_amount_check} constraint admits
+     * a negative amount only for this entry type (see migration V38).
      */
     ADJUSTMENT,
 
