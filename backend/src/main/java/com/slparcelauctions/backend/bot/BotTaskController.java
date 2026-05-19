@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.slparcelauctions.backend.bot.dto.BotTaskClaimRequest;
 import com.slparcelauctions.backend.bot.dto.BotTaskResponse;
 import com.slparcelauctions.backend.bot.dto.BotTaskResultRequest;
+import com.slparcelauctions.backend.bot.dto.BuyOwnerResultRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,21 @@ public class BotTaskController {
     public ResponseEntity<Void> result(@PathVariable Long taskId,
             @Valid @RequestBody BotTaskResultRequest body) {
         botTaskResultService.apply(taskId, body);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Bot {@code VERIFY_BUY_OWNER} result callback (bot-dispatch refactor
+     * 2026-05-18). A separate endpoint from the {@code VERIFY_SELL_TO} callback
+     * because the outcome enum + payload shape differ — sharing one endpoint
+     * via a discriminated union would force every bot client to thread the
+     * task-type through, whereas split endpoints let the bot pick the right
+     * payload at the call site. Idempotent on terminal task state.
+     */
+    @PostMapping("/{taskId}/verify-buy-owner-result")
+    public ResponseEntity<Void> verifyBuyOwnerResult(@PathVariable Long taskId,
+            @Valid @RequestBody BuyOwnerResultRequest body) {
+        botTaskResultService.applyVerifyBuyOwnerResult(taskId, body);
         return ResponseEntity.noContent().build();
     }
 }

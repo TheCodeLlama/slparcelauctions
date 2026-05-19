@@ -16,7 +16,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,7 +34,9 @@ import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.auction.AuctionStatus;
 import com.slparcelauctions.backend.bot.dto.BotTaskResultRequest;
+import com.slparcelauctions.backend.bot.dto.BuyOwnerResultRequest;
 import com.slparcelauctions.backend.escrow.Escrow;
+import com.slparcelauctions.backend.escrow.EscrowManualActionService;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.EscrowState;
@@ -316,6 +320,175 @@ class BotTaskResultServiceTest {
 
         verifyNoInteractions(escrowService);
         verify(escrowRepo, never()).findByIdForUpdate(any());
+    }
+
+    // ---- applyVerifyBuyOwnerResult (bot-dispatch verify-purchase 2026-05-18) ----
+
+    @Test
+    void buyOwner_ownerIsWinner_confirmsTransfer_completesTask_clearsPending() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        primeLoad(task, escrow);
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.OWNER_IS_WINNER, UUID.randomUUID(), "agent"));
+
+        verify(escrowService).confirmTransfer(escrow, now);
+        verify(escrowService, never()).stampChecked(any(), any());
+        verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
+    }
+
+    @Test
+    void buyOwner_ownerStillPreTransfer_sellerRequest_consumesSellerCounter() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_SELLER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        escrow.setBuyVerifySellerAttempts(0);
+        escrow.setBuyVerifyBuyerAttempts(0);
+        primeLoad(task, escrow);
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER, UUID.randomUUID(), "agent"));
+
+        assertThat(escrow.getBuyVerifySellerAttempts()).isEqualTo(1);
+        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        verify(escrowService).stampChecked(escrow, now);
+        verify(escrowService, never()).confirmTransfer(any(), any());
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
+    }
+
+    @Test
+    void buyOwner_ownerStillPreTransfer_buyerRequest_consumesBuyerCounter() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        escrow.setBuyVerifySellerAttempts(0);
+        escrow.setBuyVerifyBuyerAttempts(0);
+        primeLoad(task, escrow);
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER, UUID.randomUUID(), "agent"));
+
+        assertThat(escrow.getBuyVerifyBuyerAttempts()).isEqualTo(1);
+        assertThat(escrow.getBuyVerifySellerAttempts()).isZero();
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        verify(escrowService).stampChecked(escrow, now);
+    }
+
+    @Test
+    void buyOwner_ownerIsStranger_freezesUnknownOwner_clearsPending() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        primeLoad(task, escrow);
+        UUID strangerUuid = UUID.randomUUID();
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.OWNER_IS_STRANGER, strangerUuid, "agent"));
+
+        verify(escrowService).freezeForFraud(
+                eq(escrow), eq(FreezeReason.UNKNOWN_OWNER), any(), eq(now));
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
+    }
+
+    @Test
+    void buyOwner_parcelDeleted_freezesParcelDeleted_clearsPending() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        primeLoad(task, escrow);
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.PARCEL_DELETED, null, null));
+
+        verify(escrowService).freezeForFraud(
+                eq(escrow), eq(FreezeReason.PARCEL_DELETED), any(), eq(now));
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.COMPLETED);
+    }
+
+    @Test
+    void buyOwner_worldApiFailure_clearsPending_noAttempt_taskFailed() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        escrow.setBuyVerifyBuyerAttempts(0);
+        primeLoad(task, escrow);
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.WORLD_API_FAILURE, null, null));
+
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
+        verify(escrowService, never()).confirmTransfer(any(), any());
+        verify(escrowService, never()).stampChecked(any(), any());
+        verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.FAILED);
+    }
+
+    @Test
+    void buyOwner_unknownError_sameTransientHandling_asWorldApiFailure() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        Escrow escrow = transferPending(now.plusHours(70));
+        escrow.setManualVerifyPending(true);
+        primeLoad(task, escrow);
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.UNKNOWN_ERROR, null, null));
+
+        assertThat(escrow.getManualVerifyPending()).isFalse();
+        verify(escrowService, never()).confirmTransfer(any(), any());
+        assertThat(task.getStatus()).isEqualTo(BotTaskStatus.FAILED);
+    }
+
+    @Test
+    void buyOwner_terminalTask_isNoOp() {
+        BotTask task = pendingBuyOwnerTask(EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        task.setStatus(BotTaskStatus.COMPLETED);
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.OWNER_IS_WINNER, null, null));
+
+        verifyNoInteractions(escrowService);
+        verify(escrowRepo, never()).findByIdForUpdate(any());
+    }
+
+    @Test
+    void buyOwner_wrongTaskType_isNoOp() {
+        BotTask task = pendingTask(); // VERIFY_SELL_TO type
+        when(botTaskRepo.findById(TASK_ID)).thenReturn(Optional.of(task));
+
+        service.applyVerifyBuyOwnerResult(TASK_ID,
+                new BuyOwnerResultRequest(BuyOwnerOutcome.OWNER_IS_WINNER, null, null));
+
+        verifyNoInteractions(escrowService);
+        verify(escrowRepo, never()).findByIdForUpdate(any());
+    }
+
+    private BotTask pendingBuyOwnerTask(String requestingRole) {
+        Escrow escrow = transferPending(now.plusHours(70));
+        Map<String, Object> payload = new HashMap<>();
+        if (requestingRole != null) {
+            payload.put(EscrowManualActionService.REQUESTING_ROLE_KEY, requestingRole);
+        }
+        return BotTask.builder()
+                .id(TASK_ID)
+                .taskType(BotTaskType.VERIFY_BUY_OWNER)
+                .status(BotTaskStatus.PENDING)
+                .auction(escrow.getAuction())
+                .escrow(escrow)
+                .parcelUuid(UUID.randomUUID())
+                .sentinelPrice(0L)
+                .resultData(payload)
+                .nextRunAt(now.minusMinutes(1))
+                .build();
     }
 
     // ---- helpers ----

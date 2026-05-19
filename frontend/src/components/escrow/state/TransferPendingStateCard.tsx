@@ -166,13 +166,18 @@ function VerifyControls({
   onRequestReview: () => void;
 }) {
   const exhausted = attemptsRemaining <= 0;
+  // Bot-dispatched verify (Verify Sell To + Verify Purchase, spec 2026-05-18):
+  // the POST returns 202 but the bot may still be teleporting to the parcel.
+  // Keep the button disabled and show "Verification process pending" until the
+  // bot result lands and the backend flips manualVerifyPending back to false.
+  const botPending = escrow.manualVerifyPending === true;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
           size="md"
-          disabled={exhausted}
+          disabled={exhausted || botPending}
           loading={verifyPending}
           onClick={onVerify}
         >
@@ -185,10 +190,19 @@ function VerifyControls({
           {attemptsRemaining} of 3 manual attempts left
         </span>
       </div>
-      <p className="text-xs text-fg-muted">
-        After your manual attempts run out, SLParcels automatically re-checks
-        every 30 min.
-      </p>
+      {botPending ? (
+        <p
+          data-testid="verify-bot-pending"
+          className="text-xs font-medium text-fg-muted"
+        >
+          Verification process pending
+        </p>
+      ) : (
+        <p className="text-xs text-fg-muted">
+          After your manual attempts run out, SLParcels automatically re-checks
+          every 30 min.
+        </p>
+      )}
       {escrow.manualReviewStatus === "OPEN" ? (
         <p className="text-xs font-medium text-fg-muted">
           A manual review is open. SLParcels staff will follow up.

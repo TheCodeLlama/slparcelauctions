@@ -48,9 +48,11 @@ export function verifySellTo(
 }
 
 /**
- * Triggers a manual buy/transfer verification (spec 2026-05-17 §9). Backend
- * returns 200 with the updated escrow status (transferConfirmedAt stamped on
- * success, decremented attempt count otherwise).
+ * Triggers a manual buy/transfer verification (spec 2026-05-17 §9; bot-dispatch
+ * refactor 2026-05-18). Backend returns 202 — the actual check runs
+ * asynchronously on the bot worker; the response carries the updated escrow
+ * status with `manualVerifyPending=true`, and the eventual bot result lands on
+ * the page via an escrow-status cache invalidation.
  */
 export function verifyTransfer(
   auctionId: number | string,

@@ -71,4 +71,13 @@ public record EscrowStatusResponse(
         /** Clickable SL map URL to the parcel (https maps.secondlife.com). */
         String parcelMapUrl,
         /** In-world viewer teleport SLURL to the parcel (secondlife:///app/teleport). */
-        String parcelViewerUrl) { }
+        String parcelViewerUrl,
+        /**
+         * {@code true} while a bot-dispatched {@code VERIFY_SELL_TO} or
+         * {@code VERIFY_BUY_OWNER} check is in flight (set when the user
+         * clicks Verify Sell To / Verify Purchase, cleared when the bot result
+         * lands). Drives the "Verification process pending" UI on the escrow
+         * page so the button stays disabled until the async result arrives —
+         * the POST roundtrip returning is not enough on its own.
+         */
+        boolean manualVerifyPending) { }

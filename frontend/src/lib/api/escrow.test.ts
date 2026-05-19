@@ -125,20 +125,27 @@ describe("escrow API client", () => {
   });
 
   describe("verifyTransfer", () => {
-    it("POSTs and returns the updated escrow status", async () => {
+    it("POSTs and returns 202 with updated escrow status (manualVerifyPending=true)", async () => {
+      // Bot-dispatch refactor (spec 2026-05-18): verify-transfer is now 202
+      // and the bot result lands later via STOMP / cache invalidation. The
+      // immediate response carries manualVerifyPending=true so the UI greys
+      // the button until the bot result arrives.
       server.use(
         http.post("*/api/v1/auctions/7/escrow/verify-transfer", () =>
           HttpResponse.json(
             fakeEscrow({
               state: "TRANSFER_PENDING",
               sellToConfirmedAt: "2026-05-17T10:00:00Z",
-              transferConfirmedAt: "2026-05-17T10:05:00Z",
+              transferConfirmedAt: null,
+              manualVerifyPending: true,
             }),
+            { status: 202 },
           ),
         ),
       );
       const result = await verifyTransfer(7);
-      expect(result.transferConfirmedAt).toBe("2026-05-17T10:05:00Z");
+      expect(result.manualVerifyPending).toBe(true);
+      expect(result.transferConfirmedAt).toBeNull();
     });
   });
 
