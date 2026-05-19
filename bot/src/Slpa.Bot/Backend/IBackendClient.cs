@@ -24,6 +24,14 @@ public interface IBackendClient
     /// <see cref="AuthConfigException"/> on 401.
     /// </summary>
     Task ReportTaskResultAsync(long taskId, BotTaskResultRequest body, CancellationToken ct);
+
+    /// <summary>
+    /// Posts a <c>VERIFY_BUY_OWNER</c> classification back to the backend
+    /// (<c>POST /api/v1/bot/tasks/{taskId}/verify-buy-owner-result</c>, 204 on
+    /// success). Shares the bearer auth + 5xx retry ladder. Throws
+    /// <see cref="AuthConfigException"/> on 401.
+    /// </summary>
+    Task ReportBuyOwnerResultAsync(long taskId, BuyOwnerResultRequest body, CancellationToken ct);
 }
 
 /// <summary>

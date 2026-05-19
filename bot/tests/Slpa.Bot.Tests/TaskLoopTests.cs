@@ -23,6 +23,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
@@ -47,6 +49,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -86,6 +90,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
@@ -111,6 +117,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -138,6 +146,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -171,6 +181,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -217,6 +229,8 @@ public sealed class TaskLoopTests
                     NullLogger<WithdrawGroupHandler>.Instance),
             () => new VerifySellToHandler(session, backend.Object,
                     NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
             NullLogger<TaskLoop>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
@@ -228,6 +242,78 @@ public sealed class TaskLoopTests
                 It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
+
+    [Fact]
+    public async Task VerifyBuyOwnerTask_IsDispatchedToHandler()
+    {
+        var session = new FakeBotSession();
+        session.SimulateLoginSuccess();
+        var winner = Guid.NewGuid();
+        session.ReadPolicy = (_, _) => new ParcelSnapshot(
+            OwnerId: winner, // owner == winner -> OWNER_IS_WINNER
+            GroupId: Guid.Empty,
+            IsGroupOwned: false,
+            AuthBuyerId: Guid.Empty,
+            SalePrice: 0,
+            ForSale: false,
+            Name: "P",
+            Description: "",
+            AreaSqm: 1024,
+            MaxPrims: 234,
+            Category: 0,
+            SnapshotId: Guid.NewGuid(),
+            Flags: 0u);
+
+        var backend = new Mock<IBackendClient>();
+        var claims = 0;
+        backend.Setup(b => b.ClaimAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(() =>
+               {
+                   claims++;
+                   return claims == 1 ? MakeVerifyBuyOwnerTask(winner) : null;
+               });
+
+        var loop = new TaskLoop(session, backend.Object,
+            Mock.Of<IIdleParker>(), new BotActivityState(),
+            () => new WithdrawGroupHandler(session, backend.Object,
+                    NullLogger<WithdrawGroupHandler>.Instance),
+            () => new VerifySellToHandler(session, backend.Object,
+                    NullLogger<VerifySellToHandler>.Instance),
+            () => new VerifyBuyOwnerHandler(session, backend.Object,
+                    NullLogger<VerifyBuyOwnerHandler>.Instance),
+            NullLogger<TaskLoop>.Instance);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
+        await loop.RunAsync(cts.Token);
+
+        backend.Verify(b => b.ReportBuyOwnerResultAsync(
+                66,
+                It.Is<BuyOwnerResultRequest>(r => r.Outcome == BuyOwnerOutcome.OWNER_IS_WINNER),
+                It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    private static BotTaskResponse MakeVerifyBuyOwnerTask(Guid winner) => new(
+        Id: 66,
+        TaskType: BotTaskType.VERIFY_BUY_OWNER,
+        Status: BotTaskStatus.IN_PROGRESS,
+        AuctionId: 7,
+        EscrowId: 11,
+        ParcelUuid: Guid.NewGuid(),
+        RegionName: "R",
+        PositionX: 128,
+        PositionY: 64,
+        PositionZ: 25,
+        SentinelPrice: 0,
+        AssignedBotUuid: Guid.NewGuid(),
+        FailureReason: null,
+        NextRunAt: null,
+        RecurrenceIntervalSeconds: null,
+        CreatedAt: DateTimeOffset.UtcNow,
+        CompletedAt: null,
+        RecipientUuid: null,
+        AmountL: null,
+        ExpectedWinnerUuid: winner);
 
     private static BotTaskResponse MakeVerifySellToTask(Guid winner) => new(
         Id: 55,

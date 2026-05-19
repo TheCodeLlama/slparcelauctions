@@ -20,6 +20,7 @@ public sealed class TaskLoop : BackgroundService
     private readonly IBotSession _session;
     private readonly Func<WithdrawGroupHandler> _withdrawGroup;
     private readonly Func<VerifySellToHandler> _verifySellTo;
+    private readonly Func<VerifyBuyOwnerHandler> _verifyBuyOwner;
     private readonly IBackendClient _backend;
     private readonly IIdleParker _idleParker;
     private readonly BotActivityState _activity;
@@ -35,9 +36,10 @@ public sealed class TaskLoop : BackgroundService
         BotActivityState activity,
         WithdrawGroupHandler withdrawGroup,
         VerifySellToHandler verifySellTo,
+        VerifyBuyOwnerHandler verifyBuyOwner,
         ILogger<TaskLoop> log)
         : this(session, backend, idleParker, activity,
-            () => withdrawGroup, () => verifySellTo, log)
+            () => withdrawGroup, () => verifySellTo, () => verifyBuyOwner, log)
     {
     }
 
@@ -52,6 +54,7 @@ public sealed class TaskLoop : BackgroundService
         BotActivityState activity,
         Func<WithdrawGroupHandler> withdrawGroup,
         Func<VerifySellToHandler> verifySellTo,
+        Func<VerifyBuyOwnerHandler> verifyBuyOwner,
         ILogger<TaskLoop> log)
     {
         _session = session;
@@ -60,6 +63,7 @@ public sealed class TaskLoop : BackgroundService
         _activity = activity;
         _withdrawGroup = withdrawGroup;
         _verifySellTo = verifySellTo;
+        _verifyBuyOwner = verifyBuyOwner;
         _log = log;
     }
 
@@ -151,6 +155,7 @@ public sealed class TaskLoop : BackgroundService
         {
             BotTaskType.WITHDRAW_GROUP => _withdrawGroup().HandleAsync(task, ct),
             BotTaskType.VERIFY_SELL_TO => _verifySellTo().HandleAsync(task, ct),
+            BotTaskType.VERIFY_BUY_OWNER => _verifyBuyOwner().HandleAsync(task, ct),
             _ => Task.CompletedTask
         };
     }
