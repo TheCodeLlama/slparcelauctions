@@ -5,14 +5,15 @@ import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.bot.BotTask;
 import com.slparcelauctions.backend.bot.BotTaskRepository;
+import com.slparcelauctions.backend.bot.BotTaskStatus;
 import com.slparcelauctions.backend.bot.BotTaskType;
 import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
 import com.slparcelauctions.backend.escrow.exception.EscrowAccessDeniedException;
@@ -26,12 +27,6 @@ import com.slparcelauctions.backend.escrow.review.ManualReviewRole;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStep;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
-import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
-import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
-import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
-import com.slparcelauctions.backend.sl.dto.ParcelPageData;
-import com.slparcelauctions.backend.sl.exception.ParcelNotFoundInSlException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -54,13 +49,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EscrowManualActionService {
 
+    /** Payload key on the {@link BotTask#getResultData()} JSON map carrying
+     *  the requesting role ("SELLER" / "BUYER") so the callback consumes the
+     *  correct manual-attempt counter for verify-purchase. */
+    public static final String REQUESTING_ROLE_KEY = "requestingRole";
+    public static final String REQUESTING_ROLE_SELLER = "SELLER";
+    public static final String REQUESTING_ROLE_BUYER = "BUYER";
+
     private final EscrowRepository escrowRepo;
     private final EscrowService escrowService;
     private final BotTaskRepository botTaskRepo;
     private final EscrowManualReviewRepository manualReviewRepo;
-    private final SlWorldApiClient worldApi;
     private final UserRepository userRepo;
-    private final RealtyGroupSlGroupRepository slGroupRepo;
     private final EscrowConfigProperties props;
     private final Clock clock;
 
@@ -110,10 +110,17 @@ public class EscrowManualActionService {
     }
 
     /**
-     * Seller-or-buyer manual "Verify Purchase" (spec §6.1). Runs the
-     * World-API owner check inline (sub-second) and applies the same
-     * outcome matrix as the scheduled monitor. Definitive-negative
-     * (owner still seller/group) consumes the caller-role attempt counter.
+     * Seller-or-buyer manual "Verify Purchase" (spec §6.1, bot-dispatch refactor
+     * 2026-05-18). Expedites an open {@code VERIFY_BUY_OWNER} bot task (or
+     * creates one if none exists) and arms {@code manualVerifyPending} so the
+     * UI greys both verify buttons until the bot result lands. Definitive-
+     * negative outcomes (owner still seller/group) consume the caller-role
+     * attempt counter back in {@link com.slparcelauctions.backend.bot.BotTaskResultService};
+     * no attempt is consumed here.
+     *
+     * <p>The 30-min automated background ownership polling stays on the
+     * cheaper World-API path — this bot-dispatched flow is scoped to the
+     * user-initiated manual verify only.
      */
     @Transactional
     public EscrowStatusResponse verifyTransfer(Long auctionId, Long callerUserId) {
@@ -145,74 +152,53 @@ public class EscrowManualActionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now(clock);
-        UUID parcelUuid = auction.getSlParcelUuid();
-        try {
-            ParcelMetadata result = worldApi.fetchParcelPage(parcelUuid)
-                    .map(ParcelPageData::parcel)
-                    .block();
-            if (result == null) {
-                // Degenerate empty response — treat as a retryable infra
-                // failure, do not consume an attempt.
-                throw new IllegalStateException("Empty World API response for parcel " + parcelUuid);
-            }
+        String requestingRole = isSeller ? REQUESTING_ROLE_SELLER : REQUESTING_ROLE_BUYER;
 
-            UUID ownerUuid = result.ownerUuid();
+        // Expedite any open VERIFY_BUY_OWNER task for this escrow; otherwise
+        // create one. The "one open task per escrow per type" invariant
+        // matches the VERIFY_SELL_TO path (BotTaskRepository.findOpenByEscrowAndType
+        // returns at most one row). The requesting role is stamped onto the
+        // task's resultData payload so the bot callback consumes the correct
+        // role counter on a definitive negative.
+        List<BotTask> open = botTaskRepo.findOpenByEscrowAndType(
+                escrow.getId(), BotTaskType.VERIFY_BUY_OWNER);
+        BotTask task;
+        if (!open.isEmpty()) {
+            task = open.get(0);
+            task.setNextRunAt(now);
+            Map<String, Object> payload = task.getResultData() == null
+                    ? new HashMap<>() : new HashMap<>(task.getResultData());
+            payload.put(REQUESTING_ROLE_KEY, requestingRole);
+            task.setResultData(payload);
+        } else {
+            AuctionParcelSnapshot snap = auction.getParcelSnapshot();
             User winner = userRepo.findById(auction.getWinnerUserId()).orElseThrow();
-            UUID winnerUuid = winner.getSlAvatarUuid();
-
-            UUID expectedPreTransfer;
-            String expectedPreTransferLabel;
-            if (auction.getRealtyGroupSlGroupId() != null) {
-                RealtyGroupSlGroup reg = slGroupRepo
-                        .findById(auction.getRealtyGroupSlGroupId())
-                        .orElse(null);
-                expectedPreTransfer = (reg == null) ? null : reg.getSlGroupUuid();
-                expectedPreTransferLabel = "expectedGroupUuid";
-            } else {
-                expectedPreTransfer = auction.getSeller().getSlAvatarUuid();
-                expectedPreTransferLabel = "expectedSellerUuid";
-            }
-
-            if (winnerUuid != null && winnerUuid.equals(ownerUuid)) {
-                escrowService.confirmTransfer(escrow, now);
-                return escrowService.getStatus(auctionId, callerUserId);
-            }
-            if (expectedPreTransfer != null && expectedPreTransfer.equals(ownerUuid)) {
-                // Definitive negative: parcel still pre-transfer. Consume the
-                // caller's role counter, then stamp-checked (success of the
-                // check itself resets the World-API failure streak).
-                if (isSeller) {
-                    escrow.setBuyVerifySellerAttempts(consumed + 1);
-                } else {
-                    escrow.setBuyVerifyBuyerAttempts(consumed + 1);
-                }
-                escrowRepo.save(escrow);
-                escrowService.stampChecked(escrow, now);
-                return escrowService.getStatus(auctionId, callerUserId);
-            }
-
-            Map<String, Object> evidence = new HashMap<>();
-            evidence.put("observedOwnerUuid", ownerUuid == null ? "<null>" : ownerUuid.toString());
-            evidence.put("expectedWinnerUuid", winnerUuid == null ? "<null>" : winnerUuid.toString());
-            evidence.put(expectedPreTransferLabel,
-                    expectedPreTransfer == null ? "<null>" : expectedPreTransfer.toString());
-            evidence.put("observedOwnerType", result.ownerType() == null ? "<null>" : result.ownerType());
-            evidence.put("source", "manual-verify-transfer");
-            escrowService.freezeForFraud(escrow, FreezeReason.UNKNOWN_OWNER, evidence, now);
-            return escrowService.getStatus(auctionId, callerUserId);
-
-        } catch (ParcelNotFoundInSlException e) {
-            Map<String, Object> evidence = new HashMap<>();
-            evidence.put("parcelUuid", parcelUuid.toString());
-            evidence.put("worldApiMessage", e.getMessage() == null ? "" : e.getMessage());
-            evidence.put("source", "manual-verify-transfer");
-            escrowService.freezeForFraud(escrow, FreezeReason.PARCEL_DELETED, evidence, now);
-            return escrowService.getStatus(auctionId, callerUserId);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put(REQUESTING_ROLE_KEY, requestingRole);
+            task = BotTask.builder()
+                    .taskType(BotTaskType.VERIFY_BUY_OWNER)
+                    .status(BotTaskStatus.PENDING)
+                    .auction(auction)
+                    .escrow(escrow)
+                    .parcelUuid(snap != null ? snap.getSlParcelUuid()
+                            : auction.getSlParcelUuid())
+                    .regionName(snap != null ? snap.getRegionName() : null)
+                    .positionX(snap != null ? snap.getPositionX() : null)
+                    .positionY(snap != null ? snap.getPositionY() : null)
+                    .positionZ(snap != null ? snap.getPositionZ() : null)
+                    .expectedWinnerUuid(winner.getSlAvatarUuid())
+                    .nextRunAt(now)
+                    .sentinelPrice(0L)
+                    .resultData(payload)
+                    .build();
         }
-        // ExternalApiTimeoutException (and the IllegalStateException above)
-        // propagate unconsumed — a transient infra failure must not burn a
-        // manual attempt. The escrow @RestControllerAdvice / GlobalExceptionHandler
-        // surface it as a retryable error.
+        botTaskRepo.save(task);
+        escrow.setManualVerifyPending(true);
+        escrowRepo.save(escrow);
+
+        log.info("Manual verify-transfer requested for escrow {} (auction {}) by {} ({})",
+                escrow.getId(), auctionId, callerUserId, requestingRole);
+        return escrowService.getStatus(auctionId, callerUserId);
     }
 
     /**
