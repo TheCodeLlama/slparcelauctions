@@ -300,8 +300,11 @@ public class NotificationPublisherImpl implements NotificationPublisher {
                 + "L$%d credited to %s group wallet.",
                 commissionAmt, groupSliceAmt, groupName);
         } else {
-            // Individual sale.
-            body = String.format("L$%d payout received for %s.", payoutL, parcelName);
+            // Individual sale. Post wallet-first cutover the L$ now lands in
+            // the seller's SLParcels wallet, not on their avatar -- the copy
+            // changed from "payout received" to make the in-wallet location
+            // unambiguous so the seller knows they need to withdraw separately.
+            body = String.format("L$%d credited to your SLParcels wallet.", payoutL);
         }
         notificationService.publish(new NotificationEvent(
             sellerUserId, NotificationCategory.ESCROW_PAYOUT, title, body,
