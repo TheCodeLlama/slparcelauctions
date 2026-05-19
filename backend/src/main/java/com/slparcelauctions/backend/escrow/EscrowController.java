@@ -95,8 +95,8 @@ public class EscrowController {
             @PathVariable UUID auctionPublicId,
             @AuthenticationPrincipal AuthPrincipal principal) {
         Long auctionId = resolveAuctionId(auctionPublicId);
-        return ResponseEntity.ok(
-                manualActionService.verifyTransfer(auctionId, principal.userId()));
+        return ResponseEntity.accepted()
+                .body(manualActionService.verifyTransfer(auctionId, principal.userId()));
     }
 
     @PostMapping("/manual-review")

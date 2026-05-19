@@ -531,7 +531,8 @@ public class EscrowService {
                 reviewStatus,
                 reviewStep,
                 parcelMapUrl,
-                parcelViewerUrl);
+                parcelViewerUrl,
+                Boolean.TRUE.equals(escrow.getManualVerifyPending()));
     }
 
     private List<EscrowTimelineEntry> buildTimeline(Escrow e) {

@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.slparcelauctions.backend.bot.dto.BotTaskResultRequest;
+import com.slparcelauctions.backend.bot.dto.BuyOwnerResultRequest;
 import com.slparcelauctions.backend.escrow.Escrow;
+import com.slparcelauctions.backend.escrow.EscrowManualActionService;
 import com.slparcelauctions.backend.escrow.EscrowRepository;
 import com.slparcelauctions.backend.escrow.EscrowService;
 import com.slparcelauctions.backend.escrow.FreezeReason;
@@ -128,6 +130,140 @@ public class BotTaskResultService {
             case PARCEL_NOT_FOUND ->
                     infraFailure(task, escrow, outcome, now, true);
         }
+    }
+
+    /**
+     * Bot {@code VERIFY_BUY_OWNER} result callback. Applies the bot-dispatched
+     * verify-purchase outcome matrix (see {@link BuyOwnerOutcome}):
+     *
+     * <ul>
+     *   <li>{@code OWNER_IS_WINNER} → {@link EscrowService#confirmTransfer};
+     *       clear {@code manualVerifyPending}; task COMPLETED.</li>
+     *   <li>{@code OWNER_STILL_PRE_TRANSFER} → consume the
+     *       {@code buyVerifySellerAttempts} or {@code buyVerifyBuyerAttempts}
+     *       counter depending on the {@code requestingRole} payload stamped at
+     *       dispatch; {@link EscrowService#stampChecked}; clear
+     *       {@code manualVerifyPending}; task COMPLETED. Definitive negative
+     *       per attempt — the manual flow is not a recurring schedule, so the
+     *       task does not reschedule.</li>
+     *   <li>{@code OWNER_IS_STRANGER} →
+     *       {@link EscrowService#freezeForFraud}{@code (UNKNOWN_OWNER)};
+     *       clear pending; task COMPLETED.</li>
+     *   <li>{@code PARCEL_DELETED} →
+     *       {@link EscrowService#freezeForFraud}{@code (PARCEL_DELETED)};
+     *       clear pending; task COMPLETED.</li>
+     *   <li>{@code WORLD_API_FAILURE} / {@code UNKNOWN_ERROR} → transient. Clear
+     *       {@code manualVerifyPending} so the user can retry; no attempt
+     *       consumed; task FAILED. The 30-min background ownership polling
+     *       remains the system-driven safety net for these escrows.</li>
+     * </ul>
+     *
+     * <p>Idempotent on terminal task state. Tasks are not rescheduled — manual
+     * verify is a one-shot per user click, unlike the recurring Set-Sell-To
+     * task.
+     */
+    @Transactional
+    public void applyVerifyBuyOwnerResult(long taskId, BuyOwnerResultRequest body) {
+        BotTask task = botTaskRepo.findById(taskId).orElse(null);
+        if (task == null) {
+            log.debug("Buy-owner result for unknown task {} — no-op", taskId);
+            return;
+        }
+        if (task.getTaskType() != BotTaskType.VERIFY_BUY_OWNER) {
+            log.warn("Buy-owner result for task {} of wrong type {} — no-op",
+                    taskId, task.getTaskType());
+            return;
+        }
+        if (isTerminal(task.getStatus())) {
+            log.debug("Buy-owner result for terminal task {} (status {}) — idempotent no-op",
+                    taskId, task.getStatus());
+            return;
+        }
+        if (task.getEscrow() == null) {
+            log.warn("Buy-owner result for task {} with no escrow — no-op", taskId);
+            return;
+        }
+
+        Escrow escrow = escrowRepo.findByIdForUpdate(task.getEscrow().getId())
+                .orElse(null);
+        if (escrow == null) {
+            log.warn("Buy-owner result for task {}: escrow {} not found — no-op",
+                    taskId, task.getEscrow().getId());
+            return;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        BuyOwnerOutcome outcome = body.outcome();
+        String requestingRole = extractRequestingRole(task);
+        log.info("Applying buy-owner result {} for task {} (escrow {}, auction {}, role {})",
+                outcome, taskId, escrow.getId(), escrow.getAuction().getId(), requestingRole);
+
+        switch (outcome) {
+            case OWNER_IS_WINNER -> {
+                escrow.setManualVerifyPending(false);
+                escrowRepo.save(escrow);
+                escrowService.confirmTransfer(escrow, now);
+                completeTask(task, now);
+            }
+            case OWNER_STILL_PRE_TRANSFER -> {
+                if (EscrowManualActionService.REQUESTING_ROLE_SELLER.equals(requestingRole)) {
+                    escrow.setBuyVerifySellerAttempts(
+                            nz(escrow.getBuyVerifySellerAttempts()) + 1);
+                } else {
+                    // Default to buyer-counter for missing / "BUYER" / unknown
+                    // — caller-side dispatch always stamps the role, but if the
+                    // payload is ever absent we prefer to charge the buyer
+                    // counter (which is the more common manual-verify caller).
+                    escrow.setBuyVerifyBuyerAttempts(
+                            nz(escrow.getBuyVerifyBuyerAttempts()) + 1);
+                }
+                escrow.setManualVerifyPending(false);
+                escrowRepo.save(escrow);
+                escrowService.stampChecked(escrow, now);
+                completeTask(task, now);
+            }
+            case OWNER_IS_STRANGER -> {
+                escrow.setManualVerifyPending(false);
+                escrowRepo.save(escrow);
+                Map<String, Object> evidence = new HashMap<>();
+                evidence.put("observedOwnerUuid",
+                        body.observedOwnerUuid() == null ? "<null>"
+                                : body.observedOwnerUuid().toString());
+                evidence.put("observedOwnerType",
+                        body.observedOwnerType() == null ? "<null>"
+                                : body.observedOwnerType());
+                evidence.put("source", "bot-verify-buy-owner");
+                escrowService.freezeForFraud(escrow, FreezeReason.UNKNOWN_OWNER, evidence, now);
+                completeTask(task, now);
+            }
+            case PARCEL_DELETED -> {
+                escrow.setManualVerifyPending(false);
+                escrowRepo.save(escrow);
+                Map<String, Object> evidence = new HashMap<>();
+                evidence.put("source", "bot-verify-buy-owner");
+                escrowService.freezeForFraud(escrow, FreezeReason.PARCEL_DELETED, evidence, now);
+                completeTask(task, now);
+            }
+            case WORLD_API_FAILURE, UNKNOWN_ERROR -> {
+                // Transient: no attempt consumed, no state change beyond
+                // clearing the pending flag so the user can retry.
+                escrow.setManualVerifyPending(false);
+                escrowRepo.save(escrow);
+                task.setStatus(BotTaskStatus.FAILED);
+                task.setFailureReason(outcome.name());
+                task.setCompletedAt(now);
+                botTaskRepo.save(task);
+            }
+        }
+    }
+
+    private static String extractRequestingRole(BotTask task) {
+        Map<String, Object> payload = task.getResultData();
+        if (payload == null) {
+            return null;
+        }
+        Object role = payload.get(EscrowManualActionService.REQUESTING_ROLE_KEY);
+        return role == null ? null : role.toString();
     }
 
     private void definitiveNegative(BotTask task, Escrow escrow,

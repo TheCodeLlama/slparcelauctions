@@ -35,7 +35,12 @@ export function useVerifySellTo(auctionPublicId: string) {
   });
 }
 
-/** Manual buy/transfer verify (200 sync). */
+/**
+ * Manual buy/transfer verify (202 async; result arrives via STOMP +
+ * cache invalidation). Mirrors `useVerifySellTo` after the bot-dispatch
+ * refactor (spec 2026-05-18). The button stays disabled and shows
+ * "Verification process pending" while `escrow.manualVerifyPending` is true.
+ */
 export function useVerifyTransfer(auctionPublicId: string) {
   const queryClient = useQueryClient();
   return useMutation<EscrowStatusResponse, unknown, void>({

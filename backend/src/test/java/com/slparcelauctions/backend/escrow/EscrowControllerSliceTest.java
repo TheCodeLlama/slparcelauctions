@@ -109,7 +109,7 @@ class EscrowControllerSliceTest {
                 null, null, null,
                 List.of(),
                 null, null, 3, 3, 3,
-                null, null, null, null);
+                null, null, null, null, false);
     }
 
     private MockMultipartFile disputePart(String reasonCategory, String description) {
@@ -261,12 +261,14 @@ class EscrowControllerSliceTest {
 
     @Test
     @WithMockAuthPrincipal(userId = 200)
-    void verifyTransfer_winnerAuthenticated_returns200() throws Exception {
+    void verifyTransfer_winnerAuthenticated_returns202() throws Exception {
+        // Bot-dispatch refactor (2026-05-18): verify-transfer is now 202-async,
+        // mirroring verify-sell-to. The bot result lands later via STOMP.
         when(manualActionService.verifyTransfer(eq(AUCTION_ID), eq(WINNER_ID)))
                 .thenReturn(stubResponse(EscrowState.TRANSFER_PENDING));
 
         mockMvc.perform(post("/api/v1/auctions/" + AUCTION_PUBLIC_ID + "/escrow/verify-transfer"))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.state").value("TRANSFER_PENDING"));
 
         verify(manualActionService).verifyTransfer(AUCTION_ID, WINNER_ID);
