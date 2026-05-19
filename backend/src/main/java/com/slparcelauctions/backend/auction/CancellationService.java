@@ -394,7 +394,7 @@ public class CancellationService {
     }
 
     /**
-     * Sub-project E §11.4 -- broker-initiated cancellation of a case-3
+     * Sub-project E §11.4 -- broker-initiated cancellation of a group-sale
      * (SL-group-owned) listing. The acting broker must hold
      * {@link RealtyGroupPermission#MANAGE_ALL_LISTINGS} on the owning realty
      * group. Skips the seller penalty ladder entirely: a broker acting on
@@ -403,19 +403,19 @@ public class CancellationService {
      * {@link CancellationOffenseKind#BROKER_CANCEL} rows belt-and-braces
      * (alongside the {@code cancelledByAdminId} predicate).
      *
-     * <p>Only case-3 listings are eligible. Case-1 (individual) listings and
-     * legacy auctions with no realty group attached raise
-     * {@link BrokerCancelNotApplicableException} so case-3 stays the only
+     * <p>Only group sales are eligible. Individual listings and legacy
+     * auctions with no realty group attached raise
+     * {@link BrokerCancelNotApplicableException} so group sales stay the only
      * surface where broker authority overrides seller agency.
      *
      * <p>Listing-fee refund is created in every state when {@code listingFeePaid}
      * is true -- including {@code ACTIVE}. This differs from the seller path
-     * (which refunds only on pre-active cancels) because case-3 listing fees
-     * are paid out of the group wallet at create-time; the group must be made
-     * whole even on an active-state cancel. Existing
+     * (which refunds only on pre-active cancels) because group-sale listing
+     * fees are paid out of the group wallet at create-time; the group must
+     * be made whole even on an active-state cancel. Existing
      * {@code ListingFeeRefundProcessorJob} routes the refund back to the
-     * originating wallet via the ledger row, so case-3 refunds land in the
-     * group wallet without a routing flag here.
+     * originating wallet via the ledger row, so group-sale refunds land in
+     * the group wallet without a routing flag here.
      */
     @Transactional
     public Auction brokerCancel(Long brokerUserId, Long auctionId, String reason, String ipAddress) {
@@ -431,16 +431,16 @@ public class CancellationService {
         }
         if (a.getRealtyGroupSlGroupId() == null) {
             throw new BrokerCancelNotApplicableException(a.getPublicId(),
-                    "Broker-cancel only applies to case-3 (SL-group-owned) listings.");
+                    "Broker-cancel only applies to group sales (SL-group-owned listings).");
         }
         Long groupId = a.getRealtyGroupId();
         if (groupId == null) {
-            // Defensive: case-3 auctions must always carry both realty_group_id
+            // Defensive: group-sale auctions must always carry both realty_group_id
             // and realty_group_sl_group_id. If the latter is set but the former
             // is null the row is malformed; fail fast rather than silently
             // skipping the authorization check.
             throw new BrokerCancelNotApplicableException(a.getPublicId(),
-                    "Case-3 auction missing realty_group_id; cannot authorize broker.");
+                    "Group-sale auction missing realty_group_id; cannot authorize broker.");
         }
 
         realtyGroupAuthorizer.assertCan(brokerUserId, groupId,
@@ -474,16 +474,16 @@ public class CancellationService {
         Auction saved = auctionRepo.save(a);
 
         // Listing-fee refund: D's existing ListingFeeRefundProcessorJob routes
-        // by originating ledger row, so case-3 refunds credit back to the group
-        // wallet without explicit routing here. Issued regardless of from-status
-        // because the group paid the fee -- they must be made whole.
+        // by originating ledger row, so group-sale refunds credit back to the
+        // group wallet without explicit routing here. Issued regardless of
+        // from-status because the group paid the fee -- they must be made whole.
         if (Boolean.TRUE.equals(a.getListingFeePaid())) {
             refundRepo.save(ListingFeeRefund.builder()
                     .auction(saved)
                     .amount(a.getListingFeeAmt() == null ? 0L : a.getListingFeeAmt())
                     .status(RefundStatus.PENDING)
                     .build());
-            log.info("Listing fee refund (PENDING) created for case-3 auction {} broker-cancel", a.getId());
+            log.info("Listing fee refund (PENDING) created for group-sale auction {} broker-cancel", a.getId());
         }
 
         // Notify the original listing agent -- the commission recipient, which
@@ -493,7 +493,7 @@ public class CancellationService {
         notificationPublisher.brokerCancelled(
                 listingAgent.getId(), saved.getId(), saved.getTitle(), brokerUserId, reason);
 
-        // Bidder fan-out: case-3 listings can have live bids same as any other
+        // Bidder fan-out: group sales can have live bids same as any other
         // ACTIVE auction. Mirror the seller-cancel fan-out so bidders see the
         // cancellation in their feed.
         if (hadBids) {

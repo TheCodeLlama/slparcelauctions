@@ -106,7 +106,7 @@ public class RealtyGroupSlGroupService {
 
     /**
      * Removes an SL group registration. Caller must hold REGISTER_SL_GROUP.
-     * Blocked when any non-terminal case-3 auction still references this row
+     * Blocked when any non-terminal group-sale auction still references this row
      * (spec §12.2). Rows belonging to a different realty group surface as
      * not-found so existence isn't leaked across tenants.
      */

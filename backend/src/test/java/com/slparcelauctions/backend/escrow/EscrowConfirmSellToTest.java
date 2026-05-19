@@ -79,6 +79,7 @@ class EscrowConfirmSellToTest {
     @Mock EscrowConfigProperties props;
     @Mock EscrowManualReviewRepository manualReviewRepo;
     @Mock SellToBotTaskFactory sellToBotTaskFactory;
+    @Mock com.slparcelauctions.backend.realty.RealtyGroupRepository realtyGroupRepo;
 
     EscrowService service;
     Clock fixed;
@@ -92,7 +93,7 @@ class EscrowConfirmSellToTest {
                 broadcastPublisher, userRepo, fraudFlagRepo, terminalService,
                 terminalRepo, terminalCommandService, notificationPublisher,
                 evidenceUploadService, walletService, props, manualReviewRepo,
-                sellToBotTaskFactory);
+                sellToBotTaskFactory, realtyGroupRepo);
         txTemplate = new TransactionTemplate(new FakeTxManager());
     }
 

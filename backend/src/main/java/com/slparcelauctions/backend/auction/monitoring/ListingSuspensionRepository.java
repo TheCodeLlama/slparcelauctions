@@ -38,8 +38,9 @@ public interface ListingSuspensionRepository extends JpaRepository<ListingSuspen
 
     /**
      * Active group-bulk listing suspensions for the given realty group, joining through
-     * both case-1 ({@code a.realtyGroupId}) and case-3 ({@code rsg.realtyGroupId} via
-     * {@code RealtyGroupSlGroup}) discriminators. Consumed by the bulk reinstate path.
+     * both legacy direct ({@code a.realtyGroupId}) and group-sale
+     * ({@code rsg.realtyGroupId} via {@code RealtyGroupSlGroup}) linkages.
+     * Consumed by the bulk reinstate path.
      */
     @Query("""
         SELECT ls FROM ListingSuspension ls

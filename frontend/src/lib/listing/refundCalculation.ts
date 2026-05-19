@@ -12,7 +12,7 @@ import type { AuctionStatus } from "@/types/auction";
  *   - DRAFT: no fee paid → no refund.
  *   - DRAFT_PAID / VERIFICATION_PENDING / VERIFICATION_FAILED: fee paid
  *     but listing never went live → full refund, credited instantly to
- *     the SLParcels wallet that paid (group wallet for case-3 listings,
+ *     the SLParcels wallet that paid (group wallet for group sales,
  *     seller's user wallet otherwise).
  *   - ACTIVE: cancelling an active listing forfeits the fee.
  *   - Anything else is not cancellable from the UI.
@@ -26,8 +26,8 @@ export interface RefundInfo {
 /**
  * @param status         current auction status
  * @param listingFeeAmt  fee paid, in L$
- * @param isGroupListing true when the auction is case-3 (the fee came
- *                       from a realty group's wallet); drives whether
+ * @param isGroupListing true when the auction is a group sale (the fee
+ *                       came from a realty group's wallet); drives whether
  *                       the copy says "your wallet" or "the group's
  *                       wallet"
  */

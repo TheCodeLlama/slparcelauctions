@@ -34,9 +34,10 @@ import lombok.extern.slf4j.Slf4j;
  * group suspension with the bulk-listing flag set, and directly by the admin
  * bulk-listings controller (Task 14).
  *
- * <p>{@link #suspendAll} sweeps both case-1 (direct {@code realty_group_id}) and
- * case-3 ({@code realty_group_sl_group_id} → {@link RealtyGroupSuspension}'s
- * group) listings via {@link AuctionRepository#findActiveListingsForGroup}, flips
+ * <p>{@link #suspendAll} sweeps both legacy direct {@code realty_group_id}
+ * attribution and group-sale ({@code realty_group_sl_group_id} →
+ * {@link RealtyGroupSuspension}'s group) listings via
+ * {@link AuctionRepository#findActiveListingsForGroup}, flips
  * each ACTIVE row to SUSPENDED, writes one {@link ListingSuspension} per row
  * tagged {@link ListingSuspensionCause#ADMIN_GROUP_BULK} with a shared bulk-action
  * UUID, fires the bot-monitor close hook and a per-seller suspended notification,

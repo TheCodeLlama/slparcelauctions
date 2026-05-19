@@ -19,7 +19,7 @@ import type {
  *       {@link AdminRealtyGroupSlGroup} (the post-ack row).</li>
  *   <li>{@code DELETE /?force=true|false} — unregister the row. The
  *       force path bypasses the active-listings gate and cascades any
- *       in-flight case-3 listings into the bulk-suspend pipeline. Both
+ *       in-flight group-sale listings into the bulk-suspend pipeline. Both
  *       paths require a non-blank {@code reason} in the body.</li>
  * </ul>
  *

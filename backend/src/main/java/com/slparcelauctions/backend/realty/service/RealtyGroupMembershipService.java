@@ -71,8 +71,9 @@ public class RealtyGroupMembershipService {
             .orElseThrow(() -> new RealtyGroupNotFoundException(groupPublicId));
 
         members.deleteByGroupIdAndUserId(group.getId(), callerUserId);
-        // E §10: case-3 reassigns seller_id on pre-terminal listings; commission
-        // attribution (listing_agent_id) is preserved by leaving the original agent.
+        // E §10: group sales reassign seller_id on pre-terminal listings;
+        // commission attribution (listing_agent_id) is preserved by leaving
+        // the original agent.
         auctions.reassignSellerToLeaderForCase3(callerUserId, group.getId(), group.getLeaderId());
         // Resolve the User entity for the notification payload. Skip the fire if the row
         // somehow vanished mid-tx (defensive — same defensive posture as the dissolve path).
@@ -109,8 +110,9 @@ public class RealtyGroupMembershipService {
         }
 
         members.deleteByGroupIdAndUserId(group.getId(), row.getUserId());
-        // E §10: case-3 reassigns seller_id on pre-terminal listings; commission
-        // attribution (listing_agent_id) is preserved by leaving the original agent.
+        // E §10: group sales reassign seller_id on pre-terminal listings;
+        // commission attribution (listing_agent_id) is preserved by leaving
+        // the original agent.
         auctions.reassignSellerToLeaderForCase3(row.getUserId(), group.getId(), group.getLeaderId());
         Optional<User> removedUser = users.findById(row.getUserId());
         removedUser.ifPresent(u -> notifications.realtyGroupMemberRemoved(group, u));

@@ -16,14 +16,13 @@ export interface GroupAttributionLineProps {
  * attribution, and dissolved groups are retired from public display per
  * spec §6.2.
  *
- * Realty Groups: E (sub-project E, spec §6.4) — case-3 listings (agent
- * lists group-owned land under a realty group) surface the group as the
- * primary seller via the "Sold by" heading. Case-1 (legacy: agent lists
- * own land under a group) is not reachable through new listings as of
- * sub-project E so this same heading also covers legacy case-1 rows
- * without further DTO branching. The backend group-attribution DTO does
- * not carry the SL group id today, so {@code group != null} is treated
- * as the case-3 marker.
+ * Realty Groups: group sales (agent lists group-owned land under a realty
+ * group) surface the group as the primary seller via the "Sold by"
+ * heading. Legacy "agent lists own land under a group" rows are not
+ * reachable through new listings since sub-project E, so this same
+ * heading also covers those legacy rows without further DTO branching.
+ * The backend group-attribution DTO does not carry the SL group id
+ * today, so {@code group != null} is treated as the group-sale marker.
  */
 export function GroupAttributionLine({ agent, group }: GroupAttributionLineProps) {
   if (!agent || !group || group.dissolved) return null;

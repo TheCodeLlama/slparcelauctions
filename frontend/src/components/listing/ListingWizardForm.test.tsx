@@ -719,7 +719,7 @@ describe("ListingWizardForm — List-as picker", () => {
     expect(screen.queryByLabelText(/Individual/i)).not.toBeInTheDocument();
   });
 
-  it("renders the case-3 AgentCommissionPreview when the parcel is SL-group-owned", async () => {
+  it("renders the group-sale AgentCommissionPreview when the parcel is SL-group-owned", async () => {
     const groupOwnedParcel: ParcelDto = {
       ...sampleParcel,
       ownerType: "group",
@@ -789,17 +789,17 @@ describe("ListingWizardForm — List-as picker", () => {
 
     // The starting bid prefilled at 500 from sellerResponse default; the
     // wizard's AuctionSettingsForm will load the same default. Verify the
-    // case-3 preview renders with the L$/commission split copy.
+    // group-sale preview renders with the L$/commission split copy.
     expect(
       await screen.findByTestId("agent-commission-preview"),
     ).toBeInTheDocument();
   });
 
-  // Realty Groups: G — case-1 ("agent listing their own land under a group")
-  // is gone. The wizard now renders AgentCommissionPreview unconditionally
-  // whenever an eligible group is selected and startingBid > 0, regardless
-  // of whether the parcel is SL-group-owned.
-  it("renders AgentCommissionPreview for a non-SL-group-owned parcel once a group is picked (post-G — case-1 removed)", async () => {
+  // Realty Groups: G — the "agent listing their own land under a group"
+  // legacy variant is gone. The wizard now renders AgentCommissionPreview
+  // unconditionally whenever an eligible group is selected and
+  // startingBid > 0, regardless of whether the parcel is SL-group-owned.
+  it("renders AgentCommissionPreview for a non-SL-group-owned parcel once a group is picked (legacy non-group-owned variant removed)", async () => {
     const user = userEvent.setup();
 
     server.use(

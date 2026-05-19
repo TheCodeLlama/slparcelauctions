@@ -141,7 +141,7 @@ public class AuctionController {
     /**
      * Triggers the synchronous World API ownership check. No body is
      * required -- the expected owner UUID is derived from the auction
-     * (seller's avatar, or registered SL group UUID for case-3 listings).
+     * (seller's avatar, or registered SL group UUID for group sales).
      * On match the auction transitions DRAFT_PAID -> ACTIVE; on any
      * miss it transitions to VERIFICATION_FAILED with a retryable note.
      */
@@ -175,12 +175,12 @@ public class AuctionController {
     }
 
     /**
-     * Broker-initiated cancellation of a case-3 (SL-group-owned) listing —
+     * Broker-initiated cancellation of a group-sale (SL-group-owned) listing —
      * Realty Groups E spec §5.2. The caller is a broker on the owning realty
      * group, not the listing's seller, so the auction is loaded via the
      * non-seller-scoped {@code loadAnyByPublicId}. Authorization (the broker
      * must hold {@link com.slparcelauctions.backend.realty.permission.RealtyGroupPermission#MANAGE_ALL_LISTINGS}
-     * on the owning group) and the case-3 precondition are enforced inside
+     * on the owning group) and the group-sale precondition are enforced inside
      * {@code CancellationService.brokerCancel} under the row lock.
      */
     @PostMapping("/auctions/{publicId}/broker-cancel")

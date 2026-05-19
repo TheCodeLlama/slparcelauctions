@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Admin compliance-action service: force-unregister an SL group registration even
  * though the standard non-force gate ({@link RealtyGroupSlGroupService#unregister})
- * would block on in-flight case-3 listings.
+ * would block on in-flight group-sale listings.
  *
  * <p>Spec §13.5: when the admin opts into the force path, this service
  * <ol>
@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
  *       {@code unregister_reason} so the registration is no longer load-bearing for
  *       any future listing-create attempt,</li>
  *   <li>sweeps every {@link com.slparcelauctions.backend.auction.AuctionStatus#ACTIVE}
- *       case-3 listing attached to the registration into the bulk-suspend cascade via
+ *       group-sale listing attached to the registration into the bulk-suspend cascade via
  *       {@link BulkListingSuspendService#suspendAll}; the 48 h auto-cancel timer then
  *       gives the admin a deliberate window to decide per-listing cancel-or-resolve, and</li>
  *   <li>writes a single batched {@link AdminActionType#REALTY_GROUP_SL_GROUP_FORCE_UNREGISTER}
@@ -66,7 +66,7 @@ public class SlGroupForceUnregisterService {
 
     /**
      * Force-unregister the SL group registration identified by
-     * {@code slGroupPublicId} and cascade-suspend its in-flight case-3 listings.
+     * {@code slGroupPublicId} and cascade-suspend its in-flight group-sale listings.
      *
      * @param realtyGroupPublicId  the parent realty group's public id. Carried for
      *                             API symmetry / future cross-tenant checks; the
@@ -96,7 +96,7 @@ public class SlGroupForceUnregisterService {
         row.setUnregisteredByAdmin(admin);
         row.setUnregisterReason(reason);
 
-        // Cascade: bulk-suspend any in-flight case-3 listings on this SL group.
+        // Cascade: bulk-suspend any in-flight group-sale listings on this SL group.
         // suspendAll itself short-circuits cleanly on an empty list, but skipping the
         // call entirely when there are zero targets avoids a redundant audit row that
         // would only repeat what REALTY_GROUP_SL_GROUP_FORCE_UNREGISTER already records.
