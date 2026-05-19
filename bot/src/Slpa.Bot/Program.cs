@@ -31,6 +31,7 @@ builder.Services.AddHttpClient<IBackendClient, HttpBackendClient>((sp, client) =
 });
 builder.Services.AddSingleton<WithdrawGroupHandler>();
 builder.Services.AddSingleton<VerifySellToHandler>();
+builder.Services.AddSingleton<VerifyBuyOwnerHandler>();
 builder.Services.AddHostedService<BotSessionBootstrapper>();
 builder.Services.AddHostedService<TaskLoop>();
 builder.Services.AddHostedService<HeartbeatLoop>();

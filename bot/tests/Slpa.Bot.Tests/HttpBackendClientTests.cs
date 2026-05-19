@@ -188,4 +188,35 @@ public sealed class HttpBackendClientTests : IAsyncLifetime
         var act = async () => await _client.ReportTaskResultAsync(42, body, default);
         await act.Should().ThrowAsync<AuthConfigException>();
     }
+
+    [Fact]
+    public async Task ReportBuyOwnerResult_204_Succeeds()
+    {
+        _server
+            .Given(Request.Create()
+                .WithPath("/api/v1/bot/tasks/77/verify-buy-owner-result").UsingPost()
+                .WithHeader("Authorization", "Bearer test-secret-xxxxxxxx"))
+            .RespondWith(Response.Create().WithStatusCode(204));
+
+        var body = new BuyOwnerResultRequest(
+            BuyOwnerOutcome.OWNER_IS_WINNER, Guid.NewGuid(), "agent");
+
+        var act = async () => await _client.ReportBuyOwnerResultAsync(77, body, default);
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task ReportBuyOwnerResult_401_ThrowsAuthConfigException()
+    {
+        _server
+            .Given(Request.Create()
+                .WithPath("/api/v1/bot/tasks/77/verify-buy-owner-result").UsingPost())
+            .RespondWith(Response.Create().WithStatusCode(401));
+
+        var body = new BuyOwnerResultRequest(
+            BuyOwnerOutcome.UNKNOWN_ERROR, null, null);
+
+        var act = async () => await _client.ReportBuyOwnerResultAsync(77, body, default);
+        await act.Should().ThrowAsync<AuthConfigException>();
+    }
 }
