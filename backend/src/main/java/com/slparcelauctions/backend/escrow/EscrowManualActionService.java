@@ -27,6 +27,8 @@ import com.slparcelauctions.backend.escrow.review.ManualReviewRole;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStep;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -56,11 +58,20 @@ public class EscrowManualActionService {
     public static final String REQUESTING_ROLE_SELLER = "SELLER";
     public static final String REQUESTING_ROLE_BUYER = "BUYER";
 
+    /** Payload key carrying the expected pre-transfer owner type
+     *  ("agent" for case-1 / "group" for case-3) so the bot can match both
+     *  UUID and ownerType when classifying live ownership. The pre-transfer
+     *  UUID itself is stamped onto {@link BotTask#getExpectedSellerUuid()}. */
+    public static final String EXPECTED_OWNER_TYPE_KEY = "expectedOwnerType";
+    public static final String EXPECTED_OWNER_TYPE_AGENT = "agent";
+    public static final String EXPECTED_OWNER_TYPE_GROUP = "group";
+
     private final EscrowRepository escrowRepo;
     private final EscrowService escrowService;
     private final BotTaskRepository botTaskRepo;
     private final EscrowManualReviewRepository manualReviewRepo;
     private final UserRepository userRepo;
+    private final RealtyGroupSlGroupRepository slGroupRepo;
     private final EscrowConfigProperties props;
     private final Clock clock;
 
@@ -154,27 +165,54 @@ public class EscrowManualActionService {
         OffsetDateTime now = OffsetDateTime.now(clock);
         String requestingRole = isSeller ? REQUESTING_ROLE_SELLER : REQUESTING_ROLE_BUYER;
 
+        // Resolve the expected pre-transfer owner. Case-3 (group listing):
+        // the parcel is held by the realty group's registered SL group until
+        // the buy completes — expected owner is the SL group UUID with type
+        // "group". Case-1 (individual): expected owner is the seller's
+        // avatar UUID with type "agent".
+        java.util.UUID expectedPreTransferUuid;
+        String expectedOwnerType;
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            RealtyGroupSlGroup slGroup = slGroupRepo
+                    .findById(auction.getRealtyGroupSlGroupId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Auction " + auction.getId() + " references missing "
+                                    + "RealtyGroupSlGroup " + auction.getRealtyGroupSlGroupId()));
+            expectedPreTransferUuid = slGroup.getSlGroupUuid();
+            expectedOwnerType = EXPECTED_OWNER_TYPE_GROUP;
+        } else {
+            expectedPreTransferUuid = auction.getSeller() == null
+                    ? null : auction.getSeller().getSlAvatarUuid();
+            expectedOwnerType = EXPECTED_OWNER_TYPE_AGENT;
+        }
+
         // Expedite any open VERIFY_BUY_OWNER task for this escrow; otherwise
         // create one. The "one open task per escrow per type" invariant
         // matches the VERIFY_SELL_TO path (BotTaskRepository.findOpenByEscrowAndType
-        // returns at most one row). The requesting role is stamped onto the
-        // task's resultData payload so the bot callback consumes the correct
-        // role counter on a definitive negative.
+        // returns at most one row). The requesting role + expected
+        // pre-transfer owner type are stamped onto the task's resultData
+        // payload so the bot callback consumes the correct role counter on a
+        // definitive negative and the bot can distinguish PRE_TRANSFER from
+        // STRANGER outcomes. The pre-transfer UUID itself rides on the
+        // dedicated expectedSellerUuid column.
         List<BotTask> open = botTaskRepo.findOpenByEscrowAndType(
                 escrow.getId(), BotTaskType.VERIFY_BUY_OWNER);
         BotTask task;
         if (!open.isEmpty()) {
             task = open.get(0);
             task.setNextRunAt(now);
+            task.setExpectedSellerUuid(expectedPreTransferUuid);
             Map<String, Object> payload = task.getResultData() == null
                     ? new HashMap<>() : new HashMap<>(task.getResultData());
             payload.put(REQUESTING_ROLE_KEY, requestingRole);
+            payload.put(EXPECTED_OWNER_TYPE_KEY, expectedOwnerType);
             task.setResultData(payload);
         } else {
             AuctionParcelSnapshot snap = auction.getParcelSnapshot();
             User winner = userRepo.findById(auction.getWinnerUserId()).orElseThrow();
             Map<String, Object> payload = new HashMap<>();
             payload.put(REQUESTING_ROLE_KEY, requestingRole);
+            payload.put(EXPECTED_OWNER_TYPE_KEY, expectedOwnerType);
             task = BotTask.builder()
                     .taskType(BotTaskType.VERIFY_BUY_OWNER)
                     .status(BotTaskStatus.PENDING)
@@ -187,6 +225,7 @@ public class EscrowManualActionService {
                     .positionY(snap != null ? snap.getPositionY() : null)
                     .positionZ(snap != null ? snap.getPositionZ() : null)
                     .expectedWinnerUuid(winner.getSlAvatarUuid())
+                    .expectedSellerUuid(expectedPreTransferUuid)
                     .nextRunAt(now)
                     .sentinelPrice(0L)
                     .resultData(payload)

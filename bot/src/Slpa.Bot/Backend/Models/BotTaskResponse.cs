@@ -20,4 +20,13 @@ public sealed record BotTaskResponse(
     DateTimeOffset? CompletedAt,
     Guid? RecipientUuid = null,
     long? AmountL = null,
-    Guid? ExpectedWinnerUuid = null);
+    Guid? ExpectedWinnerUuid = null,
+    // VERIFY_BUY_OWNER classification context (2026-05-19):
+    //  - ExpectedPreTransferUuid: seller's avatar UUID (case-1) or registered
+    //    SL group UUID (case-3). Owner observation matching this UUID +
+    //    ExpectedOwnerType => OWNER_STILL_PRE_TRANSFER.
+    //  - ExpectedOwnerType: "agent" for case-1 / "group" for case-3. The bot
+    //    requires both UUID and ownerType to match before reporting
+    //    PRE_TRANSFER; otherwise the residual case is OWNER_IS_STRANGER.
+    Guid? ExpectedPreTransferUuid = null,
+    string? ExpectedOwnerType = null);
