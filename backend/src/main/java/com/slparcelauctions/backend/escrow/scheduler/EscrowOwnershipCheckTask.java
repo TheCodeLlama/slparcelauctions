@@ -112,8 +112,8 @@ public class EscrowOwnershipCheckTask {
             User winner = userRepo.findById(escrow.getAuction().getWinnerUserId()).orElseThrow();
             UUID winnerUuid = winner.getSlAvatarUuid();
             // Pre-transfer expected owner is the seller side: the seller's
-            // avatar for individual listings, or the registered SL group for
-            // case-3 group listings (mirrors OwnershipCheckTask.doCheck).
+            // avatar for individual sales, or the registered SL group for
+            // group sales (mirrors OwnershipCheckTask.doCheck).
             // Without the group branch, a group-owned parcel reports the
             // group UUID and gets misclassified as UNKNOWN_OWNER on the
             // first sweep, freezing a perfectly healthy escrow.

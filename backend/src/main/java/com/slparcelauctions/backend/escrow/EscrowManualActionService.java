@@ -59,7 +59,7 @@ public class EscrowManualActionService {
     public static final String REQUESTING_ROLE_BUYER = "BUYER";
 
     /** Payload key carrying the expected pre-transfer owner type
-     *  ("agent" for case-1 / "group" for case-3) so the bot can match both
+     *  ("agent" for individual sales / "group" for group sales) so the bot can match both
      *  UUID and ownerType when classifying live ownership. The pre-transfer
      *  UUID itself is stamped onto {@link BotTask#getExpectedSellerUuid()}. */
     public static final String EXPECTED_OWNER_TYPE_KEY = "expectedOwnerType";

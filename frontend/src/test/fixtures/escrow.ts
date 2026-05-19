@@ -36,6 +36,9 @@ export function fakeEscrow(
     parcelMapUrl: null,
     parcelViewerUrl: null,
     manualVerifyPending: false,
+    agentCommissionAmt: null,
+    groupSliceAmt: null,
+    groupName: null,
   };
   return { ...base, ...overrides };
 }

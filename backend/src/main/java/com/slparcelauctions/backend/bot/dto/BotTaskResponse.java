@@ -19,7 +19,7 @@ import com.slparcelauctions.backend.escrow.EscrowManualActionService;
  * <p><b>expectedPreTransferUuid / expectedOwnerType</b> ride out alongside
  * the historical fields for the bot's VERIFY_BUY_OWNER classification.
  * Pre-transfer UUID re-uses the historical {@code expected_seller_uuid}
- * column (case-1 = seller's avatar UUID, case-3 = registered SL group UUID);
+ * column (individual sale = seller's avatar UUID, group sale = registered SL group UUID);
  * ownerType comes from the {@code resultData} JSON payload key
  * {@link EscrowManualActionService#EXPECTED_OWNER_TYPE_KEY}.
  */

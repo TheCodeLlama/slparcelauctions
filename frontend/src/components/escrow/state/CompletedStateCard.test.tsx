@@ -75,8 +75,68 @@ describe("CompletedStateCard", () => {
     });
   });
 
-  describe("seller view (group listing, payoutAmt = 0)", () => {
-    it("shows 'Sale completed' acknowledgement without the Payout-of-L$0 headline", () => {
+  describe("seller view (group sale, payoutAmt = 0)", () => {
+    it("renders full agent + group-wallet breakdown when group-sale fields are present", () => {
+      // L$100 sale, 5% min L$50 platform fee, 50/50 agent/group split.
+      // Matches AgentCommissionDistributor: agentSlice + groupSlice == earnings.
+      renderWithProviders(
+        <CompletedStateCard
+          escrow={fakeEscrow({
+            state: "COMPLETED",
+            finalBidAmount: 100,
+            payoutAmt: 0,
+            commissionAmt: 50,
+            agentCommissionAmt: 25,
+            groupSliceAmt: 25,
+            groupName: "HadronTest",
+            completedAt: "2026-05-02T10:00:05Z",
+          })}
+          role="seller"
+        />,
+      );
+
+      // Heading is "Sale completed" — not a "Payout of L$0" headline.
+      expect(screen.getByText(/^sale completed$/i)).toBeInTheDocument();
+      expect(
+        screen.queryByText(/payout of l\$\s*0/i),
+      ).not.toBeInTheDocument();
+
+      // Breakdown rows: sale price, SLParcels fee, agent cut, group wallet.
+      expect(screen.getByText(/^sale price$/i)).toBeInTheDocument();
+      expect(screen.getByText(/^l\$\s*100$/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/slparcels fee \(5%, l\$50 min\)/i),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/agent commission \(your cut\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/HadronTest group wallet/i)).toBeInTheDocument();
+      // Both slice rows show L$ 25.
+      expect(screen.getAllByText(/^l\$\s*25$/i).length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("falls back to 'Group wallet' label when groupName is missing", () => {
+      renderWithProviders(
+        <CompletedStateCard
+          escrow={fakeEscrow({
+            state: "COMPLETED",
+            finalBidAmount: 100,
+            payoutAmt: 0,
+            commissionAmt: 50,
+            agentCommissionAmt: 25,
+            groupSliceAmt: 25,
+            groupName: null,
+            completedAt: "2026-05-02T10:00:05Z",
+          })}
+          role="seller"
+        />,
+      );
+      expect(screen.getByText(/^sale completed$/i)).toBeInTheDocument();
+      expect(screen.getByText(/^group wallet$/i)).toBeInTheDocument();
+    });
+
+    it("falls back to minimal 'Sale completed' copy when group-sale fields are absent (defensive)", () => {
+      // Pre-DTO-extension shape — payoutAmt = 0 but the agent/group fields
+      // never landed in the response. We keep the prior minimal acknowledgement
+      // so a missing-field wire regression doesn't crash the card.
       renderWithProviders(
         <CompletedStateCard
           escrow={fakeEscrow({
@@ -84,6 +144,9 @@ describe("CompletedStateCard", () => {
             finalBidAmount: 5000,
             payoutAmt: 0,
             commissionAmt: 250,
+            agentCommissionAmt: null,
+            groupSliceAmt: null,
+            groupName: null,
             completedAt: "2026-05-02T10:00:05Z",
           })}
           role="seller"
@@ -94,7 +157,6 @@ describe("CompletedStateCard", () => {
       expect(
         screen.getByText(/payout was split to the listing agent and the group wallet/i),
       ).toBeInTheDocument();
-      // The misleading "Payout of L$0 sent" headline must NOT appear here.
       expect(
         screen.queryByText(/payout of l\$\s*0/i),
       ).not.toBeInTheDocument();

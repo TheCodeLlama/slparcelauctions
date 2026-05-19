@@ -43,6 +43,7 @@ import com.slparcelauctions.backend.wallet.BidReservationRepository;
 import com.slparcelauctions.backend.escrow.broadcast.CapturingEscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCreatedEnvelope;
+import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.notification.NotificationRepository;
@@ -100,6 +101,7 @@ class EscrowCreateOnAuctionEndIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired EscrowRepository escrowRepo;
+    @Autowired EscrowService escrowService;
     @Autowired com.slparcelauctions.backend.bot.BotTaskRepository botTaskRepo;
     @Autowired EscrowTransactionRepository escrowTxRepo;
     @Autowired EscrowCommissionCalculator commissionCalculator;
@@ -198,6 +200,13 @@ class EscrowCreateOnAuctionEndIntegrationTest {
         assertThat(escrow.getFundedAt()).isNotNull();
         assertThat(escrow.getTransferDeadline())
                 .isCloseTo(escrow.getFundedAt().plusHours(72), within(1, ChronoUnit.MICROS));
+
+        // Status DTO for an individual sale must NOT carry group-sale fields.
+        EscrowStatusResponse statusResp = escrowService.getStatus(
+                seededAuctionId, seededSellerId);
+        assertThat(statusResp.agentCommissionAmt()).isNull();
+        assertThat(statusResp.groupSliceAmt()).isNull();
+        assertThat(statusResp.groupName()).isNull();
 
         assertThat(capturingEscrowPublisher.created).hasSize(1);
         EscrowCreatedEnvelope env = capturingEscrowPublisher.created.get(0);

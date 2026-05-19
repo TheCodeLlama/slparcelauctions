@@ -21,7 +21,7 @@ export interface BrokerCancelModalProps {
 }
 
 /**
- * Confirmation modal for the case-3 broker-cancel path. Surfaces the
+ * Confirmation modal for the group-sale broker-cancel path. Surfaces the
  * auction title, active-bid state, and the listing-fee refund
  * destination (group wallet — never the seller's personal wallet, since
  * the wallet paid the fee). A non-empty reason is required so the

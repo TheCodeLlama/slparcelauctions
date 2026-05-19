@@ -17,7 +17,7 @@ public enum RealtyGroupPermission {
     /** Create an auction listing under this group. */
     CREATE_LISTING,
 
-    /** Broker-level: cancel any case-3 listing of this group regardless of who created it. */
+    /** Broker-level: cancel any group-sale listing of this group regardless of who created it. */
     MANAGE_ALL_LISTINGS,
 
     /** Initiate a withdrawal from the group wallet. */

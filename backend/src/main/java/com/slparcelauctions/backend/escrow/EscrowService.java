@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.escrow;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -40,6 +42,8 @@ import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.scheduler.SellToBotTaskFactory;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.sl.SlurlBuilder;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
@@ -111,6 +115,7 @@ public class EscrowService {
     private final EscrowConfigProperties escrowConfig;
     private final EscrowManualReviewRepository manualReviewRepo;
     private final SellToBotTaskFactory sellToBotTaskFactory;
+    private final RealtyGroupRepository realtyGroupRepo;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -459,7 +464,7 @@ public class EscrowService {
      * callback path in {@code TerminalCommandService.applyCallback}, not this
      * hook — queuing the command merely schedules the terminal POST.
      *
-     * <p>Sub-project G §8.1: for case-3 (SL-group-owned, payoutAmt = 0),
+     * <p>Sub-project G §8.1: for group sales (SL-group-owned, payoutAmt = 0),
      * {@code queuePayout} short-circuits and runs the success path inline,
      * returning {@link java.util.Optional#empty()}. The state flip to
      * {@code COMPLETED} has already happened by the time this method returns.
@@ -514,6 +519,33 @@ public class EscrowService {
                     snap.getRegionName(), snap.getPositionX(), snap.getPositionY(), snap.getPositionZ());
         }
 
+        // Group-sale payout split — populated only when the auction is
+        // group-listed (realty_group_sl_group_id != null). Same arithmetic as
+        // AgentCommissionDistributor.distribute so the seller's COMPLETED
+        // card matches the actual L$ that landed in each wallet.
+        Long agentCommissionAmt = null;
+        Long groupSliceAmt = null;
+        String groupName = null;
+        Auction auction = escrow.getAuction();
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            BigDecimal rate = auction.getAgentCommissionRate();
+            if (rate == null) {
+                rate = BigDecimal.ZERO;
+            }
+            long earnings = escrow.getFinalBidAmount() - escrow.getCommissionAmt();
+            long agentSlice = BigDecimal.valueOf(earnings)
+                    .multiply(rate)
+                    .setScale(0, RoundingMode.FLOOR)
+                    .longValueExact();
+            agentCommissionAmt = agentSlice;
+            groupSliceAmt = earnings - agentSlice;
+            if (auction.getRealtyGroupId() != null) {
+                groupName = realtyGroupRepo.findById(auction.getRealtyGroupId())
+                        .map(RealtyGroup::getName)
+                        .orElse(null);
+            }
+        }
+
         return new EscrowStatusResponse(
                 escrow.getPublicId(), escrow.getAuction().getPublicId(),
                 winnerSlAvatarName, escrow.getState(),
@@ -532,7 +564,10 @@ public class EscrowService {
                 reviewStep,
                 parcelMapUrl,
                 parcelViewerUrl,
-                Boolean.TRUE.equals(escrow.getManualVerifyPending()));
+                Boolean.TRUE.equals(escrow.getManualVerifyPending()),
+                agentCommissionAmt,
+                groupSliceAmt,
+                groupName);
     }
 
     private List<EscrowTimelineEntry> buildTimeline(Escrow e) {
@@ -992,26 +1027,26 @@ public class EscrowService {
      * exclusive at the column level:
      *
      * <ul>
-     *   <li><b>Case 3 (E -- SL-group-owned)</b>: {@code realty_group_sl_group_id IS NOT NULL}.
+     *   <li><b>Group sale (SL-group-owned)</b>: {@code realty_group_sl_group_id IS NOT NULL}.
      *       {@code payoutAmt = 0}. The earnings (finalBid - commission) are credited
      *       entirely via internal wallet routing at payout-success:
      *       {@code AgentCommissionDistributor} credits the listing agent's wallet with
      *       {@code agent_slice} and the realty group's wallet with {@code group_slice}.
      *       No L$ leaves SLPA to an SL avatar from the escrow row, so the terminal
      *       PAYOUT command carries amount=0 and is a SL-side no-op. Spec §8.5, §9.6.</li>
-     *   <li><b>Individual</b>: both group columns null.
+     *   <li><b>Individual sale</b>: both group columns null.
      *       {@code payoutAmt = commission.payout(finalBid)}.</li>
      * </ul>
      *
      * <p>The escrow's {@code payoutTargetUuid} is still the seller's SL avatar for
-     * case-3 — the column is set elsewhere from {@code auction.seller.slAvatarUuid}
-     * and remains correct. For case-3 it simply receives 0 L$ from the terminal,
+     * group sales — the column is set elsewhere from {@code auction.seller.slAvatarUuid}
+     * and remains correct. For group sales it simply receives 0 L$ from the terminal,
      * because all routing is internal.
      */
     private long computePayoutAmt(Auction auction, long finalBid) {
         if (auction.getRealtyGroupSlGroupId() != null) {
-            // Case 3: earnings stay in SLPA; AgentCommissionDistributor credits agent
-            // and group wallets internally at payout-success.
+            // Group sale: earnings stay in SLPA; AgentCommissionDistributor credits
+            // agent and group wallets internally at payout-success.
             return 0L;
         }
         return commission.payout(finalBid);

@@ -157,12 +157,12 @@ public class OwnershipCheckTask {
         OffsetDateTime now = OffsetDateTime.now(clock);
         UUID expected;
         if (auction.getRealtyGroupSlGroupId() != null) {
-            // Case 3: parcel must remain owned by the registered SL group.
+            // Group sale: parcel must remain owned by the registered SL group.
             RealtyGroupSlGroup reg =
                     slGroupRepo.findById(auction.getRealtyGroupSlGroupId()).orElse(null);
             expected = (reg == null) ? null : reg.getSlGroupUuid();
         } else {
-            // Cases 1, individual: seller's avatar.
+            // Individual sale: seller's avatar.
             expected = auction.getSeller() == null ? null : auction.getSeller().getSlAvatarUuid();
         }
 
@@ -192,8 +192,8 @@ public class OwnershipCheckTask {
                 handleTimeout(auction, "empty World API response");
             } else {
                 observed = result.ownerUuid();
-                // Case 3 expects the parcel to be group-owned by the registered SL group;
-                // cases 1/individual expect agent-owned by the seller's avatar.
+                // Group sales expect the parcel to be group-owned by the registered SL group;
+                // individual sales expect agent-owned by the seller's avatar.
                 String expectedOwnerType = auction.getRealtyGroupSlGroupId() != null ? "group" : "agent";
                 ownerMatch = expected.equals(observed)
                         && expectedOwnerType.equalsIgnoreCase(result.ownerType());

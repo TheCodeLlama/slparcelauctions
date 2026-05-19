@@ -26,7 +26,7 @@ const BROKER_CANCELLABLE = new Set([
 ]);
 
 /**
- * Renders the "Cancel listing" affordance for case-3 brokers — members of
+ * Renders the "Cancel listing" affordance for group-sale brokers — members of
  * the realty group who hold {@code MANAGE_ALL_LISTINGS} and are NOT the
  * auction's seller. The button is hidden in three cases:
  *

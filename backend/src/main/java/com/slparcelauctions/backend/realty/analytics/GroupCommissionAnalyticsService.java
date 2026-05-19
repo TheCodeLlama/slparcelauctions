@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>Single native query (Postgres-specific {@code FILTER (WHERE ...)}, {@code INTERVAL},
  * and a correlated {@code EXISTS} stitching {@code AGCOMM-{auctionId}} idempotency keys
- * to either the case-1 {@code auctions.realty_group_id} or the case-3
+ * to either the legacy direct {@code auctions.realty_group_id} or the group-sale
  * {@code realty_group_sl_groups.realty_group_id} linkage). H2 does not implement
  * {@code FILTER}; tests must run against a real Postgres (the codebase's
  * {@code @SpringBootTest @ActiveProfiles("dev")} convention).

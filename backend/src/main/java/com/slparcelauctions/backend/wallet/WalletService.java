@@ -393,9 +393,10 @@ public class WalletService {
      * Credit the listing agent's user wallet with their share of agent_fee_amt.
      * Spec §7.2.
      *
-     * <p>The pre-G case-1 distributor that drove this method was deleted by
-     * sub-project G. The method and the {@code AGENT_FEE_CREDIT} ledger entry
-     * type remain for backwards compatibility with historical ledger rows.
+     * <p>The pre-G distributor that drove this method (for non-SL-group-owned
+     * group listings) was deleted by sub-project G. The method and the
+     * {@code AGENT_FEE_CREDIT} ledger entry type remain for backwards
+     * compatibility with historical ledger rows.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void creditAgentFee(Long userId, Long auctionId, long amount) {
@@ -410,9 +411,9 @@ public class WalletService {
     }
 
     /**
-     * Credit the listing agent's user wallet with their case-3 commission slice.
+     * Credit the listing agent's user wallet with their group-sale commission slice.
      * Called from {@code AgentCommissionDistributor} inside the escrow-payout-success
-     * transaction for case-3 (SL-group-owned) auctions. Spec §9.6.
+     * transaction for group sales (SL-group-owned auctions). Spec §9.6.
      *
      * <p>Idempotency key {@code AGCOMM-{auctionId}} prevents a duplicate credit if
      * the payout callback ever fires twice for the same auction.

@@ -80,4 +80,28 @@ public record EscrowStatusResponse(
          * page so the button stays disabled until the async result arrives —
          * the POST roundtrip returning is not enough on its own.
          */
-        boolean manualVerifyPending) { }
+        boolean manualVerifyPending,
+        /**
+         * Group-sale agent slice in L$ — the portion of {@code earnings}
+         * ({@code finalBid - commissionAmt}) credited to the listing agent's
+         * SLParcels wallet via {@link
+         * com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor}.
+         * Null for individual sales ({@code realty_group_sl_group_id IS NULL}).
+         * Drives the seller-facing COMPLETED card breakdown for group sales.
+         */
+        Long agentCommissionAmt,
+        /**
+         * Group-sale group-wallet slice in L$ —
+         * {@code earnings - agentCommissionAmt}, credited to the realty
+         * group's wallet. Null for individual sales. Together with
+         * {@code agentCommissionAmt} these always sum to
+         * {@code finalBidAmount - commissionAmt} (no rounding loss).
+         */
+        Long groupSliceAmt,
+        /**
+         * Display name of the realty group that received {@code groupSliceAmt}.
+         * Null for individual sales. The frontend renders this inline in the
+         * COMPLETED card row ("{groupName} group wallet"); a null fallback
+         * label is used defensively when the group lookup fails.
+         */
+        String groupName) { }

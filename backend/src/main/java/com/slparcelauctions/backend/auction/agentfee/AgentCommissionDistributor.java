@@ -15,13 +15,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Sub-project E spec §9 -- case-3 payout splitter. Credits the listing agent's wallet with
- * the agent slice and the realty group's wallet with the residual group slice. Runs in the
- * MANDATORY transaction of {@code handleEscrowPayoutSuccess}; never opens its own transaction.
+ * Group-sale payout splitter. Credits the listing agent's wallet with the agent slice and
+ * the realty group's wallet with the residual group slice. Runs in the MANDATORY
+ * transaction of {@code handleEscrowPayoutSuccess}; never opens its own transaction.
  *
- * <p>The pre-G case-1 sibling distributor was deleted by sub-project G. All realty-group
- * listings post-G are case-3 (i.e. carry {@code realty_group_sl_group_id}); the
- * group-listed-not-SL-group-owned branch no longer exists.
+ * <p>The pre-G sibling distributor for the "agent listing own land under a group" variant
+ * was deleted by sub-project G. All realty-group listings post-G are group sales
+ * (i.e. carry {@code realty_group_sl_group_id}); the group-listed-not-SL-group-owned
+ * branch no longer exists.
  *
  * <p>Computation (spec §9.3):
  * <pre>
@@ -44,7 +45,7 @@ public class AgentCommissionDistributor {
     public void distribute(Auction auction, long finalBid, long platformCommission) {
         if (auction.getRealtyGroupSlGroupId() == null) {
             throw new IllegalArgumentException(
-                "AgentCommissionDistributor called on non-case-3 auction " + auction.getId());
+                "AgentCommissionDistributor called on non-group-sale auction " + auction.getId());
         }
         BigDecimal rate = auction.getAgentCommissionRate();
         if (rate == null) {

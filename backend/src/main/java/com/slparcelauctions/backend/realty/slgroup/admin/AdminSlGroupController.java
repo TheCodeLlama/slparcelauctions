@@ -52,8 +52,8 @@ import lombok.RequiredArgsConstructor;
  *         <li>{@code force=true} — delegates to
  *             {@link com.slparcelauctions.backend.realty.slgroup.SlGroupForceUnregisterService#forceUnregister
  *             SlGroupForceUnregisterService.forceUnregister}, which bypasses the
- *             gate and cascades any in-flight case-3 listings into the bulk-
- *             suspend pipeline.</li>
+ *             gate and cascades any in-flight group-sale listings into the
+ *             bulk-suspend pipeline.</li>
  *       </ul>
  *       Returns 204 on success. The request body's {@code reason} is required on
  *       both paths and is recorded on the row + audit details for the force

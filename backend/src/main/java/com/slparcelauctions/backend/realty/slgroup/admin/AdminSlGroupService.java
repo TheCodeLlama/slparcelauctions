@@ -180,7 +180,7 @@ public class AdminSlGroupService {
      * {@link RealtyGroupSlGroupService#unregister}, which respects the
      * active-listings gate and surfaces
      * {@link com.slparcelauctions.backend.realty.slgroup.exception.RegisteredSlGroupHasListingsException}
-     * when in-flight case-3 listings are still attached.
+     * when in-flight group-sale listings are still attached.
      *
      * <p>Note: the underlying service uses
      * {@link com.slparcelauctions.backend.realty.auth.RealtyGroupAuthorizer} which
@@ -203,7 +203,7 @@ public class AdminSlGroupService {
     /**
      * Force-unregister path: delegates to
      * {@link SlGroupForceUnregisterService#forceUnregister}, which bypasses the
-     * active-listings gate and cascades any in-flight case-3 listings through
+     * active-listings gate and cascades any in-flight group-sale listings through
      * the bulk-suspend path. The service writes its own
      * {@code REALTY_GROUP_SL_GROUP_FORCE_UNREGISTER} audit row.
      */
