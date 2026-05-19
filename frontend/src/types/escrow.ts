@@ -96,6 +96,14 @@ export interface EscrowStatusResponse {
   parcelMapUrl: string | null;
   /** SL viewer deep-link to the parcel (secondlife:// app URL), null until enrichment resolves it. */
   parcelViewerUrl: string | null;
+  /**
+   * True while a bot-dispatched VERIFY_SELL_TO or VERIFY_BUY_OWNER check is in
+   * flight (set on Verify Sell To / Verify Purchase POST, cleared when the bot
+   * result lands). The escrow page uses this to disable the verify button and
+   * show "Verification process pending" copy — POST roundtrip success alone is
+   * not enough to re-enable the button, since the bot may still be in transit.
+   */
+  manualVerifyPending: boolean;
 }
 
 /** Body shape for `POST /api/v1/auctions/{id}/escrow/dispute`. */
