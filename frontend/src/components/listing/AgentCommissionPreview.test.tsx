@@ -20,7 +20,7 @@ function installWallet(available: number) {
   );
 }
 
-describe("AgentCommissionPreview (case 3)", () => {
+describe("AgentCommissionPreview (group sale)", () => {
   it("computes the agent/group split per spec §6.3 (floor rounding)", async () => {
     // L$1000 starting → platform commission floor(1000 * 0.05) = 50.
     //   earnings = 950

@@ -27,7 +27,7 @@ public enum CancellationOffenseKind {
     PENALTY_AND_30D,
     PERMANENT_BAN,
     /**
-     * Sub-project E §11.4 -- broker-initiated cancellation on a case-3
+     * Sub-project E §11.4 -- broker-initiated cancellation on a group-sale
      * (SL-group-owned) listing. Excluded from
      * {@code countPriorOffensesWithBids} so it never advances the seller's
      * penalty ladder. Like {@code NONE} and {@code WARNING} it carries no

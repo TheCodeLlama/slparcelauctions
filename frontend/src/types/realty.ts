@@ -216,7 +216,7 @@ export interface UpdatePermissionsRequest {
  * {@code agentCommissionRate} is the calling user's per-member commission rate
  * within the group, projected from {@code realty_group_members.agent_commission_rate}
  * (sub-project G section 6.2). The wizard reads it directly off the eligible-list row
- * for the case-3 fee preview, avoiding a second round-trip via {@code useRealtyGroup}.
+ * for the group-sale fee preview, avoiding a second round-trip via {@code useRealtyGroup}.
  */
 export interface ListingEligibleGroup {
   publicId: string;
@@ -696,7 +696,7 @@ export interface MemberCommissionRow {
 
 /**
  * Aggregated star rating for a realty group, derived from {@code reviews}
- * rows joined via case-1 / case-3 auction linkage. Backend record
+ * rows joined via the auction's realty-group linkage. Backend record
  * {@code GroupRatingDto}.
  *
  * <p>{@code averageRating} is null when no reviews exist — the "No reviews

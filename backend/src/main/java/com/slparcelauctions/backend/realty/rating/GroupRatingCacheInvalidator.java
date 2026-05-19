@@ -43,14 +43,14 @@ public class GroupRatingCacheInvalidator {
     public void on(ReviewCreatedEvent event) {
         auctionRepo.findById(event.auctionId()).ifPresent(a -> {
             if (a.getRealtyGroupId() != null) {
-                log.debug("Review {} on auction {} -> invalidating realty group {} (case-1)",
+                log.debug("Review {} on auction {} -> invalidating realty group {} (direct attribution)",
                         event.reviewId(), event.auctionId(), a.getRealtyGroupId());
                 ratingService.invalidate(a.getRealtyGroupId());
                 return;
             }
             if (a.getRealtyGroupSlGroupId() != null) {
                 slGroupRepo.findById(a.getRealtyGroupSlGroupId()).ifPresent(rsg -> {
-                    log.debug("Review {} on auction {} -> invalidating realty group {} (case-3 via sl group {})",
+                    log.debug("Review {} on auction {} -> invalidating realty group {} (group sale via sl group {})",
                             event.reviewId(), event.auctionId(), rsg.getRealtyGroupId(), rsg.getId());
                     ratingService.invalidate(rsg.getRealtyGroupId());
                 });

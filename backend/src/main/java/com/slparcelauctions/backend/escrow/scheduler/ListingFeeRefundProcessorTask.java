@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  * the refund row under {@code PESSIMISTIC_WRITE}, re-validates the state
  * + not-yet-queued invariants, then issues an instant SLParcels-side
  * wallet credit to whichever wallet originally paid the listing fee
- * (group wallet for case-3 listings, user wallet for case-1/2).
+ * (group wallet for group sales, user wallet for individual sales).
  *
  * <p>Per-refund work runs in a fresh transaction ({@code REQUIRES_NEW}) so
  * the sweep's loop-level exception handling can isolate failures — a
@@ -68,9 +68,9 @@ public class ListingFeeRefundProcessorTask {
             return;
         }
         // Route to group wallet when the original listing-fee debit came
-        // from a realty_group_ledger row (case-3, D-era group listing).
-        // Otherwise credit the seller's user wallet (case-1/2 individual
-        // listing, or C-era group listing).
+        // from a realty_group_ledger row (group sale, D-era group listing).
+        // Otherwise credit the seller's user wallet (individual sale or
+        // C-era group listing).
         Long auctionId = refund.getAuction().getId();
         Optional<RealtyGroupLedgerEntry> groupDebit =
             realtyGroupLedgerRepository.findListingFeeDebitForAuction(auctionId);

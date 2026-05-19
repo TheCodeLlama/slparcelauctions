@@ -37,7 +37,7 @@ public record AuctionCreateRequest(
         @Size(max = 5000) String sellerDesc,
         @Size(max = 10) Set<String> tags,          // parcel_tag codes
         /**
-         * When non-null, the auction is created under this realty group (case 1: the agent
+         * When non-null, the auction is created under this realty group (the agent
          * is also the seller). The controller routes to
          * {@link com.slparcelauctions.backend.realty.listing.RealtyGroupListingService} which
          * asserts {@code CREATE_LISTING} and snapshots {@code agent_fee_rate} +

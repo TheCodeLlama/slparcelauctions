@@ -33,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * Entry point for listing an auction under a realty group. Wraps
  * {@link AuctionService#create} with the {@code CREATE_LISTING} permission gate, then
- * applies sub-project E case-3 validation + snapshot:
+ * applies sub-project E group-sale validation + snapshot:
  * <ul>
  *   <li>The parcel must be group-owned ({@code ownerType == "group"}); personal land
  *       cannot list under a realty group.</li>
@@ -41,7 +41,7 @@ import lombok.RequiredArgsConstructor;
  *       ({@link RealtyGroupSlGroup}) for the realty group the caller is listing under.</li>
  *   <li>The caller's per-member commission rate (from {@link RealtyGroupMember}) is
  *       snapshotted onto {@link Auction#getAgentCommissionRate()}.</li>
- *   <li>{@code listingAgent} is set to the seller (case 3: agent == seller).</li>
+ *   <li>{@code listingAgent} is set to the seller (group sale: agent == seller).</li>
  * </ul>
  */
 @Service

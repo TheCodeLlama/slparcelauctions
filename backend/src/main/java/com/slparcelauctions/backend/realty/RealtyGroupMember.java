@@ -69,10 +69,10 @@ public class RealtyGroupMember extends BaseMutableEntity {
     private OffsetDateTime joinedAt;
 
     /**
-     * Per-listing agent commission rate snapshotted onto auctions at create-time (case 3).
+     * Per-listing agent commission rate snapshotted onto auctions at create-time (group sales).
      * Stored as a fraction ({@code 0.10} = 10%). Leader-edited via the invitation +
      * edit-permissions surface; non-leader members see their own rate read-only. Has no
-     * effect on case-1 legacy auctions, which still use the snapshot from the group-level
+     * effect on legacy auctions, which still use the snapshot from the group-level
      * rate/split fields until G removes them.
      */
     @Builder.Default

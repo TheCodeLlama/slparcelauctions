@@ -267,7 +267,7 @@ class EscrowManualActionServiceTest {
                 .containsEntry(EscrowManualActionService.EXPECTED_OWNER_TYPE_KEY,
                         EscrowManualActionService.EXPECTED_OWNER_TYPE_AGENT);
         // Pre-transfer UUID is re-stamped on the expedited task in case the
-        // case-1 / case-3 discriminator was unset on a legacy row.
+        // individual / group-sale discriminator was unset on a legacy row.
         assertThat(existing.getExpectedSellerUuid()).isEqualTo(SELLER_AVATAR);
         verify(botTaskRepo).save(existing);
         assertThat(escrow.getManualVerifyPending()).isTrue();

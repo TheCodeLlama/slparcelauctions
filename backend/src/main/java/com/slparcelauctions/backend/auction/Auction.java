@@ -83,16 +83,17 @@ public class Auction extends BaseMutableEntity {
     private Long realtyGroupId;
 
     /**
-     * Sub-project E case-3 discriminator. NULL for individual listings and for legacy case-1
-     * rows. Set at create-time to the verified {@link com.slparcelauctions.backend.realty
-     * .slgroup.RealtyGroupSlGroup} row whose SL group UUID matches the parcel's SL owner.
+     * Group-sale discriminator. NULL for individual listings and for legacy non-SL-group
+     * realty-group rows. Set at create-time to the verified {@link com.slparcelauctions
+     * .backend.realty.slgroup.RealtyGroupSlGroup} row whose SL group UUID matches the
+     * parcel's SL owner.
      */
     @Column(name = "realty_group_sl_group_id")
     private Long realtyGroupSlGroupId;
 
     /**
      * Per-listing commission rate snapshotted from {@code realty_group_members.agent_commission_rate}
-     * at listing-create. NULL for non-case-3 auctions. Consumed by {@code AgentCommissionDistributor}
+     * at listing-create. NULL for individual sales. Consumed by {@code AgentCommissionDistributor}
      * at SOLD close.
      */
     @Column(name = "agent_commission_rate", precision = 5, scale = 4)

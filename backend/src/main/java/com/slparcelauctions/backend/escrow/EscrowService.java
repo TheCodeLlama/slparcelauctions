@@ -464,7 +464,7 @@ public class EscrowService {
      * callback path in {@code TerminalCommandService.applyCallback}, not this
      * hook — queuing the command merely schedules the terminal POST.
      *
-     * <p>Sub-project G §8.1: for case-3 (SL-group-owned, payoutAmt = 0),
+     * <p>Sub-project G §8.1: for group sales (SL-group-owned, payoutAmt = 0),
      * {@code queuePayout} short-circuits and runs the success path inline,
      * returning {@link java.util.Optional#empty()}. The state flip to
      * {@code COMPLETED} has already happened by the time this method returns.
@@ -1027,26 +1027,26 @@ public class EscrowService {
      * exclusive at the column level:
      *
      * <ul>
-     *   <li><b>Case 3 (E -- SL-group-owned)</b>: {@code realty_group_sl_group_id IS NOT NULL}.
+     *   <li><b>Group sale (SL-group-owned)</b>: {@code realty_group_sl_group_id IS NOT NULL}.
      *       {@code payoutAmt = 0}. The earnings (finalBid - commission) are credited
      *       entirely via internal wallet routing at payout-success:
      *       {@code AgentCommissionDistributor} credits the listing agent's wallet with
      *       {@code agent_slice} and the realty group's wallet with {@code group_slice}.
      *       No L$ leaves SLPA to an SL avatar from the escrow row, so the terminal
      *       PAYOUT command carries amount=0 and is a SL-side no-op. Spec §8.5, §9.6.</li>
-     *   <li><b>Individual</b>: both group columns null.
+     *   <li><b>Individual sale</b>: both group columns null.
      *       {@code payoutAmt = commission.payout(finalBid)}.</li>
      * </ul>
      *
      * <p>The escrow's {@code payoutTargetUuid} is still the seller's SL avatar for
-     * case-3 — the column is set elsewhere from {@code auction.seller.slAvatarUuid}
-     * and remains correct. For case-3 it simply receives 0 L$ from the terminal,
+     * group sales — the column is set elsewhere from {@code auction.seller.slAvatarUuid}
+     * and remains correct. For group sales it simply receives 0 L$ from the terminal,
      * because all routing is internal.
      */
     private long computePayoutAmt(Auction auction, long finalBid) {
         if (auction.getRealtyGroupSlGroupId() != null) {
-            // Case 3: earnings stay in SLPA; AgentCommissionDistributor credits agent
-            // and group wallets internally at payout-success.
+            // Group sale: earnings stay in SLPA; AgentCommissionDistributor credits
+            // agent and group wallets internally at payout-success.
             return 0L;
         }
         return commission.payout(finalBid);

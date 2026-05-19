@@ -359,11 +359,12 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                       showIndividual={!parcelIsSlGroupOwned}
                     />
                     {selectedGroup && draft.state.startingBid > 0 && (
-                      // Realty Groups: G — case-1 ("agent listing own land
-                      // under a group") is gone, so every group-attributed
-                      // listing renders the same case-3 preview: platform
-                      // commission off the top, then earnings split agent ↔
-                      // group per the caller's per-member commission rate.
+                      // Realty Groups: G — the legacy "agent listing own
+                      // land under a group" variant is gone, so every
+                      // group-attributed listing renders the same group-sale
+                      // preview: platform commission off the top, then
+                      // earnings split agent ↔ group per the caller's
+                      // per-member commission rate.
                       <AgentCommissionPreview
                         startingBid={draft.state.startingBid}
                         reservePrice={settings.reservePrice}

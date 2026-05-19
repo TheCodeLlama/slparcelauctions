@@ -81,7 +81,7 @@ public class TerminalCommandService {
 
     /**
      * Queues an escrow payout to the seller's SL terminal. Sub-project G §8.1
-     * short-circuit: when {@code escrow.getPayoutAmt() == 0L} (case-3
+     * short-circuit: when {@code escrow.getPayoutAmt() == 0L} (group sales --
      * SL-group-owned auctions; the agent commission and group slice both flow
      * through {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor}
      * inside the success path), the terminal round-trip is skipped and the
@@ -102,7 +102,7 @@ public class TerminalCommandService {
                 log.info("queuePayout: escrow {} already COMPLETED, no-op", escrow.getId());
                 return Optional.empty();
             }
-            log.info("queuePayout: escrow {} payoutAmt=0 (case-3), running success path inline",
+            log.info("queuePayout: escrow {} payoutAmt=0 (group sale), running success path inline",
                     escrow.getId());
             runZeroPayoutSuccessInline(escrow, OffsetDateTime.now(clock));
             return Optional.empty();
@@ -342,17 +342,18 @@ public class TerminalCommandService {
 
         // Realty-group payout splitting.
         //
-        //   case 3 (E -- SL-group-owned): realty_group_sl_group_id IS NOT NULL.
+        //   group sale (SL-group-owned): realty_group_sl_group_id IS NOT NULL.
         //       The escrow's payoutAmt is 0 (set by EscrowService.createForEndedAuction);
         //       no L$ leaves SLPA via the terminal. AgentCommissionDistributor credits
         //       the full earnings (finalBid - commission) to the listing agent's wallet
         //       (agent_slice) and the group wallet (group_slice) using
         //       agent_commission_rate. Spec §8.5, §9.6.
         //
-        //   individual: realty_group_sl_group_id IS NULL -- nothing to split.
+        //   individual sale: realty_group_sl_group_id IS NULL -- nothing to split.
         //
-        //   (The pre-G case-1 path -- realty_group_id set but realty_group_sl_group_id
-        //   null -- was removed when sub-project G deleted the case-1 distributor.)
+        //   (The pre-G "agent listing own land under a group" path -- realty_group_id
+        //   set but realty_group_sl_group_id null -- was removed when sub-project G
+        //   deleted the legacy distributor.)
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
             agentCommissionDistributor.distribute(
                 finalEscrow.getAuction(),
@@ -362,8 +363,8 @@ public class TerminalCommandService {
     }
 
     /**
-     * Sub-project G §8.1 -- post-payout success path for the case-3 zero-payout
-     * branch. Mirrors {@link #handleEscrowPayoutSuccess}'s body but is driven
+     * Sub-project G §8.1 -- post-payout success path for the group-sale
+     * zero-payout branch. Mirrors {@link #handleEscrowPayoutSuccess}'s body but is driven
      * directly from {@link #queuePayout} (no terminal callback because no
      * terminal round-trip happened). Writes the {@code AUCTION_ESCROW_PAYOUT}
      * ledger row with amount=0, transitions the escrow to COMPLETED, bumps the
@@ -382,7 +383,7 @@ public class TerminalCommandService {
         escrow.setState(EscrowState.COMPLETED);
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
-        // Lockstep auction-status flip: case-3 zero-payout still transitions
+        // Lockstep auction-status flip: group-sale zero-payout still transitions
         // the escrow to COMPLETED inline (no terminal round-trip), so the
         // auction lands at COMPLETED here too.
         statusFlipper.flip(escrow, AuctionStatus.COMPLETED);
@@ -416,8 +417,8 @@ public class TerminalCommandService {
         final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
 
-        // Seller payout notification; Task 24 tweaks the body copy so case-3
-        // doesn't say "L$0 payout received". Amount is still 0 here -- the
+        // Seller payout notification; Task 24 tweaks the body copy so group
+        // sales don't say "L$0 payout received". Amount is still 0 here -- the
         // builder decides the body string based on realtyGroupId.
         notificationPublisher.escrowPayout(
                 finalEscrow.getAuction().getSeller().getId(),
@@ -426,11 +427,11 @@ public class TerminalCommandService {
                 finalEscrow.getAuction().getTitle(),
                 0L);
 
-        // Case-3 distributor: credits agent_slice to the listing agent's wallet,
-        // group_slice to the group wallet. Both flow through here because
-        // payoutAmt = 0 meant no L$ left SLPA via the terminal. By construction
-        // (Sub-project E spec §9.6 post-G), case-3 is the only branch that
-        // reaches this method.
+        // Group-sale distributor: credits agent_slice to the listing agent's
+        // wallet, group_slice to the group wallet. Both flow through here
+        // because payoutAmt = 0 meant no L$ left SLPA via the terminal. By
+        // construction (Sub-project E spec §9.6 post-G), group sales are the
+        // only branch that reaches this method.
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
             agentCommissionDistributor.distribute(
                 finalEscrow.getAuction(),

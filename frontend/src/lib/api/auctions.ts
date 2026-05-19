@@ -114,7 +114,7 @@ export interface BrokerCancelRequest {
 }
 
 /**
- * POST /api/v1/auctions/{publicId}/broker-cancel — case-3 broker
+ * POST /api/v1/auctions/{publicId}/broker-cancel — group-sale broker
  * cancellation. Caller must hold {@code MANAGE_ALL_LISTINGS} on the
  * auction's realty group; backend gates that. The listing fee refund
  * lands back in the group wallet, not the agent's personal wallet, since

@@ -108,8 +108,8 @@ public enum UserLedgerEntryType {
     AGENT_FEE_CREDIT,
 
     /**
-     * Sub-project E -- listing agent's case-3 commission slice at escrow completion.
-     * Credited to the listing agent's user wallet after the case-3 group-wallet PAYOUT
+     * Sub-project E -- listing agent's group-sale commission slice at escrow completion.
+     * Credited to the listing agent's user wallet after the group-sale group-wallet PAYOUT
      * succeeds. {@code amount = floor((final_bid - platform_commission) * agent_commission_rate)}.
      * See spec §9.6.
      */

@@ -48,7 +48,7 @@ import com.slparcelauctions.backend.auction.BidType;
 
 /**
  * Integration test: {@link EscrowService#createForEndedAuction} sets
- * {@code payoutAmt = 0} for case-3 (SL-group-owned) auctions, where earnings
+ * {@code payoutAmt = 0} for group sales (SL-group-owned auctions), where earnings
  * stay in SLPA and are split into wallets by
  * {@code AgentCommissionDistributor} at payout-success. Spec §8.5, §9.6.
  */
@@ -150,7 +150,7 @@ class EscrowServiceAgentFeePayoutTest {
     }
 
     /**
-     * Case 3 (E -- SL-group-owned listing): when {@code realty_group_sl_group_id IS NOT NULL},
+     * Group sale (SL-group-owned listing): when {@code realty_group_sl_group_id IS NOT NULL},
      * {@code createForEndedAuction} sets {@code payoutAmt = 0}. The earnings stay in SLPA
      * and are split into the listing agent's wallet + the group wallet by
      * {@code AgentCommissionDistributor} at payout-success. Spec §8.5, §9.6.

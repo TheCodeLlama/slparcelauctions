@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Request body for {@code POST /api/v1/auctions/{publicId}/broker-cancel} — a
- * broker-initiated cancellation of a case-3 (SL-group-owned) listing. The
+ * broker-initiated cancellation of a group-sale (SL-group-owned) listing. The
  * {@code reason} is snapshotted onto the {@code CancellationLog} row and fed
  * to the listing-agent notification body. See Realty Groups E spec §5.2.
  */

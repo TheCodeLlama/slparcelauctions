@@ -9,8 +9,8 @@ package com.slparcelauctions.backend.realty.rating;
  *
  * <p>Consumed by {@link GroupRatingCacheInvalidator} to evict the Redis
  * entry at {@code realty_groups_rating:{groupId}} for whichever realty
- * group the underlying auction belongs to (case-1 via
- * {@code Auction.realtyGroupId}, case-3 via the
+ * group the underlying auction belongs to (direct via
+ * {@code Auction.realtyGroupId}, group sale via the
  * {@code RealtyGroupSlGroup} indirection).
  *
  * <p>Carries internal numeric ids only — the listener resolves the

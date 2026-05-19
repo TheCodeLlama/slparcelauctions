@@ -45,9 +45,9 @@ export interface AgentCommissionPreviewProps {
 }
 
 /**
- * Case-3 ("Realty Groups: E") fee preview for the listing wizard.
+ * Group-sale fee preview for the listing wizard.
  *
- * Case 3 is an agent listing a group-owned parcel under the realty group:
+ * Group sale = an agent listing a group-owned parcel under the realty group:
  * the platform takes a 5% commission, then the remaining earnings are split
  * between the agent and the group per the agent's per-member
  * {@code agentCommissionRate}. The visible projection rows (platform
@@ -123,7 +123,7 @@ export function AgentCommissionPreview({
   if (startingBid <= 0) return null;
 
   // Render the rate as a 1- or 2-decimal percentage, trimming trailing
-  // zeros so 0.10 → "10%" and 0.075 → "7.5%". Matches the case-1
+  // zeros so 0.10 → "10%" and 0.075 → "7.5%". Matches the legacy
   // AgentFeePreview formatting so the two previews feel consistent.
   const ratePct = (agentCommissionRate * 100)
     .toFixed(agentCommissionRate < 0.01 ? 2 : 1)

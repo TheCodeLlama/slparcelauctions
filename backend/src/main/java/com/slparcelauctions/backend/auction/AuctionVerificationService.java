@@ -31,10 +31,10 @@ import lombok.extern.slf4j.Slf4j;
  * no seller-chosen "method". The expected owner is derived from the
  * auction:
  * <ul>
- *   <li><b>Case 1 (individual seller)</b> -- parcel must be owned by the
- *       seller's avatar (ownerType == "agent").</li>
- *   <li><b>Case 3 (SL group)</b> -- parcel must be owned by the registered
- *       SL group UUID (ownerType == "group"), looked up via
+ *   <li><b>Individual sale</b> -- parcel must be owned by the seller's
+ *       avatar (ownerType == "agent").</li>
+ *   <li><b>Group sale (SL group)</b> -- parcel must be owned by the
+ *       registered SL group UUID (ownerType == "group"), looked up via
  *       {@link RealtyGroupSlGroupRepository}.</li>
  * </ul>
  *

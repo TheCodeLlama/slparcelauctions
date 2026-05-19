@@ -11,9 +11,9 @@ import java.util.UUID;
  *
  * <p>Both totals reflect {@code AGENT_COMMISSION_CREDIT} {@code user_ledger} entries whose
  * {@code idempotency_key} ({@code AGCOMM-{auctionId}}) resolves to an auction whose
- * {@code realty_group_id} matches the group (case-1 legacy) or whose
+ * {@code realty_group_id} matches the group (legacy direct attribution) or whose
  * {@code realty_group_sl_group_id} resolves to a SL-group registration belonging to the
- * group (case-3). Case-2 was removed by E; auctions with neither linkage are excluded.
+ * group (group sale). Auctions with neither linkage are excluded.
  *
  * @param memberPublicId   {@link com.slparcelauctions.backend.user.User#publicId} of the
  *                         member; rendered into the frontend table as a stable identifier.

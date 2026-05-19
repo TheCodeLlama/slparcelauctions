@@ -23,8 +23,8 @@ import lombok.extern.slf4j.Slf4j;
  * Aggregated star-rating computation for a realty group, with a Redis
  * read-through cache keyed by the group's internal id. Reads pull from
  * {@code reviews} via the auction-&gt;group linkage described in spec
- * §16.1 (both case-1 direct {@code auctions.realty_group_id} and case-3
- * indirect {@code realty_group_sl_groups} coverage).
+ * §16.1 (both direct {@code auctions.realty_group_id} and indirect
+ * group-sale {@code realty_group_sl_groups} coverage).
  *
  * <p>The cached value is a tiny {@code "{avg}|{count}"} string — small
  * enough that a dedicated JSON serializer would add more risk (cache
@@ -78,8 +78,9 @@ public class GroupRatingService {
             log.warn("Unparseable cached rating for group {}: {}", groupId, cached);
         }
 
-        // Case-1 (auction.realty_group_id) UNION case-3 (auction.realty_group_sl_group_id ->
-        // realty_group_sl_groups.realty_group_id). Column name is `rating` on this codebase's
+        // Direct (auction.realty_group_id) UNION group-sale
+        // (auction.realty_group_sl_group_id -> realty_group_sl_groups.realty_group_id).
+        // Column name is `rating` on this codebase's
         // `reviews` table (not `star_rating` as some spec snippets use). Cast AVG to double
         // precision so Hibernate returns Double, not BigDecimal — keeps the DTO shape simple.
         Tuple result = (Tuple) em.createNativeQuery("""
@@ -112,8 +113,8 @@ public class GroupRatingService {
     /**
      * Sub-project G §13.1 — paginated list of every visible review on
      * auctions attributed to the realty group. Attribution mirrors
-     * {@link #computeRating(Long)}: case-1 direct via
-     * {@code auctions.realty_group_id} OR case-3 indirect via
+     * {@link #computeRating(Long)}: direct via
+     * {@code auctions.realty_group_id} OR group-sale indirect via
      * {@code realty_group_sl_groups.realty_group_id}. Anonymous-accessible;
      * returns an empty page when no reviews exist.
      *

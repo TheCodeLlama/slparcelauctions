@@ -56,7 +56,7 @@ function truncateUuid(uuid: string | null | undefined): string {
  *   <li>"Ack drift" → only visible when drift is detected; clears the
  *       drift fields and rolls the founder snapshot forward.</li>
  *   <li>"Force unregister" → opens a confirmation modal (reason required);
- *       cascades any in-flight case-3 listings into the bulk-suspend
+ *       cascades any in-flight group-sale listings into the bulk-suspend
  *       pipeline.</li>
  * </ul>
  */

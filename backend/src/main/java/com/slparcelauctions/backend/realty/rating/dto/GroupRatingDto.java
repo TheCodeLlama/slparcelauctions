@@ -2,9 +2,9 @@ package com.slparcelauctions.backend.realty.rating.dto;
 
 /**
  * Aggregated star rating for a realty group, derived from {@code reviews}
- * rows that join to auctions linked to the group either directly (case-1
- * via {@code auctions.realty_group_id}) or through the SL-group registry
- * (case-3 via {@code auctions.realty_group_sl_group_id} -&gt;
+ * rows that join to auctions linked to the group either directly (legacy
+ * attribution via {@code auctions.realty_group_id}) or through the SL-group
+ * registry (group sale via {@code auctions.realty_group_sl_group_id} -&gt;
  * {@code realty_group_sl_groups.realty_group_id}).
  *
  * <p>{@code averageRating} is {@code null} when no reviews exist — the
