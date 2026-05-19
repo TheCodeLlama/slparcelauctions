@@ -47,6 +47,8 @@ import com.slparcelauctions.backend.escrow.review.ManualReviewRole;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStep;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
+import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -67,6 +69,8 @@ class EscrowManualActionServiceTest {
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID WINNER_AVATAR = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static final UUID SL_GROUP_UUID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static final Long SL_GROUP_ROW_ID = 770L;
     private static final int CAP = 3;
 
     @Mock EscrowRepository escrowRepo;
@@ -74,6 +78,7 @@ class EscrowManualActionServiceTest {
     @Mock BotTaskRepository botTaskRepo;
     @Mock EscrowManualReviewRepository manualReviewRepo;
     @Mock UserRepository userRepo;
+    @Mock RealtyGroupSlGroupRepository slGroupRepo;
     @Mock EscrowConfigProperties props;
 
     EscrowManualActionService service;
@@ -84,7 +89,7 @@ class EscrowManualActionServiceTest {
         fixed = Clock.fixed(Instant.parse("2026-05-17T12:00:00Z"), ZoneOffset.UTC);
         service = new EscrowManualActionService(
                 escrowRepo, escrowService, botTaskRepo, manualReviewRepo,
-                userRepo, props, fixed);
+                userRepo, slGroupRepo, props, fixed);
         lenient().when(props.manualVerifyAttempts()).thenReturn(CAP);
         lenient().when(escrowService.getStatus(eq(AUCTION_ID), any()))
                 .thenReturn(stubStatus());
@@ -172,8 +177,12 @@ class EscrowManualActionServiceTest {
         assertThat(saved.getNextRunAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(saved.getResultData())
                 .containsEntry(EscrowManualActionService.REQUESTING_ROLE_KEY,
-                        EscrowManualActionService.REQUESTING_ROLE_BUYER);
+                        EscrowManualActionService.REQUESTING_ROLE_BUYER)
+                .containsEntry(EscrowManualActionService.EXPECTED_OWNER_TYPE_KEY,
+                        EscrowManualActionService.EXPECTED_OWNER_TYPE_AGENT);
         assertThat(saved.getExpectedWinnerUuid()).isEqualTo(WINNER_AVATAR);
+        // Case-1 (individual listing): pre-transfer owner is the seller's avatar.
+        assertThat(saved.getExpectedSellerUuid()).isEqualTo(SELLER_AVATAR);
 
         assertThat(escrow.getManualVerifyPending()).isTrue();
         assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
@@ -181,6 +190,34 @@ class EscrowManualActionServiceTest {
         verify(escrowService, never()).confirmTransfer(any(), any());
         verify(escrowService, never()).stampChecked(any(), any());
         verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
+    }
+
+    @Test
+    void verifyTransfer_case3GroupListing_stampsGroupUuid_andGroupOwnerType() {
+        Escrow escrow = buildBuyParcel();
+        // Case-3 discriminator: auction references a registered SL group row.
+        escrow.getAuction().setRealtyGroupSlGroupId(SL_GROUP_ROW_ID);
+        when(escrowRepo.findByAuctionId(AUCTION_ID)).thenReturn(Optional.of(escrow));
+        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
+        stubWinner();
+        RealtyGroupSlGroup slGroup = RealtyGroupSlGroup.builder()
+                .id(SL_GROUP_ROW_ID)
+                .slGroupUuid(SL_GROUP_UUID)
+                .build();
+        when(slGroupRepo.findById(SL_GROUP_ROW_ID)).thenReturn(Optional.of(slGroup));
+        when(botTaskRepo.findOpenByEscrowAndType(ESCROW_ID, BotTaskType.VERIFY_BUY_OWNER))
+                .thenReturn(List.of());
+
+        service.verifyTransfer(AUCTION_ID, WINNER_ID);
+
+        ArgumentCaptor<BotTask> taskCap = ArgumentCaptor.forClass(BotTask.class);
+        verify(botTaskRepo).save(taskCap.capture());
+        BotTask saved = taskCap.getValue();
+        assertThat(saved.getExpectedSellerUuid()).isEqualTo(SL_GROUP_UUID);
+        assertThat(saved.getExpectedWinnerUuid()).isEqualTo(WINNER_AVATAR);
+        assertThat(saved.getResultData())
+                .containsEntry(EscrowManualActionService.EXPECTED_OWNER_TYPE_KEY,
+                        EscrowManualActionService.EXPECTED_OWNER_TYPE_GROUP);
     }
 
     @Test
@@ -226,7 +263,12 @@ class EscrowManualActionServiceTest {
         assertThat(existing.getNextRunAt()).isEqualTo(OffsetDateTime.now(fixed));
         assertThat(existing.getResultData())
                 .containsEntry(EscrowManualActionService.REQUESTING_ROLE_KEY,
-                        EscrowManualActionService.REQUESTING_ROLE_BUYER);
+                        EscrowManualActionService.REQUESTING_ROLE_BUYER)
+                .containsEntry(EscrowManualActionService.EXPECTED_OWNER_TYPE_KEY,
+                        EscrowManualActionService.EXPECTED_OWNER_TYPE_AGENT);
+        // Pre-transfer UUID is re-stamped on the expedited task in case the
+        // case-1 / case-3 discriminator was unset on a legacy row.
+        assertThat(existing.getExpectedSellerUuid()).isEqualTo(SELLER_AVATAR);
         verify(botTaskRepo).save(existing);
         assertThat(escrow.getManualVerifyPending()).isTrue();
     }
