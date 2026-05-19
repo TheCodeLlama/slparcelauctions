@@ -5,7 +5,7 @@ import { fakeEscrow } from "@/test/fixtures/escrow";
 
 describe("CompletedStateCard", () => {
   describe("seller view (individual sale)", () => {
-    it("renders the payout headline + sale-price / fee / net breakdown", () => {
+    it("renders the wallet-credit headline + sale-price / fee / net breakdown", () => {
       renderWithProviders(
         <CompletedStateCard
           escrow={fakeEscrow({
@@ -19,9 +19,15 @@ describe("CompletedStateCard", () => {
         />,
       );
 
-      // Headline keeps the net "Payout of L$X sent" so the eye lands on
-      // the amount that actually moved to the seller's avatar.
-      expect(screen.getByText(/payout of l\$\s*4,?750/i)).toBeInTheDocument();
+      // Headline says the L$ landed in the SLParcels wallet, not on the
+      // seller's avatar. The seller withdraws to their avatar separately
+      // via the wallet flow.
+      expect(
+        screen.getByText(/l\$\s*4,?750 added to your slparcels wallet/i),
+      ).toBeInTheDocument();
+      // Old "Payout of L$X sent" copy is gone -- it implied an avatar
+      // transfer that no longer happens at sale conclusion.
+      expect(screen.queryByText(/payout of l\$/i)).not.toBeInTheDocument();
 
       // Breakdown body: sale price anchor + SLParcels fee row + net.
       // Use queryAllByText for "L$ 4,750" since it shows up in both the
@@ -55,7 +61,9 @@ describe("CompletedStateCard", () => {
           role="seller"
         />,
       );
-      expect(screen.getByText(/payout of l\$\s*50/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/l\$\s*50 added to your slparcels wallet/i),
+      ).toBeInTheDocument();
       expect(screen.getByText(/^l\$\s*100$/i)).toBeInTheDocument(); // sale price row
       expect(
         screen.getByText(/slparcels fee \(5%, l\$50 min\)/i),
