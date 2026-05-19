@@ -14,12 +14,11 @@ namespace Slpa.Bot.Tests;
 /// report path via the in-test <see cref="FakeBotSession"/> + a mocked
 /// <see cref="IBackendClient"/>; never touches GridClient.
 ///
-/// <para>Backend dispatch (EscrowManualActionService.verifyTransfer) currently
-/// only stamps <c>expectedWinnerUuid</c> on the task, so the handler can only
-/// classify "owner == winner" vs "owner != winner". The residual case is
-/// reported as <see cref="BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER"/>; reliable
-/// stranger detection is left to the 30-min background ownership monitor that
-/// has the full seller / registered-group context.</para>
+/// <para>Backend dispatch stamps <c>expectedWinnerUuid</c>,
+/// <c>expectedPreTransferUuid</c> (seller avatar for case-1 / registered SL
+/// group UUID for case-3) and <c>expectedOwnerType</c> ("agent"/"group") on
+/// the task; the handler classifies the observed (owner, ownerType) pair
+/// against that triple per the matrix in <see cref="VerifyBuyOwnerHandler"/>.</para>
 /// </summary>
 public sealed class VerifyBuyOwnerHandlerTests
 {
@@ -48,8 +47,9 @@ public sealed class VerifyBuyOwnerHandlerTests
     public async Task OwnerEqualsWinner_ReportsOwnerIsWinner()
     {
         var winner = Guid.NewGuid();
+        var seller = Guid.NewGuid();
         _session.ReadPolicy = (_, _) => Snapshot(owner: winner, isGroupOwned: false);
-        var task = BuildTask(winner);
+        var task = BuildCase1Task(winner, seller);
 
         await NewHandler().HandleAsync(task, CancellationToken.None);
 
@@ -59,12 +59,12 @@ public sealed class VerifyBuyOwnerHandlerTests
     }
 
     [Fact]
-    public async Task OwnerEqualsSellerAvatar_ReportsStillPreTransfer()
+    public async Task Case1_OwnerEqualsSellerAvatar_ReportsStillPreTransfer()
     {
         var winner = Guid.NewGuid();
         var seller = Guid.NewGuid();
         _session.ReadPolicy = (_, _) => Snapshot(owner: seller, isGroupOwned: false);
-        var task = BuildTask(winner);
+        var task = BuildCase1Task(winner, seller);
 
         await NewHandler().HandleAsync(task, CancellationToken.None);
 
@@ -74,12 +74,15 @@ public sealed class VerifyBuyOwnerHandlerTests
     }
 
     [Fact]
-    public async Task OwnerEqualsCase3Group_ReportsStillPreTransfer()
+    public async Task Case3_OwnerEqualsRegisteredGroup_ReportsStillPreTransfer()
     {
+        // Case-3 group listing: pre-transfer owner is the registered SL group
+        // UUID with ownerType "group". Bot sees the same group still holding
+        // the parcel -> PRE_TRANSFER (consumes one attempt, no freeze).
         var winner = Guid.NewGuid();
         var group = Guid.NewGuid();
         _session.ReadPolicy = (_, _) => Snapshot(owner: group, isGroupOwned: true);
-        var task = BuildTask(winner);
+        var task = BuildCase3Task(winner, group);
 
         await NewHandler().HandleAsync(task, CancellationToken.None);
 
@@ -89,22 +92,58 @@ public sealed class VerifyBuyOwnerHandlerTests
     }
 
     [Fact]
-    public async Task OwnerIsUnknownAvatar_ReportsStillPreTransfer_ObservedUuidPropagated()
+    public async Task Case1_OwnerIsStrangerAvatar_ReportsOwnerIsStranger()
     {
-        // Conservative default: without expectedSellerUuid on the task, the
-        // bot cannot reliably distinguish stranger from seller — it reports
-        // PRE_TRANSFER and lets the World API ownership monitor handle real
-        // strangers. The observed UUID + type still flow to the backend so
-        // admin tooling can see what the bot saw.
+        // Now that the backend stamps expectedPreTransferUuid, a non-winner
+        // non-seller owner is a real stranger -> STRANGER (backend freezes).
         var winner = Guid.NewGuid();
+        var seller = Guid.NewGuid();
         var stranger = Guid.NewGuid();
         _session.ReadPolicy = (_, _) => Snapshot(owner: stranger, isGroupOwned: false);
-        var task = BuildTask(winner);
+        var task = BuildCase1Task(winner, seller);
 
         await NewHandler().HandleAsync(task, CancellationToken.None);
 
-        Reported().Should().Be(BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER);
+        Reported().Should().Be(BuyOwnerOutcome.OWNER_IS_STRANGER);
         _captured!.ObservedOwnerUuid.Should().Be(stranger);
+        _captured.ObservedOwnerType.Should().Be("agent");
+    }
+
+    [Fact]
+    public async Task Case3_OwnerIsStrangerGroup_ReportsOwnerIsStranger()
+    {
+        // Case-3 stranger: parcel is now held by some other group, not the
+        // registered SL group -> STRANGER.
+        var winner = Guid.NewGuid();
+        var registeredGroup = Guid.NewGuid();
+        var strangerGroup = Guid.NewGuid();
+        _session.ReadPolicy = (_, _) => Snapshot(owner: strangerGroup, isGroupOwned: true);
+        var task = BuildCase3Task(winner, registeredGroup);
+
+        await NewHandler().HandleAsync(task, CancellationToken.None);
+
+        Reported().Should().Be(BuyOwnerOutcome.OWNER_IS_STRANGER);
+        _captured!.ObservedOwnerUuid.Should().Be(strangerGroup);
+        _captured.ObservedOwnerType.Should().Be("group");
+    }
+
+    [Fact]
+    public async Task Case3_UuidMatchesButTypeFlipped_ReportsOwnerIsStranger()
+    {
+        // Defensive: expected type="group" but observed type="agent" with the
+        // same UUID (shouldn't happen in SL — group UUIDs and avatar UUIDs are
+        // disjoint — but if it ever did, a flipped owner type means a real
+        // ownership change). Safer to surface as STRANGER than treat as
+        // PRE_TRANSFER.
+        var winner = Guid.NewGuid();
+        var registeredGroup = Guid.NewGuid();
+        _session.ReadPolicy = (_, _) => Snapshot(owner: registeredGroup, isGroupOwned: false);
+        var task = BuildCase3Task(winner, registeredGroup);
+
+        await NewHandler().HandleAsync(task, CancellationToken.None);
+
+        Reported().Should().Be(BuyOwnerOutcome.OWNER_IS_STRANGER);
+        _captured!.ObservedOwnerType.Should().Be("agent");
     }
 
     [Fact]
@@ -213,9 +252,22 @@ public sealed class VerifyBuyOwnerHandlerTests
         SnapshotId: Guid.NewGuid(),
         Flags: 0u);
 
-    private static BotTaskResponse BuildTask(Guid winner) => BuildTask((Guid?)winner);
+    /// <summary>Case-1 (individual listing): pre-transfer owner is the seller's avatar UUID.</summary>
+    private static BotTaskResponse BuildCase1Task(Guid winner, Guid seller) =>
+        BuildTask(winner, expectedPreTransfer: seller, expectedOwnerType: "agent");
 
-    private static BotTaskResponse BuildTask(Guid? expectedWinner) => new(
+    /// <summary>Case-3 (group listing): pre-transfer owner is the registered SL group UUID.</summary>
+    private static BotTaskResponse BuildCase3Task(Guid winner, Guid registeredGroup) =>
+        BuildTask(winner, expectedPreTransfer: registeredGroup, expectedOwnerType: "group");
+
+    /// <summary>Legacy / malformed tasks: only expectedWinnerUuid present.</summary>
+    private static BotTaskResponse BuildTask(Guid winner) =>
+        BuildTask((Guid?)winner, expectedPreTransfer: null, expectedOwnerType: null);
+
+    private static BotTaskResponse BuildTask(
+        Guid? expectedWinner,
+        Guid? expectedPreTransfer = null,
+        string? expectedOwnerType = null) => new(
         Id: 77,
         TaskType: BotTaskType.VERIFY_BUY_OWNER,
         Status: BotTaskStatus.IN_PROGRESS,
@@ -235,5 +287,7 @@ public sealed class VerifyBuyOwnerHandlerTests
         CompletedAt: null,
         RecipientUuid: null,
         AmountL: null,
-        ExpectedWinnerUuid: expectedWinner);
+        ExpectedWinnerUuid: expectedWinner,
+        ExpectedPreTransferUuid: expectedPreTransfer,
+        ExpectedOwnerType: expectedOwnerType);
 }

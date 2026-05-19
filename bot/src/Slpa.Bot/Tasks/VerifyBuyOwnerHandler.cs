@@ -7,24 +7,31 @@ namespace Slpa.Bot.Tasks;
 
 /// <summary>
 /// Handles <see cref="BotTaskType.VERIFY_BUY_OWNER"/> tasks (bot-dispatch
-/// verify-purchase, 2026-05-18). Teleports onto the parcel, reads
-/// <see cref="ParcelSnapshot"/>, classifies the live owner against the
-/// expected winner UUID stamped on the task, and POSTs a
-/// <see cref="BuyOwnerOutcome"/> back to the backend via
-/// <see cref="IBackendClient.ReportBuyOwnerResultAsync"/>.
+/// verify-purchase, 2026-05-18; full classification 2026-05-19). Teleports
+/// onto the parcel, reads <see cref="ParcelSnapshot"/>, classifies the live
+/// owner against the expected winner UUID + expected pre-transfer owner
+/// stamped on the task, and POSTs a <see cref="BuyOwnerOutcome"/> back to
+/// the backend via <see cref="IBackendClient.ReportBuyOwnerResultAsync"/>.
 ///
-/// <para><b>Classification (with the data the task currently carries).</b> The
-/// dispatching backend stamps only <c>expectedWinnerUuid</c> on the
-/// <c>VERIFY_BUY_OWNER</c> task — not the seller / registered-group UUID. The
-/// handler can therefore only distinguish "owner == winner" from "owner !=
-/// winner", and reports the residual case as
-/// <see cref="BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER"/> (a definitive
-/// negative that consumes a manual-verify attempt). True
-/// <see cref="BuyOwnerOutcome.OWNER_IS_STRANGER"/> classification would need
-/// the seller / group UUID on the task payload — the 30-minute World API
-/// ownership monitor remains the authoritative path for fraud detection in
-/// the meantime, so the conservative PRE_TRANSFER default keeps a misidentified
-/// stranger from auto-freezing a healthy escrow.</para>
+/// <para><b>Classification matrix.</b> The backend stamps the task with both
+/// <c>expectedWinnerUuid</c> and <c>expectedPreTransferUuid</c>
+/// (seller avatar for case-1 / registered SL group UUID for case-3) plus
+/// <c>expectedOwnerType</c> ("agent" / "group"):
+/// <list type="bullet">
+///   <item><description>Owner UUID == winner AND ownerType == "agent" →
+///   <see cref="BuyOwnerOutcome.OWNER_IS_WINNER"/>.</description></item>
+///   <item><description>Owner UUID == expected pre-transfer UUID AND
+///   ownerType == expected pre-transfer ownerType →
+///   <see cref="BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER"/> (consumes one
+///   manual-verify attempt).</description></item>
+///   <item><description>Otherwise →
+///   <see cref="BuyOwnerOutcome.OWNER_IS_STRANGER"/> (backend freezes the
+///   escrow for fraud review).</description></item>
+/// </list>
+/// A defensive UUID-match-but-type-mismatch case (shouldn't happen in SL but
+/// possible if the pre-transfer entity changed group status mid-flight) also
+/// maps to <c>OWNER_IS_STRANGER</c> — the safer side, since a flipped owner
+/// type implies a real ownership change.</para>
 ///
 /// <para><b>Failure mapping.</b> Region-not-found → <see cref="BuyOwnerOutcome.PARCEL_DELETED"/>;
 /// teleport-access-denied / read-parcel null → <see cref="BuyOwnerOutcome.WORLD_API_FAILURE"/>
@@ -90,22 +97,12 @@ public sealed class VerifyBuyOwnerHandler
                 {
                     observedOwner = snap.OwnerId;
                     observedOwnerType = snap.IsGroupOwned ? "group" : "agent";
-                    if (snap.OwnerId == task.ExpectedWinnerUuid.Value)
-                    {
-                        outcome = BuyOwnerOutcome.OWNER_IS_WINNER;
-                    }
-                    else
-                    {
-                        // Conservative default: without expectedSellerUuid /
-                        // expectedGroupUuid on the task payload we cannot
-                        // reliably distinguish seller/group (PRE_TRANSFER) from
-                        // a true STRANGER. The 30-min World API ownership
-                        // monitor is the authoritative stranger-detector;
-                        // misclassifying a seller as a stranger here would
-                        // wrongly freeze a healthy escrow, so the safer
-                        // default is PRE_TRANSFER (consumes one attempt).
-                        outcome = BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER;
-                    }
+                    outcome = Classify(
+                        observedOwner: snap.OwnerId,
+                        observedOwnerType: observedOwnerType,
+                        expectedWinner: task.ExpectedWinnerUuid.Value,
+                        expectedPreTransfer: task.ExpectedPreTransferUuid,
+                        expectedPreTransferType: task.ExpectedOwnerType);
                 }
             }
         }
@@ -129,5 +126,37 @@ public sealed class VerifyBuyOwnerHandler
             new BuyOwnerResultRequest(outcome, observedOwner, observedOwnerType), ct)
             .ConfigureAwait(false);
         _log.LogInformation("VERIFY_BUY_OWNER {Id} -> {Outcome}", task.Id, outcome);
+    }
+
+    /// <summary>
+    /// Maps the observed (owner, ownerType) pair against the task's expected
+    /// winner / pre-transfer context. See the class docstring for the full
+    /// matrix. <paramref name="expectedPreTransfer"/> / <paramref name="expectedPreTransferType"/>
+    /// may be null on legacy / malformed tasks — without them we cannot
+    /// safely classify PRE_TRANSFER, so any non-winner owner is reported as
+    /// STRANGER (the backend's existing fraud-evidence path will surface the
+    /// observed UUID for the admin queue).
+    /// </summary>
+    internal static BuyOwnerOutcome Classify(
+        Guid observedOwner,
+        string observedOwnerType,
+        Guid expectedWinner,
+        Guid? expectedPreTransfer,
+        string? expectedPreTransferType)
+    {
+        if (observedOwner == expectedWinner && observedOwnerType == "agent")
+        {
+            return BuyOwnerOutcome.OWNER_IS_WINNER;
+        }
+
+        if (expectedPreTransfer is not null
+            && observedOwner == expectedPreTransfer.Value
+            && expectedPreTransferType is not null
+            && observedOwnerType == expectedPreTransferType)
+        {
+            return BuyOwnerOutcome.OWNER_STILL_PRE_TRANSFER;
+        }
+
+        return BuyOwnerOutcome.OWNER_IS_STRANGER;
     }
 }
