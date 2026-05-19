@@ -121,5 +121,17 @@ public enum UserLedgerEntryType {
      * row on {@code realty_group_ledger} that shares the same {@code idempotencyKey}.
      * {@code description} carries the group display name (and optional user-supplied memo).
      */
-    GROUP_WALLET_DEPOSIT_DEBIT
+    GROUP_WALLET_DEPOSIT_DEBIT,
+
+    /**
+     * Individual-sale payout credited to the seller's SLParcels wallet at escrow
+     * COMPLETED. Replaces the prior {@code TerminalCommand{action=PAYOUT}} flow
+     * that paid L$ directly to the seller's avatar; per the wallet-first policy
+     * the sale conclusion keeps L$ inside SLParcels and the seller withdraws
+     * separately when they choose. Idempotency key {@code AUCPAYOUT-{escrowId}}.
+     * Group sales (auctions with {@code realty_group_sl_group_id}) continue to
+     * split via {@link #AGENT_COMMISSION_CREDIT} + realty-group ledger; this
+     * entry type is individual-sale only.
+     */
+    AUCTION_PAYOUT_CREDIT
 }

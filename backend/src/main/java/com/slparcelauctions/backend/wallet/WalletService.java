@@ -450,6 +450,50 @@ public class WalletService {
             userId, auctionId, amount, newBalance);
     }
 
+    /**
+     * Credit the seller's user wallet with the individual-sale payout slice.
+     * Called from the escrow-payout-success path for individual sales
+     * (auctions with no {@code realty_group_sl_group_id}). Replaces the prior
+     * path that dispatched a {@code TerminalCommandAction.PAYOUT} to send L$
+     * to the seller's SL avatar in-world -- per the wallet-first policy, sale
+     * conclusion keeps L$ inside SLParcels; the seller withdraws to their
+     * avatar separately if/when they choose.
+     *
+     * <p>Idempotency key {@code AUCPAYOUT-{escrowId}} prevents a duplicate
+     * credit if the payout-success path is replayed.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void creditAuctionPayout(Long userId, Long auctionId, Long escrowId, long amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("amount must be positive: " + amount);
+        }
+        String idempotencyKey = "AUCPAYOUT-" + escrowId;
+        Optional<UserLedgerEntry> existing = ledgerRepository.findByIdempotencyKey(idempotencyKey);
+        if (existing.isPresent()) {
+            log.debug("auction payout credit replay for escrowId={} (existing entry id={})",
+                escrowId, existing.get().getId());
+            return;
+        }
+        User user = userRepository.findByIdForUpdate(userId).orElseThrow();
+        long newBalance = user.getBalanceLindens() + amount;
+        user.setBalanceLindens(newBalance);
+        userRepository.save(user);
+        UserLedgerEntry entry = ledgerRepository.save(UserLedgerEntry.builder()
+            .userId(user.getId())
+            .entryType(UserLedgerEntryType.AUCTION_PAYOUT_CREDIT)
+            .amount(amount)
+            .balanceAfter(newBalance)
+            .reservedAfter(user.getReservedLindens())
+            .refType("ESCROW")
+            .refId(escrowId)
+            .idempotencyKey(idempotencyKey)
+            .build());
+        walletBroadcastPublisher.publish(user,
+            UserLedgerEntryType.AUCTION_PAYOUT_CREDIT.name(), entry.getPublicId());
+        log.info("auction payout credit: userId={}, auctionId={}, escrowId={}, amount={}, balanceAfter={}",
+            userId, auctionId, escrowId, amount, newBalance);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public void creditListingFeeRefund(User user, long amount, Long listingFeeRefundId) {
         UserLedgerEntry entry = creditCommon(user, amount,
