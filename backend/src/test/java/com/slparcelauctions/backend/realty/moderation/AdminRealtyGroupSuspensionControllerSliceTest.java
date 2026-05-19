@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.lang.reflect.Field;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -126,27 +127,35 @@ class AdminRealtyGroupSuspensionControllerSliceTest {
 
     @Test
     void postSuspensions_happyPath_returns201WithSuspensionDto() throws Exception {
+        // Use now-relative timestamps so Bean Validation's @Future on the
+        // request DTO and the entity's runtime ACTIVE_TIMED classification
+        // (derived from expiresAt > wall-clock now) stay valid regardless
+        // of when the test is executed.
+        OffsetDateTime nowUtc = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime expiresAt = nowUtc.plusDays(7);
         RealtyGroupSuspension saved = buildSuspension(
             SUSPENSION_PUBLIC_ID,
-            OffsetDateTime.of(2026, 5, 12, 10, 0, 0, 0, ZoneOffset.UTC),
-            OffsetDateTime.of(2026, 5, 19, 10, 0, 0, 0, ZoneOffset.UTC),
+            nowUtc,
+            expiresAt,
             /* liftedAt */ null,
             "spammy listings",
             null);
         when(suspensionService.issue(eq(GROUP_PUBLIC_ID), anyLong(), any(), any(), any(), anyBoolean()))
             .thenReturn(saved);
 
+        String requestBody = String.format("""
+                {
+                  "reason": "FRAUD",
+                  "notes": "spammy listings",
+                  "expiresAt": "%s",
+                  "bulkSuspendListings": false
+                }
+                """, expiresAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+
         mvc.perform(post("/api/v1/admin/realty-groups/" + GROUP_PUBLIC_ID + "/suspensions")
                 .header("Authorization", "Bearer " + adminToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {
-                      "reason": "FRAUD",
-                      "notes": "spammy listings",
-                      "expiresAt": "2026-05-19T10:00:00Z",
-                      "bulkSuspendListings": false
-                    }
-                    """))
+                .content(requestBody))
            .andExpect(status().isCreated())
            .andExpect(jsonPath("$.publicId").value(SUSPENSION_PUBLIC_ID.toString()))
            .andExpect(jsonPath("$.reason").value("FRAUD"))
@@ -195,27 +204,32 @@ class AdminRealtyGroupSuspensionControllerSliceTest {
 
     @Test
     void postSuspensions_withBulkSuspendListingsTrue_invokesService() throws Exception {
+        // See postSuspensions_happyPath for why these are now-relative.
+        OffsetDateTime nowUtc = OffsetDateTime.now(ZoneOffset.UTC);
+        OffsetDateTime expiresAt = nowUtc.plusDays(7);
         RealtyGroupSuspension saved = buildSuspension(
             SUSPENSION_PUBLIC_ID,
-            OffsetDateTime.of(2026, 5, 12, 10, 0, 0, 0, ZoneOffset.UTC),
-            OffsetDateTime.of(2026, 5, 19, 10, 0, 0, 0, ZoneOffset.UTC),
+            nowUtc,
+            expiresAt,
             /* liftedAt */ null,
             "with bulk cascade",
             null);
         when(suspensionService.issue(eq(GROUP_PUBLIC_ID), anyLong(), any(), any(), any(), anyBoolean()))
             .thenReturn(saved);
 
+        String requestBody = String.format("""
+                {
+                  "reason": "TOS_VIOLATION",
+                  "notes": "with bulk cascade",
+                  "expiresAt": "%s",
+                  "bulkSuspendListings": true
+                }
+                """, expiresAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+
         mvc.perform(post("/api/v1/admin/realty-groups/" + GROUP_PUBLIC_ID + "/suspensions")
                 .header("Authorization", "Bearer " + adminToken())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {
-                      "reason": "TOS_VIOLATION",
-                      "notes": "with bulk cascade",
-                      "expiresAt": "2026-05-19T10:00:00Z",
-                      "bulkSuspendListings": true
-                    }
-                    """))
+                .content(requestBody))
            .andExpect(status().isCreated());
 
         // The controller must pass bulkSuspendListings=true through to the service —
@@ -233,7 +247,9 @@ class AdminRealtyGroupSuspensionControllerSliceTest {
 
     @Test
     void getSuspensions_returns200WithHistory() throws Exception {
-        OffsetDateTime now = OffsetDateTime.of(2026, 5, 12, 10, 0, 0, 0, ZoneOffset.UTC);
+        // now-relative so the "active" row's expiresAt stays in the
+        // future and its status classifies as ACTIVE_TIMED at runtime.
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         RealtyGroupSuspension active = buildSuspension(
             SUSPENSION_PUBLIC_ID,
             now,
