@@ -104,6 +104,19 @@ export interface EscrowStatusResponse {
    * not enough to re-enable the button, since the bot may still be in transit.
    */
   manualVerifyPending: boolean;
+
+  // ── Group-sale payout breakdown ────────────────────────────────────────────
+  // Populated only for group sales (auction.realtyGroupSlGroupId != null); all
+  // three are null for individual sales. Mirror of the backend split applied by
+  // AgentCommissionDistributor: agentCommissionAmt + groupSliceAmt ==
+  // finalBidAmount - commissionAmt (no rounding loss). Drives the seller-facing
+  // COMPLETED card breakdown.
+  /** Agent slice in L$ — credited to the listing agent's wallet. */
+  agentCommissionAmt: number | null;
+  /** Group-wallet slice in L$ — credited to the realty group wallet. */
+  groupSliceAmt: number | null;
+  /** Display name of the realty group that received {@code groupSliceAmt}. */
+  groupName: string | null;
 }
 
 /** Body shape for `POST /api/v1/auctions/{id}/escrow/dispute`. */

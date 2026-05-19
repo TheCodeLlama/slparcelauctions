@@ -377,7 +377,8 @@ class EscrowManualActionServiceTest {
                 UUID.randomUUID(), UUID.randomUUID(), "Winner Resident",
                 EscrowState.TRANSFER_PENDING, 5000L, 250L, 4750L,
                 null, null, null, null, null, null, null, null, null, null,
-                List.of(), null, null, 3, 3, 3, null, null, null, null, false);
+                List.of(), null, null, 3, 3, 3, null, null, null, null, false,
+                null, null, null);
     }
 
     private Escrow buildSetSellTo() {

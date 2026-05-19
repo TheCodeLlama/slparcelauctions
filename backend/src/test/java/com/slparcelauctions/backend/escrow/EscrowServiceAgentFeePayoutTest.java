@@ -21,6 +21,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.slparcelauctions.backend.auction.Auction;
+import com.slparcelauctions.backend.escrow.dto.EscrowStatusResponse;
 import com.slparcelauctions.backend.auction.AuctionEndOutcome;
 import com.slparcelauctions.backend.auction.AuctionRepository;
 import com.slparcelauctions.backend.auction.AuctionStatus;
@@ -170,6 +171,61 @@ class EscrowServiceAgentFeePayoutTest {
         // commission is unaffected
         assertThat(escrow.getCommissionAmt()).isEqualTo(commissionCalculator.commission(finalBid));
         assertThat(escrow.getFinalBidAmount()).isEqualTo(finalBid);
+    }
+
+    /**
+     * Status DTO surfaces the agent-slice / group-slice / group-name split for
+     * group sales so the seller's COMPLETED card can render the same breakdown
+     * that {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor}
+     * applies at payout-success. Spec §8.5, §9.6.
+     */
+    @Test
+    void getStatus_groupSale_populatesAgentSliceGroupSliceAndGroupName() {
+        // L$100 sale with 50% agent rate -> commission L$50 (5% floor),
+        // earnings L$50, agentSlice L$25, groupSlice L$25.
+        long finalBid = 100L;
+        BigDecimal agentRate = new BigDecimal("0.5000");
+        Auction auction = seedCase3Auction(finalBid, agentRate);
+
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.executeWithoutResult(status -> {
+            Auction managed = auctionRepo.findById(auction.getId()).orElseThrow();
+            escrowService.createForEndedAuction(managed, OffsetDateTime.now());
+        });
+
+        EscrowStatusResponse statusResp = escrowService.getStatus(
+                auction.getId(), seededBidderId);
+
+        // Winner-side caller is fine; the DTO is identical for either party.
+        assertThat(statusResp.payoutAmt()).isZero();
+        assertThat(statusResp.commissionAmt()).isEqualTo(50L);
+        assertThat(statusResp.agentCommissionAmt()).isEqualTo(25L);
+        assertThat(statusResp.groupSliceAmt()).isEqualTo(25L);
+        assertThat(statusResp.groupName()).startsWith("Case3 Group ");
+    }
+
+    /**
+     * Null {@code agentCommissionRate} defaults to 0 (matches
+     * {@code AgentCommissionDistributor.distribute}): the whole {@code earnings}
+     * amount lands in the group wallet, agent slice is L$0.
+     */
+    @Test
+    void getStatus_groupSale_nullAgentRate_defaultsToZeroSliceAllToGroup() {
+        long finalBid = 200L;
+        Auction auction = seedCase3Auction(finalBid, null);
+
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        tx.executeWithoutResult(status -> {
+            Auction managed = auctionRepo.findById(auction.getId()).orElseThrow();
+            escrowService.createForEndedAuction(managed, OffsetDateTime.now());
+        });
+
+        EscrowStatusResponse statusResp = escrowService.getStatus(
+                auction.getId(), seededBidderId);
+        // 200 - 50 (5% floor) = 150 earnings; rate 0 -> agent L$0, group L$150.
+        assertThat(statusResp.agentCommissionAmt()).isEqualTo(0L);
+        assertThat(statusResp.groupSliceAmt()).isEqualTo(150L);
+        assertThat(statusResp.groupName()).isNotNull();
     }
 
     // -------------------------------------------------------------------------

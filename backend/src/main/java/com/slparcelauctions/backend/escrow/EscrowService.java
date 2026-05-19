@@ -1,5 +1,7 @@
 package com.slparcelauctions.backend.escrow;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -40,6 +42,8 @@ import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.scheduler.SellToBotTaskFactory;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.sl.SlurlBuilder;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
 import com.slparcelauctions.backend.escrow.dispute.exception.EscrowNotDisputedException;
@@ -111,6 +115,7 @@ public class EscrowService {
     private final EscrowConfigProperties escrowConfig;
     private final EscrowManualReviewRepository manualReviewRepo;
     private final SellToBotTaskFactory sellToBotTaskFactory;
+    private final RealtyGroupRepository realtyGroupRepo;
 
     public static boolean isAllowed(EscrowState from, EscrowState to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -514,6 +519,33 @@ public class EscrowService {
                     snap.getRegionName(), snap.getPositionX(), snap.getPositionY(), snap.getPositionZ());
         }
 
+        // Group-sale payout split — populated only when the auction is
+        // group-listed (realty_group_sl_group_id != null). Same arithmetic as
+        // AgentCommissionDistributor.distribute so the seller's COMPLETED
+        // card matches the actual L$ that landed in each wallet.
+        Long agentCommissionAmt = null;
+        Long groupSliceAmt = null;
+        String groupName = null;
+        Auction auction = escrow.getAuction();
+        if (auction.getRealtyGroupSlGroupId() != null) {
+            BigDecimal rate = auction.getAgentCommissionRate();
+            if (rate == null) {
+                rate = BigDecimal.ZERO;
+            }
+            long earnings = escrow.getFinalBidAmount() - escrow.getCommissionAmt();
+            long agentSlice = BigDecimal.valueOf(earnings)
+                    .multiply(rate)
+                    .setScale(0, RoundingMode.FLOOR)
+                    .longValueExact();
+            agentCommissionAmt = agentSlice;
+            groupSliceAmt = earnings - agentSlice;
+            if (auction.getRealtyGroupId() != null) {
+                groupName = realtyGroupRepo.findById(auction.getRealtyGroupId())
+                        .map(RealtyGroup::getName)
+                        .orElse(null);
+            }
+        }
+
         return new EscrowStatusResponse(
                 escrow.getPublicId(), escrow.getAuction().getPublicId(),
                 winnerSlAvatarName, escrow.getState(),
@@ -532,7 +564,10 @@ public class EscrowService {
                 reviewStep,
                 parcelMapUrl,
                 parcelViewerUrl,
-                Boolean.TRUE.equals(escrow.getManualVerifyPending()));
+                Boolean.TRUE.equals(escrow.getManualVerifyPending()),
+                agentCommissionAmt,
+                groupSliceAmt,
+                groupName);
     }
 
     private List<EscrowTimelineEntry> buildTimeline(Escrow e) {
