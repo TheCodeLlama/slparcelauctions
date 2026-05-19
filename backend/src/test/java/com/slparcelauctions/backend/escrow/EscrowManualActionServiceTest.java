@@ -17,6 +17,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,15 +47,8 @@ import com.slparcelauctions.backend.escrow.review.ManualReviewRole;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStatus;
 import com.slparcelauctions.backend.escrow.review.ManualReviewStep;
 import com.slparcelauctions.backend.escrow.terminal.EscrowConfigProperties;
-import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
-import com.slparcelauctions.backend.sl.SlWorldApiClient;
-import com.slparcelauctions.backend.sl.dto.ParcelMetadata;
-import com.slparcelauctions.backend.sl.dto.ParcelPageData;
-import com.slparcelauctions.backend.sl.exception.ExternalApiTimeoutException;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
-
-import reactor.core.publisher.Mono;
 
 /**
  * Unit coverage for {@link EscrowManualActionService}: the seller/buyer
@@ -73,16 +67,13 @@ class EscrowManualActionServiceTest {
     private static final UUID PARCEL_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID SELLER_AVATAR = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID WINNER_AVATAR = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-    private static final UUID STRANGER_AVATAR = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
     private static final int CAP = 3;
 
     @Mock EscrowRepository escrowRepo;
     @Mock EscrowService escrowService;
     @Mock BotTaskRepository botTaskRepo;
     @Mock EscrowManualReviewRepository manualReviewRepo;
-    @Mock SlWorldApiClient worldApi;
     @Mock UserRepository userRepo;
-    @Mock RealtyGroupSlGroupRepository slGroupRepo;
     @Mock EscrowConfigProperties props;
 
     EscrowManualActionService service;
@@ -93,7 +84,7 @@ class EscrowManualActionServiceTest {
         fixed = Clock.fixed(Instant.parse("2026-05-17T12:00:00Z"), ZoneOffset.UTC);
         service = new EscrowManualActionService(
                 escrowRepo, escrowService, botTaskRepo, manualReviewRepo,
-                worldApi, userRepo, slGroupRepo, props, fixed);
+                userRepo, props, fixed);
         lenient().when(props.manualVerifyAttempts()).thenReturn(CAP);
         lenient().when(escrowService.getStatus(eq(AUCTION_ID), any()))
                 .thenReturn(stubStatus());
@@ -148,7 +139,7 @@ class EscrowManualActionServiceTest {
                 .isInstanceOf(EscrowAccessDeniedException.class);
     }
 
-    // ----- verifyTransfer -----
+    // ----- verifyTransfer (bot-dispatch refactor 2026-05-18) -----
 
     @Test
     void verifyTransfer_beforeSellToConfirmed_throws409() {
@@ -161,85 +152,83 @@ class EscrowManualActionServiceTest {
     }
 
     @Test
-    void verifyTransfer_ownerIsWinner_confirmsTransfer() {
+    void verifyTransfer_noOpenTask_createsBotTask_setsPendingFlag_noAttemptConsumed() {
         Escrow escrow = buildBuyParcel();
         when(escrowRepo.findByAuctionId(AUCTION_ID)).thenReturn(Optional.of(escrow));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
         stubWinner();
-        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.just(new ParcelPageData(meta(WINNER_AVATAR, "agent"), UUID.randomUUID())));
+        when(botTaskRepo.findOpenByEscrowAndType(ESCROW_ID, BotTaskType.VERIFY_BUY_OWNER))
+                .thenReturn(List.of());
 
         service.verifyTransfer(AUCTION_ID, WINNER_ID);
 
-        verify(escrowService).confirmTransfer(eq(escrow), eq(OffsetDateTime.now(fixed)));
+        ArgumentCaptor<BotTask> taskCap = ArgumentCaptor.forClass(BotTask.class);
+        verify(botTaskRepo).save(taskCap.capture());
+        BotTask saved = taskCap.getValue();
+        assertThat(saved.getTaskType()).isEqualTo(BotTaskType.VERIFY_BUY_OWNER);
+        assertThat(saved.getStatus()).isEqualTo(BotTaskStatus.PENDING);
+        assertThat(saved.getEscrow()).isEqualTo(escrow);
+        assertThat(saved.getParcelUuid()).isEqualTo(PARCEL_UUID);
+        assertThat(saved.getNextRunAt()).isEqualTo(OffsetDateTime.now(fixed));
+        assertThat(saved.getResultData())
+                .containsEntry(EscrowManualActionService.REQUESTING_ROLE_KEY,
+                        EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        assertThat(saved.getExpectedWinnerUuid()).isEqualTo(WINNER_AVATAR);
+
+        assertThat(escrow.getManualVerifyPending()).isTrue();
+        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
+        assertThat(escrow.getBuyVerifySellerAttempts()).isZero();
+        verify(escrowService, never()).confirmTransfer(any(), any());
         verify(escrowService, never()).stampChecked(any(), any());
         verify(escrowService, never()).freezeForFraud(any(), any(), any(), any());
-        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
     }
 
     @Test
-    void verifyTransfer_ownerStillSeller_consumesCallerRoleCounter_stampsChecked() {
+    void verifyTransfer_sellerCaller_stampsSellerRoleOnTask() {
         Escrow escrow = buildBuyParcel();
         when(escrowRepo.findByAuctionId(AUCTION_ID)).thenReturn(Optional.of(escrow));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
         stubWinner();
-        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), UUID.randomUUID())));
-
-        // Buyer calls — buyer counter consumed, seller counter untouched.
-        service.verifyTransfer(AUCTION_ID, WINNER_ID);
-
-        assertThat(escrow.getBuyVerifyBuyerAttempts()).isEqualTo(1);
-        assertThat(escrow.getBuyVerifySellerAttempts()).isZero();
-        verify(escrowService).stampChecked(eq(escrow), eq(OffsetDateTime.now(fixed)));
-        verify(escrowService, never()).confirmTransfer(any(), any());
-    }
-
-    @Test
-    void verifyTransfer_sellerCaller_ownerStillSeller_consumesSellerCounter() {
-        Escrow escrow = buildBuyParcel();
-        when(escrowRepo.findByAuctionId(AUCTION_ID)).thenReturn(Optional.of(escrow));
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        stubWinner();
-        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.just(new ParcelPageData(meta(SELLER_AVATAR, "agent"), UUID.randomUUID())));
+        when(botTaskRepo.findOpenByEscrowAndType(ESCROW_ID, BotTaskType.VERIFY_BUY_OWNER))
+                .thenReturn(List.of());
 
         service.verifyTransfer(AUCTION_ID, SELLER_ID);
 
-        assertThat(escrow.getBuyVerifySellerAttempts()).isEqualTo(1);
-        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
-        verify(escrowService).stampChecked(eq(escrow), eq(OffsetDateTime.now(fixed)));
+        ArgumentCaptor<BotTask> taskCap = ArgumentCaptor.forClass(BotTask.class);
+        verify(botTaskRepo).save(taskCap.capture());
+        assertThat(taskCap.getValue().getResultData())
+                .containsEntry(EscrowManualActionService.REQUESTING_ROLE_KEY,
+                        EscrowManualActionService.REQUESTING_ROLE_SELLER);
+        assertThat(escrow.getManualVerifyPending()).isTrue();
     }
 
     @Test
-    void verifyTransfer_ownerStranger_freezesForFraud() {
+    void verifyTransfer_openTaskExists_expedites_updatesRolePayload() {
         Escrow escrow = buildBuyParcel();
         when(escrowRepo.findByAuctionId(AUCTION_ID)).thenReturn(Optional.of(escrow));
         when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        stubWinner();
-        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.just(new ParcelPageData(meta(STRANGER_AVATAR, "agent"), UUID.randomUUID())));
+        Map<String, Object> existingPayload = new java.util.HashMap<>();
+        existingPayload.put(EscrowManualActionService.REQUESTING_ROLE_KEY,
+                EscrowManualActionService.REQUESTING_ROLE_SELLER);
+        BotTask existing = BotTask.builder()
+                .id(901L).taskType(BotTaskType.VERIFY_BUY_OWNER)
+                .status(BotTaskStatus.PENDING)
+                .auction(escrow.getAuction()).escrow(escrow)
+                .parcelUuid(PARCEL_UUID).sentinelPrice(0L)
+                .resultData(existingPayload)
+                .nextRunAt(OffsetDateTime.now(fixed).plusMinutes(20))
+                .build();
+        when(botTaskRepo.findOpenByEscrowAndType(ESCROW_ID, BotTaskType.VERIFY_BUY_OWNER))
+                .thenReturn(List.of(existing));
 
         service.verifyTransfer(AUCTION_ID, WINNER_ID);
 
-        verify(escrowService).freezeForFraud(
-                eq(escrow), eq(FreezeReason.UNKNOWN_OWNER), any(), eq(OffsetDateTime.now(fixed)));
-        verify(escrowService, never()).confirmTransfer(any(), any());
-    }
-
-    @Test
-    void verifyTransfer_worldApiTimeout_doesNotConsume_rethrows() {
-        Escrow escrow = buildBuyParcel();
-        when(escrowRepo.findByAuctionId(AUCTION_ID)).thenReturn(Optional.of(escrow));
-        when(escrowRepo.findByIdForUpdate(ESCROW_ID)).thenReturn(Optional.of(escrow));
-        when(worldApi.fetchParcelPage(PARCEL_UUID)).thenReturn(
-                Mono.error(new ExternalApiTimeoutException("World", "connect timeout")));
-
-        assertThatThrownBy(() -> service.verifyTransfer(AUCTION_ID, WINNER_ID))
-                .isInstanceOf(ExternalApiTimeoutException.class);
-        assertThat(escrow.getBuyVerifyBuyerAttempts()).isZero();
-        verify(escrowService, never()).confirmTransfer(any(), any());
-        verify(escrowService, never()).stampChecked(any(), any());
+        assertThat(existing.getNextRunAt()).isEqualTo(OffsetDateTime.now(fixed));
+        assertThat(existing.getResultData())
+                .containsEntry(EscrowManualActionService.REQUESTING_ROLE_KEY,
+                        EscrowManualActionService.REQUESTING_ROLE_BUYER);
+        verify(botTaskRepo).save(existing);
+        assertThat(escrow.getManualVerifyPending()).isTrue();
     }
 
     @Test
@@ -251,6 +240,7 @@ class EscrowManualActionServiceTest {
 
         assertThatThrownBy(() -> service.verifyTransfer(AUCTION_ID, WINNER_ID))
                 .isInstanceOf(EscrowManualAttemptsExhaustedException.class);
+        verify(botTaskRepo, never()).save(any());
     }
 
     @Test
@@ -345,7 +335,7 @@ class EscrowManualActionServiceTest {
                 UUID.randomUUID(), UUID.randomUUID(), "Winner Resident",
                 EscrowState.TRANSFER_PENDING, 5000L, 250L, 4750L,
                 null, null, null, null, null, null, null, null, null, null,
-                List.of(), null, null, 3, 3, 3, null, null, null, null);
+                List.of(), null, null, 3, 3, 3, null, null, null, null, false);
     }
 
     private Escrow buildSetSellTo() {
@@ -394,11 +384,4 @@ class EscrowManualActionServiceTest {
                 .build();
     }
 
-    private ParcelMetadata meta(UUID owner, String ownerType) {
-        return new ParcelMetadata(
-                PARCEL_UUID, owner, ownerType, null,
-                "Test Parcel", "EscrowRegion",
-                1024, "desc", "http://example.com/snap.jpg", "MODERATE",
-                128.0, 64.0, 22.0);
-    }
 }

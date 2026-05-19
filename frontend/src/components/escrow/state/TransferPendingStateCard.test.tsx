@@ -133,6 +133,34 @@ describe("TransferPendingStateCard", () => {
       ).toBeInTheDocument();
     });
 
+    it("disables Verify Sell To while manualVerifyPending=true and shows pending copy", () => {
+      renderSeller({
+        sellToVerifyAttemptsRemaining: 3,
+        manualVerifyPending: true,
+      });
+      expect(
+        screen.getByRole("button", { name: /verify sell to/i }),
+      ).toBeDisabled();
+      expect(screen.getByTestId("verify-bot-pending")).toHaveTextContent(
+        /verification process pending/i,
+      );
+      // The 30-min auto-poll hint should be hidden when the pending copy is up
+      expect(screen.queryByText(/every 30 min/i)).not.toBeInTheDocument();
+    });
+
+    it("re-enables Verify Sell To when manualVerifyPending=false and attempts remain", () => {
+      renderSeller({
+        sellToVerifyAttemptsRemaining: 2,
+        manualVerifyPending: false,
+      });
+      expect(
+        screen.getByRole("button", { name: /verify sell to/i }),
+      ).toBeEnabled();
+      expect(
+        screen.queryByTestId("verify-bot-pending"),
+      ).not.toBeInTheDocument();
+    });
+
     it("shows an inline error when sellToLastResult is set", () => {
       renderSeller({ sellToLastResult: "WRONG_BUYER" });
       expect(screen.getByText(/WRONG_BUYER/)).toBeInTheDocument();
@@ -249,6 +277,33 @@ describe("TransferPendingStateCard", () => {
       ).toBeInTheDocument();
     });
 
+    it("disables Verify purchase while manualVerifyPending=true and shows pending copy", () => {
+      renderWinner({
+        buyVerifyBuyerAttemptsRemaining: 3,
+        manualVerifyPending: true,
+      });
+      expect(
+        screen.getByRole("button", { name: /verify purchase/i }),
+      ).toBeDisabled();
+      expect(screen.getByTestId("verify-bot-pending")).toHaveTextContent(
+        /verification process pending/i,
+      );
+      expect(screen.queryByText(/every 30 min/i)).not.toBeInTheDocument();
+    });
+
+    it("re-enables Verify purchase when manualVerifyPending=false and attempts remain", () => {
+      renderWinner({
+        buyVerifyBuyerAttemptsRemaining: 2,
+        manualVerifyPending: false,
+      });
+      expect(
+        screen.getByRole("button", { name: /verify purchase/i }),
+      ).toBeEnabled();
+      expect(
+        screen.queryByTestId("verify-bot-pending"),
+      ).not.toBeInTheDocument();
+    });
+
     it("renders BOTH the manual-review affordance AND the File a dispute link", () => {
       renderWinner({ auctionPublicId: "auction-buy-parcel-winner" });
       expect(
@@ -306,6 +361,19 @@ describe("TransferPendingStateCard", () => {
       expect(dispute).toHaveAttribute(
         "href",
         "/auction/auction-buy-parcel-seller/escrow/dispute",
+      );
+    });
+
+    it("disables Verify purchase (seller side) while manualVerifyPending=true and shows pending copy", () => {
+      renderSellerWaiting({
+        buyVerifySellerAttemptsRemaining: 3,
+        manualVerifyPending: true,
+      });
+      expect(
+        screen.getByRole("button", { name: /verify purchase/i }),
+      ).toBeDisabled();
+      expect(screen.getByTestId("verify-bot-pending")).toHaveTextContent(
+        /verification process pending/i,
       );
     });
   });
