@@ -1,7 +1,9 @@
 import { api } from "@/lib/api";
 import type {
+  CouponDto,
   CouponGrantDto,
   CouponSummaryDto,
+  CreateCouponRequest,
   DiscountTarget,
   ProspectiveDiscountsDto,
 } from "@/types/coupon";
@@ -64,4 +66,19 @@ export function fetchAdminCoupons(
   params: AdminCouponsListParams = {},
 ): Promise<Page<CouponSummaryDto>> {
   return api.get<Page<CouponSummaryDto>>("/api/v1/admin/coupons", { params });
+}
+
+/**
+ * Create a new coupon as admin. Mirrors `POST /api/v1/admin/coupons`
+ * on the backend (`AdminCouponController#create`). Returns the full
+ * `CouponDto` (admin shape) so the create form can redirect the user
+ * to the new coupon's detail page using `publicId`.
+ *
+ * Service-level validation errors surface as `ApiError` with
+ * `problem.code` set to one of `IMMUTABLE_FIELD` (duplicate code),
+ * `LIFETIME_REQUIRED`, or `SIGNUP_WINDOW_PAIRED`. The form maps these
+ * to a user-facing banner.
+ */
+export function createAdminCoupon(req: CreateCouponRequest): Promise<CouponDto> {
+  return api.post<CouponDto>("/api/v1/admin/coupons", req);
 }
