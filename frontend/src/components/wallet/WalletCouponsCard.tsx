@@ -5,41 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ChevronDown, ChevronUp, Tag } from "@/components/ui/icons";
-import { isApiError } from "@/lib/api";
 import { useMyCoupons } from "@/hooks/useMyCoupons";
 import { useRedeemCoupon } from "@/hooks/useRedeemCoupon";
 import { CouponGrantCard } from "@/components/wallet/CouponGrantCard";
-import type { CouponRedemptionErrorCode } from "@/types/coupon";
-
-/**
- * User-facing copy for each `CouponRedemptionErrorCode` discriminator
- * the backend's `CouponExceptionHandler` puts on `ProblemDetail.code`.
- * Falls back to a generic string for unknown codes (e.g. when the
- * backend adds a new code before the frontend re-deploys).
- */
-const REDEMPTION_ERROR_COPY: Record<CouponRedemptionErrorCode, string> = {
-  UNKNOWN_CODE: "We don't recognize that code.",
-  NOT_ELIGIBLE: "This code isn't available for your account.",
-  ALREADY_REDEEMED: "You've already redeemed this code.",
-  EXPIRED: "This code has expired.",
-  PAUSED: "This code is paused.",
-  MAX_REACHED: "This code has been fully redeemed.",
-  INACTIVE: "This code isn't active.",
-};
-
-function errorMessageFor(error: unknown): string {
-  if (isApiError(error)) {
-    const code = error.problem.code as
-      | CouponRedemptionErrorCode
-      | undefined;
-    if (code && code in REDEMPTION_ERROR_COPY) {
-      return REDEMPTION_ERROR_COPY[code];
-    }
-    return error.problem.detail ?? error.problem.title ?? "Could not redeem code.";
-  }
-  if (error instanceof Error) return error.message;
-  return "Could not redeem code.";
-}
+import { redeemErrorMessageFor } from "@/components/coupons/copy";
 
 /**
  * Wallet-page coupons card. Three sections:
@@ -74,7 +43,7 @@ export function WalletCouponsCard() {
     });
   };
 
-  const inlineError = redeem.isError ? errorMessageFor(redeem.error) : null;
+  const inlineError = redeem.isError ? redeemErrorMessageFor(redeem.error) : null;
 
   return (
     <div className="bg-surface-raised rounded-lg shadow-sm p-6">
