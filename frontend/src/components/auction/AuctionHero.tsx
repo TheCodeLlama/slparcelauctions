@@ -426,7 +426,12 @@ function ThumbStrip({ photos, selectedIndex, onSelect }: ThumbStripProps) {
     <div className="relative">
       <div
         ref={scrollContainerRef}
-        className="flex gap-2 overflow-x-auto pb-1"
+        // Horizontal + vertical padding gives the active thumb's
+        // outline-offset room to render on all four sides. Without it,
+        // outline-offset-2 on the first / last thumb gets clipped by the
+        // overflow-x-auto boundary (visible as a missing left edge on the
+        // active outline at the start of the strip).
+        className="flex gap-2 overflow-x-auto px-1 py-1"
         data-testid="auction-hero-thumb-strip"
       >
         {photos.map((photo, i) => {
