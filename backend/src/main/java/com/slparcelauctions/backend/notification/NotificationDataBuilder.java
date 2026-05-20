@@ -301,6 +301,32 @@ public final class NotificationDataBuilder {
         return m;
     }
 
+    // ── Coupons ───────────────────────────────────────────────────────────────
+
+    /**
+     * Data payload for {@code COUPON_GRANTED}. Carries the coupon's public id
+     * (UUID, wire-stable) so the frontend can deeplink to the wallet coupons
+     * card; the human-readable {@code code} so the row text reads on its own;
+     * the short {@code discountSummary} produced by
+     * {@link com.slparcelauctions.backend.coupon.CouponDiscountSummary}; the
+     * grant's {@code expiresAt} (may be null for use-count-only grants); and
+     * the {@code source} ({@code ADMIN_GRANT} / {@code SIGNUP_WINDOW}) so the
+     * frontend can render slightly different copy if it wants to.
+     */
+    public static Map<String, Object> couponGranted(java.util.UUID couponPublicId,
+                                                     String code,
+                                                     String discountSummary,
+                                                     OffsetDateTime expiresAt,
+                                                     String source) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("couponPublicId", couponPublicId == null ? null : couponPublicId.toString());
+        m.put("code", code);
+        m.put("discountSummary", discountSummary);
+        m.put("expiresAt", expiresAt == null ? null : expiresAt.toString());
+        m.put("source", source);
+        return m;
+    }
+
     private static Map<String, Object> base(long auctionId, String parcelName) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("auctionId", auctionId);

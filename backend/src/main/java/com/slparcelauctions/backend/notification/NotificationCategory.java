@@ -72,7 +72,14 @@ public enum NotificationCategory {
     // crosses the configured threshold (sub-project G spec section 12). Fan-out target
     // is the set of admin users (Role.ADMIN), not group members. One-shot per
     // cycle: re-armed once openReportCount returns to 0.
-    GROUP_REPORT_THRESHOLD_REACHED(NotificationGroup.ADMIN_OPS);
+    GROUP_REPORT_THRESHOLD_REACHED(NotificationGroup.ADMIN_OPS),
+
+    // Coupons -- fired by CouponService.createGrant when a non-REDEMPTION grant
+    // lands and the parent coupon's notifyOnGrant flag is on. SYSTEM group so it
+    // bypasses per-group SL IM preferences (material change to the user's wallet
+    // privileges, same posture as wallet admin ops). REDEMPTION grants are
+    // silent -- the user just typed the code so they know.
+    COUPON_GRANTED(NotificationGroup.SYSTEM);
 
     private final NotificationGroup group;
 

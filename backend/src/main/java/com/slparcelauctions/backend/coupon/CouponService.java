@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.slparcelauctions.backend.coupon.dto.CouponDiscountDto;
 import com.slparcelauctions.backend.coupon.dto.CreateCouponRequest;
 import com.slparcelauctions.backend.coupon.dto.PatchCouponRequest;
+import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -68,6 +69,7 @@ public class CouponService {
     private final CouponRepository couponRepo;
     private final CouponGrantRepository grantRepo;
     private final UserRepository userRepo;
+    private final NotificationPublisher notificationPublisher;
 
     public Coupon createCoupon(CreateCouponRequest req, long adminUserId) {
         validateLifetime(req.durationDays(), req.useCount());
@@ -317,7 +319,17 @@ public class CouponService {
                 .state(CouponGrantState.ACTIVE)
                 .source(source)
                 .build();
-        return grantRepo.save(g);
+        CouponGrant saved = grantRepo.save(g);
+        // Spec section 6: notify on non-REDEMPTION grants when the parent
+        // coupon's notifyOnGrant flag is on. REDEMPTION is silent because the
+        // user just typed the code -- they know. notifyOnGrant defaults to
+        // true at the DB level; treat null as true defensively for any rows
+        // predating the column.
+        if (source != CouponGrantSource.REDEMPTION
+                && (c.getNotifyOnGrant() == null || c.getNotifyOnGrant())) {
+            notificationPublisher.couponGranted(u.getId(), c.getPublicId(), source);
+        }
+        return saved;
     }
 
     private Set<User> resolveAllowedUsers(List<UUID> publicIds) {
