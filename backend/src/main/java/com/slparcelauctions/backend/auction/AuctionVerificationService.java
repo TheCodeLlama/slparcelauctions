@@ -2,6 +2,7 @@ package com.slparcelauctions.backend.auction;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -12,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.ParcelAlreadyListedException;
 import com.slparcelauctions.backend.auction.monitoring.OwnershipCheckTimestampInitializer;
+import com.slparcelauctions.backend.coupon.CouponGrant;
+import com.slparcelauctions.backend.coupon.CouponGrantRepository;
+import com.slparcelauctions.backend.coupon.CouponGrantState;
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroup;
 import com.slparcelauctions.backend.realty.slgroup.RealtyGroupSlGroupRepository;
@@ -65,6 +69,7 @@ public class AuctionVerificationService {
     private final RealtyGroupSlGroupRepository slGroupRepo;
     private final OwnershipCheckTimestampInitializer ownershipInitializer;
     private final NotificationPublisher notificationPublisher;
+    private final CouponGrantRepository couponGrantRepository;
     private final Clock clock;
 
     public AuctionVerificationService(
@@ -74,6 +79,7 @@ public class AuctionVerificationService {
             RealtyGroupSlGroupRepository slGroupRepo,
             OwnershipCheckTimestampInitializer ownershipInitializer,
             NotificationPublisher notificationPublisher,
+            CouponGrantRepository couponGrantRepository,
             Clock clock) {
         this.auctionService = auctionService;
         this.auctionRepo = auctionRepo;
@@ -81,6 +87,7 @@ public class AuctionVerificationService {
         this.slGroupRepo = slGroupRepo;
         this.ownershipInitializer = ownershipInitializer;
         this.notificationPublisher = notificationPublisher;
+        this.couponGrantRepository = couponGrantRepository;
         this.clock = clock;
     }
 
@@ -181,6 +188,13 @@ public class AuctionVerificationService {
         a.setOriginalEndsAt(ends);
         a.setVerifiedAt(now);
         a.setVerificationTier(VerificationTier.SCRIPT);
+        // Consume any coupon grants stamped on the auction at create-time.
+        // The decrement is the activation-side commitment of the discount:
+        // a cancelled DRAFT_PAID listing does NOT decrement, so the grant is
+        // preserved for the next listing attempt. Runs inside the same
+        // @Transactional boundary as the ACTIVE flip, so dirty-tracking
+        // commits the grant mutation alongside the auction update.
+        consumeCouponGrants(a);
         a.setStatus(AuctionStatus.ACTIVE);
         a.setConsecutiveOwnerMismatches(0);
         // Seed lastOwnershipCheckAt with jitter so the next scheduler sweep
@@ -229,6 +243,44 @@ public class AuctionVerificationService {
      * is owned by a service that drives status and escrow state in lockstep
      * inside the same transaction.
      */
+    /**
+     * Decrements {@code remaining_count} on every coupon grant stamped on
+     * the auction. If both {@code listingFeeCouponGrantId} and
+     * {@code commissionCouponGrantId} point at the same grant (a bundled
+     * grant carrying both LISTING_FEE and COMMISSION_RATE lines), the
+     * grant is decremented once -- the {@link LinkedHashSet} deduplicates
+     * while preserving deterministic iteration order.
+     *
+     * <p>Grants with {@code remainingCount == null} (DURATION-only grants
+     * gated solely by {@code expiresAt}) are skipped. When the decremented
+     * count reaches zero the grant transitions to
+     * {@link CouponGrantState#EXHAUSTED}.
+     *
+     * <p>No explicit {@code save()} call: the grant is loaded through a
+     * managed JPA repository inside the {@code @Transactional} boundary,
+     * so Hibernate's dirty-tracking flushes the mutation at commit.
+     */
+    private void consumeCouponGrants(Auction a) {
+        Set<Long> grantIds = new LinkedHashSet<>();
+        if (a.getListingFeeCouponGrantId() != null) {
+            grantIds.add(a.getListingFeeCouponGrantId());
+        }
+        if (a.getCommissionCouponGrantId() != null) {
+            grantIds.add(a.getCommissionCouponGrantId());
+        }
+        for (Long id : grantIds) {
+            CouponGrant g = couponGrantRepository.findById(id).orElse(null);
+            if (g == null || g.getRemainingCount() == null) {
+                continue;
+            }
+            int next = g.getRemainingCount() - 1;
+            g.setRemainingCount(next);
+            if (next <= 0) {
+                g.setState(CouponGrantState.EXHAUSTED);
+            }
+        }
+    }
+
     private void assertParcelNotLocked(Auction candidate) {
         UUID slParcelUuid = candidate.getSlParcelUuid();
         boolean exists = auctionRepo.existsBySlParcelUuidAndStatusInAndIdNot(
