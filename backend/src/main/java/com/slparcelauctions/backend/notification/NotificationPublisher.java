@@ -187,6 +187,12 @@ public interface NotificationPublisher {
     void groupWalletDormancyFlagged(Long groupId, int phase, long balance);
     void groupWalletDormancyAutoReturned(Long groupId, long amount);
 
+    // -- User wallet -- dormancy notifications (stub; Epic 09 will add SL IM body).
+    // Mirror of the group-side dormancy stubs above. See spec
+    // docs/superpowers/specs/2026-05-19-user-wallet-dormancy-design.md §7.
+    void userWalletDormancyFlagged(long userId, int phase, long balance);
+    void userWalletDormancyAutoReturned(long userId, long amount);
+
     // -- Realty groups -- lifecycle events (Phase 6 fleshes out fan-out + body copy).
     // Stubs land here so Phase 4 services can call them while compiling.
     void realtyGroupInvitationSent(RealtyGroupInvitation invitation);

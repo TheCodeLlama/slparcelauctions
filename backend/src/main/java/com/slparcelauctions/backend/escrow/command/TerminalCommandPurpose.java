@@ -29,5 +29,16 @@ public enum TerminalCommandPurpose {
      * "GWAL-{id}" (see RealtyGroupWalletService.withdraw). Callback flow is
      * handled by GroupWalletWithdrawalCallbackHandler.
      */
-    GROUP_WALLET_WITHDRAWAL
+    GROUP_WALLET_WITHDRAWAL,
+
+    /**
+     * Dormancy-driven auto-return of a user's available wallet balance to the
+     * user's verified SL avatar. Queued by
+     * {@code UserWalletDormancyTask.autoReturn} at phase 4 of the dormancy
+     * state machine. The originating user id + dormancy-start epoch are
+     * encoded in the idempotency key as
+     * {@code user-dormancy-{userId}-{startedAtEpochSeconds}}. See spec
+     * docs/superpowers/specs/2026-05-19-user-wallet-dormancy-design.md.
+     */
+    USER_WALLET_DORMANCY_AUTO_RETURN
 }

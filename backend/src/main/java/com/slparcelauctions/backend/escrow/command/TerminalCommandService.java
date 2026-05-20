@@ -248,7 +248,8 @@ public class TerminalCommandService {
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
             if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL
                     && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL
-                    && cmd.getPurpose() != TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
+                    && cmd.getPurpose() != TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL
+                    && cmd.getPurpose() != TerminalCommandPurpose.USER_WALLET_DORMANCY_AUTO_RETURN) {
                 ledgerRepo.save(buildFailedLedgerRow(
                         cmd, escrow, req.errorMessage(), req.slTransactionKey()));
             }
@@ -297,6 +298,16 @@ public class TerminalCommandService {
             walletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
         } else if (cmd.getPurpose() == TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
             groupWalletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.USER_WALLET_DORMANCY_AUTO_RETURN) {
+            // The dormancy auto-return is fire-and-forget at the success-path
+            // level. The ledger row + balance debit were appended inline by
+            // UserWalletDormancyTask.autoReturn before the command was queued;
+            // a successful bot delivery only marks the command COMPLETED.
+            // Failures past the retry budget land in requiresManualReview=true
+            // and an admin reviews the orphaned balance manually (mirrors
+            // the group dormancy path which has no callback handler either).
+            log.info("user-wallet dormancy auto-return delivered: cmdId={}, slTxn={}",
+                cmd.getId(), slTxn);
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()

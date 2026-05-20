@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.user.UserService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserResponse;
+import com.slparcelauctions.backend.wallet.dormancy.UserWalletDormancyTask;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,7 @@ public class AuthService {
     private final BanCheckService banCheckService;
     private final RealtyGroupMemberRepository realtyGroupMemberRepository;
     private final GroupWalletDormancyTask groupWalletDormancyTask;
+    private final UserWalletDormancyTask userWalletDormancyTask;
 
     // -------------------------------------------------------------------------
     // Register
@@ -145,6 +147,7 @@ public class AuthService {
         AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getPublicId(), user.getUsername(), user.getTokenVersion(), user.getRole());
         String newAccessToken = jwtService.issueAccessToken(principal);
 
+        clearWalletDormancyForUser(user.getId());
         clearGroupDormancyForUser(user.getId());
 
         return new AuthResult(newAccessToken, rotation.rawToken(), UserResponse.from(user));
@@ -200,9 +203,25 @@ public class AuthService {
         RefreshTokenService.IssuedRefreshToken issued =
                 refreshTokenService.issueForUser(user.getId(), userAgent, ipAddress);
 
+        clearWalletDormancyForUser(user.getId());
         clearGroupDormancyForUser(user.getId());
 
         return new AuthResult(accessToken, issued.rawToken(), UserResponse.from(user));
+    }
+
+    /**
+     * Clears user-wallet dormancy for the given user on login / refresh
+     * (spec docs/superpowers/specs/2026-05-19-user-wallet-dormancy-design.md
+     * §4 reset path 1). Failures are caught and logged; a dormancy-clear
+     * failure must never block a login.
+     */
+    private void clearWalletDormancyForUser(Long userId) {
+        try {
+            userWalletDormancyTask.clearForUser(userId);
+        } catch (Exception ex) {
+            log.warn("failed to clear user wallet dormancy on login for userId={}: {}",
+                userId, ex.toString());
+        }
     }
 
     /**
