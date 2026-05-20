@@ -69,3 +69,72 @@ export interface ProspectiveDiscountsDto {
   commissionCouponPublicId: string | null;
   commissionCouponCode: string | null;
 }
+
+/**
+ * Admin list row. Mirrors `CouponSummaryDto` on the backend
+ * (`coupon/dto/CouponSummaryDto.java`). `redeemableUntil` is an ISO
+ * `OffsetDateTime`; `discounts` carries the full bundle so the table
+ * can render a pill list without a per-row detail fetch. Grant
+ * counters are pre-computed server-side.
+ */
+export interface CouponSummaryDto {
+  publicId: string;
+  code: string;
+  description: string | null;
+  active: boolean;
+  redeemableUntil: string | null;
+  discounts: CouponDiscountDto[];
+  totalGrants: number;
+  activeGrants: number;
+  maxTotalRedemptions: number | null;
+}
+
+/**
+ * Admin detail DTO. Mirrors `CouponDto` on the backend
+ * (`coupon/dto/CouponDto.java`). `signupWindowStart` and
+ * `signupWindowEnd` are ISO `LocalDate` strings (no time component);
+ * `redeemableUntil`, `createdAt`, `updatedAt` are ISO `OffsetDateTime`s.
+ * `allowedUserPublicIds` is the per-user allowlist when the coupon is
+ * scoped to a specific set of users.
+ */
+export interface CouponDto {
+  publicId: string;
+  code: string;
+  description: string | null;
+  durationDays: number | null;
+  useCount: number | null;
+  redeemableUntil: string | null;
+  maxTotalRedemptions: number | null;
+  maxPerUser: number;
+  signupWindowStart: string | null;
+  signupWindowEnd: string | null;
+  active: boolean;
+  notifyOnGrant: boolean;
+  discounts: CouponDiscountDto[];
+  allowedUserPublicIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Admin create-coupon payload. Mirrors `CreateCouponRequest` on the
+ * backend (`coupon/dto/CreateCouponRequest.java`). All but `code` and
+ * `discounts` are optional at the wire level; the service performs
+ * additional cross-field validation (lifetime exactly-one,
+ * signup-window paired, duplicate code).
+ */
+export interface CreateCouponRequest {
+  code: string;
+  description?: string;
+  durationDays?: number;
+  useCount?: number;
+  redeemableUntil?: string;
+  maxTotalRedemptions?: number;
+  maxPerUser?: number;
+  signupWindowStart?: string;
+  signupWindowEnd?: string;
+  active?: boolean;
+  notifyOnGrant?: boolean;
+  discounts: CouponDiscountDto[];
+  allowedUserPublicIds?: string[];
+}

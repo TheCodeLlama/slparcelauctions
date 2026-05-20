@@ -29,6 +29,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     // the Phase-9 (frontend-only) scope. See decisions doc.
     { label: "Escrow Reviews", href: "/admin/escrow-reviews" },
     { label: "Bans", href: "/admin/bans" },
+    { label: "Coupons", href: "/admin/coupons" },
     { label: "Ledger", href: "/admin/ledger" },
     { label: "Listings", href: "/admin/listings" },
     { label: "Drafts", href: "/admin/drafts" },

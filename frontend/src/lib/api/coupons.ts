@@ -1,8 +1,11 @@
 import { api } from "@/lib/api";
 import type {
   CouponGrantDto,
+  CouponSummaryDto,
+  DiscountTarget,
   ProspectiveDiscountsDto,
 } from "@/types/coupon";
+import type { Page } from "@/types/page";
 
 /**
  * Typed client for the user-facing coupon endpoints (see backend
@@ -36,4 +39,29 @@ export function fetchProspectiveDiscounts(): Promise<ProspectiveDiscountsDto> {
   return api.get<ProspectiveDiscountsDto>(
     "/api/v1/me/listings/prospective-discounts",
   );
+}
+
+/**
+ * Admin coupon list params. `discount_target` is intentionally
+ * snake_case to match the backend `@RequestParam(name = "discount_target")`
+ * on `AdminCouponController#list`. `active` undefined means "no
+ * filter" (both active and archived rows returned).
+ */
+export interface AdminCouponsListParams {
+  q?: string;
+  active?: boolean;
+  discount_target?: DiscountTarget;
+  page?: number;
+  size?: number;
+}
+
+/**
+ * Typed client for the admin coupon list endpoint
+ * (`GET /api/v1/admin/coupons`). Returns the standard `Page<T>`
+ * envelope from `PagedResponse.from(...)`.
+ */
+export function fetchAdminCoupons(
+  params: AdminCouponsListParams = {},
+): Promise<Page<CouponSummaryDto>> {
+  return api.get<Page<CouponSummaryDto>>("/api/v1/admin/coupons", { params });
 }
