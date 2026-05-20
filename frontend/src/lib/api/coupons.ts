@@ -1,10 +1,12 @@
 import { api } from "@/lib/api";
 import type {
+  AdminCouponGrantsListParams,
   CouponDto,
   CouponGrantDto,
   CouponSummaryDto,
   CreateCouponRequest,
   DiscountTarget,
+  PatchCouponRequest,
   ProspectiveDiscountsDto,
 } from "@/types/coupon";
 import type { Page } from "@/types/page";
@@ -49,13 +51,13 @@ export function fetchProspectiveDiscounts(): Promise<ProspectiveDiscountsDto> {
  * on `AdminCouponController#list`. `active` undefined means "no
  * filter" (both active and archived rows returned).
  */
-export interface AdminCouponsListParams {
+export type AdminCouponsListParams = {
   q?: string;
   active?: boolean;
   discount_target?: DiscountTarget;
   page?: number;
   size?: number;
-}
+};
 
 /**
  * Typed client for the admin coupon list endpoint
@@ -81,4 +83,81 @@ export function fetchAdminCoupons(
  */
 export function createAdminCoupon(req: CreateCouponRequest): Promise<CouponDto> {
   return api.post<CouponDto>("/api/v1/admin/coupons", req);
+}
+
+/**
+ * Fetch one coupon's full admin detail. Mirrors
+ * `GET /api/v1/admin/coupons/{publicId}`. 404 surfaces as `ApiError`
+ * with `problem.code = "UNKNOWN_CODE"` (mapped by
+ * `CouponExceptionHandler`).
+ */
+export function fetchAdminCoupon(publicId: string): Promise<CouponDto> {
+  return api.get<CouponDto>(`/api/v1/admin/coupons/${publicId}`);
+}
+
+/**
+ * Patch a coupon. Mirrors `PATCH /api/v1/admin/coupons/{publicId}`.
+ * Service-level rejections surface as `ApiError` with `problem.code`
+ * set to `IMMUTABLE_FIELD` (lifetime / max-per-user lock after first
+ * grant) or `SIGNUP_WINDOW_PAIRED`.
+ */
+export function patchAdminCoupon(
+  publicId: string,
+  req: PatchCouponRequest,
+): Promise<CouponDto> {
+  return api.patch<CouponDto>(`/api/v1/admin/coupons/${publicId}`, req);
+}
+
+/**
+ * Archive (or hard-delete when no grants) a coupon. Mirrors
+ * `DELETE /api/v1/admin/coupons/{publicId}`. Returns 204 / no body.
+ */
+export function deleteAdminCoupon(publicId: string): Promise<void> {
+  return api.delete<void>(`/api/v1/admin/coupons/${publicId}`);
+}
+
+/**
+ * Paged admin grant list for a single coupon. Mirrors
+ * `GET /api/v1/admin/coupons/{publicId}/grants`. `state` and `source`
+ * are passed straight through as enum names.
+ */
+export function fetchAdminCouponGrants(
+  publicId: string,
+  params: AdminCouponGrantsListParams = {},
+): Promise<Page<CouponGrantDto>> {
+  return api.get<Page<CouponGrantDto>>(
+    `/api/v1/admin/coupons/${publicId}/grants`,
+    { params },
+  );
+}
+
+/**
+ * Direct-grant the coupon to one or more users. Mirrors
+ * `POST /api/v1/admin/coupons/{publicId}/grants`. Returns only the
+ * newly-created grants; users already at the `maxPerUser` ceiling are
+ * skipped silently.
+ */
+export function directGrantToUsers(
+  publicId: string,
+  userPublicIds: string[],
+): Promise<CouponGrantDto[]> {
+  return api.post<CouponGrantDto[]>(
+    `/api/v1/admin/coupons/${publicId}/grants`,
+    { userPublicIds },
+  );
+}
+
+/**
+ * Revoke a single grant. Mirrors
+ * `POST /api/v1/admin/coupons/{publicId}/grants/{grantPublicId}/revoke`.
+ * Returns the grant in its post-revoke shape (`state = REVOKED`).
+ */
+export function revokeGrant(
+  publicId: string,
+  grantPublicId: string,
+): Promise<CouponGrantDto> {
+  return api.post<CouponGrantDto>(
+    `/api/v1/admin/coupons/${publicId}/grants/${grantPublicId}/revoke`,
+    {},
+  );
 }

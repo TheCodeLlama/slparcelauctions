@@ -138,3 +138,52 @@ export interface CreateCouponRequest {
   discounts: CouponDiscountDto[];
   allowedUserPublicIds?: string[];
 }
+
+/**
+ * Admin patch-coupon payload. Mirrors `PatchCouponRequest` on the
+ * backend (`coupon/dto/PatchCouponRequest.java`). All fields are
+ * optional; only the keys actually present in the body are applied.
+ *
+ * Lifetime fields (`durationDays`, `useCount`), `maxPerUser`, and the
+ * signup-window pair are locked at the service layer once any grant
+ * exists for the coupon. The frontend disables their inputs as a
+ * usability hint, but the server enforces the rule via
+ * `IMMUTABLE_FIELD`.
+ *
+ * `null` on a nullable field clears the value; omitting the key
+ * leaves the existing value untouched. `allowedUserPublicIds`
+ * overwrites the entire allowlist when present.
+ */
+export interface PatchCouponRequest {
+  description?: string | null;
+  active?: boolean;
+  notifyOnGrant?: boolean;
+  redeemableUntil?: string | null;
+  maxTotalRedemptions?: number | null;
+  allowedUserPublicIds?: string[];
+  durationDays?: number;
+  useCount?: number;
+  maxPerUser?: number;
+}
+
+/**
+ * Body for `POST /api/v1/admin/coupons/{publicId}/grants`. The server
+ * idempotently filters out users who already hold the coupon at the
+ * `maxPerUser` ceiling and returns only the newly-created grants.
+ */
+export interface DirectGrantRequest {
+  userPublicIds: string[];
+}
+
+/**
+ * Filter params for the admin grant list endpoint
+ * (`GET /api/v1/admin/coupons/{publicId}/grants`). `state` and `source`
+ * map 1:1 to the backend enum names so the dropdown values can be
+ * passed straight through.
+ */
+export type AdminCouponGrantsListParams = {
+  state?: CouponGrantState;
+  source?: CouponGrantSource;
+  page?: number;
+  size?: number;
+};
