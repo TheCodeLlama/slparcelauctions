@@ -74,6 +74,12 @@ slpa:
     # Default 1 maps to the seed admin created by UserBootstrap on a fresh DB (the
     # users.id sequence starts at 1).
     user-id: 1
+  coupons:
+    # Hourly CouponGrantSweeper cadence, UTC. Flips ACTIVE grants past their
+    # expiresAt to EXPIRED. The resolver also filters expired grants in memory,
+    # so sweeper lag is non-load-bearing; this keeps the persisted state
+    # consistent for admin views and audit.
+    sweeper-cron: "0 0 * * * *"
   sl:
     expected-shard: Production
     trusted-owner-keys: []
