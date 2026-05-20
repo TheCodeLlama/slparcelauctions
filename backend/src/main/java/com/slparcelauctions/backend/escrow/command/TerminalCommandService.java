@@ -31,6 +31,8 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowRefundCompletedEnvelo
 import com.slparcelauctions.backend.notification.NotificationPublisher;
 import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.escrow.command.exception.UnknownTerminalCommandException;
+import com.slparcelauctions.backend.realty.RealtyGroup;
+import com.slparcelauctions.backend.realty.RealtyGroupRepository;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 
@@ -78,6 +80,7 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
     private final com.slparcelauctions.backend.wallet.WalletService walletService;
+    private final RealtyGroupRepository realtyGroupRepository;
     private final AuctionStatusFlipper statusFlipper;
 
     /**
@@ -245,7 +248,8 @@ public class TerminalCommandService {
                     : escrowRepo.findById(cmd.getEscrowId()).orElse(null);
             if (cmd.getPurpose() != TerminalCommandPurpose.ADMIN_WITHDRAWAL
                     && cmd.getPurpose() != TerminalCommandPurpose.WALLET_WITHDRAWAL
-                    && cmd.getPurpose() != TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
+                    && cmd.getPurpose() != TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL
+                    && cmd.getPurpose() != TerminalCommandPurpose.USER_WALLET_DORMANCY_AUTO_RETURN) {
                 ledgerRepo.save(buildFailedLedgerRow(
                         cmd, escrow, req.errorMessage(), req.slTransactionKey()));
             }
@@ -294,6 +298,16 @@ public class TerminalCommandService {
             walletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
         } else if (cmd.getPurpose() == TerminalCommandPurpose.GROUP_WALLET_WITHDRAWAL) {
             groupWalletWithdrawalCallbackHandler.onSuccess(cmd, slTxn);
+        } else if (cmd.getPurpose() == TerminalCommandPurpose.USER_WALLET_DORMANCY_AUTO_RETURN) {
+            // The dormancy auto-return is fire-and-forget at the success-path
+            // level. The ledger row + balance debit were appended inline by
+            // UserWalletDormancyTask.autoReturn before the command was queued;
+            // a successful bot delivery only marks the command COMPLETED.
+            // Failures past the retry budget land in requiresManualReview=true
+            // and an admin reviews the orphaned balance manually (mirrors
+            // the group dormancy path which has no callback handler either).
+            log.info("user-wallet dormancy auto-return delivered: cmdId={}, slTxn={}",
+                cmd.getId(), slTxn);
         } else {
             throw new IllegalStateException(
                     "Unhandled terminal command callback: purpose=" + cmd.getPurpose()
@@ -364,14 +378,6 @@ public class TerminalCommandService {
         final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
 
-        // Notify seller that payout was received (ESCROW_PAYOUT → seller only).
-        notificationPublisher.escrowPayout(
-                finalEscrow.getAuction().getSeller().getId(),
-                finalEscrow.getAuction().getId(),
-                finalEscrow.getId(),
-                finalEscrow.getAuction().getTitle(),
-                cmd.getAmount());
-
         // Realty-group payout splitting.
         //
         //   group sale (SL-group-owned): realty_group_sl_group_id IS NOT NULL.
@@ -386,11 +392,42 @@ public class TerminalCommandService {
         //   (The pre-G "agent listing own land under a group" path -- realty_group_id
         //   set but realty_group_sl_group_id null -- was removed when sub-project G
         //   deleted the legacy distributor.)
+        //
+        // The distribute call has to precede notificationPublisher.escrowPayout
+        // so the seller-facing body can surface the agent-slice + group-slice
+        // breakdown (spec §8.3) for group sales; without those values the 5-arg
+        // overload would route into the individual-sale wallet-credit branch
+        // and silently misread the group sale as a L$0 payout.
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
-            agentCommissionDistributor.distribute(
-                finalEscrow.getAuction(),
-                finalEscrow.getFinalBidAmount(),
-                finalEscrow.getCommissionAmt());
+            com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor.SplitResult split =
+                agentCommissionDistributor.distribute(
+                    finalEscrow.getAuction(),
+                    finalEscrow.getFinalBidAmount(),
+                    finalEscrow.getCommissionAmt());
+
+            String groupName = realtyGroupRepository
+                .findById(finalEscrow.getAuction().getRealtyGroupId())
+                .map(RealtyGroup::getName)
+                .orElse(null);
+
+            notificationPublisher.escrowPayout(
+                    finalEscrow.getAuction().getSeller().getId(),
+                    finalEscrow.getAuction().getId(),
+                    finalEscrow.getId(),
+                    finalEscrow.getAuction().getTitle(),
+                    /* payoutL */ 0L,
+                    groupName,
+                    /* commissionAmt */ split.agentSlice(),
+                    /* groupSliceAmt */ split.groupSlice());
+        } else {
+            // Individual sale -- 5-arg overload routes into the "credited to
+            // your SLParcels wallet" branch.
+            notificationPublisher.escrowPayout(
+                    finalEscrow.getAuction().getSeller().getId(),
+                    finalEscrow.getAuction().getId(),
+                    finalEscrow.getId(),
+                    finalEscrow.getAuction().getTitle(),
+                    cmd.getAmount());
         }
     }
 
@@ -470,25 +507,46 @@ public class TerminalCommandService {
         final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
 
-        // Seller payout notification. The body copy diverges on groupName --
-        // individual sales now say "credited to your SLParcels wallet" instead
-        // of "payout received" since L$ no longer flows to the avatar.
-        notificationPublisher.escrowPayout(
-                finalEscrow.getAuction().getSeller().getId(),
-                finalEscrow.getAuction().getId(),
-                finalEscrow.getId(),
-                finalEscrow.getAuction().getTitle(),
-                sellerCreditAmt);
-
         // Group-sale distributor: credits agent_slice to the listing agent's
         // wallet, group_slice to the group wallet. Only group sales reach this
         // branch (realtyGroupSlGroupId != null); individual sales were already
         // credited to the seller's wallet by the queuePayout call site.
+        //
+        // The distribute call has to precede notificationPublisher.escrowPayout
+        // so the seller-facing body can surface the agent-slice + group-slice
+        // breakdown (spec §8.3); without those values the 5-arg overload routes
+        // into the individual-sale "credited to your SLParcels wallet" branch
+        // and silently misreads the group sale as a L$0 payout.
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
-            agentCommissionDistributor.distribute(
-                finalEscrow.getAuction(),
-                finalEscrow.getFinalBidAmount(),
-                finalEscrow.getCommissionAmt());
+            com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor.SplitResult split =
+                agentCommissionDistributor.distribute(
+                    finalEscrow.getAuction(),
+                    finalEscrow.getFinalBidAmount(),
+                    finalEscrow.getCommissionAmt());
+
+            String groupName = realtyGroupRepository
+                .findById(finalEscrow.getAuction().getRealtyGroupId())
+                .map(RealtyGroup::getName)
+                .orElse(null);
+
+            notificationPublisher.escrowPayout(
+                    finalEscrow.getAuction().getSeller().getId(),
+                    finalEscrow.getAuction().getId(),
+                    finalEscrow.getId(),
+                    finalEscrow.getAuction().getTitle(),
+                    /* payoutL */ 0L,
+                    groupName,
+                    /* commissionAmt */ split.agentSlice(),
+                    /* groupSliceAmt */ split.groupSlice());
+        } else {
+            // Individual sale -- the 5-arg overload routes into the
+            // "L$X credited to your SLParcels wallet" branch.
+            notificationPublisher.escrowPayout(
+                    finalEscrow.getAuction().getSeller().getId(),
+                    finalEscrow.getAuction().getId(),
+                    finalEscrow.getId(),
+                    finalEscrow.getAuction().getTitle(),
+                    sellerCreditAmt);
         }
     }
 
