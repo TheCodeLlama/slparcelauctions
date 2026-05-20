@@ -185,4 +185,44 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     @Query("SELECT COALESCE(SUM(u.reservedLindens), 0) FROM User u")
     long sumReservedDenorms();
+
+    /**
+     * Users newly eligible for wallet-dormancy flagging: positive balance,
+     * no active dormancy phase, and no refresh-token rotation within the
+     * inactivity window. Mirrors the realty-group-side query (spec
+     * docs/superpowers/specs/2026-05-11-realty-groups-group-wallet-design.md
+     * §10.1) and is referenced by the user-wallet dormancy spec
+     * (docs/superpowers/specs/2026-05-19-user-wallet-dormancy-design.md §2).
+     *
+     * <p>Users with no refresh tokens at all are correctly flagged: the NOT
+     * EXISTS predicate is true on an empty right-hand side. Reserved L$ are
+     * NOT filtered out at this layer -- a user with an active bid reservation
+     * is still eligible; the phase-4 auto-return only debits the available
+     * balance ({@code balance_lindens - reserved_lindens}).
+     */
+    @Query(value = """
+        SELECT u.* FROM users u
+        WHERE u.balance_lindens > 0
+          AND u.wallet_dormancy_phase IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM refresh_tokens rt
+              WHERE rt.user_id = u.id
+                AND rt.created_at > now() - make_interval(days => :windowDays)
+          )
+        """, nativeQuery = true)
+    List<User> findEligibleForDormancyFlag(@Param("windowDays") int windowDays);
+
+    /**
+     * Users whose current dormancy phase is due for the next escalation
+     * ({@code wallet_dormancy_started_at} older than
+     * {@code phaseDurationDays * wallet_dormancy_phase}). Mirrors the
+     * realty-group-side query.
+     */
+    @Query(value = """
+        SELECT u.* FROM users u
+        WHERE u.wallet_dormancy_phase BETWEEN 1 AND 4
+          AND u.wallet_dormancy_started_at < (now() - make_interval(days => :phaseDurationDays * u.wallet_dormancy_phase))
+        """, nativeQuery = true)
+    List<User> findDormancyPhaseDue(@Param("phaseDurationDays") int phaseDurationDays);
 }

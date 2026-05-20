@@ -133,5 +133,18 @@ public enum UserLedgerEntryType {
      * split via {@link #AGENT_COMMISSION_CREDIT} + realty-group ledger; this
      * entry type is individual-sale only.
      */
-    AUCTION_PAYOUT_CREDIT
+    AUCTION_PAYOUT_CREDIT,
+
+    /**
+     * Dormancy phase-4 auto-return debit. Appended by
+     * {@code UserWalletDormancyTask.autoReturn} alongside the matching
+     * {@code TerminalCommand{action=WITHDRAW,
+     * purpose=USER_WALLET_DORMANCY_AUTO_RETURN}} row. {@code amount} is the
+     * pre-debit available balance ({@code balance_lindens - reserved_lindens});
+     * {@code balanceAfter} reflects the debited state ({@code reserved_lindens}
+     * for the user, since reserved L$ are preserved across auto-return).
+     * Mirrors {@link com.slparcelauctions.backend.realty.wallet.RealtyGroupLedgerEntryType#DORMANCY_AUTO_RETURN}.
+     * See spec docs/superpowers/specs/2026-05-19-user-wallet-dormancy-design.md §3.
+     */
+    DORMANCY_AUTO_RETURN
 }

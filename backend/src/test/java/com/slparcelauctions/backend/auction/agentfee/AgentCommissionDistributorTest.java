@@ -10,6 +10,7 @@ import com.slparcelauctions.backend.realty.wallet.RealtyGroupWalletService;
 import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.wallet.WalletService;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
@@ -41,10 +42,12 @@ class AgentCommissionDistributorTest {
 
         // finalBid=10000, platformCommission=500, earnings=9500.
         // agentSlice = floor(9500 * 0.10) = 950, groupSlice = 8550.
-        dist.distribute(a, 10000L, 500L);
+        AgentCommissionDistributor.SplitResult split = dist.distribute(a, 10000L, 500L);
 
         verify(userSvc).creditAgentCommission(7L, 999L, 950L);
         verify(groupSvc).creditPayout(42L, 999L, 8550L);
+        assertThat(split.agentSlice()).isEqualTo(950L);
+        assertThat(split.groupSlice()).isEqualTo(8550L);
     }
 
     @Test
