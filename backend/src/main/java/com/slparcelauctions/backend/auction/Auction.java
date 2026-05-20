@@ -159,6 +159,12 @@ public class Auction extends BaseMutableEntity {
     @Column(name = "listing_fee_paid_at")
     private OffsetDateTime listingFeePaidAt;
 
+    @Column(name = "listing_fee_coupon_grant_id")
+    private Long listingFeeCouponGrantId;
+
+    @Column(name = "commission_coupon_grant_id")
+    private Long commissionCouponGrantId;
+
     @Column(name = "verified_at")
     private OffsetDateTime verifiedAt;
 
