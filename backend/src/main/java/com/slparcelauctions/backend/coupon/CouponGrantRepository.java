@@ -46,6 +46,21 @@ public interface CouponGrantRepository extends JpaRepository<CouponGrant, Long> 
     Page<CouponGrant> findByCouponId(long couponId, Pageable pageable);
 
     /**
+     * Powers the admin grants tab on a coupon detail page. Both
+     * {@code state} and {@code source} are optional filters; when null
+     * the predicate short-circuits to TRUE so the call returns every
+     * grant for the coupon. Ordered newest-first by {@code grantedAt}
+     * so the admin sees recent activity at the top of the list.
+     */
+    @Query("SELECT g FROM CouponGrant g WHERE g.coupon.id = :cid " +
+           "AND (:state IS NULL OR g.state = :state) " +
+           "AND (:source IS NULL OR g.source = :source) " +
+           "ORDER BY g.grantedAt DESC")
+    Page<CouponGrant> findByCouponIdAndOptionalFilters(@Param("cid") long couponId,
+            @Param("state") CouponGrantState state, @Param("source") CouponGrantSource source,
+            Pageable pageable);
+
+    /**
      * Hourly sweeper: flips ACTIVE grants past their {@code expiresAt}
      * to {@link CouponGrantState#EXPIRED}. Idempotent - re-running
      * mutates zero additional rows. Resolver also filters expired
