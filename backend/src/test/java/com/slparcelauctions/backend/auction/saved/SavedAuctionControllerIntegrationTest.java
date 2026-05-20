@@ -48,7 +48,7 @@ import com.slparcelauctions.backend.user.UserRepository;
  *   <li>POST without a JWT returns 401 (per {@code JwtAuthenticationEntryPoint}).</li>
  *   <li>DELETE is idempotent â€” 204 whether the row existed or not.</li>
  *   <li>GET /ids returns a JSON array (empty for fresh users; populated post-save).</li>
- *   <li>GET /auctions returns the saved-list page envelope; {@code statusFilter}
+ *   <li>GET /auctions returns the saved-list page envelope; {@code status_filter}
  *       toggles between active-only (default) and ended-only correctly.</li>
  * </ul>
  *
@@ -268,7 +268,7 @@ class SavedAuctionControllerIntegrationTest {
 
         MvcResult res = mockMvc.perform(get("/api/v1/me/saved/auctions")
                         .header("Authorization", "Bearer " + bidderAccessToken)
-                        .param("statusFilter", "ended_only"))
+                        .param("status_filter", "ended_only"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -288,7 +288,7 @@ class SavedAuctionControllerIntegrationTest {
 
         MvcResult res = mockMvc.perform(get("/api/v1/me/saved/auctions")
                         .header("Authorization", "Bearer " + bidderAccessToken)
-                        .param("statusFilter", "all"))
+                        .param("status_filter", "all"))
                 .andExpect(status().isOk())
                 .andReturn();
 

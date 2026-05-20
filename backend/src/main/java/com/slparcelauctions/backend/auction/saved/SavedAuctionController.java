@@ -93,7 +93,7 @@ public class SavedAuctionController {
     @GetMapping("/auctions")
     public ResponseEntity<SearchPagedResponse<AuctionSearchResultDto>> listAuctions(
             @AuthenticationPrincipal AuthPrincipal principal,
-            @RequestParam(name = "statusFilter", required = false) String statusFilter,
+            @RequestParam(name = "status_filter", required = false) String statusFilter,
             @RequestParam(required = false) String region,
             @RequestParam(name = "min_area", required = false) Integer minArea,
             @RequestParam(name = "max_area", required = false) Integer maxArea,
