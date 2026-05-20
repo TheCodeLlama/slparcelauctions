@@ -59,8 +59,10 @@ public interface NotificationPublisher {
      * <p>Sub-project G section 8.3: copy differs by sale type. For group sales
      * (SL-group-owned; {@code groupName != null}) the body surfaces the
      * commission slice and group slice instead of "L$0 payout received". For
-     * individual sales the body is the legacy "payout received" copy. Subject
-     * ("Auction payout processed") is identical for both sale types.
+     * individual sales the body says the L$ was credited to the seller's
+     * SLParcels wallet (post wallet-first cutover, sale conclusion no longer
+     * dispatches L$ to the seller's avatar; the seller withdraws separately).
+     * Subject ("Auction payout processed") is identical for both sale types.
      *
      * @param payoutL           L$ paid to the seller (0 for group sales)
      * @param groupName         realty group display name, or {@code null} for
@@ -78,9 +80,7 @@ public interface NotificationPublisher {
     /**
      * Backwards-compatible overload for individual-sale callers. Delegates to
      * the group-sale-aware variant with {@code groupName=null} so the body
-     * composes the legacy "payout received" copy. Task 22 will migrate the
-     * {@code TerminalCommandService} call sites to the full signature; until
-     * then this overload keeps the project compiling.
+     * composes the individual-sale "credited to your SLParcels wallet" copy.
      */
     default void escrowPayout(long sellerUserId, long auctionId, long escrowId,
                               String parcelName, long payoutL) {
