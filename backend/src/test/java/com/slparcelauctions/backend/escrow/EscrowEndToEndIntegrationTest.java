@@ -1,8 +1,6 @@
 package com.slparcelauctions.backend.escrow;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -40,14 +38,9 @@ import com.slparcelauctions.backend.escrow.broadcast.EscrowBroadcastPublisher;
 import com.slparcelauctions.backend.escrow.broadcast.EscrowCompletedEnvelope;
 import com.slparcelauctions.backend.escrow.command.TerminalCommand;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandAction;
-import com.slparcelauctions.backend.escrow.command.TerminalCommandPurpose;
 import com.slparcelauctions.backend.escrow.command.TerminalCommandRepository;
-import com.slparcelauctions.backend.escrow.command.TerminalCommandService;
-import com.slparcelauctions.backend.escrow.command.TerminalCommandStatus;
 import com.slparcelauctions.backend.escrow.command.TerminalHttpClient;
-import com.slparcelauctions.backend.escrow.command.dto.PayoutResultRequest;
 import com.slparcelauctions.backend.escrow.scheduler.EscrowOwnershipMonitorJob;
-import com.slparcelauctions.backend.escrow.scheduler.TerminalCommandDispatcherJob;
 import com.slparcelauctions.backend.escrow.terminal.Terminal;
 import com.slparcelauctions.backend.escrow.terminal.TerminalRepository;
 import com.slparcelauctions.backend.auction.AuctionParcelSnapshot;
@@ -60,16 +53,26 @@ import com.slparcelauctions.backend.notification.NotificationRepository;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.wallet.UserLedgerEntry;
+import com.slparcelauctions.backend.wallet.UserLedgerEntryType;
+import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 
 import reactor.core.publisher.Mono;
 
 /**
- * End-to-end coverage from TRANSFER_PENDING onwards: ownership monitor
- * confirm â†’ payout queued â†’ dispatcher POSTs â†’ callback success â†’ state
- * COMPLETED + ledger (PAYOUT + COMMISSION) + envelope. The earlier stages
- * (auction-end Escrow creation + payment receipt) have their own
- * integration tests (EscrowCreateOnAuctionEndIntegrationTest,
- * EscrowPaymentIntegrationTest) to avoid re-seeding overhead.
+ * End-to-end coverage from TRANSFER_PENDING onwards. Post wallet-first
+ * cutover the happy path runs entirely inline: ownership monitor confirms
+ * the parcel transfer -> queuePayout credits the seller's SLParcels wallet
+ * via WalletService.creditAuctionPayout and flips escrow + auction to
+ * COMPLETED inside the same transaction. No TerminalCommand is enqueued
+ * and no terminal-callback round-trip happens.
+ *
+ * <p>The earlier stages (auction-end Escrow creation + payment receipt)
+ * have their own integration tests (EscrowCreateOnAuctionEndIntegrationTest,
+ * EscrowPaymentIntegrationTest) to avoid re-seeding overhead. The historical
+ * PAYOUT TerminalCommand callback machinery still has coverage in
+ * TerminalCommandDispatcherTaskTest / TerminalCommandRetryIntegrationTest
+ * for any in-flight rows that survive deploy.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -94,7 +97,6 @@ class EscrowEndToEndIntegrationTest {
     private static final String TERMINAL_ID = "terminal-e2e-" + UUID.randomUUID();
     private static final String HTTP_IN_URL = "https://sim-e2e.agni.lindenlab.com:12043/cap/abc";
     private static final String REGION_NAME = "E2ERegion";
-    private static final String SHARED_SECRET = "dev-escrow-secret-do-not-use-in-prod";
 
     @TestConfiguration
     static class CapturingConfig {
@@ -109,8 +111,6 @@ class EscrowEndToEndIntegrationTest {
     @MockitoBean TerminalHttpClient terminalHttp;
 
     @Autowired EscrowOwnershipMonitorJob ownershipMonitorJob;
-    @Autowired TerminalCommandDispatcherJob dispatcherJob;
-    @Autowired TerminalCommandService terminalCommandService;
     @Autowired TerminalCommandRepository cmdRepo;
     @Autowired TerminalRepository terminalRepo;
     @Autowired EscrowRepository escrowRepo;
@@ -123,6 +123,7 @@ class EscrowEndToEndIntegrationTest {
     @Autowired RefreshTokenRepository refreshTokenRepo;
     @Autowired VerificationCodeRepository verificationCodeRepo;
     @Autowired NotificationRepository notificationRepo;
+    @Autowired UserLedgerRepository userLedgerRepo;
     @Autowired PlatformTransactionManager txManager;
     @Autowired CapturingEscrowBroadcastPublisher capturingEscrowPublisher;
 
@@ -155,6 +156,15 @@ class EscrowEndToEndIntegrationTest {
                     .forEach(cmdRepo::delete);
             escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(seededEscrowId)
                     .forEach(escrowTxRepo::delete);
+            // creditAuctionPayout writes user_ledger rows keyed by refType=ESCROW,
+            // refId=escrowId. Drop those before deleting the parent escrow / users.
+            final Long escrowForCleanup = seededEscrowId;
+            if (escrowForCleanup != null) {
+                userLedgerRepo.findAll().stream()
+                        .filter(e -> "ESCROW".equals(e.getRefType())
+                                && escrowForCleanup.equals(e.getRefId()))
+                        .forEach(userLedgerRepo::delete);
+            }
             escrowRepo.findByAuctionId(seededAuctionId).ifPresent(escrowRepo::delete);
             bidRepo.deleteAllByAuctionId(seededAuctionId);
             proxyBidRepo.deleteAllByAuctionId(seededAuctionId);
@@ -181,60 +191,58 @@ class EscrowEndToEndIntegrationTest {
     }
 
     @Test
-    void fullHappyPath_transferConfirmDispatchCompleteCallback_rowsAndEnvelopesLineUp() {
+    void fullHappyPath_transferConfirmCompletesInlineAndCreditsSellerWallet() {
         seedTransferPendingWithFundedEscrowAndTerminal();
 
-        // World API reports the winner owns the parcel â†’ monitor stamps
-        // transferConfirmedAt and queues the PAYOUT command.
+        long sellerBalanceBefore = userRepo.findById(seededSellerId).orElseThrow()
+                .getBalanceLindens();
+
+        // World API reports the winner owns the parcel -> monitor stamps
+        // transferConfirmedAt and triggers queuePayout, which now runs the
+        // success path inline (credits the seller's wallet, flips escrow ->
+        // COMPLETED, writes the ledger rows, notifies the seller). The
+        // terminalHttp client must not be invoked along the happy path post
+        // wallet-first cutover -- we don't stub it.
         when(worldApi.fetchParcelPage(seededParcelUuid))
                 .thenReturn(
                 Mono.just(new ParcelPageData(meta(seededWinnerAvatar, "agent"), java.util.UUID.randomUUID())));
-        // Dispatcher's HTTP POST ACKs â†’ command flips to IN_FLIGHT.
-        when(terminalHttp.post(anyString(), any()))
-                .thenReturn(TerminalHttpClient.TerminalHttpResult.ok());
 
         ownershipMonitorJob.sweep();
 
-        // After the monitor sweep: escrow transferConfirmedAt stamped, one
-        // PAYOUT command queued for this escrow.
+        // No TerminalCommand of action=PAYOUT was queued for the new sale --
+        // queuePayout runs inline now.
+        List<TerminalCommand> payoutCmds = findCommandsForEscrow(seededEscrowId).stream()
+                .filter(c -> c.getAction() == TerminalCommandAction.PAYOUT)
+                .toList();
+        assertThat(payoutCmds).isEmpty();
+
+        // Escrow flipped straight to COMPLETED with completedAt stamped.
         Escrow afterMonitor = escrowRepo.findById(seededEscrowId).orElseThrow();
-        assertThat(afterMonitor.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
+        assertThat(afterMonitor.getState()).isEqualTo(EscrowState.COMPLETED);
         assertThat(afterMonitor.getTransferConfirmedAt()).isNotNull();
+        assertThat(afterMonitor.getCompletedAt()).isNotNull();
         assertThat(capturingEscrowPublisher.transferConfirmed).hasSize(1);
 
-        List<TerminalCommand> queued = findCommandsForEscrow(seededEscrowId);
-        assertThat(queued).hasSize(1);
-        TerminalCommand cmd = queued.get(0);
-        assertThat(cmd.getAction()).isEqualTo(TerminalCommandAction.PAYOUT);
-        assertThat(cmd.getPurpose()).isEqualTo(TerminalCommandPurpose.AUCTION_ESCROW);
-        assertThat(cmd.getStatus()).isEqualTo(TerminalCommandStatus.QUEUED);
-        assertThat(cmd.getAmount()).isEqualTo(seededPayout);
+        // Seller's SLParcels wallet balance increased by the payout amount.
+        long sellerBalanceAfter = userRepo.findById(seededSellerId).orElseThrow()
+                .getBalanceLindens();
+        assertThat(sellerBalanceAfter).isEqualTo(sellerBalanceBefore + seededPayout);
 
-        // Dispatcher sweep: QUEUED â†’ IN_FLIGHT.
-        dispatcherJob.dispatch();
-        TerminalCommand afterDispatch = cmdRepo.findById(cmd.getId()).orElseThrow();
-        assertThat(afterDispatch.getStatus()).isEqualTo(TerminalCommandStatus.IN_FLIGHT);
-        assertThat(afterDispatch.getAttemptCount()).isEqualTo(1);
-        assertThat(afterDispatch.getTerminalId()).isEqualTo(TERMINAL_ID);
-        assertThat(afterDispatch.getDispatchedAt()).isNotNull();
+        // user_ledger has a single AUCTION_PAYOUT_CREDIT row keyed by the escrow
+        // with the AUCPAYOUT-{escrowId} idempotency key.
+        List<UserLedgerEntry> creditRows = userLedgerRepo.findAll().stream()
+                .filter(e -> seededSellerId.equals(e.getUserId()))
+                .filter(e -> e.getEntryType() == UserLedgerEntryType.AUCTION_PAYOUT_CREDIT)
+                .toList();
+        assertThat(creditRows).hasSize(1);
+        UserLedgerEntry credit = creditRows.get(0);
+        assertThat(credit.getAmount()).isEqualTo(seededPayout);
+        assertThat(credit.getRefType()).isEqualTo("ESCROW");
+        assertThat(credit.getRefId()).isEqualTo(seededEscrowId);
+        assertThat(credit.getIdempotencyKey()).isEqualTo("AUCPAYOUT-" + seededEscrowId);
 
-        // Simulate the terminal's payout-result callback: success.
-        String slTxn = "sl-txn-" + UUID.randomUUID();
-        terminalCommandService.applyCallback(new PayoutResultRequest(
-                afterDispatch.getIdempotencyKey(), true, slTxn, null,
-                TERMINAL_ID, SHARED_SECRET));
-
-        // Command COMPLETED.
-        TerminalCommand afterCallback = cmdRepo.findById(cmd.getId()).orElseThrow();
-        assertThat(afterCallback.getStatus()).isEqualTo(TerminalCommandStatus.COMPLETED);
-        assertThat(afterCallback.getCompletedAt()).isNotNull();
-
-        // Escrow COMPLETED with completedAt stamped.
-        Escrow afterEscrowCallback = escrowRepo.findById(seededEscrowId).orElseThrow();
-        assertThat(afterEscrowCallback.getState()).isEqualTo(EscrowState.COMPLETED);
-        assertThat(afterEscrowCallback.getCompletedAt()).isNotNull();
-
-        // Ledger has two new rows (PAYOUT + COMMISSION), both COMPLETED.
+        // escrow_transactions has PAYOUT + COMMISSION rows, both COMPLETED, no slTxn
+        // (no terminal round-trip happened).
         List<EscrowTransaction> ledger =
                 escrowTxRepo.findByEscrowIdOrderByCreatedAtAsc(seededEscrowId);
         Optional<EscrowTransaction> payoutRow = ledger.stream()
@@ -243,7 +251,7 @@ class EscrowEndToEndIntegrationTest {
         assertThat(payoutRow).isPresent();
         assertThat(payoutRow.get().getStatus()).isEqualTo(EscrowTransactionStatus.COMPLETED);
         assertThat(payoutRow.get().getAmount()).isEqualTo(seededPayout);
-        assertThat(payoutRow.get().getSlTransactionId()).isEqualTo(slTxn);
+        assertThat(payoutRow.get().getSlTransactionId()).isNull();
         assertThat(payoutRow.get().getPayee()).isNotNull();
         assertThat(payoutRow.get().getPayee().getId()).isEqualTo(seededSellerId);
 
@@ -262,11 +270,10 @@ class EscrowEndToEndIntegrationTest {
         assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
         assertThat(env.state()).isEqualTo(EscrowState.COMPLETED);
 
-        // Epic 08 sub-spec 1 Â§3.4 / Â§6.1: the seller's completedSales
-        // counter must bump in the same transaction that flipped the escrow
-        // to COMPLETED. Prior to sub-spec 1 this counter was declared but
-        // never written; the reputation & completion-rate pipeline hangs
-        // off this increment landing inside the payout-success handler.
+        // Epic 08 sub-spec 1 §3.4 / §6.1: the seller's completedSales counter
+        // must bump in the same transaction that flipped the escrow to
+        // COMPLETED. The reputation + completion-rate pipeline hangs off this
+        // increment landing inside the payout-success path.
         User seller = userRepo.findById(seededSellerId).orElseThrow();
         assertThat(seller.getCompletedSales()).isEqualTo(1);
     }

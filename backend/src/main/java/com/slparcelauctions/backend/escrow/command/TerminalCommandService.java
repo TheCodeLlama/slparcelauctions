@@ -77,42 +77,65 @@ public class TerminalCommandService {
     private final com.slparcelauctions.backend.wallet.WalletWithdrawalCallbackHandler walletWithdrawalCallbackHandler;
     private final com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor agentCommissionDistributor;
     private final com.slparcelauctions.backend.realty.wallet.GroupWalletWithdrawalCallbackHandler groupWalletWithdrawalCallbackHandler;
+    private final com.slparcelauctions.backend.wallet.WalletService walletService;
     private final AuctionStatusFlipper statusFlipper;
 
     /**
-     * Queues an escrow payout to the seller's SL terminal. Sub-project G §8.1
-     * short-circuit: when {@code escrow.getPayoutAmt() == 0L} (group sales --
-     * SL-group-owned auctions; the agent commission and group slice both flow
-     * through {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor}
-     * inside the success path), the terminal round-trip is skipped and the
-     * post-payout work runs inline via {@link #runZeroPayoutSuccessInline}.
-     * Returns {@link Optional#empty()} in that case so the caller knows no
-     * {@link TerminalCommand} was enqueued.
+     * Runs the escrow-payout success path inline. No terminal round-trip
+     * happens for either sale shape any more:
      *
-     * @return the enqueued command, or {@link Optional#empty()} when the
-     *         payout amount is zero and the success path ran inline.
+     * <ul>
+     *   <li>Individual sale ({@code payoutAmt > 0}, no
+     *       {@code realtyGroupSlGroupId}): credits the seller's SLParcels
+     *       wallet via {@link com.slparcelauctions.backend.wallet.WalletService#creditAuctionPayout}
+     *       and then runs the shared bookkeeping. Replaces the prior
+     *       {@code TerminalCommand{action=PAYOUT}} dispatch to the seller's
+     *       avatar -- per the wallet-first policy, L$ stays inside SLParcels
+     *       at sale conclusion and the seller withdraws separately if they
+     *       choose.</li>
+     *   <li>Group sale ({@code payoutAmt == 0},
+     *       {@code realtyGroupSlGroupId != null}): no wallet credit (the
+     *       distributor splits the earnings into agent + group slices);
+     *       runs the same shared bookkeeping; then invokes
+     *       {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor#distribute}.</li>
+     * </ul>
+     *
+     * <p>Always returns {@link Optional#empty()}: no {@link TerminalCommand}
+     * is enqueued from this path post wallet-first cutover. The method name
+     * is kept for the EscrowService call-site shape; rename is out of scope.
+     *
+     * <p>Historical in-flight {@link TerminalCommandAction#PAYOUT} rows queued
+     * before this cutover continue to flow through
+     * {@link #handleEscrowPayoutSuccess} via the callback path.
+     *
+     * @return always {@link Optional#empty()}.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<TerminalCommand> queuePayout(Escrow escrow) {
-        if (escrow.getPayoutAmt() != null && escrow.getPayoutAmt() == 0L) {
-            if (escrow.getState() == EscrowState.COMPLETED) {
-                // Idempotent replay: a previous call already ran the inline
-                // success path. No-op so we don't double-write the ledger row,
-                // double-notify the seller, or double-credit commissions.
-                log.info("queuePayout: escrow {} already COMPLETED, no-op", escrow.getId());
-                return Optional.empty();
-            }
-            log.info("queuePayout: escrow {} payoutAmt=0 (group sale), running success path inline",
-                    escrow.getId());
-            runZeroPayoutSuccessInline(escrow, OffsetDateTime.now(clock));
+        if (escrow.getState() == EscrowState.COMPLETED) {
+            // Idempotent replay: a previous call already ran the inline
+            // success path. No-op so we don't double-write the ledger row,
+            // double-credit the wallet, double-notify the seller, or
+            // double-credit commissions.
+            log.info("queuePayout: escrow {} already COMPLETED, no-op", escrow.getId());
             return Optional.empty();
         }
-        String recipientUuid = escrow.getAuction().getSeller().getSlAvatarUuid().toString();
-        TerminalCommand cmd = queue(escrow.getId(), null,
-                TerminalCommandAction.PAYOUT, TerminalCommandPurpose.AUCTION_ESCROW,
-                recipientUuid, escrow.getPayoutAmt(),
-                idempotencyKey("ESC", escrow.getId(), TerminalCommandAction.PAYOUT, 1));
-        return Optional.of(cmd);
+        long payoutAmt = escrow.getPayoutAmt() == null ? 0L : escrow.getPayoutAmt();
+        if (payoutAmt > 0L) {
+            log.info("queuePayout: escrow {} payoutAmt={} (individual sale), crediting seller wallet inline",
+                    escrow.getId(), payoutAmt);
+            User seller = escrow.getAuction().getSeller();
+            walletService.creditAuctionPayout(
+                    seller.getId(),
+                    escrow.getAuction().getId(),
+                    escrow.getId(),
+                    payoutAmt);
+        } else {
+            log.info("queuePayout: escrow {} payoutAmt=0 (group sale), running success path inline",
+                    escrow.getId());
+        }
+        runPayoutSuccessInline(escrow, OffsetDateTime.now(clock), payoutAmt);
+        return Optional.empty();
     }
 
     /**
@@ -278,6 +301,15 @@ public class TerminalCommandService {
         }
     }
 
+    /**
+     * Historical callback handler for in-flight {@link TerminalCommandAction#PAYOUT}
+     * commands. New payouts (both individual and group sales) no longer queue
+     * a terminal command -- {@link #queuePayout} runs the success path inline
+     * via {@link #runPayoutSuccessInline}. This handler is preserved so that
+     * PAYOUT rows in {@code QUEUED} / {@code IN_FLIGHT} state at the wallet-
+     * first cutover can still complete via their callback when the terminal
+     * eventually responds.
+     */
     private void handleEscrowPayoutSuccess(TerminalCommand cmd, String slTxn, OffsetDateTime now) {
         Escrow escrow = escrowRepo.findByIdForUpdate(cmd.getEscrowId()).orElseThrow();
         EscrowService.enforceTransitionAllowed(
@@ -363,29 +395,49 @@ public class TerminalCommandService {
     }
 
     /**
-     * Sub-project G §8.1 -- post-payout success path for the group-sale
-     * zero-payout branch. Mirrors {@link #handleEscrowPayoutSuccess}'s body but is driven
-     * directly from {@link #queuePayout} (no terminal callback because no
-     * terminal round-trip happened). Writes the {@code AUCTION_ESCROW_PAYOUT}
-     * ledger row with amount=0, transitions the escrow to COMPLETED, bumps the
-     * seller's completedSales counter, broadcasts the
-     * {@link EscrowCompletedEnvelope} after commit, notifies the seller, and
-     * invokes
+     * Shared post-payout success bookkeeping for both sale shapes. Mirrors
+     * the body of {@link #handleEscrowPayoutSuccess} (which still runs for
+     * in-flight historical {@link TerminalCommandAction#PAYOUT} callbacks)
+     * but is driven directly from {@link #queuePayout}, no terminal
+     * round-trip.
+     *
+     * <p>Writes the {@code AUCTION_ESCROW_PAYOUT} + {@code AUCTION_ESCROW_COMMISSION}
+     * escrow_transactions rows, flips escrow -> COMPLETED, lockstep flips
+     * the auction to COMPLETED, bumps the seller's completed-sales counter,
+     * broadcasts the {@link EscrowCompletedEnvelope} after commit, and
+     * notifies the seller. For group sales (auctions with
+     * {@code realtyGroupSlGroupId}) the caller has already passed
+     * {@code sellerCreditAmt == 0} (no wallet credit happened in the parent);
+     * this method then invokes
      * {@link com.slparcelauctions.backend.auction.agentfee.AgentCommissionDistributor#distribute}
-     * so the agent slice and group slice land in their respective wallets.
+     * to split earnings into agent + group slices. Individual sales pass
+     * {@code sellerCreditAmt > 0}; the caller has already credited the
+     * seller's wallet via
+     * {@link com.slparcelauctions.backend.wallet.WalletService#creditAuctionPayout}
+     * and no distributor call is made here.
      *
      * <p>Idempotency is enforced by the caller -- {@link #queuePayout} short-
      * circuits when the escrow is already COMPLETED.
+     *
+     * @param escrow            the escrow being completed (state must be a
+     *                          legal predecessor of {@code COMPLETED}).
+     * @param now               the completion timestamp.
+     * @param sellerCreditAmt   L$ paid to the seller this transition.
+     *                          {@code > 0} for individual sales (wallet
+     *                          credit already issued), {@code 0} for group
+     *                          sales (split flows through the distributor).
+     *                          Surfaces as the {@code AUCTION_ESCROW_PAYOUT}
+     *                          ledger-row {@code amount} so reconciliation by
+     *                          type continues to balance.
      */
-    private void runZeroPayoutSuccessInline(Escrow escrow, OffsetDateTime now) {
+    private void runPayoutSuccessInline(Escrow escrow, OffsetDateTime now, long sellerCreditAmt) {
         EscrowService.enforceTransitionAllowed(
                 escrow.getId(), escrow.getState(), EscrowState.COMPLETED);
         escrow.setState(EscrowState.COMPLETED);
         escrow.setCompletedAt(now);
         escrow = escrowRepo.save(escrow);
-        // Lockstep auction-status flip: group-sale zero-payout still transitions
-        // the escrow to COMPLETED inline (no terminal round-trip), so the
-        // auction lands at COMPLETED here too.
+        // Lockstep auction-status flip: the inline path still transitions
+        // the escrow to COMPLETED, so the auction lands at COMPLETED here too.
         statusFlipper.flip(escrow, AuctionStatus.COMPLETED);
 
         User seller = escrow.getAuction().getSeller();
@@ -393,14 +445,15 @@ public class TerminalCommandService {
         seller.setCompletedSales(prior + 1);
         userRepo.save(seller);
 
-        // Same shape as the terminal-callback path; amount = 0, no slTxn, no
-        // terminalId. Reconciliation by type (AUCTION_ESCROW_PAYOUT) still works.
+        // Same row shape as the historical terminal-callback path; no slTxn /
+        // terminalId because no terminal round-trip happened. Reconciliation
+        // by type (AUCTION_ESCROW_PAYOUT) still works.
         ledgerRepo.save(EscrowTransaction.builder()
                 .escrow(escrow)
                 .auction(escrow.getAuction())
                 .type(EscrowTransactionType.AUCTION_ESCROW_PAYOUT)
                 .status(EscrowTransactionStatus.COMPLETED)
-                .amount(0L)
+                .amount(sellerCreditAmt)
                 .payee(escrow.getAuction().getSeller())
                 .completedAt(now)
                 .build());
@@ -417,21 +470,20 @@ public class TerminalCommandService {
         final EscrowCompletedEnvelope env = EscrowCompletedEnvelope.of(finalEscrow, now);
         registerAfterCommit(() -> broadcastPublisher.publishCompleted(env));
 
-        // Seller payout notification; Task 24 tweaks the body copy so group
-        // sales don't say "L$0 payout received". Amount is still 0 here -- the
-        // builder decides the body string based on realtyGroupId.
+        // Seller payout notification. The body copy diverges on groupName --
+        // individual sales now say "credited to your SLParcels wallet" instead
+        // of "payout received" since L$ no longer flows to the avatar.
         notificationPublisher.escrowPayout(
                 finalEscrow.getAuction().getSeller().getId(),
                 finalEscrow.getAuction().getId(),
                 finalEscrow.getId(),
                 finalEscrow.getAuction().getTitle(),
-                0L);
+                sellerCreditAmt);
 
         // Group-sale distributor: credits agent_slice to the listing agent's
-        // wallet, group_slice to the group wallet. Both flow through here
-        // because payoutAmt = 0 meant no L$ left SLPA via the terminal. By
-        // construction (Sub-project E spec §9.6 post-G), group sales are the
-        // only branch that reaches this method.
+        // wallet, group_slice to the group wallet. Only group sales reach this
+        // branch (realtyGroupSlGroupId != null); individual sales were already
+        // credited to the seller's wallet by the queuePayout call site.
         if (finalEscrow.getAuction().getRealtyGroupSlGroupId() != null) {
             agentCommissionDistributor.distribute(
                 finalEscrow.getAuction(),

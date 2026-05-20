@@ -50,20 +50,29 @@ import com.slparcelauctions.backend.user.User;
 import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeRepository;
 import com.slparcelauctions.backend.verification.VerificationCodeType;
+import com.slparcelauctions.backend.wallet.UserLedgerEntry;
+import com.slparcelauctions.backend.wallet.UserLedgerEntryType;
 import com.slparcelauctions.backend.wallet.UserLedgerRepository;
 
 /**
- * Verifies the Sub-project G §8.1 short-circuit:
+ * Verifies the inline payout-success path. Post wallet-first cutover both sale
+ * shapes run inline -- no {@link TerminalCommand} is ever enqueued from
+ * {@link TerminalCommandService#queuePayout}.
+ *
  * <ul>
- *   <li>{@code queuePayout} returns {@link Optional#empty()} for payoutAmt == 0.</li>
- *   <li>No {@link TerminalCommand} row is persisted for the escrow.</li>
- *   <li>An {@code AUCTION_ESCROW_PAYOUT} ledger row with amount=0 is written.</li>
- *   <li>The escrow transitions to {@link EscrowState#COMPLETED}.</li>
- *   <li>The seller notification fires.</li>
- *   <li>Re-invocation is idempotent: a second call is a no-op (no extra ledger row,
- *       no second seller notification).</li>
- *   <li>For a positive payoutAmt the legacy path still queues a
- *       {@link TerminalCommand}.</li>
+ *   <li>{@code queuePayout} returns {@link Optional#empty()} for both shapes.</li>
+ *   <li>Group sale (payoutAmt == 0): no wallet credit; an
+ *       {@code AUCTION_ESCROW_PAYOUT} ledger row with amount=0 is written;
+ *       escrow transitions to {@link EscrowState#COMPLETED}; seller notified.</li>
+ *   <li>Individual sale (payoutAmt > 0): seller's wallet is credited via
+ *       {@code creditAuctionPayout}; an {@code AUCTION_ESCROW_PAYOUT} ledger
+ *       row with amount=payoutAmt is written; a {@code user_ledger} row of
+ *       type {@code AUCTION_PAYOUT_CREDIT} is written; escrow transitions
+ *       to {@link EscrowState#COMPLETED}; auction status flips to
+ *       {@code COMPLETED}; seller notified; <em>no</em> {@link TerminalCommand}
+ *       of action {@link TerminalCommandAction#PAYOUT} is enqueued.</li>
+ *   <li>Re-invocation is idempotent for both shapes (no extra ledger row,
+ *       no double wallet credit, no second seller notification).</li>
  * </ul>
  */
 @SpringBootTest
@@ -131,11 +140,17 @@ class TerminalCommandServiceZeroPayoutTest {
             }
             // AgentCommissionDistributor writes user_ledger + realty_group_ledger
             // rows keyed by refType=AUCTION, refId=auctionId. Drop those before
-            // we delete the parent group / users.
+            // we delete the parent group / users. WalletService.creditAuctionPayout
+            // (new individual-sale inline path) writes user_ledger rows keyed by
+            // refType=ESCROW, refId=escrowId; drop those too.
             final Long auctionForCleanup = seededAuctionId;
+            final Long escrowForCleanup = seededEscrowId;
             userLedgerRepo.findAll().stream()
-                    .filter(e -> "AUCTION".equals(e.getRefType())
-                            && auctionForCleanup.equals(e.getRefId()))
+                    .filter(e -> ("AUCTION".equals(e.getRefType())
+                                    && auctionForCleanup.equals(e.getRefId()))
+                            || (escrowForCleanup != null
+                                    && "ESCROW".equals(e.getRefType())
+                                    && escrowForCleanup.equals(e.getRefId())))
                     .forEach(userLedgerRepo::delete);
             realtyGroupLedgerRepo.findAll().stream()
                     .filter(e -> "AUCTION".equals(e.getRefType())
@@ -249,19 +264,123 @@ class TerminalCommandServiceZeroPayoutTest {
     }
 
     @Test
-    void queuePayout_enqueues_a_command_when_payout_amt_is_positive() {
-        Escrow escrow = fixtureIndividualEscrow(1000L);
-        TransactionTemplate tx = new TransactionTemplate(txManager);
+    void queuePayout_credits_seller_wallet_inline_for_individual_sale() {
+        long payoutAmt = 1000L;
+        Escrow escrow = fixtureIndividualEscrow(payoutAmt);
 
+        long sellerBalanceBefore = userRepo.findById(seededSellerId).orElseThrow()
+                .getBalanceLindens();
+
+        TransactionTemplate tx = new TransactionTemplate(txManager);
         Optional<TerminalCommand> result = tx.execute(status -> {
             Escrow managed = escrowRepo.findById(escrow.getId()).orElseThrow();
             return svc.queuePayout(managed);
         });
 
-        assertThat(result).isPresent();
-        assertThat(result.get().getAmount()).isEqualTo(1000L);
-        assertThat(result.get().getAction()).isEqualTo(TerminalCommandAction.PAYOUT);
-        assertThat(result.get().getPurpose()).isEqualTo(TerminalCommandPurpose.AUCTION_ESCROW);
+        // queuePayout never enqueues a TerminalCommand any more.
+        assertThat(result).isEmpty();
+
+        // No TerminalCommand of action=PAYOUT for the new sale.
+        long payoutCmdRows = cmdRepo.findAll().stream()
+                .filter(c -> escrow.getId().equals(c.getEscrowId()))
+                .filter(c -> c.getAction() == TerminalCommandAction.PAYOUT)
+                .count();
+        assertThat(payoutCmdRows).isZero();
+
+        // Seller wallet credited by exactly payoutAmt.
+        User sellerAfter = userRepo.findById(seededSellerId).orElseThrow();
+        assertThat(sellerAfter.getBalanceLindens())
+                .isEqualTo(sellerBalanceBefore + payoutAmt);
+
+        // user_ledger has an AUCTION_PAYOUT_CREDIT row pointing at the escrow.
+        List<UserLedgerEntry> sellerLedger = userLedgerRepo.findAll().stream()
+                .filter(e -> seededSellerId.equals(e.getUserId()))
+                .filter(e -> e.getEntryType() == UserLedgerEntryType.AUCTION_PAYOUT_CREDIT)
+                .toList();
+        assertThat(sellerLedger).hasSize(1);
+        UserLedgerEntry credit = sellerLedger.get(0);
+        assertThat(credit.getAmount()).isEqualTo(payoutAmt);
+        assertThat(credit.getRefType()).isEqualTo("ESCROW");
+        assertThat(credit.getRefId()).isEqualTo(escrow.getId());
+        assertThat(credit.getIdempotencyKey()).isEqualTo("AUCPAYOUT-" + escrow.getId());
+
+        // Escrow flipped to COMPLETED.
+        Escrow reloaded = escrowRepo.findById(escrow.getId()).orElseThrow();
+        assertThat(reloaded.getState()).isEqualTo(EscrowState.COMPLETED);
+        assertThat(reloaded.getCompletedAt()).isNotNull();
+
+        // Auction flipped to COMPLETED via statusFlipper.
+        com.slparcelauctions.backend.auction.Auction auctionReloaded =
+                auctionRepo.findById(seededAuctionId).orElseThrow();
+        assertThat(auctionReloaded.getStatus())
+                .isEqualTo(com.slparcelauctions.backend.auction.AuctionStatus.COMPLETED);
+
+        // AUCTION_ESCROW_PAYOUT escrow_transactions row written with amount=payoutAmt.
+        List<EscrowTransaction> ledger =
+                ledgerRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId());
+        EscrowTransaction payoutRow = ledger.stream()
+                .filter(r -> r.getType() == EscrowTransactionType.AUCTION_ESCROW_PAYOUT)
+                .findFirst()
+                .orElseThrow();
+        assertThat(payoutRow.getStatus())
+                .isEqualTo(com.slparcelauctions.backend.escrow.EscrowTransactionStatus.COMPLETED);
+        assertThat(payoutRow.getAmount()).isEqualTo(payoutAmt);
+        assertThat(payoutRow.getPayee()).isNotNull();
+        assertThat(payoutRow.getPayee().getId()).isEqualTo(seededSellerId);
+
+        // Seller payout notification fired.
+        List<Notification> sellerNotifs = notificationRepo.findAllByUserId(seededSellerId);
+        long payoutNotifs = sellerNotifs.stream()
+                .filter(n -> n.getCategory() == NotificationCategory.ESCROW_PAYOUT)
+                .count();
+        assertThat(payoutNotifs).isEqualTo(1L);
+    }
+
+    @Test
+    void queuePayout_individual_sale_is_idempotent_on_replay() {
+        long payoutAmt = 1500L;
+        Escrow escrow = fixtureIndividualEscrow(payoutAmt);
+
+        long sellerBalanceBefore = userRepo.findById(seededSellerId).orElseThrow()
+                .getBalanceLindens();
+
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+
+        // First call -- credits wallet, completes escrow.
+        tx.executeWithoutResult(status -> {
+            Escrow managed = escrowRepo.findById(escrow.getId()).orElseThrow();
+            svc.queuePayout(managed);
+        });
+
+        long sellerBalanceAfterFirst = userRepo.findById(seededSellerId).orElseThrow()
+                .getBalanceLindens();
+        long ledgerCountAfterFirst =
+                ledgerRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId()).size();
+
+        // Second call -- escrow already COMPLETED, must be a no-op.
+        Optional<TerminalCommand> second = tx.execute(status -> {
+            Escrow managed = escrowRepo.findById(escrow.getId()).orElseThrow();
+            return svc.queuePayout(managed);
+        });
+
+        assertThat(second).isEmpty();
+
+        // Wallet balance unchanged after second call.
+        long sellerBalanceAfterSecond = userRepo.findById(seededSellerId).orElseThrow()
+                .getBalanceLindens();
+        assertThat(sellerBalanceAfterSecond).isEqualTo(sellerBalanceAfterFirst);
+        assertThat(sellerBalanceAfterFirst).isEqualTo(sellerBalanceBefore + payoutAmt);
+
+        // Exactly one AUCTION_PAYOUT_CREDIT row.
+        long creditRows = userLedgerRepo.findAll().stream()
+                .filter(e -> seededSellerId.equals(e.getUserId()))
+                .filter(e -> e.getEntryType() == UserLedgerEntryType.AUCTION_PAYOUT_CREDIT)
+                .count();
+        assertThat(creditRows).isEqualTo(1L);
+
+        // Escrow ledger row count unchanged.
+        assertThat(ledgerRepo.findByEscrowIdOrderByCreatedAtAsc(escrow.getId()).size())
+                .isEqualTo(ledgerCountAfterFirst);
     }
 
     // -------------------------------------------------------------------------
