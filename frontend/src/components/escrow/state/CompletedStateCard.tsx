@@ -42,7 +42,11 @@ export function CompletedStateCard({ escrow, role }: StateCardProps) {
  *   - Sale price (anchor — the seller knows what the parcel sold for)
  *   - SLParcels fee (with the 5% / L$50-minimum rule inline so the floor on
  *     small sales doesn't look arbitrary)
- *   - Net payout
+ *   - Net payout (now credited to the SLParcels wallet, not the avatar)
+ *
+ * Headline copy says "L$X added to your SLParcels wallet" to make the
+ * in-wallet location unambiguous post wallet-first cutover. The seller
+ * withdraws to their avatar separately via the wallet flow.
  *
  * "Fee" intentionally — "commission" is reserved for the agent-commission
  * slice on group listings per the realty-group spec; mislabelling the
@@ -120,7 +124,7 @@ function SellerPayoutBreakdown({
   return (
     <>
       <h2 className="text-sm font-semibold tracking-tight text-fg">
-        Payout of L$ {escrow.payoutAmt.toLocaleString()} sent
+        L$ {escrow.payoutAmt.toLocaleString()} added to your SLParcels wallet
       </h2>
       <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm text-fg-muted">
         <dt>Sale price</dt>

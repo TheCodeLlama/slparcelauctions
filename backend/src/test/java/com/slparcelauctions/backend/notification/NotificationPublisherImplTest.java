@@ -498,9 +498,10 @@ class NotificationPublisherImplTest {
         assertThat(n.getCategory()).isEqualTo(NotificationCategory.ESCROW_PAYOUT);
         assertThat(n.getData()).containsKey("payoutL");
         assertThat(((Number) n.getData().get("payoutL")).longValue()).isEqualTo(18500L);
-        // Non-case-3 body — legacy "payout received" copy, parcel name embedded.
+        // Individual-sale body says the L$ landed in the SLParcels wallet,
+        // not on the seller's avatar (post wallet-first cutover).
         assertThat(n.getTitle()).isEqualTo("Auction payout processed");
-        assertThat(n.getBody()).isEqualTo("L$18500 payout received for Parcel C.");
+        assertThat(n.getBody()).isEqualTo("L$18500 credited to your SLParcels wallet.");
 
         verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());
     }
@@ -540,12 +541,11 @@ class NotificationPublisherImplTest {
     }
 
     @Test
-    void escrowPayout_nonCase3_legacyOverloadDelegatesToFullSignature() {
+    void escrowPayout_individualSale_legacyOverloadDelegatesToFullSignature() {
         User seller = testUser("payout-seller-overload");
 
-        // The 5-arg overload (used today by TerminalCommandService line 312
-        // until Task 22 lands) must delegate to the 8-arg path with
-        // groupName=null so the legacy body composes correctly.
+        // The 5-arg overload delegates to the 8-arg path with groupName=null
+        // so the individual-sale body composes correctly.
         transactionTemplate.execute(status -> {
             publisher.escrowPayout(seller.getId(), 33L, 303L, "Parcel D", 12000L);
             return null;
@@ -555,7 +555,7 @@ class NotificationPublisherImplTest {
         assertThat(rows).hasSize(1);
         Notification n = rows.get(0);
         assertThat(n.getTitle()).isEqualTo("Auction payout processed");
-        assertThat(n.getBody()).isEqualTo("L$12000 payout received for Parcel D.");
+        assertThat(n.getBody()).isEqualTo("L$12000 credited to your SLParcels wallet.");
         assertThat(n.getBody()).doesNotContain("group wallet");
 
         verify(broadcasterPort).broadcastUpsert(eq(seller.getId()), any(), any());

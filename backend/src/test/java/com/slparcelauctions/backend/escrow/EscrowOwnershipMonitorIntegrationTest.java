@@ -184,7 +184,7 @@ class EscrowOwnershipMonitorIntegrationTest {
     }
 
     @Test
-    void winnerOwnsParcel_stampsTransferConfirmed_broadcastsConfirmation() {
+    void winnerOwnsParcel_stampsTransferConfirmed_completesInlineAndCreditsSeller() {
         seedTransferPendingEscrow();
         when(worldApi.fetchParcelPage(seededParcelUuid))
                 .thenReturn(
@@ -194,10 +194,18 @@ class EscrowOwnershipMonitorIntegrationTest {
         job.sweep();
         OffsetDateTime after = OffsetDateTime.now();
 
+        // Post wallet-first cutover, the monitor's confirm step also runs the
+        // inline payout success path: escrow flips straight to COMPLETED in
+        // the same transaction, with the seller's wallet credited via
+        // WalletService.creditAuctionPayout. The TRANSFER_CONFIRMED envelope
+        // still fires (the envelope snapshot is taken before the COMPLETED
+        // transition in the EscrowService confirm path); a COMPLETED
+        // envelope fires alongside.
         Escrow refreshed = escrowRepo.findById(seededEscrowId).orElseThrow();
-        assertThat(refreshed.getState()).isEqualTo(EscrowState.TRANSFER_PENDING);
+        assertThat(refreshed.getState()).isEqualTo(EscrowState.COMPLETED);
         assertThat(refreshed.getTransferConfirmedAt()).isNotNull();
         assertThat(refreshed.getTransferConfirmedAt()).isBetween(before, after);
+        assertThat(refreshed.getCompletedAt()).isNotNull();
         assertThat(refreshed.getConsecutiveWorldApiFailures()).isZero();
         assertThat(refreshed.getLastCheckedAt()).isNotNull();
 
@@ -206,7 +214,8 @@ class EscrowOwnershipMonitorIntegrationTest {
         assertThat(env.type()).isEqualTo("ESCROW_TRANSFER_CONFIRMED");
         assertThat(env.auctionPublicId()).isEqualTo(seededAuctionPublicId);
         assertThat(env.escrowPublicId()).isEqualTo(seededEscrowPublicId);
-        assertThat(env.state()).isEqualTo(EscrowState.TRANSFER_PENDING);
+
+        assertThat(capturingEscrowPublisher.completed).hasSize(1);
 
         assertThat(capturingEscrowPublisher.frozen).isEmpty();
         assertThat(fraudFlagRepo.findByAuctionId(seededAuctionId)).isEmpty();
