@@ -1,6 +1,5 @@
 package com.slparcelauctions.backend.auction;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -10,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +22,8 @@ import com.slparcelauctions.backend.auction.exception.AuctionNotFoundException;
 import com.slparcelauctions.backend.auction.exception.InvalidAuctionStateException;
 import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
 import com.slparcelauctions.backend.auction.exception.SuspensionReason;
+import com.slparcelauctions.backend.coupon.CouponDiscountResolver;
+import com.slparcelauctions.backend.escrow.payment.ListingFeePaymentService;
 import com.slparcelauctions.backend.parcel.ParcelLookupService;
 import com.slparcelauctions.backend.parcel.ParcelLookupService.ParcelLookupResult;
 import com.slparcelauctions.backend.parcel.dto.ParcelResponse;
@@ -50,10 +50,15 @@ public class AuctionService {
     private final ParcelLookupService parcelLookupService;
     private final ParcelSnapshotPhotoService parcelSnapshotPhotoService;
     private final UserDefaultCoverPhotoService userDefaultCoverPhotoService;
+    private final CouponDiscountResolver couponDiscountResolver;
+    private final ListingFeePaymentService listingFeePaymentService;
     private final Clock clock;
 
-    @Value("${slpa.commission.default-rate:0.05}")
-    private BigDecimal defaultCommissionRate;
+    // Plan Task 10 (2026-05-20): the default commission rate is now sourced via
+    // CouponDiscountResolver, which reads the same {@code slpa.commission.default-rate}
+    // property and returns it untouched when the seller has no applicable grants.
+    // Direct injection here was removed to keep a single source of truth for the
+    // listing-create discount snapshot.
 
     @Transactional
     public Auction create(Long sellerId, AuctionCreateRequest req, String ipAddress) {
@@ -82,6 +87,13 @@ public class AuctionService {
 
         Set<ParcelTag> tags = resolveTags(req.tags());
 
+        // Coupon discount resolution. Returns defaults (config-driven listing fee
+        // and commission rate, null grant ids) when the seller has no applicable
+        // coupon grants, so the call is safe for both coupon and non-coupon users.
+        // Spec: docs/superpowers/specs/2026-05-20-coupon-codes-design.md.
+        CouponDiscountResolver.DiscountSnapshot discount =
+                couponDiscountResolver.resolve(sellerId);
+
         // Per sub-spec 2 §7.1, verificationMethod is NOT set at create time — it
         // is chosen by the seller on PUT /auctions/{id}/verify and persisted by
         // AuctionVerificationService.triggerVerification(...). The entity column
@@ -98,7 +110,10 @@ public class AuctionService {
                 .snipeWindowMin(Boolean.TRUE.equals(req.snipeProtect()) ? req.snipeWindowMin() : null)
                 .sellerDesc(req.sellerDesc())
                 .tags(tags)
-                .commissionRate(defaultCommissionRate)
+                .listingFeeAmt(discount.listingFeeLindens())
+                .listingFeeCouponGrantId(discount.listingFeeCouponGrantId())
+                .commissionRate(discount.commissionRate())
+                .commissionCouponGrantId(discount.commissionCouponGrantId())
                 .currentBid(0L)
                 .bidCount(0)
                 .listingFeePaid(false)
@@ -110,8 +125,17 @@ public class AuctionService {
         a.setParcelSnapshot(snapshot);
 
         a = auctionRepo.save(a);
-        log.info("Auction created: id={}, sellerId={}, slParcelUuid={}",
-                a.getId(), sellerId, a.getSlParcelUuid());
+        log.info("Auction created: id={}, sellerId={}, slParcelUuid={}, listingFeeAmt={}, "
+                        + "listingFeeCouponGrantId={}, commissionRate={}, commissionCouponGrantId={}",
+                a.getId(), sellerId, a.getSlParcelUuid(),
+                a.getListingFeeAmt(), a.getListingFeeCouponGrantId(),
+                a.getCommissionRate(), a.getCommissionCouponGrantId());
+
+        // L$0 listing fee auto-pay path. When a coupon fully waives the fee,
+        // there is no terminal payment to wait for, so transition DRAFT to
+        // DRAFT_PAID in the same transaction and write a zero-amount
+        // LISTING_FEE_PAYMENT ledger row. No-op when the fee is non-zero.
+        listingFeePaymentService.autoPayIfFreeAfterCreation(a);
 
         // Order matters: default cover claims sortOrder=0, then snapshot
         // claims the next available slot. Both are best-effort — failures
