@@ -42,7 +42,7 @@ public class AgentCommissionDistributor {
     private final RealtyGroupWalletService groupWalletService;
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void distribute(Auction auction, long finalBid, long platformCommission) {
+    public SplitResult distribute(Auction auction, long finalBid, long platformCommission) {
         if (auction.getRealtyGroupSlGroupId() == null) {
             throw new IllegalArgumentException(
                 "AgentCommissionDistributor called on non-group-sale auction " + auction.getId());
@@ -70,5 +70,17 @@ public class AgentCommissionDistributor {
         }
         log.info("agent-commission distribute: auction={} earnings={} rate={} agentSlice={} groupSlice={}",
             auction.getId(), earnings, rate, agentSlice, groupSlice);
+        return new SplitResult(agentSlice, groupSlice);
     }
+
+    /**
+     * Outcome of {@link #distribute}: the floored agent slice and the
+     * residual group slice. Callers that need to surface the per-slice
+     * amounts in seller-facing notifications use these values directly
+     * instead of recomputing the {@code floor} math.
+     *
+     * <p>Invariant: {@code agentSlice + groupSlice == earnings} (no L$ lost
+     * to rounding); the order is agent-first, group-residual.
+     */
+    public record SplitResult(long agentSlice, long groupSlice) { }
 }

@@ -225,10 +225,18 @@ class TerminalCommandServiceZeroPayoutTest {
 
         // Seller payout notification fired.
         List<Notification> sellerNotifs = notificationRepo.findAllByUserId(seededSellerId);
-        long payoutNotifs = sellerNotifs.stream()
+        List<Notification> payoutNotifs = sellerNotifs.stream()
                 .filter(n -> n.getCategory() == NotificationCategory.ESCROW_PAYOUT)
-                .count();
-        assertThat(payoutNotifs).isEqualTo(1L);
+                .toList();
+        assertThat(payoutNotifs).hasSize(1);
+        // Group-sale body MUST surface the agent commission + group-wallet
+        // breakdown, not the individual-sale "credited to your SLParcels
+        // wallet" misread (regression guard for the 5-arg overload that
+        // sets groupName=null and routes into the individual-sale branch).
+        Notification payoutNotif = payoutNotifs.get(0);
+        assertThat(payoutNotif.getBody()).contains("agent commission");
+        assertThat(payoutNotif.getBody()).contains("group wallet");
+        assertThat(payoutNotif.getBody()).doesNotContain("credited to your SLParcels wallet");
     }
 
     @Test
