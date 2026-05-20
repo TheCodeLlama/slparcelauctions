@@ -15,6 +15,7 @@ import com.slparcelauctions.backend.user.UserRepository;
 import com.slparcelauctions.backend.user.UserService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UserResponse;
+import com.slparcelauctions.backend.wallet.dormancy.UserWalletDormancyTask;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,9 @@ class AuthServiceTest {
     GroupWalletDormancyTask groupWalletDormancyTask;
 
     @Mock
+    UserWalletDormancyTask userWalletDormancyTask;
+
+    @Mock
     HttpServletRequest httpRequest;
 
     AuthService authService;
@@ -72,7 +76,8 @@ class AuthServiceTest {
     void setUp() {
         authService = new AuthService(userService, userRepository, refreshTokenService,
                 jwtService, passwordEncoder, banCheckService,
-                realtyGroupMemberRepository, groupWalletDormancyTask);
+                realtyGroupMemberRepository, groupWalletDormancyTask,
+                userWalletDormancyTask);
         // lenient: these stubs are only consumed by tests that exercise HTTP paths
         lenient().when(httpRequest.getHeader("User-Agent")).thenReturn("TestAgent/1.0");
         lenient().when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");
@@ -200,6 +205,77 @@ class AuthServiceTest {
 
         verify(refreshTokenService).revokeAllForUser(99L);
         verify(userService).bumpTokenVersion(99L);
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. login + register + refresh -- clear wallet dormancy on the active path
+    // -------------------------------------------------------------------------
+
+    @Test
+    void login_clearsUserWalletAndGroupDormancyOnSuccess() {
+        User user = stubUser(7L, "bob");
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret123!", user.getPasswordHash())).thenReturn(true);
+        when(jwtService.issueAccessToken(any(AuthPrincipal.class))).thenReturn("access-token");
+        when(refreshTokenService.issueForUser(eq(7L), anyString(), anyString()))
+                .thenReturn(new RefreshTokenService.IssuedRefreshToken(
+                        "raw-refresh-token", OffsetDateTime.now().plusDays(7)));
+
+        authService.login(new LoginRequest("bob", "secret123!"), httpRequest);
+
+        // Both dormancy clears run on every successful login.
+        verify(userWalletDormancyTask).clearForUser(7L);
+    }
+
+    @Test
+    void register_clearsUserWalletDormancyOnSuccess() {
+        User user = stubUser(42L, "alice");
+        UserResponse userResponse = UserResponse.from(user);
+        when(userService.createUser(any(CreateUserRequest.class))).thenReturn(userResponse);
+        when(userRepository.findByPublicId(any())).thenReturn(Optional.of(user));
+        when(jwtService.issueAccessToken(any(AuthPrincipal.class))).thenReturn("access-token");
+        when(refreshTokenService.issueForUser(eq(42L), anyString(), anyString()))
+                .thenReturn(new RefreshTokenService.IssuedRefreshToken(
+                        "raw-refresh-token", OffsetDateTime.now().plusDays(7)));
+
+        authService.register(new RegisterRequest("alice", "Password1!"), httpRequest);
+
+        verify(userWalletDormancyTask).clearForUser(42L);
+    }
+
+    @Test
+    void refresh_clearsUserWalletDormancyOnRotation() {
+        User user = stubUser(5L, "carol");
+        when(refreshTokenService.rotate(eq("raw-refresh-token"), anyString(), anyString()))
+                .thenReturn(new RefreshTokenService.RotationResult(
+                        5L, "new-raw-refresh-token",
+                        OffsetDateTime.now().plusDays(7)));
+        when(userRepository.findById(5L)).thenReturn(Optional.of(user));
+        when(jwtService.issueAccessToken(any(AuthPrincipal.class))).thenReturn("new-access-token");
+
+        authService.refresh("raw-refresh-token", httpRequest);
+
+        verify(userWalletDormancyTask).clearForUser(5L);
+    }
+
+    @Test
+    void login_dormancyClearFailureDoesNotBlockLogin() {
+        User user = stubUser(9L, "dave");
+        when(userRepository.findByUsername("dave")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret123!", user.getPasswordHash())).thenReturn(true);
+        when(jwtService.issueAccessToken(any(AuthPrincipal.class))).thenReturn("access-token");
+        when(refreshTokenService.issueForUser(eq(9L), anyString(), anyString()))
+                .thenReturn(new RefreshTokenService.IssuedRefreshToken(
+                        "raw-refresh-token", OffsetDateTime.now().plusDays(7)));
+        org.mockito.Mockito.doThrow(new RuntimeException("kaboom"))
+                .when(userWalletDormancyTask).clearForUser(9L);
+
+        AuthResult result = authService.login(
+                new LoginRequest("dave", "secret123!"), httpRequest);
+
+        // Login still succeeds despite the dormancy-clear failure.
+        assertThat(result.accessToken()).isEqualTo("access-token");
+        verify(userWalletDormancyTask).clearForUser(9L);
     }
 
     // -------------------------------------------------------------------------
