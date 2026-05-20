@@ -26,12 +26,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Coupon admin CRUD + redemption + direct-grant + revoke. Signup-window
- * backfill arrives in Task 8.
+ * Coupon admin CRUD + redemption + direct-grant + revoke + signup-window
+ * auto-grant.
  *
  * <ul>
  *   <li>{@link #createCoupon} - persist template + discount lines +
- *       allowlist M2M</li>
+ *       allowlist M2M, then backfill any pre-existing users whose
+ *       {@code createdAt} falls inside the coupon's signup window</li>
+ *   <li>{@link #applySignupWindowCoupons} - user-create hook that grants
+ *       every matching active signup-window coupon to a freshly-created
+ *       user</li>
  *   <li>{@link #findByPublicId} - throws UNKNOWN_CODE if absent</li>
  *   <li>{@link #listAdmin} - paged Specification search by code/active/target</li>
  *   <li>{@link #patch} - partial update; IMMUTABLE_FIELD guards
@@ -102,7 +106,40 @@ public class CouponService {
         if (req.allowedUserPublicIds() != null && !req.allowedUserPublicIds().isEmpty()) {
             c.setAllowedUsers(resolveAllowedUsers(req.allowedUserPublicIds()));
         }
-        return couponRepo.save(c);
+        Coupon saved = couponRepo.save(c);
+        if (saved.getActive() != null && saved.getActive()
+                && saved.getSignupWindowStart() != null) {
+            List<User> matches = userRepo.findByCreatedAtDateBetween(
+                    saved.getSignupWindowStart(), saved.getSignupWindowEnd());
+            for (User u : matches) {
+                if (grantRepo.countByCouponIdAndUserId(saved.getId(), u.getId()) == 0) {
+                    createGrant(saved, u, CouponGrantSource.SIGNUP_WINDOW);
+                }
+            }
+        }
+        return saved;
+    }
+
+    /**
+     * Auto-grant hook for the user-creation path: any active coupon whose
+     * signup window contains today (and whose {@code redeemableUntil} has
+     * not passed) is granted to {@code newUser} as
+     * {@link CouponGrantSource#SIGNUP_WINDOW}. Idempotent at the per-user
+     * ceiling: a coupon that already has a grant for this user (e.g. via
+     * a transactional retry) is skipped.
+     *
+     * <p>Called from {@code UserService.createUser} after the user is
+     * persisted, inside the same transaction so a coupon-side failure
+     * rolls back the new user.
+     */
+    public void applySignupWindowCoupons(User newUser) {
+        LocalDate today = LocalDate.now();
+        List<Coupon> matches = couponRepo.findActiveSignupWindowMatching(today);
+        for (Coupon c : matches) {
+            if (grantRepo.countByCouponIdAndUserId(c.getId(), newUser.getId()) == 0) {
+                createGrant(c, newUser, CouponGrantSource.SIGNUP_WINDOW);
+            }
+        }
     }
 
     @Transactional(readOnly = true)

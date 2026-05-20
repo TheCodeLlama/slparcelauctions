@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.slparcelauctions.backend.coupon.CouponService;
 import com.slparcelauctions.backend.notification.NotificationService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UpdateUserRequest;
@@ -35,6 +36,9 @@ class UserServiceTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private CouponService couponService;
 
     @InjectMocks
     private UserService userService;
