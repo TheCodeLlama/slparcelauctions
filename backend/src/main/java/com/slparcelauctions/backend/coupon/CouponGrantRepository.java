@@ -32,6 +32,15 @@ public interface CouponGrantRepository extends JpaRepository<CouponGrant, Long> 
 
     long countByCouponId(long couponId);
 
+    /**
+     * Counts only ACTIVE grants for a coupon. Powers the admin list-row
+     * summary's {@code activeGrants} counter alongside the unconditional
+     * {@code totalGrants} from {@link #countByCouponId(long)}.
+     */
+    @Query("SELECT COUNT(g) FROM CouponGrant g WHERE g.coupon.id = :cid " +
+           "AND g.state = com.slparcelauctions.backend.coupon.CouponGrantState.ACTIVE")
+    long countByCouponIdAndStateActive(@Param("cid") long couponId);
+
     long countByCouponIdAndUserId(long couponId, long userId);
 
     Page<CouponGrant> findByCouponId(long couponId, Pageable pageable);
