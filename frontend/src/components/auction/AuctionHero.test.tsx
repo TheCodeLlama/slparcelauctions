@@ -120,6 +120,21 @@ describe("AuctionHero", () => {
     );
   });
 
+  it("renders the dark photo variant when the theme is dark", () => {
+    renderWithProviders(
+      <AuctionHero
+        photos={[
+          photo(1, { darkUrl: "https://cdn.example/1-dark.jpg" }),
+        ]}
+        snapshotUrl={null}
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    expect(
+      screen.getByTestId("auction-hero-image").getAttribute("src"),
+    ).toBe("https://cdn.example/1-dark.jpg");
+  });
+
   // ---------- multi-photo branch (gallery + thumb strip) ----------
 
   describe("multi-photo gallery", () => {

@@ -1,6 +1,9 @@
+"use client";
+
 import { MapPin, Tag as TagIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/cn";
-import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import { resolveListingHeadline } from "@/lib/listing/resolveListingHeadline";
 import type { SellerAuctionResponse } from "@/types/auction";
 
@@ -37,7 +40,9 @@ export function ListingPreviewCard({
   isPreview = false,
   className,
 }: ListingPreviewCardProps) {
-  const cover = apiUrl(auction.photos[0]?.lightUrl);
+  const coverPhoto = auction.photos[0];
+  const hasCover =
+    useThemedImage(coverPhoto?.lightUrl, coverPhoto?.darkUrl) !== null;
   // Seller-authored title is the primary headline. Falls back to
   // parcel.description (then region name) when a draft is previewed
   // before the seller has entered a title. The backend enforces non-null
@@ -70,10 +75,10 @@ export function ListingPreviewCard({
           Preview: this is how your listing will appear to buyers.
         </div>
       )}
-      {cover ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={cover}
+      {hasCover ? (
+        <ThemedImage
+          lightSrc={coverPhoto?.lightUrl}
+          darkSrc={coverPhoto?.darkUrl}
           alt=""
           className="aspect-square w-full max-w-[700px] mx-auto rounded-lg object-contain bg-bg-subtle"
         />

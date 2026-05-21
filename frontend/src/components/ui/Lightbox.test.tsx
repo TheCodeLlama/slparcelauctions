@@ -4,9 +4,9 @@ import { renderWithProviders, screen, userEvent, waitFor } from "@/test/render";
 import { Lightbox, type LightboxImage } from "./Lightbox";
 
 const IMAGES: LightboxImage[] = [
-  { id: 1, url: "https://cdn.example/1.jpg" },
-  { id: 2, url: "https://cdn.example/2.jpg" },
-  { id: 3, url: "https://cdn.example/3.jpg" },
+  { id: 1, lightUrl: "https://cdn.example/1.jpg", darkUrl: null },
+  { id: 2, lightUrl: "https://cdn.example/2.jpg", darkUrl: null },
+  { id: 3, lightUrl: "https://cdn.example/3.jpg", darkUrl: null },
 ];
 
 function Harness({
@@ -125,5 +125,22 @@ describe("Lightbox", () => {
   it("renders under the dark theme without crashing", () => {
     renderWithProviders(<Harness initial={0} />, { theme: "dark", forceTheme: true });
     expect(screen.getByTestId("lightbox")).toBeInTheDocument();
+  });
+
+  it("renders the dark variant when the theme is dark", () => {
+    const dualImages: LightboxImage[] = [
+      {
+        id: 1,
+        lightUrl: "https://cdn.example/1-light.jpg",
+        darkUrl: "https://cdn.example/1-dark.jpg",
+      },
+    ];
+    renderWithProviders(<Harness initial={0} images={dualImages} />, {
+      theme: "dark",
+      forceTheme: true,
+    });
+    expect(screen.getByTestId("lightbox-image").getAttribute("src")).toBe(
+      "https://cdn.example/1-dark.jpg",
+    );
   });
 });

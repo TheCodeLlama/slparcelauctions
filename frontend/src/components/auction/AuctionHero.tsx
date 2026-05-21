@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Building2 } from "@/components/ui/icons";
 import { Lightbox } from "@/components/ui/Lightbox";
+import { ThemedImage } from "@/components/ui/ThemedImage";
 import { cn } from "@/lib/cn";
 import { apiUrl } from "@/lib/api/url";
 import type { AuctionPhotoDto } from "@/types/auction";
@@ -115,9 +116,12 @@ export function AuctionHero({
   }
 
   const [hero] = sorted;
+  // ThemedImage (inside Lightbox) funnels each chosen variant through
+  // apiUrl(); pass the raw light/dark paths so we don't double-wrap.
   const lightboxImages = sorted.map((p) => ({
     id: p.publicId,
-    url: apiUrl(p.lightUrl) ?? p.lightUrl,
+    lightUrl: p.lightUrl,
+    darkUrl: p.darkUrl,
   }));
 
   // Single-photo shortcut: skip the thumb strip entirely so the hero goes
@@ -136,8 +140,9 @@ export function AuctionHero({
           data-testid="auction-hero"
           data-variant="single"
         >
-          <img
-            src={apiUrl(hero.lightUrl) ?? undefined}
+          <ThemedImage
+            lightSrc={hero.lightUrl}
+            darkSrc={hero.darkUrl}
             alt=""
             className="h-full w-full object-cover"
             data-testid="auction-hero-image"
@@ -171,7 +176,7 @@ export function AuctionHero({
 
 interface MultiPhotoGalleryProps {
   sorted: AuctionPhotoDto[];
-  lightboxImages: { id: string; url: string }[];
+  lightboxImages: { id: string; lightUrl: string; darkUrl: string | null }[];
   lightboxIndex: number | null;
   setLightboxIndex: (i: number | null) => void;
   effectiveLightboxIndex: number | null;
@@ -359,8 +364,9 @@ function HeroImage({
       className="relative block w-full rounded-lg overflow-hidden h-[240px] md:h-[380px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       data-testid="auction-hero-main"
     >
-      <img
-        src={apiUrl(photo.lightUrl) ?? undefined}
+      <ThemedImage
+        lightSrc={photo.lightUrl}
+        darkSrc={photo.darkUrl}
         alt=""
         className="h-full w-full object-cover"
         data-testid="auction-hero-image"
@@ -452,8 +458,9 @@ function ThumbStrip({ photos, selectedIndex, onSelect }: ThumbStripProps) {
                 active && "outline-2 outline-brand outline-offset-2",
               )}
             >
-              <img
-                src={apiUrl(photo.lightUrl) ?? undefined}
+              <ThemedImage
+                lightSrc={photo.lightUrl}
+                darkSrc={photo.darkUrl}
                 alt=""
                 className="h-full w-full object-cover"
               />

@@ -136,8 +136,10 @@ export function AdminRealtyGroupDetailPage({
         website={group.website}
         memberSince={group.memberSince}
         memberCount={group.memberCount}
-        coverUrl={group.coverLightUrl ?? group.coverDarkUrl}
-        logoUrl={group.logoLightUrl ?? group.logoDarkUrl}
+        coverLightUrl={group.coverLightUrl}
+        coverDarkUrl={group.coverDarkUrl}
+        logoLightUrl={group.logoLightUrl}
+        logoDarkUrl={group.logoDarkUrl}
       />
 
       <nav

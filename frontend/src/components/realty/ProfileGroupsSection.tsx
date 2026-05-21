@@ -52,7 +52,8 @@ export function ProfileGroupsSection({
               <GroupChip
                 groupSlug={affiliation.groupSlug}
                 groupName={affiliation.groupName}
-                logoUrl={affiliation.logoLightUrl ?? affiliation.logoDarkUrl}
+                logoLightUrl={affiliation.logoLightUrl}
+                logoDarkUrl={affiliation.logoDarkUrl}
               />
               <StatusBadge
                 tone={affiliation.role === "LEADER" ? "success" : "default"}

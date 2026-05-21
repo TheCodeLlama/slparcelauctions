@@ -10,8 +10,10 @@ function baseProps(): React.ComponentProps<typeof RealtyGroupHeroBanner> {
     website: null,
     memberSince: "2026-04-01T10:00:00Z",
     memberCount: 1,
-    coverUrl: null,
-    logoUrl: null,
+    coverLightUrl: null,
+    coverDarkUrl: null,
+    logoLightUrl: null,
+    logoDarkUrl: null,
   };
 }
 
@@ -27,7 +29,7 @@ describe("RealtyGroupHeroBanner", () => {
     renderWithProviders(
       <RealtyGroupHeroBanner
         {...baseProps()}
-        coverUrl="/api/v1/realty-groups/abc/cover"
+        coverLightUrl="/api/v1/realty-groups/abc/cover"
       />,
     );
     const cover = screen.getByTestId("realty-group-hero-cover") as HTMLImageElement;
@@ -37,7 +39,22 @@ describe("RealtyGroupHeroBanner", () => {
     expect(screen.queryByTestId("realty-group-hero-cover-empty")).not.toBeInTheDocument();
   });
 
-  it("renders a gradient empty state when coverUrl is null", () => {
+  it("renders the dark cover variant when the theme is dark", () => {
+    renderWithProviders(
+      <RealtyGroupHeroBanner
+        {...baseProps()}
+        coverLightUrl="/api/v1/realty-groups/abc/cover?variant=light"
+        coverDarkUrl="/api/v1/realty-groups/abc/cover?variant=dark"
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    const cover = screen.getByTestId("realty-group-hero-cover") as HTMLImageElement;
+    expect(cover.getAttribute("src")).toBe(
+      "http://localhost:8080/api/v1/realty-groups/abc/cover?variant=dark",
+    );
+  });
+
+  it("renders a gradient empty state when both cover variants are null", () => {
     renderWithProviders(<RealtyGroupHeroBanner {...baseProps()} />);
     expect(
       screen.getByTestId("realty-group-hero-cover-empty"),
@@ -48,7 +65,7 @@ describe("RealtyGroupHeroBanner", () => {
     renderWithProviders(
       <RealtyGroupHeroBanner
         {...baseProps()}
-        logoUrl="/api/v1/realty-groups/abc/logo"
+        logoLightUrl="/api/v1/realty-groups/abc/logo"
       />,
     );
     const logo = screen.getByTestId("realty-group-hero-logo") as HTMLImageElement;

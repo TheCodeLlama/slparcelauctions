@@ -1,10 +1,14 @@
-/* eslint-disable @next/next/no-img-element -- group logo + agent avatar are API-served binary content */
+/* eslint-disable @next/next/no-img-element -- agent avatar is API-served binary content */
+"use client";
+
 import Link from "next/link";
 import { ArrowRight } from "@/components/ui/icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { NewSellerBadge } from "@/components/user/NewSellerBadge";
 import { ReputationStars } from "@/components/user/ReputationStars";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import { apiUrl } from "@/lib/api/url";
 import { cn } from "@/lib/cn";
 import type { GroupAttribution, ListingAgent } from "@/types/auction";
@@ -69,9 +73,9 @@ export function GroupSellerProfileCard({
   const foundedLabel = formatFoundedAt(foundedAt ?? null);
   const groupHref = `/groups/${encodeURIComponent(group.slug)}`;
   const agentHref = `/users/${encodeURIComponent(agent.publicId)}`;
-  // Plan Task 13 swaps to ThemedImage; for now we pick whichever variant is
-  // populated so the avatar keeps rendering after the dual-slot upload split.
-  const resolvedLogo = apiUrl(group.logoLightUrl ?? group.logoDarkUrl ?? null);
+  // The group logo is theme-aware: ThemedImage picks the variant matching the
+  // active theme and falls back to the sibling slot when only one is uploaded.
+  const hasLogo = useThemedImage(group.logoLightUrl, group.logoDarkUrl) !== null;
   const resolvedAvatar = apiUrl(agent.avatarUrl ?? null);
 
   return (
@@ -89,9 +93,10 @@ export function GroupSellerProfileCard({
           aria-label={`View ${group.name}'s profile`}
           className="shrink-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
-          {resolvedLogo ? (
-            <img
-              src={resolvedLogo}
+          {hasLogo ? (
+            <ThemedImage
+              lightSrc={group.logoLightUrl}
+              darkSrc={group.logoDarkUrl}
               alt={group.name}
               className="size-12 rounded object-cover"
               loading="lazy"

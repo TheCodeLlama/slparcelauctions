@@ -1,6 +1,10 @@
-/* eslint-disable @next/next/no-img-element -- avatar + logo images are API-served binary content */
+/* eslint-disable @next/next/no-img-element -- avatar image is API-served binary content */
+"use client";
+
 import Link from "next/link";
 import { apiUrl } from "@/lib/api/url";
+import { ThemedImage } from "@/components/ui/ThemedImage";
+import { useThemedImage } from "@/lib/theme/useThemedImage";
 import type { GroupAttribution, ListingAgent } from "@/types/auction";
 
 export interface GroupAttributionLineProps {
@@ -25,13 +29,16 @@ export interface GroupAttributionLineProps {
  * today, so {@code group != null} is treated as the group-sale marker.
  */
 export function GroupAttributionLine({ agent, group }: GroupAttributionLineProps) {
+  // The group logo is theme-aware: ThemedImage picks the variant matching the
+  // active theme and falls back to the sibling slot when only one is uploaded.
+  // The hook runs unconditionally (before the early return) so hook order stays
+  // stable across renders — it tolerates the null group/logo URLs.
+  const hasLogo =
+    useThemedImage(group?.logoLightUrl, group?.logoDarkUrl) !== null;
+
   if (!agent || !group || group.dissolved) return null;
 
   const resolvedAvatar = apiUrl(agent.avatarUrl ?? null);
-  // Plan Task 13 swaps this to ThemedImage; until then we fall back to whichever
-  // logo variant is populated so the chip keeps rendering after the dual-slot
-  // upload (some groups only upload one variant).
-  const resolvedLogo = apiUrl(group.logoLightUrl ?? group.logoDarkUrl ?? null);
 
   return (
     <div
@@ -43,9 +50,10 @@ export function GroupAttributionLine({ agent, group }: GroupAttributionLineProps
         data-testid="group-attribution-sold-by"
       >
         <span>Sold by</span>
-        {resolvedLogo && (
-          <img
-            src={resolvedLogo}
+        {hasLogo && (
+          <ThemedImage
+            lightSrc={group.logoLightUrl}
+            darkSrc={group.logoDarkUrl}
             alt=""
             className="w-5 h-5 rounded object-cover"
             aria-hidden="true"
