@@ -9,6 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.slparcelauctions.backend.auction.InvalidPhotoSourceException;
 import com.slparcelauctions.backend.realty.exception.RealtyGroupPermissionDeniedException;
 import com.slparcelauctions.backend.user.exception.ImageTooLargeException;
 import com.slparcelauctions.backend.user.exception.UnsupportedImageFormatException;
@@ -183,6 +184,27 @@ public class AuctionExceptionHandler {
         pd.setTitle("Photo Set Mismatch");
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty("code", "PHOTO_SET_MISMATCH");
+        return pd;
+    }
+
+    /**
+     * Plan Task 7 of the theme-image-variants feature: only the sort-0
+     * default-cover row (source {@code USER_DEFAULT_COVER} or
+     * {@code GROUP_DEFAULT_COVER}) accepts a dark sibling. Any other source
+     * surfaces here as {@code 400 INVALID_PHOTO_SOURCE}. The {@code source}
+     * extension echoes the offending value so the frontend can render a
+     * source-specific tooltip without parsing the human-readable detail.
+     */
+    @ExceptionHandler(InvalidPhotoSourceException.class)
+    public ProblemDetail handleInvalidPhotoSource(
+            InvalidPhotoSourceException e, HttpServletRequest req) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Dark variant is only supported on the auction's default-cover row.");
+        pd.setTitle("Invalid Photo Source");
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty("code", "INVALID_PHOTO_SOURCE");
+        pd.setProperty("source", e.getActualSource().name());
         return pd;
     }
 
