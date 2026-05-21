@@ -51,7 +51,7 @@ class AuctionServiceTest {
     @Mock AuctionRepository auctionRepo;
     @Mock ParcelLookupService parcelLookupService;
     @Mock ParcelSnapshotPhotoService parcelSnapshotPhotoService;
-    @Mock UserDefaultCoverPhotoService userDefaultCoverPhotoService;
+    @Mock DefaultCoverPhotoService defaultCoverPhotoService;
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
     @Mock BanCheckService banCheckService;
@@ -121,8 +121,8 @@ class AuctionServiceTest {
         service.create(42L, req, null);
 
         org.mockito.InOrder order = org.mockito.Mockito.inOrder(
-                userDefaultCoverPhotoService, parcelSnapshotPhotoService);
-        order.verify(userDefaultCoverPhotoService).applyTo(any(Auction.class));
+                defaultCoverPhotoService, parcelSnapshotPhotoService);
+        order.verify(defaultCoverPhotoService).applyTo(any(Auction.class));
         order.verify(parcelSnapshotPhotoService).refreshFor(any(Auction.class), any());
     }
 

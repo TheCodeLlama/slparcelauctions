@@ -21,8 +21,9 @@ public record UserResponse(
         // and falls back to the sibling slot when one side is empty.
         // Resolved via {@code apiUrl()} on the frontend; the backing endpoint
         // is permitAll so {@code <img src>} renders without an Authorization
-        // header. Auto-inserted as the first photo on every new listing
-        // (light slot only — see UserDefaultCoverPhotoService).
+        // header. Auto-inserted as the first photo on every new listing —
+        // see DefaultCoverPhotoService (both variants are copied when set;
+        // a dark-only source promotes into the light slot).
         String defaultCoverLightUrl,
         String defaultCoverDarkUrl,
         UUID slAvatarUuid,
