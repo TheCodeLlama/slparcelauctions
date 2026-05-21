@@ -7,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.slparcelauctions.backend.coupon.CouponService;
 import com.slparcelauctions.backend.notification.NotificationService;
 import com.slparcelauctions.backend.user.dto.CreateUserRequest;
 import com.slparcelauctions.backend.user.dto.UpdateUserRequest;
@@ -24,6 +25,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final CouponService couponService;
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
@@ -41,6 +43,9 @@ public class UserService {
             User saved = userRepository.save(user);
             userRepository.flush();
             log.info("Created user id={} username={}", saved.getId(), saved.getUsername());
+            // Auto-grant any active signup-window coupons covering today.
+            // Same transaction: a coupon-side failure rolls back the new user.
+            couponService.applySignupWindowCoupons(saved);
             return UserResponse.from(saved);
         } catch (DataIntegrityViolationException e) {
             // The functional unique index on LOWER(username) caught a concurrent

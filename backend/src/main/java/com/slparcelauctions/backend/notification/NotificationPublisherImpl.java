@@ -1,6 +1,10 @@
 package com.slparcelauctions.backend.notification;
 
 import com.slparcelauctions.backend.auction.AuctionRepository;
+import com.slparcelauctions.backend.coupon.Coupon;
+import com.slparcelauctions.backend.coupon.CouponDiscountSummary;
+import com.slparcelauctions.backend.coupon.CouponGrantSource;
+import com.slparcelauctions.backend.coupon.CouponRepository;
 import com.slparcelauctions.backend.notification.NotificationDao.UpsertResult;
 import com.slparcelauctions.backend.notification.dto.NotificationDto;
 import com.slparcelauctions.backend.notification.slim.SlImChannelDispatcher;
@@ -23,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -60,6 +65,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     private final RealtyGroupMemberRepository realtyGroupMemberRepository;
     private final UserRepository userRepository;
     private final AuctionRepository auctionRepository;
+    private final CouponRepository couponRepository;
 
     public NotificationPublisherImpl(
             NotificationService notificationService,
@@ -70,7 +76,8 @@ public class NotificationPublisherImpl implements NotificationPublisher {
             RealtyGroupRepository realtyGroupRepository,
             RealtyGroupMemberRepository realtyGroupMemberRepository,
             UserRepository userRepository,
-            AuctionRepository auctionRepository) {
+            AuctionRepository auctionRepository,
+            CouponRepository couponRepository) {
         this.notificationService = notificationService;
         this.notificationDao = notificationDao;
         this.wsBroadcaster = wsBroadcaster;
@@ -80,6 +87,7 @@ public class NotificationPublisherImpl implements NotificationPublisher {
         this.realtyGroupMemberRepository = realtyGroupMemberRepository;
         this.userRepository = userRepository;
         this.auctionRepository = auctionRepository;
+        this.couponRepository = couponRepository;
     }
 
     /**
@@ -1149,6 +1157,56 @@ public class NotificationPublisherImpl implements NotificationPublisher {
     @Override
     public void userWalletDormancyAutoReturned(long userId, long amount) {
         log.info("[NOTIF] user {} wallet dormancy auto-returned L${}", userId, amount);
+    }
+
+    // ── Coupons ─────────────────────────────────────────────────────────────
+    //
+    // Fired by CouponService.createGrant for every non-REDEMPTION grant when
+    // the parent coupon's notifyOnGrant flag is on (see spec §6). REDEMPTION
+    // grants are intentionally silent: the user just typed the code, they
+    // don't need to be told they got the thing they just asked for.
+    //
+    // SYSTEM-group categorisation routes through the gate's QUEUE_BYPASS_PREFS
+    // path, so the SL IM dispatches even for users who have muted other
+    // categories -- same posture as wallet admin ops, since a coupon is a
+    // material change to the user's listing economics.
+
+    @Override
+    public void couponGranted(long userId, UUID couponPublicId, CouponGrantSource source) {
+        if (couponPublicId == null) {
+            log.warn("couponGranted called with null couponPublicId for userId={}", userId);
+            return;
+        }
+        Coupon coupon = couponRepository.findByPublicId(couponPublicId).orElse(null);
+        if (coupon == null) {
+            log.warn("couponGranted: coupon not found for publicId={} (userId={})",
+                couponPublicId, userId);
+            return;
+        }
+        String summary = CouponDiscountSummary.describe(coupon);
+        OffsetDateTime expiresAt = coupon.getDurationDays() != null
+                ? OffsetDateTime.now().plusDays(coupon.getDurationDays())
+                : null;
+        String title = "Coupon added to your account: " + coupon.getCode();
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("A coupon has been added to your SLParcels account: ")
+                .append(summary).append('.');
+        if (expiresAt != null) {
+            bodyBuilder.append(" Expires ").append(expiresAt).append('.');
+        }
+        if (coupon.getUseCount() != null) {
+            bodyBuilder.append(" Applies to your next ").append(coupon.getUseCount())
+                    .append(" listing")
+                    .append(coupon.getUseCount() == 1 ? "" : "s")
+                    .append('.');
+        }
+        bodyBuilder.append(" Open your wallet to review available coupons.");
+        Map<String, Object> data = NotificationDataBuilder.couponGranted(
+                coupon.getPublicId(), coupon.getCode(), summary, expiresAt,
+                source == null ? null : source.name());
+        notificationService.publish(new NotificationEvent(
+                userId, NotificationCategory.COUPON_GRANTED,
+                title, bodyBuilder.toString(), data, /* coalesceKey */ null));
     }
 
     /** Common per-recipient publish path for realty group notifications. */

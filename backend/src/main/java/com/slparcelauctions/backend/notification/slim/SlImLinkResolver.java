@@ -47,7 +47,8 @@ public class SlImLinkResolver {
             case WALLET_WITHDRAWAL_COMPLETED, WALLET_WITHDRAWAL_REVERSED,
                  WALLET_ADJUSTED, WALLET_FROZEN, WALLET_UNFROZEN,
                  WALLET_PENALTY_FORGIVEN, WALLET_DORMANCY_RESET, WALLET_TERMS_CLEARED,
-                 WITHDRAWAL_FORCE_COMPLETED, WITHDRAWAL_FORCE_FAILED ->
+                 WITHDRAWAL_FORCE_COMPLETED, WITHDRAWAL_FORCE_FAILED,
+                 COUPON_GRANTED ->
                 base + "/wallet";
             case REALTY_GROUP_INVITATION_SENT ->
                 // Recipient-side row: target the invited user's own inbox where

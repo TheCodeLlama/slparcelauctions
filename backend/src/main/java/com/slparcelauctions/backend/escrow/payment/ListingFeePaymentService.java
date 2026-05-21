@@ -192,4 +192,64 @@ public class ListingFeePaymentService {
 
         return SlCallbackResponse.ok();
     }
+
+    /**
+     * Coupon-driven L$0 listing-fee auto-pay path. Called by
+     * {@link com.slparcelauctions.backend.auction.AuctionService#create}
+     * immediately after a new {@link Auction} is saved with
+     * {@code listingFeeAmt=0} (i.e. a coupon fully waived the fee).
+     * Transitions DRAFT to DRAFT_PAID inside the same transaction without
+     * any in-world terminal payment and writes a zero-amount
+     * {@link EscrowTransactionType#LISTING_FEE_PAYMENT} ledger row whose
+     * {@code slTransactionId} is a synthetic {@code coupon-waiver-<auctionId>}
+     * key.
+     *
+     * <p>Idempotent guard: no-op when the listing fee is null/non-zero,
+     * the auction is already marked paid, or the status has moved past
+     * DRAFT. Safe to call from {@code AuctionService.create} regardless
+     * of whether a coupon applied.
+     *
+     * <p>Spec: {@code docs/superpowers/specs/2026-05-20-coupon-codes-design.md}.
+     */
+    @Transactional
+    public void autoPayIfFreeAfterCreation(Auction auction) {
+        if (auction.getListingFeeAmt() == null || auction.getListingFeeAmt() != 0L) {
+            return;
+        }
+        if (Boolean.TRUE.equals(auction.getListingFeePaid())) {
+            return;
+        }
+        if (auction.getStatus() != AuctionStatus.DRAFT) {
+            return;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now(clock);
+        String syntheticTxn = "coupon-waiver-" + auction.getId();
+
+        auction.setListingFeePaid(true);
+        auction.setListingFeePaidAt(now);
+        auction.setListingFeeTxn(syntheticTxn);
+        auction.setStatus(AuctionStatus.DRAFT_PAID);
+        auctionRepo.save(auction);
+
+        // Mirror the production acceptPayment ledger shape: payer = seller
+        // (the L$ would have come from them had the coupon not waived it),
+        // amount = 0, status = COMPLETED, slTransactionId = synthetic key.
+        // No terminal_id is set because no terminal touched this transition.
+        User seller = auction.getSeller();
+        ledgerRepo.save(EscrowTransaction.builder()
+                .auction(auction)
+                .type(EscrowTransactionType.LISTING_FEE_PAYMENT)
+                .status(EscrowTransactionStatus.COMPLETED)
+                .amount(0L)
+                .payer(seller)
+                .slTransactionId(syntheticTxn)
+                .completedAt(now)
+                .build());
+
+        log.info("Listing fee L$0 auto-pay for auction id={} seller={} via grant id={}",
+                auction.getId(),
+                seller != null ? seller.getId() : null,
+                auction.getListingFeeCouponGrantId());
+    }
 }

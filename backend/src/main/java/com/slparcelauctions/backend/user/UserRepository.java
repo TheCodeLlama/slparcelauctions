@@ -1,5 +1,6 @@
 package com.slparcelauctions.backend.user;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -225,4 +226,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
           AND u.wallet_dormancy_started_at < (now() - make_interval(days => :phaseDurationDays * u.wallet_dormancy_phase))
         """, nativeQuery = true)
     List<User> findDormancyPhaseDue(@Param("phaseDurationDays") int phaseDurationDays);
+
+    /**
+     * Users whose {@code createdAt} (cast to a calendar date) falls within
+     * the inclusive range {@code [start, end]}. Drives the signup-window
+     * backfill performed when an admin saves a coupon whose
+     * {@code signupWindowStart}/{@code signupWindowEnd} cover historical
+     * signups (spec section 5).
+     */
+    @Query("SELECT u FROM User u WHERE CAST(u.createdAt AS LocalDate) BETWEEN :start AND :end")
+    List<User> findByCreatedAtDateBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }

@@ -20,6 +20,7 @@ import { useWallet, walletQueryKey } from "@/lib/wallet/use-wallet";
 import { useWalletWsSubscription } from "@/lib/wallet/use-wallet-ws";
 import { LedgerTable } from "@/components/wallet/LedgerTable";
 import { LedgerFilterBar } from "@/components/wallet/LedgerFilterBar";
+import { WalletCouponsCard } from "@/components/wallet/WalletCouponsCard";
 import { WalletTermsModal } from "@/components/wallet/WalletTermsModal";
 import type {
   LedgerFilter,
@@ -290,6 +291,8 @@ export function WalletPanel() {
           </div>
         </div>
       )}
+
+      <WalletCouponsCard />
 
       <LedgerFilterBar
         filter={filter}

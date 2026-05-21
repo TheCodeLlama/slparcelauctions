@@ -73,7 +73,8 @@ class NotificationPublisherRealtyGroupTest {
             notificationService, notificationDao, wsBroadcaster,
             requiresNewTxTemplate, slImChannelDispatcher,
             realtyGroupRepository, realtyGroupMemberRepository, userRepository,
-            /* auctionRepository */ null);
+            /* auctionRepository */ null,
+            /* couponRepository */ null);
 
         group = RealtyGroup.builder()
             .name("Mainland Realty")
