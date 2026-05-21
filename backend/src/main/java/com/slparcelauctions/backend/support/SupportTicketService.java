@@ -246,6 +246,97 @@ public class SupportTicketService {
     }
 
     /**
+     * Paginated user-side ticket list. Always scoped to {@code userId} via a
+     * mandatory {@code user.id} predicate so a caller can never see another
+     * user's rows. Optional filters: {@code status} (exact match) and
+     * {@code q} (case-insensitive substring match on {@code subject}).
+     * Sort + page size come from the caller-supplied {@link org.springframework.data.domain.Pageable}.
+     */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<SupportTicket> listForUser(
+            long userId, SupportTicketStatus status, String q,
+            org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.jpa.domain.Specification<SupportTicket> spec =
+                (root, cq, cb) -> cb.equal(root.get("user").get("id"), userId);
+        if (status != null) {
+            var prev = spec;
+            spec = (root, cq, cb) -> cb.and(
+                    prev.toPredicate(root, cq, cb),
+                    cb.equal(root.get("status"), status));
+        }
+        if (q != null && !q.isBlank()) {
+            var prev = spec;
+            spec = (root, cq, cb) -> cb.and(
+                    prev.toPredicate(root, cq, cb),
+                    cb.like(cb.lower(root.get("subject")), "%" + q.toLowerCase() + "%"));
+        }
+        return ticketRepo.findAll(spec, pageable);
+    }
+
+    /**
+     * Paginated admin queue list. All filters are optional and AND together.
+     * {@code assignee} accepts the literal strings {@code "mine"} (matches
+     * {@code assignedAdminId = callerAdminId}), {@code "unassigned"} (matches
+     * {@code assignedAdminId IS NULL}), or a submitter user {@code publicId}
+     * UUID string (matches {@code user.publicId}). Unparseable assignee
+     * values are ignored rather than rejected, so a stale filter chip in the
+     * frontend never throws a 500.
+     */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<SupportTicket> listAdmin(
+            SupportTicketStatus status, SupportTicketCategory category,
+            String assignee, SupportTicketAuthorRole lastAuthor,
+            String q, long callerAdminId,
+            org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.jpa.domain.Specification<SupportTicket> spec =
+                (root, cq, cb) -> cb.conjunction();
+        if (status != null) {
+            var prev = spec;
+            spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                    cb.equal(root.get("status"), status));
+        }
+        if (category != null) {
+            var prev = spec;
+            spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                    cb.equal(root.get("category"), category));
+        }
+        if (lastAuthor != null) {
+            var prev = spec;
+            spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                    cb.equal(root.get("lastMessageAuthor"), lastAuthor));
+        }
+        if (assignee != null && !assignee.isBlank()) {
+            var prev = spec;
+            if ("mine".equalsIgnoreCase(assignee)) {
+                spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                        cb.equal(root.get("assignedAdminId"), callerAdminId));
+            } else if ("unassigned".equalsIgnoreCase(assignee)) {
+                spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                        cb.isNull(root.get("assignedAdminId")));
+            } else {
+                java.util.UUID submitterPid;
+                try {
+                    submitterPid = java.util.UUID.fromString(assignee);
+                } catch (IllegalArgumentException e) {
+                    submitterPid = null;
+                }
+                if (submitterPid != null) {
+                    final java.util.UUID pid = submitterPid;
+                    spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                            cb.equal(root.get("user").get("publicId"), pid));
+                }
+                // unparseable assignee value: ignore the filter (no rows narrowed by it)
+            }
+        }
+        if (q != null && !q.isBlank()) {
+            var prev = spec;
+            spec = (root, cq, cb) -> cb.and(prev.toPredicate(root, cq, cb),
+                    cb.like(cb.lower(root.get("subject")), "%" + q.toLowerCase() + "%"));
+        }
+        return ticketRepo.findAll(spec, pageable);
+    }
+
+    /**
      * Cheap aggregate counters for the admin queue header / sidebar badge.
      * {@code openNeedingAdminReply} matches the "needs admin attention"
      * filter ({@code status = OPEN AND lastMessageAuthor = USER}) so the
