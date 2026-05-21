@@ -455,3 +455,19 @@ Captured during brainstorming (2026-05-21):
 - **Image attachments up to 3 per message** (Q9 = B). Rejected text-only (rare but real "show me the screenshot" need) and any-MIME (security risk for executables).
 - **Per-user rate limit, 5 new tickets/hour, replies uncapped** (Q10 = A). Rejected per-IP (shared NAT false positives) and no-limit (trust-without-verify).
 - **Optional assignment** (Q11 = B). Rejected shared-only (no coordination signal when team grows) and required-assignment (overhead while team is one admin).
+
+## 13. Deploy notes
+
+### S3 lifecycle rule
+
+The pending-attachment cleanup relies on an S3 bucket lifecycle rule that the backend does not create automatically. Configure once via Terraform (or AWS console for dev):
+
+- Rule name: `support-attachments-pending-cleanup`
+- Bucket: `slpa.storage.bucket` (production: `slpa-prod-uploads`)
+- Prefix filter: `support-attachments/pending/`
+- Action: Expire current versions of objects 1 day after creation
+- Status: Enabled
+
+Without this rule, orphaned pending uploads remain in S3 indefinitely (they are also not referenced by any DB row, so they don't appear in any application listing). The application-side Redis cache TTL expires the metadata after 1 hour, but the actual S3 objects are only cleaned by this lifecycle rule.
+
+Promoted attachments live under `support-attachments/{messageId}/{attachmentKey}.{ext}` (NOT under `pending/`) and are NOT subject to the lifecycle rule. They persist for the life of the ticket.
