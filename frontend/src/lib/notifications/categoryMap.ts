@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import {
   Bell, Bolt, Wallet, Star, Trophy, Clock, AlertTriangle,
   CheckCircle2, AlertOctagon, BadgeCheck, XCircle, Pause,
+  MessageSquare,
 } from "@/components/ui/icons";
 import type { ToastKind } from "@/components/ui/Toast";
 import type { NotificationCategory, NotificationGroup } from "./types";
@@ -186,6 +187,37 @@ export const categoryMap: Record<NotificationCategory, CategoryMapEntry> = {
     iconBgClass: "bg-info-bg text-info",
     toastVariant: "info",
     deeplink: (d) => `/auction/${d.auctionPublicId ?? d.auctionId}`,
+  },
+  SUPPORT_TICKET_ADMIN_REPLIED: {
+    group: "system",
+    icon: MessageSquare,
+    iconBgClass: "bg-info-bg text-info",
+    toastVariant: "info",
+    deeplink: (d) => `/support/${d.ticketPublicId}`,
+    action: { label: "View ticket", href: (d) => `/support/${d.ticketPublicId}` },
+  },
+  SUPPORT_TICKET_RESOLVED: {
+    group: "system",
+    icon: MessageSquare,
+    iconBgClass: "bg-success-bg text-success",
+    toastVariant: "success",
+    deeplink: (d) => `/support/${d.ticketPublicId}`,
+  },
+  SUPPORT_TICKET_OPENED: {
+    group: "system",
+    icon: MessageSquare,
+    iconBgClass: "bg-info-bg text-info",
+    toastVariant: "info",
+    deeplink: (d) => `/admin/support/${d.ticketPublicId}`,
+    action: { label: "Open queue", href: (d) => `/admin/support/${d.ticketPublicId}` },
+  },
+  SUPPORT_TICKET_USER_REPLIED: {
+    group: "system",
+    icon: MessageSquare,
+    iconBgClass: "bg-info-bg text-info",
+    toastVariant: "info",
+    deeplink: (d) => `/admin/support/${d.ticketPublicId}`,
+    action: { label: "Open ticket", href: (d) => `/admin/support/${d.ticketPublicId}` },
   },
   SYSTEM_ANNOUNCEMENT: {
     group: "system",

@@ -14,12 +14,15 @@ const ALL_CATEGORIES: NotificationCategory[] = [
   "LISTING_VERIFIED", "LISTING_SUSPENDED",
   "LISTING_REVIEW_REQUIRED", "LISTING_CANCELLED_BY_SELLER",
   "LISTING_CANCELLED_DURING_ESCROW",
-  "REVIEW_RECEIVED", "SYSTEM_ANNOUNCEMENT",
+  "REVIEW_RECEIVED",
+  "SUPPORT_TICKET_ADMIN_REPLIED", "SUPPORT_TICKET_RESOLVED",
+  "SUPPORT_TICKET_OPENED", "SUPPORT_TICKET_USER_REPLIED",
+  "SYSTEM_ANNOUNCEMENT",
 ];
 
 describe("categoryMap", () => {
-  it("covers all 24 notification categories", () => {
-    expect(Object.keys(categoryMap)).toHaveLength(24);
+  it("covers all 28 notification categories", () => {
+    expect(Object.keys(categoryMap)).toHaveLength(28);
     for (const cat of ALL_CATEGORIES) {
       expect(categoryMap).toHaveProperty(cat);
     }
@@ -69,6 +72,75 @@ describe("categoryMap", () => {
     expect(entry.action?.label).toBe("Buy parcel");
     expect(entry.action?.href(data)).toBe(
       "/auction/00000000-0000-0000-0000-0000000002a/escrow",
+    );
+  });
+
+  it("SUPPORT_TICKET_ADMIN_REPLIED deeplinks + action route the user to /support/{ticketPublicId}", () => {
+    const data = {
+      ticketPublicId: "00000000-0000-0000-0000-000000000abc",
+      subject: "Stuck on escrow",
+      adminDisplayName: "Sara",
+    };
+    const entry = categoryMap.SUPPORT_TICKET_ADMIN_REPLIED;
+    expect(entry.group).toBe("system");
+    expect(entry.toastVariant).toBe("info");
+    expect(entry.deeplink(data)).toBe(
+      "/support/00000000-0000-0000-0000-000000000abc",
+    );
+    expect(entry.action?.label).toBe("View ticket");
+    expect(entry.action?.href(data)).toBe(
+      "/support/00000000-0000-0000-0000-000000000abc",
+    );
+  });
+
+  it("SUPPORT_TICKET_RESOLVED deeplinks the user to /support/{ticketPublicId} with success styling", () => {
+    const data = {
+      ticketPublicId: "00000000-0000-0000-0000-000000000abc",
+      subject: "Stuck on escrow",
+    };
+    const entry = categoryMap.SUPPORT_TICKET_RESOLVED;
+    expect(entry.group).toBe("system");
+    expect(entry.toastVariant).toBe("success");
+    expect(entry.deeplink(data)).toBe(
+      "/support/00000000-0000-0000-0000-000000000abc",
+    );
+    expect(entry.action).toBeUndefined();
+  });
+
+  it("SUPPORT_TICKET_OPENED deeplinks + action route the admin to /admin/support/{ticketPublicId}", () => {
+    const data = {
+      ticketPublicId: "00000000-0000-0000-0000-000000000abc",
+      subject: "Stuck on escrow",
+      submitterDisplayName: "buyer.resident",
+      category: "BIDDING",
+    };
+    const entry = categoryMap.SUPPORT_TICKET_OPENED;
+    expect(entry.group).toBe("system");
+    expect(entry.toastVariant).toBe("info");
+    expect(entry.deeplink(data)).toBe(
+      "/admin/support/00000000-0000-0000-0000-000000000abc",
+    );
+    expect(entry.action?.label).toBe("Open queue");
+    expect(entry.action?.href(data)).toBe(
+      "/admin/support/00000000-0000-0000-0000-000000000abc",
+    );
+  });
+
+  it("SUPPORT_TICKET_USER_REPLIED deeplinks + action route the admin to /admin/support/{ticketPublicId}", () => {
+    const data = {
+      ticketPublicId: "00000000-0000-0000-0000-000000000abc",
+      subject: "Stuck on escrow",
+      submitterDisplayName: "buyer.resident",
+    };
+    const entry = categoryMap.SUPPORT_TICKET_USER_REPLIED;
+    expect(entry.group).toBe("system");
+    expect(entry.toastVariant).toBe("info");
+    expect(entry.deeplink(data)).toBe(
+      "/admin/support/00000000-0000-0000-0000-000000000abc",
+    );
+    expect(entry.action?.label).toBe("Open ticket");
+    expect(entry.action?.href(data)).toBe(
+      "/admin/support/00000000-0000-0000-0000-000000000abc",
     );
   });
 

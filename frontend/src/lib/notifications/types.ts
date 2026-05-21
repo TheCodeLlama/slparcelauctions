@@ -32,6 +32,10 @@ export type NotificationCategory =
   | "LISTING_CANCELLED_BY_SELLER"
   | "LISTING_CANCELLED_DURING_ESCROW"
   | "REVIEW_RECEIVED"
+  | "SUPPORT_TICKET_ADMIN_REPLIED"
+  | "SUPPORT_TICKET_RESOLVED"
+  | "SUPPORT_TICKET_OPENED"
+  | "SUPPORT_TICKET_USER_REPLIED"
   | "SYSTEM_ANNOUNCEMENT";
 
 export type NotificationDataMap = {
@@ -64,6 +68,10 @@ export type NotificationDataMap = {
   LISTING_CANCELLED_BY_SELLER: { auctionId: number; parcelName: string; reason: string };
   LISTING_CANCELLED_DURING_ESCROW: { auctionId: number; escrowId: number; parcelName: string; adminNote?: string };
   REVIEW_RECEIVED: { auctionId: number; parcelName: string; reviewId: number; rating: number };
+  SUPPORT_TICKET_ADMIN_REPLIED: { ticketPublicId: string; subject: string; adminDisplayName: string };
+  SUPPORT_TICKET_RESOLVED: { ticketPublicId: string; subject: string };
+  SUPPORT_TICKET_OPENED: { ticketPublicId: string; subject: string; submitterDisplayName: string; category: string };
+  SUPPORT_TICKET_USER_REPLIED: { ticketPublicId: string; subject: string; submitterDisplayName: string };
   SYSTEM_ANNOUNCEMENT: Record<string, unknown>;
 };
 // NOTE: The notification `data` blob keys (auctionId, escrowId, reviewId) are
