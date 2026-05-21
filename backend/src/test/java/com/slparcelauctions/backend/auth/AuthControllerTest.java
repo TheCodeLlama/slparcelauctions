@@ -160,7 +160,7 @@ class AuthControllerTest {
     private UserResponse stubUser() {
         return new UserResponse(
             java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"), "new",
-            "new@example.com", "Newbie", null, null, null, null, null, null, null, null, null,
+            "new@example.com", "Newbie", null, null, null, null, null, null, null, null, null, null,
             null, null, null,
             false, false, // avatarStepCompleted, displayNameStepCompleted
             null, null,

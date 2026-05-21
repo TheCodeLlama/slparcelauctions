@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.slparcelauctions.backend.auth.AuthPrincipal;
+import com.slparcelauctions.backend.common.image.ImageVariant;
 import com.slparcelauctions.backend.storage.StoredObject;
 import com.slparcelauctions.backend.user.deletion.UserDeletionRequest;
 import com.slparcelauctions.backend.user.deletion.UserDeletionService;
@@ -90,20 +91,25 @@ public class UserController {
     }
 
     /**
-     * Public default-cover image proxy. Mirrors the avatar pattern: bytes
-     * are served {@code permitAll} so {@code <img src>} renders without an
-     * Authorization header. The cover image is destined for use as a
-     * listing photo (where it's already public) so the same bytes being
-     * fetchable a few hours earlier is not a privacy leak. UUID-suffixed
-     * S3 keys prevent enumeration.
+     * Public default-cover image proxy, variant-aware as of plan Task 4 of
+     * theme-image-variants. Mirrors the avatar pattern: bytes are served
+     * {@code permitAll} so {@code <img src>} renders without an Authorization
+     * header. The cover image is destined for use as a listing photo (where
+     * it's already public) so the same bytes being fetchable a few hours
+     * earlier is not a privacy leak.
      *
-     * <p>404 when the user has no default cover set (mapped via
-     * {@link UserDefaultCoverNotFoundException} → global handler).
+     * <p>{@code ?variant=} is {@code light} or {@code dark} (case-insensitive);
+     * anything else surfaces as {@code 400 INVALID_VARIANT}. 404 when the
+     * user has no default cover set in the requested variant slot (mapped
+     * via {@link UserDefaultCoverNotFoundException} → global handler).
      */
     @GetMapping("/{publicId}/default-cover/image")
-    public ResponseEntity<byte[]> getDefaultCoverImage(@PathVariable UUID publicId) {
+    public ResponseEntity<byte[]> getDefaultCoverImage(
+            @PathVariable UUID publicId,
+            @RequestParam("variant") String variant) {
+        ImageVariant v = ImageVariant.parse(variant);
         Long id = resolveUserId(publicId);
-        StoredObject obj = userDefaultCoverService.fetchBytes(id);
+        StoredObject obj = userDefaultCoverService.fetchBytes(id, v);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, obj.contentType())
                 // Short cache so the navbar/settings card refresh after a
