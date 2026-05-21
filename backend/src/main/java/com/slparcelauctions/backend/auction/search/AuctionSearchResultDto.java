@@ -14,8 +14,11 @@ import com.slparcelauctions.backend.auction.VerificationTier;
  *
  * <p>Resolved server-side:
  * <ul>
- *   <li>{@code primaryPhotoUrl} — first AuctionPhoto by sort_order, or
- *       falls back to parcel.snapshotUrl if no seller photos.</li>
+ *   <li>{@code primaryPhotoLightUrl} — light variant of the first
+ *       AuctionPhoto by sort_order; null when the listing has no photos.</li>
+ *   <li>{@code primaryPhotoDarkUrl} — dark variant of that same primary
+ *       photo; null when the photo carries no dark variant. The browse
+ *       grid swaps between the two by active theme.</li>
  *   <li>{@code reserveMet} — reservePrice IS NULL OR currentBid &gt;= reservePrice.</li>
  *   <li>{@code seller.averageRating}, {@code seller.reviewCount} — pulled
  *       from denormalized User columns.</li>
@@ -38,7 +41,8 @@ public record AuctionSearchResultDto(
         AuctionStatus status,
         AuctionEndOutcome endOutcome,
         ParcelSummaryDto parcel,
-        String primaryPhotoUrl,
+        String primaryPhotoLightUrl,
+        String primaryPhotoDarkUrl,
         SellerSummaryDto seller,
         VerificationTier verificationTier,
         Long currentBid,

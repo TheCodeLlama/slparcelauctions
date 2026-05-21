@@ -25,7 +25,8 @@ function sampleListing(
       positionZ: 89,
       tags: ["BEACHFRONT"],
     },
-    primaryPhotoUrl: "/photo.jpg",
+    primaryPhotoLightUrl: "/api/v1/photos/p1?variant=light",
+    primaryPhotoDarkUrl: "/api/v1/photos/p1?variant=dark",
     seller: {
       publicId: "00000000-0000-0000-0000-000000000007",
       displayName: "seller",

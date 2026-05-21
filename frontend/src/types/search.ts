@@ -113,7 +113,11 @@ export type AuctionSearchResultDto = {
   status: string;
   endOutcome: AuctionEndOutcome | null;
   parcel: AuctionSearchResultParcel;
-  primaryPhotoUrl: string | null;
+  // Primary photo light + dark variant URLs. light is null when the
+  // listing has no photos; dark is null when the primary photo carries
+  // no dark variant (single-variant photo). Render via <ThemedImage>.
+  primaryPhotoLightUrl: string | null;
+  primaryPhotoDarkUrl: string | null;
   seller: AuctionSearchResultSeller;
   verificationTier: VerificationTier;
   currentBid: number;

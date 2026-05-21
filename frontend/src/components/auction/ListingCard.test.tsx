@@ -24,7 +24,8 @@ const sample: AuctionSearchResultDto = {
     positionZ: 89,
     tags: ["BEACHFRONT", "ROADSIDE"],
   },
-  primaryPhotoUrl: "/photo.jpg",
+  primaryPhotoLightUrl: "/api/v1/photos/p1?variant=light",
+  primaryPhotoDarkUrl: "/api/v1/photos/p1?variant=dark",
   seller: {
     publicId: "00000000-0000-0000-0000-000000000007",
     displayName: "seller",
@@ -137,6 +138,45 @@ describe("ListingCard", () => {
       forceTheme: true,
     });
     expect(screen.getByText("Premium Waterfront")).toBeInTheDocument();
+  });
+
+  it("primary photo renders the light variant in light theme", () => {
+    renderWithProviders(<ListingCard listing={sample} variant="default" />, {
+      theme: "light",
+      forceTheme: true,
+    });
+    const img = screen.getByRole("presentation");
+    expect(img).toHaveAttribute(
+      "src",
+      expect.stringContaining("variant=light"),
+    );
+  });
+
+  it("primary photo renders the dark variant in dark theme", () => {
+    renderWithProviders(<ListingCard listing={sample} variant="default" />, {
+      theme: "dark",
+      forceTheme: true,
+    });
+    const img = screen.getByRole("presentation");
+    expect(img).toHaveAttribute(
+      "src",
+      expect.stringContaining("variant=dark"),
+    );
+  });
+
+  it("primary photo falls back to the light variant when no dark exists", () => {
+    renderWithProviders(
+      <ListingCard
+        listing={{ ...sample, primaryPhotoDarkUrl: null }}
+        variant="default"
+      />,
+      { theme: "dark", forceTheme: true },
+    );
+    const img = screen.getByRole("presentation");
+    expect(img).toHaveAttribute(
+      "src",
+      expect.stringContaining("variant=light"),
+    );
   });
 
   it("does not render heart button on pre-active statuses", () => {

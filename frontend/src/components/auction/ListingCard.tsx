@@ -8,6 +8,7 @@ import { apiUrl } from "@/lib/api/url";
 import { deriveStatusChip } from "@/lib/search/status-chip";
 import { useSavedIds, useToggleSaved } from "@/hooks/useSavedAuctions";
 import { GroupChip } from "@/components/realty/GroupChip";
+import { ThemedImage } from "@/components/ui/ThemedImage";
 import type { AuctionSearchResultDto } from "@/types/search";
 
 export type ListingCardVariant = "default" | "compact" | "featured";
@@ -84,13 +85,14 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
     endOutcome: listing.endOutcome,
     endsAt: listing.endsAt,
   });
-  // Backend emits relative `/api/v1/photos/{publicId}` paths; the browser
-  // resolves them against slparcels.com which doesn't proxy /api/* to the
-  // backend. apiUrl() rewrites to slpa.app per the SSR-caveats convention.
-  const imageSrc =
-    apiUrl(listing.primaryPhotoUrl) ??
-    apiUrl(listing.parcel.snapshotUrl) ??
-    undefined;
+  // Primary photo is theme-aware: the default-cover photo can carry a
+  // dark variant, so the browse card swaps light/dark with the active
+  // theme via <ThemedImage> (which also handles the apiUrl() rewrite).
+  // parcel.snapshotUrl is the legacy single-variant fallback for any row
+  // with no auction_photos at all. apiUrl() rewrites the relative
+  // `/api/v1/photos/{publicId}` path to slpa.app per the SSR-caveats convention.
+  const hasThemedPhoto = listing.primaryPhotoLightUrl != null;
+  const snapshotSrc = apiUrl(listing.parcel.snapshotUrl) ?? undefined;
   const maxTags = MAX_TAGS[variant];
   // Defensive coercion: the backend has historically wavered between
   // string[] (current contract — labels) and ParcelTag entity rows (a
@@ -125,14 +127,24 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
             variant === "featured" ? "aspect-[16/9]" : "aspect-[4/3]",
           )}
         >
-          {imageSrc && (
-            // eslint-disable-next-line @next/next/no-img-element -- Deferred: swap to next/image once the backend returns image dimensions (avoids layout shift) and a stable remotePatterns list for SL CDN hosts is agreed upon.
-            <img
-              src={imageSrc}
+          {hasThemedPhoto ? (
+            <ThemedImage
+              lightSrc={listing.primaryPhotoLightUrl}
+              darkSrc={listing.primaryPhotoDarkUrl}
               alt=""
               className="h-full w-full object-cover"
               loading="lazy"
             />
+          ) : (
+            snapshotSrc && (
+              // eslint-disable-next-line @next/next/no-img-element -- Deferred: swap to next/image once the backend returns image dimensions (avoids layout shift) and a stable remotePatterns list for SL CDN hosts is agreed upon.
+              <img
+                src={snapshotSrc}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            )
           )}
           <StatusChip
             label={chip.label}
