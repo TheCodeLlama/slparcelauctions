@@ -48,14 +48,14 @@ export function GroupDetailPage({
 
   return (
     <div>
-      <GroupCover coverUrl={group.coverUrl} size="hero" />
+      <GroupCover coverUrl={group.coverLightUrl ?? group.coverDarkUrl} size="hero" />
 
       <div className="w-full max-w-[1280px] mx-auto px-6">
         <div className="-mt-[60px] flex gap-5 items-end mb-6">
           <div className="rounded-lg overflow-hidden shadow-xl shrink-0">
             <GroupLogo
               name={group.name}
-              logoUrl={group.logoUrl}
+              logoUrl={group.logoLightUrl ?? group.logoDarkUrl}
               size="xl"
               square
             />

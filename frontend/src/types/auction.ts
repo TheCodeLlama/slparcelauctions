@@ -245,12 +245,17 @@ export interface PublicAuctionResponse {
 /**
  * Realty group attribution embedded on auction DTOs when the listing was
  * created under a group. Mirrors {@code AuctionGroupAttributionDto} server-side.
+ *
+ * Logo URLs are dual light/dark (plan `2026-05-21-theme-image-variants`).
+ * Either may be null; `useThemedImage` / `ThemedImage` pick the appropriate
+ * variant for the active theme and fall back to the sibling slot.
  */
 export interface GroupAttribution {
   publicId: string;
   name: string;
   slug: string;
-  logoUrl: string | null;
+  logoLightUrl: string | null;
+  logoDarkUrl: string | null;
   dissolved: boolean;
 }
 

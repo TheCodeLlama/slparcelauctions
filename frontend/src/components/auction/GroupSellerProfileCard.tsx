@@ -69,7 +69,9 @@ export function GroupSellerProfileCard({
   const foundedLabel = formatFoundedAt(foundedAt ?? null);
   const groupHref = `/groups/${encodeURIComponent(group.slug)}`;
   const agentHref = `/users/${encodeURIComponent(agent.publicId)}`;
-  const resolvedLogo = apiUrl(group.logoUrl ?? null);
+  // Plan Task 13 swaps to ThemedImage; for now we pick whichever variant is
+  // populated so the avatar keeps rendering after the dual-slot upload split.
+  const resolvedLogo = apiUrl(group.logoLightUrl ?? group.logoDarkUrl ?? null);
   const resolvedAvatar = apiUrl(agent.avatarUrl ?? null);
 
   return (

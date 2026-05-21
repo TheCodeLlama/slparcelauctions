@@ -45,7 +45,7 @@ describe("ReportGroupAffordance", () => {
             publicId: GROUP_ID,
             name: "Mainland Realty",
             slug: GROUP_SLUG,
-            logoUrl: null,
+            logoLightUrl: null, logoDarkUrl: null,
             memberCount: 1,
             memberSince: "2026-04-01T10:00:00Z",
           },

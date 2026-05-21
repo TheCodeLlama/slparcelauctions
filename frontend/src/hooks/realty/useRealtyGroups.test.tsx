@@ -19,7 +19,9 @@ import {
   useUpdateGroup,
   useDissolveGroup,
   useUploadLogo,
+  useDeleteLogo,
   useUploadCover,
+  useDeleteCover,
   useRemoveMember,
   useUpdatePermissions,
   useLeaveGroup,
@@ -54,8 +56,8 @@ function makeGroup(
     slug: "mainland-realty",
     description: null,
     website: null,
-    logoUrl: null,
-    coverUrl: null,
+    logoLightUrl: null, logoDarkUrl: null,
+    coverLightUrl: null, coverDarkUrl: null,
     memberSince: "2026-04-01T10:00:00Z",
     leader: {
       userPublicId: "11111111-1111-1111-1111-111111111111",
@@ -76,7 +78,7 @@ function makeSummary(
     publicId: "00000000-0000-0000-0000-000000000001",
     name: "Mainland Realty",
     slug: "mainland-realty",
-    logoUrl: null,
+    logoLightUrl: null, logoDarkUrl: null,
     memberCount: 1,
     memberSince: "2026-04-01T10:00:00Z",
     ...overrides,
@@ -138,7 +140,7 @@ function makeAffiliation(
     groupPublicId: "00000000-0000-0000-0000-000000000001",
     groupName: "Mainland Realty",
     groupSlug: "mainland-realty",
-    logoUrl: null,
+    logoLightUrl: null, logoDarkUrl: null,
     role: "LEADER",
     ...overrides,
   };
@@ -400,10 +402,15 @@ describe("realty mutation hooks — success + invalidation", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 
-  it("useUploadLogo posts multipart and returns the updated group", async () => {
+  it("useUploadLogo posts multipart to the variant path and returns the updated group", async () => {
     server.use(
-      http.post(`*/api/v1/realty-groups/${GROUP_ID}/logo`, () =>
-        HttpResponse.json(makeGroup({ logoUrl: "/api/v1/realty-groups/x/logo/image" })),
+      http.post(`*/api/v1/realty-groups/${GROUP_ID}/logo/light`, () =>
+        HttpResponse.json(
+          makeGroup({
+            logoLightUrl: "/api/v1/realty-groups/x/logo/image?variant=light",
+            logoDarkUrl: null,
+          }),
+        ),
       ),
     );
     const qc = newQc();
@@ -412,18 +419,18 @@ describe("realty mutation hooks — success + invalidation", () => {
     });
     const file = new File([new Uint8Array([1, 2, 3])], "logo.png", { type: "image/png" });
     await act(async () => {
-      await result.current.mutateAsync({ publicId: GROUP_ID, file });
+      await result.current.mutateAsync({ publicId: GROUP_ID, variant: "light", file });
     });
     await waitFor(() =>
-      expect(result.current.data?.logoUrl).toBe(
-        "/api/v1/realty-groups/x/logo/image",
+      expect(result.current.data?.logoLightUrl).toBe(
+        "/api/v1/realty-groups/x/logo/image?variant=light",
       ),
     );
   });
 
-  it("useUploadCover succeeds on 200", async () => {
+  it("useUploadCover posts multipart to the dark variant path", async () => {
     server.use(
-      http.post(`*/api/v1/realty-groups/${GROUP_ID}/cover`, () =>
+      http.post(`*/api/v1/realty-groups/${GROUP_ID}/cover/dark`, () =>
         HttpResponse.json(makeGroup()),
       ),
     );
@@ -433,7 +440,39 @@ describe("realty mutation hooks — success + invalidation", () => {
     });
     const file = new File([new Uint8Array([1, 2, 3])], "cover.jpg", { type: "image/jpeg" });
     await act(async () => {
-      await result.current.mutateAsync({ publicId: GROUP_ID, file });
+      await result.current.mutateAsync({ publicId: GROUP_ID, variant: "dark", file });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it("useDeleteLogo issues DELETE to the variant path", async () => {
+    server.use(
+      http.delete(`*/api/v1/realty-groups/${GROUP_ID}/logo/light`, () =>
+        HttpResponse.json(makeGroup()),
+      ),
+    );
+    const qc = newQc();
+    const { result } = renderHook(() => useDeleteLogo(), {
+      wrapper: makeWrapper(qc),
+    });
+    await act(async () => {
+      await result.current.mutateAsync({ publicId: GROUP_ID, variant: "light" });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it("useDeleteCover issues DELETE to the variant path", async () => {
+    server.use(
+      http.delete(`*/api/v1/realty-groups/${GROUP_ID}/cover/dark`, () =>
+        HttpResponse.json(makeGroup()),
+      ),
+    );
+    const qc = newQc();
+    const { result } = renderHook(() => useDeleteCover(), {
+      wrapper: makeWrapper(qc),
+    });
+    await act(async () => {
+      await result.current.mutateAsync({ publicId: GROUP_ID, variant: "dark" });
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
@@ -877,7 +916,7 @@ describe("realty mutation hooks — error code mapping", () => {
 
   it("useUploadLogo maps UNSUPPORTED_IMAGE_FORMAT to friendly copy", async () => {
     server.use(
-      http.post(`*/api/v1/realty-groups/${GROUP_ID}/logo`, () =>
+      http.post(`*/api/v1/realty-groups/${GROUP_ID}/logo/light`, () =>
         HttpResponse.json(problemBody(415, "UNSUPPORTED_IMAGE_FORMAT"), {
           status: 415,
         }),
@@ -890,7 +929,7 @@ describe("realty mutation hooks — error code mapping", () => {
     const file = new File([new Uint8Array([1])], "x.gif", { type: "image/gif" });
     await act(async () => {
       await result.current
-        .mutateAsync({ publicId: GROUP_ID, file })
+        .mutateAsync({ publicId: GROUP_ID, variant: "light", file })
         .catch(() => undefined);
     });
     await waitFor(() => expect(result.current.isError).toBe(true));

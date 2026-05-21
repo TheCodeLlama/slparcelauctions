@@ -33,8 +33,8 @@ function makeGroup(
     slug: "mainland-realty",
     description: null,
     website: null,
-    logoUrl: null,
-    coverUrl: null,
+    logoLightUrl: null, logoDarkUrl: null,
+    coverLightUrl: null, coverDarkUrl: null,
     memberSince: "2026-04-01T10:00:00Z",
     leader: {
       userPublicId: LEADER_USER_ID,

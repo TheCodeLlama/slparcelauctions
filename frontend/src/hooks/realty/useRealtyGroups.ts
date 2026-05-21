@@ -185,14 +185,49 @@ export function useUploadLogo() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: ({ publicId, file }: { publicId: string; file: File }) =>
-      realtyGroupsApi.uploadLogo(publicId, file),
-    onSuccess: () => {
+    mutationFn: ({
+      publicId,
+      variant,
+      file,
+    }: {
+      publicId: string;
+      variant: "light" | "dark";
+      file: File;
+    }) => realtyGroupsApi.uploadLogo(publicId, variant, file),
+    onSuccess: (_data, variables) => {
       invalidateAll(qc);
-      toast.success("Logo updated.");
+      toast.success(
+        variables.variant === "dark"
+          ? "Dark logo updated."
+          : "Light logo updated.",
+      );
     },
     onError: (err) =>
       toast.error(realtyGroupErrorMessage(err, "Couldn't upload logo.")),
+  });
+}
+
+export function useDeleteLogo() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({
+      publicId,
+      variant,
+    }: {
+      publicId: string;
+      variant: "light" | "dark";
+    }) => realtyGroupsApi.deleteLogo(publicId, variant),
+    onSuccess: (_data, variables) => {
+      invalidateAll(qc);
+      toast.success(
+        variables.variant === "dark"
+          ? "Dark logo removed."
+          : "Light logo removed.",
+      );
+    },
+    onError: (err) =>
+      toast.error(realtyGroupErrorMessage(err, "Couldn't remove logo.")),
   });
 }
 
@@ -200,14 +235,49 @@ export function useUploadCover() {
   const qc = useQueryClient();
   const toast = useToast();
   return useMutation({
-    mutationFn: ({ publicId, file }: { publicId: string; file: File }) =>
-      realtyGroupsApi.uploadCover(publicId, file),
-    onSuccess: () => {
+    mutationFn: ({
+      publicId,
+      variant,
+      file,
+    }: {
+      publicId: string;
+      variant: "light" | "dark";
+      file: File;
+    }) => realtyGroupsApi.uploadCover(publicId, variant, file),
+    onSuccess: (_data, variables) => {
       invalidateAll(qc);
-      toast.success("Cover updated.");
+      toast.success(
+        variables.variant === "dark"
+          ? "Dark cover updated."
+          : "Light cover updated.",
+      );
     },
     onError: (err) =>
       toast.error(realtyGroupErrorMessage(err, "Couldn't upload cover.")),
+  });
+}
+
+export function useDeleteCover() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: ({
+      publicId,
+      variant,
+    }: {
+      publicId: string;
+      variant: "light" | "dark";
+    }) => realtyGroupsApi.deleteCover(publicId, variant),
+    onSuccess: (_data, variables) => {
+      invalidateAll(qc);
+      toast.success(
+        variables.variant === "dark"
+          ? "Dark cover removed."
+          : "Light cover removed.",
+      );
+    },
+    onError: (err) =>
+      toast.error(realtyGroupErrorMessage(err, "Couldn't remove cover.")),
   });
 }
 

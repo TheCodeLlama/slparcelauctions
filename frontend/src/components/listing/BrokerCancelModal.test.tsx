@@ -64,7 +64,7 @@ function auctionFixture(
       publicId: GROUP_ID,
       name: "Sunset Realty",
       slug: "sunset",
-      logoUrl: null,
+      logoLightUrl: null, logoDarkUrl: null,
       dissolved: false,
     },
     listingAgent: {

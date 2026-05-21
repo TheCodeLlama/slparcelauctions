@@ -28,7 +28,10 @@ export function GroupAttributionLine({ agent, group }: GroupAttributionLineProps
   if (!agent || !group || group.dissolved) return null;
 
   const resolvedAvatar = apiUrl(agent.avatarUrl ?? null);
-  const resolvedLogo = apiUrl(group.logoUrl ?? null);
+  // Plan Task 13 swaps this to ThemedImage; until then we fall back to whichever
+  // logo variant is populated so the chip keeps rendering after the dual-slot
+  // upload (some groups only upload one variant).
+  const resolvedLogo = apiUrl(group.logoLightUrl ?? group.logoDarkUrl ?? null);
 
   return (
     <div

@@ -24,7 +24,7 @@ describe("useListingEligibleGroups", () => {
             publicId: "g1",
             name: "Sunset Realty",
             slug: "sunset-realty",
-            logoUrl: null,
+            logoLightUrl: null, logoDarkUrl: null,
             agentCommissionRate: 0.02,
           },
         ]);

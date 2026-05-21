@@ -72,8 +72,8 @@ describe("AdminRealtyGroupActionModal (edit)", () => {
             slug: "mainland-realty",
             description: null,
             website: null,
-            logoUrl: null,
-            coverUrl: null,
+            logoLightUrl: null, logoDarkUrl: null,
+            coverLightUrl: null, coverDarkUrl: null,
             memberSince: "2026-04-01T10:00:00Z",
             leader: {
               userPublicId: "11111111-1111-1111-1111-111111111111",

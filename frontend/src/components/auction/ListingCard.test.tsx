@@ -157,7 +157,7 @@ describe("ListingCard", () => {
         <ListingCard
           listing={{
             ...sample,
-            realtyGroup: { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: false },
+            realtyGroup: { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoLightUrl: null, logoDarkUrl: null, dissolved: false },
           }}
           variant="default"
         />,
@@ -171,7 +171,7 @@ describe("ListingCard", () => {
         <ListingCard
           listing={{
             ...sample,
-            realtyGroup: { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, dissolved: true },
+            realtyGroup: { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoLightUrl: null, logoDarkUrl: null, dissolved: true },
           }}
           variant="default"
         />,

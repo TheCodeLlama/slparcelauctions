@@ -16,12 +16,19 @@ import type {
 } from "@/types/realty";
 
 /**
- * Realty Groups API client — non-admin surface. Wraps every endpoint
+ * Realty Groups API client - non-admin surface. Wraps every endpoint
  * the frontend needs from `/api/v1/realty-groups`, `/api/v1/me/...`,
  * and `/api/v1/users/{id}/realty-groups`.
  *
- * Backend emits `logoUrl`/`coverUrl`/`avatarUrl` as relative paths; this
- * layer does NOT transform them. Callers render via `apiUrl(...)`.
+ * Backend emits paired logo/cover URLs (`logoLightUrl`, `logoDarkUrl`,
+ * `coverLightUrl`, `coverDarkUrl`) plus `avatarUrl` as relative paths;
+ * this layer does NOT transform them. Callers render via `apiUrl(...)`
+ * and pick a variant via `useThemedImage` / `ThemedImage`.
+ *
+ * Cover + logo upload/delete take a `variant: "light" | "dark"` param
+ * (plan Task 2). Each (surface, variant) is uploaded/deleted
+ * independently so the admin UI can light- and dark-mode a group's
+ * imagery without re-uploading the unrelated slot.
  */
 export const realtyGroupsApi = {
   // ─── Group CRUD ────────────────────────────────────────────────────────
@@ -132,16 +139,48 @@ export const realtyGroupsApi = {
   },
 
   // ─── Image uploads (multipart) ─────────────────────────────────────────
-  uploadLogo(publicId: string, file: File): Promise<RealtyGroupPublicDto> {
+  uploadLogo(
+    publicId: string,
+    variant: "light" | "dark",
+    file: File,
+  ): Promise<RealtyGroupPublicDto> {
     const fd = new FormData();
     fd.append("file", file);
-    return api.post(`/api/v1/realty-groups/${publicId}/logo`, fd);
+    return api.post(
+      `/api/v1/realty-groups/${publicId}/logo/${variant}`,
+      fd,
+    );
   },
 
-  uploadCover(publicId: string, file: File): Promise<RealtyGroupPublicDto> {
+  deleteLogo(
+    publicId: string,
+    variant: "light" | "dark",
+  ): Promise<RealtyGroupPublicDto> {
+    return api.delete(
+      `/api/v1/realty-groups/${publicId}/logo/${variant}`,
+    );
+  },
+
+  uploadCover(
+    publicId: string,
+    variant: "light" | "dark",
+    file: File,
+  ): Promise<RealtyGroupPublicDto> {
     const fd = new FormData();
     fd.append("file", file);
-    return api.post(`/api/v1/realty-groups/${publicId}/cover`, fd);
+    return api.post(
+      `/api/v1/realty-groups/${publicId}/cover/${variant}`,
+      fd,
+    );
+  },
+
+  deleteCover(
+    publicId: string,
+    variant: "light" | "dark",
+  ): Promise<RealtyGroupPublicDto> {
+    return api.delete(
+      `/api/v1/realty-groups/${publicId}/cover/${variant}`,
+    );
   },
 };
 

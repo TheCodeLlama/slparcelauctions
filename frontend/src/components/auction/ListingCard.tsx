@@ -175,7 +175,7 @@ export function ListingCard({ listing, variant, className }: ListingCardProps) {
             <GroupChip
               groupSlug={listing.realtyGroup.slug}
               groupName={listing.realtyGroup.name}
-              logoUrl={listing.realtyGroup.logoUrl}
+              logoUrl={listing.realtyGroup.logoLightUrl ?? listing.realtyGroup.logoDarkUrl}
             />
           )}
           {variant !== "compact" && (

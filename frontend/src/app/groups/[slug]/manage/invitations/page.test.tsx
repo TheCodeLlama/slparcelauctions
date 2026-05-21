@@ -18,8 +18,8 @@ const groupWithLeader = (
   website: null,
   memberSince: "2026-01-01T00:00:00Z",
   memberCount: 1 + agents.length,
-  coverUrl: null,
-  logoUrl: null,
+  coverLightUrl: null, coverDarkUrl: null,
+  logoLightUrl: null, logoDarkUrl: null,
   leader: { userPublicId: leaderId, displayName: "L", avatarUrl: null },
   agents: agents.map((a) => ({
     userPublicId: a.userPublicId,

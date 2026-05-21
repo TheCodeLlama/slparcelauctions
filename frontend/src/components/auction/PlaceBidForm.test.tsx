@@ -400,7 +400,7 @@ describe("PlaceBidForm", () => {
       publicId: "g1",
       name: "Sunset Realty",
       slug: "sunset",
-      logoUrl: null,
+      logoLightUrl: null, logoDarkUrl: null,
       dissolved: false,
     };
 
@@ -408,7 +408,7 @@ describe("PlaceBidForm", () => {
       server.use(
         http.get("*/api/v1/me/realty-groups", () =>
           HttpResponse.json([
-            { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoUrl: null, memberCount: 1, memberSince: "2026-01-01T00:00:00Z" },
+            { publicId: "g1", name: "Sunset Realty", slug: "sunset", logoLightUrl: null, logoDarkUrl: null, memberCount: 1, memberSince: "2026-01-01T00:00:00Z" },
           ]),
         ),
       );

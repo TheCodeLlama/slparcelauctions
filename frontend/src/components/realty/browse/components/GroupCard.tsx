@@ -24,7 +24,7 @@ export function GroupCard({ group, layout = "standard", onClick }: GroupCardProp
         className="block text-left w-full rounded-lg border border-border bg-surface-raised p-3.5 hover:border-border-strong hover:-translate-y-px hover:shadow-md transition"
       >
         <div className="flex gap-3 items-start">
-          <GroupLogo name={group.name} logoUrl={group.logoUrl} size="sm" />
+          <GroupLogo name={group.name} logoUrl={group.logoLightUrl ?? group.logoDarkUrl} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
               <span className="text-sm font-semibold truncate">{group.name}</span>
@@ -57,10 +57,10 @@ export function GroupCard({ group, layout = "standard", onClick }: GroupCardProp
         onClick={onClick}
         className="block text-left w-full rounded-lg border border-border bg-surface-raised overflow-hidden hover:border-border-strong hover:-translate-y-px hover:shadow-md transition"
       >
-        <GroupCover coverUrl={group.coverUrl} />
+        <GroupCover coverUrl={group.coverLightUrl ?? group.coverDarkUrl} />
         <div className="px-4 pb-4 relative">
           <div className="-mt-7 mb-2.5">
-            <GroupLogo name={group.name} logoUrl={group.logoUrl} size="md" />
+            <GroupLogo name={group.name} logoUrl={group.logoLightUrl ?? group.logoDarkUrl} size="md" />
           </div>
           <div className="text-base font-bold tracking-tight mb-1">{group.name}</div>
           <div className="flex items-center gap-1.5 text-xs mb-2">
@@ -109,7 +109,7 @@ export function GroupCard({ group, layout = "standard", onClick }: GroupCardProp
       )}
     >
       <div className="flex gap-3.5 items-start mb-3">
-        <GroupLogo name={group.name} logoUrl={group.logoUrl} size="sm" />
+        <GroupLogo name={group.name} logoUrl={group.logoLightUrl ?? group.logoDarkUrl} size="sm" />
         <div className="flex-1 min-w-0">
           <h3 className="text-[15px] font-bold tracking-tight m-0 truncate">
             {group.name}

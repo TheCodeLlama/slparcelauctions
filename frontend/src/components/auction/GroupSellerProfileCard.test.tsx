@@ -8,7 +8,7 @@ function makeGroup(overrides: Partial<GroupAttribution> = {}): GroupAttribution 
     publicId: "00000000-0000-0000-0000-0000000000aa",
     name: "Hadron Realty",
     slug: "hadron-realty",
-    logoUrl: null,
+    logoLightUrl: null, logoDarkUrl: null,
     dissolved: false,
     ...overrides,
   };

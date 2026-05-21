@@ -56,7 +56,7 @@ export function MyGroupsList({ groups }: MyGroupsListProps) {
 }
 
 function MyGroupRow({ group }: { group: RealtyGroupSummaryDto }) {
-  const logo = apiUrl(group.logoUrl);
+  const logo = apiUrl(group.logoLightUrl ?? group.logoDarkUrl);
   return (
     <li>
       <Link
