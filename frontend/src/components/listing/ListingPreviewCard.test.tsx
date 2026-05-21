@@ -96,11 +96,11 @@ describe("ListingPreviewCard", () => {
           photos: [
             {
               publicId: "00000000-0000-0000-0000-000000000001",
-              url: "/api/v1/photos/00000000-0000-0000-0000-000000000001",
-              contentType: "image/png",
-              sizeBytes: 100,
+              lightUrl:
+                "/api/v1/photos/00000000-0000-0000-0000-000000000001?variant=light",
+              darkUrl: null,
+              source: "SELLER_UPLOAD",
               sortOrder: 0,
-              uploadedAt: "2026-04-17T00:00:00Z",
             },
           ],
         }}

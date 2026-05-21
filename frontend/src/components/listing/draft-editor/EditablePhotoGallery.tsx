@@ -16,13 +16,26 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, ImagePlus, Trash2 } from "@/components/ui/icons";
+import { GripVertical, ImagePlus, Moon, Trash2 } from "@/components/ui/icons";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { Button } from "@/components/ui/Button";
 import { apiUrl } from "@/lib/api/url";
+import { PhotoVariantsModal } from "@/components/auction/photo-manager/PhotoVariantsModal";
 import type { AuctionPhotoDto } from "@/types/auction";
 
 const MAX_PHOTOS = 10;
+
+/**
+ * True for the sort-0 default-cover photo (copied from the seller's or
+ * group's persisted default cover). Only this row supports a dark theme
+ * variant; seller uploads and SL parcel snapshots stay single-slot.
+ */
+function isDefaultCover(photo: AuctionPhotoDto): boolean {
+  return (
+    photo.source === "USER_DEFAULT_COVER" ||
+    photo.source === "GROUP_DEFAULT_COVER"
+  );
+}
 
 /**
  * Pure helper: given the current photos array and a drag-end event's
@@ -46,6 +59,11 @@ export function applyDragEnd(
 }
 
 export interface EditablePhotoGalleryProps {
+  /**
+   * Auction public id — required so the default-cover tile can open the
+   * {@link PhotoVariantsModal} against the dark-variant endpoints.
+   */
+  auctionPublicId: string;
   photos: AuctionPhotoDto[];
   snapshotUrl?: string | null;
   regionName?: string;
@@ -55,6 +73,7 @@ export interface EditablePhotoGalleryProps {
 }
 
 export function EditablePhotoGallery({
+  auctionPublicId,
   photos,
   snapshotUrl,
   regionName,
@@ -64,7 +83,15 @@ export function EditablePhotoGallery({
 }: EditablePhotoGalleryProps) {
   const sorted = [...photos].sort((a, b) => a.sortOrder - b.sortOrder);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [variantsPhotoId, setVariantsPhotoId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Resolve the live photo for the open modal from the current photos
+  // array so a refetch (or reorder) keeps the modal's slots in sync.
+  const variantsPhoto =
+    variantsPhotoId != null
+      ? sorted.find((p) => p.publicId === variantsPhotoId) ?? null
+      : null;
 
   // 5px activation distance lets click events on the delete X / drag handle
   // dispatch normally; only sustained drags engage the sensor.
@@ -85,7 +112,7 @@ export function EditablePhotoGallery({
 
   const heroSrc =
     sorted.length > 0
-      ? apiUrl(sorted[0].url) ?? sorted[0].url
+      ? apiUrl(sorted[0].lightUrl) ?? sorted[0].lightUrl
       : snapshotUrl
         ? apiUrl(snapshotUrl) ?? snapshotUrl
         : null;
@@ -128,6 +155,11 @@ export function EditablePhotoGallery({
                 key={photo.publicId}
                 photo={photo}
                 onDeleteRequest={() => setConfirmDelete(photo.publicId)}
+                onEditVariants={
+                  isDefaultCover(photo)
+                    ? () => setVariantsPhotoId(photo.publicId)
+                    : undefined
+                }
               />
             ))}
             {sorted.length < MAX_PHOTOS && (
@@ -203,6 +235,15 @@ export function EditablePhotoGallery({
           </DialogPanel>
         </div>
       </Dialog>
+
+      {variantsPhoto && (
+        <PhotoVariantsModal
+          open
+          onClose={() => setVariantsPhotoId(null)}
+          auctionPublicId={auctionPublicId}
+          photo={variantsPhoto}
+        />
+      )}
     </div>
   );
 }
@@ -210,9 +251,16 @@ export function EditablePhotoGallery({
 function SortablePhotoTile({
   photo,
   onDeleteRequest,
+  onEditVariants,
 }: {
   photo: AuctionPhotoDto;
   onDeleteRequest: () => void;
+  /**
+   * When set, this tile is the default-cover photo: render the "Light +
+   * Dark" / "Add dark" badge and wire it to open the variants modal.
+   * Undefined for ordinary single-slot photos.
+   */
+  onEditVariants?: () => void;
 }) {
   const {
     attributes,
@@ -241,7 +289,7 @@ function SortablePhotoTile({
       aria-label={`Photo ${photo.publicId}, drag to reorder`}
     >
       <img
-        src={apiUrl(photo.url) ?? photo.url}
+        src={apiUrl(photo.lightUrl) ?? photo.lightUrl}
         alt=""
         className="pointer-events-none h-full w-full object-cover"
         draggable={false}
@@ -262,6 +310,21 @@ function SortablePhotoTile({
       >
         <Trash2 className="size-3.5" aria-hidden="true" />
       </button>
+      {onEditVariants && (
+        <button
+          type="button"
+          onClick={onEditVariants}
+          onPointerDown={(e) => e.stopPropagation()}
+          disabled={isDragging}
+          aria-label="Edit light and dark variants"
+          title="Edit light and dark variants"
+          data-testid={`editable-photo-variants-${photo.publicId}`}
+          className="absolute bottom-1 left-1 flex items-center gap-1 rounded-full bg-surface-raised/90 px-1.5 py-0.5 text-[10px] font-medium text-fg-muted hover:bg-surface-raised hover:text-fg disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <Moon className="size-3" aria-hidden="true" />
+          <span>{photo.darkUrl ? "Light + Dark" : "Add dark"}</span>
+        </button>
+      )}
     </li>
   );
 }

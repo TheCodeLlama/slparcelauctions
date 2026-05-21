@@ -37,7 +37,7 @@ export function ListingPreviewCard({
   isPreview = false,
   className,
 }: ListingPreviewCardProps) {
-  const cover = apiUrl(auction.photos[0]?.url);
+  const cover = apiUrl(auction.photos[0]?.lightUrl);
   // Seller-authored title is the primary headline. Falls back to
   // parcel.description (then region name) when a draft is previewed
   // before the seller has entered a title. The backend enforces non-null

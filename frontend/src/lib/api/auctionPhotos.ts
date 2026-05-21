@@ -43,3 +43,36 @@ export function reorderPhotos(
     { photoPublicIds },
   );
 }
+
+/**
+ * POST /api/v1/auctions/{auctionPublicId}/photos/{photoPublicId}/dark —
+ * multipart upload of the dark variant for a sort-0 default-cover photo.
+ * Only {@code USER_DEFAULT_COVER} / {@code GROUP_DEFAULT_COVER} rows accept
+ * a dark variant server-side. Returns the updated photo row.
+ */
+export function uploadPhotoDarkVariant(
+  auctionPublicId: string,
+  photoPublicId: string,
+  file: File,
+): Promise<AuctionPhotoDto> {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post<AuctionPhotoDto>(
+    `/api/v1/auctions/${auctionPublicId}/photos/${photoPublicId}/dark`,
+    form,
+  );
+}
+
+/**
+ * DELETE /api/v1/auctions/{auctionPublicId}/photos/{photoPublicId}/dark —
+ * removes the dark variant, leaving the light slot intact. Returns the
+ * updated photo row (now with {@code darkUrl: null}).
+ */
+export function deletePhotoDarkVariant(
+  auctionPublicId: string,
+  photoPublicId: string,
+): Promise<AuctionPhotoDto> {
+  return api.delete<AuctionPhotoDto>(
+    `/api/v1/auctions/${auctionPublicId}/photos/${photoPublicId}/dark`,
+  );
+}

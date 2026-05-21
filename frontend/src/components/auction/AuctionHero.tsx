@@ -117,7 +117,7 @@ export function AuctionHero({
   const [hero] = sorted;
   const lightboxImages = sorted.map((p) => ({
     id: p.publicId,
-    url: apiUrl(p.url) ?? p.url,
+    url: apiUrl(p.lightUrl) ?? p.lightUrl,
   }));
 
   // Single-photo shortcut: skip the thumb strip entirely so the hero goes
@@ -137,7 +137,7 @@ export function AuctionHero({
           data-variant="single"
         >
           <img
-            src={apiUrl(hero.url) ?? undefined}
+            src={apiUrl(hero.lightUrl) ?? undefined}
             alt=""
             className="h-full w-full object-cover"
             data-testid="auction-hero-image"
@@ -360,7 +360,7 @@ function HeroImage({
       data-testid="auction-hero-main"
     >
       <img
-        src={apiUrl(photo.url) ?? undefined}
+        src={apiUrl(photo.lightUrl) ?? undefined}
         alt=""
         className="h-full w-full object-cover"
         data-testid="auction-hero-image"
@@ -453,7 +453,7 @@ function ThumbStrip({ photos, selectedIndex, onSelect }: ThumbStripProps) {
               )}
             >
               <img
-                src={apiUrl(photo.url) ?? undefined}
+                src={apiUrl(photo.lightUrl) ?? undefined}
                 alt=""
                 className="h-full w-full object-cover"
               />

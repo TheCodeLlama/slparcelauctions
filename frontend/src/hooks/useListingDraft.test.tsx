@@ -249,11 +249,10 @@ describe("useListingDraft", () => {
             photos: [
               {
                 publicId: PHOTO_PID,
-                url: `http://api.example/photos/${PHOTO_PID}`,
-                contentType: "image/jpeg",
-                sizeBytes: 1234,
+                lightUrl: `http://api.example/photos/${PHOTO_PID}?variant=light`,
+                darkUrl: null,
+                source: "SELLER_UPLOAD",
                 sortOrder: 0,
-                uploadedAt: "2026-04-17T00:00:00Z",
               },
             ],
           }),

@@ -10,15 +10,18 @@ import { useThemedImage } from "./useThemedImage";
 // return a specific `resolvedTheme` in tests, we set `defaultTheme={theme}`
 // with `enableSystem={false}`. This mirrors the pattern in `src/test/render.tsx`.
 function wrapper(theme: "light" | "dark") {
-  return ({ children }: { children: ReactNode }) => (
-    <ThemeProvider
-      attribute="data-theme"
-      defaultTheme={theme}
-      enableSystem={false}
-    >
-      {children}
-    </ThemeProvider>
-  );
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ThemeProvider
+        attribute="data-theme"
+        defaultTheme={theme}
+        enableSystem={false}
+      >
+        {children}
+      </ThemeProvider>
+    );
+  }
+  return Wrapper;
 }
 
 describe("useThemedImage", () => {
