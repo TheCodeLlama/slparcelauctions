@@ -51,6 +51,7 @@ function group({
     website: null,
     logoLightUrl: null, logoDarkUrl: null,
     coverLightUrl: null, coverDarkUrl: null,
+    defaultListingLightUrl: null, defaultListingDarkUrl: null,
     memberSince: "2026-01-01T00:00:00Z",
     memberSeatLimit: 50,
     memberCount: 1 + agents.length,

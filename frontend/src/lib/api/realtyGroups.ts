@@ -182,6 +182,34 @@ export const realtyGroupsApi = {
       `/api/v1/realty-groups/${publicId}/cover/${variant}`,
     );
   },
+
+  /**
+   * Upload the group's default-listing picture for {@code variant} (plan
+   * Task 3 / Task 10). Seeds the sort-0 photo on every auction created on
+   * behalf of this group when the seller doesn't provide their own image.
+   * Each variant uploads independently, mirroring cover/logo.
+   */
+  uploadDefaultListing(
+    publicId: string,
+    variant: "light" | "dark",
+    file: File,
+  ): Promise<RealtyGroupPublicDto> {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api.post(
+      `/api/v1/realty-groups/${publicId}/default-listing/${variant}`,
+      fd,
+    );
+  },
+
+  deleteDefaultListing(
+    publicId: string,
+    variant: "light" | "dark",
+  ): Promise<RealtyGroupPublicDto> {
+    return api.delete(
+      `/api/v1/realty-groups/${publicId}/default-listing/${variant}`,
+    );
+  },
 };
 
 /**

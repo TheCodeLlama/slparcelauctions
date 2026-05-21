@@ -26,6 +26,8 @@ function makeGroup(
     logoDarkUrl: null,
     coverLightUrl: null,
     coverDarkUrl: null,
+    defaultListingLightUrl: null,
+    defaultListingDarkUrl: null,
     memberSince: "2026-04-01T10:00:00Z",
     leader: {
       userPublicId: "11111111-1111-1111-1111-111111111111",
@@ -287,6 +289,268 @@ describe("GroupProfileForm", () => {
       });
       await userEvent.upload(input, file);
       await waitFor(() => expect(darkCalls).toBe(1));
+    });
+  });
+
+  describe("default-listing dual-slot", () => {
+    it("renders the Default listing picture section heading + subtitle", () => {
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup()}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      expect(
+        screen.getByText("Default listing picture"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Used as the first photo on every listing created on behalf of this group/i,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("renders both Light and Dark slots with their own Upload affordances", () => {
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup()}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      expect(
+        screen.getByTestId("group-profile-default-listing-light-slot"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("group-profile-default-listing-dark-slot"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("group-profile-default-listing-light-empty"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("group-profile-default-listing-dark-empty"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(
+          "group-profile-default-listing-light-upload-button",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId(
+          "group-profile-default-listing-dark-upload-button",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("posts to the light variant endpoint when the light slot picks a file", async () => {
+      let lightCalls = 0;
+      let darkCalls = 0;
+      server.use(
+        http.post(
+          "*/api/v1/realty-groups/:id/default-listing/light",
+          () => {
+            lightCalls += 1;
+            return HttpResponse.json(
+              makeGroup({
+                defaultListingLightUrl:
+                  "/api/v1/realty-groups/g/default-listing/image?variant=light",
+              }),
+            );
+          },
+        ),
+        http.post(
+          "*/api/v1/realty-groups/:id/default-listing/dark",
+          () => {
+            darkCalls += 1;
+            return HttpResponse.json(makeGroup());
+          },
+        ),
+      );
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup()}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      const input = screen.getByTestId(
+        "group-profile-default-listing-light-input",
+      ) as HTMLInputElement;
+      const file = new File([new Uint8Array([1, 2, 3])], "listing.png", {
+        type: "image/png",
+      });
+      await userEvent.upload(input, file);
+      await waitFor(() => expect(lightCalls).toBe(1));
+      expect(darkCalls).toBe(0);
+    });
+
+    it("posts to the dark variant endpoint when the dark slot picks a file", async () => {
+      let lightCalls = 0;
+      let darkCalls = 0;
+      server.use(
+        http.post(
+          "*/api/v1/realty-groups/:id/default-listing/light",
+          () => {
+            lightCalls += 1;
+            return HttpResponse.json(makeGroup());
+          },
+        ),
+        http.post(
+          "*/api/v1/realty-groups/:id/default-listing/dark",
+          () => {
+            darkCalls += 1;
+            return HttpResponse.json(makeGroup());
+          },
+        ),
+      );
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup()}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      const input = screen.getByTestId(
+        "group-profile-default-listing-dark-input",
+      ) as HTMLInputElement;
+      const file = new File([new Uint8Array([1, 2, 3])], "listing.jpg", {
+        type: "image/jpeg",
+      });
+      await userEvent.upload(input, file);
+      await waitFor(() => expect(darkCalls).toBe(1));
+      expect(lightCalls).toBe(0);
+    });
+
+    it("renders the variant image + Remove button when the URL is populated", () => {
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup({
+            defaultListingLightUrl:
+              "/api/v1/realty-groups/g/default-listing/image?variant=light",
+          })}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      expect(
+        screen.getByTestId("group-profile-default-listing-light-image"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("group-profile-default-listing-light-empty"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId(
+          "group-profile-default-listing-light-delete-button",
+        ),
+      ).toBeInTheDocument();
+      // Dark slot stays empty + has no Remove affordance.
+      expect(
+        screen.getByTestId("group-profile-default-listing-dark-empty"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId(
+          "group-profile-default-listing-dark-delete-button",
+        ),
+      ).not.toBeInTheDocument();
+    });
+
+    it("issues DELETE to the dark variant endpoint when its Remove is clicked", async () => {
+      let lightDeletes = 0;
+      let darkDeletes = 0;
+      server.use(
+        http.delete(
+          "*/api/v1/realty-groups/:id/default-listing/light",
+          () => {
+            lightDeletes += 1;
+            return HttpResponse.json(makeGroup());
+          },
+        ),
+        http.delete(
+          "*/api/v1/realty-groups/:id/default-listing/dark",
+          () => {
+            darkDeletes += 1;
+            return HttpResponse.json(makeGroup());
+          },
+        ),
+      );
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup({
+            defaultListingDarkUrl:
+              "/api/v1/realty-groups/g/default-listing/image?variant=dark",
+          })}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      await userEvent.click(
+        screen.getByTestId(
+          "group-profile-default-listing-dark-delete-button",
+        ),
+      );
+      await waitFor(() => expect(darkDeletes).toBe(1));
+      expect(lightDeletes).toBe(0);
+    });
+  });
+
+  describe("default-listing theme-aware preview", () => {
+    it("renders the light variant URL in the preview when the theme is light", () => {
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup({
+            defaultListingLightUrl:
+              "/api/v1/realty-groups/g/default-listing/image?variant=light",
+            defaultListingDarkUrl:
+              "/api/v1/realty-groups/g/default-listing/image?variant=dark",
+          })}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+        { theme: "light" },
+      );
+      const preview = screen.getByTestId(
+        "group-profile-default-listing-preview-image",
+      ) as HTMLImageElement;
+      expect(preview.getAttribute("src")).toContain("variant=light");
+    });
+
+    it("renders the dark variant URL in the preview when the theme is dark", () => {
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup({
+            defaultListingLightUrl:
+              "/api/v1/realty-groups/g/default-listing/image?variant=light",
+            defaultListingDarkUrl:
+              "/api/v1/realty-groups/g/default-listing/image?variant=dark",
+          })}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+        { theme: "dark" },
+      );
+      const preview = screen.getByTestId(
+        "group-profile-default-listing-preview-image",
+      ) as HTMLImageElement;
+      expect(preview.getAttribute("src")).toContain("variant=dark");
+    });
+
+    it("renders an empty-state placeholder when both variants are null", () => {
+      renderWithProviders(
+        <GroupProfileForm
+          group={makeGroup()}
+          callerPermissions={permSet()}
+          isLeader={true}
+        />,
+      );
+      expect(
+        screen.getByTestId("group-profile-default-listing-preview-empty"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId(
+          "group-profile-default-listing-preview-image",
+        ),
+      ).not.toBeInTheDocument();
     });
   });
 

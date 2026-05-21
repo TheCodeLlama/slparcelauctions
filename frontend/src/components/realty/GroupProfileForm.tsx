@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/Input";
 import { ThemedImage } from "@/components/ui/ThemedImage";
 import {
   useDeleteCover,
+  useDeleteDefaultListing,
   useDeleteLogo,
   useUpdateGroup,
   useUploadCover,
+  useUploadDefaultListing,
   useUploadLogo,
 } from "@/hooks/realty/useRealtyGroups";
 import { apiUrl } from "@/lib/api/url";
@@ -54,16 +56,17 @@ export interface GroupProfileFormProps {
 
 /**
  * Profile-tab form for `/dashboard/groups/[slug]/manage`. Edits:
- * name, description, website, and the logo/cover image pair, gated by
- * {@code EDIT_GROUP_PROFILE}. The leader has the permission implicitly.
- * Disabled inputs render with a tooltip ({@code title} attribute) so a
- * caller can see why a field is locked.
+ * name, description, website, and the logo / cover / default-listing
+ * image pairs, gated by {@code EDIT_GROUP_PROFILE}. The leader has the
+ * permission implicitly. Disabled inputs render with a tooltip
+ * ({@code title} attribute) so a caller can see why a field is locked.
  *
- * Logo + cover render as paired light/dark slots (plan
- * `2026-05-21-theme-image-variants`). Each variant is uploaded and
- * deleted independently; a single preview below the pair uses
- * {@link ThemedImage} so the admin can see what visitors will see at the
- * current theme.
+ * Logo, cover, and default listing picture render as paired light/dark
+ * slots (plan `2026-05-21-theme-image-variants`). Each variant is
+ * uploaded and deleted independently; a single preview below each pair
+ * uses {@link ThemedImage} so the admin can see what visitors will see
+ * at the current theme. The default listing picture seeds the sort-0
+ * photo on auctions created on behalf of the group.
  */
 export function GroupProfileForm({
   group,
@@ -75,6 +78,8 @@ export function GroupProfileForm({
   const deleteLogo = useDeleteLogo();
   const uploadCover = useUploadCover();
   const deleteCover = useDeleteCover();
+  const uploadDefaultListing = useUploadDefaultListing();
+  const deleteDefaultListing = useDeleteDefaultListing();
 
   const canEditProfile =
     isLeader || callerPermissions.has("EDIT_GROUP_PROFILE");
@@ -202,6 +207,50 @@ export function GroupProfileForm({
             }
           />
 
+          {/* Default listing picture: same dual-slot pattern as cover. */}
+          <ImagePairField
+            surface="default-listing"
+            heading="Default listing picture"
+            description="Used as the first photo on every listing created on behalf of this group. Light and dark variants are optional - if you upload only one, it will be used in both themes."
+            lightUrl={group.defaultListingLightUrl}
+            darkUrl={group.defaultListingDarkUrl}
+            altPrefix={`${group.name} default listing picture`}
+            disabled={!canEditProfile}
+            disabledTitle={profileLockedTitle}
+            slotClassName="aspect-[4/3] w-full rounded border border-border bg-bg-hover object-contain"
+            emptyClassName="aspect-[4/3] w-full rounded border border-border bg-bg-hover"
+            previewClassName="aspect-[4/3] w-full rounded border border-border bg-bg-hover object-contain"
+            onUpload={(variant, file) =>
+              uploadDefaultListing.mutate({
+                publicId: group.publicId,
+                variant,
+                file,
+              })
+            }
+            onDelete={(variant) =>
+              deleteDefaultListing.mutate({
+                publicId: group.publicId,
+                variant,
+              })
+            }
+            uploadBusyLight={
+              uploadDefaultListing.isPending &&
+              uploadDefaultListing.variables?.variant === "light"
+            }
+            uploadBusyDark={
+              uploadDefaultListing.isPending &&
+              uploadDefaultListing.variables?.variant === "dark"
+            }
+            deleteBusyLight={
+              deleteDefaultListing.isPending &&
+              deleteDefaultListing.variables?.variant === "light"
+            }
+            deleteBusyDark={
+              deleteDefaultListing.isPending &&
+              deleteDefaultListing.variables?.variant === "dark"
+            }
+          />
+
           <Input
             label="Name"
             error={errors.name?.message}
@@ -273,8 +322,8 @@ export function GroupProfileForm({
 // ─── Dual-slot upload field ────────────────────────────────────────────────
 
 interface ImagePairFieldProps {
-  /** Logical surface for the test-id namespace ("logo" / "cover"). */
-  surface: "logo" | "cover";
+  /** Logical surface for the test-id namespace ("logo" / "cover" / "default-listing"). */
+  surface: "logo" | "cover" | "default-listing";
   /** Section heading rendered above the slot pair. */
   heading: string;
   /** Helper copy under the heading. */
@@ -393,7 +442,7 @@ function ImagePairField({
 }
 
 interface ImagePairSlotProps {
-  surface: "logo" | "cover";
+  surface: "logo" | "cover" | "default-listing";
   variant: "light" | "dark";
   label: string;
   variantUrl: string | null;

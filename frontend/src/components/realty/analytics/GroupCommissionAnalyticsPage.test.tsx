@@ -20,6 +20,7 @@ function group(name: string): RealtyGroupPublicDto {
     website: null,
     logoLightUrl: null, logoDarkUrl: null,
     coverLightUrl: null, coverDarkUrl: null,
+    defaultListingLightUrl: null, defaultListingDarkUrl: null,
     memberSince: "2026-01-01T00:00:00Z",
     leader: {
       userPublicId: "00000000-0000-0000-0000-000000000b00",

@@ -22,6 +22,8 @@ vi.mock("@/hooks/realty/useRealtyGroups", () => ({
   useDeleteLogo: () => ({ mutate: vi.fn(), isPending: false }),
   useUploadCover: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteCover: () => ({ mutate: vi.fn(), isPending: false }),
+  useUploadDefaultListing: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteDefaultListing: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const useCurrentUser = vi.fn();
@@ -44,6 +46,7 @@ function makeGroup({
     website: null,
     logoLightUrl: null, logoDarkUrl: null,
     coverLightUrl: null, coverDarkUrl: null,
+    defaultListingLightUrl: null, defaultListingDarkUrl: null,
     memberSince: "2026-01-01T00:00:00Z",
     memberCount: 1 + agents.length,
     memberSeatLimit: 50,

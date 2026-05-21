@@ -35,6 +35,7 @@ function makeGroup(
     website: null,
     logoLightUrl: null, logoDarkUrl: null,
     coverLightUrl: null, coverDarkUrl: null,
+    defaultListingLightUrl: null, defaultListingDarkUrl: null,
     memberSince: "2026-04-01T10:00:00Z",
     leader: {
       userPublicId: LEADER_USER_ID,

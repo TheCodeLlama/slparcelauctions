@@ -22,6 +22,8 @@ import {
   useDeleteLogo,
   useUploadCover,
   useDeleteCover,
+  useUploadDefaultListing,
+  useDeleteDefaultListing,
   useRemoveMember,
   useUpdatePermissions,
   useLeaveGroup,
@@ -58,6 +60,7 @@ function makeGroup(
     website: null,
     logoLightUrl: null, logoDarkUrl: null,
     coverLightUrl: null, coverDarkUrl: null,
+    defaultListingLightUrl: null, defaultListingDarkUrl: null,
     memberSince: "2026-04-01T10:00:00Z",
     leader: {
       userPublicId: "11111111-1111-1111-1111-111111111111",
@@ -475,6 +478,67 @@ describe("realty mutation hooks — success + invalidation", () => {
       await result.current.mutateAsync({ publicId: GROUP_ID, variant: "dark" });
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it("useUploadDefaultListing posts multipart to the light variant path and returns the updated group", async () => {
+    server.use(
+      http.post(
+        `*/api/v1/realty-groups/${GROUP_ID}/default-listing/light`,
+        () =>
+          HttpResponse.json(
+            makeGroup({
+              defaultListingLightUrl:
+                "/api/v1/realty-groups/x/default-listing/image?variant=light",
+            }),
+          ),
+      ),
+    );
+    const qc = newQc();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useUploadDefaultListing(), {
+      wrapper: makeWrapper(qc),
+    });
+    const file = new File([new Uint8Array([1, 2, 3])], "listing.png", {
+      type: "image/png",
+    });
+    await act(async () => {
+      await result.current.mutateAsync({
+        publicId: GROUP_ID,
+        variant: "light",
+        file,
+      });
+    });
+    await waitFor(() =>
+      expect(result.current.data?.defaultListingLightUrl).toBe(
+        "/api/v1/realty-groups/x/default-listing/image?variant=light",
+      ),
+    );
+    const keys = spy.mock.calls.map(
+      (c) => (c[0] as { queryKey?: unknown }).queryKey,
+    );
+    expect(keys).toContainEqual(realtyQueryKeys.all);
+  });
+
+  it("useDeleteDefaultListing issues DELETE to the variant path", async () => {
+    server.use(
+      http.delete(
+        `*/api/v1/realty-groups/${GROUP_ID}/default-listing/dark`,
+        () => HttpResponse.json(makeGroup()),
+      ),
+    );
+    const qc = newQc();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useDeleteDefaultListing(), {
+      wrapper: makeWrapper(qc),
+    });
+    await act(async () => {
+      await result.current.mutateAsync({ publicId: GROUP_ID, variant: "dark" });
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const keys = spy.mock.calls.map(
+      (c) => (c[0] as { queryKey?: unknown }).queryKey,
+    );
+    expect(keys).toContainEqual(realtyQueryKeys.all);
   });
 
   it("useRemoveMember invalidates on success", async () => {

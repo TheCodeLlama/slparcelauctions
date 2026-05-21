@@ -93,6 +93,18 @@ export interface RealtyGroupPublicDto {
   coverLightUrl: string | null;
   /** Relative path - wrap with apiUrl() at render time. Null when no dark cover has been uploaded. */
   coverDarkUrl: string | null;
+  /**
+   * Group default listing picture, light variant. Seeds the sort-0 photo on
+   * auctions created on behalf of this group when the seller doesn't supply
+   * their own. Relative path - wrap with apiUrl() at render time. Null when
+   * no light variant has been uploaded.
+   */
+  defaultListingLightUrl: string | null;
+  /**
+   * Group default listing picture, dark variant. See {@link defaultListingLightUrl}.
+   * Null when no dark variant has been uploaded.
+   */
+  defaultListingDarkUrl: string | null;
   memberSince: string;
   leader: LeaderCardDto;
   agents: AgentCardDto[];

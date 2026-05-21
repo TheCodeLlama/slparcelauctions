@@ -673,6 +673,7 @@ describe("ListingWizardForm — List-as picker", () => {
           website: null,
           logoLightUrl: null, logoDarkUrl: null,
           coverLightUrl: null, coverDarkUrl: null,
+          defaultListingLightUrl: null, defaultListingDarkUrl: null,
           memberSince: "2026-01-01T00:00:00Z",
           leader: {
             userPublicId: "leader",
@@ -747,6 +748,7 @@ describe("ListingWizardForm — List-as picker", () => {
           website: null,
           logoLightUrl: null, logoDarkUrl: null,
           coverLightUrl: null, coverDarkUrl: null,
+          defaultListingLightUrl: null, defaultListingDarkUrl: null,
           memberSince: "2026-01-01T00:00:00Z",
           leader: {
             userPublicId: "leader",
