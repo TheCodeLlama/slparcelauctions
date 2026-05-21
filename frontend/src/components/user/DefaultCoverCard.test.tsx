@@ -17,98 +17,218 @@ function makeMe(overrides: Partial<CurrentUser> = {}): CurrentUser {
   return { ...mockVerifiedCurrentUser, ...overrides };
 }
 
+const LIGHT_URL =
+  "/api/v1/users/00000000-0000-0000-0000-00000000002a/default-cover/image?variant=light";
+const DARK_URL =
+  "/api/v1/users/00000000-0000-0000-0000-00000000002a/default-cover/image?variant=dark";
+
 describe("DefaultCoverCard", () => {
-  it("renders empty state with 'Choose image' button when no cover set", async () => {
-    server.use(
-      http.get("*/api/v1/users/me", () =>
-        HttpResponse.json(makeMe({ defaultCoverUrl: null })),
-      ),
-    );
-    renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
-
-    expect(
-      await screen.findByRole("button", { name: /choose image/i }),
-    ).toBeVisible();
-    expect(screen.queryByAltText(/default cover/i)).not.toBeInTheDocument();
-  });
-
-  it("renders set state with preview + Replace + Remove when cover set", async () => {
+  it("renders both Light and Dark slots", async () => {
     server.use(
       http.get("*/api/v1/users/me", () =>
         HttpResponse.json(
-          makeMe({
-            defaultCoverUrl:
-              "/api/v1/users/00000000-0000-0000-0000-00000000002a/default-cover/image",
-          }),
+          makeMe({ defaultCoverLightUrl: null, defaultCoverDarkUrl: null }),
         ),
       ),
     );
     renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
 
-    expect(await screen.findByAltText(/default cover/i)).toBeVisible();
-    expect(screen.getByRole("button", { name: /replace/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /remove/i })).toBeVisible();
+    expect(
+      await screen.findByTestId("default-cover-cover-light-slot"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("default-cover-cover-dark-slot"),
+    ).toBeInTheDocument();
   });
 
-  it("calls resizeImage with maxDim 2048 then PUTs on file pick", async () => {
+  it("shows the empty state in both slots when both variants are null", async () => {
     server.use(
       http.get("*/api/v1/users/me", () =>
-        HttpResponse.json(makeMe({ defaultCoverUrl: null })),
+        HttpResponse.json(
+          makeMe({ defaultCoverLightUrl: null, defaultCoverDarkUrl: null }),
+        ),
       ),
     );
-    let putHit = false;
+    renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
+
+    expect(
+      await screen.findByTestId("default-cover-cover-light-empty"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("default-cover-cover-dark-empty"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("default-cover-cover-preview-empty"),
+    ).toBeInTheDocument();
+  });
+
+  it("uploads the light variant independently of the dark slot", async () => {
     server.use(
-      http.put("*/api/v1/users/me/default-cover", () => {
-        putHit = true;
-        return HttpResponse.json({
-          url: "https://example/x",
-          contentType: "image/jpeg",
-          sizeBytes: 1234,
-        });
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json(
+          makeMe({ defaultCoverLightUrl: null, defaultCoverDarkUrl: null }),
+        ),
+      ),
+    );
+    let lightHit = false;
+    let darkHit = false;
+    server.use(
+      http.post("*/api/v1/users/me/default-cover/light", () => {
+        lightHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverLightUrl: LIGHT_URL }));
+      }),
+      http.post("*/api/v1/users/me/default-cover/dark", () => {
+        darkHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverDarkUrl: DARK_URL }));
       }),
     );
     const user = userEvent.setup();
     renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
 
-    await screen.findByRole("button", { name: /choose image/i });
+    const input = (await screen.findByTestId(
+      "default-cover-cover-light-input",
+    )) as HTMLInputElement;
     const file = new File([new Uint8Array(8)], "x.jpg", { type: "image/jpeg" });
-    const input = screen.getByTestId("default-cover-file-input") as HTMLInputElement;
     await user.upload(input, file);
 
     await waitFor(() => {
       expect(resizeImage).toHaveBeenCalledWith(file, { maxDim: 2048 });
     });
     await waitFor(() => {
-      expect(putHit).toBe(true);
+      expect(lightHit).toBe(true);
     });
+    expect(darkHit).toBe(false);
   });
 
-  it("calls DELETE when Remove is clicked", async () => {
+  it("uploads the dark variant independently of the light slot", async () => {
     server.use(
       http.get("*/api/v1/users/me", () =>
         HttpResponse.json(
-          makeMe({
-            defaultCoverUrl:
-              "/api/v1/users/00000000-0000-0000-0000-00000000002a/default-cover/image",
-          }),
+          makeMe({ defaultCoverLightUrl: null, defaultCoverDarkUrl: null }),
         ),
       ),
     );
-    let deleteHit = false;
+    let lightHit = false;
+    let darkHit = false;
     server.use(
-      http.delete("*/api/v1/users/me/default-cover", () => {
-        deleteHit = true;
-        return new HttpResponse(null, { status: 204 });
+      http.post("*/api/v1/users/me/default-cover/light", () => {
+        lightHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverLightUrl: LIGHT_URL }));
+      }),
+      http.post("*/api/v1/users/me/default-cover/dark", () => {
+        darkHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverDarkUrl: DARK_URL }));
       }),
     );
     const user = userEvent.setup();
     renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
 
-    const removeBtn = await screen.findByRole("button", { name: /remove/i });
+    const input = (await screen.findByTestId(
+      "default-cover-cover-dark-input",
+    )) as HTMLInputElement;
+    const file = new File([new Uint8Array(8)], "x.jpg", { type: "image/jpeg" });
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(darkHit).toBe(true);
+    });
+    expect(lightHit).toBe(false);
+  });
+
+  it("deletes the light variant independently", async () => {
+    server.use(
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json(
+          makeMe({
+            defaultCoverLightUrl: LIGHT_URL,
+            defaultCoverDarkUrl: DARK_URL,
+          }),
+        ),
+      ),
+    );
+    let lightDeleteHit = false;
+    let darkDeleteHit = false;
+    server.use(
+      http.delete("*/api/v1/users/me/default-cover/light", () => {
+        lightDeleteHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverDarkUrl: DARK_URL }));
+      }),
+      http.delete("*/api/v1/users/me/default-cover/dark", () => {
+        darkDeleteHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverLightUrl: LIGHT_URL }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
+
+    const removeBtn = await screen.findByTestId(
+      "default-cover-cover-light-delete-button",
+    );
     await user.click(removeBtn);
 
     await waitFor(() => {
-      expect(deleteHit).toBe(true);
+      expect(lightDeleteHit).toBe(true);
     });
+    expect(darkDeleteHit).toBe(false);
+  });
+
+  it("deletes the dark variant independently", async () => {
+    server.use(
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json(
+          makeMe({
+            defaultCoverLightUrl: LIGHT_URL,
+            defaultCoverDarkUrl: DARK_URL,
+          }),
+        ),
+      ),
+    );
+    let lightDeleteHit = false;
+    let darkDeleteHit = false;
+    server.use(
+      http.delete("*/api/v1/users/me/default-cover/light", () => {
+        lightDeleteHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverDarkUrl: DARK_URL }));
+      }),
+      http.delete("*/api/v1/users/me/default-cover/dark", () => {
+        darkDeleteHit = true;
+        return HttpResponse.json(makeMe({ defaultCoverLightUrl: LIGHT_URL }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
+
+    const removeBtn = await screen.findByTestId(
+      "default-cover-cover-dark-delete-button",
+    );
+    await user.click(removeBtn);
+
+    await waitFor(() => {
+      expect(darkDeleteHit).toBe(true);
+    });
+    expect(lightDeleteHit).toBe(false);
+  });
+
+  it("renders a theme-aware preview when a variant is set", async () => {
+    server.use(
+      http.get("*/api/v1/users/me", () =>
+        HttpResponse.json(
+          makeMe({
+            defaultCoverLightUrl: LIGHT_URL,
+            defaultCoverDarkUrl: DARK_URL,
+          }),
+        ),
+      ),
+    );
+    renderWithProviders(<DefaultCoverCard />, { auth: "authenticated" });
+
+    // ThemedImage resolves to the light variant under the default test theme.
+    const preview = await screen.findByTestId(
+      "default-cover-cover-preview-image",
+    );
+    expect(preview).toHaveAttribute(
+      "src",
+      expect.stringContaining("variant=light"),
+    );
   });
 });
