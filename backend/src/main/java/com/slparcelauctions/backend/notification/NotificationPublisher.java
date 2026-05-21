@@ -268,4 +268,36 @@ public interface NotificationPublisher {
     // SL IM dispatch bypasses per-group preferences but still honours the
     // global mute and no-avatar floors.
     void couponGranted(long userId, UUID couponPublicId, CouponGrantSource source);
+
+    // -- Customer support tickets ----------------------------------------------
+    // User-facing categories dispatch in-app + SL IM (SYSTEM group bypasses
+    // per-group prefs). Admin-facing categories fan out to every admin user id
+    // in-app only; SL IM is intentionally skipped to avoid spamming admins.
+
+    /**
+     * User-facing: an admin posted a reply on the ticket. Dispatches in-app +
+     * SL IM (SYSTEM group bypass). Deeplinks to {@code /support/{publicId}}.
+     */
+    void supportTicketAdminReplied(long userId, UUID ticketPublicId,
+                                   String subject, String adminDisplayName);
+
+    /**
+     * User-facing: the ticket was marked resolved. Dispatches in-app + SL IM
+     * (SYSTEM group bypass). Deeplinks to {@code /support/{publicId}}.
+     */
+    void supportTicketResolved(long userId, UUID ticketPublicId, String subject);
+
+    /**
+     * Admin-facing fan-out: a user opened a new ticket. In-app only; no SL IM.
+     * Deeplinks to {@code /admin/support/{publicId}}.
+     */
+    void supportTicketOpened(List<Long> adminUserIds, UUID ticketPublicId,
+                             String subject, String submitterDisplayName, String category);
+
+    /**
+     * Admin-facing fan-out: the user posted a reply on an existing ticket.
+     * In-app only; no SL IM. Deeplinks to {@code /admin/support/{publicId}}.
+     */
+    void supportTicketUserReplied(List<Long> adminUserIds, UUID ticketPublicId,
+                                  String subject, String submitterDisplayName);
 }

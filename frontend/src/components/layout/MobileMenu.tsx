@@ -101,6 +101,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
           <div className="mt-auto flex flex-wrap gap-4 border-t border-border px-5 py-3">
             <FooterLink href="/about" onClose={onClose}>About</FooterLink>
             <FooterLink href="/contact" onClose={onClose}>Contact</FooterLink>
+            <FooterLink href="/support" onClose={onClose}>Support</FooterLink>
             <FooterLink href="/terms" onClose={onClose}>Terms</FooterLink>
           </div>
         </DialogPanel>

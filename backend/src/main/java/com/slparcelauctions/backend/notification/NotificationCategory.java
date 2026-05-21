@@ -79,7 +79,18 @@ public enum NotificationCategory {
     // bypasses per-group SL IM preferences (material change to the user's wallet
     // privileges, same posture as wallet admin ops). REDEMPTION grants are
     // silent -- the user just typed the code so they know.
-    COUPON_GRANTED(NotificationGroup.SYSTEM);
+    COUPON_GRANTED(NotificationGroup.SYSTEM),
+
+    // Customer support tickets. User-facing categories (admin replied, resolved)
+    // route through SYSTEM so the SL IM dispatcher bypasses per-group prefs --
+    // a support reply is a material response to a user-initiated thread and
+    // should be hard to miss. Admin-facing categories (opened, user replied)
+    // fan out to every admin via the in-app feed only; admins get the queue
+    // page + sidebar badge for browsing, no IM spam.
+    SUPPORT_TICKET_ADMIN_REPLIED(NotificationGroup.SYSTEM),
+    SUPPORT_TICKET_RESOLVED(NotificationGroup.SYSTEM),
+    SUPPORT_TICKET_OPENED(NotificationGroup.SYSTEM),
+    SUPPORT_TICKET_USER_REPLIED(NotificationGroup.SYSTEM);
 
     private final NotificationGroup group;
 

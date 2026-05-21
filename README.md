@@ -289,6 +289,20 @@ Admin-managed promotional codes that discount listing fees and/or commission rat
 
 Spec at `docs/superpowers/specs/2026-05-20-coupon-codes-design.md` ([#165](https://github.com/TheCodeLlama/slparcelauctions/issues/165)).
 
+### Customer support
+
+- "Support" link in the user dropdown menu opens `/support`, the user's ticket queue.
+- `/support/new` form with subject, category (ACCOUNT / BIDDING / LISTING / ESCROW / WALLET / OTHER), body, and up to 3 image attachments.
+- `/support/[publicId]` thread view with alternating user/admin bubbles, attachment thumbnails (lightbox), and a reply composer.
+- Auto-reopen on user reply to a RESOLVED ticket.
+- Admin `/admin/support` queue with filters (status, category, assignee, last-author, subject search) and a polling badge on the sidebar.
+- Admin `/admin/support/[publicId]` detail with internal notes (admin-only, never visible to the user), resolve / reopen, assign / unassign, and category override.
+- Four notification categories (`SUPPORT_TICKET_ADMIN_REPLIED`, `SUPPORT_TICKET_RESOLVED`, `SUPPORT_TICKET_OPENED`, `SUPPORT_TICKET_USER_REPLIED`) routed to in-app feed + SL IM for the user-side categories.
+- Per-user rate limit: 5 new tickets per hour (replies uncapped).
+- Image attachments via pre-upload + Redis-cached pending state with S3 lifecycle rule for orphan cleanup (configure in Terraform per `docs/superpowers/specs/2026-05-21-customer-support-contact-design.md` §13).
+
+Spec: `docs/superpowers/specs/2026-05-21-customer-support-contact-design.md`. Issue [#167](https://github.com/TheCodeLlama/slparcelauctions/issues/167).
+
 The `onboarding/` slice adds two forced post-verify steps gated by new boolean columns on `users` (`avatar_step_completed`, `display_name_step_completed`, both backfilled in V20 from `profile_pic_url IS NOT NULL` / `display_name IS NOT NULL`). `SlProfilePhotoService` scrapes `world.secondlife.com/resident/{slAvatarUuid}` for the `<img class="parcelimg">` element, allow-lists the `https://picture-service.secondlife.com/` host, fetches the JPEG bytes through a 5s/5s WebClient with a 2MB cap, and Redis-caches results for 1h positive / 5min negative (sentinel `"NONE"`) so a thundering-herd of no-photo users can't hammer LL. `OnboardingController` exposes `GET /api/v1/users/me/onboarding/sl-profile-photo` (proxies bytes with `Cache-Control: private, max-age=3600`, 404 when no SL UUID or no photo), `POST /avatar/skip` (idempotent flag flip), and `POST /display-name` (laxer `@Size(max=50)` only — empty / whitespace / null are skip semantics, non-blank is trimmed and persisted; the stricter `UpdateUserRequest` regex still applies to subsequent settings edits). `AvatarService.upload` also flips `avatar_step_completed` so an upload is one of the three exits from the gate. Frontend `(verified)/(onboarded)/layout.tsx` chains a redirect after the existing verify gate: `!avatarStepCompleted` → `/dashboard/avatar`, `!displayNameStepCompleted` → `/dashboard/display-name`, else children. The avatar page lazy-fetches the SL photo via authenticated `fetch` (because `<img src>` doesn't carry the JWT), feeds it into the shared `<AvatarCropper>` (react-easy-crop, pan + zoom + circular preview), and on save runs `getCroppedImg` to produce a WebP Blob sized to `min(crop_pixels, 1024)` — no client-side max-size cap on the picked file because the cropper downsamples to ≤1024px WebP regardless of source. The display-name page pre-fills the input from `user.username` so the happy path is one click; an empty / cleared submit and the explicit Skip button both POST `null` and trigger the username fallback in `User.getDisplayName()`. Settings page reuses the same `<AvatarCropper>` so onboarding-picked and settings-picked avatars look identical.
 
 ### Public browse surface

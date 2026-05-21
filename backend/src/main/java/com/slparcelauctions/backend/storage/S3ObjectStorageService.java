@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
@@ -79,6 +80,17 @@ public class S3ObjectStorageService implements ObjectStorageService {
                 .bucket(props.bucket())
                 .key(key)
                 .build());
+    }
+
+    @Override
+    public void copy(String srcKey, String dstKey) {
+        s3.copyObject(CopyObjectRequest.builder()
+                .sourceBucket(props.bucket())
+                .sourceKey(srcKey)
+                .destinationBucket(props.bucket())
+                .destinationKey(dstKey)
+                .build());
+        log.debug("S3 copy: bucket={} src={} dst={}", props.bucket(), srcKey, dstKey);
     }
 
     @Override

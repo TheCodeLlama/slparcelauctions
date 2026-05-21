@@ -15,6 +15,13 @@ public interface ObjectStorageService {
     void delete(String key);
 
     /**
+     * Server-side copy of an existing object to a new key within the same bucket.
+     * Used by the support-ticket attachment promotion flow to move a pending
+     * upload into its message-scoped storage path without re-uploading bytes.
+     */
+    void copy(String srcKey, String dstKey);
+
+    /**
      * Batch-deletes every object under the given key prefix. Paginates via
      * {@code isTruncated} + continuation token so >1000 objects are handled.
      */
