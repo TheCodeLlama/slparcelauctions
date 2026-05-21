@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/lib/auth";
 import { useAdminSupportTickets } from "@/hooks/admin/useAdminSupportTickets";
 import { Pagination } from "@/components/ui/Pagination";
 import { formatRelativeTime } from "@/lib/time/relativeTime";
@@ -79,9 +78,6 @@ function SkeletonRows() {
 export function AdminSupportTicketQueue() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const session = useAuth();
-  const adminPublicId =
-    session.status === "authenticated" ? session.user.publicId : null;
 
   const q = searchParams?.get("q") ?? "";
   const status = parseStatus(searchParams?.get("status") ?? null);
@@ -93,17 +89,12 @@ export function AdminSupportTicketQueue() {
     parseInt(searchParams?.get("page") ?? "0", 10) || 0,
   );
 
-  // Translate the UI "mine" sentinel into the admin's own publicId. The
-  // wire param is a free-form admin publicId on the backend (the spec
-  // uses the same field for both "mine" and "filter by a specific
-  // admin"); the UI only exposes mine/unassigned because admins don't
-  // pick each other off a dropdown today.
+  // Wire encoding matches the backend service's `listAdmin` switch:
+  //   - "mine" -> server resolves to the caller's adminId via AuthPrincipal
+  //   - "unassigned" -> tickets with no assigned admin
+  //   - a UUID string -> tickets SUBMITTED BY that user (not used by the UI today)
   const assigneeParam =
-    assignee === "all"
-      ? undefined
-      : assignee === "mine"
-        ? (adminPublicId ?? undefined)
-        : "unassigned";
+    assignee === "all" ? undefined : assignee;
 
   const params = {
     q: q || undefined,
