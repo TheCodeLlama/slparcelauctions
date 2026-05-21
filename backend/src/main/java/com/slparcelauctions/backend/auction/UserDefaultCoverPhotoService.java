@@ -49,12 +49,15 @@ public class UserDefaultCoverPhotoService {
             return;
         }
         User seller = auction.getSeller();
-        if (seller == null || !seller.hasDefaultCover()) {
+        // Plan Task 1: only the LIGHT slot is consulted here; Plan Task 5
+        // will rework this to copy both variants per the spec. Dark-only
+        // sellers cannot exist yet (Plan Task 4 adds the upload route).
+        if (seller == null || seller.getDefaultCoverLightObjectKey() == null) {
             return;
         }
-        String sourceKey = seller.getDefaultCoverObjectKey();
-        String contentType = seller.getDefaultCoverContentType();
-        Long sizeBytes = seller.getDefaultCoverSizeBytes();
+        String sourceKey = seller.getDefaultCoverLightObjectKey();
+        String contentType = seller.getDefaultCoverLightContentType();
+        Long sizeBytes = seller.getDefaultCoverLightSizeBytes();
 
         try {
             StoredObject src = objectStorage.get(sourceKey);
@@ -65,9 +68,9 @@ public class UserDefaultCoverPhotoService {
             AuctionPhoto photo = AuctionPhoto.builder()
                     .auction(auction)
                     .source(PhotoSource.USER_DEFAULT_COVER)
-                    .objectKey(destKey)
-                    .contentType(contentType)
-                    .sizeBytes(sizeBytes)
+                    .lightObjectKey(destKey)
+                    .lightContentType(contentType)
+                    .lightSizeBytes(sizeBytes)
                     .sortOrder(0)
                     .build();
             auctionPhotoRepository.save(photo);

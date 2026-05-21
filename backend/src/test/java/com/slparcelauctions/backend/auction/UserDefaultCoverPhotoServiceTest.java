@@ -38,9 +38,9 @@ class UserDefaultCoverPhotoServiceTest {
                 .id(42L).publicId(UUID.randomUUID())
                 .email("a@b.c").username("alice").passwordHash("x")
                 .build();
-        seller.setDefaultCoverObjectKey("users/42/default-cover-abc.jpg");
-        seller.setDefaultCoverContentType("image/jpeg");
-        seller.setDefaultCoverSizeBytes(123L);
+        seller.setDefaultCoverLightObjectKey("users/42/default-cover-abc.jpg");
+        seller.setDefaultCoverLightContentType("image/jpeg");
+        seller.setDefaultCoverLightSizeBytes(123L);
         return seller;
     }
 
@@ -75,10 +75,10 @@ class UserDefaultCoverPhotoServiceTest {
         AuctionPhoto saved = cap.getValue();
         assertThat(saved.getSortOrder()).isEqualTo(0);
         assertThat(saved.getSource()).isEqualTo(PhotoSource.USER_DEFAULT_COVER);
-        assertThat(saved.getObjectKey()).startsWith("listings/7/");
-        assertThat(saved.getObjectKey()).endsWith(".jpg");
-        assertThat(saved.getContentType()).isEqualTo("image/jpeg");
-        assertThat(saved.getSizeBytes()).isEqualTo(123L);
+        assertThat(saved.getLightObjectKey()).startsWith("listings/7/");
+        assertThat(saved.getLightObjectKey()).endsWith(".jpg");
+        assertThat(saved.getLightContentType()).isEqualTo("image/jpeg");
+        assertThat(saved.getLightSizeBytes()).isEqualTo(123L);
         verify(storage).put(startsWith("listings/7/"), eq(new byte[]{1, 2, 3}), eq("image/jpeg"));
     }
 

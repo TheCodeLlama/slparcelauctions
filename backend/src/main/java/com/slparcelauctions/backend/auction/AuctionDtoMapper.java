@@ -416,7 +416,7 @@ public class AuctionDtoMapper {
         if (g == null) {
             return null;
         }
-        String logoUrl = g.getLogoObjectKey() == null
+        String logoUrl = g.getLogoLightObjectKey() == null
                 ? null
                 : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
         return new GroupAttributionDto(

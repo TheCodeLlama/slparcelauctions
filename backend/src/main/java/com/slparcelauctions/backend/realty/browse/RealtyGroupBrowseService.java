@@ -121,13 +121,15 @@ public class RealtyGroupBrowseService {
         return description.substring(0, TAGLINE_MAX_CHARS) + "...";
     }
 
+    // Plan Task 1: keyed off the LIGHT slot; URL stays variant-free. Plan
+    // Task 2 swaps to per-variant URLs once the dark surface ships.
     private static String logoUrlFor(RealtyGroupCardProjection p) {
-        if (p.getLogoObjectKey() == null) return null;
+        if (p.getLogoLightObjectKey() == null) return null;
         return "/api/v1/realty-groups/" + p.getPublicId() + "/logo/image";
     }
 
     private static String coverUrlFor(RealtyGroupCardProjection p) {
-        if (p.getCoverObjectKey() == null) return null;
+        if (p.getCoverLightObjectKey() == null) return null;
         return "/api/v1/realty-groups/" + p.getPublicId() + "/cover/image";
     }
 }

@@ -15,8 +15,10 @@ public record AuctionPhotoResponse(
         OffsetDateTime uploadedAt) {
 
     public static AuctionPhotoResponse from(AuctionPhoto p) {
+        // Plan Task 1: DTO still surfaces only the LIGHT variant. Plan Task 6
+        // will add explicit light/dark URLs + content types to this response.
         String url = PhotoUrl.forPhoto(p.getPublicId());
-        return new AuctionPhotoResponse(p.getPublicId(), url, p.getContentType(),
-                p.getSizeBytes(), p.getSortOrder(), p.getUploadedAt());
+        return new AuctionPhotoResponse(p.getPublicId(), url, p.getLightContentType(),
+                p.getLightSizeBytes(), p.getSortOrder(), p.getUploadedAt());
     }
 }

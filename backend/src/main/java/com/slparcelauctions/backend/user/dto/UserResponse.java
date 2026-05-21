@@ -57,7 +57,9 @@ public record UserResponse(
     }
 
     public static UserResponse from(User user, long unreadNotificationCount) {
-        String coverUrl = user.getDefaultCoverObjectKey() != null
+        // Plan Task 1: still keyed off the LIGHT slot. Plan Task 4 swaps this
+        // to the variant-aware URL once the dark surface ships.
+        String coverUrl = user.getDefaultCoverLightObjectKey() != null
                 ? "/api/v1/users/" + user.getPublicId() + "/default-cover/image"
                 : null;
         return new UserResponse(

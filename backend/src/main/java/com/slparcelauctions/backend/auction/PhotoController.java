@@ -41,7 +41,10 @@ public class PhotoController {
     public ResponseEntity<byte[]> get(@PathVariable UUID publicId) {
         AuctionPhoto photo = photoRepo.findByPublicId(publicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Photo not found: " + publicId));
-        StoredObject stored = storage.get(photo.getObjectKey());
+        // Plan Task 1: serves the LIGHT slot only. Plan Task 6 adds a
+        // variant path parameter so dark consumers can request the dark
+        // sibling when present.
+        StoredObject stored = storage.get(photo.getLightObjectKey());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
                 .contentType(MediaType.parseMediaType(stored.contentType()))

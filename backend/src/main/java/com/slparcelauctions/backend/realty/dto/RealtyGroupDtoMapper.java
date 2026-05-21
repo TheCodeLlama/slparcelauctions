@@ -266,13 +266,15 @@ public class RealtyGroupDtoMapper {
         return u == null ? null : UserAvatarUrl.forUserOrNull(u.getPublicId());
     }
 
+    // Plan Task 1: still keyed off the LIGHT slot only; URL stays variant-free.
+    // Plan Task 2 swaps these to per-variant URLs once the dark surface ships.
     private static String logoUrlFor(RealtyGroup g) {
-        if (g.getLogoObjectKey() == null) return null;
+        if (g.getLogoLightObjectKey() == null) return null;
         return "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
     }
 
     private static String coverUrlFor(RealtyGroup g) {
-        if (g.getCoverObjectKey() == null) return null;
+        if (g.getCoverLightObjectKey() == null) return null;
         return "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image";
     }
 

@@ -24,10 +24,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * CRUD orchestrator for the per-user default cover image. Stores bytes at
  * {@code users/{userId}/default-cover-{uuid}.{ext}} and three columns on
- * {@code users}: {@code default_cover_object_key}, {@code _content_type},
+ * {@code users}: {@code default_cover_light_object_key}, {@code _content_type},
  * {@code _size_bytes}. Replacement uploads delete the prior object after
  * the new one is durably stored; replace-time delete failures are logged
  * but never fail the call (the new key is already on the row).
+ *
+ * <p>Plan Task 1 of theme-image-variants: this service still touches only
+ * the LIGHT slot. The dark sibling columns exist post-V43 but this service
+ * does not write to them yet — that wiring lands in Plan Task 4/5.
  *
  * <p>Re-encodes via the central {@link ImageStorageService} chokepoint so
  * raster uploads are converted to WebP and EXIF / IPTC metadata is
@@ -58,16 +62,16 @@ public class UserDefaultCoverService {
         }
 
         // Build the key sans extension; the chokepoint appends .webp.
-        String oldKey = user.getDefaultCoverObjectKey();
+        String oldKey = user.getDefaultCoverLightObjectKey();
         String keyWithoutExt = "users/" + userId + "/default-cover-" + UUID.randomUUID();
 
         StoredImage stored = imageStorage.storeImage(
                 new ByteArrayInputStream(bytes),
                 new ImageStorageContext(ImagePurpose.DEFAULT_COVER, keyWithoutExt));
 
-        user.setDefaultCoverObjectKey(stored.objectKey());
-        user.setDefaultCoverContentType(stored.contentType());
-        user.setDefaultCoverSizeBytes(stored.sizeBytes());
+        user.setDefaultCoverLightObjectKey(stored.objectKey());
+        user.setDefaultCoverLightContentType(stored.contentType());
+        user.setDefaultCoverLightSizeBytes(stored.sizeBytes());
         // JPA dirty checking flushes setters on transaction commit.
 
         if (oldKey != null) {
@@ -95,36 +99,36 @@ public class UserDefaultCoverService {
     public StoredObject fetchBytes(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        if (user.getDefaultCoverObjectKey() == null) {
+        if (user.getDefaultCoverLightObjectKey() == null) {
             throw new UserDefaultCoverNotFoundException(userId);
         }
-        return storage.get(user.getDefaultCoverObjectKey());
+        return storage.get(user.getDefaultCoverLightObjectKey());
     }
 
     @Transactional(readOnly = true)
     public UserDefaultCoverDto get(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        if (user.getDefaultCoverObjectKey() == null) {
+        if (user.getDefaultCoverLightObjectKey() == null) {
             throw new UserDefaultCoverNotFoundException(userId);
         }
         return new UserDefaultCoverDto(
-                presign(user.getDefaultCoverObjectKey()),
-                user.getDefaultCoverContentType(),
-                user.getDefaultCoverSizeBytes());
+                presign(user.getDefaultCoverLightObjectKey()),
+                user.getDefaultCoverLightContentType(),
+                user.getDefaultCoverLightSizeBytes());
     }
 
     @Transactional
     public void delete(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
-        String key = user.getDefaultCoverObjectKey();
+        String key = user.getDefaultCoverLightObjectKey();
         if (key == null) {
             return;
         }
-        user.setDefaultCoverObjectKey(null);
-        user.setDefaultCoverContentType(null);
-        user.setDefaultCoverSizeBytes(null);
+        user.setDefaultCoverLightObjectKey(null);
+        user.setDefaultCoverLightContentType(null);
+        user.setDefaultCoverLightSizeBytes(null);
         try {
             storage.delete(key);
         } catch (Exception e) {

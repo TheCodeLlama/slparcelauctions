@@ -163,7 +163,7 @@ class AuctionDtoMapperTest {
                 .id(10L)
                 .name("Mainland Realty Co")
                 .slug("mainland-realty-co")
-                .logoObjectKey("logos/10/logo.webp")
+                .logoLightObjectKey("logos/10/logo.webp")
                 .memberSeatLimit(50)
                 .build();
         // Override auto-generated publicId via reflection would be complex; use the

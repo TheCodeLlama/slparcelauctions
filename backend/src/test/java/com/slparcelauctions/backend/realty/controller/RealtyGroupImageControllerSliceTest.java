@@ -156,12 +156,12 @@ class RealtyGroupImageControllerSliceTest {
             .andReturn();
 
         RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
-        assertThat(fresh.getLogoObjectKey())
+        assertThat(fresh.getLogoLightObjectKey())
             .isEqualTo("realty-groups/" + g.getPublicId() + "/logo.webp");
-        assertThat(fresh.getLogoContentType()).isEqualTo("image/webp");
-        assertThat(fresh.getLogoSizeBytes()).isGreaterThan(0L);
+        assertThat(fresh.getLogoLightContentType()).isEqualTo("image/webp");
+        assertThat(fresh.getLogoLightSizeBytes()).isGreaterThan(0L);
         // The chokepoint actually encoded WebP into the mocked storage layer.
-        assertThat(store).containsKey(fresh.getLogoObjectKey());
+        assertThat(store).containsKey(fresh.getLogoLightObjectKey());
     }
 
     @Test
@@ -244,10 +244,10 @@ class RealtyGroupImageControllerSliceTest {
                 "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image"));
 
         RealtyGroup fresh = groupRepository.findById(g.getId()).orElseThrow();
-        assertThat(fresh.getCoverObjectKey())
+        assertThat(fresh.getCoverLightObjectKey())
             .isEqualTo("realty-groups/" + g.getPublicId() + "/cover.webp");
-        assertThat(fresh.getCoverContentType()).isEqualTo("image/webp");
-        assertThat(fresh.getCoverSizeBytes()).isGreaterThan(0L);
+        assertThat(fresh.getCoverLightContentType()).isEqualTo("image/webp");
+        assertThat(fresh.getCoverLightSizeBytes()).isGreaterThan(0L);
     }
 
     @Test

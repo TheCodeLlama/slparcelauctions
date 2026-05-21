@@ -111,13 +111,13 @@ public class RealtyGroupImageController {
         }
 
         if (purpose == ImagePurpose.LOGO) {
-            group.setLogoObjectKey(stored.objectKey());
-            group.setLogoContentType(stored.contentType());
-            group.setLogoSizeBytes(stored.sizeBytes());
+            group.setLogoLightObjectKey(stored.objectKey());
+            group.setLogoLightContentType(stored.contentType());
+            group.setLogoLightSizeBytes(stored.sizeBytes());
         } else {
-            group.setCoverObjectKey(stored.objectKey());
-            group.setCoverContentType(stored.contentType());
-            group.setCoverSizeBytes(stored.sizeBytes());
+            group.setCoverLightObjectKey(stored.objectKey());
+            group.setCoverLightContentType(stored.contentType());
+            group.setCoverLightSizeBytes(stored.sizeBytes());
         }
         // JPA dirty checking flushes setters on transaction commit.
         log.info("Realty group {} {} image updated by user {}: key={} ({} bytes)",
@@ -144,8 +144,8 @@ public class RealtyGroupImageController {
     private ResponseEntity<byte[]> serveImage(UUID publicId, RealtyGroupImageNotFoundException.Kind kind) {
         RealtyGroup group = loadActive(publicId);
         String key = kind == RealtyGroupImageNotFoundException.Kind.LOGO
-                ? group.getLogoObjectKey()
-                : group.getCoverObjectKey();
+                ? group.getLogoLightObjectKey()
+                : group.getCoverLightObjectKey();
         if (key == null) {
             throw new RealtyGroupImageNotFoundException(group.getPublicId(), kind);
         }

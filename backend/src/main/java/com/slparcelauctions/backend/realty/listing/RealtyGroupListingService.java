@@ -157,7 +157,7 @@ public class RealtyGroupListingService {
             BigDecimal commissionRate = members
                     .findCommissionRate(g.getId(), callerUserId)
                     .orElse(BigDecimal.ZERO);
-            String logoUrl = g.getLogoObjectKey() == null
+            String logoUrl = g.getLogoLightObjectKey() == null
                     ? null
                     : "/api/v1/realty-groups/" + g.getPublicId() + "/logo/image";
             out.add(new ListingEligibleGroupDto(

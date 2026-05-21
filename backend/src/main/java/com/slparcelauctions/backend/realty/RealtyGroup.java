@@ -54,23 +54,59 @@ public class RealtyGroup extends BaseMutableEntity {
     @Column(name = "leader_id", nullable = false)
     private Long leaderId;
 
-    @Column(name = "logo_object_key", length = 500)
-    private String logoObjectKey;
+    @Column(name = "logo_light_object_key", length = 500)
+    private String logoLightObjectKey;
 
-    @Column(name = "logo_content_type", length = 100)
-    private String logoContentType;
+    @Column(name = "logo_light_content_type", length = 100)
+    private String logoLightContentType;
 
-    @Column(name = "logo_size_bytes")
-    private Long logoSizeBytes;
+    @Column(name = "logo_light_size_bytes")
+    private Long logoLightSizeBytes;
 
-    @Column(name = "cover_object_key", length = 500)
-    private String coverObjectKey;
+    @Column(name = "logo_dark_object_key", length = 500)
+    private String logoDarkObjectKey;
 
-    @Column(name = "cover_content_type", length = 100)
-    private String coverContentType;
+    @Column(name = "logo_dark_content_type", length = 100)
+    private String logoDarkContentType;
 
-    @Column(name = "cover_size_bytes")
-    private Long coverSizeBytes;
+    @Column(name = "logo_dark_size_bytes")
+    private Long logoDarkSizeBytes;
+
+    @Column(name = "cover_light_object_key", length = 500)
+    private String coverLightObjectKey;
+
+    @Column(name = "cover_light_content_type", length = 100)
+    private String coverLightContentType;
+
+    @Column(name = "cover_light_size_bytes")
+    private Long coverLightSizeBytes;
+
+    @Column(name = "cover_dark_object_key", length = 500)
+    private String coverDarkObjectKey;
+
+    @Column(name = "cover_dark_content_type", length = 100)
+    private String coverDarkContentType;
+
+    @Column(name = "cover_dark_size_bytes")
+    private Long coverDarkSizeBytes;
+
+    @Column(name = "default_listing_light_object_key", length = 500)
+    private String defaultListingLightObjectKey;
+
+    @Column(name = "default_listing_light_content_type", length = 100)
+    private String defaultListingLightContentType;
+
+    @Column(name = "default_listing_light_size_bytes")
+    private Long defaultListingLightSizeBytes;
+
+    @Column(name = "default_listing_dark_object_key", length = 500)
+    private String defaultListingDarkObjectKey;
+
+    @Column(name = "default_listing_dark_content_type", length = 100)
+    private String defaultListingDarkContentType;
+
+    @Column(name = "default_listing_dark_size_bytes")
+    private Long defaultListingDarkSizeBytes;
 
     @Column(columnDefinition = "text")
     private String description;

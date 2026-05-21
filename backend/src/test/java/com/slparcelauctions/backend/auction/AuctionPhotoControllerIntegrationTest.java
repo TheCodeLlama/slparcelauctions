@@ -133,8 +133,8 @@ class AuctionPhotoControllerIntegrationTest {
         UUID photoPublicId = UUID.fromString(objectMapper.readTree(res.getResponse().getContentAsString())
                 .get("publicId").asText());
         AuctionPhoto saved = photoRepository.findByPublicId(photoPublicId).orElseThrow();
-        assertThat(saved.getObjectKey()).startsWith("listings/" + a.getId() + "/");
-        assertThat(saved.getObjectKey()).endsWith(".webp");
+        assertThat(saved.getLightObjectKey()).startsWith("listings/" + a.getId() + "/");
+        assertThat(saved.getLightObjectKey()).endsWith(".webp");
     }
 
     @Test
@@ -178,9 +178,9 @@ class AuctionPhotoControllerIntegrationTest {
         for (int i = 1; i <= 10; i++) {
             photoRepository.save(AuctionPhoto.builder()
                     .auction(a)
-                    .objectKey("listings/" + a.getId() + "/stub-" + i + ".png")
-                    .contentType("image/png")
-                    .sizeBytes(1L)
+                    .lightObjectKey("listings/" + a.getId() + "/stub-" + i + ".png")
+                    .lightContentType("image/png")
+                    .lightSizeBytes(1L)
                     .sortOrder(i)
                     .build());
         }
@@ -215,7 +215,7 @@ class AuctionPhotoControllerIntegrationTest {
                 .andExpect(status().isNoContent());
 
         assertThat(photoRepository.findByPublicId(photoPublicId)).isEmpty();
-        assertThat(storage.exists(photo.getObjectKey())).isFalse();
+        assertThat(storage.exists(photo.getLightObjectKey())).isFalse();
     }
 
     @Test
@@ -271,8 +271,8 @@ class AuctionPhotoControllerIntegrationTest {
         java.util.List<UUID> publicIds = new ArrayList<>();
         for (int i = 1; i <= 3; i++) {
             AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                    .auction(a).objectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
-                    .contentType("image/webp").sizeBytes(1L).sortOrder(i).build());
+                    .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
+                    .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(i).build());
             publicIds.add(p.getPublicId());
         }
         java.util.List<UUID> reverseOrder = java.util.List.of(
@@ -299,8 +299,8 @@ class AuctionPhotoControllerIntegrationTest {
         java.util.List<UUID> publicIds = new ArrayList<>();
         for (int i = 1; i <= 2; i++) {
             AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                    .auction(a).objectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
-                    .contentType("image/webp").sizeBytes(1L).sortOrder(i).build());
+                    .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-" + i + ".webp")
+                    .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(i).build());
             publicIds.add(p.getPublicId());
         }
         java.util.List<UUID> withStray = java.util.List.of(
@@ -322,8 +322,8 @@ class AuctionPhotoControllerIntegrationTest {
     void reorder_activeAuction_returns409() throws Exception {
         Auction a = seedDraftAuction();
         AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                .auction(a).objectKey("listings/" + a.getId() + "/seed-1.webp")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build());
+                .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-1.webp")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build());
         a.setStatus(AuctionStatus.ACTIVE);
         auctionRepository.save(a);
 
@@ -343,8 +343,8 @@ class AuctionPhotoControllerIntegrationTest {
     void reorder_anonymous_returns401() throws Exception {
         Auction a = seedDraftAuction();
         AuctionPhoto p = photoRepository.save(AuctionPhoto.builder()
-                .auction(a).objectKey("listings/" + a.getId() + "/seed-1.webp")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build());
+                .auction(a).lightObjectKey("listings/" + a.getId() + "/seed-1.webp")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build());
 
         String body = objectMapper.writeValueAsString(
                 java.util.Map.of("photoPublicIds", java.util.List.of(p.getPublicId())));

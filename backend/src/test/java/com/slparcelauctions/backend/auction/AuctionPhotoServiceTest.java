@@ -77,10 +77,10 @@ class AuctionPhotoServiceTest {
                 "file", "photo.png", "image/png", new byte[]{10, 20});
         AuctionPhoto saved = service.upload(1L, 42L, file);
 
-        assertThat(saved.getObjectKey()).startsWith("listings/1/");
+        assertThat(saved.getLightObjectKey()).startsWith("listings/1/");
         // Migrated path writes .webp; content-type is image/webp.
-        assertThat(saved.getObjectKey()).endsWith(".webp");
-        assertThat(saved.getContentType()).isEqualTo("image/webp");
+        assertThat(saved.getLightObjectKey()).endsWith(".webp");
+        assertThat(saved.getLightContentType()).isEqualTo("image/webp");
         assertThat(saved.getSortOrder()).isEqualTo(1);
         verify(imageStorage).storeImage(any(), any(ImageStorageContext.class));
         verify(storage, never()).put(anyString(), any(), anyString());
@@ -150,9 +150,9 @@ class AuctionPhotoServiceTest {
         AuctionPhoto photo = AuctionPhoto.builder()
                 .id(77L)
                 .auction(draftAuction)
-                .objectKey("listings/1/abc.png")
-                .contentType("image/png")
-                .sizeBytes(10L)
+                .lightObjectKey("listings/1/abc.png")
+                .lightContentType("image/png")
+                .lightSizeBytes(10L)
                 .sortOrder(1)
                 .build();
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
@@ -179,8 +179,8 @@ class AuctionPhotoServiceTest {
     void delete_photoFromDifferentAuction_rejected() {
         Auction otherAuction = Auction.builder().title("Test listing").id(999L).status(AuctionStatus.DRAFT).build();
         AuctionPhoto photo = AuctionPhoto.builder()
-                .id(77L).auction(otherAuction).objectKey("listings/999/x.png")
-                .contentType("image/png").sizeBytes(1L).sortOrder(1).build();
+                .id(77L).auction(otherAuction).lightObjectKey("listings/999/x.png")
+                .lightContentType("image/png").lightSizeBytes(1L).sortOrder(1).build();
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
         when(photoRepo.findById(77L)).thenReturn(Optional.of(photo));
 
@@ -195,14 +195,14 @@ class AuctionPhotoServiceTest {
         java.util.UUID photoA = java.util.UUID.randomUUID();
         java.util.UUID photoB = java.util.UUID.randomUUID();
         java.util.UUID photoC = java.util.UUID.randomUUID();
-        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k1")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build();
         ReflectionTestUtils.setField(pA, "publicId", photoA);
-        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k2")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(2).build();
         ReflectionTestUtils.setField(pB, "publicId", photoB);
-        AuctionPhoto pC = AuctionPhoto.builder().auction(draftAuction).objectKey("k3")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(3).build();
+        AuctionPhoto pC = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k3")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(3).build();
         ReflectionTestUtils.setField(pC, "publicId", photoC);
 
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
@@ -225,11 +225,11 @@ class AuctionPhotoServiceTest {
         java.util.UUID photoA = java.util.UUID.randomUUID();
         java.util.UUID photoB = java.util.UUID.randomUUID();
         java.util.UUID strayUuid = java.util.UUID.randomUUID();
-        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k1")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build();
         ReflectionTestUtils.setField(pA, "publicId", photoA);
-        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k2")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(2).build();
         ReflectionTestUtils.setField(pB, "publicId", photoB);
 
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
@@ -245,11 +245,11 @@ class AuctionPhotoServiceTest {
     void reorder_rejectsMissingUuid() {
         java.util.UUID photoA = java.util.UUID.randomUUID();
         java.util.UUID photoB = java.util.UUID.randomUUID();
-        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k1")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build();
         ReflectionTestUtils.setField(pA, "publicId", photoA);
-        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k2")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(2).build();
         ReflectionTestUtils.setField(pB, "publicId", photoB);
 
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);
@@ -264,11 +264,11 @@ class AuctionPhotoServiceTest {
     void reorder_rejectsDuplicateUuid() {
         java.util.UUID photoA = java.util.UUID.randomUUID();
         java.util.UUID photoB = java.util.UUID.randomUUID();
-        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).objectKey("k1")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(1).build();
+        AuctionPhoto pA = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k1")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(1).build();
         ReflectionTestUtils.setField(pA, "publicId", photoA);
-        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).objectKey("k2")
-                .contentType("image/webp").sizeBytes(1L).sortOrder(2).build();
+        AuctionPhoto pB = AuctionPhoto.builder().auction(draftAuction).lightObjectKey("k2")
+                .lightContentType("image/webp").lightSizeBytes(1L).sortOrder(2).build();
         ReflectionTestUtils.setField(pB, "publicId", photoB);
 
         when(auctionService.loadForSeller(1L, 42L)).thenReturn(draftAuction);

@@ -72,11 +72,11 @@ class UserDefaultCoverServiceTest {
 
         UserDefaultCoverDto dto = service.upload(42L, jpegFile());
 
-        assertThat(user.getDefaultCoverObjectKey()).startsWith("users/42/default-cover-");
+        assertThat(user.getDefaultCoverLightObjectKey()).startsWith("users/42/default-cover-");
         // Output key has the .webp extension applied by the chokepoint.
-        assertThat(user.getDefaultCoverObjectKey()).endsWith(".webp");
-        assertThat(user.getDefaultCoverContentType()).isEqualTo("image/webp");
-        assertThat(user.getDefaultCoverSizeBytes()).isEqualTo(3L);
+        assertThat(user.getDefaultCoverLightObjectKey()).endsWith(".webp");
+        assertThat(user.getDefaultCoverLightContentType()).isEqualTo("image/webp");
+        assertThat(user.getDefaultCoverLightSizeBytes()).isEqualTo(3L);
         // Caller-supplied key has NO extension; the chokepoint appends one.
         ArgumentCaptor<ImageStorageContext> ctxCap =
                 ArgumentCaptor.forClass(ImageStorageContext.class);
@@ -97,17 +97,17 @@ class UserDefaultCoverServiceTest {
     @Test
     void upload_replacesExistingObjectAndUpdatesKey() {
         User user = buildUser(42L);
-        user.setDefaultCoverObjectKey("users/42/default-cover-old-uuid.jpg");
-        user.setDefaultCoverContentType("image/jpeg");
-        user.setDefaultCoverSizeBytes(100L);
+        user.setDefaultCoverLightObjectKey("users/42/default-cover-old-uuid.jpg");
+        user.setDefaultCoverLightContentType("image/jpeg");
+        user.setDefaultCoverLightSizeBytes(100L);
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
         stubChokepointEcho(3L);
         when(storage.presignGet(anyString(), any(Duration.class))).thenReturn("https://example/x");
 
         UserDefaultCoverDto dto = service.upload(42L, jpegFile());
 
-        assertThat(user.getDefaultCoverObjectKey()).startsWith("users/42/default-cover-");
-        assertThat(user.getDefaultCoverObjectKey()).isNotEqualTo("users/42/default-cover-old-uuid.jpg");
+        assertThat(user.getDefaultCoverLightObjectKey()).startsWith("users/42/default-cover-");
+        assertThat(user.getDefaultCoverLightObjectKey()).isNotEqualTo("users/42/default-cover-old-uuid.jpg");
         // The old .jpg key is what gets deleted — historical objects retain
         // their original extension on the row, the helper only changes new
         // writes going forward.
@@ -118,7 +118,7 @@ class UserDefaultCoverServiceTest {
     @Test
     void upload_oldKeyDeleteFails_swallowsAndReturns() {
         User user = buildUser(42L);
-        user.setDefaultCoverObjectKey("users/42/default-cover-old.jpg");
+        user.setDefaultCoverLightObjectKey("users/42/default-cover-old.jpg");
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
         stubChokepointEcho(3L);
         when(storage.presignGet(anyString(), any(Duration.class))).thenReturn("https://example/x");
@@ -130,7 +130,7 @@ class UserDefaultCoverServiceTest {
         // row. Orphaning the old object is acceptable; an S3 lifecycle policy can
         // sweep it later.
         assertThat(dto).isNotNull();
-        assertThat(user.getDefaultCoverObjectKey()).startsWith("users/42/default-cover-");
+        assertThat(user.getDefaultCoverLightObjectKey()).startsWith("users/42/default-cover-");
     }
 
     @Test
@@ -156,9 +156,9 @@ class UserDefaultCoverServiceTest {
     @Test
     void get_set_returnsDtoWithPresignedUrl() {
         User user = buildUser(42L);
-        user.setDefaultCoverObjectKey("users/42/default-cover-abc.jpg");
-        user.setDefaultCoverContentType("image/jpeg");
-        user.setDefaultCoverSizeBytes(123L);
+        user.setDefaultCoverLightObjectKey("users/42/default-cover-abc.jpg");
+        user.setDefaultCoverLightContentType("image/jpeg");
+        user.setDefaultCoverLightSizeBytes(123L);
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
         when(storage.presignGet(eq("users/42/default-cover-abc.jpg"), any(Duration.class)))
                 .thenReturn("https://example/abc");
@@ -173,16 +173,16 @@ class UserDefaultCoverServiceTest {
     @Test
     void delete_clearsColumnsAndS3() {
         User user = buildUser(42L);
-        user.setDefaultCoverObjectKey("users/42/default-cover-abc.jpg");
-        user.setDefaultCoverContentType("image/jpeg");
-        user.setDefaultCoverSizeBytes(123L);
+        user.setDefaultCoverLightObjectKey("users/42/default-cover-abc.jpg");
+        user.setDefaultCoverLightContentType("image/jpeg");
+        user.setDefaultCoverLightSizeBytes(123L);
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
 
         service.delete(42L);
 
-        assertThat(user.getDefaultCoverObjectKey()).isNull();
-        assertThat(user.getDefaultCoverContentType()).isNull();
-        assertThat(user.getDefaultCoverSizeBytes()).isNull();
+        assertThat(user.getDefaultCoverLightObjectKey()).isNull();
+        assertThat(user.getDefaultCoverLightContentType()).isNull();
+        assertThat(user.getDefaultCoverLightSizeBytes()).isNull();
         verify(storage).delete("users/42/default-cover-abc.jpg");
     }
 
@@ -199,7 +199,7 @@ class UserDefaultCoverServiceTest {
     @Test
     void delete_s3DeleteFails_userRowStillCleared() {
         User user = buildUser(42L);
-        user.setDefaultCoverObjectKey("users/42/default-cover-abc.jpg");
+        user.setDefaultCoverLightObjectKey("users/42/default-cover-abc.jpg");
         when(userRepository.findById(42L)).thenReturn(Optional.of(user));
         doThrow(new RuntimeException("S3 boom")).when(storage).delete(anyString());
 
@@ -207,6 +207,6 @@ class UserDefaultCoverServiceTest {
 
         // Even when S3 delete fails, the row must be cleared so the user
         // re-renders the empty state. Orphan object cleaned up later.
-        assertThat(user.getDefaultCoverObjectKey()).isNull();
+        assertThat(user.getDefaultCoverLightObjectKey()).isNull();
     }
 }
