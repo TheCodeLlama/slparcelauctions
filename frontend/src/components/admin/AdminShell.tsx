@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { useAdminStats } from "@/hooks/admin/useAdminStats";
+import { useAdminSupportQueueStats } from "@/hooks/admin/useAdminSupportQueueStats";
 import { cn } from "@/lib/cn";
 
 type SidebarItem = {
@@ -18,11 +19,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const session = useAuth();
   const user = session.status === "authenticated" ? session.user : null;
   const { data: stats } = useAdminStats();
+  // Sidebar badge for the support queue: polled every 30s by the hook
+  // so the count stays loosely-live without a WebSocket. Gated to admin
+  // sessions so non-admin users (who can also see the empty admin layout
+  // briefly during route transitions) don't poll an endpoint they can't
+  // hit.
+  const { data: supportStats } = useAdminSupportQueueStats(user?.role === "ADMIN");
 
   const items: SidebarItem[] = [
     { label: "Dashboard", href: "/admin" },
     { label: "Fraud Flags", href: "/admin/fraud-flags", badge: stats?.queues.openFraudFlags },
     { label: "Reports", href: "/admin/reports", badge: stats?.queues.openReports },
+    { label: "Support", href: "/admin/support", badge: supportStats?.openNeedingAdminReply },
     { label: "Disputes", href: "/admin/disputes", badge: stats?.queues.activeDisputes },
     // Escrow Reviews has no badge: the backend AdminStatsResponse.QueueStats
     // record exposes no openEscrowReviews count, and extending it is outside
