@@ -37,6 +37,16 @@ public record RealtyGroupPublicDto(
     String logoDarkUrl,
     String coverLightUrl,
     String coverDarkUrl,
+    /**
+     * Group default listing picture (plan Task 3). Light + dark variants seed the
+     * auction sort-0 listing photo for new auctions created under this group when
+     * the seller has not provided their own picture. Each {@code *Url} is a
+     * relative path pointing at the byte-serving GET with {@code ?variant=light|dark};
+     * null when the column is unset. The frontend's {@code ThemedImage} helper picks
+     * the variant matching the active theme and falls back to its sibling.
+     */
+    String defaultListingLightUrl,
+    String defaultListingDarkUrl,
     OffsetDateTime memberSince,
     LeaderCardDto leader,
     List<AgentCardDto> agents,

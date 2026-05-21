@@ -93,6 +93,8 @@ public class RealtyGroupDtoMapper {
             logoUrlFor(group, "dark"),
             coverUrlFor(group, "light"),
             coverUrlFor(group, "dark"),
+            defaultListingUrlFor(group, "light"),
+            defaultListingUrlFor(group, "dark"),
             group.getCreatedAt(),
             leader,
             agentCards,
@@ -285,6 +287,18 @@ public class RealtyGroupDtoMapper {
         String key = "light".equals(variant) ? g.getCoverLightObjectKey() : g.getCoverDarkObjectKey();
         if (key == null) return null;
         return "/api/v1/realty-groups/" + g.getPublicId() + "/cover/image?variant=" + variant;
+    }
+
+    // Group default listing picture URL (plan Task 3). Mirrors the cover/logo
+    // shape: each variant's URL is non-null only when the matching column is set;
+    // the frontend ThemedImage helper picks the variant matching the active theme
+    // and falls back to its sibling when the matched URL is null.
+    private static String defaultListingUrlFor(RealtyGroup g, String variant) {
+        String key = "light".equals(variant)
+                ? g.getDefaultListingLightObjectKey()
+                : g.getDefaultListingDarkObjectKey();
+        if (key == null) return null;
+        return "/api/v1/realty-groups/" + g.getPublicId() + "/default-listing/image?variant=" + variant;
     }
 
     /** Resolve a {@link UUID} that may or may not be present — kept for upcoming admin DTO. */

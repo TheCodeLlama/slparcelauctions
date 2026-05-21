@@ -279,6 +279,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/members").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/logo/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/cover/image").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/realty-groups/*/default-listing/image").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/realty-groups").permitAll()
                         // Realty group public listings read (sub-project C §5.3).
                         // Auth: public — same rationale as group detail above; <img> and
