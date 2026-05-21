@@ -237,3 +237,11 @@ slpa:
     # ReportsProperties (slpa.reports.*). One-shot per cycle: re-arms when the
     # open count returns to zero. Default 3; minimum 1.
     group-alert-threshold: 3
+  support:
+    rate-limit:
+      tickets-per-hour: 5
+    attachments:
+      max-per-message: 3
+      max-file-bytes: 5242880
+      allowed-mime-types: "image/png,image/jpeg,image/webp,image/gif"
+      pending-ttl-seconds: 3600

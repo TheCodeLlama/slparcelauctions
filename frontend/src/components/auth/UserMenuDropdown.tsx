@@ -68,6 +68,10 @@ export function UserMenuDropdown({ user }: UserMenuDropdownProps) {
       ? [{ label: "Admin", onSelect: () => router.push("/admin") }]
       : []),
     {
+      label: "Support",
+      onSelect: () => router.push("/support"),
+    },
+    {
       label: "Sign Out",
       onSelect: () => logout.mutate(),
       danger: true,

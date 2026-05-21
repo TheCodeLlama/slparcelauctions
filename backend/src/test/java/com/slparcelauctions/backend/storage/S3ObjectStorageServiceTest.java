@@ -17,6 +17,7 @@ import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -95,6 +96,19 @@ class S3ObjectStorageServiceTest {
         verify(s3).deleteObject(captor.capture());
         assertThat(captor.getValue().bucket()).isEqualTo("test-bucket");
         assertThat(captor.getValue().key()).isEqualTo("avatars/1/256.png");
+    }
+
+    @Test
+    void copy_callsS3WithSourceAndDestinationKeys() {
+        service.copy("support-attachments/pending/u/abc.png", "support-attachments/42/abc");
+
+        ArgumentCaptor<CopyObjectRequest> captor = ArgumentCaptor.forClass(CopyObjectRequest.class);
+        verify(s3).copyObject(captor.capture());
+        CopyObjectRequest captured = captor.getValue();
+        assertThat(captured.sourceBucket()).isEqualTo("test-bucket");
+        assertThat(captured.sourceKey()).isEqualTo("support-attachments/pending/u/abc.png");
+        assertThat(captured.destinationBucket()).isEqualTo("test-bucket");
+        assertThat(captured.destinationKey()).isEqualTo("support-attachments/42/abc");
     }
 
     @Test

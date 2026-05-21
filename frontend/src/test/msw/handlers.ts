@@ -1774,6 +1774,25 @@ export const commissionAnalyticsHandlers = {
 };
 
 /**
+ * Customer-support admin handlers. {@code queueStatsSuccess} backs the
+ * sidebar badge polled by {@code useAdminSupportQueueStats}; it's included
+ * in {@code defaultHandlers} so every admin-session test gets a baseline
+ * response without re-declaring it.
+ */
+export const adminSupportHandlers = {
+  queueStatsSuccess: (
+    stats: { openNeedingAdminReply?: number; openTotal?: number } = {},
+  ) =>
+    http.get("*/api/v1/admin/support-tickets/queue-stats", () =>
+      HttpResponse.json({
+        openNeedingAdminReply: 0,
+        openTotal: 0,
+        ...stats,
+      }),
+    ),
+};
+
+/**
  * Default handlers registered at server startup. Establishes the "no session"
  * baseline so tests that don't explicitly authenticate get the unauthenticated
  * bootstrap path automatically.
@@ -1790,4 +1809,8 @@ export const defaultHandlers = [
   realtyGroupWalletHandlers.ledgerEmpty(),
   realtyGroupWalletHandlers.withdrawSuccess(),
   realtySlGroupHandlers.listEmpty(),
+  // Sidebar polling: admin-session tests that don't override this get a
+  // zero-count badge. Non-admin sessions never hit this endpoint
+  // (`useAdminSupportQueueStats` is gated by role in `AdminShell`).
+  adminSupportHandlers.queueStatsSuccess(),
 ];

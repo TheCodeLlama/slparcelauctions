@@ -150,6 +150,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     List<User> findByRole(Role role);
 
+    /**
+     * Id-only projection of {@link #findByRole(Role)} used by admin fan-out
+     * paths that only need a list of recipient ids (e.g. the customer-support
+     * ticket open / user-reply notifications). Avoids hydrating full
+     * {@link User} entities into the persistence context for what is, by
+     * design, a write-only call into {@code NotificationPublisher}.
+     */
+    @Query("SELECT u.id FROM User u WHERE u.role = :role")
+    List<Long> findIdsByRole(@Param("role") Role role);
+
     @Query("""
         SELECT u FROM User u
         WHERE LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%'))
