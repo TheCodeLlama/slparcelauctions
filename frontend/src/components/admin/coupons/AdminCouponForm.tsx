@@ -1,10 +1,11 @@
 "use client";
-import { useState, type FormEvent } from "react";
-import { Plus, Trash2 } from "@/components/ui/icons";
+import { useState, type FormEvent, type ReactNode } from "react";
+import { ExternalLink, Plus, Trash2 } from "@/components/ui/icons";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { UserSearchAutocomplete } from "@/components/admin/bans/UserSearchAutocomplete";
 import { useCreateAdminCoupon } from "@/hooks/admin/useCreateAdminCoupon";
 import { isApiError } from "@/lib/api";
@@ -90,7 +91,7 @@ function UuidChip({ value, label, onRemove }: UuidChipProps) {
 
 interface SectionProps {
   title: string;
-  description?: string;
+  description?: ReactNode;
   children: React.ReactNode;
 }
 
@@ -107,6 +108,105 @@ function Section({ title, description, children }: SectionProps) {
         <div className="flex flex-col gap-4">{children}</div>
       </Card.Body>
     </Card>
+  );
+}
+
+interface DiscountHelpRow {
+  target: string;
+  op: string;
+  meaning: string;
+  example: string;
+}
+
+const DISCOUNT_HELP_ROWS: DiscountHelpRow[] = [
+  {
+    target: "Listing fee",
+    op: "Override",
+    meaning: "Replace the default listing fee with this exact L$ amount.",
+    example: "0 = free listing. 50 = L$50 listing.",
+  },
+  {
+    target: "Listing fee",
+    op: "Percent off",
+    meaning: "Subtract this percent from the default listing fee.",
+    example: "50 = 50% off (default L$100 becomes L$50). Enter 50, not 0.5.",
+  },
+  {
+    target: "Listing fee",
+    op: "Flat off (L$)",
+    meaning: "Subtract this many L$ from the default listing fee.",
+    example: "25 = L$25 off (default L$100 becomes L$75). Negative results clamp to L$0.",
+  },
+  {
+    target: "Commission rate",
+    op: "Override",
+    meaning: "Replace the default commission rate with this exact percent.",
+    example: "3 = 3% commission. 0 = no commission. Enter 3, not 0.03.",
+  },
+  {
+    target: "Commission rate",
+    op: "Percent off",
+    meaning: "Reduce the default commission rate by this percent.",
+    example: "50 = half-off (default 5% becomes 2.5%). Enter 50, not 0.5.",
+  },
+  {
+    target: "Commission rate",
+    op: "Flat off (L$)",
+    meaning:
+      "Subtract this many percentage points from the default commission rate. (Despite the label, the unit here is percentage points, not L$.)",
+    example: "2 = 2 points off (default 5% becomes 3%). Negative results clamp to 0%.",
+  },
+];
+
+interface DiscountHelpModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function DiscountHelpModal({ open, onClose }: DiscountHelpModalProps) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Discount operations"
+      footer={
+        <Button type="button" variant="secondary" onClick={onClose} data-testid="discount-help-close">
+          Close
+        </Button>
+      }
+    >
+      <p>
+        A discount has three parts: a Target (which fee it touches), an Operation
+        (how the value applies), and a Value. The table below shows every
+        combination and the value format to enter.
+      </p>
+      <p className="text-xs text-fg-muted">
+        Percentages are always entered as whole numbers (50 means 50%, not 0.5).
+        L$ amounts are entered in lindens (50 means L$50).
+      </p>
+      <div className="overflow-x-auto" data-testid="discount-help-table">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-border-subtle text-fg-muted">
+              <th className="py-2 pr-3 font-medium">Target</th>
+              <th className="py-2 pr-3 font-medium">Operation</th>
+              <th className="py-2 pr-3 font-medium">Meaning</th>
+              <th className="py-2 font-medium">Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DISCOUNT_HELP_ROWS.map((row, i) => (
+              <tr key={i} className="border-b border-border-subtle/60 align-top">
+                <td className="py-2 pr-3 font-medium text-fg">{row.target}</td>
+                <td className="py-2 pr-3 text-fg">{row.op}</td>
+                <td className="py-2 pr-3 text-fg-muted">{row.meaning}</td>
+                <td className="py-2 text-fg-muted">{row.example}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
   );
 }
 
@@ -163,6 +263,9 @@ export function AdminCouponForm() {
   const [signupWindowError, setSignupWindowError] = useState<string | null>(null);
   const [discountsError, setDiscountsError] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
+
+  // Help modal for discount-operation semantics + value formats.
+  const [discountHelpOpen, setDiscountHelpOpen] = useState(false);
 
   function updateDiscount(index: number, patch: Partial<CouponDiscountDto>) {
     setDiscounts((prev) =>
@@ -339,7 +442,21 @@ export function AdminCouponForm() {
 
       <Section
         title="Discount bundle"
-        description="One or more discounts applied at listing time. Each row targets either the listing fee or the commission rate."
+        description={
+          <>
+            One or more discounts applied at listing time. Each row targets either
+            the listing fee or the commission rate.{" "}
+            <button
+              type="button"
+              onClick={() => setDiscountHelpOpen(true)}
+              data-testid="discount-help-btn"
+              className="inline-flex items-center gap-1 text-brand underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand rounded"
+            >
+              Help
+              <ExternalLink className="size-3" aria-hidden="true" />
+            </button>
+          </>
+        }
       >
         <div className="flex flex-col gap-3" data-testid="discount-rows">
           {discounts.map((d, i) => (
@@ -447,18 +564,29 @@ export function AdminCouponForm() {
             placeholder="e.g. 30"
             data-testid="duration-days-input"
           />
-          <Input
-            label="Use count"
-            type="number"
-            min={1}
-            value={useCount}
-            onChange={(e) => {
-              setUseCount(e.target.value);
-              if (lifetimeError) setLifetimeError(null);
-            }}
-            placeholder="e.g. 1"
-            data-testid="use-count-input"
-          />
+          <div className="flex flex-col gap-1">
+            <Input
+              label="Use count"
+              type="number"
+              min={1}
+              value={useCount}
+              onChange={(e) => {
+                setUseCount(e.target.value);
+                if (lifetimeError) setLifetimeError(null);
+              }}
+              placeholder="e.g. 1"
+              data-testid="use-count-input"
+            />
+            <p
+              className="text-[11px] text-fg-muted"
+              data-testid="use-count-hint"
+            >
+              How many listings this coupon can discount before it is used up.
+              For example, a use count of 3 lets the recipient claim the
+              discount on their next 3 listings, then the coupon is exhausted.
+              Leave blank for unlimited uses within the duration window.
+            </p>
+          </div>
         </div>
         {lifetimeError && (
           <p className="text-xs text-danger" data-testid="lifetime-error">
@@ -597,6 +725,11 @@ export function AdminCouponForm() {
           Create coupon
         </Button>
       </div>
+
+      <DiscountHelpModal
+        open={discountHelpOpen}
+        onClose={() => setDiscountHelpOpen(false)}
+      />
     </form>
   );
 }

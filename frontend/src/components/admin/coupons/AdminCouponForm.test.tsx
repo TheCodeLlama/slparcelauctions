@@ -301,4 +301,40 @@ describe("<AdminCouponForm />", () => {
 
     expect(screen.queryByTestId("allowed-users-list")).not.toBeInTheDocument();
   });
+
+  it("renders an inline explainer under the Use count input", () => {
+    renderWithProviders(<AdminCouponForm />);
+    const hint = screen.getByTestId("use-count-hint");
+    expect(hint).toHaveTextContent(/how many listings this coupon can discount/i);
+    expect(hint).toHaveTextContent(/leave blank for unlimited uses/i);
+  });
+
+  it("opens the discount help modal when Help is clicked and closes it on Close", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminCouponForm />);
+
+    // Help link is closed by default; the table is not in the DOM.
+    expect(screen.queryByTestId("discount-help-table")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("discount-help-btn"));
+
+    const table = await screen.findByTestId("discount-help-table");
+    expect(table).toBeInTheDocument();
+    // Spot-check the value-format guidance the user asked for: percentages
+    // should be entered as whole numbers (50 means 50%, not 0.5). The
+    // "enter 50, not 0.5" string appears in two rows (listing fee % off
+    // and commission % off), so match length >= 2 with getAllByText.
+    expect(
+      within(table).getAllByText(/enter 50, not 0\.5/i).length,
+    ).toBeGreaterThanOrEqual(2);
+    // OVERRIDE row for commission should clarify it's a percent, not a rate.
+    expect(
+      within(table).getByText(/enter 3, not 0\.03/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("discount-help-close"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("discount-help-table")).not.toBeInTheDocument(),
+    );
+  });
 });
