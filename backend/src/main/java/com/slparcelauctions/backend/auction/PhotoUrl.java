@@ -32,6 +32,14 @@ public final class PhotoUrl {
 
     /**
      * Relative photo-byte URL for a known, non-null photo {@code publicId}.
+     *
+     * <p>Plan Task 6 made the bytes endpoint variant-aware via a
+     * {@code ?variant=light|dark} query parameter. This helper still emits
+     * the bare path (no query string) so legacy single-variant callers
+     * continue to work: the bytes endpoint defaults the missing parameter
+     * to {@code light}, which is the only variant guaranteed to exist on
+     * every row. Theme-pair callers that want to render the dark sibling
+     * use {@link #forPhotoLight(UUID)} / {@link #forPhotoDark(UUID)}.
      */
     public static String forPhoto(UUID publicId) {
         return "/api/v1/photos/" + publicId;
@@ -46,6 +54,30 @@ public final class PhotoUrl {
      */
     public static String forPhotoOrNull(UUID publicId) {
         return publicId == null ? null : forPhoto(publicId);
+    }
+
+    /**
+     * Explicit light-variant URL: {@code /api/v1/photos/{publicId}?variant=light}.
+     * Built in the centralized helper so the {@code PhotoUrlGuardTest} flat-path
+     * concatenation ban stays intact for callers outside this file (plan Task 6).
+     * The light slot is mandatory (the entity's {@code light_object_key} is
+     * {@code NOT NULL}), so this URL is always servable for an existing row.
+     */
+    public static String forPhotoLight(UUID publicId) {
+        return "/api/v1/photos/" + publicId + "?variant=light";
+    }
+
+    /**
+     * Explicit dark-variant URL: {@code /api/v1/photos/{publicId}?variant=dark}.
+     * Returns {@code null} when {@code darkObjectKey} on the source entity is
+     * null, so callers can pass that nullable column straight through without a
+     * branch. The bytes endpoint 404s a dark request on a row that only has the
+     * light slot — the URL is therefore only safe to emit when a dark variant
+     * actually exists.
+     */
+    public static String forPhotoDarkOrNull(UUID publicId, String darkObjectKey) {
+        return darkObjectKey == null ? null
+                : "/api/v1/photos/" + publicId + "?variant=dark";
     }
 
     /**
