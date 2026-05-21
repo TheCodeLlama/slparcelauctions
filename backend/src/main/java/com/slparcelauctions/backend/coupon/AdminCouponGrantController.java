@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -64,7 +65,12 @@ public class AdminCouponGrantController {
     private final CouponGrantRepository grantRepo;
     private final CouponMapper mapper;
 
+    // @Transactional on every method: mapper::toGrantDto dereferences
+    // {@code grant.coupon} (LAZY) and {@code coupon.discounts} (LAZY),
+    // which throw LazyInitializationException outside a session.
+
     @GetMapping
+    @Transactional(readOnly = true)
     public PagedResponse<CouponGrantDto> list(
             @PathVariable UUID publicId,
             @RequestParam(required = false) CouponGrantState state,
@@ -78,6 +84,7 @@ public class AdminCouponGrantController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<List<CouponGrantDto>> directGrant(
             @PathVariable UUID publicId,
             @Valid @RequestBody DirectGrantRequest req) {
@@ -87,6 +94,7 @@ public class AdminCouponGrantController {
     }
 
     @PostMapping("/{grantPublicId}/revoke")
+    @Transactional
     public CouponGrantDto revoke(
             @PathVariable UUID publicId,
             @PathVariable UUID grantPublicId) {

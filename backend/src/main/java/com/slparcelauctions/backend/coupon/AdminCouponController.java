@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -69,7 +70,15 @@ public class AdminCouponController {
     private final CouponGrantRepository grantRepo;
     private final CouponMapper mapper;
 
+    // @Transactional on every controller method that maps a Coupon
+    // outside the service: the mapper iterates the lazy
+    // {@code discounts} / {@code allowedUsers} collections, which would
+    // otherwise throw LazyInitializationException now that OSIV is off.
+    // The inner service call uses propagation REQUIRED and joins this
+    // outer tx, so the session stays open through the mapper.
+
     @GetMapping
+    @Transactional(readOnly = true)
     public PagedResponse<CouponSummaryDto> list(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Boolean active,
@@ -84,11 +93,13 @@ public class AdminCouponController {
     }
 
     @GetMapping("/{publicId}")
+    @Transactional(readOnly = true)
     public CouponDto get(@PathVariable UUID publicId) {
         return mapper.toDto(service.findByPublicId(publicId));
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<CouponDto> create(
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody CreateCouponRequest req) {
@@ -97,6 +108,7 @@ public class AdminCouponController {
     }
 
     @PatchMapping("/{publicId}")
+    @Transactional
     public CouponDto patch(
             @PathVariable UUID publicId,
             @Valid @RequestBody PatchCouponRequest req) {
