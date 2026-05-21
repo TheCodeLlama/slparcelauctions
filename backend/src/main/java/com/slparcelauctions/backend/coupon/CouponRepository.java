@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -18,9 +19,26 @@ public interface CouponRepository
      * Case-insensitive lookup used by the redemption flow when the user
      * types a code. Backed by the {@code coupons_code_lower_idx}
      * functional index on {@code LOWER(code)}.
+     *
+     * <p>Eagerly fetches {@code discounts} and {@code allowedUsers} so
+     * the redemption flow can evaluate the allowlist and stamp discount
+     * lines without a follow-up query, and so mapper calls after the
+     * service transaction closes do not trip
+     * {@link org.hibernate.LazyInitializationException}.
      */
+    @EntityGraph(attributePaths = {"discounts", "allowedUsers"})
     Optional<Coupon> findByCodeIgnoreCase(String code);
 
+    /**
+     * Single-coupon lookup by public UUID. Eagerly fetches
+     * {@code discounts} and {@code allowedUsers} so callers (admin GET +
+     * PATCH paths) can map to {@link
+     * com.slparcelauctions.backend.coupon.dto.CouponDto} after the
+     * service transaction closes without a {@code
+     * LazyInitializationException}. OSIV is off in every profile, so
+     * lazy collections never survive the service-method boundary.
+     */
+    @EntityGraph(attributePaths = {"discounts", "allowedUsers"})
     Optional<Coupon> findByPublicId(UUID publicId);
 
     /**

@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,7 +54,15 @@ public class MeCouponController {
     private final CouponGrantRepository grantRepo;
     private final CouponMapper mapper;
 
+    // @Transactional on every controller method that maps a grant
+    // outside the service: {@code mapper.toGrantDto} dereferences
+    // {@code grant.coupon} (LAZY ManyToOne) and then {@code
+    // coupon.discounts} (LAZY OneToMany), both of which throw
+    // LazyInitializationException once the service tx closes. The
+    // outer @Transactional keeps the session open through the mapper.
+
     @GetMapping("/coupons")
+    @Transactional(readOnly = true)
     public List<CouponGrantDto> list(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(defaultValue = "active") String filter) {
@@ -70,6 +79,7 @@ public class MeCouponController {
     }
 
     @PostMapping("/coupons/redeem")
+    @Transactional
     public ResponseEntity<CouponGrantDto> redeem(
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody RedeemCouponRequest req) {
@@ -78,6 +88,7 @@ public class MeCouponController {
     }
 
     @GetMapping("/listings/prospective-discounts")
+    @Transactional(readOnly = true)
     public ProspectiveDiscountsDto prospective(@AuthenticationPrincipal AuthPrincipal principal) {
         CouponDiscountResolver.DiscountSnapshot snap = resolver.resolve(principal.userId());
         return mapper.toProspective(snap);
