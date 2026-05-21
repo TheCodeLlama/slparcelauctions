@@ -4,6 +4,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 
+import java.util.UUID;
+
+import com.slparcelauctions.backend.coupon.CouponGrantSource;
 import com.slparcelauctions.backend.realty.RealtyGroup;
 import com.slparcelauctions.backend.realty.RealtyGroupInvitation;
 import com.slparcelauctions.backend.realty.RealtyGroupMember;
@@ -258,4 +261,11 @@ public interface NotificationPublisher {
      */
     void realtyGroupSlGroupDriftDetected(long leaderUserId, long groupId,
                                          String slGroupName, String driftReason);
+
+    // -- Coupons. Fired by CouponService.createGrant for every non-REDEMPTION
+    // grant when the parent coupon's notifyOnGrant flag is on. REDEMPTION grants
+    // stay silent (the user just typed the code). SYSTEM-group routing means
+    // SL IM dispatch bypasses per-group preferences but still honours the
+    // global mute and no-avatar floors.
+    void couponGranted(long userId, UUID couponPublicId, CouponGrantSource source);
 }

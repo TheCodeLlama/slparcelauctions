@@ -20,6 +20,8 @@ import { ParcelLookupField } from "./ParcelLookupField";
 import { TagSelector } from "./TagSelector";
 import { PhotoUploader } from "./PhotoUploader";
 import { SuspensionErrorModal } from "./SuspensionErrorModal";
+import { CreateListingCouponSummary } from "@/components/listings/CreateListingCouponSummary";
+import { useListingFeeConfig } from "@/hooks/useListingFeeConfig";
 
 const SUSPENSION_CODES: ReadonlySet<SuspensionReasonCode> = new Set([
   "PENALTY_OWED",
@@ -81,6 +83,11 @@ export interface ListingWizardFormProps {
 export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
   const router = useRouter();
   const draft = useListingDraft({ id });
+  // Live listing-fee config feeds the create-mode coupon summary's
+  // "before" strike-through value so it stays in sync with backend
+  // changes. Disabled outside create mode because the summary isn't
+  // rendered there.
+  const feeQ = useListingFeeConfig();
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -387,6 +394,12 @@ export function ListingWizardForm({ mode, id }: ListingWizardFormProps) {
                   onChange={applySettings}
                 />
               </section>
+
+              {!isEdit && (
+                <CreateListingCouponSummary
+                  defaultFeeLindens={feeQ.data?.amountLindens}
+                />
+              )}
 
               <section className="flex flex-col gap-2">
                 <h2 className="text-sm font-semibold tracking-tight text-fg">Tags</h2>

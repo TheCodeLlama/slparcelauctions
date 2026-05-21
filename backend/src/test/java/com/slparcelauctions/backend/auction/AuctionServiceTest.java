@@ -3,6 +3,7 @@ package com.slparcelauctions.backend.auction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -24,11 +25,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import com.slparcelauctions.backend.admin.ban.BanCheckService;
 import com.slparcelauctions.backend.auction.exception.SellerSuspendedException;
 import com.slparcelauctions.backend.auction.exception.SuspensionReason;
+import com.slparcelauctions.backend.coupon.CouponDiscountResolver;
+import com.slparcelauctions.backend.escrow.payment.ListingFeePaymentService;
 
 import com.slparcelauctions.backend.auction.dto.AuctionCreateRequest;
 import com.slparcelauctions.backend.auction.dto.AuctionUpdateRequest;
@@ -54,6 +55,8 @@ class AuctionServiceTest {
     @Mock UserRepository userRepo;
     @Mock ParcelTagRepository tagRepo;
     @Mock BanCheckService banCheckService;
+    @Mock CouponDiscountResolver couponDiscountResolver;
+    @Mock ListingFeePaymentService listingFeePaymentService;
     @Spy Clock clock = Clock.fixed(Instant.parse("2026-04-24T10:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks AuctionService service;
@@ -63,9 +66,14 @@ class AuctionServiceTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(service, "defaultCommissionRate", new BigDecimal("0.05"));
         seller = User.builder().id(42L).email("s@example.com").username("s").verified(true).build();
         lenient().when(userRepo.findById(42L)).thenReturn(Optional.of(seller));
+        // Default resolver stub mirrors the production no-coupon case: default
+        // fee + commission, both grant ids null. Individual tests can override
+        // for coupon-specific scenarios.
+        lenient().when(couponDiscountResolver.resolve(anyLong()))
+                .thenReturn(new CouponDiscountResolver.DiscountSnapshot(
+                        100L, new BigDecimal("0.05"), null, null));
         Region region = TestRegions.mainland();
         ParcelResponse response = new ParcelResponse(
                 PARCEL_UUID, UUID.randomUUID(), "agent", null, "Test Parcel",
